@@ -1,0 +1,24 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+dependencies {
+    implementation project(':core:core-enum')
+    implementation project(':storage')
+    runtimeOnly project(':support:logging')
+    runtimeOnly project(':support:monitoring')
+
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+}
+
+// 실행 가능한 모듈은 core-api 하나뿐이다.
+tasks.named('bootJar') {
+    enabled = true
+}
+
+tasks.named('jar') {
+    enabled = false
+}

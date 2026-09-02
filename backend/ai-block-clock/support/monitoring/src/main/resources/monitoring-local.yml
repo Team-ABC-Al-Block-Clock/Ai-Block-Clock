@@ -1,0 +1,9 @@
+# local: 개발 편의를 위해 모든 엔드포인트를 연다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
