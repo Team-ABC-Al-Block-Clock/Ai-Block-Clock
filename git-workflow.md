@@ -151,6 +151,23 @@ git push
 - 명령형/서술형 중 팀 내 하나로 통일한다
 - 커밋에 사용하는 이슈 키는 브랜치의 스토리 번호가 아니라 실제 수행한 작업(Task) 번호다
 
+### Git Hook 으로 검사하기
+
+위 규칙은 `commit-msg` Git Hook 이 커밋 단계에서 검사한다. 형식에 맞지 않으면 커밋이 거부된다.
+`pre-commit` Hook 은 보호 브랜치 직접 커밋과 충돌 마커를 검사한다. (린트는 훅이 아니라 CI에서 강제한다)
+
+저장소를 clone 한 뒤 한 번만 적용하면 된다.
+
+```bash
+sh .githooks/install.sh          # macOS / Linux / Git Bash
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .githooks\install.ps1   # Windows
+```
+
+자세한 내용은 [`.githooks/README.md`](.githooks/README.md) 를 참고한다.
+
 ---
 
 ## 4. MR(Merge Request) 규칙
