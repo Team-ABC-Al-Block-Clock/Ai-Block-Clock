@@ -1,7 +1,7 @@
 # 프론트엔드 코드 컨벤션
 
 > 대상: `frontend/` · 스택: React 19 + TypeScript + Vite + Tailwind v4
-> Git·브랜치·커밋 규칙은 [`git-workflow.md`](../git-workflow.md) 를 따른다.
+> Git·브랜치·커밋 규칙은 [`git-workflow.md`](../../git-workflow.md) 를 따른다.
 
 이름만 보고 **컴포넌트인지, 로직인지, 타입인지** 알 수 있게 하는 것이 목표다.
 

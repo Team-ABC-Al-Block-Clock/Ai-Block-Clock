@@ -5,11 +5,11 @@ description: ABC Agent Studio 프론트엔드(React 19 + TypeScript + Vite + Tai
 
 # 프론트엔드 컨벤션
 
-**규칙 원본은 저장소 루트의 `docs/frontend-conventions.md` 다.**
+**규칙 원본은 `frontend/docs/frontend-conventions.md` 다.**
 프론트엔드 코드를 쓰기 전에 그 파일을 읽고 따를 것. 이 스킬은 원본을 대체하지 않는다.
 
 ```
-docs/frontend-conventions.md
+frontend/docs/frontend-conventions.md
 ```
 
 ## 자주 틀리는 것 — 코드 쓰기 전 확인
