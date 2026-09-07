@@ -16,7 +16,7 @@ GitLab Push / MR
 │  GitLab Runner (shell executor, tags: deploy shell)          │
 │  = 배포 서버(EC2, j15a403) 위에 직접 등록                 │
 │                                                          │
-│  frontend:build  npm ci → npm run build → dist/          │
+│  frontend:build  Node 컨테이너에서 vite build → dist/     │
 │  frontend:deploy dist/ → /var/www/j15a403/frontend       │
 │                                                          │
 │  backend:build   JDK 컨테이너에서 gradle build → bootJar  │
@@ -32,8 +32,8 @@ GitLab Push / MR
 - Runner를 배포 서버에 직접 등록하므로 **SSH 키·배포용 시크릿이 필요 없다.**
   파일 복사가 곧 로컬 복사다.
 - 빌드 결과물(`dist/`, `app.jar`)만 배포 경로로 옮겨진다.
-- 백엔드 빌드는 JDK 컨테이너 안에서 돈다. **호스트에는 JDK가 필요 없고**, bootJar 를
-  실행할 JRE 25 와 빌드 컨테이너를 띄울 Docker 만 있으면 된다.
+- **빌드는 프론트·백엔드 모두 컨테이너 안에서 돈다.** 호스트에는 Node도 JDK도 필요 없고,
+  Docker 와 bootJar 실행용 JRE 25 만 있으면 된다.
 - CI 정의는 프론트/백엔드로 파일이 분리돼 있고, **변경된 폴더에 해당하는 잡만 생성**된다
   (→ [3. CI 파일 구성](#3-ci-파일-구성)).
 
@@ -69,53 +69,42 @@ sudo gitlab-runner register \
 > 이므로 태그가 하나라도 어긋나면 잡이 `pending` 에서 멈춘다(stuck).
 > 현재 등록된 runner: `a403-deploy-runner` (tags: `deploy`, `shell`)
 
-### 2-2. Node 설치 (gitlab-runner 계정 기준)
+### 2-2. Docker 설치 (빌드 컨테이너용)
 
-shell executor는 `gitlab-runner` 리눅스 계정으로 명령을 실행한다.
-따라서 **그 계정에서 `node`, `npm` 이 잡혀야 한다.**
+**프론트·백엔드 빌드 모두 컨테이너 안에서 돌린다.** 호스트에는 Node도 JDK도 설치하지
+않고, 필요한 툴체인을 이미지가 들고 온다.
+
+| 잡 | 빌드 이미지 |
+| --- | --- |
+| `frontend:build` | `node:22` |
+| `backend:build` | `eclipse-temurin:25-jdk` |
 
 ```bash
-sudo su - gitlab-runner
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source ~/.nvm/nvm.sh
-nvm install 22
-nvm alias default 22
-node -v   # v22.x
+sudo apt-get install -y docker.io
+sudo usermod -aG docker gitlab-runner   # runner 가 docker 를 쓰려면 필요
+sudo systemctl restart gitlab-runner    # 그룹 변경은 재시작해야 반영된다
+sudo su - gitlab-runner -c 'docker ps'  # 권한 확인
 ```
-
-`.gitlab-ci.yml` 의 `before_script` 에서 nvm을 다시 source 한다(비로그인 셸 대비).
-
-### 2-3. Docker + JRE 설치 (백엔드용)
-
-빌드와 실행을 분리한다.
-
-- **빌드**는 `eclipse-temurin:25-jdk` 컨테이너 안에서 한다 → 호스트에 **JDK 불필요**
-- **실행**은 호스트에서 bootJar 를 직접 띄운다 → **JRE 25 만** 있으면 된다
 
 > `build.gradle` 이 Java toolchain 25 를 요구하는데 `settings.gradle` 에 foojay-resolver가
 > 없어 Gradle이 JDK를 자동으로 못 받는다. 그래서 빌드용 JDK를 컨테이너로 공급한다.
 
-```bash
-# Docker (빌드 컨테이너 실행용)
-sudo apt-get install -y docker.io
-sudo usermod -aG docker gitlab-runner      # runner 가 docker 를 쓰려면 필요
-sudo systemctl restart gitlab-runner
+### 2-3. JRE 25 설치 (백엔드 실행용)
 
-# JRE 25 (bootJar 실행용)
+빌드는 컨테이너가 하지만, bootJar 를 **실행**하는 건 호스트다. JRE만 있으면 된다.
+
+```bash
 wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public \
   | sudo tee /etc/apt/trusted.gpg.d/adoptium.asc
 echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" \
   | sudo tee /etc/apt/sources.list.d/adoptium.list
 sudo apt-get update && sudo apt-get install -y temurin-25-jre
+sudo su - gitlab-runner -c 'java -version'
 ```
 
-`gitlab-runner` 계정에서 둘 다 잡히는지 확인한다.
-
-```bash
-sudo su - gitlab-runner -c 'docker ps && java -version'
-```
-
-> `usermod -aG docker` 는 재로그인해야 반영된다. runner 서비스 재시작이 그 역할을 한다.
+> **이 절은 없어질 예정이다.** `backend/ai-block-clock/` 에 멀티스테이지 Dockerfile과
+> `compose.yaml` 이 들어왔으므로, `backend:deploy` 를 `docker compose` 방식으로 바꾸면
+> 런타임 JRE도 컨테이너가 들고 온다. 그때 이 절과 [2-6](#2-6-백엔드-systemd-유닛)을 삭제한다.
 
 ### 2-4. 배포 디렉터리 생성 및 권한
 
@@ -237,40 +226,43 @@ workflow:
 variables:
   FE_DIR: frontend
   FE_DEPLOY_PATH: /var/www/j15a403/frontend
-  FE_NODE_VERSION: '22'
+  FE_NODE_IMAGE: node:22
 
-.frontend-base:
-  tags:
-    - deploy
-    - shell
-  before_script:
-    - export NVM_DIR="$HOME/.nvm"
-    - . "$NVM_DIR/nvm.sh"
-    - nvm use "$FE_NODE_VERSION"
-    - node -v && npm -v
-    - cd "$FE_DIR"
-
+# frontend 폴더 또는 이 CI 파일이 바뀌었을 때만 잡을 만든다.
+# exists 로 한 번 더 거른다 — 브랜치에 frontend/ 자체가 없으면(예: develop-BE 계열)
+# CI 파일만 바뀌어도 잡을 만들지 않는다.
 .frontend-changes: &frontend-changes
   changes:
     - frontend/**/*
     - .gitlab/ci/frontend.gitlab-ci.yml
     - .gitlab-ci.yml
   exists:
-    - frontend/package.json     # 브랜치에 frontend/ 가 없으면 잡을 만들지 않는다
+    - frontend/package.json
 
 frontend:build:
-  extends: .frontend-base
   stage: build
+  tags:
+    - deploy
+    - shell
   script:
-    - npm ci
-    - npm run lint
-    - npm run build            # tsc -b && vite build -> frontend/dist
-    - test -f dist/index.html  # 산출물 검증
+    # -u 로 현재 사용자 권한을 유지해야 dist/ 가 root 소유로 남지 않는다
+    - >
+      docker run --rm
+      -u "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR":/workspace
+      -w "/workspace/$FE_DIR"
+      -e HOME=/workspace/.npm-home
+      -e npm_config_cache=/workspace/.npm-cache
+      "$FE_NODE_IMAGE"
+      sh -c "npm ci && npm run lint && npm run build"
+    - test -f "$FE_DIR/dist/index.html" # 산출물 검증
+    - ls -al "$FE_DIR/dist/"
   cache:
     key:
       files:
         - frontend/package-lock.json
     paths:
+      - .npm-cache/
       - frontend/node_modules/
   artifacts:
     name: "frontend-dist-$CI_COMMIT_SHORT_SHA"
@@ -296,6 +288,8 @@ frontend:deploy:
     - frontend:build
   script:
     - mkdir -p "$FE_DEPLOY_PATH"
+    # --delete: Vite 는 assets/index-<hash>.js 로 파일명이 매번 바뀌므로
+    #           옛 번들을 지우지 않으면 계속 쌓인다
     - rsync -av --delete "$FE_DIR/dist/" "$FE_DEPLOY_PATH/"
     - ls -al "$FE_DEPLOY_PATH/index.html"
   environment:
@@ -425,7 +419,7 @@ backend:deploy:
 | `changes:` 규칙 | 백엔드만 수정한 커밋에서 프론트 파이프라인이 도는 것을 막는다 |
 | `exists:` 규칙 | `develop-BE` 계열 브랜치에는 `frontend/` 가 아예 없다. CI 파일만 고쳐도 프론트 잡이 생겨 `cd frontend` 로 죽는 것을 막는다 |
 | `feat/*`·`hotfix/*` 규칙 | MR을 열기 전에도 push만으로 빌드 검증이 돌게 한다 |
-| 백엔드 빌드를 컨테이너로 | 호스트에 JDK를 깔지 않는다. 서버는 bootJar 실행용 JRE만 있으면 된다 |
+| 빌드를 컨테이너로 | 호스트에 Node/JDK를 깔지 않는다. 툴체인 버전이 이미지 태그로 고정돼 재현성도 좋다 |
 | `docker run -u $(id -u)` | 안 붙이면 산출물이 root 소유로 남아 다음 파이프라인의 `clean` 이 깨진다 |
 | `GRADLE_USER_HOME` 을 워크스페이스 안에 | 컨테이너의 `/root/.gradle` 은 잡이 끝나면 사라진다. 워크스페이스에 둬야 GitLab cache로 재사용된다 |
 | 배포 후 `/actuator/health` 확인 | restart가 성공해도 기동에 실패할 수 있다. 헬스체크까지 봐야 배포 성공이라 할 수 있다 |
@@ -553,7 +547,7 @@ ls -al /var/www/j15a403/frontend/
 | 빌드 산출물이 root 소유 | `docker run` 의 `-u "$(id -u):$(id -g)"` 누락 |
 | `backend:deploy` 헬스체크 실패 | `sudo journalctl -u j15a403-backend -n 100`. 대개 `/etc/j15a403/backend.env` 의 DB 값 누락 |
 | `sudo: no tty present` | `/etc/sudoers.d/gitlab-runner-backend` 의 NOPASSWD 규칙 확인 ([2-6](#2-6-백엔드-systemd-유닛)) |
-| `npm: command not found` | `before_script` 에서 nvm source 누락. `gitlab-runner` 계정으로 로그인해 `node -v` 확인 |
+| `npm ci` 가 EACCES 로 실패 | 컨테이너 `HOME` 이 안 잡힘. `-e HOME=/workspace/.npm-home` 확인 |
 | `rsync: Permission denied` | `sudo chown -R gitlab-runner:gitlab-runner /var/www/j15a403` 재실행 |
 | 새로고침 시 404 | Nginx `try_files ... /index.html` 누락 |
 | 배포했는데 화면이 그대로 | 브라우저 캐시 or `index.html` 캐시 헤더. 위 `location = /index.html` 블록 확인 |
