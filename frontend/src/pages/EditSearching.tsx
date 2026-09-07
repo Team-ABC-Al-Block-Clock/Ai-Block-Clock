@@ -25,7 +25,7 @@ export default function EditSearching() {
     return () => {
       clearTimeout(_go)
     }
-  }, [])
+  }, [navigate])
 
   return (
     <>

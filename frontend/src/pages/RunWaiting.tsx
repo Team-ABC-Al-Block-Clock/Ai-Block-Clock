@@ -24,11 +24,11 @@ export default function RunWaiting() {
 
   useEffect(() => {
     const ta = document.getElementById('runPrompt') as HTMLTextAreaElement | null
-    if (ta)
-      ta.addEventListener('input', () => {
-        const f = ta.value.trim().length > 0
-        if (f !== filled) setFilled(f)
-      })
+    if (!ta) return
+    // 같은 값이면 React 가 리렌더를 건너뛴다 — 직전 값을 따로 비교할 필요가 없다
+    const onInput = () => setFilled(ta.value.trim().length > 0)
+    ta.addEventListener('input', onInput)
+    return () => ta.removeEventListener('input', onInput)
   }, [])
 
   return (

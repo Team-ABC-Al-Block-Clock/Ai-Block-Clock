@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 
@@ -6,12 +6,13 @@ export default function MyPageEdit() {
   const navigate = useNavigate()
   const [saved, setSaved] = useState(false)
 
-  let _t: any
+  // 렌더마다 새로 만들어지는 지역 변수로는 정리 함수가 엉뚱한 핸들을 지운다
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const handleSave = () => {
     setSaved(true)
-    clearTimeout(_t)
-    _t = setTimeout(() => {
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
       navigate('/my/agents')
     }, 1100)
   }
@@ -30,7 +31,7 @@ export default function MyPageEdit() {
 
   useEffect(() => {
     return () => {
-      clearTimeout(_t)
+      clearTimeout(saveTimer.current)
     }
   }, [])
 

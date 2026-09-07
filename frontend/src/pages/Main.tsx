@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const FULL_TITLE = '안녕하세요.\n어떤 워크플로우를 만들고 싶으신가요?'
+
 export default function Main() {
   const navigate = useNavigate()
   const [dragging, setDragging] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
 
-  let _type: any
-
-  const fullTitle = '안녕하세요.\n어떤 워크플로우를 만들고 싶으신가요?'
-  const drag = dragging || false
+  const drag = dragging
   const clipBg = uploadOpen ? 'rgba(255,255,255,.16)' : 'transparent'
   const handleToggleUpload = () => setUploadOpen((v) => !v)
   const handleCloseUpload = () => setUploadOpen(false)
@@ -29,10 +28,12 @@ export default function Main() {
       if (!e.dataTransfer || Array.from(e.dataTransfer.types || []).indexOf('Files') < 0) return
       e.preventDefault()
       _depth++
-      if (!dragging) setDragging(true)
+      setDragging(true) // 같은 값이면 React 가 리렌더를 건너뛴다
     }
     const _onOver = (e: DragEvent) => {
-      if (dragging) e.preventDefault()
+      // dragover 를 막지 않으면 브라우저가 drop 을 발생시키지 않는다.
+      // state 대신 _depth 를 보는 이유: state 는 이 클로저에 마운트 시점 값으로 갇힌다
+      if (_depth) e.preventDefault()
     }
     const _onLeave = () => {
       _depth = Math.max(0, _depth - 1)
@@ -47,42 +48,48 @@ export default function Main() {
     window.addEventListener('dragover', _onOver)
     window.addEventListener('dragleave', _onLeave)
     window.addEventListener('drop', _onDrop)
-    let i = 0
+    // 타이핑 효과. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let typing: ReturnType<typeof setInterval> | undefined
     const startTyping = (tries: number) => {
-      const el = document.getElementById('mainTypeText')
-      if (!el) {
-        if ((tries || 0) < 60) setTimeout(() => startTyping((tries || 0) + 1), 100)
+      if (!document.getElementById('mainTypeText')) {
+        if (tries < 60) timers.push(setTimeout(() => startTyping(tries + 1), 100))
         return
       }
       const t0 = performance.now()
-      const _type = setInterval(() => {
+      typing = setInterval(() => {
         const node = document.getElementById('mainTypeText')
         if (!node) return
-        i = Math.min(fullTitle.length, Math.floor((performance.now() - t0) / 55))
-        node.textContent = fullTitle.slice(0, i)
-        if (i >= fullTitle.length) {
-          clearInterval(_type)
+        const i = Math.min(FULL_TITLE.length, Math.floor((performance.now() - t0) / 55))
+        node.textContent = FULL_TITLE.slice(0, i)
+        if (i < FULL_TITLE.length) return
+        clearInterval(typing)
+        timers.push(
           setTimeout(() => {
             const c = document.getElementById('mainCaret')
             if (c) c.style.display = 'none'
-          }, 900)
-        }
+          }, 900),
+        )
       }, 55)
     }
-    setTimeout(() => startTyping(0), 350)
+    timers.push(setTimeout(() => startTyping(0), 350))
+
     const input = document.getElementById('agentInput')
-    if (input)
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') navigate('/edit/searching')
-      })
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') navigate('/edit/searching')
+    }
+    input?.addEventListener('keydown', onKeydown)
+
     return () => {
-      clearInterval(_type)
+      clearInterval(typing)
+      timers.forEach(clearTimeout)
+      input?.removeEventListener('keydown', onKeydown)
       window.removeEventListener('dragenter', _onEnter)
       window.removeEventListener('dragover', _onOver)
       window.removeEventListener('dragleave', _onLeave)
       window.removeEventListener('drop', _onDrop)
     }
-  }, [])
+  }, [navigate])
 
   return (
     <>

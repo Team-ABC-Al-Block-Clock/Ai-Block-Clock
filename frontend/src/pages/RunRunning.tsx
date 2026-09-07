@@ -1,12 +1,12 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { cssToStyle } from '../lib/css'
 
 export default function RunRunning() {
   const [pct, setPct] = useState(0)
   const [copied, setCopied] = useState(false)
 
-  let _cp: any
-  let _raf: any
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const rafId = useRef<number>(undefined)
 
   const defs = [
     { name: '파일 수집', x: 38, y: 400, f: 6.4, d: 0.18 },
@@ -150,8 +150,8 @@ export default function RunRunning() {
       } catch (e) {}
     }
     setCopied(true)
-    clearTimeout(_cp)
-    _cp = setTimeout(() => setCopied(false), 1900)
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopied(false), 1900)
   }
   const resultLines = resultText.map((text) => ({
     text: text === '' ? '\u00a0' : text,
@@ -173,17 +173,21 @@ export default function RunRunning() {
   const stepMeta = (pctR >= 100 ? defs.length : active + 1) + ' / ' + defs.length + ' 단계'
 
   useEffect(() => {
-    let t0 = performance.now()
+    const t0 = performance.now()
     const tick = (now: number) => {
-      _raf = requestAnimationFrame(tick)
       const p = Math.min(100, ((now - t0) / 1000) * 5.2) // 약 19초에 완주
-      if (Math.floor(p) !== Math.floor(pct)) setPct(p)
       if (p >= 100) {
-        cancelAnimationFrame(_raf)
         setPct(100)
+        return // 다음 프레임을 예약하지 않으면 루프가 스스로 멈춘다
       }
+      setPct((prev) => (Math.floor(p) !== Math.floor(prev) ? p : prev))
+      rafId.current = requestAnimationFrame(tick)
     }
-    _raf = requestAnimationFrame(tick)
+    rafId.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current)
+      clearTimeout(copyTimer.current)
+    }
   }, [])
 
   return (
