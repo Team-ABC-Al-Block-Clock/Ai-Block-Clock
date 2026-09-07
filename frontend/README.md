@@ -1,6 +1,6 @@
 # Frontend
 
-ABC Agent Studio 프론트엔드입니다.
+ABC AI Block Clock 프론트엔드입니다.
 
 ## 요구 사항
 
@@ -41,7 +41,7 @@ npm run dev             # 개발 서버 실행 → http://localhost:5173
 
 | 변수                    | 기본값                  | 설명                                  |
 | ----------------------- | ----------------------- | ------------------------------------- |
-| `VITE_APP_NAME`         | `ABC Agent Studio`      | 애플리케이션 이름                     |
+| `VITE_APP_NAME`         | `ABC AI Block Clock`    | 애플리케이션 이름                     |
 | `VITE_API_BASE_URL`     | `/api`                  | API 요청 기본 경로                    |
 | `VITE_API_PROXY_TARGET` | `http://localhost:8080` | 개발 서버 프록시가 바라볼 백엔드 주소 |
 
