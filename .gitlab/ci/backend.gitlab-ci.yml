@@ -11,7 +11,6 @@ variables:
   BE_DIR: backend/ai-block-clock
   BE_APP_MODULE: core/core-api # 실행 가능한 모듈은 core-api 하나뿐
   BE_JDK_IMAGE: eclipse-temurin:25-jdk
-  BE_ENV_FILE: /etc/j15a403/backend.env
   # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
   GRADLE_USER_HOME: .gradle-home
 
@@ -81,12 +80,22 @@ backend:deploy:
       artifacts: false
   script:
     - cd "$BE_DIR"
-    # 자격 증명은 서버의 env 파일에만 둔다. 없으면 compose.yaml 의 기본값(local_password)이
-    # 그대로 쓰이므로, 배포를 진행하지 않고 실패시킨다.
-    - test -f "$BE_ENV_FILE" || { echo "$BE_ENV_FILE 이 없습니다. 문서 2-4 참고"; exit 1; }
-    - grep -q '^MYSQL_PASSWORD=' "$BE_ENV_FILE" || { echo "MYSQL_PASSWORD 미설정"; exit 1; }
+    # 자격 증명은 GitLab CI/CD Variables 에서 온다. compose 가 프로세스 환경변수로
+    # ${...} 를 보간하므로 --env-file 없이 그대로 쓰인다.
+    #
+    # compose.yaml 에 ${MYSQL_PASSWORD:-local_password} 같은 기본값이 있어서, 변수가
+    # 비어 있으면 조용히 로컬 비밀번호로 뜬다. 그 전에 잡는다.
+    - |
+      for v in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+        eval "val=\$$v"
+        if [ -z "$val" ]; then
+          echo "$v 가 비어 있습니다. GitLab > Settings > CI/CD > Variables 를 확인하세요."
+          echo "(Protected 로 설정한 변수는 보호 브랜치에서만 주입됩니다)"
+          exit 1
+        fi
+      done
     - >
-      docker compose --env-file "$BE_ENV_FILE"
+      docker compose
       -f compose.yaml -f compose.prod.yaml
       up -d --build --remove-orphans
     - docker compose -f compose.yaml -f compose.prod.yaml ps

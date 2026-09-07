@@ -101,27 +101,34 @@ sudo apt-get install -y rsync
 > Nginx(`www-data`)는 읽기만 하므로 755 면 충분하다. 상위 디렉터리에 실행 권한(x)이
 > 없으면 403이 난다.
 
-### 2-4. 백엔드 자격 증명 파일
+### 2-4. 백엔드 자격 증명 (GitLab CI/CD Variables)
 
-`compose.yaml` 이 `${MYSQL_PASSWORD:-local_password}` 처럼 **기본값을 갖고 있다.** env 파일이
-없으면 로컬 비밀번호로 운영 DB가 뜨므로, `backend:deploy` 는 이 파일이 없으면 배포를
-중단한다.
+DB 자격 증명은 서버 파일이 아니라 **GitLab 변수**로 관리한다. Docker Compose 는
+프로세스 환경변수로 `${...}` 를 보간하므로, 잡 환경에 들어오면 `--env-file` 없이 쓰인다.
 
-```bash
-sudo install -d -m 700 /etc/j15a403
-sudo tee /etc/j15a403/backend.env >/dev/null <<'ENV'
-MYSQL_DATABASE=ai_block_clock
-MYSQL_USER=ai_block_clock
-MYSQL_PASSWORD=<강한 비밀번호>
-MYSQL_ROOT_PASSWORD=<강한 비밀번호>
-ENV
-sudo chmod 600 /etc/j15a403/backend.env
-sudo chown gitlab-runner /etc/j15a403/backend.env   # runner 가 --env-file 로 읽는다
-```
+**Settings > CI/CD > Variables** 에서 아래 4개를 추가한다.
 
-> 저장소에 커밋하지 않는다. 서버에만 둔다.
-> `SPRING_PROFILES_ACTIVE=prod` 와 `DB_URL` 은 `compose.prod.yaml` / `compose.yaml` 이
-> 조립하므로 여기에 넣지 않는다.
+| 변수 | 값 | Protected | Masked |
+| --- | --- | --- | --- |
+| `MYSQL_DATABASE` | `ai_block_clock` | ✓ | – |
+| `MYSQL_USER` | `ai_block_clock` | ✓ | – |
+| `MYSQL_PASSWORD` | 강한 비밀번호 | ✓ | ✓ |
+| `MYSQL_ROOT_PASSWORD` | 강한 비밀번호 | ✓ | ✓ |
+
+- **Protected** — 보호 브랜치·태그에서만 주입된다. `backend:deploy` 는 `master` 에서만
+  도니 켜두는 게 맞다. 단 **`master` 가 GitLab에서 Protected 로 설정돼 있어야** 하고,
+  아니면 변수가 비어서 잡이 실패한다.
+- **Masked** — 로그에 값이 나오면 `[MASKED]` 로 가려진다. 8자 이상이고 공백·개행이 없어야
+  마스킹이 걸리므로, 비밀번호는 영숫자 위주로 길게 잡는다.
+- `Expand variable reference` 는 켜둔 기본값 그대로 둔다.
+
+`backend:deploy` 는 이 네 개가 비어 있으면 `compose up` 전에 잡을 실패시킨다.
+`compose.yaml` 이 `${MYSQL_PASSWORD:-local_password}` 처럼 **기본값을 갖고 있어서**,
+검사가 없으면 로컬 비밀번호로 운영 DB가 조용히 떠버리기 때문이다.
+
+> **MySQL 볼륨은 최초 1회만 초기화된다.** `mysql-data` 볼륨이 이미 있으면 나중에
+> `MYSQL_PASSWORD` 를 바꿔도 실제 DB 계정 비밀번호는 바뀌지 않는다. 변경하려면
+> DB 안에서 `ALTER USER` 를 하거나 볼륨을 지우고 다시 만들어야 한다.
 
 ---
 
@@ -263,7 +270,6 @@ variables:
   BE_DIR: backend/ai-block-clock
   BE_APP_MODULE: core/core-api # 실행 가능한 모듈은 core-api 하나뿐
   BE_JDK_IMAGE: eclipse-temurin:25-jdk
-  BE_ENV_FILE: /etc/j15a403/backend.env
   # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
   GRADLE_USER_HOME: .gradle-home
 
@@ -333,12 +339,22 @@ backend:deploy:
       artifacts: false
   script:
     - cd "$BE_DIR"
-    # 자격 증명은 서버의 env 파일에만 둔다. 없으면 compose.yaml 의 기본값(local_password)이
-    # 그대로 쓰이므로, 배포를 진행하지 않고 실패시킨다.
-    - test -f "$BE_ENV_FILE" || { echo "$BE_ENV_FILE 이 없습니다. 문서 2-4 참고"; exit 1; }
-    - grep -q '^MYSQL_PASSWORD=' "$BE_ENV_FILE" || { echo "MYSQL_PASSWORD 미설정"; exit 1; }
+    # 자격 증명은 GitLab CI/CD Variables 에서 온다. compose 가 프로세스 환경변수로
+    # ${...} 를 보간하므로 --env-file 없이 그대로 쓰인다.
+    #
+    # compose.yaml 에 ${MYSQL_PASSWORD:-local_password} 같은 기본값이 있어서, 변수가
+    # 비어 있으면 조용히 로컬 비밀번호로 뜬다. 그 전에 잡는다.
+    - |
+      for v in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+        eval "val=\$$v"
+        if [ -z "$val" ]; then
+          echo "$v 가 비어 있습니다. GitLab > Settings > CI/CD > Variables 를 확인하세요."
+          echo "(Protected 로 설정한 변수는 보호 브랜치에서만 주입됩니다)"
+          exit 1
+        fi
+      done
     - >
-      docker compose --env-file "$BE_ENV_FILE"
+      docker compose
       -f compose.yaml -f compose.prod.yaml
       up -d --build --remove-orphans
     - docker compose -f compose.yaml -f compose.prod.yaml ps
@@ -363,6 +379,7 @@ backend:deploy:
       <<: *backend-changes
       when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다
 ```
+
 
 #### `compose.prod.yaml`
 
@@ -408,7 +425,8 @@ docker compose -f compose.yaml -f compose.prod.yaml config | grep -E "SPRING_PRO
 | `GRADLE_USER_HOME` 을 워크스페이스 안에 | 컨테이너의 `/root/.gradle` 은 잡이 끝나면 사라진다. 워크스페이스에 둬야 GitLab cache로 재사용된다 |
 | 배포 후 `/actuator/health` 확인 | `compose up` 이 성공해도 기동에 실패할 수 있다. 헬스체크까지 봐야 배포 성공이라 할 수 있다 |
 | `needs: artifacts: false` | Dockerfile이 소스에서 이미지를 다시 빌드하므로 62MB jar 를 내려받을 이유가 없다 |
-| env 파일 존재 검사 | `compose.yaml` 의 비밀번호 기본값(`local_password`)으로 운영 DB가 뜨는 것을 막는다 |
+| 자격 증명을 GitLab 변수로 | 서버에 평문 파일을 두지 않는다. 값 교체가 GitLab UI에서 끝나고, 누가 언제 바꿨는지 남는다 |
+| 배포 전 변수 존재 검사 | `compose.yaml` 의 비밀번호 기본값(`local_password`)으로 운영 DB가 뜨는 것을 막는다 |
 | CI 파일 자신을 `changes` 에 포함 | CI만 고친 커밋에서도 파이프라인이 돌아야 검증이 된다 |
 | `workflow.rules` 의 `$CI_OPEN_MERGE_REQUESTS` | 브랜치 파이프라인 + MR 파이프라인 이중 실행 방지 |
 | `npm ci` | `package-lock.json` 기준 재현 가능한 설치. `npm install` 은 lock을 갱신해버림 |
@@ -509,6 +527,13 @@ Vite는 **빌드 시점에** `VITE_*` 값을 번들에 박아 넣는다. 런타�
 | `VITE_API_PROXY_TARGET` | - | 로컬 dev 전용. 배포에는 불필요 |
 
 비밀값이 아니므로 `.env.production` 파일을 커밋해서 관리한다.
+
+### 백엔드
+
+런타임에 주입되므로 빌드와 무관하다. GitLab CI/CD Variables 로 관리하며 저장소에 두지
+않는다 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables)). `SPRING_PROFILES_ACTIVE` 와
+`DB_URL` 은 `compose.prod.yaml` / `compose.yaml` 이 조립하므로 변수로 넣지 않는다.
+
 **키·토큰류는 절대 `VITE_` 로 넣지 않는다** (번들에 그대로 노출됨). 필요하면
 GitLab CI/CD Variables(Settings > CI/CD > Variables, Masked 체크)에 넣고 빌드 잡에서 주입한다.
 
@@ -532,7 +557,7 @@ ls -al /var/www/j15a403/frontend/
 | `docker: permission denied` | `sudo usermod -aG docker gitlab-runner` 후 runner 재시작 ([2-3](#2-3-docker--jre-설치-백엔드용)) |
 | 빌드 산출물이 root 소유 | `docker run` 의 `-u "$(id -u):$(id -g)"` 누락 |
 | `backend:deploy` 헬스체크 실패 | 잡 로그 끝에 컨테이너 로그가 찍힌다. 대개 Flyway 마이그레이션 또는 DB 접속 실패 |
-| `/etc/j15a403/backend.env 이 없습니다` | [2-4](#2-4-백엔드-자격-증명-파일) 참고. 의도된 차단이다 |
+| `MYSQL_PASSWORD 가 비어 있습니다` | 변수 미설정, 또는 Protected 변수인데 `master` 가 보호 브랜치가 아님 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables)) |
 | MySQL 3306 이 외부에 열려 있음 | `-f compose.prod.yaml` 누락, 또는 Compose 2.24 미만으로 `!reset` 미지원 |
 | `npm ci` 가 EACCES 로 실패 | 컨테이너 `HOME` 이 안 잡힘. `-e HOME=/workspace/.npm-home` 확인 |
 | `rsync: Permission denied` | `sudo chown -R gitlab-runner:gitlab-runner /var/www/j15a403` 재실행 |
@@ -554,7 +579,8 @@ ls -al /var/www/j15a403/frontend/
 - [x] `frontend:build` — Node 컨테이너에서 vite 빌드, `dist/` artifacts
 - [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 테스트 (JUnit 리포트)
 - [x] `backend:deploy` — `docker compose up -d --build` + 헬스체크 (현재 `when: manual`)
-- [ ] 서버 준비: [2-3](#2-3-프론트-배포-디렉터리-권한) 프론트 경로 권한, [2-4](#2-4-백엔드-자격-증명-파일) env 파일
+- [ ] 서버 준비: [2-3](#2-3-프론트-배포-디렉터리-권한) 프론트 경로 권한
+- [ ] GitLab CI/CD Variables 4개 등록 + `master` 보호 브랜치 확인 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables))
 - [ ] `compose.prod.yaml` 백엔드 담당자 리뷰 (프로파일·포트 정책)
 - [ ] 검증 후 `backend:deploy` 의 `when: manual` 제거
 - [ ] `frontend:deploy` 실동작 검증 (CI 파일이 `develop-FE` 로 머지될 때)
