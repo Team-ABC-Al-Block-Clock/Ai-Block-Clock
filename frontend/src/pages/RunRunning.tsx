@@ -142,12 +142,16 @@ export default function RunRunning() {
     ta.setSelectionRange(0, txt.length)
     try {
       document.execCommand('copy')
-    } catch (e) {}
+    } catch {
+      /* execCommand 미지원 — 아래 clipboard API 로 재시도 */
+    }
     document.body.removeChild(ta)
     if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
-        navigator.clipboard.writeText(txt).catch(() => {})
-      } catch (e) {}
+        navigator.clipboard.writeText(txt).catch(() => undefined)
+      } catch {
+        /* 권한 거부·비보안 컨텍스트 */
+      }
     }
     setCopied(true)
     clearTimeout(copyTimer.current)

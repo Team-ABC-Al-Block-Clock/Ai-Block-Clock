@@ -237,7 +237,8 @@ export class ProfileMenu extends BaseElement {
   }
 
   toggle(): void {
-    this.opened ? this.close() : this.show()
+    if (this.opened) this.close()
+    else this.show()
   }
 
   show(): void {

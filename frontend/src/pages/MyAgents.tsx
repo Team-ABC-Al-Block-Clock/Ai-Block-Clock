@@ -55,7 +55,8 @@ export default function MyAgents() {
   const toggleFav = (i: number) => () =>
     setFavs((prev) => {
       const next = { ...prev }
-      next[i] ? delete next[i] : (next[i] = true)
+      if (next[i]) delete next[i]
+      else next[i] = true
       return next
     })
   const MINE = ['Contract Analyzer', 'Docu Chain', 'Tx Inspector']
