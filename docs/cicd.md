@@ -259,11 +259,10 @@ frontend:deploy:
 
 두 단계로 나뉜다.
 
-- **`backend:build`** — JDK 컨테이너에서 `gradle build`. **테스트를 돌리는 건 여기뿐이다.**
-  Dockerfile은 `:core:core-api:bootJar` 만 실행해서 테스트를 건너뛰기 때문에, MR 검증용으로
-  이 잡이 계속 필요하다.
-- **`backend:deploy`** — `docker compose up -d --build`. 이미지가 소스에서 다시 빌드되므로
-  `backend:build` 의 jar 는 쓰지 않는다(`artifacts: false`).
+- **`backend:build`** — JDK 컨테이너에서 `gradlew build`. 컴파일·테스트를 하고 bootJar 를
+  artifacts 로 남긴다. **컴파일과 테스트는 여기서 한 번만 한다.**
+- **`backend:deploy`** — 그 jar 를 받아 `docker compose up -d --build`. Dockerfile 이
+  런타임 전용이므로 **테스트를 통과한 그 jar 가 그대로 이미지에 들어간다.**
 
 ```yaml
 variables:
@@ -333,12 +332,19 @@ backend:deploy:
     - deploy
     - shell
   needs:
-    # 빌드·테스트 통과를 전제로 하되, jar 는 쓰지 않으므로 artifacts 는 받지 않는다.
-    # (이미지는 Dockerfile 멀티스테이지가 소스에서 다시 빌드한다)
+    # Dockerfile 이 이 jar 를 COPY 하므로 artifacts 를 받아야 한다.
     - job: backend:build
-      artifacts: false
+      artifacts: true
   script:
     - cd "$BE_DIR"
+    # Dockerfile 은 런타임 전용이다. jar 가 없으면 COPY 단계에서
+    # "lstat ...: no such file or directory" 로만 죽어서 원인을 알기 어렵다.
+    - |
+      if ! ls "$BE_APP_MODULE"/build/libs/*.jar >/dev/null 2>&1; then
+        echo "$BE_APP_MODULE/build/libs/ 에 jar 가 없습니다."
+        echo "backend:build 의 artifacts 가 내려왔는지 확인하세요 (needs.artifacts: true)."
+        exit 1
+      fi
     # 자격 증명은 GitLab CI/CD Variables 에서 온다. compose 가 프로세스 환경변수로
     # ${...} 를 보간하므로 --env-file 없이 그대로 쓰인다.
     #
@@ -380,6 +386,64 @@ backend:deploy:
       when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다
 ```
 
+#### Dockerfile 을 런타임 전용으로 바꿨다
+
+원래 `Dockerfile` 은 멀티스테이지였다.
+
+```dockerfile
+FROM eclipse-temurin:25-jdk AS builder
+COPY . .
+RUN ./gradlew :core:core-api:bootJar --no-daemon   # ← 여기서 다시 컴파일
+FROM eclipse-temurin:25-jre
+COPY --from=builder /workspace/core/core-api/build/libs/*.jar app.jar
+```
+
+문제가 두 가지였다.
+
+1. **컴파일이 2회 돈다.** `backend:build` 가 `gradlew build` 로 이미 컴파일을 끝냈는데,
+   builder 스테이지가 소스를 받아 처음부터 다시 컴파일한다. Dockerfile 은 파이프라인을
+   모르니 CI 의 결과물을 재활용할 방법이 없다.
+2. **배포되는 산출물이 테스트를 통과한 그것이 아니다.** `gradlew build` 에는 `test` 가
+   붙지만 `gradlew bootJar` 에는 붙지 않는다. 즉 테스트한 jar 와 배포된 jar 가 다른
+   산출물이었다.
+
+```bash
+# 확인 방법
+./gradlew :core:core-api:build   --dry-run | grep ':test'   # → :core:core-api:test
+./gradlew :core:core-api:bootJar --dry-run | grep ':test'   # → (없음)
+```
+
+그래서 builder 스테이지를 없애고, 밖에서 빌드된 jar 를 `COPY` 만 하도록 바꿨다.
+
+```dockerfile
+FROM eclipse-temurin:25-jre
+ARG JAR_FILE=core/core-api/build/libs/*.jar
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY ${JAR_FILE} app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+같이 바뀐 것:
+
+| 파일 | 변경 |
+| --- | --- |
+| `Dockerfile` | builder 스테이지 제거. 상단에 변경 이력 주석 |
+| `.dockerignore` | `**/build` 가 jar 까지 제외해버려서 `!core/core-api/build/libs/*.jar` 예외 추가 |
+| `compose.yaml` | `backend.build` 위에 "jar 를 먼저 만들어야 한다" 주석 |
+| `.gitlab/ci/backend.gitlab-ci.yml` | `needs.artifacts` 를 `false` → `true`, jar 존재 검사 추가 |
+
+**로컬 개발에서 달라지는 점:** `docker compose up` 전에 jar 를 만들어야 한다.
+
+```bash
+./gradlew :core:core-api:bootJar && docker compose up -d --build
+```
+
+> 이미지 크기는 변화 없다(625MB). 런타임 스테이지가 그대로이기 때문이다.
+> jar 가 없으면 `lstat ...: no such file or directory` 로만 죽어서 원인을 알기 어렵다.
+> 그래서 `backend:deploy` 가 `compose up` 전에 jar 존재를 먼저 확인한다.
 
 #### `compose.prod.yaml`
 
@@ -424,7 +488,7 @@ docker compose -f compose.yaml -f compose.prod.yaml config | grep -E "SPRING_PRO
 | `docker run -u $(id -u)` | 안 붙이면 산출물이 root 소유로 남아 다음 파이프라인의 `clean` 이 깨진다 |
 | `GRADLE_USER_HOME` 을 워크스페이스 안에 | 컨테이너의 `/root/.gradle` 은 잡이 끝나면 사라진다. 워크스페이스에 둬야 GitLab cache로 재사용된다 |
 | 배포 후 `/actuator/health` 확인 | `compose up` 이 성공해도 기동에 실패할 수 있다. 헬스체크까지 봐야 배포 성공이라 할 수 있다 |
-| `needs: artifacts: false` | Dockerfile이 소스에서 이미지를 다시 빌드하므로 62MB jar 를 내려받을 이유가 없다 |
+| `needs: artifacts: true` | Dockerfile 이 런타임 전용이라 `backend:build` 의 jar 가 필요하다 |
 | 자격 증명을 GitLab 변수로 | 서버에 평문 파일을 두지 않는다. 값 교체가 GitLab UI에서 끝나고, 누가 언제 바꿨는지 남는다 |
 | 배포 전 변수 존재 검사 | `compose.yaml` 의 비밀번호 기본값(`local_password`)으로 운영 DB가 뜨는 것을 막는다 |
 | CI 파일 자신을 `changes` 에 포함 | CI만 고친 커밋에서도 파이프라인이 돌아야 검증이 된다 |
@@ -579,9 +643,10 @@ ls -al /var/www/j15a403/frontend/
 - [x] `frontend:build` — Node 컨테이너에서 vite 빌드, `dist/` artifacts
 - [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 테스트 (JUnit 리포트)
 - [x] `backend:deploy` — `docker compose up -d --build` + 헬스체크 (현재 `when: manual`)
+- [x] Dockerfile 런타임 전용화 — 컴파일 중복 제거, 테스트 통과한 jar 를 배포
 - [ ] 서버 준비: [2-3](#2-3-프론트-배포-디렉터리-권한) 프론트 경로 권한
 - [ ] GitLab CI/CD Variables 4개 등록 + `master` 보호 브랜치 확인 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables))
-- [ ] `compose.prod.yaml` 백엔드 담당자 리뷰 (프로파일·포트 정책)
+- [ ] `compose.prod.yaml`·`Dockerfile` 변경 백엔드 담당자 리뷰
 - [ ] 검증 후 `backend:deploy` 의 `when: manual` 제거
 - [ ] `frontend:deploy` 실동작 검증 (CI 파일이 `develop-FE` 로 머지될 때)
 - [ ] Nginx `/api/` 프록시 블록 활성화

@@ -2,6 +2,8 @@
 .gradle
 .idea
 **/build
+# Dockerfile 이 밖에서 빌드된 jar 를 COPY 하므로 이것만 예외로 둔다.
+!core/core-api/build/libs/*.jar
 **/.gradle
 *.iml
 *.log

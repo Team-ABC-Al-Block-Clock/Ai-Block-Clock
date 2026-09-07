@@ -2,7 +2,8 @@
 #
 # 트리거: backend/** 가 변경된 경우에만
 #
-# 빌드·테스트는 JDK 컨테이너에서, 배포는 docker compose 로 한다.
+# 컴파일·테스트는 backend:build 에서 한 번만 한다. Dockerfile 은 런타임 전용이라
+# 그 jar 를 그대로 이미지에 넣는다 (테스트를 통과한 산출물이 그대로 배포된다).
 # 호스트에 필요한 것은 Docker 뿐이다 (JDK·JRE 모두 불필요).
 #
 # Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
@@ -74,12 +75,19 @@ backend:deploy:
     - deploy
     - shell
   needs:
-    # 빌드·테스트 통과를 전제로 하되, jar 는 쓰지 않으므로 artifacts 는 받지 않는다.
-    # (이미지는 Dockerfile 멀티스테이지가 소스에서 다시 빌드한다)
+    # Dockerfile 이 이 jar 를 COPY 하므로 artifacts 를 받아야 한다.
     - job: backend:build
-      artifacts: false
+      artifacts: true
   script:
     - cd "$BE_DIR"
+    # Dockerfile 은 런타임 전용이다. jar 가 없으면 COPY 단계에서
+    # "lstat ...: no such file or directory" 로만 죽어서 원인을 알기 어렵다.
+    - |
+      if ! ls "$BE_APP_MODULE"/build/libs/*.jar >/dev/null 2>&1; then
+        echo "$BE_APP_MODULE/build/libs/ 에 jar 가 없습니다."
+        echo "backend:build 의 artifacts 가 내려왔는지 확인하세요 (needs.artifacts: true)."
+        exit 1
+      fi
     # 자격 증명은 GitLab CI/CD Variables 에서 온다. compose 가 프로세스 환경변수로
     # ${...} 를 보간하므로 --env-file 없이 그대로 쓰인다.
     #

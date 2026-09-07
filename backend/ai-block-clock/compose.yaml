@@ -21,6 +21,10 @@ services:
       start_period: 30s
 
   backend:
+    # Dockerfile 은 런타임 전용이다(멀티스테이지 아님). 이미지를 빌드하기 전에
+    # jar 를 먼저 만들어야 한다:
+    #   ./gradlew :core:core-api:bootJar && docker compose up -d --build
+    # 배경은 Dockerfile 상단의 변경 이력 참고.
     build:
       context: .
       dockerfile: Dockerfile
