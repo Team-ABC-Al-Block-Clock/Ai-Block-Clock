@@ -1,0 +1,23 @@
+# 운영 서버 override. compose.yaml 위에 겹쳐서 쓴다.
+#
+#   docker compose --env-file /etc/j15a403/backend.env \
+#     -f compose.yaml -f compose.prod.yaml up -d --build
+#
+# compose.yaml 은 로컬 개발 기준(dev 프로파일, MySQL 호스트 노출)이므로
+# 운영에서 달라져야 하는 값만 여기서 덮어쓴다.
+
+services:
+  mysql:
+    # 로컬에서는 툴 접속을 위해 3306 을 열지만, 운영에서는 열지 않는다.
+    # backend 는 같은 compose 네트워크로 접근하므로 노출이 필요 없다.
+    ports: !reset []
+    restart: unless-stopped
+
+  backend:
+    image: ai-block-clock-backend:${IMAGE_TAG:-latest}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    # 8080 을 0.0.0.0 이 아니라 루프백에만 바인딩한다. 외부는 Nginx 를 거친다.
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped

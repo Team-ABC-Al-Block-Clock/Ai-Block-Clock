@@ -1,9 +1,9 @@
-# 백엔드 파이프라인 (Gradle 멀티모듈 -> bootJar 배포)
+# 백엔드 파이프라인 (Gradle 테스트 + Docker Compose 배포)
 #
 # 트리거: backend/** 가 변경된 경우에만
 #
-# 빌드는 JDK 컨테이너 안에서 돌린다. 호스트(배포 서버)에는 JDK가 필요 없고,
-# bootJar 를 실행할 JRE 25 와 Docker 만 있으면 된다.
+# 빌드·테스트는 JDK 컨테이너에서, 배포는 docker compose 로 한다.
+# 호스트에 필요한 것은 Docker 뿐이다 (JDK·JRE 모두 불필요).
 #
 # Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
 
@@ -11,8 +11,7 @@ variables:
   BE_DIR: backend/ai-block-clock
   BE_APP_MODULE: core/core-api # 실행 가능한 모듈은 core-api 하나뿐
   BE_JDK_IMAGE: eclipse-temurin:25-jdk
-  BE_DEPLOY_PATH: /opt/j15a403/backend
-  BE_SERVICE: j15a403-backend
+  BE_ENV_FILE: /etc/j15a403/backend.env
   # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
   GRADLE_USER_HOME: .gradle-home
 
@@ -76,26 +75,38 @@ backend:deploy:
     - deploy
     - shell
   needs:
-    - backend:build
+    # 빌드·테스트 통과를 전제로 하되, jar 는 쓰지 않으므로 artifacts 는 받지 않는다.
+    # (이미지는 Dockerfile 멀티스테이지가 소스에서 다시 빌드한다)
+    - job: backend:build
+      artifacts: false
   script:
-    - install -d "$BE_DEPLOY_PATH"
-    # 롤백용으로 직전 jar 를 남긴다
-    - test -f "$BE_DEPLOY_PATH/app.jar" && cp "$BE_DEPLOY_PATH/app.jar" "$BE_DEPLOY_PATH/app.jar.prev" || true
-    - cp "$BE_DIR/$BE_APP_MODULE"/build/libs/*.jar "$BE_DEPLOY_PATH/app.jar"
-    - sudo systemctl restart "$BE_SERVICE"
-    # 기동 대기 후 헬스체크 (실패 시 잡을 실패시킨다)
+    - cd "$BE_DIR"
+    # 자격 증명은 서버의 env 파일에만 둔다. 없으면 compose.yaml 의 기본값(local_password)이
+    # 그대로 쓰이므로, 배포를 진행하지 않고 실패시킨다.
+    - test -f "$BE_ENV_FILE" || { echo "$BE_ENV_FILE 이 없습니다. 문서 2-4 참고"; exit 1; }
+    - grep -q '^MYSQL_PASSWORD=' "$BE_ENV_FILE" || { echo "MYSQL_PASSWORD 미설정"; exit 1; }
+    - >
+      docker compose --env-file "$BE_ENV_FILE"
+      -f compose.yaml -f compose.prod.yaml
+      up -d --build --remove-orphans
+    - docker compose -f compose.yaml -f compose.prod.yaml ps
+    # compose 의 healthcheck 가 UP 이 될 때까지 기다린다
     - |
-      for i in $(seq 1 30); do
+      for i in $(seq 1 40); do
         if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
-          echo "health OK"; exit 0
+          echo "health OK"
+          docker image prune -f
+          exit 0
         fi
-        sleep 2
+        sleep 3
       done
-      echo "health check failed"; sudo journalctl -u "$BE_SERVICE" -n 50 --no-pager; exit 1
+      echo "헬스체크 실패 — 컨테이너 로그:"
+      docker compose -f compose.yaml -f compose.prod.yaml logs --tail=100 backend
+      exit 1
   environment:
     name: production/backend
     url: https://j15a403.p.ssafy.io/api
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
-      when: manual # DB/시크릿 준비 전까지 수동 실행. 준비되면 이 줄을 지운다
+      when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다
