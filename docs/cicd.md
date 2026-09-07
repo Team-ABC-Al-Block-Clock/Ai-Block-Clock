@@ -484,7 +484,8 @@ tasks.register('integrationTest', Test) {
 | 강제성 | 태그를 안 붙이면 단위로 분류됨 | 위치가 곧 분류 |
 
 **통합 테스트에는 `@Tag("integration")` 을 붙인다.** 안 붙이면 단위 테스트로 분류돼서
-MR 마다 돌게 된다.
+MR 마다 돌게 된다. 분류 기준과 리뷰 체크리스트는
+[backend/ai-block-clock/docs/RULE.md](../backend/ai-block-clock/docs/RULE.md) 에 정리했다.
 
 ```java
 @Tag("integration")
