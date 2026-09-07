@@ -257,12 +257,13 @@ frontend:deploy:
 
 ### 3-3. `.gitlab/ci/backend.gitlab-ci.yml`
 
-두 단계로 나뉜다.
+세 단계로 나뉜다.
 
-- **`backend:build`** — JDK 컨테이너에서 `gradlew build`. 컴파일·테스트를 하고 bootJar 를
-  artifacts 로 남긴다. **컴파일과 테스트는 여기서 한 번만 한다.**
-- **`backend:deploy`** — 그 jar 를 받아 `docker compose up -d --build`. Dockerfile 의
-  `prod` target 이 jar 를 그대로 넣으므로 **테스트를 통과한 그 산출물이 배포된다.**
+| 잡 | 스테이지 | 하는 일 | 언제 |
+| --- | --- | --- | --- |
+| `backend:build` | build | `gradlew build` — 컴파일 + **단위 테스트** + bootJar | MR·`feat/*`·`develop-BE`·`master` |
+| `backend:test:integration` | test | `gradlew integrationTest` — **통합 테스트** | master 로 들어가는 MR, `master` push |
+| `backend:deploy` | deploy | `docker compose up -d --build` + 헬스체크 | `master` (현재 수동) |
 
 ```yaml
 variables:
@@ -271,6 +272,21 @@ variables:
   BE_JDK_IMAGE: eclipse-temurin:25-jdk
   # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
   GRADLE_USER_HOME: .gradle-home
+
+.backend-gradle:
+  tags:
+    - deploy
+    - shell
+  before_script:
+    - chmod +x "$BE_DIR/gradlew"
+  cache:
+    key:
+      files:
+        - backend/ai-block-clock/settings.gradle
+        - backend/ai-block-clock/build.gradle
+    paths:
+      - .gradle-home/caches/
+      - .gradle-home/wrapper/
 
 .backend-changes: &backend-changes
   changes:
@@ -281,12 +297,8 @@ variables:
     - backend/ai-block-clock/settings.gradle
 
 backend:build:
+  extends: .backend-gradle
   stage: build
-  tags:
-    - deploy
-    - shell
-  before_script:
-    - chmod +x "$BE_DIR/gradlew"
   script:
     # 호스트 JDK 대신 컨테이너의 JDK 25 를 쓴다.
     # -u 로 현재 사용자 권한을 유지해야 산출물이 root 소유로 남지 않는다.
@@ -299,14 +311,6 @@ backend:build:
       "$BE_JDK_IMAGE"
       ./gradlew clean build --no-daemon
     - ls -al "$BE_DIR/$BE_APP_MODULE/build/libs/"
-  cache:
-    key:
-      files:
-        - backend/ai-block-clock/settings.gradle
-        - backend/ai-block-clock/build.gradle
-    paths:
-      - .gradle-home/caches/
-      - .gradle-home/wrapper/
   artifacts:
     name: "backend-bootjar-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -326,6 +330,45 @@ backend:build:
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
 
+backend:test:integration:
+  extends: .backend-gradle
+  stage: test
+  needs:
+    # 컴파일 결과를 재활용하지 않고 컨테이너에서 다시 돌린다. jar 는 필요 없다.
+    - job: backend:build
+      artifacts: false
+  script:
+    - >
+      docker run --rm
+      -u "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR":/workspace
+      -w "/workspace/$BE_DIR"
+      -e GRADLE_USER_HOME="/workspace/$GRADLE_USER_HOME"
+      "$BE_JDK_IMAGE"
+      ./gradlew integrationTest --no-daemon
+  artifacts:
+    reports:
+      junit:
+        - backend/ai-block-clock/**/build/test-results/integrationTest/TEST-*.xml
+    expire_in: 1 week
+    when: always
+  rules:
+    # master 로 들어가는 MR — 여기가 게이트다. 실패하면 머지가 막힌다.
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+      <<: *backend-changes
+    # master push — 안전망 (핫픽스 직접 푸시 등)
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *backend-changes
+    # 그 밖에는 수동으로 돌릴 수 있게 남긴다
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *backend-changes
+      when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "develop-BE"'
+      <<: *backend-changes
+      when: manual
+      allow_failure: true
+
 backend:deploy:
   stage: deploy
   tags:
@@ -335,6 +378,10 @@ backend:deploy:
     # Dockerfile 이 이 jar 를 COPY 하므로 artifacts 를 받아야 한다.
     - job: backend:build
       artifacts: true
+    # needs 는 stage 순서를 덮어쓴다. 여기에 안 적으면 통합 테스트가 끝나기 전에
+    # 배포가 시작될 수 있다.
+    - job: backend:test:integration
+      artifacts: false
   script:
     - cd "$BE_DIR"
     # prod target 은 jar 를 COPY 만 한다. jar 가 없으면
@@ -385,6 +432,85 @@ backend:deploy:
       <<: *backend-changes
       when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다
 ```
+
+#### 단위 / 통합 테스트를 나눴다
+
+테스트가 쌓이면 MR 마다 전체를 돌리는 게 부담이 된다. 그래서 갈랐다.
+
+```
+feat/* → develop-BE  MR   : 단위만            (빠른 피드백)
+develop-BE → master  MR   : 단위 + 통합        ← 게이트
+master               push : 단위 + 통합        (안전망)
+그 밖                     : 통합은 수동 실행 가능
+```
+
+**통합 테스트를 `master` push 가 아니라 "master 로 들어가는 MR" 에서 돌린다.** push 에서
+돌리면 실패해도 이미 머지된 뒤라 master 가 깨진 채로 남는다. MR 에서 돌려야 실패가
+머지 자체를 막는다.
+
+```yaml
+- if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'   # 게이트
+- if: '$CI_COMMIT_BRANCH == "master"'                      # 안전망
+```
+
+##### 분리 방식: JUnit 태그
+
+`build.gradle` 에서 `test` 는 태그를 제외하고, `integrationTest` 는 태그만 포함한다.
+
+```gradle
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+    shouldRunAfter tasks.named('test')
+}
+```
+
+소스셋(`src/integrationTest/java`)을 나누는 방법도 있지만 태그를 골랐다.
+
+| | 태그 | 소스셋 분리 |
+| --- | --- | --- |
+| 의존성 선언 | `test` 것을 그대로 씀 | 별도로 다시 선언해야 함 |
+| 분류 변경 | 애노테이션 한 줄 | 파일을 옮겨야 함 |
+| 강제성 | 태그를 안 붙이면 단위로 분류됨 | 위치가 곧 분류 |
+
+**통합 테스트에는 `@Tag("integration")` 을 붙인다.** 안 붙이면 단위 테스트로 분류돼서
+MR 마다 돌게 된다.
+
+```java
+@Tag("integration")
+@SpringBootTest
+class AiBlockClockApplicationTests {
+```
+
+기준: **외부 의존(DB, 컨테이너, 네트워크)이 있거나 스프링 컨텍스트를 띄우면 통합.**
+기존 `AiBlockClockApplicationTests` 는 `@SpringBootTest` 로 컨텍스트 전체를 올리므로
+통합으로 옮겼다.
+
+동작 확인:
+
+```bash
+$ ./gradlew :core:core-api:test --rerun-tasks
+BUILD SUCCESSFUL          # 실행된 테스트 0건 (통합만 있으니 제외됨)
+
+$ ./gradlew clean :core:core-api:integrationTest
+> Task :core:core-api:compileTestJava
+> Task :core:core-api:testClasses
+> Task :core:core-api:integrationTest      # test 는 돌지 않음
+BUILD SUCCESSFUL
+```
+
+> `needs:` 는 `stages:` 순서를 **덮어쓴다.** `backend:deploy` 의 `needs` 에
+> `backend:test:integration` 을 적지 않으면, 통합 테스트가 끝나기 전에 배포가 시작된다.
 
 #### Dockerfile 을 target 으로 나눴다
 
@@ -504,11 +630,10 @@ docker compose -f compose.yaml -f compose.prod.yaml config | grep -E "SPRING_PRO
 
 ### 3-5. 브랜치별 동작 요약
 
-| 변경 폴더 | `feat/*` | `develop-FE` | `develop-BE` | `master` |
+| 변경 폴더 | `feat/*` | `develop-*` MR | → `master` MR | `master` push |
 | --- | --- | --- | --- | --- |
-| `frontend/**` | build | build | – | build → deploy |
-| `backend/**` | build | – | build | build → deploy(수동) |
-| 둘 다 | 둘 다 build | build(FE) | build(BE) | 각각 |
+| `frontend/**` | build | build | build | build → deploy |
+| `backend/**` | build (단위) | build (단위) | build + **통합** | build + 통합 → deploy(수동) |
 
 > `develop-FE`/`develop-BE` 열의 `–` 는 `exists:` 규칙 때문이다. 해당 브랜치에는
 > 상대편 소스 폴더가 존재하지 않으므로 잡 자체가 생성되지 않는다.
@@ -644,7 +769,8 @@ ls -al /var/www/j15a403/frontend/
 ## 7. 남은 작업
 
 - [x] `frontend:build` — Node 컨테이너에서 vite 빌드, `dist/` artifacts
-- [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 테스트 (JUnit 리포트)
+- [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 단위 테스트 (JUnit 리포트)
+- [x] `backend:test:integration` — `@Tag("integration")` 통합 테스트, master 게이트
 - [x] `backend:deploy` — `docker compose up -d --build` + 헬스체크 (현재 `when: manual`)
 - [x] Dockerfile target 분리(local/prod) — 컴파일 중복 제거, 테스트 통과한 jar 를 배포
 - [ ] 서버 준비: [2-3](#2-3-프론트-배포-디렉터리-권한) 프론트 경로 권한
@@ -653,4 +779,5 @@ ls -al /var/www/j15a403/frontend/
 - [ ] 검증 후 `backend:deploy` 의 `when: manual` 제거
 - [ ] `frontend:deploy` 실동작 검증 (CI 파일이 `develop-FE` 로 머지될 때)
 - [ ] Nginx `/api/` 프록시 블록 활성화
+- [ ] 프론트 테스트 도입 시 `frontend:build` 에 추가 (현재 `package.json` 에 test 스크립트 없음)
 - [ ] 무중단 배포 필요 여부 판단 (현재는 컨테이너 교체 중 수 초 다운타임)
