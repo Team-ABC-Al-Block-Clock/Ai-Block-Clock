@@ -1,0 +1,87 @@
+# 백엔드 파이프라인 (Gradle 멀티모듈)
+#
+# 트리거: backend/** 가 변경된 경우에만
+#
+# [현재 상태] Dockerfile 이 아직 없으므로 build/test 까지만 수행한다.
+#             이미지 빌드 + 컨테이너 배포는 아래 TODO 참고.
+#
+# Runner: 배포 서버(EC2)에 등록된 shell executor (tag: ssafy-ec2)
+
+variables:
+  BE_DIR: backend/ai-block-clock
+
+.backend-base:
+  tags:
+    - ssafy-ec2
+  before_script:
+    - cd "$BE_DIR"
+    - chmod +x ./gradlew
+    - ./gradlew --version
+
+.backend-changes: &backend-changes
+  changes:
+    - backend/**/*
+    - .gitlab/ci/backend.gitlab-ci.yml
+    - .gitlab-ci.yml
+  exists:
+    - backend/ai-block-clock/settings.gradle
+
+backend:build:
+  extends: .backend-base
+  stage: build
+  script:
+    - ./gradlew clean build --no-daemon
+  cache:
+    key:
+      files:
+        - backend/ai-block-clock/settings.gradle
+        - backend/ai-block-clock/build.gradle
+    paths:
+      - backend/ai-block-clock/.gradle/
+  artifacts:
+    name: "backend-libs-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - backend/ai-block-clock/**/build/libs/*.jar
+    reports:
+      junit:
+        - backend/ai-block-clock/**/build/test-results/test/TEST-*.xml
+    expire_in: 1 week
+    when: always
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *backend-changes
+    - if: '$CI_COMMIT_BRANCH =~ /^(feat|hotfix)\//'
+      <<: *backend-changes
+    - if: '$CI_COMMIT_BRANCH == "develop-BE"'
+      <<: *backend-changes
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *backend-changes
+
+# ---------------------------------------------------------------------------
+# TODO: Dockerfile 이 올라오면 아래를 활성화한다.
+#
+# backend:image:
+#   stage: build
+#   tags: [ssafy-ec2]
+#   needs: [backend:build]
+#   script:
+#     - docker build -t j15a403/backend:$CI_COMMIT_SHORT_SHA -f $BE_DIR/Dockerfile $BE_DIR
+#     - docker tag j15a403/backend:$CI_COMMIT_SHORT_SHA j15a403/backend:latest
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "master"'
+#       changes: [backend/**/*]
+#
+# backend:deploy:
+#   stage: deploy
+#   tags: [ssafy-ec2]
+#   needs: [backend:image]
+#   script:
+#     - docker compose -f /opt/j15a403/docker-compose.yml up -d --no-deps backend
+#     - docker image prune -f
+#   environment:
+#     name: production/backend
+#     url: https://j15a403.p.ssafy.io/api
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "master"'
+#       changes: [backend/**/*]
+# ---------------------------------------------------------------------------

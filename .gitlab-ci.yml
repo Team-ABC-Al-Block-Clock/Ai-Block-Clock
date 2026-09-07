@@ -1,0 +1,28 @@
+# 루트 파이프라인 정의
+#
+# 실제 잡 정의는 도메인별 파일로 분리한다. 각 파일은 자기 폴더가 변경됐을 때만
+# 잡을 만들어내므로, 프론트만 수정한 커밋에서 백엔드 파이프라인이 돌지 않는다.
+#
+#   frontend/**  ->  .gitlab/ci/frontend.gitlab-ci.yml
+#   backend/**   ->  .gitlab/ci/backend.gitlab-ci.yml
+#
+# 자세한 내용은 docs/cicd.md 참고.
+
+stages:
+  - build
+  - deploy
+
+variables:
+  GIT_DEPTH: '20'
+
+include:
+  - local: .gitlab/ci/frontend.gitlab-ci.yml
+  - local: .gitlab/ci/backend.gitlab-ci.yml
+
+# 변경된 폴더가 없어 잡이 하나도 생성되지 않으면 파이프라인 자체를 만들지 않는다
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never # MR이 열린 브랜치는 MR 파이프라인만 돌린다 (중복 방지)
+    - if: '$CI_COMMIT_BRANCH'

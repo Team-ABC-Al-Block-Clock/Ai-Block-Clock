@@ -1,0 +1,80 @@
+# 프론트엔드 파이프라인 (Vite 빌드 -> 정적 파일 배포)
+#
+# 트리거: frontend/** 가 변경된 경우에만
+# 배포:   master 브랜치에서만, /var/www/j15a403/frontend 로 rsync
+#
+# Runner: 배포 서버(EC2)에 등록된 shell executor (tag: ssafy-ec2)
+
+variables:
+  FE_DIR: frontend
+  FE_DEPLOY_PATH: /var/www/j15a403/frontend
+  FE_NODE_VERSION: '22'
+
+.frontend-base:
+  tags:
+    - ssafy-ec2
+  before_script:
+    - export NVM_DIR="$HOME/.nvm"
+    - . "$NVM_DIR/nvm.sh"
+    - nvm use "$FE_NODE_VERSION"
+    - node -v && npm -v
+    - cd "$FE_DIR"
+
+# frontend 폴더 또는 이 CI 파일이 바뀌었을 때만 잡을 만든다.
+# exists 로 한 번 더 거른다 — 브랜치에 frontend/ 자체가 없으면(예: develop-BE 계열)
+# CI 파일만 바뀌어도 잡을 만들지 않는다.
+.frontend-changes: &frontend-changes
+  changes:
+    - frontend/**/*
+    - .gitlab/ci/frontend.gitlab-ci.yml
+    - .gitlab-ci.yml
+  exists:
+    - frontend/package.json
+
+frontend:build:
+  extends: .frontend-base
+  stage: build
+  script:
+    - npm ci
+    - npm run lint
+    - npm run build # tsc -b && vite build -> frontend/dist
+    - test -f dist/index.html # 산출물 검증
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+  artifacts:
+    name: "frontend-dist-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH =~ /^(feat|hotfix)\//'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH == "develop-FE"'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *frontend-changes
+
+frontend:deploy:
+  stage: deploy
+  tags:
+    - ssafy-ec2
+  needs:
+    - frontend:build
+  script:
+    - mkdir -p "$FE_DEPLOY_PATH"
+    # --delete: Vite 는 assets/index-<hash>.js 로 파일명이 매번 바뀌므로
+    #           옛 번들을 지우지 않으면 계속 쌓인다
+    - rsync -av --delete "$FE_DIR/dist/" "$FE_DEPLOY_PATH/"
+    - ls -al "$FE_DEPLOY_PATH/index.html"
+  environment:
+    name: production/frontend
+    url: https://j15a403.p.ssafy.io
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *frontend-changes
