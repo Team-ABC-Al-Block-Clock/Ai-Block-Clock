@@ -5,7 +5,7 @@
 # 빌드는 JDK 컨테이너 안에서 돌린다. 호스트(배포 서버)에는 JDK가 필요 없고,
 # bootJar 를 실행할 JRE 25 와 Docker 만 있으면 된다.
 #
-# Runner: 배포 서버(EC2)에 등록된 shell executor (tag: ssafy-ec2)
+# Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
 
 variables:
   BE_DIR: backend/ai-block-clock
@@ -27,7 +27,8 @@ variables:
 backend:build:
   stage: build
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   before_script:
     - chmod +x "$BE_DIR/gradlew"
   script:
@@ -72,7 +73,8 @@ backend:build:
 backend:deploy:
   stage: deploy
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   needs:
     - backend:build
   script:

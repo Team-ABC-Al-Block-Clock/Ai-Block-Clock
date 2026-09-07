@@ -3,7 +3,7 @@
 # 트리거: frontend/** 가 변경된 경우에만
 # 배포:   master 브랜치에서만, /var/www/j15a403/frontend 로 rsync
 #
-# Runner: 배포 서버(EC2)에 등록된 shell executor (tag: ssafy-ec2)
+# Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
 
 variables:
   FE_DIR: frontend
@@ -12,7 +12,8 @@ variables:
 
 .frontend-base:
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   before_script:
     - export NVM_DIR="$HOME/.nvm"
     - . "$NVM_DIR/nvm.sh"
@@ -63,7 +64,8 @@ frontend:build:
 frontend:deploy:
   stage: deploy
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   needs:
     - frontend:build
   script:

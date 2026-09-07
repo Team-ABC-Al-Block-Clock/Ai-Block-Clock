@@ -13,7 +13,7 @@ GitLab Push / MR
       ├─ frontend/** 변경 ─┐        ├─ backend/** 변경 ─┐
       ▼                    ▼        ▼                   ▼
 ┌──────────────────────────────────────────────────────────┐
-│  GitLab Runner (shell executor, tag: ssafy-ec2)          │
+│  GitLab Runner (shell executor, tags: deploy shell)          │
 │  = 배포 서버(EC2, j15a403) 위에 직접 등록                 │
 │                                                          │
 │  frontend:build  npm ci → npm run build → dist/          │
@@ -61,11 +61,13 @@ sudo gitlab-runner register \
   --url https://lab.ssafy.com/ \
   --token <PROJECT_RUNNER_TOKEN> \
   --executor shell \
-  --description "j15a403-deploy" \
-  --tag-list "ssafy-ec2"
+  --description "a403-deploy-runner" \
+  --tag-list "deploy,shell"
 ```
 
-> `--tag-list` 값은 `.gitlab-ci.yml` 의 `tags:` 와 반드시 일치해야 한다.
+> `--tag-list` 값은 각 잡의 `tags:` 와 반드시 일치해야 한다. Runner가 `run_untagged=false`
+> 이므로 태그가 하나라도 어긋나면 잡이 `pending` 에서 멈춘다(stuck).
+> 현재 등록된 runner: `a403-deploy-runner` (tags: `deploy`, `shell`)
 
 ### 2-2. Node 설치 (gitlab-runner 계정 기준)
 
@@ -239,7 +241,8 @@ variables:
 
 .frontend-base:
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   before_script:
     - export NVM_DIR="$HOME/.nvm"
     - . "$NVM_DIR/nvm.sh"
@@ -287,7 +290,8 @@ frontend:build:
 frontend:deploy:
   stage: deploy
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   needs:
     - frontend:build
   script:
@@ -328,7 +332,8 @@ variables:
 backend:build:
   stage: build
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   before_script:
     - chmod +x "$BE_DIR/gradlew"
   script:
@@ -373,7 +378,8 @@ backend:build:
 backend:deploy:
   stage: deploy
   tags:
-    - ssafy-ec2
+    - deploy
+    - shell
   needs:
     - backend:build
   script:
