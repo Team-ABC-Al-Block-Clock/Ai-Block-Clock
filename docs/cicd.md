@@ -19,18 +19,21 @@ GitLab Push / MR
 │  frontend:build  npm ci → npm run build → dist/          │
 │  frontend:deploy dist/ → /var/www/j15a403/frontend       │
 │                                                          │
-│  backend:build   ./gradlew clean build                   │
-│  backend:deploy  (Dockerfile 나오면 추가)                 │
+│  backend:build   JDK 컨테이너에서 gradle build → bootJar  │
+│  backend:deploy  app.jar → /opt/j15a403/backend + restart│
 └──────────────────────────────────────────────────────────┘
                       │
                       ▼
         호스트 Nginx 가 /var/www/j15a403/frontend 를 root 로 서빙
+        /api → 127.0.0.1:8080 (systemd: j15a403-backend)
         https://j15a403.p.ssafy.io/
 ```
 
 - Runner를 배포 서버에 직접 등록하므로 **SSH 키·배포용 시크릿이 필요 없다.**
   파일 복사가 곧 로컬 복사다.
-- 빌드 결과물(`dist/`)만 서버에 올라가고, Node/소스는 서버에 남지 않는다.
+- 빌드 결과물(`dist/`, `app.jar`)만 배포 경로로 옮겨진다.
+- 백엔드 빌드는 JDK 컨테이너 안에서 돈다. **호스트에는 JDK가 필요 없고**, bootJar 를
+  실행할 JRE 25 와 빌드 컨테이너를 띄울 Docker 만 있으면 된다.
 - CI 정의는 프론트/백엔드로 파일이 분리돼 있고, **변경된 폴더에 해당하는 잡만 생성**된다
   (→ [3. CI 파일 구성](#3-ci-파일-구성)).
 
@@ -80,35 +83,37 @@ node -v   # v22.x
 
 `.gitlab-ci.yml` 의 `before_script` 에서 nvm을 다시 source 한다(비로그인 셸 대비).
 
-### 2-3. JDK 설치 (백엔드용)
+### 2-3. Docker + JRE 설치 (백엔드용)
 
-shell executor는 서버에 설치된 JDK를 그대로 쓴다. `backend/ai-block-clock/build.gradle` 이
-**Java toolchain 25** 를 요구하고, `settings.gradle` 에 foojay-resolver 플러그인이 없어
-**Gradle이 JDK를 자동으로 내려받지 못한다.** 서버에 직접 설치해야 한다.
+빌드와 실행을 분리한다.
+
+- **빌드**는 `eclipse-temurin:25-jdk` 컨테이너 안에서 한다 → 호스트에 **JDK 불필요**
+- **실행**은 호스트에서 bootJar 를 직접 띄운다 → **JRE 25 만** 있으면 된다
+
+> `build.gradle` 이 Java toolchain 25 를 요구하는데 `settings.gradle` 에 foojay-resolver가
+> 없어 Gradle이 JDK를 자동으로 못 받는다. 그래서 빌드용 JDK를 컨테이너로 공급한다.
 
 ```bash
-sudo apt-get install -y wget apt-transport-https gpg
+# Docker (빌드 컨테이너 실행용)
+sudo apt-get install -y docker.io
+sudo usermod -aG docker gitlab-runner      # runner 가 docker 를 쓰려면 필요
+sudo systemctl restart gitlab-runner
+
+# JRE 25 (bootJar 실행용)
 wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public \
   | sudo tee /etc/apt/trusted.gpg.d/adoptium.asc
 echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" \
   | sudo tee /etc/apt/sources.list.d/adoptium.list
-sudo apt-get update
-sudo apt-get install -y temurin-25-jdk
-
-java -version   # openjdk version "25"
+sudo apt-get update && sudo apt-get install -y temurin-25-jre
 ```
 
-`gitlab-runner` 계정에서도 잡히는지 확인한다.
+`gitlab-runner` 계정에서 둘 다 잡히는지 확인한다.
 
 ```bash
-sudo su - gitlab-runner -c 'java -version && echo $JAVA_HOME'
+sudo su - gitlab-runner -c 'docker ps && java -version'
 ```
 
-> `JAVA_HOME` 이 비어 있으면 `/etc/profile.d/jdk.sh` 에
-> `export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64` 를 추가한다.
->
-> 대안: `settings.gradle` 에 `foojay-resolver-convention` 플러그인을 넣으면 toolchain을
-> Gradle이 내려받는다. 다만 Gradle 자체를 띄울 JDK는 여전히 필요하므로, 서버 설치가 더 간단하다.
+> `usermod -aG docker` 는 재로그인해야 반영된다. runner 서비스 재시작이 그 역할을 한다.
 
 ### 2-4. 배포 디렉터리 생성 및 권한
 
@@ -126,6 +131,58 @@ sudo chmod 755 /var/www /var/www/j15a403
 ```bash
 sudo apt-get install -y rsync
 ```
+
+### 2-6. 백엔드 systemd 유닛
+
+`backend:deploy` 는 jar 를 갈아끼우고 `systemctl restart` 만 한다. 유닛은 미리 만들어둔다.
+
+`/etc/systemd/system/j15a403-backend.service` :
+
+```ini
+[Unit]
+Description=j15a403 backend (Spring Boot)
+After=network.target
+
+[Service]
+Type=simple
+User=gitlab-runner
+WorkingDirectory=/opt/j15a403/backend
+EnvironmentFile=/etc/j15a403/backend.env
+ExecStart=/usr/bin/java -jar /opt/j15a403/backend/app.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+DB 접속 정보는 유닛이 아니라 환경 파일에 둔다 (`db-prod.yml` 이 기본값 없이 환경 변수를 요구한다).
+
+```bash
+sudo install -d -m 700 /etc/j15a403
+sudo tee /etc/j15a403/backend.env >/dev/null <<'ENV'
+SPRING_PROFILES_ACTIVE=prod
+SERVER_PORT=8080
+DB_URL=jdbc:mysql://127.0.0.1:3306/j15a403
+DB_USERNAME=...
+DB_PASSWORD=...
+ENV
+sudo chmod 600 /etc/j15a403/backend.env
+
+sudo install -d -o gitlab-runner -g gitlab-runner /opt/j15a403/backend
+sudo systemctl daemon-reload && sudo systemctl enable j15a403-backend
+```
+
+`backend:deploy` 가 `sudo systemctl restart` 를 쓰므로, 그 명령만 비밀번호 없이 허용한다.
+
+```bash
+echo 'gitlab-runner ALL=(root) NOPASSWD: /bin/systemctl restart j15a403-backend, /bin/journalctl -u j15a403-backend *' \
+  | sudo tee /etc/sudoers.d/gitlab-runner-backend
+sudo chmod 440 /etc/sudoers.d/gitlab-runner-backend
+```
+
+> 전체 `sudo` 를 열지 않고 필요한 명령만 화이트리스트에 넣는다.
 
 ---
 
@@ -247,19 +304,18 @@ frontend:deploy:
 
 ### 3-3. `.gitlab/ci/backend.gitlab-ci.yml`
 
-Dockerfile이 아직 없으므로 **build/test 까지만** 돌린다. 이미지 빌드·컨테이너 배포 잡은
-같은 파일에 주석으로 자리를 잡아뒀다.
+프론트와 같은 구조다 — **CI가 빌드·테스트해서 산출물(bootJar)을 artifacts로 남기고,
+CD가 그걸 서버에 옮긴다.** 다른 점은 빌드를 JDK 컨테이너 안에서 돌린다는 것뿐이다.
 
 ```yaml
 variables:
   BE_DIR: backend/ai-block-clock
-
-.backend-base:
-  tags:
-    - ssafy-ec2
-  before_script:
-    - cd "$BE_DIR"
-    - chmod +x ./gradlew
+  BE_APP_MODULE: core/core-api # 실행 가능한 모듈은 core-api 하나뿐
+  BE_JDK_IMAGE: eclipse-temurin:25-jdk
+  BE_DEPLOY_PATH: /opt/j15a403/backend
+  BE_SERVICE: j15a403-backend
+  # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
+  GRADLE_USER_HOME: .gradle-home
 
 .backend-changes: &backend-changes
   changes:
@@ -270,26 +326,40 @@ variables:
     - backend/ai-block-clock/settings.gradle
 
 backend:build:
-  extends: .backend-base
   stage: build
+  tags:
+    - ssafy-ec2
+  before_script:
+    - chmod +x "$BE_DIR/gradlew"
   script:
-    - ./gradlew clean build --no-daemon
+    # 호스트 JDK 대신 컨테이너의 JDK 25 를 쓴다.
+    # -u 로 현재 사용자 권한을 유지해야 산출물이 root 소유로 남지 않는다.
+    - >
+      docker run --rm
+      -u "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR":/workspace
+      -w "/workspace/$BE_DIR"
+      -e GRADLE_USER_HOME="/workspace/$GRADLE_USER_HOME"
+      "$BE_JDK_IMAGE"
+      ./gradlew clean build --no-daemon
+    - ls -al "$BE_DIR/$BE_APP_MODULE/build/libs/"
   cache:
     key:
       files:
         - backend/ai-block-clock/settings.gradle
         - backend/ai-block-clock/build.gradle
     paths:
-      - backend/ai-block-clock/.gradle/
+      - .gradle-home/caches/
+      - .gradle-home/wrapper/
   artifacts:
-    name: "backend-libs-$CI_COMMIT_SHORT_SHA"
+    name: "backend-bootjar-$CI_COMMIT_SHORT_SHA"
     paths:
-      - backend/ai-block-clock/**/build/libs/*.jar
+      - backend/ai-block-clock/core/core-api/build/libs/*.jar
     reports:
       junit:
         - backend/ai-block-clock/**/build/test-results/test/TEST-*.xml
     expire_in: 1 week
-    when: always              # 테스트 실패해도 리포트는 올린다
+    when: always # 테스트가 깨져도 리포트는 올린다
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *backend-changes
@@ -299,7 +369,47 @@ backend:build:
       <<: *backend-changes
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
+
+backend:deploy:
+  stage: deploy
+  tags:
+    - ssafy-ec2
+  needs:
+    - backend:build
+  script:
+    - install -d "$BE_DEPLOY_PATH"
+    # 롤백용으로 직전 jar 를 남긴다
+    - test -f "$BE_DEPLOY_PATH/app.jar" && cp "$BE_DEPLOY_PATH/app.jar" "$BE_DEPLOY_PATH/app.jar.prev" || true
+    - cp "$BE_DIR/$BE_APP_MODULE"/build/libs/*.jar "$BE_DEPLOY_PATH/app.jar"
+    - sudo systemctl restart "$BE_SERVICE"
+    # 기동 대기 후 헬스체크 (실패 시 잡을 실패시킨다)
+    - |
+      for i in $(seq 1 30); do
+        if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+          echo "health OK"; exit 0
+        fi
+        sleep 2
+      done
+      echo "health check failed"; sudo journalctl -u "$BE_SERVICE" -n 50 --no-pager; exit 1
+  environment:
+    name: production/backend
+    url: https://j15a403.p.ssafy.io/api
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *backend-changes
+      when: manual # DB/시크릿 준비 전까지 수동 실행. 준비되면 이 줄을 지운다
 ```
+
+배포 후 서버 모습:
+
+```
+/opt/j15a403/backend/
+├── app.jar          # core-api bootJar (실행 대상)
+└── app.jar.prev     # 직전 버전 (롤백용)
+```
+
+> `when: manual` 은 DB·시크릿이 준비될 때까지의 안전장치다. `/etc/j15a403/backend.env`
+> 설정과 DB 기동이 끝나면 그 줄을 지워 자동 배포로 전환한다.
 
 ### 3-4. 왜 이렇게 했는지
 
@@ -309,6 +419,10 @@ backend:build:
 | `changes:` 규칙 | 백엔드만 수정한 커밋에서 프론트 파이프라인이 도는 것을 막는다 |
 | `exists:` 규칙 | `develop-BE` 계열 브랜치에는 `frontend/` 가 아예 없다. CI 파일만 고쳐도 프론트 잡이 생겨 `cd frontend` 로 죽는 것을 막는다 |
 | `feat/*`·`hotfix/*` 규칙 | MR을 열기 전에도 push만으로 빌드 검증이 돌게 한다 |
+| 백엔드 빌드를 컨테이너로 | 호스트에 JDK를 깔지 않는다. 서버는 bootJar 실행용 JRE만 있으면 된다 |
+| `docker run -u $(id -u)` | 안 붙이면 산출물이 root 소유로 남아 다음 파이프라인의 `clean` 이 깨진다 |
+| `GRADLE_USER_HOME` 을 워크스페이스 안에 | 컨테이너의 `/root/.gradle` 은 잡이 끝나면 사라진다. 워크스페이스에 둬야 GitLab cache로 재사용된다 |
+| 배포 후 `/actuator/health` 확인 | restart가 성공해도 기동에 실패할 수 있다. 헬스체크까지 봐야 배포 성공이라 할 수 있다 |
 | CI 파일 자신을 `changes` 에 포함 | CI만 고친 커밋에서도 파이프라인이 돌아야 검증이 된다 |
 | `workflow.rules` 의 `$CI_OPEN_MERGE_REQUESTS` | 브랜치 파이프라인 + MR 파이프라인 이중 실행 방지 |
 | `npm ci` | `package-lock.json` 기준 재현 가능한 설치. `npm install` 은 lock을 갱신해버림 |
@@ -322,7 +436,7 @@ backend:build:
 | 변경 폴더 | `feat/*` | `develop-FE` | `develop-BE` | `master` |
 | --- | --- | --- | --- | --- |
 | `frontend/**` | build | build | – | build → deploy |
-| `backend/**` | build | – | build | build (배포는 TODO) |
+| `backend/**` | build | – | build | build → deploy(수동) |
 | 둘 다 | 둘 다 build | build(FE) | build(BE) | 각각 |
 
 > `develop-FE`/`develop-BE` 열의 `–` 는 `exists:` 규칙 때문이다. 해당 브랜치에는
@@ -429,7 +543,10 @@ ls -al /var/www/j15a403/frontend/
 | 증상 | 원인 / 해결 |
 | --- | --- |
 | `This job is stuck` | Runner 태그 불일치. `.gitlab/ci/*.gitlab-ci.yml` 의 `tags:` 와 Runner 등록 태그 확인 |
-| `Could not find a JDK / toolchain 25` | 서버에 JDK 25 미설치. [2-3](#2-3-jdk-설치-백엔드용) 참고 |
+| `docker: permission denied` | `sudo usermod -aG docker gitlab-runner` 후 runner 재시작 ([2-3](#2-3-docker--jre-설치-백엔드용)) |
+| 빌드 산출물이 root 소유 | `docker run` 의 `-u "$(id -u):$(id -g)"` 누락 |
+| `backend:deploy` 헬스체크 실패 | `sudo journalctl -u j15a403-backend -n 100`. 대개 `/etc/j15a403/backend.env` 의 DB 값 누락 |
+| `sudo: no tty present` | `/etc/sudoers.d/gitlab-runner-backend` 의 NOPASSWD 규칙 확인 ([2-6](#2-6-백엔드-systemd-유닛)) |
 | `npm: command not found` | `before_script` 에서 nvm source 누락. `gitlab-runner` 계정으로 로그인해 `node -v` 확인 |
 | `rsync: Permission denied` | `sudo chown -R gitlab-runner:gitlab-runner /var/www/j15a403` 재실행 |
 | 새로고침 시 404 | Nginx `try_files ... /index.html` 누락 |
@@ -445,13 +562,17 @@ ls -al /var/www/j15a403/frontend/
 
 ---
 
-## 7. TODO — 백엔드
+## 7. 남은 작업
 
-`backend:build`(Gradle 빌드 + 테스트)는 이미 `.gitlab/ci/backend.gitlab-ci.yml` 에 들어가 있다.
-Dockerfile이 올라오면 같은 파일의 주석 블록을 활성화하고 이 문서에도 절을 추가한다.
+- [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 테스트, bootJar artifacts
+- [x] `backend:deploy` — jar 교체 + `systemctl restart` + 헬스체크 (현재 `when: manual`)
+- [ ] 서버 준비: Docker / JRE 25 / systemd 유닛 / `/etc/j15a403/backend.env` ([2-3](#2-3-docker--jre-설치-백엔드용), [2-6](#2-6-백엔드-systemd-유닛))
+- [ ] DB 기동 및 접속 정보 확정 → `backend:deploy` 의 `when: manual` 제거
+- [ ] Nginx `/api/` 프록시 블록 활성화
+- [ ] 무중단 배포 필요 여부 판단 (현재는 restart 중 수 초 다운타임)
 
-- [x] `backend:build` — Gradle 멀티모듈 빌드 + 테스트 (JUnit 리포트 포함)
-- [ ] `backend:image` — Docker 이미지 빌드 및 태깅
-- [ ] `backend:deploy` — 서버에서 컨테이너 교체 (무중단 여부 결정 필요)
-- [ ] DB / 시크릿을 GitLab CI/CD Variables(Masked, Protected)로 관리
-- [ ] Nginx `/api/` 프록시 블록 활성화 및 헬스체크 경로 확정
+### Dockerfile 로 갈 경우
+
+컨테이너로 운영하기로 하면 멀티스테이지 Dockerfile(빌드 `temurin:25-jdk` → 런타임
+`temurin:25-jre`)로 바꾼다. 그러면 호스트의 JRE와 systemd 유닛이 모두 필요 없어지고,
+`backend:deploy` 는 `docker compose up -d --no-deps backend` 한 줄이 된다.
