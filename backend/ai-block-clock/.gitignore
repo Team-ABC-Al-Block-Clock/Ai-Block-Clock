@@ -33,5 +33,9 @@ out/
 /nbdist/
 /.nb-gradle/
 
+# Docker Compose 로컬 환경 변수
+.env
+!.env.example
+
 ### VS Code ###
 .vscode/
