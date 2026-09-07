@@ -261,8 +261,8 @@ frontend:deploy:
 
 - **`backend:build`** — JDK 컨테이너에서 `gradlew build`. 컴파일·테스트를 하고 bootJar 를
   artifacts 로 남긴다. **컴파일과 테스트는 여기서 한 번만 한다.**
-- **`backend:deploy`** — 그 jar 를 받아 `docker compose up -d --build`. Dockerfile 이
-  런타임 전용이므로 **테스트를 통과한 그 jar 가 그대로 이미지에 들어간다.**
+- **`backend:deploy`** — 그 jar 를 받아 `docker compose up -d --build`. Dockerfile 의
+  `prod` target 이 jar 를 그대로 넣으므로 **테스트를 통과한 그 산출물이 배포된다.**
 
 ```yaml
 variables:
@@ -337,7 +337,7 @@ backend:deploy:
       artifacts: true
   script:
     - cd "$BE_DIR"
-    # Dockerfile 은 런타임 전용이다. jar 가 없으면 COPY 단계에서
+    # prod target 은 jar 를 COPY 만 한다. jar 가 없으면
     # "lstat ...: no such file or directory" 로만 죽어서 원인을 알기 어렵다.
     - |
       if ! ls "$BE_APP_MODULE"/build/libs/*.jar >/dev/null 2>&1; then
@@ -386,62 +386,65 @@ backend:deploy:
       when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다
 ```
 
-#### Dockerfile 을 런타임 전용으로 바꿨다
+#### Dockerfile 을 target 으로 나눴다
 
-원래 `Dockerfile` 은 멀티스테이지였다.
-
-```dockerfile
-FROM eclipse-temurin:25-jdk AS builder
-COPY . .
-RUN ./gradlew :core:core-api:bootJar --no-daemon   # ← 여기서 다시 컴파일
-FROM eclipse-temurin:25-jre
-COPY --from=builder /workspace/core/core-api/build/libs/*.jar app.jar
-```
-
-문제가 두 가지였다.
+원래 `Dockerfile` 은 단일 멀티스테이지였다 — builder 가 항상 소스를 컴파일하고 그 jar 를
+런타임에 복사했다. 문제가 두 가지였다.
 
 1. **컴파일이 2회 돈다.** `backend:build` 가 `gradlew build` 로 이미 컴파일을 끝냈는데,
    builder 스테이지가 소스를 받아 처음부터 다시 컴파일한다. Dockerfile 은 파이프라인을
    모르니 CI 의 결과물을 재활용할 방법이 없다.
 2. **배포되는 산출물이 테스트를 통과한 그것이 아니다.** `gradlew build` 에는 `test` 가
-   붙지만 `gradlew bootJar` 에는 붙지 않는다. 즉 테스트한 jar 와 배포된 jar 가 다른
-   산출물이었다.
+   붙지만 `gradlew bootJar` 에는 붙지 않는다.
 
 ```bash
-# 확인 방법
 ./gradlew :core:core-api:build   --dry-run | grep ':test'   # → :core:core-api:test
 ./gradlew :core:core-api:bootJar --dry-run | grep ':test'   # → (없음)
 ```
 
-그래서 builder 스테이지를 없애고, 밖에서 빌드된 jar 를 `COPY` 만 하도록 바꿨다.
+그렇다고 런타임 전용으로만 바꾸면 로컬에서 `docker compose up` 전에 `bootJar` 를 먼저
+돌려야 해서 개발 편의가 나빠진다. 그래서 **target 을 나눠 둘 다 만족시킨다.**
 
 ```dockerfile
-FROM eclipse-temurin:25-jre
-ARG JAR_FILE=core/core-api/build/libs/*.jar
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-COPY ${JAR_FILE} app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+FROM eclipse-temurin:25-jre AS runtime-base   # 두 target 이 공유
+FROM eclipse-temurin:25-jdk AS builder        # local 만 사용
+FROM runtime-base AS prod                     # 밖에서 빌드된 jar 를 COPY
+FROM runtime-base AS local                     # builder 의 jar 를 COPY (기본 target)
+```
+
+| target | 쓰는 곳 | jar 출처 | 컴파일 |
+| --- | --- | --- | --- |
+| `local` | `compose.yaml` — 로컬 개발 | builder 스테이지 | 컨테이너 안에서 |
+| `prod` | `compose.prod.yaml` — CI 배포 | `backend:build` artifacts | 안 함 |
+
+**BuildKit 은 target 이 의존하는 스테이지만 빌드한다.** `--target prod` 면 builder 는 아예
+실행되지 않는다 — `eclipse-temurin:25-jdk` 이미지를 받지도 않는다.
+
+```
+$ docker build --no-cache --target prod .
+#5 [runtime-base 1/3] FROM eclipse-temurin:25-jre
+#8 [runtime-base 3/3] RUN apt-get install curl
+#9 [prod 1/1] COPY core/core-api/build/libs/*.jar app.jar
+   ← builder 스테이지 없음
+```
+
+로컬 개발은 **기존과 똑같다.** 사전 준비 없이 한 번에 뜬다.
+
+```bash
+docker compose up -d --build
 ```
 
 같이 바뀐 것:
 
 | 파일 | 변경 |
 | --- | --- |
-| `Dockerfile` | builder 스테이지 제거. 상단에 변경 이력 주석 |
-| `.dockerignore` | `**/build` 가 jar 까지 제외해버려서 `!core/core-api/build/libs/*.jar` 예외 추가 |
-| `compose.yaml` | `backend.build` 위에 "jar 를 먼저 만들어야 한다" 주석 |
-| `.gitlab/ci/backend.gitlab-ci.yml` | `needs.artifacts` 를 `false` → `true`, jar 존재 검사 추가 |
+| `Dockerfile` | `runtime-base` / `builder` / `prod` / `local` 4개 스테이지로 분리. 상단에 변경 이력 주석 |
+| `.dockerignore` | `**/build` 가 jar 까지 제외해버려서 `!core/core-api/build/libs/*.jar` 예외 추가 (prod target 용) |
+| `compose.yaml` | `build.target: local` |
+| `compose.prod.yaml` | `build.target: prod` |
+| `.gitlab/ci/backend.gitlab-ci.yml` | `needs.artifacts: true`, `compose up` 전 jar 존재 검사 |
 
-**로컬 개발에서 달라지는 점:** `docker compose up` 전에 jar 를 만들어야 한다.
-
-```bash
-./gradlew :core:core-api:bootJar && docker compose up -d --build
-```
-
-> 이미지 크기는 변화 없다(625MB). 런타임 스테이지가 그대로이기 때문이다.
+> 두 target 의 이미지 크기는 같다(625MB). 런타임 베이스를 공유하기 때문이다.
 > jar 가 없으면 `lstat ...: no such file or directory` 로만 죽어서 원인을 알기 어렵다.
 > 그래서 `backend:deploy` 가 `compose up` 전에 jar 존재를 먼저 확인한다.
 
@@ -643,7 +646,7 @@ ls -al /var/www/j15a403/frontend/
 - [x] `frontend:build` — Node 컨테이너에서 vite 빌드, `dist/` artifacts
 - [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 테스트 (JUnit 리포트)
 - [x] `backend:deploy` — `docker compose up -d --build` + 헬스체크 (현재 `when: manual`)
-- [x] Dockerfile 런타임 전용화 — 컴파일 중복 제거, 테스트 통과한 jar 를 배포
+- [x] Dockerfile target 분리(local/prod) — 컴파일 중복 제거, 테스트 통과한 jar 를 배포
 - [ ] 서버 준비: [2-3](#2-3-프론트-배포-디렉터리-권한) 프론트 경로 권한
 - [ ] GitLab CI/CD Variables 4개 등록 + `master` 보호 브랜치 확인 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables))
 - [ ] `compose.prod.yaml`·`Dockerfile` 변경 백엔드 담당자 리뷰

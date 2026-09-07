@@ -14,6 +14,10 @@ services:
     restart: unless-stopped
 
   backend:
+    # prod target: CI(backend:build)가 테스트까지 끝낸 jar 를 그대로 이미지에 넣는다.
+    # 컨테이너 안에서 재컴파일하지 않는다.
+    build:
+      target: prod
     image: ai-block-clock-backend:${IMAGE_TAG:-latest}
     environment:
       SPRING_PROFILES_ACTIVE: prod

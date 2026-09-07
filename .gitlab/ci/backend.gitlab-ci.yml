@@ -2,8 +2,8 @@
 #
 # 트리거: backend/** 가 변경된 경우에만
 #
-# 컴파일·테스트는 backend:build 에서 한 번만 한다. Dockerfile 은 런타임 전용이라
-# 그 jar 를 그대로 이미지에 넣는다 (테스트를 통과한 산출물이 그대로 배포된다).
+# 컴파일·테스트는 backend:build 에서 한 번만 한다. 배포는 Dockerfile 의 prod target
+# 으로 그 jar 를 그대로 이미지에 넣는다 (테스트를 통과한 산출물이 그대로 배포된다).
 # 호스트에 필요한 것은 Docker 뿐이다 (JDK·JRE 모두 불필요).
 #
 # Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
@@ -80,7 +80,7 @@ backend:deploy:
       artifacts: true
   script:
     - cd "$BE_DIR"
-    # Dockerfile 은 런타임 전용이다. jar 가 없으면 COPY 단계에서
+    # prod target 은 jar 를 COPY 만 한다. jar 가 없으면
     # "lstat ...: no such file or directory" 로만 죽어서 원인을 알기 어렵다.
     - |
       if ! ls "$BE_APP_MODULE"/build/libs/*.jar >/dev/null 2>&1; then

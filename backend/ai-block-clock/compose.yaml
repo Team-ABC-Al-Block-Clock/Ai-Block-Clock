@@ -21,13 +21,13 @@ services:
       start_period: 30s
 
   backend:
-    # Dockerfile 은 런타임 전용이다(멀티스테이지 아님). 이미지를 빌드하기 전에
-    # jar 를 먼저 만들어야 한다:
-    #   ./gradlew :core:core-api:bootJar && docker compose up -d --build
-    # 배경은 Dockerfile 상단의 변경 이력 참고.
+    # local target: 컨테이너 안에서 소스를 컴파일한다. 사전 준비 없이
+    # `docker compose up -d --build` 한 번으로 뜬다.
+    # 운영 배포는 compose.prod.yaml 이 target: prod 로 덮어쓴다.
     build:
       context: .
       dockerfile: Dockerfile
+      target: local
     image: ai-block-clock-backend:local
     container_name: ai-block-clock-backend
     environment:
