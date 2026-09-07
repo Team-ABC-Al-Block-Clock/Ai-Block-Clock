@@ -25,13 +25,13 @@ npm run dev             # 개발 서버 실행 → http://localhost:5173
 
 ## 스크립트
 
-| 명령 | 설명 |
-| --- | --- |
-| `npm run dev` | 개발 서버 실행 (HMR) |
-| `npm run build` | 타입 검사 후 프로덕션 빌드 → `dist/` |
-| `npm run preview` | 빌드 결과물을 로컬에서 확인 |
-| `npm run lint` | ESLint 검사 |
-| `npm run format` | Prettier 로 코드 포맷 적용 |
+| 명령                   | 설명                                  |
+| ---------------------- | ------------------------------------- |
+| `npm run dev`          | 개발 서버 실행 (HMR)                  |
+| `npm run build`        | 타입 검사 후 프로덕션 빌드 → `dist/`  |
+| `npm run preview`      | 빌드 결과물을 로컬에서 확인           |
+| `npm run lint`         | ESLint 검사                           |
+| `npm run format`       | Prettier 로 코드 포맷 적용            |
 | `npm run format:check` | 포맷 위반 여부만 검사 (수정하지 않음) |
 
 ## 환경 변수
@@ -39,10 +39,10 @@ npm run dev             # 개발 서버 실행 → http://localhost:5173
 `VITE_` 접두사가 붙은 값만 클라이언트 코드에서 읽을 수 있습니다.
 **이 값들은 빌드 결과물에 그대로 포함되므로 비밀값을 넣으면 안 됩니다.**
 
-| 변수 | 기본값 | 설명 |
-| --- | --- | --- |
-| `VITE_APP_NAME` | `ABC Agent Studio` | 애플리케이션 이름 |
-| `VITE_API_BASE_URL` | `/api` | API 요청 기본 경로 |
+| 변수                    | 기본값                  | 설명                                  |
+| ----------------------- | ----------------------- | ------------------------------------- |
+| `VITE_APP_NAME`         | `ABC Agent Studio`      | 애플리케이션 이름                     |
+| `VITE_API_BASE_URL`     | `/api`                  | API 요청 기본 경로                    |
 | `VITE_API_PROXY_TARGET` | `http://localhost:8080` | 개발 서버 프록시가 바라볼 백엔드 주소 |
 
 개인 설정값은 `.env.local` 에 작성합니다. `.local` 로 끝나는 파일은 커밋되지 않습니다.
@@ -60,15 +60,15 @@ npm run dev             # 개발 서버 실행 → http://localhost:5173
 
 ## 기술 스택
 
-| 구분 | 라이브러리 |
-| --- | --- |
-| 빌드 도구 | Vite 8 |
+| 구분       | 라이브러리              |
+| ---------- | ----------------------- |
+| 빌드 도구  | Vite 8                  |
 | 프레임워크 | React 19 · TypeScript 6 |
-| 라우팅 | React Router 7 |
-| 서버 상태 | TanStack Query 5 |
-| 전역 상태 | Zustand 5 |
-| HTTP | Axios |
-| 코드 품질 | ESLint 10 · Prettier 3 |
+| 라우팅     | React Router 7          |
+| 서버 상태  | TanStack Query 5        |
+| 전역 상태  | Zustand 5               |
+| HTTP       | Axios                   |
+| 코드 품질  | ESLint 10 · Prettier 3  |
 
 ## 폴더 구조
 
