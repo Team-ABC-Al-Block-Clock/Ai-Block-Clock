@@ -1,0 +1,9 @@
+# prod: 외부에 노출되므로 최소한의 엔드포인트만 열고 헬스 상세는 감춘다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: never
