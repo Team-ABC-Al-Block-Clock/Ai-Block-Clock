@@ -3,7 +3,7 @@ import { OceanTheme } from '../components/theme-store'
 
 export default function Search() {
   const [q, setQ] = useState('')
-  const [infoAt, setInfoAt] = useState(null)
+  const [infoAt, setInfoAt] = useState<number | null>(null)
 
   let _themeSync: any
   let _type: any
@@ -40,18 +40,16 @@ export default function Search() {
     { name: '용어집 관리', desc: '문서에서 용어를 모아 정의', favs: '281' },
   ]
   const query = q.trim()
-  const list = query
-    ? all.filter((c: any) => c.name.includes(query) || c.desc.includes(query))
-    : all
-  const cards = list.map((c: any, i: any) => ({
+  const list = query ? all.filter((c) => c.name.includes(query) || c.desc.includes(query)) : all
+  const cards = list.map((c, i) => ({
     ...c,
     initial: c.name.trim().charAt(0).toUpperCase(),
-    uses: c.uses || (900 + i * 137).toLocaleString() + '회',
+    uses: (900 + i * 137).toLocaleString() + '회',
     credit: 40 + (i % 5) * 25 + ' Credit',
     author: ['김선미', '이도현', '박서준'][i % 3],
     infoOpen: infoAt === i,
     infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
-    info: (e: any) => {
+    info: (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
       setInfoAt((v) => (v === i ? null : i))
@@ -66,29 +64,29 @@ export default function Search() {
     window.addEventListener('oceantheme', _themeSync)
     // 타자 치듯 타이틀 입력
     let i = 0
-    const startTyping = (tries: any) => {
-      const el = (document.getElementById as (id: string) => any)('srchTypeText')
+    const startTyping = (tries: number) => {
+      const el = document.getElementById('srchTypeText')
       if (!el) {
         if ((tries || 0) < 60) setTimeout(() => startTyping((tries || 0) + 1), 100)
         return
       }
       const t0 = performance.now()
       const _type = setInterval(() => {
-        const node = (document.getElementById as (id: string) => any)('srchTypeText')
+        const node = document.getElementById('srchTypeText')
         if (!node) return
         i = Math.min(fullTitle.length, Math.floor((performance.now() - t0) / 55))
         node.textContent = fullTitle.slice(0, i)
         if (i >= fullTitle.length) {
           clearInterval(_type)
           setTimeout(() => {
-            const c = (document.getElementById as (id: string) => any)('srchCaret')
+            const c = document.getElementById('srchCaret')
             if (c) c.style.display = 'none'
           }, 900)
         }
       }, 55)
     }
     setTimeout(() => startTyping(0), 780)
-    const input = (document.getElementById as (id: string) => any)('searchQ')
+    const input = document.getElementById('searchQ') as HTMLInputElement | null
     if (input) input.addEventListener('input', () => setQ(input.value))
     return () => {
       window.removeEventListener('oceantheme', _themeSync)

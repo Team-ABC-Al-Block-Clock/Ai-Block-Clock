@@ -25,7 +25,7 @@ export default function MyPageCredit() {
         price: '예치 후 ' + (DEPOSITED + amount).toLocaleString() + ' ABC',
         amount,
       }))
-  const presets = raw.map((p: any, i: any) => ({
+  const presets = raw.map((p, i) => ({
     ...p,
     bg: i === pick ? 'rgba(185,141,169,.32)' : 'rgba(255,255,255,.08)',
     ring: 'none',

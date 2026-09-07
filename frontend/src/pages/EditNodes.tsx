@@ -20,8 +20,8 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
     { name: '요약 생성', kind: 'LLM', x: 662, y: 330 },
     { name: '결과 전달', kind: '출력', x: 870, y: 430 },
   ]
-  const pick = (i: any) => () => setSel(sel === i ? -1 : i)
-  const hover = (i: any) => () => setHov(i)
+  const pick = (i: number) => () => setSel(sel === i ? -1 : i)
+  const hover = (i: number) => () => setHov(i)
   const handleHovOut = () => setHov(-1)
   const handleTogglePanel = () => setPanelOpen((v) => !v)
   const names = [
@@ -49,7 +49,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
       (hov >= 0 ? -5 : 0) +
       'px);background:radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%);transition:left .34s cubic-bezier(.2,.8,.25,1),top .34s cubic-bezier(.2,.8,.25,1),transform .2s,opacity .25s ease'
     : 'display:none'
-  const results = names.map((name: any, i: any) => ({
+  const results = names.map((name, i) => ({
     name,
     i,
     initial: name.trim().charAt(0),
@@ -58,13 +58,13 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
     kind: ['LLM', '도구', '출력'][i % 3],
     infoOpen: infoAt === i,
     infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
-    info: (ev: any) => {
+    info: (ev: React.MouseEvent) => {
       ev.preventDefault()
       ev.stopPropagation()
       setInfoAt((v) => (v === i ? null : i))
     },
   }))
-  const nodeList = nodes.map((d: any, i: any) => ({ name: d.name, i }))
+  const nodeList = nodes.map((d, i) => ({ name: d.name, i }))
   const handleSel1 = pick(0)
   const handleSel2 = pick(1)
   const handleSel3 = pick(2)

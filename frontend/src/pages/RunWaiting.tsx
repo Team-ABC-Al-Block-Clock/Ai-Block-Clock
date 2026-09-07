@@ -23,7 +23,7 @@ export default function RunWaiting() {
   ]
 
   useEffect(() => {
-    const ta = (document.getElementById as (id: string) => any)('runPrompt')
+    const ta = document.getElementById('runPrompt') as HTMLTextAreaElement | null
     if (ta)
       ta.addEventListener('input', () => {
         const f = ta.value.trim().length > 0

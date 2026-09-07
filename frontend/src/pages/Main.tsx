@@ -25,20 +25,20 @@ export default function Main() {
   useEffect(() => {
     // 파일 드래그 → 드롭존 표시
     let _depth = 0
-    const _onEnter = (e: any) => {
+    const _onEnter = (e: DragEvent) => {
       if (!e.dataTransfer || Array.from(e.dataTransfer.types || []).indexOf('Files') < 0) return
       e.preventDefault()
       _depth++
       if (!dragging) setDragging(true)
     }
-    const _onOver = (e: any) => {
+    const _onOver = (e: DragEvent) => {
       if (dragging) e.preventDefault()
     }
     const _onLeave = () => {
       _depth = Math.max(0, _depth - 1)
       if (!_depth) setDragging(false)
     }
-    const _onDrop = (e: any) => {
+    const _onDrop = (e: DragEvent) => {
       e.preventDefault()
       _depth = 0
       setDragging(false)
@@ -48,31 +48,31 @@ export default function Main() {
     window.addEventListener('dragleave', _onLeave)
     window.addEventListener('drop', _onDrop)
     let i = 0
-    const startTyping = (tries: any) => {
-      const el = (document.getElementById as (id: string) => any)('mainTypeText')
+    const startTyping = (tries: number) => {
+      const el = document.getElementById('mainTypeText')
       if (!el) {
         if ((tries || 0) < 60) setTimeout(() => startTyping((tries || 0) + 1), 100)
         return
       }
       const t0 = performance.now()
       const _type = setInterval(() => {
-        const node = (document.getElementById as (id: string) => any)('mainTypeText')
+        const node = document.getElementById('mainTypeText')
         if (!node) return
         i = Math.min(fullTitle.length, Math.floor((performance.now() - t0) / 55))
         node.textContent = fullTitle.slice(0, i)
         if (i >= fullTitle.length) {
           clearInterval(_type)
           setTimeout(() => {
-            const c = (document.getElementById as (id: string) => any)('mainCaret')
+            const c = document.getElementById('mainCaret')
             if (c) c.style.display = 'none'
           }, 900)
         }
       }, 55)
     }
     setTimeout(() => startTyping(0), 350)
-    const input = (document.getElementById as (id: string) => any)('agentInput')
+    const input = document.getElementById('agentInput')
     if (input)
-      input.addEventListener('keydown', (e: any) => {
+      input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') navigate('/edit/searching')
       })
     return () => {

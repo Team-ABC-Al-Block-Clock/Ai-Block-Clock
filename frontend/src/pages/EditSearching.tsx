@@ -16,7 +16,7 @@ export default function EditSearching() {
     '리서치 수집',
     '리포트 작성',
   ]
-  const results = names.map((name: any, i: any) => ({ name, i, initial: name.trim().charAt(0) }))
+  const results = names.map((name, i) => ({ name, i, initial: name.trim().charAt(0) }))
 
   useEffect(() => {
     const _go = setTimeout(() => {

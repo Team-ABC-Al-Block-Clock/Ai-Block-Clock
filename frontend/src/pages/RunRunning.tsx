@@ -44,7 +44,7 @@ export default function RunRunning() {
       : 'display:none'
   const base =
     'position:absolute;width:168px;height:168px;border-radius:50%;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;'
-  const nodes = defs.map((d: any, i: any) => {
+  const nodes = defs.map((d, i) => {
     const done = i < active || pctR >= 100
     const running = i === active && pctR < 100
     const bg = running
@@ -91,7 +91,7 @@ export default function RunRunning() {
       stateLabel: running ? '진행 중' : done ? '완료' : '대기',
     }
   })
-  const edges = edgePaths.map((d: any, i: any) => {
+  const edges = edgePaths.map((d, i) => {
     const lit = i < active
     return {
       d,
@@ -104,7 +104,7 @@ export default function RunRunning() {
     logLines.length,
     Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
   )
-  const logs = logLines.slice(0, shown).map((text: any, i: any) => {
+  const logs = logLines.slice(0, shown).map((text, i) => {
     const last = i === shown - 1 && pctR < 100
     return {
       text,
@@ -174,7 +174,7 @@ export default function RunRunning() {
 
   useEffect(() => {
     let t0 = performance.now()
-    const tick = (now: any) => {
+    const tick = (now: number) => {
       _raf = requestAnimationFrame(tick)
       const p = Math.min(100, ((now - t0) / 1000) * 5.2) // 약 19초에 완주
       if (Math.floor(p) !== Math.floor(pct)) setPct(p)
