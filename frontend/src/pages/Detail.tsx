@@ -6,7 +6,7 @@ export default function Detail() {
   const [tab, setTab] = useState('in')
   const [shot, setShot] = useState(0)
 
-  const captions = {
+  const captions: Record<string, string[]> = {
     in: ['원본 문서 화면', '폴더 선택 창', '분류 기준 입력', '실행 확인', '진행 상황'],
     out: ['생성된 폴더 목록', '이동 내역', '요약 리포트', '오류 항목', '완료 화면'],
   }
@@ -21,7 +21,7 @@ export default function Detail() {
   }
   const handlePrev = () => setShot((v) => (v + 4) % 5)
   const handleNext = () => setShot((v) => (v + 1) % 5)
-  const pickShot = (i: any) => () => setShot(i)
+  const pickShot = (i: number) => () => setShot(i)
   const isIn = tab === 'in'
   const creditBtnBg = creditOpen ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.72)'
   const creditLeft = 776
@@ -36,7 +36,7 @@ export default function Detail() {
     label,
   }))
   const slotLabel = isIn ? '입력' : '출력'
-  const shotCaption = (captions as any)[tab][shot]
+  const shotCaption = captions[tab][shot]
   const counter = shot + 1 + ' / 5'
   const inBg = isIn ? 'rgba(255,255,255,.9)' : 'transparent'
   const inFg = isIn ? '#3a1030' : 'rgba(255,255,255,.72)'

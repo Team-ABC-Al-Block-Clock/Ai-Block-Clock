@@ -1,12 +1,12 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { cssToStyle } from '../lib/css'
 
 export default function RunRunning() {
   const [pct, setPct] = useState(0)
   const [copied, setCopied] = useState(false)
 
-  let _cp: any
-  let _raf: any
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const rafId = useRef<number>(undefined)
 
   const defs = [
     { name: '파일 수집', x: 38, y: 400, f: 6.4, d: 0.18 },
@@ -44,7 +44,7 @@ export default function RunRunning() {
       : 'display:none'
   const base =
     'position:absolute;width:168px;height:168px;border-radius:50%;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;'
-  const nodes = defs.map((d: any, i: any) => {
+  const nodes = defs.map((d, i) => {
     const done = i < active || pctR >= 100
     const running = i === active && pctR < 100
     const bg = running
@@ -91,7 +91,7 @@ export default function RunRunning() {
       stateLabel: running ? '진행 중' : done ? '완료' : '대기',
     }
   })
-  const edges = edgePaths.map((d: any, i: any) => {
+  const edges = edgePaths.map((d, i) => {
     const lit = i < active
     return {
       d,
@@ -104,7 +104,7 @@ export default function RunRunning() {
     logLines.length,
     Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
   )
-  const logs = logLines.slice(0, shown).map((text: any, i: any) => {
+  const logs = logLines.slice(0, shown).map((text, i) => {
     const last = i === shown - 1 && pctR < 100
     return {
       text,
@@ -142,16 +142,20 @@ export default function RunRunning() {
     ta.setSelectionRange(0, txt.length)
     try {
       document.execCommand('copy')
-    } catch (e) {}
+    } catch {
+      /* execCommand 미지원 — 아래 clipboard API 로 재시도 */
+    }
     document.body.removeChild(ta)
     if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
-        navigator.clipboard.writeText(txt).catch(() => {})
-      } catch (e) {}
+        navigator.clipboard.writeText(txt).catch(() => undefined)
+      } catch {
+        /* 권한 거부·비보안 컨텍스트 */
+      }
     }
     setCopied(true)
-    clearTimeout(_cp)
-    _cp = setTimeout(() => setCopied(false), 1900)
+    clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopied(false), 1900)
   }
   const resultLines = resultText.map((text) => ({
     text: text === '' ? '\u00a0' : text,
@@ -173,17 +177,21 @@ export default function RunRunning() {
   const stepMeta = (pctR >= 100 ? defs.length : active + 1) + ' / ' + defs.length + ' 단계'
 
   useEffect(() => {
-    let t0 = performance.now()
-    const tick = (now: any) => {
-      _raf = requestAnimationFrame(tick)
+    const t0 = performance.now()
+    const tick = (now: number) => {
       const p = Math.min(100, ((now - t0) / 1000) * 5.2) // 약 19초에 완주
-      if (Math.floor(p) !== Math.floor(pct)) setPct(p)
       if (p >= 100) {
-        cancelAnimationFrame(_raf)
         setPct(100)
+        return // 다음 프레임을 예약하지 않으면 루프가 스스로 멈춘다
       }
+      setPct((prev) => (Math.floor(p) !== Math.floor(prev) ? p : prev))
+      rafId.current = requestAnimationFrame(tick)
     }
-    _raf = requestAnimationFrame(tick)
+    rafId.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current)
+      clearTimeout(copyTimer.current)
+    }
   }, [])
 
   return (

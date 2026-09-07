@@ -67,7 +67,7 @@ export default function Signup() {
   const c = checked
   const all = c.every(Boolean)
   const required = c[0] && c[1]
-  const terms = labels.map((label: any, i: any) => ({
+  const terms = labels.map((label, i) => ({
     label,
     bg: c[i] ? '#e9b7d2' : 'rgba(255,255,255,.12)',
     mark: c[i] ? '✓' : '',
@@ -94,7 +94,7 @@ export default function Signup() {
   const termsBody = bodies[termsAt]
   const handleCloseTerms = () => setTermsOpen(false)
   const handleAgreeTerms = () => {
-    setChecked((prev: any) => {
+    setChecked((prev) => {
       const n = prev.slice()
       n[termsAt] = true
       return n

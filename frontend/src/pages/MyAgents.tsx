@@ -4,7 +4,7 @@ import Sidebar from '../components/Sidebar'
 export default function MyAgents() {
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
-  const [favs, setFavs] = useState({ 1: true, 3: true })
+  const [favs, setFavs] = useState<Record<number, boolean>>({ 1: true, 3: true })
 
   const all = [
     {
@@ -52,19 +52,18 @@ export default function MyAgents() {
   ]
   const handleTabAll = () => setTab('all')
   const handleTabFav = () => setTab('fav')
-  const toggleFav = (i: any) => () =>
-    setFavs((prev: any) => {
-      const next: any = { ...prev }
-      next[i] ? delete next[i] : (next[i] = true)
+  const toggleFav = (i: number) => () =>
+    setFavs((prev) => {
+      const next = { ...prev }
+      if (next[i]) delete next[i]
+      else next[i] = true
       return next
     })
   const MINE = ['Contract Analyzer', 'Docu Chain', 'Tx Inspector']
   const query = q.trim()
-  const indexed = all.map((d: any, i: any) => ({ ...d, i }))
+  const indexed = all.map((d, i) => ({ ...d, i }))
   const list = indexed
-    .filter(
-      (d) => tab === 'all' || (tab === 'mine' ? MINE.indexOf(d.name) >= 0 : (favs as any)[d.i]),
-    )
+    .filter((d) => tab === 'all' || (tab === 'mine' ? MINE.indexOf(d.name) >= 0 : favs[d.i]))
     .filter(
       (d) => !query || d.name.toLowerCase().includes(query.toLowerCase()) || d.desc.includes(query),
     )
@@ -80,12 +79,12 @@ export default function MyAgents() {
   const allFg = tab === 'all' ? '#3a1030' : 'rgba(255,240,247,.78)'
   const favTabBg = tab === 'fav' ? on : off
   const favTabFg = tab === 'fav' ? '#3a1030' : 'rgba(255,240,247,.78)'
-  const rows = list.map((d: any, n: any) => ({
+  const rows = list.map((d, n) => ({
     ...d,
     initial: d.name.trim().charAt(0).toUpperCase(),
     gradId: 'spk' + d.i,
     gradRef: 'url(#spk' + d.i + ')',
-    starColor: (favs as any)[d.i] ? '#e3c8a3' : 'rgba(255,255,255,.34)',
+    starColor: favs[d.i] ? '#e3c8a3' : 'rgba(255,255,255,.34)',
     mine: MINE.indexOf(d.name) >= 0,
     toggleFav: toggleFav(d.i),
     anim: 'rise .6s ' + (0.24 + n * 0.05).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
@@ -93,7 +92,7 @@ export default function MyAgents() {
   const empty = list.length === 0
 
   useEffect(() => {
-    const input = (document.getElementById as (id: string) => any)('myQ')
+    const input = document.getElementById('myQ') as HTMLInputElement | null
     if (input) input.addEventListener('input', () => setQ(input.value))
   }, [])
 

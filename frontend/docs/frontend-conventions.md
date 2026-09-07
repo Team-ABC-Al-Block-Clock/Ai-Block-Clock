@@ -1,7 +1,7 @@
 # 프론트엔드 코드 컨벤션
 
 > 대상: `frontend/` · 스택: React 19 + TypeScript + Vite + Tailwind v4
-> Git·브랜치·커밋 규칙은 [`git-workflow.md`](../git-workflow.md) 를 따른다.
+> Git·브랜치·커밋 규칙은 [`git-workflow.md`](../../git-workflow.md) 를 따른다.
 
 이름만 보고 **컴포넌트인지, 로직인지, 타입인지** 알 수 있게 하는 것이 목표다.
 
@@ -9,16 +9,16 @@
 
 ## 1. 네이밍
 
-| 대상 | 표기법 | 예시 |
-| --- | --- | --- |
-| 컴포넌트 함수 | PascalCase | `function MyPageUsage() {}` |
-| 타입 · 인터페이스 | PascalCase | `interface AgentSummary {}` · `type Theme = …` |
-| Props 타입 | `컴포넌트명 + Props` | `interface SidebarProps {}` |
-| 커스텀 훅 | `use` + camelCase | `function useInternalLinks() {}` |
-| 이벤트 핸들러 (내부) | `handle` + 이벤트명 | `const handleSubmit = () => {}` |
-| 이벤트 핸들러 (props) | `on` + 이벤트명 | `<Button onSubmit={handleSubmit} />` |
-| 상수 | UPPER_SNAKE_CASE | `const TABS = [...]` |
-| 불리언 | `is` · `has` · `can` 접두사 | `isActive` · `hasError` |
+| 대상                  | 표기법                      | 예시                                           |
+| --------------------- | --------------------------- | ---------------------------------------------- |
+| 컴포넌트 함수         | PascalCase                  | `function MyPageUsage() {}`                    |
+| 타입 · 인터페이스     | PascalCase                  | `interface AgentSummary {}` · `type Theme = …` |
+| Props 타입            | `컴포넌트명 + Props`        | `interface SidebarProps {}`                    |
+| 커스텀 훅             | `use` + camelCase           | `function useInternalLinks() {}`               |
+| 이벤트 핸들러 (내부)  | `handle` + 이벤트명         | `const handleSubmit = () => {}`                |
+| 이벤트 핸들러 (props) | `on` + 이벤트명             | `<Button onSubmit={handleSubmit} />`           |
+| 상수                  | UPPER_SNAKE_CASE            | `const TABS = [...]`                           |
+| 불리언                | `is` · `has` · `can` 접두사 | `isActive` · `hasError`                        |
 
 - 인터페이스에 `I` 를 붙이지 않는다. `IUserData` (✗) → `UserData` (○)
 - Props 타입이 한 줄이면 인라인도 허용하되, 두 개를 넘으면 이름을 붙인다
@@ -52,12 +52,12 @@ React 컴포넌트(`Sidebar.tsx`)와 웹 컴포넌트(`app-header.ts`)를 파일
 
 ## 2. 파일 · 폴더
 
-| 종류 | 확장자 | 표기법 | 예시 |
-| --- | --- | --- | --- |
-| React 컴포넌트 | `.tsx` | PascalCase | `Sidebar.tsx` · `MyPageUsage.tsx` |
-| 훅 · 유틸 · 타입 | `.ts` | camelCase | `useAuth.ts` · `formatDate.ts` |
-| 웹 컴포넌트 | `.ts` | kebab-case | `ocean-bg.ts` |
-| 폴더 | — | 소문자 camelCase | `components` · `pages` · `lib` |
+| 종류             | 확장자 | 표기법           | 예시                              |
+| ---------------- | ------ | ---------------- | --------------------------------- |
+| React 컴포넌트   | `.tsx` | PascalCase       | `Sidebar.tsx` · `MyPageUsage.tsx` |
+| 훅 · 유틸 · 타입 | `.ts`  | camelCase        | `useAuth.ts` · `formatDate.ts`    |
+| 웹 컴포넌트      | `.ts`  | kebab-case       | `ocean-bg.ts`                     |
+| 폴더             | —      | 소문자 camelCase | `components` · `pages` · `lib`    |
 
 ```
 frontend/src/
@@ -83,12 +83,12 @@ frontend/src/
 ```tsx
 // App.tsx — 라우트가 바뀌어도 유지되는 것
 <screen-frame>
-  <ocean-bg />                       {/* 배경: 다시 만들면 셰이더 재컴파일 */}
+  <ocean-bg /> {/* 배경: 다시 만들면 셰이더 재컴파일 */}
   <div className="animate-screen-in">
-    <Routes>…</Routes>               {/* 내용만 갈아끼움 */}
+    <Routes>…</Routes> {/* 내용만 갈아끼움 */}
   </div>
-  <app-header />                     {/* 로고 */}
-  <profile-menu />                   {/* 프로필 메뉴 */}
+  <app-header /> {/* 로고 */}
+  <profile-menu /> {/* 프로필 메뉴 */}
 </screen-frame>
 ```
 
@@ -128,11 +128,15 @@ Tailwind v4 는 유틸리티를 `@layer utilities` 에 넣는다. **레이어 �
 
 ```css
 /* ✗ 레이어 밖 — 모든 <a> 의 text-* 클래스가 무력화된다 */
-a { color: inherit; }
+a {
+  color: inherit;
+}
 
 /* ○ */
 @layer base {
-  a { color: inherit; }
+  a {
+    color: inherit;
+  }
 }
 ```
 

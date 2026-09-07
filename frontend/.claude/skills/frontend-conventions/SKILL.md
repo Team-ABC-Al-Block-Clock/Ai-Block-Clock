@@ -1,15 +1,15 @@
 ---
 name: frontend-conventions
-description: ABC Agent Studio 프론트엔드(React 19 + TypeScript + Vite + Tailwind v4) 코드를 쓰거나 고칠 때 반드시 먼저 읽는다. 컴포넌트·훅·타입 네이밍, 파일 배치, Tailwind 사용 경계, 그리고 이 프로젝트에서 실제로 터진 함정(backdrop-filter·shadow DOM·커스텀 엘리먼트 속성)을 담고 있다. frontend/ 안의 .tsx·.ts·.css 를 만들거나 수정할 때 사용.
+description: ABC AI Block Clock 프론트엔드(React 19 + TypeScript + Vite + Tailwind v4) 코드를 쓰거나 고칠 때 반드시 먼저 읽는다. 컴포넌트·훅·타입 네이밍, 파일 배치, Tailwind 사용 경계, 그리고 이 프로젝트에서 실제로 터진 함정(backdrop-filter·shadow DOM·커스텀 엘리먼트 속성)을 담고 있다. frontend/ 안의 .tsx·.ts·.css 를 만들거나 수정할 때 사용.
 ---
 
 # 프론트엔드 컨벤션
 
-**규칙 원본은 저장소 루트의 `docs/frontend-conventions.md` 다.**
+**규칙 원본은 `frontend/docs/frontend-conventions.md` 다.**
 프론트엔드 코드를 쓰기 전에 그 파일을 읽고 따를 것. 이 스킬은 원본을 대체하지 않는다.
 
 ```
-docs/frontend-conventions.md
+frontend/docs/frontend-conventions.md
 ```
 
 ## 자주 틀리는 것 — 코드 쓰기 전 확인

@@ -9,7 +9,7 @@ export default function MyPageSales() {
     { label: '총매출', value: '2,456 ABC', delta: '정산 대기 52.8 ABC 포함' },
     { label: '출금 가능', value: '2,403.2 ABC', delta: '지금 바로 출금 가능' },
     { label: '활성 사용자 수', value: '1,248명', delta: '+16.2%' },
-  ].map((m: any, i: any) => ({
+  ].map((m, i) => ({
     ...m,
     anim: 'rise .7s ' + (0.14 + i * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
   }))
@@ -17,11 +17,11 @@ export default function MyPageSales() {
     { label: '입력 토큰', value: '10.2M (54.8%)', width: '55%', color: '#e9aec4' },
     { label: '출력 토큰', value: '6.7M (36.0%)', width: '36%', color: '#dba18b' },
     { label: '임베딩 토큰', value: '1.7M (9.2%)', width: '9%', color: '#a094c2' },
-  ].map((t: any, i: any) => ({
+  ].map((t, i) => ({
     ...t,
     anim: 'growBar .8s ' + (0.4 + i * 0.12).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
   }))
-  const fg = (s: any) => (s === '정산 완료' ? '#9ad0b4' : '#ffb0cd')
+  const fg = (s: string) => (s === '정산 완료' ? '#9ad0b4' : '#ffb0cd')
   const byCustomer = {
     columns: [
       { label: '고객', w: '300px' },
@@ -58,7 +58,7 @@ export default function MyPageSales() {
   const view = byCustomerTab ? byCustomer : byEntry
   const dim = byCustomerTab ? 2 : 0
   const rows = view.data.map((cells) => ({
-    cells: cells.map((text: any, i: any) => ({
+    cells: cells.map((text, i) => ({
       text,
       w: view.columns[i].w,
       color:

@@ -1,18 +1,19 @@
 import { Fragment, useState, useEffect } from 'react'
 import { OceanTheme } from '../components/theme-store'
 
+const FULL_TITLE = '어떤 일을 맡겨볼까요?'
+
 export default function Search() {
   const [q, setQ] = useState('')
-  const [infoAt, setInfoAt] = useState(null)
+  const [infoAt, setInfoAt] = useState<number | null>(null)
 
-  let _themeSync: any
-  let _type: any
+  // OceanTheme 는 프레임워크 밖의 상태 — subscribe 로 받아 리렌더를 유발한다
+  const [bright, setBright] = useState(OceanTheme.isBright)
+  useEffect(() => OceanTheme.subscribe(() => setBright(OceanTheme.isBright())), [])
 
-  const bright = OceanTheme.isBright()
   const cardBg = bright ? 'rgba(24,13,40,.42)' : 'rgba(255,255,255,.10)'
   const descColor = bright ? 'rgba(255,240,248,.82)' : 'rgba(255,236,246,.7)'
   const headShadow = bright ? '0 2px 14px rgba(24,8,34,.85)' : '0 1px 10px rgba(35,8,45,.6)'
-  const fullTitle = '어떤 일을 맡겨볼까요?'
   const all = [
     { name: '문서 정리', desc: '폴더의 파일을 주제별로 분류', favs: '2.4k' },
     { name: '일정 요약', desc: '캘린더를 하루 단위로 정리', favs: '1.8k' },
@@ -40,18 +41,16 @@ export default function Search() {
     { name: '용어집 관리', desc: '문서에서 용어를 모아 정의', favs: '281' },
   ]
   const query = q.trim()
-  const list = query
-    ? all.filter((c: any) => c.name.includes(query) || c.desc.includes(query))
-    : all
-  const cards = list.map((c: any, i: any) => ({
+  const list = query ? all.filter((c) => c.name.includes(query) || c.desc.includes(query)) : all
+  const cards = list.map((c, i) => ({
     ...c,
     initial: c.name.trim().charAt(0).toUpperCase(),
-    uses: c.uses || (900 + i * 137).toLocaleString() + '회',
+    uses: (900 + i * 137).toLocaleString() + '회',
     credit: 40 + (i % 5) * 25 + ' Credit',
     author: ['김선미', '이도현', '박서준'][i % 3],
     infoOpen: infoAt === i,
     infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
-    info: (e: any) => {
+    info: (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
       setInfoAt((v) => (v === i ? null : i))
@@ -63,36 +62,40 @@ export default function Search() {
   const empty = list.length === 0
 
   useEffect(() => {
-    window.addEventListener('oceantheme', _themeSync)
-    // 타자 치듯 타이틀 입력
-    let i = 0
-    const startTyping = (tries: any) => {
-      const el = (document.getElementById as (id: string) => any)('srchTypeText')
-      if (!el) {
-        if ((tries || 0) < 60) setTimeout(() => startTyping((tries || 0) + 1), 100)
+    // 타자 치듯 타이틀 입력. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let typing: ReturnType<typeof setInterval> | undefined
+    const startTyping = (tries: number) => {
+      if (!document.getElementById('srchTypeText')) {
+        if (tries < 60) timers.push(setTimeout(() => startTyping(tries + 1), 100))
         return
       }
       const t0 = performance.now()
-      const _type = setInterval(() => {
-        const node = (document.getElementById as (id: string) => any)('srchTypeText')
+      typing = setInterval(() => {
+        const node = document.getElementById('srchTypeText')
         if (!node) return
-        i = Math.min(fullTitle.length, Math.floor((performance.now() - t0) / 55))
-        node.textContent = fullTitle.slice(0, i)
-        if (i >= fullTitle.length) {
-          clearInterval(_type)
+        const i = Math.min(FULL_TITLE.length, Math.floor((performance.now() - t0) / 55))
+        node.textContent = FULL_TITLE.slice(0, i)
+        if (i < FULL_TITLE.length) return
+        clearInterval(typing)
+        timers.push(
           setTimeout(() => {
-            const c = (document.getElementById as (id: string) => any)('srchCaret')
+            const c = document.getElementById('srchCaret')
             if (c) c.style.display = 'none'
-          }, 900)
-        }
+          }, 900),
+        )
       }, 55)
     }
-    setTimeout(() => startTyping(0), 780)
-    const input = (document.getElementById as (id: string) => any)('searchQ')
-    if (input) input.addEventListener('input', () => setQ(input.value))
+    timers.push(setTimeout(() => startTyping(0), 780))
+
+    const input = document.getElementById('searchQ') as HTMLInputElement | null
+    const onInput = () => setQ(input!.value)
+    input?.addEventListener('input', onInput)
+
     return () => {
-      window.removeEventListener('oceantheme', _themeSync)
-      clearInterval(_type)
+      clearInterval(typing)
+      timers.forEach(clearTimeout)
+      input?.removeEventListener('input', onInput)
     }
   }, [])
 
