@@ -66,6 +66,7 @@ frontend/src/
 ├─ routes/         라우트 패턴 · 경로 생성기
 ├─ lib/            공용 헬퍼·설정 (env, queryClient, queryKeys, shell)
 ├─ api/            서버 통신
+├─ mocks/          MSW 목 서버 (핸들러·픽스처)
 ├─ stores/         전역 상태
 ├─ hooks/          커스텀 훅
 ├─ index.css       전역 CSS · Tailwind 토큰
@@ -172,7 +173,7 @@ import.meta.env.VITE_API_BASE_URL // ✗ — 없을 수 있다
 | `VITE_USE_MOCK`         | `true`                  | `lib/env.ts`     | 끄려면 `false` 를 **명시**해야 한다 |
 | `VITE_API_PROXY_TARGET` | `http://localhost:8080` | `vite.config.ts` | 빌드타임 전용 — 아래 참고           |
 
-> `VITE_USE_MOCK` 을 실제로 읽어 목 서버를 켜는 연동은 S15P21A403-178 에서 붙는다. 그 전까지 이 값은 아무 동작도 하지 않는다.
+> `VITE_USE_MOCK` 이 실제로 무엇을 켜는지는 8절을 본다.
 
 변수를 추가하면 `.env.example` · `vite-env.d.ts` · `lib/env.ts` 세 곳을 같이 고친다.
 
@@ -263,7 +264,57 @@ axios 가 본문 타입을 보고 알아서 붙인다. `application/json` 을 �
 
 ---
 
-## 8. Tailwind
+## 8. 목 서버 — MSW
+
+백엔드 없이 화면을 개발하기 위한 목이다. `VITE_USE_MOCK` 이 `'false'` 가 아니면 켜진다(5절).
+
+```
+src/mocks/
+├─ start.ts            켜기 — main.tsx 가 렌더 전에 await 한다
+├─ browser.ts          setupWorker
+├─ response.ts         응답 봉투 헬퍼 (ok · fail)
+└─ handlers/
+   ├─ index.ts         도메인 핸들러를 모은다
+   └─ auth.ts          api/auth.ts 와 짝
+```
+
+### 도메인 하나가 파일 하나
+
+`api/<도메인>.ts` 와 이름을 맞춘다. 추가할 때는 `handlers/<도메인>.ts` 를 만들고 `handlers/index.ts` 의 배열에 펼쳐 넣는다.
+
+### 봉투를 그대로 흉내 낸다
+
+`response.ts` 의 `ok` · `fail` 만 쓴다. 봉투 없이 알맹이만 돌려주면 인터셉터를 통과해도 화면이 받는 모양이 실서버와 달라져 **목에서만 되는 코드**가 만들어진다.
+
+```ts
+ok<UserProfile>(profile) // { status: 'success', data: … }
+fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.') // { status: 'error', code, message }
+```
+
+오류는 실제 도메인 코드를 쓴다. 화면이 `code` 로 분기하기 때문에(7절) 목이 코드를 대충 주면 분기를 검증할 수 없다.
+
+### URL 은 `API_BASE_URL` 에서 만든다
+
+```ts
+http.get(`${API_BASE_URL}/users/me`, …) // ○
+http.get('/api/v1/users/me', …) // ✗
+```
+
+`api/client.ts` 가 내보내는 값이다. 한쪽만 바뀌면 목이 요청을 못 잡고 **조용히 실서버로 새어 나간다.**
+
+### 핸들러가 없는 요청은 통과시킨다
+
+`onUnhandledRequest: 'bypass'`. `'warn'` 으로 두면 이미지·폰트 같은 정적 요청까지 콘솔을 채운다. 목을 켰는데 요청이 프록시로 나간다면 **핸들러가 없는 것**이지 목이 꺼진 게 아니다.
+
+### 목은 프로덕션 번들에 들어가지 않는다
+
+`start.ts` 만 `import.meta.env.DEV` 를 직접 읽는다(5절의 예외). Vite 가 프로덕션 빌드에서 이 값을 `false` 로 치환해 블록을 통째로 지우고, 그래야 devDependency 인 `msw` 가 번들에서 빠진다. `env.useMock` 만으로는 정적으로 지울 수 없다.
+
+`public/mockServiceWorker.js` 는 `npx msw init public/ --save` 가 만든 벤더 스크립트다. 손으로 고치지 않고, 린트·포맷 대상에서도 빼 둔다.
+
+---
+
+## 9. Tailwind
 
 ### 반복되는 것만 Tailwind, 1회성 좌표는 인라인
 
@@ -322,7 +373,7 @@ className={`${TAB} ${isActive ? 'bg-white/90 text-accent-ink' : 'bg-white/9'}`}
 
 ---
 
-## 9. 하지 말 것 — 이 프로젝트에서 실제로 터진 것들
+## 10. 하지 말 것 — 이 프로젝트에서 실제로 터진 것들
 
 ### 유리 패널의 조상에 `transform` · `opacity` 를 걸지 않는다
 
@@ -379,7 +430,7 @@ const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTML
 
 ---
 
-## 10. 커밋 전 확인
+## 11. 커밋 전 확인
 
 ```bash
 npm run build      # tsc -b && vite build — 타입 에러 0
