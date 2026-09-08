@@ -2,26 +2,19 @@ import { http } from 'msw'
 
 import type { AuthTokens, UserProfile, WalletMessage } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
+import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
+import { scene } from '@/mocks/scenario'
 
 /**
  * 인증 · 계정 mock. `api/auth.ts` 의 함수와 일대일로 맞춘다.
  *
  * 상태를 모듈에 들고 있어서 PATCH 결과가 다음 GET 에 보인다.
- * 새로고침하면 초기값으로 돌아간다 — mock 이므로 그걸로 충분하다.
+ * 새로고침하면 픽스처 초기값으로 돌아간다.
  */
-let profile: UserProfile = {
-  userId: 'u_1001',
-  nickname: '이싸피',
-  walletAddress: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
-  introduction: '온체인 리서치 에이전트를 만듭니다.',
-  profileImageUrl: null,
-  onboardingCompleted: true,
-}
+let profile: UserProfile = { ...PROFILE }
 
-/** Refresh Token 은 HttpOnly 쿠키라 JS 가 만들 수 없다.
- *  mock 에서는 재발급이 항상 성공하는 것으로 둔다 — 실패 경로를 확인하려면
- *  이 함수 대신 `fail(401, 'AUTH_003', …)` 을 돌려주면 된다. */
+/** 재발급은 항상 성공으로 둔다. 실패 경로는 `?mockFail=AUTH_003&mockFailStatus=401` 로 본다. */
 function issueTokens() {
   return ok<AuthTokens>({
     accessToken: `mock-access-token.${Date.now()}`,
@@ -31,8 +24,11 @@ function issueTokens() {
 }
 
 export const authHandlers = [
-  /** POST /auth/wallet/message */
+  /** 서명할 nonce 발급 */
   http.post(`${API_BASE_URL}/auth/wallet/message`, async ({ request }) => {
+    const forced = await scene()
+    if (forced) return forced
+
     const { walletAddress } = (await request.json()) as { walletAddress?: string }
     if (!walletAddress) return fail(400, 'COMMON_001', '지갑 주소가 필요합니다.')
 
@@ -43,8 +39,11 @@ export const authHandlers = [
     })
   }),
 
-  /** POST /auth/wallet/login */
+  /** 서명 검증 후 가입 또는 로그인 */
   http.post(`${API_BASE_URL}/auth/wallet/login`, async ({ request }) => {
+    const forced = await scene()
+    if (forced) return forced
+
     const { walletAddress, signature } = (await request.json()) as {
       walletAddress?: string
       signature?: string
@@ -53,17 +52,22 @@ export const authHandlers = [
     return issueTokens()
   }),
 
-  /** POST /auth/reissue — 인터셉터가 401(AUTH_007) 을 받고 부른다. */
+  /** 인터셉터가 401(AUTH_007) 을 받고 부른다. */
   http.post(`${API_BASE_URL}/auth/reissue`, () => issueTokens()),
-
-  /** POST /auth/logout */
-  http.post(`${API_BASE_URL}/auth/logout`, () => ok(null)),
-
-  /** GET /users/me */
-  http.get(`${API_BASE_URL}/users/me`, () => ok<UserProfile>(profile)),
-
-  /** PATCH /users/me */
+  http.post(`${API_BASE_URL}/auth/logout`, async () => {
+    const forced = await scene()
+    if (forced) return forced
+    return ok(null)
+  }),
+  http.get(`${API_BASE_URL}/users/me`, async () => {
+    const forced = await scene()
+    if (forced) return forced
+    return ok<UserProfile>(profile)
+  }),
   http.patch(`${API_BASE_URL}/users/me`, async ({ request }) => {
+    const forced = await scene()
+    if (forced) return forced
+
     const patch = (await request.json()) as { nickname?: string; introduction?: string }
     if (patch.nickname !== undefined && patch.nickname.trim() === '') {
       return fail(400, 'COMMON_001', '닉네임은 비워 둘 수 없습니다.')
@@ -73,8 +77,11 @@ export const authHandlers = [
     return ok<UserProfile>(profile)
   }),
 
-  /** PATCH /users/me/onboarding — 계정 복구 불가 고지 확인 (ACC-005) */
-  http.patch(`${API_BASE_URL}/users/me/onboarding`, () => {
+  /** 계정 복구 불가 고지 확인 */
+  http.patch(`${API_BASE_URL}/users/me/onboarding`, async () => {
+    const forced = await scene()
+    if (forced) return forced
+
     profile = { ...profile, onboardingCompleted: true }
     return ok(null)
   }),
