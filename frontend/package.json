@@ -54,5 +54,10 @@
     "plugins": [
       "prettier-plugin-tailwindcss"
     ]
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

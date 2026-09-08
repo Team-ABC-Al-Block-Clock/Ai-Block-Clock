@@ -7,8 +7,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-  // html/ 은 디자인 시안(프로토타입)이라 린트 대상에서 제외한다.
-  globalIgnores(['dist', 'html']),
+  // html/ 은 디자인 시안(프로토타입), mockServiceWorker.js 는 msw 가 생성한
+  // 벤더 스크립트라 둘 다 린트 대상에서 제외한다.
+  globalIgnores(['dist', 'html', 'public/mockServiceWorker.js']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

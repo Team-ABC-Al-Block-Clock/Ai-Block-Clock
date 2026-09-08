@@ -22,8 +22,12 @@ interface RetriableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean
 }
 
+/** API 루트. 목 핸들러(`mocks/handlers/*`)가 같은 값을 쓴다 —
+ *  한쪽만 바뀌면 목이 요청을 못 잡고 조용히 실서버로 나간다. */
+export const API_BASE_URL = `${env.apiBaseUrl}/v1`
+
 export const client = axios.create({
-  baseURL: `${env.apiBaseUrl}/v1`,
+  baseURL: API_BASE_URL,
   timeout: 30_000,
   // Content-Type 은 지정하지 않는다. 여기에 application/json 을 박으면
   // FormData 가 JSON 문자열로 바뀌어 나간다.
