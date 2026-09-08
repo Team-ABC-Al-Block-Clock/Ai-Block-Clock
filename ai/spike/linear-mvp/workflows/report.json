@@ -1,0 +1,20 @@
+{
+  "id": "report",
+  "name": "학원 성적 리포트",
+  "model": null,
+  "nodes": [
+    {
+      "id": "analyze",
+      "name": "성적 분석",
+      "prompt": "prompts/analyze.md",
+      "context": "user"
+    },
+    {
+      "id": "letter",
+      "name": "가정통신문 작성",
+      "prompt": "prompts/letter.md",
+      "context": "prev"
+    }
+  ],
+  "output": { "type": "pdf", "title": "3월 성적 리포트" }
+}
