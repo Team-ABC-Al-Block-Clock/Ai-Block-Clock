@@ -64,9 +64,9 @@ frontend/src/
 ├─ pages/          화면 단위 (라우트 하나 = 파일 하나)
 ├─ components/     여러 화면이 쓰는 것
 ├─ routes/         라우트 패턴 · 경로 생성기
-├─ lib/            공용 헬퍼·설정 (env, queryClient, queryKeys, shell)
-├─ api/            서버 통신
-├─ mocks/          MSW mock 서버 (핸들러·픽스처)
+├─ lib/            공용 헬퍼·설정 (env, queryClient, queryKeys, shell, format)
+├─ api/            서버 통신 · 응답 타입
+├─ mocks/          MSW mock 서버 (핸들러 · 픽스처)
 ├─ stores/         전역 상태
 ├─ hooks/          커스텀 훅
 ├─ index.css       전역 CSS · Tailwind 토큰
@@ -225,6 +225,15 @@ invalidateQueries({ queryKey: queryKeys.agents.all }) // 도메인 전체
 
 - 서버가 받는 query parameter 를 그대로 키에 넣는다. `undefined` 필드는 TanStack Query 의 해시에서 자동으로 빠진다
 
+### 불러오는 중에는 "없음" 을 띄우지 않는다
+
+`data` 가 아직 `undefined` 인 동안을 빈 목록으로 보고 "결과 없음" 을 그리면 **매 요청마다 한 번씩 깜빡인다.**
+
+```ts
+const empty = list.length === 0 // ✗ 로딩 중에도 참
+const empty = !isPending && !isError && list.length === 0 // ○
+```
+
 ---
 
 ## 7. API 레이어
@@ -237,6 +246,21 @@ invalidateQueries({ queryKey: queryKeys.agents.all }) // 도메인 전체
 // api/auth.ts
 export const getMyProfile = () => api.get<UserProfile>('/users/me')
 ```
+
+### 응답 타입도 `api/` 에 둔다
+
+화면은 API 응답 타입을 직접 선언하지 않는다. 필드명이 바뀔 때 고칠 곳이 `api/` 안으로 한정된다. 숫자를 문자열로 바꾸는 것은 `lib/format.ts` 가 한다 — API 는 `runCount: 1248` 을 주고 화면은 `1,248회` 를 쓴다.
+
+### 명세가 확정되지 않은 필드는 추정임을 적는다
+
+API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다. 그래서 아래는 **추정**이다.
+
+| 구분     | 내용                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **확정** | 경로 접두어 `/api/v1` · 봉투 `{status, data}` · `{status, code, message}`(백엔드 `ApiResponse`·`ErrorResponse`) · 인증 계열 필드명(`api/auth.ts`) |
+| **추정** | 목록 봉투(`api/page.ts`, Spring `Page` 축약형) · `page`·`size`·`sort`·필터 파라미터명 · 식별자·등급·단가 필드명 · 카테고리 값                     |
+
+추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
 
 ### 응답은 봉투가 벗겨진 채로 온다
 
@@ -273,14 +297,50 @@ src/mocks/
 ├─ start.ts            켜기 — main.tsx 가 렌더 전에 await 한다
 ├─ browser.ts          setupWorker
 ├─ response.ts         응답 봉투 헬퍼 (ok · fail)
-└─ handlers/
+├─ scenario.ts         지연 · 강제 실패 스위치
+├─ paginate.ts         목록 페이지 계산
+├─ fixtures/           도메인별 데이터
+│  ├─ agents.ts
+│  ├─ user.ts
+│  └─ workflows.ts
+└─ handlers/           응답 만들기 — api/<도메인>.ts 와 짝
    ├─ index.ts         도메인 핸들러를 모은다
-   └─ auth.ts          api/auth.ts 와 짝
+   ├─ auth.ts
+   ├─ marketplace.ts
+   └─ mypage.ts
 ```
 
 ### 도메인 하나가 파일 하나
 
 `api/<도메인>.ts` 와 이름을 맞춘다. 추가할 때는 `handlers/<도메인>.ts` 를 만들고 `handlers/index.ts` 의 배열에 펼쳐 넣는다.
+
+### 데이터는 `fixtures/`, 응답 만들기는 `handlers/`
+
+핸들러 안에 데이터를 인라인으로 두지 않는다. 같은 데이터를 두 핸들러가 쓰기 시작하면 조용히 갈라진다.
+
+파생값은 **계산해서** 만든다. 단가처럼 다른 필드에서 나오는 값을 손으로 적으면 등급을 바꿀 때 같이 안 바뀌어 거짓 데이터가 된다.
+
+```ts
+unitPrice: Math.round(seed.baseCost * (1 + premiumRate)) // ○
+unitPrice: 540 // ✗
+```
+
+평점·사용량이 0 인 **콜드스타트 건을 반드시 섞는다.** 요구사항이 그 상태를 전제로 하고, 화면이 NaN·빈칸을 내는지는 그때만 드러난다.
+
+### 목록은 핸들러 안에서 실제로 걸러낸다
+
+검색·필터·정렬·페이지네이션을 모두 계산한다. 전체를 한 번에 돌려주면 화면의 검색어·필터·페이지 이동이 아무 효과가 없어 **검증 자체가 불가능하다.**
+
+### 로딩·실패는 시나리오 스위치로 확인한다
+
+핸들러는 맨 앞에서 `scene()` 을 부른다. URL 쿼리로 켜고 localStorage 에 남아 화면을 옮겨도 유지된다.
+
+```
+?mockDelay=1500                        모든 응답을 늦춘다
+?mockFail=COMMON_001                   모든 응답을 실패시킨다 (기본 400)
+?mockFail=AUTH_007&mockFailStatus=401
+?mockDelay=0&mockFail=                 끈다
+```
 
 ### 봉투를 그대로 흉내 낸다
 

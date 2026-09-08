@@ -36,6 +36,15 @@ frontend/docs/frontend-conventions.md
    화면이 1440×1024 고정 좌표다. `left-[504px]` 로 옮겨도 이득이 없다.
    기준은 2회 이상 나오는 선언만 Tailwind.
 
+## API 응답 타입은 아직 추정이다
+
+API 명세서 링크가 공유되지 않아 `api/page.ts`·`api/agents.ts`·`api/credits.ts`·`api/workflows.ts`
+의 필드명은 **추정**이다. 확정된 것은 `/api/v1` 접두어, 봉투 `{status, data}`, 인증 계열뿐이다.
+
+**화면에 필드명을 직접 박지 말 것.** 화면은 `api/` 타입만 참조하고 표시 문자열은
+`lib/format.ts` 를 거친다. 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+자세한 구분은 원본 7절.
+
 ## 네이밍 요약
 
 - 컴포넌트 `.tsx` PascalCase · 훅·유틸 `.ts` camelCase
