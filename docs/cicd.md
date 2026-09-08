@@ -438,10 +438,11 @@ backend:deploy:
 테스트가 쌓이면 MR 마다 전체를 돌리는 게 부담이 된다. 그래서 갈랐다.
 
 ```
-feat/* → develop-BE  MR   : 단위만            (빠른 피드백)
-develop-BE → master  MR   : 단위 + 통합        ← 게이트
-master               push : 단위 + 통합        (안전망)
-그 밖                     : 통합은 수동 실행 가능
+feat/* push            : 단위만              (통합 잡은 생성되지 않는다)
+feat/* → develop-BE MR : 단위 + 통합(수동)
+develop-BE push        : 단위 + 통합(수동)
+develop-BE → master MR : 단위 + 통합         ← 게이트
+master push            : 단위 + 통합         (안전망)
 ```
 
 **통합 테스트를 `master` push 가 아니라 "master 로 들어가는 MR" 에서 돌린다.** push 에서
@@ -452,6 +453,9 @@ master               push : 단위 + 통합        (안전망)
 - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'   # 게이트
 - if: '$CI_COMMIT_BRANCH == "master"'                      # 안전망
 ```
+
+`feat/*` push 에는 해당하는 규칙이 없어 **통합 테스트 잡이 생성되지 않는다.** 수동으로도
+돌릴 수 없다. `feat/*` 에서 확인하려면 MR 을 열어야 한다.
 
 ##### 분리 방식: JUnit 태그
 
@@ -634,7 +638,7 @@ docker compose -f compose.yaml -f compose.prod.yaml config | grep -E "SPRING_PRO
 | 변경 폴더 | `feat/*` | `develop-*` MR | → `master` MR | `master` push |
 | --- | --- | --- | --- | --- |
 | `frontend/**` | build | build | build | build → deploy |
-| `backend/**` | build (단위) | build (단위) | build + **통합** | build + 통합 → deploy(수동) |
+| `backend/**` | build (단위만) | build + 통합(수동) | build + **통합** | build + 통합 → deploy(수동) |
 
 > `develop-FE`/`develop-BE` 열의 `–` 는 `exists:` 규칙 때문이다. 해당 브랜치에는
 > 상대편 소스 폴더가 존재하지 않으므로 잡 자체가 생성되지 않는다.

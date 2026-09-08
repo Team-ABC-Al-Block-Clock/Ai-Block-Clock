@@ -15,7 +15,7 @@
 | 태스크 | 대상 | 실행 시점 | 목표 시간 |
 | --- | --- | --- | --- |
 | `test` | `@Tag("integration")` 이 **없는** 것 | MR·`feat/*`·`develop-*`·`master` 전부 | 수십 초 |
-| `integrationTest` | `@Tag("integration")` 이 **있는** 것 | `master` 로 들어가는 MR, `master` push | 제한 없음 |
+| `integrationTest` | `@Tag("integration")` 이 **있는** 것 | `master` 로 들어가는 MR, `master` push (그 외 MR·`develop-BE` 는 수동) | 제한 없음 |
 
 ```bash
 ./gradlew test              # 단위
@@ -110,15 +110,18 @@ class AiBlockClockApplicationTests {
 ## 4. 파이프라인에서의 흐름
 
 ```
-feat/* → develop-BE   MR   : 단위만              (빠른 피드백)
-develop-BE → master   MR   : 단위 + 통합          ← 게이트
-master                push : 단위 + 통합          (안전망)
-그 밖                      : 통합은 수동 실행 가능
+feat/* push            : 단위만              (통합 잡은 생성되지 않는다)
+feat/* → develop-BE MR : 단위 + 통합(수동)
+develop-BE push        : 단위 + 통합(수동)
+develop-BE → master MR : 단위 + 통합         ← 게이트
+master push            : 단위 + 통합         (안전망)
 ```
 
 통합 테스트는 `master` **push** 가 아니라 **`master` 로 들어가는 MR** 에서 돈다. push 에서 돌리면 실패해도 이미 머지된 뒤라 `master` 가 깨진 채 남는다. MR 에서 돌려야 실패가 머지 자체를 막는다.
 
-`develop-*` 이나 일반 MR 에서도 통합 테스트를 확인하고 싶으면 파이프라인 화면에서 `backend:test:integration` 을 수동 실행한다. 실행하지 않아도 파이프라인은 통과한다.
+`master` 외의 MR 과 `develop-BE` push 에서는 `backend:test:integration` 이 **수동 실행 잡**으로 생성된다. 파이프라인 화면에서 직접 눌러 확인할 수 있고, 누르지 않아도 파이프라인은 통과한다.
+
+**`feat/*` push 에서는 통합 테스트 잡이 아예 생성되지 않는다.** 수동으로도 돌릴 수 없다. `feat/*` 에서 통합 테스트를 확인하려면 MR 을 열어야 한다.
 
 ---
 
