@@ -63,5 +63,5 @@ ID 를 받는 경로는 인자가 **필수**다. 아직 ID 가 없는 화면만 
 
 ```tsx
 paths.agentDetail(agentId) // '/agent/{id}'
-paths.agentDetail.withoutId // '/agent' — 목 데이터 붙기 전까지만
+paths.agentDetail.withoutId // '/agent' — 해당 도메인 mock 핸들러 붙기 전까지만
 ```
