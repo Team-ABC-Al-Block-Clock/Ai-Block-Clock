@@ -47,3 +47,21 @@ frontend/docs/frontend-conventions.md
 
 `App.tsx` 가 껍데기(`screen-frame`·`ocean-bg`·`app-header`·`profile-menu`)를 들고,
 화면(`pages/*.tsx`)은 자기 내용만 그린다. 라우트별 설정은 `lib/shell.ts` 한 곳.
+
+**경로 문자열을 직접 쓰지 않는다.** 라우트 패턴의 유일한 정의는 `routes/paths.ts` 이고
+`App.tsx`·`lib/shell.ts`·화면 링크가 모두 거기서 파생된다.
+
+```tsx
+<a href={paths.my.agents}>  {/* ○ */}
+<a href="/my/agents">       {/* ✗ */}
+```
+
+화면을 추가하면 `routePatterns` 에 키를 넣는다 — `SCREENS` 와 `BY_SCREEN` 이
+`Record<ScreenKey, …>` 라서 둘 다 채울 때까지 컴파일이 실패한다.
+
+ID 를 받는 경로는 인자가 **필수**다. 아직 ID 가 없는 화면만 `.withoutId` 를 쓴다.
+
+```tsx
+paths.agentDetail(agentId) // '/agent/{id}'
+paths.agentDetail.withoutId // '/agent' — 목 데이터 붙기 전까지만
+```
