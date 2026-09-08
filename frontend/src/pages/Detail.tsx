@@ -156,7 +156,7 @@ export default function Detail() {
               style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,.14)' }}
             ></div>
             <div className="flex flex-col" style={{ gap: '2px' }}>
-              <div className="text-[14px] font-semibold tracking-[-.01em] text-white">김선미</div>
+              <div className="text-[14px] font-semibold tracking-[-.01em] text-white">이싸피</div>
               <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.6)' }}>
                 만든 사람
               </div>

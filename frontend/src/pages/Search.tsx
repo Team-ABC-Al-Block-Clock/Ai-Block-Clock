@@ -48,7 +48,7 @@ export default function Search() {
     initial: c.name.trim().charAt(0).toUpperCase(),
     uses: (900 + i * 137).toLocaleString() + '회',
     credit: 40 + (i % 5) * 25 + ' Credit',
-    author: ['김선미', '이도현', '박서준'][i % 3],
+    author: ['이싸피', '사싸피', '윤싸피'][i % 3],
     infoOpen: infoAt === i,
     infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
     info: (e: React.MouseEvent) => {

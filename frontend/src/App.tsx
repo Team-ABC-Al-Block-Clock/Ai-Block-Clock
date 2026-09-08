@@ -157,7 +157,7 @@ export default function App() {
         <profile-menu
           className="absolute"
           style={{ left: '1374px', top: '26px', zIndex: '40' }}
-          initial="김"
+          initial="이"
           search-href={paths.search}
           mypage-href={paths.my.agents}
         ></profile-menu>

@@ -81,7 +81,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        김선미
+        이싸피
       </div>
       <div
         className="absolute text-[13px] tracking-[-.01em]"

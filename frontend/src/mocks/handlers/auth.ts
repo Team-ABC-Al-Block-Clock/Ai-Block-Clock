@@ -12,7 +12,7 @@ import { fail, ok } from '@/mocks/response'
  */
 let profile: UserProfile = {
   userId: 'u_1001',
-  nickname: '김선미',
+  nickname: '이싸피',
   walletAddress: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
   introduction: '온체인 리서치 에이전트를 만듭니다.',
   profileImageUrl: null,

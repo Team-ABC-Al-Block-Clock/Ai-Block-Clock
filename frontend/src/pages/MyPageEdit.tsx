@@ -160,7 +160,7 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue="김선미"
+                    defaultValue="이싸피"
                     style={{ width: '100%' }}
                   />
                 </div>
