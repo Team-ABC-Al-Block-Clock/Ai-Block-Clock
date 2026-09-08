@@ -1,0 +1,21 @@
+# core-api 는 애플리케이션 조립만 담당한다.
+# 각 모듈의 설정은 해당 모듈이 소유하고, 여기서는 가져오기만 한다.
+spring:
+  application:
+    name: ai-block-clock
+  profiles:
+    default: local
+  config:
+    import:
+      - classpath:db.yml           # :storage
+      - classpath:monitoring.yml   # :support:monitoring
+
+server:
+  port: ${SERVER_PORT:8080}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    persist-authorization: true

@@ -1,0 +1,9 @@
+# dev: 프로메테우스 수집과 헬스 상세 확인을 허용한다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always

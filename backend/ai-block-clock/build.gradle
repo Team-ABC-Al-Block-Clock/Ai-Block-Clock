@@ -1,0 +1,64 @@
+plugins {
+    id 'org.springframework.boot' version '4.1.1' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+allprojects {
+    group = 'com.aiblockclock'
+    version = '0.0.1-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+// core 처럼 하위 모듈만 묶는 wrapper 프로젝트는 제외하고, 실제 소스를 갖는 모듈만 설정한다.
+configure(subprojects.findAll { it.subprojects.isEmpty() }) {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+        }
+    }
+
+    dependencies {
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    // 단위 테스트. @Tag("integration") 이 붙은 것은 제외한다.
+    // MR 마다 도는 태스크이므로 외부 의존(DB, 컨테이너, 네트워크)이 없어야 한다.
+    tasks.named('test') {
+        useJUnitPlatform {
+            excludeTags 'integration'
+        }
+    }
+
+    // 통합 테스트. @Tag("integration") 이 붙은 것만 실행한다.
+    // 소스셋을 나누지 않고 태그로 가른다 — 의존성 선언이 중복되지 않고,
+    // 테스트를 옮기지 않아도 태그만 붙이면 분류가 바뀐다.
+    tasks.register('integrationTest', Test) {
+        group = 'verification'
+        description = '@Tag("integration") 이 붙은 테스트만 실행한다.'
+
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+
+        useJUnitPlatform {
+            includeTags 'integration'
+        }
+
+        shouldRunAfter tasks.named('test')
+    }
+}
