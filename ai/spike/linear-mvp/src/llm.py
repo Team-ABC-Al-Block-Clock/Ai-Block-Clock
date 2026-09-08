@@ -48,7 +48,12 @@ class LLM:
             return self._mock(system, user, label)
 
         types = self._types
-        config = types.GenerateContentConfig(system_instruction=system, temperature=self.temperature)
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=self.temperature,
+            # 도구를 안 쓰는데 SDK가 자동 함수 호출 경고를 찍는다. 명시적으로 끈다.
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        )
         retries = 0
         while True:
             start = time.perf_counter()
