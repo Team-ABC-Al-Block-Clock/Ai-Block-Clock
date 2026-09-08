@@ -30,7 +30,7 @@ export interface UserProfile {
   onboardingCompleted: boolean
 }
 
-/** POST /auth/wallet/message — 서명할 메시지를 발급받는다. */
+/** 서명할 메시지를 발급받는다. */
 export const requestWalletMessage = (walletAddress: string) =>
   api.post<WalletMessage>('/auth/wallet/message', { walletAddress })
 
@@ -38,18 +38,16 @@ export const requestWalletMessage = (walletAddress: string) =>
  * POST /auth/wallet/login — 서명을 검증하고 가입 또는 로그인한다.
  * Refresh Token 은 응답 바디가 아니라 HttpOnly 쿠키로 내려온다.
  */
+
 export const loginWithWallet = (params: { walletAddress: string; signature: string }) =>
   api.post<AuthTokens>('/auth/wallet/login', params)
 
-/** POST /auth/logout */
 export const logout = () => api.post<void>('/auth/logout')
 
-/** GET /users/me */
 export const getMyProfile = () => api.get<UserProfile>('/users/me')
 
-/** PATCH /users/me */
 export const updateMyProfile = (params: { nickname?: string; introduction?: string }) =>
   api.patch<UserProfile>('/users/me', params)
 
-/** PATCH /users/me/onboarding — 계정 복구 불가 고지 확인 (ACC-005) */
+/** 계정 복구 불가 고지 확인 (ACC-005) */
 export const completeOnboarding = () => api.patch<void>('/users/me/onboarding')
