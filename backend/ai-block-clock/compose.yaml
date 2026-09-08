@@ -1,0 +1,58 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: ai-block-clock-mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_block_clock}
+      MYSQL_USER: ${MYSQL_USER:-ai_block_clock}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-local_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local_root_password}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - ai-block-clock-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    # local target: 컨테이너 안에서 소스를 컴파일한다. 사전 준비 없이
+    # `docker compose up -d --build` 한 번으로 뜬다.
+    # 운영 배포는 compose.prod.yaml 이 target: prod 로 덮어쓴다.
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: local
+    image: ai-block-clock-backend:local
+    container_name: ai-block-clock-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8080
+      DB_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-ai_block_clock}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul"
+      DB_USERNAME: ${MYSQL_USER:-ai_block_clock}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-local_password}
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai-block-clock-network
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql-data:
+
+networks:
+  ai-block-clock-network:
+    driver: bridge

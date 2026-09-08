@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- prod: 수집기가 파싱하도록 stdout 에 구조화(JSON) 로그를 내보낸다. 형식은 ecs / logstash / gelf 중 선택. -->
+<included>
+    <property name="CONSOLE_LOG_STRUCTURED_FORMAT" value="ecs"/>
+
+    <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
+
+    <logger name="com.aiblockclock" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</included>

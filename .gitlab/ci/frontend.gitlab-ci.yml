@@ -1,0 +1,84 @@
+# 프론트엔드 파이프라인 (Vite 빌드 -> 정적 파일 배포)
+#
+# 트리거: frontend/** 가 변경된 경우에만
+# 배포:   master 브랜치에서만, /var/www/j15a403/frontend 로 rsync
+#
+# 빌드는 Node 컨테이너 안에서 돌린다. 호스트에는 Node/nvm 이 필요 없고 Docker 만 있으면 된다.
+#
+# Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
+
+variables:
+  FE_DIR: frontend
+  FE_DEPLOY_PATH: /var/www/j15a403/frontend
+  FE_NODE_IMAGE: node:22
+
+# frontend 폴더 또는 이 CI 파일이 바뀌었을 때만 잡을 만든다.
+# exists 로 한 번 더 거른다 — 브랜치에 frontend/ 자체가 없으면(예: develop-BE 계열)
+# CI 파일만 바뀌어도 잡을 만들지 않는다.
+.frontend-changes: &frontend-changes
+  changes:
+    - frontend/**/*
+    - .gitlab/ci/frontend.gitlab-ci.yml
+    - .gitlab-ci.yml
+  exists:
+    - frontend/package.json
+
+frontend:build:
+  stage: build
+  tags:
+    - deploy
+    - shell
+  script:
+    # -u 로 현재 사용자 권한을 유지해야 dist/ 가 root 소유로 남지 않는다
+    - >
+      docker run --rm
+      -u "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR":/workspace
+      -w "/workspace/$FE_DIR"
+      -e HOME=/workspace/.npm-home
+      -e npm_config_cache=/workspace/.npm-cache
+      "$FE_NODE_IMAGE"
+      sh -c "npm ci && npm run lint && npm run build"
+    - test -f "$FE_DIR/dist/index.html" # 산출물 검증
+    - ls -al "$FE_DIR/dist/"
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - .npm-cache/
+      - frontend/node_modules/
+  artifacts:
+    name: "frontend-dist-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH =~ /^(feat|hotfix)\//'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH == "develop-FE"'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *frontend-changes
+
+frontend:deploy:
+  stage: deploy
+  tags:
+    - deploy
+    - shell
+  needs:
+    - frontend:build
+  script:
+    - mkdir -p "$FE_DEPLOY_PATH"
+    # --delete: Vite 는 assets/index-<hash>.js 로 파일명이 매번 바뀌므로
+    #           옛 번들을 지우지 않으면 계속 쌓인다
+    - rsync -av --delete "$FE_DIR/dist/" "$FE_DEPLOY_PATH/"
+    - ls -al "$FE_DEPLOY_PATH/index.html"
+  environment:
+    name: production/frontend
+    url: https://j15a403.p.ssafy.io
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *frontend-changes

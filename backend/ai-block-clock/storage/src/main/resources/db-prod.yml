@@ -1,0 +1,11 @@
+# prod: 접속 정보는 환경 변수로 주입한다. 기본값을 두지 않아 누락 시 기동에 실패하게 한다.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      connection-timeout: 3000
+  jpa:
+    show-sql: false
