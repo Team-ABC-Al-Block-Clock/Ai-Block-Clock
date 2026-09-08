@@ -160,7 +160,7 @@ export const api = {
  * Access Token 은 메모리에만 있어 새로고침하면 사라진다.
  * Refresh Token 쿠키가 살아 있으면 조용히 다시 받아온다.
  *
- * 인증 스토어(S15P21A403-180)가 부팅 시 한 번 호출한다.
+ * 인증 스토어(`stores/authStore.ts`)의 restore 가 부팅 시 한 번 호출한다.
  */
 export async function restoreSession(): Promise<boolean> {
   try {

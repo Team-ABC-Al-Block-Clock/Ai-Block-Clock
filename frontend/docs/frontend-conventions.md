@@ -111,11 +111,12 @@ export const routePatterns = {
 }
 ```
 
-| 쓰는 곳         | 무엇을                                           |
-| --------------- | ------------------------------------------------ |
-| `App.tsx`       | `SCREENS[key]` 로 `<Route>` 를 만든다            |
-| `lib/shell.ts`  | `BY_SCREEN[key]` 로 배경·헤더·프로필 메뉴를 건다 |
-| 화면 · 컴포넌트 | `paths.agentDetail(id)` 로 링크 주소를 만든다    |
+| 쓰는 곳            | 무엇을                                           |
+| ------------------ | ------------------------------------------------ |
+| `App.tsx`          | `SCREENS[key]` 로 `<Route>` 를 만든다            |
+| `lib/shell.ts`     | `BY_SCREEN[key]` 로 배경·헤더·프로필 메뉴를 건다 |
+| `routes/access.ts` | `REQUIRES_AUTH[key]` 로 인증 요구를 정한다       |
+| 화면 · 컴포넌트    | `paths.agentDetail(id)` 로 링크 주소를 만든다    |
 
 - **경로 문자열을 컴포넌트에 직접 쓰지 않는다**
 
@@ -137,6 +138,31 @@ paths.agentDetail.withoutId // '/agent'      — 아직 ID 가 없는 화면만
 ### 왜 이렇게까지 하나
 
 패턴이 `App.tsx`·`paths.ts`·`shell.ts` 세 곳에 손으로 복제돼 있던 적이 있다. `App.tsx` 에만 `/agent/:agentId` 를 추가하고 `shell.ts` 를 빠뜨렸는데 **컴파일이 통과했고**, 상세 화면의 배경 밝기와 프로필 메뉴가 사라졌다. 사람이 지키는 규약 대신 타입으로 묶는다.
+
+### 보호 라우트
+
+인증이 필요한 화면은 `routes/access.ts` 의 `REQUIRES_AUTH` 에 적고, `App.tsx` 가 그 값을 보고 `<ProtectedRoute>` 로 감싼다. 화면 안에서 로그인 여부를 확인하지 않는다.
+
+```ts
+// routes/access.ts — 화면별 인증 요구
+export const REQUIRES_AUTH: Record<ScreenKey, boolean> = {
+  home: false, // 마켓 둘러보기까지는 지갑 없이 열어 둔다
+  myAgents: true, // 등록·실행·마이페이지는 지갑 세션이 필요하다
+  // …
+}
+```
+
+`Record<ScreenKey, boolean>` 이라 화면을 추가하면 **공개인지 보호인지 정할 때까지 컴파일이 실패한다.** 새 화면이 판단 없이 조용히 공개로 열리는 것을 막는다.
+
+| 상태                 | 화면                                        |
+| -------------------- | ------------------------------------------- |
+| `idle` · `restoring` | "세션을 확인하고 있어요" — 아직 모르는 상태 |
+| `unauthenticated`    | 로그인 화면으로 `replace` 이동              |
+| `authenticated`      | 화면 그대로                                 |
+
+- **확인이 끝나기 전을 미인증으로 보지 않는다.** Access Token 은 메모리에만 있어(7절) 새로고침하면 사라지고, 부팅 시 재발급으로 되살린다. 그 사이를 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다
+- 로그인 화면으로 보낼 때 막힌 경로를 history state 로 넘기고, 로그인이 끝나면 `redirectTargetFrom(state)` 으로 그 경로로 돌아간다. state 는 사용자가 만질 수 있으므로 내부 경로인지 확인한다 — `//evil.com` 은 `/` 로 시작하지만 브라우저가 외부 주소로 읽는다
+- 이동은 `replace` 로 한다. 막힌 경로나 로그인 화면을 히스토리에 남기면 뒤로 가기가 다시 그 자리로 튕긴다
 
 ---
 
@@ -282,6 +308,14 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 - 401 중 `AUTH_007`(Access Token 만료)만 재발급 대상이다. 나머지는 재발급해도 결과가 같다
 - 재발급은 **동시에 두 번 나가면 안 된다.** 서버가 이전 Refresh Token 을 폐기하므로 두 번째 요청은 `AUTH_004` 가 되고 세션이 끝난다. `client.ts` 가 진행 중인 재발급을 공유한다
 
+### 인증 세션은 스토어 하나가 들고 있다
+
+`stores/authStore.ts` 가 지갑 주소·프로필·연결 상태(`AuthStatus`)의 단일 소스다. 화면은 `useAuthStore` 로 읽고, 세션을 여닫는 것도 이 스토어의 액션(`signIn`·`signOut`·`restore`)으로만 한다.
+
+**Access Token 은 스토어에 복사하지 않는다.** axios 인터셉터는 React 트리 밖에서 돌아 훅을 쓸 수 없어 `lib/tokenStorage.ts` 를 읽는다. 같은 토큰을 두 곳에 두면 한쪽만 갱신됐을 때 조용히 갈라진다 — 스토어는 토큰의 수명만 관리하고 값은 tokenStorage 를 거친다.
+
+**api 계층은 라우터를 알지 않는다.** 회복 불가능한 401 은 `setOnAuthFailure` 콜백으로 스토어에 알리고, 스토어는 상태만 비운다. 로그인 화면으로 보내는 것은 그 상태를 보는 `ProtectedRoute` 의 몫이다(4절).
+
 ### `Content-Type` 을 인스턴스 기본값으로 박지 않는다
 
 axios 가 본문 타입을 보고 알아서 붙인다. `application/json` 을 고정해두면 FormData 를 넘겼을 때 axios 가 그것을 **JSON 문자열로 바꿔** 보낸다 — 요청은 200 으로 성공하고 파일만 사라진다.
@@ -330,6 +364,20 @@ unitPrice: 540 // ✗
 ### 목록은 핸들러 안에서 실제로 걸러낸다
 
 검색·필터·정렬·페이지네이션을 모두 계산한다. 전체를 한 번에 돌려주면 화면의 검색어·필터·페이지 이동이 아무 효과가 없어 **검증 자체가 불가능하다.**
+
+### 지갑 세션만 새로고침을 넘어 남는다
+
+mock 상태는 새로고침하면 픽스처 초기값으로 돌아가지만, 로그인 세션은 예외다. 실서버는 Refresh Token 을 HttpOnly 쿠키로 들고 있어 새로고침해도 남고, 부팅 시 재발급으로 화면이 되살아난다(4절·7절). mock 이 쿠키를 세팅하지 않으면 **새로고침마다 로그아웃되어 그 경로를 확인할 수 없다.**
+
+`handlers/auth.ts` 가 localStorage 의 `mockWalletSession` 으로 쿠키를 흉내 낸다.
+
+| 요청                 | 세션 없음      | 세션 있음          |
+| -------------------- | -------------- | ------------------ |
+| `POST /auth/reissue` | 401 `AUTH_001` | 새 Access Token    |
+| `GET /users/me`      | 401 `AUTH_005` | 세션 주소의 프로필 |
+| `POST /auth/logout`  | —              | 세션을 지운다      |
+
+로그아웃 상태로 되돌리려면 로그아웃하거나 `localStorage.removeItem('mockWalletSession')` 을 실행한다.
 
 ### 로딩·실패는 시나리오 스위치로 확인한다
 

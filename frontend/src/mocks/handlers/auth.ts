@@ -2,6 +2,7 @@ import { http } from 'msw'
 
 import type { AuthTokens, UserProfile, WalletMessage } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
+import { AUTH_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -10,11 +11,36 @@ import { scene } from '@/mocks/scenario'
  * 인증 · 계정 mock. `api/auth.ts` 의 함수와 일대일로 맞춘다.
  *
  * 상태를 모듈에 들고 있어서 PATCH 결과가 다음 GET 에 보인다.
- * 새로고침하면 픽스처 초기값으로 돌아간다.
+ * 새로고침하면 픽스처 초기값으로 돌아간다 — 지갑 세션만 예외다(아래).
  */
 let profile: UserProfile = { ...PROFILE }
 
-/** 재발급은 항상 성공으로 둔다. 실패 경로는 `?mockFail=AUTH_003&mockFailStatus=401` 로 본다. */
+/**
+ * Refresh Token 쿠키 대역.
+ *
+ * 실서버는 HttpOnly 쿠키로 세션을 들고 있어 새로고침해도 남는다. mock 은 쿠키를
+ * 세팅하지 않으므로 localStorage 로 흉내 낸다 — 그래야 부팅 시 재발급으로 세션을
+ * 되살리는 경로(`restoreSession`)와 보호 라우트를 실제로 확인할 수 있다.
+ */
+const SESSION_KEY = 'mockWalletSession'
+
+function readSession(): string | null {
+  try {
+    return localStorage.getItem(SESSION_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writeSession(walletAddress: string | null) {
+  try {
+    if (walletAddress) localStorage.setItem(SESSION_KEY, walletAddress)
+    else localStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* 접근 불가 환경 */
+  }
+}
+
 function issueTokens() {
   return ok<AuthTokens>({
     accessToken: `mock-access-token.${Date.now()}`,
@@ -49,20 +75,35 @@ export const authHandlers = [
       signature?: string
     }
     if (!walletAddress || !signature) return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
+
+    writeSession(walletAddress)
     return issueTokens()
   }),
 
-  /** 인터셉터가 401(AUTH_007) 을 받고 부른다. */
-  http.post(`${API_BASE_URL}/auth/reissue`, () => issueTokens()),
+  /** 인터셉터가 401(AUTH_007) 을 받고, 부팅 시 `restoreSession` 이 부른다.
+   *  세션이 없으면 실서버처럼 쿠키 미전달로 거절한다 — 여기서 늘 성공을 주면
+   *  로그인하지 않은 사용자도 부팅 때 인증되어 보호 라우트를 검증할 수 없다. */
+  http.post(`${API_BASE_URL}/auth/reissue`, () => {
+    if (!readSession()) return fail(401, AUTH_ERROR.REFRESH_MISSING, '로그인이 필요합니다.')
+    return issueTokens()
+  }),
   http.post(`${API_BASE_URL}/auth/logout`, async () => {
     const forced = await scene()
     if (forced) return forced
+
+    writeSession(null)
     return ok(null)
   }),
   http.get(`${API_BASE_URL}/users/me`, async () => {
     const forced = await scene()
     if (forced) return forced
-    return ok<UserProfile>(profile)
+
+    const walletAddress = readSession()
+    if (!walletAddress) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+
+    // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — 픽스처 주소를 그대로
+    // 돌려주면 어느 지갑으로 들어왔는지 화면에서 확인할 수 없다.
+    return ok<UserProfile>({ ...profile, walletAddress })
   }),
   http.patch(`${API_BASE_URL}/users/me`, async ({ request }) => {
     const forced = await scene()

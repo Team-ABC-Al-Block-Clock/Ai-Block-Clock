@@ -1,5 +1,16 @@
 import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+
+import { ApiError } from '@/api/errors'
+import { shortAddress } from '@/lib/format'
+import { redirectTargetFrom } from '@/routes/access'
 import { paths } from '@/routes/paths'
+import { useAuthStore } from '@/stores/authStore'
+
+/** 연결한 지갑 대신 쓰는 값. 181(wagmi 도입)·182(서명 요청)에서 실제 계정의
+ *  주소와 서명으로 바뀝니다 — 지금은 보호 라우트 복귀를 확인할 만큼만 태웁니다. */
+const PLACEHOLDER_WALLET = '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a'
+const PLACEHOLDER_SIGNATURE = `0x${'ab'.repeat(65)}`
 
 /** 지갑 연결로 시작하는 로그인 화면.
  *
@@ -9,6 +20,27 @@ import { paths } from '@/routes/paths'
  */
 export default function Login() {
   const [walletOpen, setWalletOpen] = useState(false)
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const navigate = useNavigate()
+  const { state } = useLocation()
+  const signIn = useAuthStore((s) => s.signIn)
+
+  const handleStart = async () => {
+    setIsSigningIn(true)
+    setError(null)
+    try {
+      await signIn({ walletAddress: PLACEHOLDER_WALLET, signature: PLACEHOLDER_SIGNATURE })
+      // 보호 라우트에 막혀 왔으면 그 경로로, 직접 들어왔으면 홈으로.
+      // replace — 로그인 화면을 히스토리에 남기면 뒤로 가기가 다시 여기로 온다.
+      navigate(redirectTargetFrom(state), { replace: true })
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '지갑 연결에 실패했습니다. 다시 시도해 주세요.')
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
 
   return (
     <>
@@ -98,7 +130,7 @@ export default function Login() {
               승인하면 지갑 주소로 로그인됩니다.
             </div>
             <div className="bg-surface-inset mt-[18px] flex h-11 items-center justify-center rounded-[11px] text-[13.5px] font-semibold tracking-[.01em]">
-              0xA1B2...7F3e
+              {shortAddress(PLACEHOLDER_WALLET)}
             </div>
             <div className="mt-5 flex gap-2.5">
               <button
@@ -108,13 +140,22 @@ export default function Login() {
               >
                 취소
               </button>
-              <a
-                href={paths.home}
-                className="bg-accent text-accent-ink flex h-[46px] flex-1 items-center justify-center rounded-xl text-sm font-bold transition-transform hover:-translate-y-px"
+              {/* 링크가 아니라 버튼입니다 — 서명 결과를 받아야 이동할 곳이 정해집니다 */}
+              <button
+                type="button"
+                onClick={handleStart}
+                disabled={isSigningIn}
+                className="bg-accent text-accent-ink flex h-[46px] flex-1 cursor-pointer items-center justify-center rounded-xl text-sm font-bold transition-transform hover:-translate-y-px disabled:cursor-default disabled:opacity-60 disabled:hover:translate-y-0"
               >
-                연결하고 시작
-              </a>
+                {isSigningIn ? '연결 중…' : '연결하고 시작'}
+              </button>
             </div>
+
+            {error && (
+              <div className="mt-3 text-[12.5px] leading-[1.5] tracking-[-.01em] text-[#ffb4c8]">
+                {error}
+              </div>
+            )}
           </div>
         </>
       )}

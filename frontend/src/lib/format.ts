@@ -21,3 +21,9 @@ export function tokenLabel(n: number) {
 export function creditLabel(n: number) {
   return n.toLocaleString() + ' Credit'
 }
+
+/** '0x1f9c4b2e…5b8072a' → '0x1f9c…072a' — 지갑 주소는 전체가 화면에 들어가지 않는다 */
+export function shortAddress(address: string) {
+  if (address.length <= 13) return address
+  return `${address.slice(0, 6)}…${address.slice(-4)}`
+}

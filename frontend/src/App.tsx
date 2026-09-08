@@ -2,7 +2,10 @@ import { useEffect, type ReactElement } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import logo from './assets/logo.png'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import ProtectedRoute from './components/ProtectedRoute'
+import { useSessionRestore } from './hooks/useSessionRestore'
 import { shellFor } from './lib/shell'
+import { REQUIRES_AUTH } from './routes/access'
 import { paths, routePatterns, type ScreenKey } from './routes/paths'
 import './components/index'
 
@@ -73,6 +76,7 @@ const SCREEN_KEYS = Object.keys(routePatterns) as ScreenKey[]
 
 export default function App() {
   useInternalLinks()
+  useSessionRestore()
 
   const { pathname } = useLocation()
   const shell = shellFor(pathname)
@@ -95,9 +99,20 @@ export default function App() {
       <div key={pathname} className="animate-screen-in absolute inset-0">
         <ErrorBoundary resetKey={pathname}>
           <Routes>
+            {/* 인증이 필요한 화면은 ProtectedRoute 로 감싼다 — 어느 화면인지는 routes/access.ts */}
             {SCREEN_KEYS.map((key) =>
               routePatterns[key].map((path) => (
-                <Route key={path} path={path} element={SCREENS[key]} />
+                <Route
+                  key={path}
+                  path={path}
+                  element={
+                    REQUIRES_AUTH[key] ? (
+                      <ProtectedRoute>{SCREENS[key]}</ProtectedRoute>
+                    ) : (
+                      SCREENS[key]
+                    )
+                  }
+                />
               )),
             )}
 
