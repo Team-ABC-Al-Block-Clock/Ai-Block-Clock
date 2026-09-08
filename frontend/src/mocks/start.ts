@@ -1,8 +1,8 @@
 import { env } from '@/lib/env'
 
 /**
- * 목 서버를 켠다. `main.tsx` 가 렌더 전에 await 한다 —
- * 워커 등록이 끝나기 전에 나간 요청은 목을 타지 않고 그냥 새어 나간다.
+ * mock 서버를 켠다. `main.tsx` 가 렌더 전에 await 한다 —
+ * 워커 등록이 끝나기 전에 나간 요청은 mock 을 타지 않고 그냥 새어 나간다.
  *
  * `import.meta.env.DEV` 를 여기서만 직접 읽는다. Vite 가 프로덕션 빌드에서
  * 이 값을 `false` 로 치환해 아래 블록을 통째로 지우고, 그래야 devDependency 인

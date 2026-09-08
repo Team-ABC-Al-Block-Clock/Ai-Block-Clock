@@ -8,7 +8,7 @@
 interface ImportMetaEnv {
   readonly VITE_APP_NAME?: string
   readonly VITE_API_BASE_URL?: string
-  /** 'false' 를 명시하지 않으면 MSW 목 서버를 사용한다. */
+  /** 'false' 를 명시하지 않으면 MSW mock 서버를 사용한다. */
   readonly VITE_USE_MOCK?: string
 }
 

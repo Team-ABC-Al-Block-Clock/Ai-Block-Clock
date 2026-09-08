@@ -9,8 +9,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { queryClient } from '@/lib/queryClient'
 import { startMocks } from '@/mocks/start'
 
-/** 목 서버가 준비된 뒤에 렌더한다. 워커 등록이 끝나기 전에 나간 요청은
- *  목을 타지 않고 실서버로 새어 나간다. 목이 꺼져 있으면 곧바로 이어진다. */
+/** mock 서버가 준비된 뒤에 렌더한다. 워커 등록이 끝나기 전에 나간 요청은
+ *  mock 을 타지 않고 실서버로 새어 나간다. mock 이 꺼져 있으면 곧바로 이어진다. */
 startMocks().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

@@ -22,8 +22,8 @@ interface RetriableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean
 }
 
-/** API 루트. 목 핸들러(`mocks/handlers/*`)가 같은 값을 쓴다 —
- *  한쪽만 바뀌면 목이 요청을 못 잡고 조용히 실서버로 나간다. */
+/** API 루트. mock 핸들러(`mocks/handlers/*`)가 같은 값을 쓴다 —
+ *  한쪽만 바뀌면 mock 이 요청을 못 잡고 조용히 실서버로 나간다. */
 export const API_BASE_URL = `${env.apiBaseUrl}/v1`
 
 export const client = axios.create({

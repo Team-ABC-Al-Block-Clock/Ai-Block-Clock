@@ -5,7 +5,8 @@
  */
 
 /** ID 를 받는 화면은 `[ID 없는 경로, ID 있는 경로]` 순으로 둔다.
- *  목 데이터가 붙기 전까지 옛 경로를 살려 둔 것이고, 전환이 끝나면 앞쪽을 지운다. */
+ *  이 도메인들은 mock 핸들러가 아직 없어 화면에 넘길 ID 가 없다.
+ *  핸들러가 붙으면 앞쪽 경로를 지운다. */
 export const routePatterns = {
   home: ['/'],
   login: ['/login'],
@@ -47,7 +48,7 @@ export type ScreenKey = keyof typeof routePatterns
  *  착지하지 않도록 둘을 갈라 둔다. */
 function idPath([plain, withId]: readonly [string, string]) {
   const build = (id: string) => withId.replace(/:[^/]+/, id)
-  /** 목 데이터가 붙기 전까지만 쓰는 임시 경로.
+  /** 해당 도메인 mock 핸들러가 붙기 전까지만 쓰는 임시 경로.
    *  routePatterns 의 앞쪽 패턴과 같이 지우면 남은 호출부가 전부 컴파일 에러가 된다. */
   build.withoutId = plain
   return build

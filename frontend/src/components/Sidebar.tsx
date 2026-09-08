@@ -17,7 +17,8 @@ type Tab = (typeof TABS)[number]['key']
  *  마이페이지 5개 화면에 똑같이 들어갑니다. 화면마다 다른 건 선택 상태뿐 —
  *  탭 하나(active)가 채워지거나, 정보 수정 화면이면 수정 버튼(editing)이 채워집니다.
  *
- *  ponytail: 사용자 정보는 목업 그대로. 백엔드 붙으면 props 로 받으세요.
+ *  ponytail: 사용자 정보가 아직 하드코딩입니다. `GET /users/me` 는 mock 핸들러가
+ *  있으니(8절) 쿼리로 바꿔 주세요.
  */
 interface SidebarProps {
   /** 채워질 탭 */

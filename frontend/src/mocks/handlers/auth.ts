@@ -5,10 +5,10 @@ import { API_BASE_URL } from '@/api/client'
 import { fail, ok } from '@/mocks/response'
 
 /**
- * 인증 · 계정 목. `api/auth.ts` 의 함수와 일대일로 맞춘다.
+ * 인증 · 계정 mock. `api/auth.ts` 의 함수와 일대일로 맞춘다.
  *
  * 상태를 모듈에 들고 있어서 PATCH 결과가 다음 GET 에 보인다.
- * 새로고침하면 초기값으로 돌아간다 — 목이므로 그걸로 충분하다.
+ * 새로고침하면 초기값으로 돌아간다 — mock 이므로 그걸로 충분하다.
  */
 let profile: UserProfile = {
   userId: 'u_1001',
@@ -20,7 +20,7 @@ let profile: UserProfile = {
 }
 
 /** Refresh Token 은 HttpOnly 쿠키라 JS 가 만들 수 없다.
- *  목에서는 재발급이 항상 성공하는 것으로 둔다 — 실패 경로를 확인하려면
+ *  mock 에서는 재발급이 항상 성공하는 것으로 둔다 — 실패 경로를 확인하려면
  *  이 함수 대신 `fail(401, 'AUTH_003', …)` 을 돌려주면 된다. */
 function issueTokens() {
   return ok<AuthTokens>({
