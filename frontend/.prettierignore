@@ -2,3 +2,6 @@ dist
 node_modules
 html
 package-lock.json
+
+# msw 가 생성한 벤더 스크립트
+public/mockServiceWorker.js

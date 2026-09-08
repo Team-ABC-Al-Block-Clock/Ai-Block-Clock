@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import Sidebar from '../components/Sidebar'
+import { paths } from '@/routes/paths'
 
 export default function MyPageUsage() {
   const history = [
@@ -275,7 +276,7 @@ export default function MyPageUsage() {
           <div className="text-[17px] font-semibold tracking-[-.01em] text-white">코인 잔액</div>
           <div className="flex" style={{ gap: '8px' }}>
             <a
-              href="/my/credit"
+              href={paths.my.credit}
               style={{
                 height: '30px',
                 padding: '0 12px',
@@ -288,7 +289,7 @@ export default function MyPageUsage() {
               예치
             </a>
             <a
-              href="/my/credit"
+              href={paths.my.credit}
               style={{
                 height: '30px',
                 padding: '0 12px',

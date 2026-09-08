@@ -63,11 +63,13 @@ React 컴포넌트(`Sidebar.tsx`)와 웹 컴포넌트(`app-header.ts`)를 파일
 frontend/src/
 ├─ pages/          화면 단위 (라우트 하나 = 파일 하나)
 ├─ components/     여러 화면이 쓰는 것
-├─ lib/            프레임워크와 무관한 헬퍼·설정
-├─ api/            서버 통신
+├─ routes/         라우트 패턴 · 경로 생성기
+├─ lib/            공용 헬퍼·설정 (env, queryClient, queryKeys, shell, format)
+├─ api/            서버 통신 · 응답 타입
+├─ mocks/          MSW mock 서버 (핸들러 · 픽스처)
 ├─ stores/         전역 상태
 ├─ hooks/          커스텀 훅
-├─ styles/         전역 CSS
+├─ index.css       전역 CSS · Tailwind 토큰
 └─ assets/         이미지·폰트
 ```
 
@@ -97,7 +99,282 @@ frontend/src/
 
 ---
 
-## 4. Tailwind
+## 4. 라우트
+
+경로는 `routes/paths.ts` 에서만 정의한다. 나머지는 전부 여기서 파생된다.
+
+```ts
+// routes/paths.ts — 유일한 정의
+export const routePatterns = {
+  agentDetail: ['/agent', '/agent/:agentId'],
+  // …
+}
+```
+
+| 쓰는 곳         | 무엇을                                           |
+| --------------- | ------------------------------------------------ |
+| `App.tsx`       | `SCREENS[key]` 로 `<Route>` 를 만든다            |
+| `lib/shell.ts`  | `BY_SCREEN[key]` 로 배경·헤더·프로필 메뉴를 건다 |
+| 화면 · 컴포넌트 | `paths.agentDetail(id)` 로 링크 주소를 만든다    |
+
+- **경로 문자열을 컴포넌트에 직접 쓰지 않는다**
+
+```tsx
+<a href={paths.my.agents}>   {/* ○ */}
+<a href="/my/agents">        {/* ✗ */}
+```
+
+- 화면을 추가하려면 `routePatterns` 에 키를 하나 넣는다. `SCREENS` 와 `BY_SCREEN` 이 `Record<ScreenKey, …>` 라서 둘 다 채울 때까지 컴파일이 실패한다
+- 리소스 ID 를 받는 화면은 `[ID 없는 경로, ID 있는 경로]` 두 패턴을 갖는다. 해당 도메인 mock 핸들러가 아직 없어(8절) 쓸 ID 가 없기 때문이고, 핸들러가 붙으면 앞쪽을 지운다
+
+```tsx
+paths.agentDetail(agentId) // '/agent/{id}' — ID 가 있으면 언제나 이쪽
+paths.agentDetail.withoutId // '/agent'      — 아직 ID 가 없는 화면만
+```
+
+`paths.agentDetail(id)` 의 인자는 **필수**다. 옛날처럼 인자를 선택으로 두면 ID 를 빠뜨렸을 때 에러 없이 옛 경로로 착지해 버린다. 전환이 끝나면 `routePatterns` 의 앞쪽 패턴과 `.withoutId` 를 같이 지운다 — 남은 호출부가 전부 컴파일 에러로 드러난다
+
+### 왜 이렇게까지 하나
+
+패턴이 `App.tsx`·`paths.ts`·`shell.ts` 세 곳에 손으로 복제돼 있던 적이 있다. `App.tsx` 에만 `/agent/:agentId` 를 추가하고 `shell.ts` 를 빠뜨렸는데 **컴파일이 통과했고**, 상세 화면의 배경 밝기와 프로필 메뉴가 사라졌다. 사람이 지키는 규약 대신 타입으로 묶는다.
+
+---
+
+## 5. 환경변수 · 경로 alias
+
+### `@/` 로 임포트한다
+
+`vite.config.ts` 와 `tsconfig.app.json` 에 `@/*` → `src/*` 가 걸려 있다.
+
+```ts
+import { paths } from '@/routes/paths' // ○
+import { paths } from '../../routes/paths' // ✗
+```
+
+같은 폴더 안(`./base`)은 상대 경로 그대로 둔다.
+
+### `import.meta.env` 를 직접 읽지 않는다
+
+`lib/env.ts` 를 거친다.
+
+```ts
+env.apiBaseUrl // ○
+import.meta.env.VITE_API_BASE_URL // ✗ — 없을 수 있다
+```
+
+`.env` 는 커밋되지 않는다 (`.env.example` 만 예외). 클론 직후에는 **어느 값도 없을 수 있으므로** `ImportMetaEnv` 의 필드는 전부 선택이고, 기본값은 `lib/env.ts` 가 채운다.
+
+값이 없을 때 조용히 잘못된 값으로 굴러가지 않게 하는 것이 이 모듈의 목적이다. `VITE_API_BASE_URL` 을 그냥 읽으면 `baseURL` 이 `undefined/v1` 이 되는데, 상대 경로라서 요청이 dev 서버로 붙고 index.html 이 **200 으로** 돌아온다 — 네트워크 탭은 성공인데 JSON 파싱만 실패한다.
+
+| 변수                    | 기본값                  | 읽는 곳          | 비고                                |
+| ----------------------- | ----------------------- | ---------------- | ----------------------------------- |
+| `VITE_APP_NAME`         | `ABC AI Block Clock`    | `lib/env.ts`     |                                     |
+| `VITE_API_BASE_URL`     | `/api`                  | `lib/env.ts`     | vite 프록시가 받는다                |
+| `VITE_USE_MOCK`         | `true`                  | `lib/env.ts`     | 끄려면 `false` 를 **명시**해야 한다 |
+| `VITE_API_PROXY_TARGET` | `http://localhost:8080` | `vite.config.ts` | 빌드타임 전용 — 아래 참고           |
+
+> `VITE_USE_MOCK` 이 실제로 무엇을 켜는지는 8절을 본다.
+
+변수를 추가하면 `.env.example` · `vite-env.d.ts` · `lib/env.ts` 세 곳을 같이 고친다.
+
+**단, 브라우저에 실리는 변수만 그렇다.** `VITE_API_PROXY_TARGET` 은 dev 서버의 프록시 설정값이라 `vite.config.ts` 가 `loadEnv` 로 읽는다. 번들에 들어가지 않으므로 `ImportMetaEnv` 에도 `lib/env.ts` 에도 없는 것이 맞다 — `.env.example` 에만 적는다.
+
+---
+
+## 6. 서버 상태 — TanStack Query
+
+서버에서 온 것은 TanStack Query, 화면 안에서만 사는 것은 `useState`·zustand. **서버 응답을 `useState` 로 복사하지 않는다.**
+
+### 기본 옵션 (`lib/queryClient.ts`)
+
+| 옵션                   | 값                  | 이유                                                              |
+| ---------------------- | ------------------- | ----------------------------------------------------------------- |
+| `staleTime`            | 60초                | 목록·상세는 실시간성이 낮다. 즉시성이 필요하면 훅에서 따로 낮춘다 |
+| `retry`                | 2회 (4xx 계열 제외) | 400·401·403·404·409·413·415 는 재시도해도 같은 응답이다           |
+| `refetchOnWindowFocus` | `false`             | 탭을 옮길 때마다 요청이 나가지 않게                               |
+| mutations `retry`      | `false`             | 결제·등록이 두 번 나가면 안 된다                                  |
+
+### 쿼리 키는 `lib/queryKeys.ts` 를 거친다
+
+```ts
+useQuery({ queryKey: queryKeys.marketplace.agents.list({ page }) }) // ○
+useQuery({ queryKey: ['agents', page] }) // ✗
+```
+
+**규칙**
+
+- 키 구조를 API 경로와 일치시킨다. `/api/v1/marketplace/agents` → `queryKeys.marketplace.agents`
+- 도메인마다 `all` 을 최상위에 둔다. **`all` 은 언제나 배열, 그 아래는 언제나 함수** — 괄호 유무로 헷갈리지 않게
+- `all` 을 갖는 것은 도메인뿐이다. 하위 리소스(`credits.transactions`, `settlements.statistics`)는 `lists()` 가 그 역할을 하므로 따로 두지 않는다
+- 하위 리소스가 `all` 을 갖는 유일한 예외는 `marketplace.agents` 다. 이때 키는 **상위에서 파생**한다 — 리터럴로 다시 적으면 상위를 고쳤을 때 두 키가 조용히 갈라진다
+
+```ts
+all: [...MARKETPLACE, 'agents'] as const // ○
+all: ['marketplace', 'agents'] as const // ✗
+```
+
+> `all` 은 함수가 아니라 배열이라 즉시 평가된다. 그 시점의 `queryKeys` 는 아직 TDZ 라 `[...queryKeys.marketplace.all, …]` 이 `ReferenceError` 가 된다 — 그래서 루트만 모듈 상단의 `const` 로 뺀다. 함수 안(`lists()` 등)에서는 `queryKeys` 를 그대로 참조해도 된다
+
+- 목록은 예외 없이 `lists()` → `list(params)`, 상세는 `details()` → `detail(id)`
+- 중간 계층이 있어야 부분 무효화가 된다
+
+```ts
+invalidateQueries({ queryKey: queryKeys.agents.lists() }) // 목록만
+invalidateQueries({ queryKey: queryKeys.agents.all }) // 도메인 전체
+```
+
+- 서버가 받는 query parameter 를 그대로 키에 넣는다. `undefined` 필드는 TanStack Query 의 해시에서 자동으로 빠진다
+
+### 불러오는 중에는 "없음" 을 띄우지 않는다
+
+`data` 가 아직 `undefined` 인 동안을 빈 목록으로 보고 "결과 없음" 을 그리면 **매 요청마다 한 번씩 깜빡인다.**
+
+```ts
+const empty = list.length === 0 // ✗ 로딩 중에도 참
+const empty = !isPending && !isError && list.length === 0 // ○
+```
+
+---
+
+## 7. API 레이어
+
+### 요청은 `api/<도메인>.ts` 의 함수로만
+
+화면에서 URL 문자열을 쓰지 않는다. 엔드포인트 하나당 함수 하나를 export 한다. 경로가 바뀌어도 고칠 곳이 하나다.
+
+```ts
+// api/auth.ts
+export const getMyProfile = () => api.get<UserProfile>('/users/me')
+```
+
+### 응답 타입도 `api/` 에 둔다
+
+화면은 API 응답 타입을 직접 선언하지 않는다. 필드명이 바뀔 때 고칠 곳이 `api/` 안으로 한정된다. 숫자를 문자열로 바꾸는 것은 `lib/format.ts` 가 한다 — API 는 `runCount: 1248` 을 주고 화면은 `1,248회` 를 쓴다.
+
+### 명세가 확정되지 않은 필드는 추정임을 적는다
+
+API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다. 그래서 아래는 **추정**이다.
+
+| 구분     | 내용                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **확정** | 경로 접두어 `/api/v1` · 봉투 `{status, data}` · `{status, code, message}`(백엔드 `ApiResponse`·`ErrorResponse`) · 인증 계열 필드명(`api/auth.ts`) |
+| **추정** | 목록 봉투(`api/page.ts`, Spring `Page` 축약형) · `page`·`size`·`sort`·필터 파라미터명 · 식별자·등급·단가 필드명 · 카테고리 값                     |
+
+추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+
+### 응답은 봉투가 벗겨진 채로 온다
+
+서버는 `{ status, data }` 로 감싸 준다. 응답 인터셉터가 `data` 만 넘기므로 화면은 `res.data.data` 를 몰라도 된다.
+
+### 오류는 `ApiError` 로 정규화된다
+
+HTTP status 대신 **`code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `AGENT_003`(visibility 값 오류)이 섞여 있어 status 만으로는 무엇이 잘못됐는지 알 수 없다.
+
+```ts
+if (e instanceof ApiError && e.code === 'AGENT_003') …
+if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받음
+```
+
+### 토큰
+
+- Access Token 은 **메모리에만** 둔다 (`lib/tokenStorage.ts`). localStorage 는 XSS 로 탈취된다
+- Refresh Token 은 HttpOnly 쿠키다. JS 는 값을 알 수도 없고 알 필요도 없다
+- 401 중 `AUTH_007`(Access Token 만료)만 재발급 대상이다. 나머지는 재발급해도 결과가 같다
+- 재발급은 **동시에 두 번 나가면 안 된다.** 서버가 이전 Refresh Token 을 폐기하므로 두 번째 요청은 `AUTH_004` 가 되고 세션이 끝난다. `client.ts` 가 진행 중인 재발급을 공유한다
+
+### `Content-Type` 을 인스턴스 기본값으로 박지 않는다
+
+axios 가 본문 타입을 보고 알아서 붙인다. `application/json` 을 고정해두면 FormData 를 넘겼을 때 axios 가 그것을 **JSON 문자열로 바꿔** 보낸다 — 요청은 200 으로 성공하고 파일만 사라진다.
+
+---
+
+## 8. mock 서버 — MSW
+
+백엔드 없이 화면을 개발하기 위한 mock 이다. `VITE_USE_MOCK` 이 `'false'` 가 아니면 켜진다(5절).
+
+```
+src/mocks/
+├─ start.ts            켜기 — main.tsx 가 렌더 전에 await 한다
+├─ browser.ts          setupWorker
+├─ response.ts         응답 봉투 헬퍼 (ok · fail)
+├─ scenario.ts         지연 · 강제 실패 스위치
+├─ paginate.ts         목록 페이지 계산
+├─ fixtures/           도메인별 데이터
+│  ├─ agents.ts
+│  ├─ user.ts
+│  └─ workflows.ts
+└─ handlers/           응답 만들기 — api/<도메인>.ts 와 짝
+   ├─ index.ts         도메인 핸들러를 모은다
+   ├─ auth.ts
+   ├─ marketplace.ts
+   └─ mypage.ts
+```
+
+### 도메인 하나가 파일 하나
+
+`api/<도메인>.ts` 와 이름을 맞춘다. 추가할 때는 `handlers/<도메인>.ts` 를 만들고 `handlers/index.ts` 의 배열에 펼쳐 넣는다.
+
+### 데이터는 `fixtures/`, 응답 만들기는 `handlers/`
+
+핸들러 안에 데이터를 인라인으로 두지 않는다. 같은 데이터를 두 핸들러가 쓰기 시작하면 조용히 갈라진다.
+
+파생값은 **계산해서** 만든다. 단가처럼 다른 필드에서 나오는 값을 손으로 적으면 등급을 바꿀 때 같이 안 바뀌어 거짓 데이터가 된다.
+
+```ts
+unitPrice: Math.round(seed.baseCost * (1 + premiumRate)) // ○
+unitPrice: 540 // ✗
+```
+
+평점·사용량이 0 인 **콜드스타트 건을 반드시 섞는다.** 요구사항이 그 상태를 전제로 하고, 화면이 NaN·빈칸을 내는지는 그때만 드러난다.
+
+### 목록은 핸들러 안에서 실제로 걸러낸다
+
+검색·필터·정렬·페이지네이션을 모두 계산한다. 전체를 한 번에 돌려주면 화면의 검색어·필터·페이지 이동이 아무 효과가 없어 **검증 자체가 불가능하다.**
+
+### 로딩·실패는 시나리오 스위치로 확인한다
+
+핸들러는 맨 앞에서 `scene()` 을 부른다. URL 쿼리로 켜고 localStorage 에 남아 화면을 옮겨도 유지된다.
+
+```
+?mockDelay=1500                        모든 응답을 늦춘다
+?mockFail=COMMON_001                   모든 응답을 실패시킨다 (기본 400)
+?mockFail=AUTH_007&mockFailStatus=401
+?mockDelay=0&mockFail=                 끈다
+```
+
+### 봉투를 그대로 흉내 낸다
+
+`response.ts` 의 `ok` · `fail` 만 쓴다. 봉투 없이 알맹이만 돌려주면 인터셉터를 통과해도 화면이 받는 모양이 실서버와 달라져 **mock 에서만 되는 코드**가 만들어진다.
+
+```ts
+ok<UserProfile>(profile) // { status: 'success', data: … }
+fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.') // { status: 'error', code, message }
+```
+
+오류는 실제 도메인 코드를 쓴다. 화면이 `code` 로 분기하기 때문에(7절) mock 이 코드를 대충 주면 분기를 검증할 수 없다.
+
+### URL 은 `API_BASE_URL` 에서 만든다
+
+```ts
+http.get(`${API_BASE_URL}/users/me`, …) // ○
+http.get('/api/v1/users/me', …) // ✗
+```
+
+`api/client.ts` 가 내보내는 값이다. 한쪽만 바뀌면 mock 이 요청을 못 잡고 **조용히 실서버로 새어 나간다.**
+
+### 핸들러가 없는 요청은 통과시킨다
+
+`onUnhandledRequest: 'bypass'`. `'warn'` 으로 두면 이미지·폰트 같은 정적 요청까지 콘솔을 채운다. mock 을 켰는데 요청이 프록시로 나간다면 **핸들러가 없는 것**이지 mock 이 꺼진 게 아니다.
+
+### mock 은 프로덕션 번들에 들어가지 않는다
+
+`start.ts` 만 `import.meta.env.DEV` 를 직접 읽는다(5절의 예외). Vite 가 프로덕션 빌드에서 이 값을 `false` 로 치환해 블록을 통째로 지우고, 그래야 devDependency 인 `msw` 가 번들에서 빠진다. `env.useMock` 만으로는 정적으로 지울 수 없다.
+
+`public/mockServiceWorker.js` 는 `npx msw init public/ --save` 가 만든 벤더 스크립트다. 손으로 고치지 않고, 린트·포맷 대상에서도 빼 둔다.
+
+---
+
+## 9. Tailwind
 
 ### 반복되는 것만 Tailwind, 1회성 좌표는 인라인
 
@@ -156,7 +433,7 @@ className={`${TAB} ${isActive ? 'bg-white/90 text-accent-ink' : 'bg-white/9'}`}
 
 ---
 
-## 5. 하지 말 것 — 이 프로젝트에서 실제로 터진 것들
+## 10. 하지 말 것 — 이 프로젝트에서 실제로 터진 것들
 
 ### 유리 패널의 조상에 `transform` · `opacity` 를 걸지 않는다
 
@@ -209,11 +486,11 @@ const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTML
 
 ### 화면 이동은 라우터로
 
-`<a href="/search">` 를 그냥 쓰면 **전체 페이지가 재로드**되어 배경이 깜빡인다. `App.tsx` 의 전역 클릭 인터셉터가 내부 링크를 클라이언트 라우팅으로 넘기고 있으므로, `href` 는 `/` 로 시작하는 경로만 쓴다.
+`<a href="https://…">` 처럼 외부 주소를 쓰면 **전체 페이지가 재로드**되어 배경이 깜빡인다. `App.tsx` 의 전역 클릭 인터셉터가 `/` 로 시작하는 내부 링크를 클라이언트 라우팅으로 넘기고 있으므로, 내부 이동은 `paths` 가 만든 주소만 쓴다 (4절).
 
 ---
 
-## 6. 커밋 전 확인
+## 11. 커밋 전 확인
 
 ```bash
 npm run build      # tsc -b && vite build — 타입 에러 0

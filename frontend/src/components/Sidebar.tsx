@@ -1,8 +1,10 @@
+import { paths } from '@/routes/paths'
+
 const TABS = [
-  { key: 'agents', label: '내 에이전트', href: '/my/agents' },
-  { key: 'usage', label: '사용 내역', href: '/my/usage' },
-  { key: 'sales', label: '판매 내역', href: '/my/sales' },
-  { key: 'credit', label: '코인 예치/출금', href: '/my/credit' },
+  { key: 'agents', label: '내 에이전트', href: paths.my.agents },
+  { key: 'usage', label: '사용 내역', href: paths.my.usage },
+  { key: 'sales', label: '판매 내역', href: paths.my.sales },
+  { key: 'credit', label: '코인 예치/출금', href: paths.my.credit },
 ] as const
 
 const TAB =
@@ -15,7 +17,8 @@ type Tab = (typeof TABS)[number]['key']
  *  마이페이지 5개 화면에 똑같이 들어갑니다. 화면마다 다른 건 선택 상태뿐 —
  *  탭 하나(active)가 채워지거나, 정보 수정 화면이면 수정 버튼(editing)이 채워집니다.
  *
- *  ponytail: 사용자 정보는 목업 그대로. 백엔드 붙으면 props 로 받으세요.
+ *  ponytail: 사용자 정보가 아직 하드코딩입니다. `GET /users/me` 는 mock 핸들러가
+ *  있으니(8절) 쿼리로 바꿔 주세요.
  */
 interface SidebarProps {
   /** 채워질 탭 */
@@ -78,7 +81,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        김선미
+        이싸피
       </div>
       <div
         className="absolute text-[13px] tracking-[-.01em]"
@@ -110,7 +113,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
         </div>
       ) : (
         <a
-          href="/my/edit"
+          href={paths.my.edit}
           style={{
             left: '102px',
             top: '544px',

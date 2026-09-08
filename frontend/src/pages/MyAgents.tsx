@@ -1,77 +1,63 @@
+import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState, useEffect } from 'react'
+
+import { getMyAgents } from '@/api/agents'
+import { runLabel, tokenLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
+import { paths } from '@/routes/paths'
 import Sidebar from '../components/Sidebar'
+
+/** 카드의 꺾은선은 장식이다. 통계 엔드포인트가 없어 순번으로 돌려 쓴다. */
+const SPARKS = [
+  'M1 27L19 19L37 23L55 10L73 14L89 1',
+  'M1 24L19 26L37 12L55 16L73 5L89 1',
+  'M1 20L19 25L37 11L55 22L73 8L89 2',
+  'M1 25L19 14L37 18L55 9L73 13L89 3',
+  'M1 22L19 20L37 24L55 12L73 9L89 2',
+]
 
 export default function MyAgents() {
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
-  const [favs, setFavs] = useState<Record<number, boolean>>({ 1: true, 3: true })
+  const [favs, setFavs] = useState<Record<string, boolean>>({})
 
-  const all = [
-    {
-      name: 'Contract Analyzer',
-      desc: '계약 검토와 위험 요소 분석',
-      uses: '1,248회',
-      tokens: '2.4M',
-      path: 'M1 27L19 19L37 23L55 10L73 14L89 1',
-    },
-    {
-      name: 'Market Predictor',
-      desc: '시장 흐름과 가격 변동 예측',
-      uses: '2,156회',
-      tokens: '3.6M',
-      path: 'M1 24L19 26L37 12L55 16L73 5L89 1',
-    },
-    {
-      name: 'Docu Chain',
-      desc: '문서 검증 및 위변조 확인',
-      uses: '986회',
-      tokens: '1.8M',
-      path: 'M1 20L19 25L37 11L55 22L73 8L89 2',
-    },
-    {
-      name: 'Tx Inspector',
-      desc: '거래 이상 징후 탐지',
-      uses: '1,820회',
-      tokens: '2.9M',
-      path: 'M1 27L19 13L37 19L55 5L73 15L89 1',
-    },
-    {
-      name: 'Risk Guardian',
-      desc: '리스크 평가 및 정산 위험 알림',
-      uses: '1,306회',
-      tokens: '2.2M',
-      path: 'M1 26L19 12L37 22L55 9L73 17L89 2',
-    },
-    {
-      name: 'Chain Assistant',
-      desc: '블록체인 질문 응답 도우미',
-      uses: '764회',
-      tokens: '1.7M',
-      path: 'M1 25L19 22L37 13L55 16L73 5L89 1',
-    },
-  ]
+  const { data, isPending, isError } = useQuery({
+    queryKey: queryKeys.agents.list({ size: 30 }),
+    queryFn: () => getMyAgents({ size: 30 }),
+  })
+
   const handleTabAll = () => setTab('all')
   const handleTabFav = () => setTab('fav')
-  const toggleFav = (i: number) => () =>
+  const toggleFav = (id: string) => () =>
     setFavs((prev) => {
       const next = { ...prev }
-      if (next[i]) delete next[i]
-      else next[i] = true
+      if (next[id]) delete next[id]
+      else next[id] = true
       return next
     })
-  const MINE = ['Contract Analyzer', 'Docu Chain', 'Tx Inspector']
   const query = q.trim()
-  const indexed = all.map((d, i) => ({ ...d, i }))
-  const list = indexed
-    .filter((d) => tab === 'all' || (tab === 'mine' ? MINE.indexOf(d.name) >= 0 : favs[d.i]))
+  // GET /agents 는 내가 등록한 것만 준다 — 전체와 "내가 제작" 이 같다.
+  // 즐겨찾기는 서버에 엔드포인트가 없어 이 화면 안에서만 유지된다.
+  const agents = (data?.content ?? []).map((a, i) => ({
+    agentId: a.agentId,
+    name: a.name,
+    desc: a.description,
+    uses: runLabel(a.runCount),
+    tokens: tokenLabel(a.tokenUsage),
+    path: SPARKS[i % SPARKS.length],
+    i,
+  }))
+  const list = agents
+    .filter((d) => tab !== 'fav' || favs[d.agentId])
     .filter(
       (d) => !query || d.name.toLowerCase().includes(query.toLowerCase()) || d.desc.includes(query),
     )
   const on = 'rgba(255,255,255,.9)',
     off = 'rgba(255,255,255,.09)'
-  const allLabel = '전체 ' + all.length
+  const total = data?.totalElements ?? 0
+  const allLabel = '전체 ' + total
   const favLabel = '즐겨찾기 ' + Object.keys(favs).length
-  const mineLabel = '내가 제작 ' + all.filter((d) => MINE.indexOf(d.name) >= 0).length
+  const mineLabel = '내가 제작 ' + total
   const mineTabBg = tab === 'mine' ? on : off
   const mineTabFg = tab === 'mine' ? '#3a1030' : 'rgba(255,240,247,.78)'
   const handleTabMine = () => setTab('mine')
@@ -84,12 +70,12 @@ export default function MyAgents() {
     initial: d.name.trim().charAt(0).toUpperCase(),
     gradId: 'spk' + d.i,
     gradRef: 'url(#spk' + d.i + ')',
-    starColor: favs[d.i] ? '#e3c8a3' : 'rgba(255,255,255,.34)',
-    mine: MINE.indexOf(d.name) >= 0,
-    toggleFav: toggleFav(d.i),
+    starColor: favs[d.agentId] ? '#e3c8a3' : 'rgba(255,255,255,.34)',
+    mine: true,
+    toggleFav: toggleFav(d.agentId),
     anim: 'rise .6s ' + (0.24 + n * 0.05).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
   }))
-  const empty = list.length === 0
+  const empty = !isPending && !isError && list.length === 0
 
   useEffect(() => {
     const input = document.getElementById('myQ') as HTMLInputElement | null
@@ -400,7 +386,7 @@ export default function MyAgents() {
                 </div>
 
                 <a
-                  href="/agent"
+                  href={paths.agentDetail.withoutId}
                   style={{
                     width: '96px',
                     height: '34px',
@@ -418,21 +404,19 @@ export default function MyAgents() {
         </div>
       </div>
 
-      {empty && (
-        <>
-          <div
-            className="absolute text-center text-[15px]"
-            style={{
-              left: '442px',
-              top: '400px',
-              width: '868px',
-              color: 'rgba(255,236,246,.6)',
-              animation: 'fadeIn .3s ease both',
-            }}
-          >
-            해당하는 에이전트가 없습니다
-          </div>
-        </>
+      {(empty || isError) && (
+        <div
+          className="absolute text-center text-[15px]"
+          style={{
+            left: '442px',
+            top: '400px',
+            width: '868px',
+            color: 'rgba(255,236,246,.6)',
+            animation: 'fadeIn .3s ease both',
+          }}
+        >
+          {isError ? '목록을 불러오지 못했습니다' : '해당하는 에이전트가 없습니다'}
+        </div>
       )}
     </>
   )

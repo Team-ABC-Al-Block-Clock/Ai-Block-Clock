@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { paths } from '@/routes/paths'
 
 export default function Detail() {
   const [creditOpen, setCreditOpen] = useState(false)
@@ -75,7 +76,7 @@ export default function Detail() {
         <div className="relative" style={{ width: '1440px', height: '1520px' }}>
           <a
             className="absolute flex items-center text-[14px] tracking-[-.01em]"
-            href="/search"
+            href={paths.search}
             style={{
               left: '272px',
               top: '140px',
@@ -155,7 +156,7 @@ export default function Detail() {
               style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,.14)' }}
             ></div>
             <div className="flex flex-col" style={{ gap: '2px' }}>
-              <div className="text-[14px] font-semibold tracking-[-.01em] text-white">김선미</div>
+              <div className="text-[14px] font-semibold tracking-[-.01em] text-white">이싸피</div>
               <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.6)' }}>
                 만든 사람
               </div>
@@ -186,7 +187,7 @@ export default function Detail() {
           </div>
 
           <a
-            href="/run/waiting"
+            href={paths.run.waiting.withoutId}
             style={{
               left: '1008px',
               top: '210px',

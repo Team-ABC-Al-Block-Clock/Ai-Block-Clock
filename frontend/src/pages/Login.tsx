@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { paths } from '@/routes/paths'
 
 /** 지갑 연결로 시작하는 로그인 화면.
  *
@@ -70,7 +71,7 @@ export default function Login() {
 
         <div className="text-muted mt-6 text-center text-[12.5px] tracking-[-.01em]">
           처음이신가요? 지갑을 연결하면{' '}
-          <a href="/signup" className="font-semibold text-[#e9b7d2]">
+          <a href={paths.signup} className="font-semibold text-[#e9b7d2]">
             프로필 등록
           </a>
           으로 이어집니다
@@ -108,7 +109,7 @@ export default function Login() {
                 취소
               </button>
               <a
-                href="/"
+                href={paths.home}
                 className="bg-accent text-accent-ink flex h-[46px] flex-1 items-center justify-center rounded-xl text-sm font-bold transition-transform hover:-translate-y-px"
               >
                 연결하고 시작

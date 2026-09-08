@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { paths } from '@/routes/paths'
 
 export default function RegisterForm() {
   const [done, setDone] = useState(false)
@@ -44,7 +45,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href="/edit/nodes-seller"
+            href={paths.edit.nodesSeller.withoutId}
             style={{
               left: '272px',
               top: '94px',
@@ -428,7 +429,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href="/edit/nodes-seller"
+            href={paths.edit.nodesSeller.withoutId}
             style={{
               left: '832px',
               top: '1580px',
@@ -515,7 +516,7 @@ export default function RegisterForm() {
             </div>
             <div className="flex" style={{ marginTop: '26px', gap: '12px' }}>
               <a
-                href="/my/agents"
+                href={paths.my.agents}
                 style={{ height: '50px', borderRadius: '25px', color: 'rgba(255,255,255,.9)' }}
                 className="flex flex-1 items-center justify-center bg-[rgba(255,255,255,.09)] text-[14px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.18)] hover:text-[#fff]"
               >
@@ -523,7 +524,7 @@ export default function RegisterForm() {
               </a>
               <a
                 className="flex flex-1 items-center justify-center text-[14px] font-bold"
-                href="/agent"
+                href={paths.agentDetail.withoutId}
                 style={{
                   height: '50px',
                   borderRadius: '25px',

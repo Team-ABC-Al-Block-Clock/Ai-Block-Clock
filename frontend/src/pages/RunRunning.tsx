@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { cssToStyle } from '../lib/css'
+import { paths } from '@/routes/paths'
 
 export default function RunRunning() {
   const [pct, setPct] = useState(0)
@@ -424,7 +425,7 @@ export default function RunRunning() {
             </div>
 
             <a
-              href="/edit/nodes"
+              href={paths.edit.nodes.withoutId}
               style={{
                 left: '30px',
                 top: '576px',

@@ -1,4 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState, useEffect } from 'react'
+
+import { getMarketplaceAgents } from '@/api/agents'
+import { compactCount, creditLabel, runLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
+import { paths } from '@/routes/paths'
 import { OceanTheme } from '../components/theme-store'
 
 const FULL_TITLE = '어떤 일을 맡겨볼까요?'
@@ -14,40 +20,24 @@ export default function Search() {
   const cardBg = bright ? 'rgba(24,13,40,.42)' : 'rgba(255,255,255,.10)'
   const descColor = bright ? 'rgba(255,240,248,.82)' : 'rgba(255,236,246,.7)'
   const headShadow = bright ? '0 2px 14px rgba(24,8,34,.85)' : '0 1px 10px rgba(35,8,45,.6)'
-  const all = [
-    { name: '문서 정리', desc: '폴더의 파일을 주제별로 분류', favs: '2.4k' },
-    { name: '일정 요약', desc: '캘린더를 하루 단위로 정리', favs: '1.8k' },
-    { name: '메일 초안', desc: '받은 메일에 답장 초안 작성', favs: '3.1k' },
-    { name: '코드 리뷰', desc: '변경된 코드의 문제를 지적', favs: '972' },
-    { name: '회의록 작성', desc: '녹취 텍스트를 항목별로 정리', favs: '1.5k' },
-    { name: '데이터 추출', desc: '표에서 필요한 열만 뽑아냄', favs: '640' },
-    { name: '번역 정리', desc: '문서를 번역하고 용어 통일', favs: '1.2k' },
-    { name: '이미지 태깅', desc: '이미지에 설명 태그를 붙임', favs: '418' },
-    { name: '링크 수집', desc: '북마크를 주제별로 묶음', favs: '806' },
-    { name: '영수증 정리', desc: '영수증 사진에서 금액을 추출', favs: '1.1k' },
-    { name: 'CS 응답', desc: '문의에 맞는 답변을 제안', favs: '2.7k' },
-    { name: '리서치 수집', desc: '주제별 자료를 모아 출처 정리', favs: '1.9k' },
-    { name: '리포트 작성', desc: '데이터를 문장으로 풀어 씀', favs: '1.4k' },
-    { name: '중복 파일 정리', desc: '같은 파일을 찾아 하나만 남김', favs: '523' },
-    { name: '계약서 검토', desc: '조항의 위험 요소를 표시', favs: '888' },
-    { name: '자막 생성', desc: '영상 음성을 자막으로 변환', favs: '1.6k' },
-    { name: '표 정규화', desc: '흩어진 표를 하나 형식으로', favs: '347' },
-    { name: '뉴스 브리핑', desc: '오늘 기사를 세 줄로 요약', favs: '3.4k' },
-    { name: '이력서 검토', desc: '직무에 맞게 문장을 다듬음', favs: '1.3k' },
-    { name: '가계부 분류', desc: '지출 내역을 항목별로 나눔', favs: '764' },
-    { name: '슬랙 요약', desc: '읽지 않은 대화를 정리', favs: '2.1k' },
-    { name: '테스트 생성', desc: '함수에 맞는 테스트를 작성', favs: '612' },
-    { name: '이미지 정리', desc: '사진을 날짜·장소로 묶음', favs: '939' },
-    { name: '용어집 관리', desc: '문서에서 용어를 모아 정의', favs: '281' },
-  ]
   const query = q.trim()
-  const list = query ? all.filter((c) => c.name.includes(query) || c.desc.includes(query)) : all
-  const cards = list.map((c, i) => ({
-    ...c,
-    initial: c.name.trim().charAt(0).toUpperCase(),
-    uses: (900 + i * 137).toLocaleString() + '회',
-    credit: 40 + (i % 5) * 25 + ' Credit',
-    author: ['김선미', '이도현', '박서준'][i % 3],
+  // 검색·필터·정렬은 서버가 한다. 화면에 페이지 이동 UI 가 없어 한 페이지에 다 담는다.
+  const params = { keyword: query, size: 30 }
+  const { data, isPending, isError } = useQuery({
+    queryKey: queryKeys.marketplace.agents.list(params),
+    queryFn: () => getMarketplaceAgents(params),
+  })
+
+  const agents = data?.content ?? []
+  const cards = agents.map((a, i) => ({
+    agentId: a.agentId,
+    name: a.name,
+    desc: a.description,
+    favs: compactCount(a.favoriteCount),
+    initial: a.name.trim().charAt(0).toUpperCase(),
+    uses: runLabel(a.runCount),
+    credit: creditLabel(a.unitPrice),
+    author: a.ownerNickname,
     infoOpen: infoAt === i,
     infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
     info: (e: React.MouseEvent) => {
@@ -58,8 +48,9 @@ export default function Search() {
     anim:
       'rise .6s ' + (0.16 + Math.min(i, 8) * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
   }))
-  const countLabel = list.length + '개'
-  const empty = list.length === 0
+  const countLabel = isPending ? '…' : (data?.totalElements ?? 0) + '개'
+  // 불러오는 중에는 "결과 없음" 을 띄우지 않는다 — 매 검색마다 한 번씩 깜빡인다.
+  const empty = !isPending && !isError && agents.length === 0
 
   useEffect(() => {
     // 타자 치듯 타이틀 입력. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
@@ -251,7 +242,7 @@ export default function Search() {
           {cards.map((c, i) => (
             <Fragment key={i}>
               <a
-                href="/agent"
+                href={paths.agentDetail(c.agentId)}
                 style={{
                   width: '280px',
                   height: '176px',
@@ -382,21 +373,19 @@ export default function Search() {
         </div>
       </div>
 
-      {empty && (
-        <>
-          <div
-            className="absolute text-center text-[15px]"
-            style={{
-              left: '272px',
-              top: '452px',
-              width: '896px',
-              color: 'rgba(255,236,246,.62)',
-              animation: 'fadeIn .3s ease both',
-            }}
-          >
-            검색 결과가 없습니다
-          </div>
-        </>
+      {(empty || isError) && (
+        <div
+          className="absolute text-center text-[15px]"
+          style={{
+            left: '272px',
+            top: '452px',
+            width: '896px',
+            color: 'rgba(255,236,246,.62)',
+            animation: 'fadeIn .3s ease both',
+          }}
+        >
+          {isError ? '목록을 불러오지 못했습니다' : '검색 결과가 없습니다'}
+        </div>
       )}
     </>
   )

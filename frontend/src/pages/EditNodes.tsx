@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { cssToStyle } from '../lib/css'
+import { paths } from '@/routes/paths'
 
 /** 노드 편집 화면. 판매자 흐름(/edit/nodes-seller)은 문구와 하단 버튼만 다릅니다. */
 interface EditNodesProps {
@@ -633,7 +634,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
 
         {seller && (
           <a
-            href="/run/waiting"
+            href={paths.run.waiting.withoutId}
             style={{
               left: '710px',
               top: '943px',
@@ -652,7 +653,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           </a>
         )}
         <a
-          href={seller ? '/register' : '/run/waiting'}
+          href={seller ? paths.register : paths.run.waiting.withoutId}
           style={{
             left: '882px',
             top: '943px',

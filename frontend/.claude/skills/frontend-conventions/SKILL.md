@@ -36,6 +36,15 @@ frontend/docs/frontend-conventions.md
    화면이 1440×1024 고정 좌표다. `left-[504px]` 로 옮겨도 이득이 없다.
    기준은 2회 이상 나오는 선언만 Tailwind.
 
+## API 응답 타입은 아직 추정이다
+
+API 명세서 링크가 공유되지 않아 `api/page.ts`·`api/agents.ts`·`api/credits.ts`·`api/workflows.ts`
+의 필드명은 **추정**이다. 확정된 것은 `/api/v1` 접두어, 봉투 `{status, data}`, 인증 계열뿐이다.
+
+**화면에 필드명을 직접 박지 말 것.** 화면은 `api/` 타입만 참조하고 표시 문자열은
+`lib/format.ts` 를 거친다. 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+자세한 구분은 원본 7절.
+
 ## 네이밍 요약
 
 - 컴포넌트 `.tsx` PascalCase · 훅·유틸 `.ts` camelCase
@@ -47,3 +56,21 @@ frontend/docs/frontend-conventions.md
 
 `App.tsx` 가 껍데기(`screen-frame`·`ocean-bg`·`app-header`·`profile-menu`)를 들고,
 화면(`pages/*.tsx`)은 자기 내용만 그린다. 라우트별 설정은 `lib/shell.ts` 한 곳.
+
+**경로 문자열을 직접 쓰지 않는다.** 라우트 패턴의 유일한 정의는 `routes/paths.ts` 이고
+`App.tsx`·`lib/shell.ts`·화면 링크가 모두 거기서 파생된다.
+
+```tsx
+<a href={paths.my.agents}>  {/* ○ */}
+<a href="/my/agents">       {/* ✗ */}
+```
+
+화면을 추가하면 `routePatterns` 에 키를 넣는다 — `SCREENS` 와 `BY_SCREEN` 이
+`Record<ScreenKey, …>` 라서 둘 다 채울 때까지 컴파일이 실패한다.
+
+ID 를 받는 경로는 인자가 **필수**다. 아직 ID 가 없는 화면만 `.withoutId` 를 쓴다.
+
+```tsx
+paths.agentDetail(agentId) // '/agent/{id}'
+paths.agentDetail.withoutId // '/agent' — 해당 도메인 mock 핸들러 붙기 전까지만
+```

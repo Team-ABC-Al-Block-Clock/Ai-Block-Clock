@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { paths } from '@/routes/paths'
 
 const FULL_TITLE = '안녕하세요.\n어떤 워크플로우를 만들고 싶으신가요?'
 
@@ -76,7 +77,7 @@ export default function Main() {
 
     const input = document.getElementById('agentInput')
     const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') navigate('/edit/searching')
+      if (e.key === 'Enter') navigate(paths.edit.searching)
     }
     input?.addEventListener('keydown', onKeydown)
 
@@ -205,7 +206,7 @@ export default function Main() {
           }}
         />
         <a
-          href="/edit/searching"
+          href={paths.edit.searching}
           style={{
             left: '656px',
             top: '12px',
