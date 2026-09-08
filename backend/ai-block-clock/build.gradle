@@ -37,7 +37,28 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) {
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 
+    // 단위 테스트. @Tag("integration") 이 붙은 것은 제외한다.
+    // MR 마다 도는 태스크이므로 외부 의존(DB, 컨테이너, 네트워크)이 없어야 한다.
     tasks.named('test') {
-        useJUnitPlatform()
+        useJUnitPlatform {
+            excludeTags 'integration'
+        }
+    }
+
+    // 통합 테스트. @Tag("integration") 이 붙은 것만 실행한다.
+    // 소스셋을 나누지 않고 태그로 가른다 — 의존성 선언이 중복되지 않고,
+    // 테스트를 옮기지 않아도 태그만 붙이면 분류가 바뀐다.
+    tasks.register('integrationTest', Test) {
+        group = 'verification'
+        description = '@Tag("integration") 이 붙은 테스트만 실행한다.'
+
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+
+        useJUnitPlatform {
+            includeTags 'integration'
+        }
+
+        shouldRunAfter tasks.named('test')
     }
 }
