@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { paths } from '@/routes/paths'
 
 export default function Signup() {
   const [checked, setChecked] = useState([false, false, false])
@@ -392,7 +393,7 @@ export default function Signup() {
               style={{ marginTop: '24px', marginBottom: '6px', color: 'rgba(255,236,246,.62)' }}
             >
               이미 계정이 있으신가요?{' '}
-              <a className="font-semibold" href="/login" style={{ color: '#e9b7d2' }}>
+              <a className="font-semibold" href={paths.login} style={{ color: '#e9b7d2' }}>
                 로그인
               </a>
             </div>
@@ -559,7 +560,7 @@ export default function Signup() {
             </div>
             <div className="flex flex-col" style={{ marginTop: '22px', gap: '10px' }}>
               <a
-                href="/"
+                href={paths.home}
                 style={{
                   height: '48px',
                   borderRadius: '12px',
@@ -573,7 +574,7 @@ export default function Signup() {
                 MetaMask 연결하기
               </a>
               <a
-                href="/"
+                href={paths.home}
                 style={{ height: '48px', borderRadius: '12px' }}
                 className="bg-surface-card flex items-center justify-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
               >

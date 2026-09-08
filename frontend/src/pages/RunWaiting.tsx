@@ -1,12 +1,13 @@
 import { Fragment, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { paths } from '@/routes/paths'
 
 export default function RunWaiting() {
   const navigate = useNavigate()
   const [filled, setFilled] = useState(false)
 
   const handleRun = () => {
-    if (filled) navigate('/handleRun/running')
+    if (filled) navigate(paths.run.running.withoutId)
   }
   const on = filled
   const btnBg = on ? '#b98da9' : 'rgba(255,255,255,.09)'

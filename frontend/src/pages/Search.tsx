@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 import { OceanTheme } from '../components/theme-store'
+import { paths } from '@/routes/paths'
 
 const FULL_TITLE = '어떤 일을 맡겨볼까요?'
 
@@ -251,7 +252,7 @@ export default function Search() {
           {cards.map((c, i) => (
             <Fragment key={i}>
               <a
-                href="/agent"
+                href={paths.agentDetail.withoutId}
                 style={{
                   width: '280px',
                   height: '176px',

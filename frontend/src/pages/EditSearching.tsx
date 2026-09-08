@@ -1,5 +1,6 @@
 import { Fragment, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { paths } from '@/routes/paths'
 
 export default function EditSearching() {
   const navigate = useNavigate()
@@ -20,7 +21,7 @@ export default function EditSearching() {
 
   useEffect(() => {
     const _go = setTimeout(() => {
-      navigate('/edit/nodes')
+      navigate(paths.edit.nodes.withoutId)
     }, 4200)
     return () => {
       clearTimeout(_go)

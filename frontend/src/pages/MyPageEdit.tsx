@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import { paths } from '@/routes/paths'
 
 export default function MyPageEdit() {
   const navigate = useNavigate()
@@ -13,7 +14,7 @@ export default function MyPageEdit() {
     setSaved(true)
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      navigate('/my/agents')
+      navigate(paths.my.agents)
     }, 1100)
   }
   const tags = ['AI', '데이터 분석', '스마트 컨트랙트', '블록체인'].map((name) => ({ name }))
@@ -374,7 +375,7 @@ export default function MyPageEdit() {
         }}
       >
         <a
-          href="/my/agents"
+          href={paths.my.agents}
           style={{
             width: '84px',
             height: '44px',

@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactElement } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import logo from './assets/logo.png'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { shellFor } from './lib/shell'
+import { paths, routePatterns, type ScreenKey } from './routes/paths'
 import './components/index'
 
 import Detail from './pages/Detail'
@@ -14,6 +16,7 @@ import MyPageCredit from './pages/MyPageCredit'
 import MyPageEdit from './pages/MyPageEdit'
 import MyPageSales from './pages/MyPageSales'
 import MyPageUsage from './pages/MyPageUsage'
+import NotFound from './pages/NotFound'
 import RegisterForm from './pages/RegisterForm'
 import RunRunning from './pages/RunRunning'
 import RunWaiting from './pages/RunWaiting'
@@ -45,6 +48,29 @@ function useInternalLinks() {
   }, [navigate])
 }
 
+/** 화면 키 → 엔트리.
+ *  Record<ScreenKey, …> 라서 화면을 추가하면 여기를 채울 때까지 컴파일이 실패한다. */
+const SCREENS: Record<ScreenKey, ReactElement> = {
+  home: <Main />,
+  login: <Login />,
+  signup: <Signup />,
+  register: <RegisterForm />,
+  search: <Search />,
+  agentDetail: <Detail />,
+  editSearching: <EditSearching />,
+  editNodes: <EditNodes />,
+  editNodesSeller: <EditNodes seller />,
+  runWaiting: <RunWaiting />,
+  runRunning: <RunRunning />,
+  myAgents: <MyAgents />,
+  myEdit: <MyPageEdit />,
+  myUsage: <MyPageUsage />,
+  mySales: <MyPageSales />,
+  myCredit: <MyPageCredit />,
+}
+
+const SCREEN_KEYS = Object.keys(routePatterns) as ScreenKey[]
+
 export default function App() {
   useInternalLinks()
 
@@ -67,33 +93,27 @@ export default function App() {
 
       {/* 화면 내용만 갈아끼운다 — key 로 진입 모션을 매번 다시 태운다 */}
       <div key={pathname} className="animate-screen-in absolute inset-0">
-        <Routes>
-          <Route path="/" element={<Main />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/register" element={<RegisterForm />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/agent" element={<Detail />} />
-          <Route path="/edit/searching" element={<EditSearching />} />
-          <Route path="/edit/nodes" element={<EditNodes />} />
-          <Route path="/edit/nodes-seller" element={<EditNodes seller />} />
-          <Route path="/run/waiting" element={<RunWaiting />} />
-          <Route path="/run/running" element={<RunRunning />} />
-          <Route path="/my/agents" element={<MyAgents />} />
-          <Route path="/my/edit" element={<MyPageEdit />} />
-          <Route path="/my/usage" element={<MyPageUsage />} />
-          <Route path="/my/sales" element={<MyPageSales />} />
-          <Route path="/my/credit" element={<MyPageCredit />} />
-        </Routes>
+        <ErrorBoundary resetKey={pathname}>
+          <Routes>
+            {SCREEN_KEYS.map((key) =>
+              routePatterns[key].map((path) => (
+                <Route key={path} path={path} element={SCREENS[key]} />
+              )),
+            )}
+
+            {/* 어느 것에도 걸리지 않은 경로 — 없으면 배경만 남은 빈 화면이 된다 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ErrorBoundary>
       </div>
 
       {/* 껍데기 — 화면 내용과 달리 라우트가 바뀌어도 그대로 붙어 있습니다 */}
-      {shell.header && <app-header home-href="/" logo-src={logo}></app-header>}
+      {shell.header && <app-header home-href={paths.home} logo-src={logo}></app-header>}
       {/* My Agent Studio — 아바타(1374,26,48×48) 왼쪽 12px. 알약 크기는 와이어프레임 그대로,
           색·그림자·hover 는 이 앱의 primary 버튼(실행하기 등)과 같은 accent 계열로. */}
       {shell.studio && (
         <a
-          href="/edit/nodes-seller"
+          href={paths.edit.nodesSeller.withoutId}
           className="group bg-accent text-accent-ink absolute box-border flex cursor-pointer items-center justify-center text-[14px] font-semibold tracking-[-.01em] whitespace-nowrap transition-transform duration-[180ms] hover:-translate-y-[2px]"
           style={{
             left: '1191px',
@@ -138,8 +158,8 @@ export default function App() {
           className="absolute"
           style={{ left: '1374px', top: '26px', zIndex: '40' }}
           initial="김"
-          search-href="/search"
-          mypage-href="/my/agents"
+          search-href={paths.search}
+          mypage-href={paths.my.agents}
         ></profile-menu>
       )}
     </screen-frame>

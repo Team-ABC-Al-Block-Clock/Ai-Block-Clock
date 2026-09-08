@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
+import { paths } from '@/routes/paths'
 
 export default function MyAgents() {
   const [tab, setTab] = useState('all')
@@ -400,7 +401,7 @@ export default function MyAgents() {
                 </div>
 
                 <a
-                  href="/agent"
+                  href={paths.agentDetail.withoutId}
                   style={{
                     width: '96px',
                     height: '34px',
