@@ -1,0 +1,13 @@
+# 모든 프로파일 공통 모니터링 설정. 프로파일별 값은 monitoring-{profile}.yml 에서 덮어쓴다.
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: never
+  health:
+    db:
+      enabled: true
