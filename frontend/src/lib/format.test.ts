@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { creditLabel, ratingLabel } from '@/lib/format'
+import { creditLabel, ratingLabel, successLabel } from '@/lib/format'
 
 /** 돈과 콜드스타트 경로. 손으로 쓴 자릿수 정규식과 null 분기는 검사가 있어야 한다. */
 
@@ -36,5 +36,19 @@ describe('ratingLabel', () => {
     expect(ratingLabel(null, 0)).toBe('—')
     // 평점은 있는데 리뷰가 0 인 모순 응답도 같은 자리로 떨어뜨린다
     expect(ratingLabel(0, 0)).toBe('—')
+  })
+})
+
+describe('successLabel', () => {
+  it('0~1 을 백분율로 바꾸고 뒤의 0 은 뗀다', () => {
+    expect(successLabel(0.982, 128)).toBe('98.2%')
+    expect(successLabel(1, 128)).toBe('100%')
+    expect(successLabel(0.75, 4)).toBe('75%')
+  })
+
+  it('실행이 0회면 0% 가 아니라 —', () => {
+    // 실행이 없으면 서버도 비율을 만들 수 없어 0 이 온다.
+    // 그대로 그리면 '전부 실패했다' 는 거짓말이 된다.
+    expect(successLabel(0, 0)).toBe('—')
   })
 })

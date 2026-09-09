@@ -45,3 +45,14 @@ export function ratingLabel(averageRating: number | null, reviewCount: number) {
   if (averageRating === null || reviewCount === 0) return '—'
   return `${averageRating.toFixed(1)} (${compactCount(reviewCount)})`
 }
+
+/**
+ * 0.982 → '98.2%', 1 → '100%', 실행 0회 → '—'
+ *
+ * 실행이 없으면 서버도 비율을 만들 수 없어 `successRate` 가 0 으로 온다.
+ * 그대로 그리면 '0%' — 전부 실패했다는 거짓말이 된다.
+ */
+export function successLabel(successRate: number, executionCount: number) {
+  if (executionCount === 0) return '—'
+  return (successRate * 100).toFixed(1).replace(/\.0$/, '') + '%'
+}
