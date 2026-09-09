@@ -43,18 +43,33 @@ def _patch_xhtml2pdf_tmpfile_for_windows() -> None:
 _patch_xhtml2pdf_tmpfile_for_windows()
 
 TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "report.html"
+
+# 한글 TTF 를 위에서부터 찾는다. 컨테이너(Linux)와 로컬(Windows) 양쪽에서 돌아야 한다.
+# 폰트 파일을 저장소에 커밋하지 않고 Docker 이미지에서 apt 로 설치한다(fonts-nanum).
 FONT_CANDIDATES = [
-    Path("C:/Windows/Fonts/malgun.ttf"),          # 맑은 고딕
+    Path("/usr/share/fonts/truetype/nanum/NanumGothic.ttf"),   # Docker — fonts-nanum
+    Path("/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"),
+    Path("C:/Windows/Fonts/malgun.ttf"),                       # Windows — 맑은 고딕
     Path("C:/Windows/Fonts/NanumGothic.ttf"),
-    Path(__file__).resolve().parents[1] / "templates" / "NotoSansKR-Regular.ttf",
+    Path(__file__).resolve().parents[1] / "templates" / "NotoSansKR-Regular.ttf",  # 직접 넣을 때
 ]
 
 
 def find_font() -> Path:
+    # 환경변수로 지정하면 그것을 최우선으로 쓴다. 배포 환경마다 경로가 다를 때의 탈출구다.
+    override = os.getenv("PDF_FONT_PATH")
+    if override:
+        p = Path(override)
+        if p.exists():
+            return p
+        raise FileNotFoundError(f"PDF_FONT_PATH 가 가리키는 파일이 없습니다: {override}")
     for p in FONT_CANDIDATES:
         if p.exists():
             return p
-    raise FileNotFoundError("한글 TTF 폰트를 찾지 못했습니다. templates/ 에 NotoSansKR-Regular.ttf 를 두세요.")
+    raise FileNotFoundError(
+        "한글 TTF 폰트를 찾지 못했습니다. Linux 라면 `apt-get install fonts-nanum`, "
+        "또는 PDF_FONT_PATH 환경변수로 TTF 경로를 지정하세요."
+    )
 
 
 def markdown_to_html(md_text: str) -> str:
