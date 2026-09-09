@@ -157,9 +157,9 @@ export default function Detail() {
   const favBg = agent.favorited ? 'rgba(255,179,205,.26)' : 'rgba(255,255,255,.11)'
   const favStarColor = agent.favorited ? '#e3c8a3' : 'rgba(255,255,255,.5)'
 
-  // 등급·평균 실행 시간·공개 범위는 명세가 반환하지 않는다(내부 자료 / 미집계 / 등록이 곧 공개).
+  // 노드 개수·등급·평균 실행 시간·공개 범위는 명세가 반환하지 않는다
+  // (내부 구조 보호 / 내부 자료 / 미집계 / 등록이 곧 공개).
   const chips = [
-    `노드 ${agent.nodeCount}개`,
     `사용 ${runLabel(agent.executionCount)}`,
     `성공률 ${successLabel(agent.successRate, agent.executionCount)}`,
     `★ ${ratingLabel(agent.averageRating, agent.reviewCount)}`,

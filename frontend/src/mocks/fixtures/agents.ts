@@ -4,7 +4,7 @@ import iconUrl from '@/assets/logo.png'
 /**
  * 에이전트 픽스처 30건.
  *
- * 단가·성공률·노드 개수·즐겨찾기 수는 서버가 기록해서 주는 값이라 여기서도 그대로 적는다 —
+ * 단가·성공률·즐겨찾기 수는 서버가 기록해서 주는 값이라 여기서도 그대로 적는다 —
  * mock 이 정책을 재구현하면 계약 밖을 흉내 내는 것이 된다.
  * 평가 0건인 콜드스타트와 아이콘이 없는 건(`iconUrl: null`)을 섞었다.
  * 화면이 NaN·빈칸·깨진 이미지를 내는지는 그때만 드러난다.
@@ -25,8 +25,6 @@ interface Seed {
   summary: string
   /** 실행 1회당 판매 가격. 서버가 계산해서 문자열로 준다 — 여기서 만들지 않는다. */
   price: string
-  /** 몇 단계로 돌아가는지 */
-  nodeCount: number
   /** 실행 성공률 0~1. 실행이 0회면 서버도 비율을 만들 수 없어 0 이다 */
   successRate: number
   /** 평가 0건이면 null */
@@ -43,43 +41,43 @@ interface Seed {
 // prettier-ignore
 const SEEDS: Seed[] = [
   // 평점·실행 횟수가 높은 쪽
-  { name: '메일 초안', summary: '받은 메일에 답장 초안 작성', price: '540', nodeCount: 4, successRate: 0.986, averageRating: 4.8, reviewCount: 214, executionCount: 18420, favoriteCount: 642, owner: '이싸피', hasIcon: true },
-  { name: 'CS 응답', summary: '문의에 맞는 답변을 제안', price: '630', nodeCount: 5, successRate: 0.982, averageRating: 4.7, reviewCount: 186, executionCount: 15230, favoriteCount: 517, owner: '김싸피', hasIcon: true },
-  { name: '뉴스 브리핑', summary: '오늘 기사를 세 줄로 요약', price: '360', nodeCount: 3, successRate: 0.991, averageRating: 4.9, reviewCount: 302, executionCount: 22140, favoriteCount: 908, owner: '박싸피', hasIcon: false },
-  { name: 'Contract Analyzer', summary: '계약 검토와 위험 요소 분석', price: '1170', nodeCount: 8, successRate: 0.964, averageRating: 4.6, reviewCount: 94, executionCount: 1248, favoriteCount: 213, owner: '이싸피', hasIcon: true },
-  { name: '성적 분석 리포트', summary: '엑셀 성적표를 통계 JSON 으로 정리', price: '810', nodeCount: 6, successRate: 0.978, averageRating: 4.8, reviewCount: 128, executionCount: 3860, favoriteCount: 341, owner: '최싸피', hasIcon: false },
+  { name: '메일 초안', summary: '받은 메일에 답장 초안 작성', price: '540', successRate: 0.986, averageRating: 4.8, reviewCount: 214, executionCount: 18420, favoriteCount: 642, owner: '이싸피', hasIcon: true },
+  { name: 'CS 응답', summary: '문의에 맞는 답변을 제안', price: '630', successRate: 0.982, averageRating: 4.7, reviewCount: 186, executionCount: 15230, favoriteCount: 517, owner: '김싸피', hasIcon: true },
+  { name: '뉴스 브리핑', summary: '오늘 기사를 세 줄로 요약', price: '360', successRate: 0.991, averageRating: 4.9, reviewCount: 302, executionCount: 22140, favoriteCount: 908, owner: '박싸피', hasIcon: false },
+  { name: 'Contract Analyzer', summary: '계약 검토와 위험 요소 분석', price: '1170', successRate: 0.964, averageRating: 4.6, reviewCount: 94, executionCount: 1248, favoriteCount: 213, owner: '이싸피', hasIcon: true },
+  { name: '성적 분석 리포트', summary: '엑셀 성적표를 통계 JSON 으로 정리', price: '810', successRate: 0.978, averageRating: 4.8, reviewCount: 128, executionCount: 3860, favoriteCount: 341, owner: '최싸피', hasIcon: false },
 
-  { name: '문서 정리', summary: '폴더의 파일을 주제별로 분류', price: '390', nodeCount: 4, successRate: 0.972, averageRating: 4.4, reviewCount: 152, executionCount: 9420, favoriteCount: 428, owner: '이싸피', hasIcon: true },
-  { name: '코드 리뷰', summary: '변경된 코드의 문제를 지적', price: '858', nodeCount: 7, successRate: 0.951, averageRating: 4.3, reviewCount: 78, executionCount: 972, favoriteCount: 186, owner: '박싸피', hasIcon: false },
-  { name: '회의록 작성', summary: '녹취 텍스트를 항목별로 정리', price: '624', nodeCount: 5, successRate: 0.968, averageRating: 4.5, reviewCount: 110, executionCount: 6180, favoriteCount: 297, owner: '김싸피', hasIcon: true },
-  { name: '리서치 수집', summary: '주제별 자료를 모아 출처 정리', price: '936', nodeCount: 9, successRate: 0.943, averageRating: 4.2, reviewCount: 66, executionCount: 4310, favoriteCount: 158, owner: '정싸피', hasIcon: false },
-  { name: '리포트 작성', summary: '데이터를 문장으로 풀어 씀', price: '780', nodeCount: 6, successRate: 0.959, averageRating: 4.4, reviewCount: 88, executionCount: 5240, favoriteCount: 224, owner: '최싸피', hasIcon: true },
-  { name: '계약서 검토', summary: '조항의 위험 요소를 표시', price: '1092', nodeCount: 8, successRate: 0.937, averageRating: 4.1, reviewCount: 42, executionCount: 888, favoriteCount: 121, owner: '이싸피', hasIcon: false },
-  { name: '슬랙 요약', summary: '읽지 않은 대화를 정리', price: '364', nodeCount: 3, successRate: 0.974, averageRating: 4.5, reviewCount: 134, executionCount: 8760, favoriteCount: 386, owner: '김싸피', hasIcon: true },
-  { name: 'Market Predictor', summary: '시장 흐름과 가격 변동 예측', price: '1170', nodeCount: 9, successRate: 0.912, averageRating: 4.0, reviewCount: 51, executionCount: 2156, favoriteCount: 147, owner: '박싸피', hasIcon: false },
-  { name: 'API 문서화', summary: '코드에서 API 문서 초안 생성', price: '702', nodeCount: 5, successRate: 0.946, averageRating: 4.2, reviewCount: 61, executionCount: 3480, favoriteCount: 172, owner: '최싸피', hasIcon: true },
-  { name: '가정통신문 생성', summary: '분석 결과를 학부모용 문장으로', price: '598', nodeCount: 4, successRate: 0.969, averageRating: 4.6, reviewCount: 97, executionCount: 3720, favoriteCount: 253, owner: '정싸피', hasIcon: false },
+  { name: '문서 정리', summary: '폴더의 파일을 주제별로 분류', price: '390', successRate: 0.972, averageRating: 4.4, reviewCount: 152, executionCount: 9420, favoriteCount: 428, owner: '이싸피', hasIcon: true },
+  { name: '코드 리뷰', summary: '변경된 코드의 문제를 지적', price: '858', successRate: 0.951, averageRating: 4.3, reviewCount: 78, executionCount: 972, favoriteCount: 186, owner: '박싸피', hasIcon: false },
+  { name: '회의록 작성', summary: '녹취 텍스트를 항목별로 정리', price: '624', successRate: 0.968, averageRating: 4.5, reviewCount: 110, executionCount: 6180, favoriteCount: 297, owner: '김싸피', hasIcon: true },
+  { name: '리서치 수집', summary: '주제별 자료를 모아 출처 정리', price: '936', successRate: 0.943, averageRating: 4.2, reviewCount: 66, executionCount: 4310, favoriteCount: 158, owner: '정싸피', hasIcon: false },
+  { name: '리포트 작성', summary: '데이터를 문장으로 풀어 씀', price: '780', successRate: 0.959, averageRating: 4.4, reviewCount: 88, executionCount: 5240, favoriteCount: 224, owner: '최싸피', hasIcon: true },
+  { name: '계약서 검토', summary: '조항의 위험 요소를 표시', price: '1092', successRate: 0.937, averageRating: 4.1, reviewCount: 42, executionCount: 888, favoriteCount: 121, owner: '이싸피', hasIcon: false },
+  { name: '슬랙 요약', summary: '읽지 않은 대화를 정리', price: '364', successRate: 0.974, averageRating: 4.5, reviewCount: 134, executionCount: 8760, favoriteCount: 386, owner: '김싸피', hasIcon: true },
+  { name: 'Market Predictor', summary: '시장 흐름과 가격 변동 예측', price: '1170', successRate: 0.912, averageRating: 4.0, reviewCount: 51, executionCount: 2156, favoriteCount: 147, owner: '박싸피', hasIcon: false },
+  { name: 'API 문서화', summary: '코드에서 API 문서 초안 생성', price: '702', successRate: 0.946, averageRating: 4.2, reviewCount: 61, executionCount: 3480, favoriteCount: 172, owner: '최싸피', hasIcon: true },
+  { name: '가정통신문 생성', summary: '분석 결과를 학부모용 문장으로', price: '598', successRate: 0.969, averageRating: 4.6, reviewCount: 97, executionCount: 3720, favoriteCount: 253, owner: '정싸피', hasIcon: false },
 
-  { name: '일정 요약', summary: '캘린더를 하루 단위로 정리', price: '220', nodeCount: 2, successRate: 0.965, averageRating: 3.9, reviewCount: 64, executionCount: 7180, favoriteCount: 208, owner: '김싸피', hasIcon: true },
-  { name: '데이터 추출', summary: '표에서 필요한 열만 뽑아냄', price: '374', nodeCount: 3, successRate: 0.928, averageRating: 3.7, reviewCount: 38, executionCount: 640, favoriteCount: 94, owner: '최싸피', hasIcon: false },
-  { name: '번역 정리', summary: '문서를 번역하고 용어 통일', price: '572', nodeCount: 5, successRate: 0.934, averageRating: 3.8, reviewCount: 55, executionCount: 1240, favoriteCount: 131, owner: '이싸피', hasIcon: true },
-  { name: '영수증 정리', summary: '영수증 사진에서 금액을 추출', price: '418', nodeCount: 4, successRate: 0.906, averageRating: 3.6, reviewCount: 47, executionCount: 1120, favoriteCount: 108, owner: '박싸피', hasIcon: false },
-  { name: '자막 생성', summary: '영상 음성을 자막으로 변환', price: '704', nodeCount: 6, successRate: 0.921, averageRating: 3.9, reviewCount: 72, executionCount: 1620, favoriteCount: 164, owner: '정싸피', hasIcon: true },
-  { name: '이력서 검토', summary: '직무에 맞게 문장을 다듬음', price: '462', nodeCount: 4, successRate: 0.941, averageRating: 3.8, reviewCount: 59, executionCount: 1300, favoriteCount: 126, owner: '김싸피', hasIcon: false },
-  { name: '가계부 분류', summary: '지출 내역을 항목별로 나눔', price: '286', nodeCount: 3, successRate: 0.953, averageRating: 3.7, reviewCount: 33, executionCount: 764, favoriteCount: 87, owner: '최싸피', hasIcon: true },
-  { name: '테스트 생성', summary: '함수에 맞는 테스트를 작성', price: '638', nodeCount: 5, successRate: 0.918, averageRating: 3.6, reviewCount: 29, executionCount: 612, favoriteCount: 73, owner: '박싸피', hasIcon: false },
-  { name: 'Docu Chain', summary: '문서 검증 및 위변조 확인', price: '770', nodeCount: 7, successRate: 0.932, averageRating: 3.9, reviewCount: 41, executionCount: 986, favoriteCount: 112, owner: '이싸피', hasIcon: true },
+  { name: '일정 요약', summary: '캘린더를 하루 단위로 정리', price: '220', successRate: 0.965, averageRating: 3.9, reviewCount: 64, executionCount: 7180, favoriteCount: 208, owner: '김싸피', hasIcon: true },
+  { name: '데이터 추출', summary: '표에서 필요한 열만 뽑아냄', price: '374', successRate: 0.928, averageRating: 3.7, reviewCount: 38, executionCount: 640, favoriteCount: 94, owner: '최싸피', hasIcon: false },
+  { name: '번역 정리', summary: '문서를 번역하고 용어 통일', price: '572', successRate: 0.934, averageRating: 3.8, reviewCount: 55, executionCount: 1240, favoriteCount: 131, owner: '이싸피', hasIcon: true },
+  { name: '영수증 정리', summary: '영수증 사진에서 금액을 추출', price: '418', successRate: 0.906, averageRating: 3.6, reviewCount: 47, executionCount: 1120, favoriteCount: 108, owner: '박싸피', hasIcon: false },
+  { name: '자막 생성', summary: '영상 음성을 자막으로 변환', price: '704', successRate: 0.921, averageRating: 3.9, reviewCount: 72, executionCount: 1620, favoriteCount: 164, owner: '정싸피', hasIcon: true },
+  { name: '이력서 검토', summary: '직무에 맞게 문장을 다듬음', price: '462', successRate: 0.941, averageRating: 3.8, reviewCount: 59, executionCount: 1300, favoriteCount: 126, owner: '김싸피', hasIcon: false },
+  { name: '가계부 분류', summary: '지출 내역을 항목별로 나눔', price: '286', successRate: 0.953, averageRating: 3.7, reviewCount: 33, executionCount: 764, favoriteCount: 87, owner: '최싸피', hasIcon: true },
+  { name: '테스트 생성', summary: '함수에 맞는 테스트를 작성', price: '638', successRate: 0.918, averageRating: 3.6, reviewCount: 29, executionCount: 612, favoriteCount: 73, owner: '박싸피', hasIcon: false },
+  { name: 'Docu Chain', summary: '문서 검증 및 위변조 확인', price: '770', successRate: 0.932, averageRating: 3.9, reviewCount: 41, executionCount: 986, favoriteCount: 112, owner: '이싸피', hasIcon: true },
 
   // 평점·실행 횟수가 낮은 쪽
-  { name: '이미지 태깅', summary: '이미지에 설명 태그를 붙임', price: '300', nodeCount: 3, successRate: 0.884, averageRating: 3.2, reviewCount: 18, executionCount: 418, favoriteCount: 46, owner: '정싸피', hasIcon: false },
-  { name: '링크 수집', summary: '북마크를 주제별로 묶음', price: '180', nodeCount: 2, successRate: 0.897, averageRating: 3.4, reviewCount: 22, executionCount: 806, favoriteCount: 58, owner: '김싸피', hasIcon: true },
-  { name: '중복 파일 정리', summary: '같은 파일을 찾아 하나만 남김', price: '160', nodeCount: 2, successRate: 0.876, averageRating: 3.1, reviewCount: 14, executionCount: 523, favoriteCount: 31, owner: '최싸피', hasIcon: false },
-  { name: '표 정규화', summary: '흩어진 표를 하나 형식으로', price: '240', nodeCount: 3, successRate: 0.862, averageRating: 2.9, reviewCount: 11, executionCount: 347, favoriteCount: 24, owner: '박싸피', hasIcon: true },
+  { name: '이미지 태깅', summary: '이미지에 설명 태그를 붙임', price: '300', successRate: 0.884, averageRating: 3.2, reviewCount: 18, executionCount: 418, favoriteCount: 46, owner: '정싸피', hasIcon: false },
+  { name: '링크 수집', summary: '북마크를 주제별로 묶음', price: '180', successRate: 0.897, averageRating: 3.4, reviewCount: 22, executionCount: 806, favoriteCount: 58, owner: '김싸피', hasIcon: true },
+  { name: '중복 파일 정리', summary: '같은 파일을 찾아 하나만 남김', price: '160', successRate: 0.876, averageRating: 3.1, reviewCount: 14, executionCount: 523, favoriteCount: 31, owner: '최싸피', hasIcon: false },
+  { name: '표 정규화', summary: '흩어진 표를 하나 형식으로', price: '240', successRate: 0.862, averageRating: 2.9, reviewCount: 11, executionCount: 347, favoriteCount: 24, owner: '박싸피', hasIcon: true },
 
   // 콜드스타트 — 평가 0건. 등록 시각이 가장 늦어 목록 첫 페이지에 뜬다.
   // 실행이 없으면 성공률도 만들 수 없다(0). 화면은 '—' 를 내야 한다.
-  { name: '이미지 정리', summary: '사진을 날짜·장소로 묶음', price: '220', nodeCount: 3, successRate: 0, averageRating: null, reviewCount: 0, executionCount: 0, favoriteCount: 0, owner: '이싸피', hasIcon: false },
-  { name: '용어집 관리', summary: '문서에서 용어를 모아 정의', price: '280', nodeCount: 4, successRate: 0.75, averageRating: null, reviewCount: 0, executionCount: 4, favoriteCount: 1, owner: '정싸피', hasIcon: true },
+  { name: '이미지 정리', summary: '사진을 날짜·장소로 묶음', price: '220', successRate: 0, averageRating: null, reviewCount: 0, executionCount: 0, favoriteCount: 0, owner: '이싸피', hasIcon: false },
+  { name: '용어집 관리', summary: '문서에서 용어를 모아 정의', price: '280', successRate: 0.75, averageRating: null, reviewCount: 0, executionCount: 4, favoriteCount: 1, owner: '정싸피', hasIcon: true },
 ]
 
 /** 상세 설명의 뒷문장. 두 개를 번갈아 써서 길이가 갈리게 한다 — 줄바꿈이 한 줄일 때만
@@ -138,7 +136,6 @@ function build(seed: Seed, index: number): AgentDetail {
     images: buildImages(agentId, seed.name, index),
     price: seed.price,
     currency: 'ABC',
-    nodeCount: seed.nodeCount,
     executionCount: seed.executionCount,
     successRate: seed.successRate,
     averageRating: seed.averageRating,

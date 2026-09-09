@@ -41,7 +41,7 @@ export interface AgentImage {
 /**
  * 마켓 상세. **확정** — GET /marketplace/agents/{agentId} 명세와 1:1 이다.
  *
- * 노드 이름·연결 관계·프롬프트·AI 모델과 등급·티어는 내려오지 않는다.
+ * 노드 개수·이름·연결 관계·프롬프트·AI 모델과 등급·티어는 내려오지 않는다.
  * 평균 실행 시간도 집계하지 않고, 등록이 곧 공개라 visibility 도 없다.
  *
  * `AgentSummary` 를 확장하지 않는다 — `owner` 모양이 다르고(userId·profileImageUrl),
@@ -61,8 +61,6 @@ export interface AgentDetail {
   /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다. */
   price: string
   currency: string
-  /** 이 에이전트가 몇 단계로 돌아가는지. 화면의 「노드 4개」 */
-  nodeCount: number
   executionCount: number
   /** 실행 성공률 0~1. 실행이 0회면 0 이므로 화면은 executionCount 로 가른다 */
   successRate: number

@@ -137,7 +137,6 @@ describe('getMarketplaceAgent', () => {
       'iconUrl',
       'images',
       'name',
-      'nodeCount',
       'owner',
       'price',
       'reviewCount',
