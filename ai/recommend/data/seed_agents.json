@@ -1,0 +1,348 @@
+{
+  "op": "upsert",
+  "agents": [
+    {
+      "agent_id": "ag_seed_01",
+      "name": "성적 데이터 분석기",
+      "description": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교합니다. 학생마다 평균 증감과 취약 과목을 뽑고, 반 전체 분포와 하락 인원을 통계로 정리해 돌려줍니다.",
+      "tags": [
+        "교육",
+        "통계",
+        "성적",
+        "엑셀"
+      ],
+      "category": "교육",
+      "input_schema_id": "edu.roster@1",
+      "output_schema_id": "edu.analysis@1",
+      "owner_id": null,
+      "tier": 2,
+      "success_rate": 0.96,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_02",
+      "name": "가정통신문 작성기",
+      "description": "성적 통계를 바탕으로 보호자에게 보낼 안내문을 학생별로 씁니다. 점수가 오른 학생에게는 격려하는 말투로, 떨어진 학생에게는 걱정을 전하되 부담스럽지 않은 말투로 문장을 조절합니다.",
+      "tags": [
+        "교육",
+        "문서작성",
+        "학부모"
+      ],
+      "category": "교육",
+      "input_schema_id": "edu.analysis@1",
+      "output_schema_id": "edu.letter@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_03",
+      "name": "학업 성취도 통계 산출기",
+      "description": "반 단위 학습 결과를 집계해 평균, 표준편차, 상위·하위 구간 인원을 계산합니다. 과목별로 어느 영역이 약한지 수치로 보여줍니다.",
+      "tags": [
+        "교육",
+        "통계",
+        "집계"
+      ],
+      "category": "교육",
+      "input_schema_id": "edu.roster@1",
+      "output_schema_id": "edu.analysis@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_04",
+      "name": "출결 리포트 작성기",
+      "description": "학생들이 며칠 나오고 며칠 빠졌는지를 정리해 결석이 잦아지는 추세와 눈여겨볼 학생을 짚어줍니다. 사유별로 나눠 표와 짧은 코멘트로 만들어 줍니다.",
+      "tags": [
+        "교육",
+        "출결",
+        "리포트"
+      ],
+      "category": "교육",
+      "input_schema_id": "edu.roster@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_05",
+      "name": "학습 상담 기록 정리기",
+      "description": "선생님이 학부모나 학생과 나눈 대화 메모를 받아 상담 일지 형식으로 다듬습니다. 논의한 문제, 약속한 사항, 다음에 확인할 것을 나눠 정리합니다.",
+      "tags": [
+        "교육",
+        "상담",
+        "기록"
+      ],
+      "category": "교육",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_06",
+      "name": "회의록 요약기",
+      "description": "길게 받아 적은 회의 기록에서 무엇을 논의했고 무엇이 결정됐는지 골라냅니다. 참석하지 못한 사람도 흐름을 알 수 있도록 논의 순서대로 간추립니다.",
+      "tags": [
+        "문서정리",
+        "회의",
+        "요약"
+      ],
+      "category": "문서정리",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_07",
+      "name": "문서 섹션 구조화기",
+      "description": "줄글로 쭉 이어진 내용을 제목과 소제목이 있는 형태로 나눕니다. 어디서 주제가 바뀌는지 찾아 목차를 붙이고 읽기 쉬운 순서로 재배치합니다.",
+      "tags": [
+        "문서정리",
+        "구조화",
+        "목차"
+      ],
+      "category": "문서정리",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_08",
+      "name": "보고서 초안 작성기",
+      "description": "모아둔 자료를 받아 보고 문서의 뼈대를 잡아줍니다. 배경, 진행 내용, 결과, 앞으로 할 일 순서로 문단을 구성하고 각 자리에 들어갈 내용을 채웁니다.",
+      "tags": [
+        "문서정리",
+        "보고서",
+        "초안"
+      ],
+      "category": "문서정리",
+      "input_schema_id": "common.document@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_09",
+      "name": "장문 자료 핵심 추출기",
+      "description": "분량이 많은 글에서 꼭 알아야 할 대목만 남깁니다. 반복되는 설명과 곁가지를 걷어내고 핵심 주장과 근거를 짧은 문단으로 압축합니다.",
+      "tags": [
+        "문서정리",
+        "요약",
+        "핵심"
+      ],
+      "category": "문서정리",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_10",
+      "name": "주간 일정 브리핑",
+      "description": "달력에 흩어진 약속과 마감을 한 장으로 모읍니다. 요일별로 무엇이 있는지, 겹치는 시간은 없는지, 미리 준비할 것은 무엇인지 정리해 보여줍니다.",
+      "tags": [
+        "일정",
+        "브리핑",
+        "주간"
+      ],
+      "category": "일정요약",
+      "input_schema_id": "common.table@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_11",
+      "name": "할 일 추출기",
+      "description": "대화나 메모 속에 섞여 있는 해야 할 것들을 찾아냅니다. \"~하기로 했다\", \"~까지 보내드릴게요\" 같은 표현을 골라 담당자와 기한이 붙은 실행 목록으로 만듭니다. 요약이 아니라 처리할 항목만 남기는 것이 목적입니다.",
+      "tags": [
+        "일정",
+        "할일",
+        "추출"
+      ],
+      "category": "일정요약",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.table@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_12",
+      "name": "회의 안건 정리기",
+      "description": "다음 모임에서 다룰 주제를 순서대로 세웁니다. 지난번에 결론이 안 난 것과 새로 올라온 것을 나누고, 각 주제에 몇 분씩 쓸지 배분해 줍니다.",
+      "tags": [
+        "일정",
+        "회의",
+        "안건"
+      ],
+      "category": "일정요약",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_13",
+      "name": "마감 임박 업무 알림 정리",
+      "description": "기한이 적힌 업무 목록을 받아 곧 닥칠 것부터 순서를 매깁니다. 이미 지난 것, 오늘까지인 것, 며칠 남은 것을 나눠 알려줍니다.",
+      "tags": [
+        "일정",
+        "마감",
+        "우선순위"
+      ],
+      "category": "일정요약",
+      "input_schema_id": "common.table@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_14",
+      "name": "비즈니스 이메일 드래프터",
+      "description": "하고 싶은 말을 대충 적어 주면 격식을 갖춘 업무용 문장으로 바꿔 씁니다. 처음 연락하는 상대인지 이미 알고 지내는 사이인지에 따라 인사와 맺음말을 조절합니다.",
+      "tags": [
+        "메일",
+        "업무",
+        "초안"
+      ],
+      "category": "메일초안",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_15",
+      "name": "안내 메일 작성기",
+      "description": "여러 사람에게 같은 소식을 한 번에 전할 때 쓰는 공지 문장을 만듭니다. 일정과 대상, 받는 사람이 챙겨야 할 일을 빠뜨리지 않게 정리합니다.",
+      "tags": [
+        "메일",
+        "공지",
+        "안내"
+      ],
+      "category": "메일초안",
+      "input_schema_id": "common.document@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_16",
+      "name": "사과문 초안 작성기",
+      "description": "일이 잘못됐을 때 상대에게 보낼 글을 씁니다. 무슨 일이 있었는지 인정하고, 변명처럼 들리지 않게 원인을 설명하고, 어떻게 수습할지를 담습니다.",
+      "tags": [
+        "메일",
+        "사과",
+        "고객대응"
+      ],
+      "category": "메일초안",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_17",
+      "name": "회신 메일 톤 교정기",
+      "description": "이미 써 둔 답장을 읽고 말투를 다듬습니다. 너무 딱딱하거나 반대로 가벼운 부분, 오해를 살 만한 표현을 찾아 부드럽게 고쳐 줍니다. 새로 쓰는 것이 아니라 있는 글을 손보는 일입니다.",
+      "tags": [
+        "메일",
+        "말투",
+        "교정"
+      ],
+      "category": "메일초안",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_18",
+      "name": "코드 리뷰 코멘트 생성기",
+      "description": "작성한 코드를 읽고 고치면 좋을 지점을 짚어 줍니다. 이름이 헷갈리는 변수, 중복된 로직, 예외 처리가 빠진 곳을 찾아 왜 문제인지와 함께 알려줍니다. 코드 품질을 검토하고 피드백을 남기는 일을 합니다.",
+      "tags": [
+        "코드",
+        "리뷰",
+        "품질",
+        "개발"
+      ],
+      "category": "코드리뷰",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_19",
+      "name": "커밋 메시지 작성기",
+      "description": "코드를 저장소에 기록할 때 붙이는 커밋 메시지를 한 줄로 만듭니다. 기능 추가인지 버그 수정인지 분류하고, 무엇을 왜 고쳤는지 팀 규칙에 맞는 형식으로 적어 줍니다.",
+      "tags": [
+        "git",
+        "커밋",
+        "컨벤션",
+        "개발"
+      ],
+      "category": "코드리뷰",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.text@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    },
+    {
+      "agent_id": "ag_seed_20",
+      "name": "변경 사항 요약기",
+      "description": "새 버전을 내보낼 때 이번에 무엇이 달라졌는지를 개발을 모르는 사람도 알아볼 수 있게 풀어 씁니다. 새로 생긴 것, 고쳐진 것, 없어진 것으로 나눠 배포 안내에 쓸 수 있는 형태로 만듭니다.",
+      "tags": [
+        "릴리즈",
+        "배포",
+        "요약"
+      ],
+      "category": "코드리뷰",
+      "input_schema_id": "common.text@1",
+      "output_schema_id": "common.document@1",
+      "owner_id": null,
+      "tier": 4,
+      "success_rate": 1.0,
+      "is_public": true
+    }
+  ]
+}
