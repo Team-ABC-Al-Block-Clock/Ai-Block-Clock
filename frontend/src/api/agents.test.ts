@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { getMarketplaceAgents } from '@/api/agents'
+import {
+  addAgentFavorite,
+  getMarketplaceAgent,
+  getMarketplaceAgents,
+  removeAgentFavorite,
+} from '@/api/agents'
 import type { AgentSummary } from '@/api/agents'
 import { ApiError } from '@/api/errors'
 import type { CursorPage } from '@/api/page'
@@ -107,5 +112,153 @@ describe('getMarketplaceAgents', () => {
 
     expect(error).toBeInstanceOf(ApiError)
     expect((error as ApiError).code).toBe('MARKET_003')
+  })
+})
+
+/**
+ * 마켓 상세 조회. 목록과 달리 응답이 하나라 커서가 없는 대신, 목록에 없는 필드
+ * (설명 3종·스크린샷·노드 개수·성공률·즐겨찾기 수)가 전부 여기서만 검증된다.
+ */
+describe('getMarketplaceAgent', () => {
+  it('상세 응답은 확정 명세의 필드만 담는다', async () => {
+    const agent = await getMarketplaceAgent('agt_06')
+
+    // 명세가 정한 키 집합과 정확히 맞는지를 본다 — 필드 누락과, 추정 시절의 잔재
+    // (tokenUsage 처럼 명세에 없는 필드) 누출이 같이 걸린다.
+    expect(Object.keys(agent).sort()).toEqual([
+      'agentId',
+      'averageRating',
+      'createdAt',
+      'currency',
+      'description',
+      'executionCount',
+      'favoriteCount',
+      'favorited',
+      'iconUrl',
+      'images',
+      'name',
+      'nodeCount',
+      'owner',
+      'price',
+      'reviewCount',
+      'successRate',
+      'summary',
+      'usageExample',
+    ])
+    // 목록의 owner 는 nickname 하나뿐이다. 상세는 셋을 준다.
+    expect(Object.keys(agent.owner).sort()).toEqual(['nickname', 'profileImageUrl', 'userId'])
+    expect(agent.currency).toBe('ABC')
+    // 소수점 오차를 막기 위해 문자열로 온다. 숫자로 바뀌면 화면 포맷이 깨진다.
+    expect(typeof agent.price).toBe('string')
+    // 봉투는 응답 인터셉터가 벗긴다.
+    expect(agent).not.toHaveProperty('status')
+  })
+
+  it('스크린샷은 INPUT·OUTPUT 뿐이고 유형별 5장 이하, order 는 1부터 이어진다', async () => {
+    const { images } = await getMarketplaceAgent('agt_20')
+
+    for (const type of ['INPUT', 'OUTPUT'] as const) {
+      const shots = images.filter((i) => i.type === type)
+      expect(shots.length).toBeLessThanOrEqual(5)
+      // 화면이 order 로 정렬하므로 1..n 이 빠짐없이 있어야 한다.
+      expect(shots.map((i) => i.order).sort((a, b) => a - b)).toEqual(
+        Array.from({ length: shots.length }, (_, i) => i + 1),
+      )
+    }
+    expect(new Set(images.map((i) => i.type))).toEqual(new Set(['INPUT', 'OUTPUT']))
+    // 유형별 장수가 다른 건이어야 탭마다 인덱스를 자르는 화면 로직이 검증된다.
+    expect(images.filter((i) => i.type === 'INPUT')).not.toHaveLength(
+      images.filter((i) => i.type === 'OUTPUT').length,
+    )
+    expect(new Set(images.map((i) => i.imageId)).size).toBe(images.length)
+  })
+
+  it('스크린샷이 없는 유형이 픽스처에 섞여 있다', async () => {
+    // 0장이면 화면은 '스크린샷이 없습니다' 자리를 그려야 한다. 그 상태가 없으면 확인이 안 된다.
+    const agent = await getMarketplaceAgent('agt_01')
+
+    expect(agent.images.filter((i) => i.type === 'INPUT')).toHaveLength(0)
+    expect(agent.images.filter((i) => i.type === 'OUTPUT').length).toBeGreaterThan(0)
+  })
+
+  it('평가가 없는 콜드스타트 건은 성공률도 만들지 않는다', async () => {
+    const agent = await getMarketplaceAgent('agt_29')
+
+    expect(agent.averageRating).toBeNull()
+    expect(agent.reviewCount).toBe(0)
+    expect(agent.executionCount).toBe(0)
+    // 실행이 없으면 비율을 만들 수 없다. 화면은 이 조합을 '—' 로 내야 한다.
+    expect(agent.successRate).toBe(0)
+  })
+
+  it('실행 예시를 안 적은 건이 섞여 있다', async () => {
+    expect((await getMarketplaceAgent('agt_04')).usageExample).toBeNull()
+    expect((await getMarketplaceAgent('agt_06')).usageExample).not.toBeNull()
+  })
+
+  it('없는 ID 는 MARKET_001 / 404', async () => {
+    const error = await getMarketplaceAgent('agt_없음').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ code: 'MARKET_001', status: 404 })
+  })
+})
+
+/**
+ * 즐겨찾기. 이 프로젝트에서 상태를 바꾸는 유일한 mock 이라, 두 번 눌렀을 때와
+ * 다시 조회했을 때가 여기서만 드러난다.
+ */
+describe('즐겨찾기', () => {
+  // 다른 테스트가 쓰지 않는 ID 를 전용으로 쓴다. resetHandlers 는 픽스처를 되돌리지 않으므로
+  // 직접 원복한다 — 안 하면 실행 순서에 따라 다른 테스트의 단정이 흔들린다.
+  const ID = 'agt_20'
+  afterEach(() => removeAgentFavorite(ID))
+
+  it('등록하면 상태와 횟수가 함께 온다', async () => {
+    const before = await getMarketplaceAgent(ID)
+    const res = await addAgentFavorite(ID)
+
+    expect(res).toEqual({
+      agentId: ID,
+      favorited: true,
+      favoriteCount: before.favoriteCount + 1,
+    })
+    // 명세: 화면이 다시 조회하지 않게 갱신된 횟수를 함께 준다. 다시 조회해도 같아야 한다.
+    const after = await getMarketplaceAgent(ID)
+    expect(after.favorited).toBe(true)
+    expect(after.favoriteCount).toBe(res.favoriteCount)
+  })
+
+  it('이미 등록한 것을 또 등록해도 오류가 아니고 횟수도 그대로다', async () => {
+    const first = await addAgentFavorite(ID)
+    const second = await addAgentFavorite(ID)
+
+    expect(second).toEqual(first)
+  })
+
+  it('해제하면 원래 횟수로 돌아간다', async () => {
+    const before = await getMarketplaceAgent(ID)
+    await addAgentFavorite(ID)
+    const res = await removeAgentFavorite(ID)
+
+    expect(res).toEqual({ agentId: ID, favorited: false, favoriteCount: before.favoriteCount })
+  })
+
+  it('등록하지 않은 것을 해제해도 오류가 아니다', async () => {
+    const before = await getMarketplaceAgent(ID)
+    const res = await removeAgentFavorite(ID)
+
+    expect(res).toEqual({ agentId: ID, favorited: false, favoriteCount: before.favoriteCount })
+  })
+
+  it('없는 ID 는 등록·해제 모두 MARKET_001 / 404', async () => {
+    await expect(addAgentFavorite('agt_없음')).rejects.toMatchObject({
+      code: 'MARKET_001',
+      status: 404,
+    })
+    await expect(removeAgentFavorite('agt_없음')).rejects.toMatchObject({
+      code: 'MARKET_001',
+      status: 404,
+    })
   })
 })
