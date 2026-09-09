@@ -255,12 +255,22 @@ export const getMyProfile = () => api.get<UserProfile>('/users/me')
 
 API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다. 그래서 아래는 **추정**이다.
 
-| 구분     | 내용                                                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **확정** | 경로 접두어 `/api/v1` · 봉투 `{status, data}` · `{status, code, message}`(백엔드 `ApiResponse`·`ErrorResponse`) · 인증 계열 필드명(`api/auth.ts`) |
-| **추정** | 목록 봉투(`api/page.ts`, Spring `Page` 축약형) · `page`·`size`·`sort`·필터 파라미터명 · 식별자·등급·단가 필드명 · 카테고리 값                     |
+| 구분     | 내용                                                                                                                                                                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **확정** | 경로 접두어 `/api/v1` · 봉투 `{status, data}` · `{status, code, message}`(백엔드 `ApiResponse`·`ErrorResponse`) · 인증 계열 필드명(`api/auth.ts`) · 마켓 목록 전체(`CursorPage` 봉투 · `AgentSummary` 필드명 · `keyword`·`cursor`·`size`) |
+| **추정** | 페이지 번호 봉투(`api/page.ts`, Spring `Page` 축약형) — `/agents`·리뷰 목록이 쓴다 · 상세 응답의 추가 필드(등급·단가 원가·노드 수) · 카테고리 값                                                                                          |
 
 추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+
+### 목록이 커서면 전체 개수를 만들지 않는다
+
+마켓 목록(`GET /marketplace/agents`)은 커서 페이지네이션이라 `totalElements` 가 없다. 전수를
+만들지 않는 것이 설계 의도이므로, 화면이 "N개" 를 띄우려고 개수를 세어 만들지 않는다 —
+불러온 만큼만 세고 더 있으면 `+` 를 붙인다.
+
+이 목록에는 **필터도 정렬도 없다.** 카테고리는 화면에 표시할 자리가 없고, 등급은 내부 자료이며,
+등록 여부가 곧 공개 여부다. 순서는 등록 시각 역순 하나로 고정이다. 서버가 받지 않는 조건을
+화면에서 거르면 "안 불러온 페이지는 안 걸러지는" 버그가 된다.
 
 ### 응답은 봉투가 벗겨진 채로 온다
 
@@ -298,7 +308,8 @@ src/mocks/
 ├─ browser.ts          setupWorker
 ├─ response.ts         응답 봉투 헬퍼 (ok · fail)
 ├─ scenario.ts         지연 · 강제 실패 스위치
-├─ paginate.ts         목록 페이지 계산
+├─ paginate.ts         목록 페이지 계산 (page/size)
+├─ cursor.ts           목록 커서 계산 (cursor/size)
 ├─ fixtures/           도메인별 데이터
 │  ├─ agents.ts
 │  ├─ user.ts
@@ -493,7 +504,11 @@ const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTML
 ## 11. 커밋 전 확인
 
 ```bash
+npm test           # vitest run
 npm run build      # tsc -b && vite build — 타입 에러 0
 npm run lint
 npm run format
 ```
+
+테스트는 mock 핸들러를 실제로 호출한다(`src/test/server.ts` 가 `mocks/handlers` 를 그대로 쓴다).
+핸들러를 테스트용으로 따로 만들지 않는다 — 갈라지면 테스트가 통과해도 화면이 받는 응답은 다를 수 있다.
