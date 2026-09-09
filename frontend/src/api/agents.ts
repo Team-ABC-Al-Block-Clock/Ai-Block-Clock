@@ -29,7 +29,66 @@ export interface AgentSummary {
   createdAt: string
 }
 
-export interface AgentDetail extends AgentSummary {
+/** 상세 화면의 스크린샷. 입력·출력 구분이 필요해 `type` 을 같이 준다. 유형별 최대 5장. */
+export interface AgentImage {
+  imageId: string
+  type: 'INPUT' | 'OUTPUT'
+  url: string
+  /** 같은 유형 안에서의 정렬 순서 */
+  order: number
+}
+
+/**
+ * 마켓 상세. **확정** — GET /marketplace/agents/{agentId} 명세와 1:1 이다.
+ *
+ * 노드 이름·연결 관계·프롬프트·AI 모델과 등급·티어는 내려오지 않는다.
+ * 평균 실행 시간도 집계하지 않고, 등록이 곧 공개라 visibility 도 없다.
+ *
+ * `AgentSummary` 를 확장하지 않는다 — `owner` 모양이 다르고(userId·profileImageUrl),
+ * 상속으로 필드가 섞이면 목록 응답이 무엇을 걸러야 하는지 흐려진다.
+ */
+export interface AgentDetail {
+  agentId: string
+  name: string
+  /** 한 줄 설명 */
+  summary: string
+  /** 상세 설명 */
+  description: string
+  /** 실행 예시. 안 적었으면 null */
+  usageExample: string | null
+  iconUrl: string | null
+  images: AgentImage[]
+  /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다. */
+  price: string
+  currency: string
+  /** 이 에이전트가 몇 단계로 돌아가는지. 화면의 「노드 4개」 */
+  nodeCount: number
+  executionCount: number
+  /** 실행 성공률 0~1. 실행이 0회면 0 이므로 화면은 executionCount 로 가른다 */
+  successRate: number
+  /** 평점 평균. 리뷰가 없으면 null */
+  averageRating: number | null
+  reviewCount: number
+  favorited: boolean
+  favoriteCount: number
+  owner: { userId: string; nickname: string; profileImageUrl: string | null }
+  createdAt: string
+}
+
+/**
+ * 즐겨찾기 등록·해제 응답. **확정** — 두 응답이 같은 모양이다.
+ *
+ * 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 —
+ * 상세를 refetch 하지 않고 이 값으로 캐시를 덮는다.
+ */
+export interface AgentFavorite {
+  agentId: string
+  favorited: boolean
+  favoriteCount: number
+}
+
+/** 내가 등록한 에이전트. GET /agents — **추정** (명세 미확정) */
+export interface MyAgent extends AgentSummary {
   tokenUsage: number
 }
 
@@ -66,6 +125,14 @@ export const getMarketplaceAgents = (params: MarketplaceQuery = {}) =>
 export const getMarketplaceAgent = (agentId: string) =>
   api.get<AgentDetail>(`/marketplace/agents/${agentId}`)
 
+/** 멱등이다 — 이미 즐겨찾기한 것을 다시 등록해도 오류가 아니고 현재 상태가 온다. */
+export const addAgentFavorite = (agentId: string) =>
+  api.post<AgentFavorite>(`/marketplace/agents/${agentId}/favorites`)
+
+/** 멱등이다 — 즐겨찾기하지 않은 것을 해제해도 오류가 아니고 현재 상태가 온다. */
+export const removeAgentFavorite = (agentId: string) =>
+  api.delete<AgentFavorite>(`/marketplace/agents/${agentId}/favorites`)
+
 export const getAgentProvenance = (agentId: string) =>
   api.get<AgentProvenance>(`/marketplace/agents/${agentId}/provenance`)
 
@@ -74,4 +141,4 @@ export const getAgentReviews = (agentId: string, params: CursorParams = {}) =>
 
 /** 내가 등록한 에이전트 */
 export const getMyAgents = (params: CursorParams = {}) =>
-  api.get<CursorPage<AgentDetail>>('/agents', { params })
+  api.get<CursorPage<MyAgent>>('/agents', { params })
