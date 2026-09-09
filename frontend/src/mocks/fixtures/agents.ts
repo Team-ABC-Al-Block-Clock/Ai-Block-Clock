@@ -166,6 +166,15 @@ if (AGENTS.length !== 30) {
 }
 
 /**
+ * 등록 시각 역순. 목록과 마이페이지가 같은 비교기를 써야 순서가 갈리지 않는다.
+ *
+ * 문자열 비교로는 안 된다 — 픽스처는 `+09:00`, `addAgent` 는 `Z` 로 적어서
+ * 날짜 부분이 같으면 나중에 등록한 것이 뒤로 밀린다.
+ */
+export const byNewest = (a: { createdAt: string }, b: { createdAt: string }) =>
+  Date.parse(b.createdAt) - Date.parse(a.createdAt)
+
+/**
  * 상세 픽스처를 목록 항목으로 줄인다. 상세 필드(설명·스크린샷·노드 개수·성공률)를
  * 흘려보내면 실서버에 없는 필드를 화면이 몰래 쓰게 되고, 백엔드를 붙이는 날
  * 조용히 `undefined` 가 된다.
@@ -196,11 +205,15 @@ export function toSummary(agent: AgentDetail): AgentSummary {
  * 모듈 로드 시점에 한 번 계산해 두면 등록해도 목록이 그대로다.
  */
 export function myAgents(): MyAgent[] {
-  return AGENTS.filter((a) => a.owner.nickname === ME).map((a) => ({
-    ...toSummary(a),
-    // 실행 횟수에서 만든다 — 통계 엔드포인트가 없어 실측값을 알 수 없다.
-    tokenUsage: a.executionCount * 1900,
-  }))
+  // 마켓 목록과 같은 순서다. 정렬하지 않으면 방금 등록한 것이 맨 뒤로 가고,
+  // 화면이 30건만 요청하며 다음 장을 안 불러서 30건을 넘기면 아예 안 보인다.
+  return AGENTS.filter((a) => a.owner.nickname === ME)
+    .sort(byNewest)
+    .map((a) => ({
+      ...toSummary(a),
+      // 실행 횟수에서 만든다 — 통계 엔드포인트가 없어 실측값을 알 수 없다.
+      tokenUsage: a.executionCount * 1900,
+    }))
 }
 
 /**

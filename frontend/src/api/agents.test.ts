@@ -315,11 +315,21 @@ describe('createAgent', () => {
     expect(page.content[0].agentId).toBe(agentId)
   })
 
-  it('등록한 것이 내 에이전트 목록에도 나온다', async () => {
+  it('등록한 것이 내 에이전트 목록 맨 앞에 나온다', async () => {
     const { agentId } = await createAgent(INPUT)
     const page = await getMyAgents({ size: 30 })
 
-    expect(page.content.map((a) => a.agentId)).toContain(agentId)
+    // 뒤에 붙기만 하면 30건을 넘긴 순간 첫 장을 벗어나고, 이 화면은 다음 장을 불러오지 않는다.
+    expect(page.content[0].agentId).toBe(agentId)
+  })
+
+  it('등록 시각이 가장 늦어 마켓 목록 첫 장에도 뜬다', async () => {
+    const { agentId } = await createAgent(INPUT)
+    const page = await getMarketplaceAgents({ size: 30 })
+    const times = page.content.map((a) => Date.parse(a.createdAt))
+
+    expect(page.content[0].agentId).toBe(agentId)
+    expect(times).toEqual([...times].sort((a, b) => b - a))
   })
 
   it('이름이나 한 줄 설명이 비면 COMMON_001', async () => {
@@ -332,5 +342,22 @@ describe('createAgent', () => {
       code: 'COMMON_001',
       status: 400,
     })
+  })
+})
+
+/**
+ * 등록 시각 비교기. 위 통합 테스트는 오늘 날짜가 픽스처(2026-08)보다 뒤라서
+ * 문자열 비교로도 통과한다 — 시계에 의존하지 않는 검사를 따로 둔다.
+ */
+describe('byNewest', () => {
+  it('시각 표기가 달라도 실제 시각 순으로 정렬한다', async () => {
+    const { byNewest } = await import('@/mocks/fixtures/agents')
+    // 앞은 2026-08-30T00:00Z, 뒤는 같은 날 05:00Z — 뒤가 나중이다.
+    // 문자열 비교는 '09' > '05' 라 앞을 먼저 두어 순서를 뒤집는다.
+    const fixture = { createdAt: '2026-08-30T09:00:00+09:00' }
+    const registered = { createdAt: '2026-08-30T05:00:00.000Z' }
+
+    expect([fixture, registered].sort(byNewest)[0]).toBe(registered)
+    expect([registered, fixture].sort(byNewest)[0]).toBe(registered)
   })
 })

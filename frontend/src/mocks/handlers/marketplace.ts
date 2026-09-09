@@ -3,7 +3,7 @@ import { http } from 'msw'
 import type { AgentFavorite, AgentProvenance, AgentReview } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import { cursorOk, cursorPage, cursorParams } from '@/mocks/cursor'
-import { AGENTS, toSummary } from '@/mocks/fixtures/agents'
+import { AGENTS, byNewest, toSummary } from '@/mocks/fixtures/agents'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -54,7 +54,7 @@ function setFavorite(agentId: unknown, next: boolean): AgentFavorite | null {
  * 시점에 한 번 정렬해 두면 등록해도 목록에 안 나온다. 커서는 이 순서를 전제하지만
  * 정렬 기준(등록 시각)이 고정이라 요청마다 다시 계산해도 순서는 같다.
  */
-const published = () => [...AGENTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+const published = () => [...AGENTS].sort(byNewest)
 
 export const marketplaceHandlers = [
   http.get(`${API_BASE_URL}/marketplace/agents`, async ({ request }) => {
