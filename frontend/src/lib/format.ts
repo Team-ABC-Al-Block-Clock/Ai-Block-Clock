@@ -49,12 +49,16 @@ export function ratingLabel(averageRating: number | null, reviewCount: number) {
 }
 
 /**
- * 0.982 → '98.2%', 1 → '100%', 실행 0회 → '—'
+ * 0.982 → '98.2%', 1 → '100%', 0.9995 → '99.9%', 실행 0회 → '—'
  *
  * 실행이 없으면 서버도 비율을 만들 수 없어 `successRate` 가 0 으로 온다.
  * 그대로 그리면 '0%' — 전부 실패했다는 거짓말이 된다.
+ *
+ * 반올림이 아니라 **내림**이다. 반올림하면 9,999/10,000 이 '100%' 가 되어
+ * '한 번도 실패하지 않았다' 는 과장이 된다 — 0회를 '—' 로 막는 것과 같은 이유다.
+ * 실제로 100% 일 때만 '100%' 가 나온다.
  */
 export function successLabel(successRate: number, executionCount: number) {
   if (executionCount === 0) return '—'
-  return (successRate * 100).toFixed(1).replace(/\.0$/, '') + '%'
+  return (Math.floor(successRate * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%'
 }
