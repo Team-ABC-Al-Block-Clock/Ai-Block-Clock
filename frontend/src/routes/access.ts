@@ -29,11 +29,18 @@ export const REQUIRES_AUTH: Record<ScreenKey, boolean> = {
 /** 로그인 화면으로 넘길 때 실어 보내는 원래 경로. */
 export interface LoginRedirectState {
   from: string
+  /** 쓰던 중 세션이 끊겨 밀려온 것인지 */
+  expired?: boolean
 }
 
 /** 첫 글자만 `/` 여야 한다. `//evil.com` 과 `/\evil.com`(브라우저가 백슬래시를
  *  슬래시로 읽는다) 은 `/` 로 시작하지만 외부 주소가 된다. */
 const INTERNAL_PATH = /^\/(?![/\\])/
+
+/** 세션 만료로 밀려온 것인지. 스스로 로그아웃하고 온 것과 구분해 안내를 띄운다. */
+export function expiredFrom(state: unknown): boolean {
+  return (state as LoginRedirectState | null)?.expired === true
+}
 
 /** 로그인 후 돌아갈 경로. state 는 사용자가 만질 수 있어 내부 경로인지 확인한다. */
 export function redirectTargetFrom(state: unknown): string {

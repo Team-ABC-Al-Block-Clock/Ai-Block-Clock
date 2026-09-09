@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
-import { redirectTargetFrom } from '@/routes/access'
+import { expiredFrom, redirectTargetFrom } from '@/routes/access'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -25,6 +25,8 @@ export default function Login() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const signIn = useAuthStore((s) => s.signIn)
+  // 쓰던 중 밀려온 것인지. 이유를 알려주지 않으면 로그아웃한 것과 구분되지 않는다.
+  const expired = expiredFrom(state)
 
   const handleStart = async () => {
     setIsSigningIn(true)
@@ -68,6 +70,20 @@ export default function Login() {
         className="glass-panel animate-rise absolute box-border w-[432px] rounded-[22px] bg-[rgb(20_11_36/0.5)] p-8 [animation-delay:.14s]"
         style={{ left: 504, top: 322 }}
       >
+        {expired && (
+          <div
+            className="mb-5 text-[12.5px] leading-[1.5] tracking-[-.01em]"
+            style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(233,174,196,.13)',
+              color: '#ffd7e6',
+            }}
+          >
+            세션이 만료되었습니다. 다시 로그인해 주세요.
+          </div>
+        )}
+
         <div className="text-[15px] font-semibold tracking-[-.01em]">지갑으로 시작하기</div>
         <div className="text-muted mt-[9px] text-[13px] leading-[1.65] tracking-[-.01em]">
           별도의 아이디·비밀번호가 없습니다. 지갑 서명이 곧 인증이며,

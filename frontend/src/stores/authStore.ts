@@ -23,6 +23,8 @@ interface AuthState {
   status: AuthStatus
   walletAddress: string | null
   profile: UserProfile | null
+  /** 쓰던 중 세션이 끊겼는지. 스스로 로그아웃한 것과 구분해 로그인 화면이 안내한다 */
+  expired: boolean
 
   /** 부팅 시 한 번 — Refresh Token 쿠키로 세션을 되살린다 */
   restore: () => Promise<void>
@@ -39,6 +41,7 @@ const SIGNED_OUT = {
   status: 'unauthenticated',
   walletAddress: null,
   profile: null,
+  expired: false,
 } satisfies Partial<AuthState>
 
 /** 이때 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다. */
@@ -49,17 +52,19 @@ export const isSessionPending = (status: AuthStatus) => status === 'idle' || sta
 let epoch = 0
 
 export const useAuthStore = create<AuthState>((set, get) => {
-  /** 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다. */
-  const dropSession = () => {
+  /** 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다.
+   *  `expired` 는 쓰던 중 끊긴 경우에만 참이다 — 로그인 화면이 이유를 안내한다. */
+  const dropSession = (expired = false) => {
     epoch += 1
     tokenStorage.clear()
-    set(SIGNED_OUT)
+    set({ ...SIGNED_OUT, expired })
   }
 
   return {
     status: 'idle',
     walletAddress: null,
     profile: null,
+    expired: false,
 
     restore: async () => {
       // 부팅 때 한 번만. StrictMode 의 두 번째 effect 로 재발급이 두 번 나가면
@@ -76,7 +81,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
       try {
         const profile = await getMyProfile()
         if (mine !== epoch) return
-        set({ status: 'authenticated', profile, walletAddress: profile.walletAddress })
+        set({
+          status: 'authenticated',
+          profile,
+          walletAddress: profile.walletAddress,
+          expired: false,
+        })
       } catch {
         // 프로필 없이 인증된 척하는 화면이 되지 않도록 끊는다.
         if (mine === epoch) dropSession()
@@ -94,7 +104,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // 지갑이 준 주소가 아니라 서버 프로필의 주소를 쓴다.
         const profile = await getMyProfile()
         if (mine !== epoch) return
-        set({ status: 'authenticated', profile, walletAddress: profile.walletAddress })
+        set({
+          status: 'authenticated',
+          profile,
+          walletAddress: profile.walletAddress,
+          expired: false,
+        })
       } catch (error) {
         if (mine === epoch) dropSession()
         throw error
@@ -111,7 +126,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    clearSession: dropSession,
+    clearSession: () => dropSession(true),
   }
 })
 
