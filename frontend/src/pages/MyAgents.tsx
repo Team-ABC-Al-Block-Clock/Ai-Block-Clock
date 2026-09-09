@@ -41,8 +41,8 @@ export default function MyAgents() {
   const agents = (data?.content ?? []).map((a, i) => ({
     agentId: a.agentId,
     name: a.name,
-    desc: a.description,
-    uses: runLabel(a.runCount),
+    desc: a.summary,
+    uses: runLabel(a.executionCount),
     tokens: tokenLabel(a.tokenUsage),
     path: SPARKS[i % SPARKS.length],
     i,
