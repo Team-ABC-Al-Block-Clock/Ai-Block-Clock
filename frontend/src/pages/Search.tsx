@@ -129,7 +129,7 @@ export default function Search() {
     iconUrl: a.iconUrl,
     initial: a.name.trim().charAt(0).toUpperCase(),
     uses: runLabel(a.executionCount),
-    credit: priceLabel(a.price),
+    price: priceLabel(a.price),
     author: a.owner.nickname,
     infoOpen: infoAt === a.agentId,
     infoBg: infoAt === a.agentId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
@@ -446,8 +446,8 @@ export default function Search() {
                       <span className="font-semibold text-white">{c.uses}</span>
                     </div>
                     <div className="flex justify-between text-[12px]">
-                      <span style={{ color: 'rgba(255,236,246,.6)' }}>평균 크레딧</span>
-                      <span className="font-semibold text-white">{c.credit}</span>
+                      <span style={{ color: 'rgba(255,236,246,.6)' }}>실행 단가</span>
+                      <span className="font-semibold text-white">{c.price}</span>
                     </div>
                     <div className="flex justify-between text-[12px]">
                       <span style={{ color: 'rgba(255,236,246,.6)' }}>만든 사람</span>
