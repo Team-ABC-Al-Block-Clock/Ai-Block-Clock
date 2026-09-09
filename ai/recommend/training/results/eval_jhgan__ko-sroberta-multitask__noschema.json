@@ -2,42 +2,23 @@
   "model": "jhgan/ko-sroberta-multitask",
   "include_schema_text": false,
   "n_agents": 20,
-  "n_queries": 20,
+  "n_queries": 22,
   "top_k": 5,
   "mrr_k": 10,
   "dim": 768,
   "max_seq_length": 128,
-  "agent_token_max": 63,
+  "agent_token_max": 77,
   "agent_token_truncated": 0,
   "load_sec": 4.8,
   "recall_at_5": 1.0,
-  "top1_acc": 0.85,
-  "mrr_at_10": 0.925,
-  "avg_margin": 0.094,
-  "avg_latency_ms": 22.6,
+  "top1_acc": 1.0,
+  "mrr_at_10": 1.0,
+  "avg_margin": 0.115,
+  "avg_latency_ms": 21.5,
   "recall_word_overlap": 1.0,
   "recall_no_word_overlap": 1.0,
-  "top1_no_word_overlap": 0.769,
-  "misses": [
-    {
-      "id": "q10",
-      "query": "우리 팀이 짠 코드 좀 봐줄 사람 없나",
-      "rank": 2,
-      "got": "커밋 메시지 작성기"
-    },
-    {
-      "id": "q15",
-      "query": "대화 내용에서 해야 할 것만 뽑아낼 수 있나",
-      "rank": 2,
-      "got": "회의록 요약기"
-    },
-    {
-      "id": "q17",
-      "query": "이번에 뭐가 바뀌었는지 팀에 알려야 해",
-      "rank": 2,
-      "got": "안내 메일 작성기"
-    }
-  ],
+  "top1_no_word_overlap": 1.0,
+  "misses": [],
   "per_query": [
     {
       "id": "q01",
@@ -50,18 +31,13 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.09433722496032715,
-      "latency_ms": 22.004365921020508,
+      "margin": 0.18845295906066895,
+      "latency_ms": 16.51310920715332,
       "top": [
         {
           "agent_id": "ag_seed_06",
           "name": "회의록 요약기",
-          "score": 0.6907
-        },
-        {
-          "agent_id": "ag_seed_19",
-          "name": "커밋 메시지 작성기",
-          "score": 0.5963
+          "score": 0.7818
         },
         {
           "agent_id": "ag_seed_08",
@@ -77,6 +53,11 @@
           "agent_id": "ag_seed_12",
           "name": "회의 안건 정리기",
           "score": 0.5562
+        },
+        {
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.5469
         }
       ]
     },
@@ -93,7 +74,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.06054651737213135,
-      "latency_ms": 22.51124382019043,
+      "latency_ms": 18.9969539642334,
       "top": [
         {
           "agent_id": "ag_seed_01",
@@ -133,18 +114,18 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.03215152025222778,
-      "latency_ms": 23.001432418823242,
+      "margin": 0.07684284448623657,
+      "latency_ms": 23.000001907348633,
       "top": [
         {
           "agent_id": "ag_seed_19",
           "name": "커밋 메시지 작성기",
-          "score": 0.6223
+          "score": 0.6683
         },
         {
           "agent_id": "ag_seed_15",
           "name": "안내 메일 작성기",
-          "score": 0.5902
+          "score": 0.5914
         },
         {
           "agent_id": "ag_seed_14",
@@ -154,7 +135,7 @@
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.5457
+          "score": 0.5307
         },
         {
           "agent_id": "ag_seed_16",
@@ -175,7 +156,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.20998990535736084,
-      "latency_ms": 22.000789642333984,
+      "latency_ms": 23.000240325927734,
       "top": [
         {
           "agent_id": "ag_seed_10",
@@ -193,14 +174,14 @@
           "score": 0.5442
         },
         {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.526
+        },
+        {
           "agent_id": "ag_seed_12",
           "name": "회의 안건 정리기",
           "score": 0.5175
-        },
-        {
-          "agent_id": "ag_seed_15",
-          "name": "안내 메일 작성기",
-          "score": 0.5098
         }
       ]
     },
@@ -215,23 +196,23 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.059884071350097656,
-      "latency_ms": 24.00374412536621,
+      "margin": 0.1313437819480896,
+      "latency_ms": 18.004179000854492,
       "top": [
         {
           "agent_id": "ag_seed_18",
           "name": "코드 리뷰 코멘트 생성기",
-          "score": 0.7089
+          "score": 0.7739
         },
         {
           "agent_id": "ag_seed_19",
           "name": "커밋 메시지 작성기",
-          "score": 0.649
+          "score": 0.6426
         },
         {
           "agent_id": "ag_seed_20",
           "name": "변경 사항 요약기",
-          "score": 0.5241
+          "score": 0.5124
         },
         {
           "agent_id": "ag_seed_08",
@@ -241,7 +222,7 @@
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.4386
+          "score": 0.4347
         }
       ]
     },
@@ -256,8 +237,8 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.10959839820861816,
-      "latency_ms": 20.512104034423828,
+      "margin": 0.10959845781326294,
+      "latency_ms": 16.509294509887695,
       "top": [
         {
           "agent_id": "ag_seed_16",
@@ -272,17 +253,17 @@
         {
           "agent_id": "ag_seed_19",
           "name": "커밋 메시지 작성기",
-          "score": 0.564
+          "score": 0.5281
         },
         {
           "agent_id": "ag_seed_17",
           "name": "회신 메일 톤 교정기",
-          "score": 0.5117
+          "score": 0.5231
         },
         {
           "agent_id": "ag_seed_15",
           "name": "안내 메일 작성기",
-          "score": 0.5114
+          "score": 0.5057
         }
       ]
     },
@@ -297,8 +278,8 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.1465129852294922,
-      "latency_ms": 18.997907638549805,
+      "margin": 0.14879965782165527,
+      "latency_ms": 17.99941062927246,
       "top": [
         {
           "agent_id": "ag_seed_04",
@@ -306,19 +287,19 @@
           "score": 0.6378
         },
         {
-          "agent_id": "ag_seed_11",
-          "name": "할 일 추출기",
-          "score": 0.4913
-        },
-        {
           "agent_id": "ag_seed_08",
           "name": "보고서 초안 작성기",
           "score": 0.489
         },
         {
-          "agent_id": "ag_seed_19",
-          "name": "커밋 메시지 작성기",
-          "score": 0.4336
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.4799
+        },
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.4212
         },
         {
           "agent_id": "ag_seed_02",
@@ -340,7 +321,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.01597726345062256,
-      "latency_ms": 18.00084114074707,
+      "latency_ms": 22.99976348876953,
       "top": [
         {
           "agent_id": "ag_seed_01",
@@ -380,8 +361,8 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.081759512424469,
-      "latency_ms": 20.00260353088379,
+      "margin": 0.0769224762916565,
+      "latency_ms": 19.000530242919922,
       "top": [
         {
           "agent_id": "ag_seed_02",
@@ -391,7 +372,7 @@
         {
           "agent_id": "ag_seed_15",
           "name": "안내 메일 작성기",
-          "score": 0.5674
+          "score": 0.5723
         },
         {
           "agent_id": "ag_seed_16",
@@ -417,37 +398,37 @@
         "ag_seed_18"
       ],
       "word_overlap": false,
-      "best_rank": 2,
+      "best_rank": 1,
       "hit_at_k": true,
-      "top1": false,
-      "rr": 0.5,
-      "margin": 0.04158952832221985,
-      "latency_ms": 25.002717971801758,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.028786391019821167,
+      "latency_ms": 19.002199172973633,
       "top": [
-        {
-          "agent_id": "ag_seed_19",
-          "name": "커밋 메시지 작성기",
-          "score": 0.4268
-        },
         {
           "agent_id": "ag_seed_18",
           "name": "코드 리뷰 코멘트 생성기",
-          "score": 0.3852
+          "score": 0.462
+        },
+        {
+          "agent_id": "ag_seed_19",
+          "name": "커밋 메시지 작성기",
+          "score": 0.4332
         },
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.3829
-        },
-        {
-          "agent_id": "ag_seed_20",
-          "name": "변경 사항 요약기",
-          "score": 0.3383
+          "score": 0.3563
         },
         {
           "agent_id": "ag_seed_12",
           "name": "회의 안건 정리기",
           "score": 0.3317
+        },
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.3249
         }
       ]
     },
@@ -463,7 +444,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.0779038667678833,
-      "latency_ms": 24.508953094482422,
+      "latency_ms": 18.510103225708008,
       "top": [
         {
           "agent_id": "ag_seed_04",
@@ -503,8 +484,8 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.21734988689422607,
-      "latency_ms": 17.002582550048828,
+      "margin": 0.22928279638290405,
+      "latency_ms": 19.00005340576172,
       "top": [
         {
           "agent_id": "ag_seed_09",
@@ -512,9 +493,9 @@
           "score": 0.8091
         },
         {
-          "agent_id": "ag_seed_06",
-          "name": "회의록 요약기",
-          "score": 0.5918
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.5798
         },
         {
           "agent_id": "ag_seed_07",
@@ -522,14 +503,14 @@
           "score": 0.5377
         },
         {
-          "agent_id": "ag_seed_11",
-          "name": "할 일 추출기",
-          "score": 0.5258
-        },
-        {
           "agent_id": "ag_seed_08",
           "name": "보고서 초안 작성기",
           "score": 0.4698
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.4556
         }
       ]
     },
@@ -545,7 +526,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.1460033655166626,
-      "latency_ms": 26.995420455932617,
+      "latency_ms": 24.999141693115234,
       "top": [
         {
           "agent_id": "ag_seed_16",
@@ -558,19 +539,19 @@
           "score": 0.4002
         },
         {
-          "agent_id": "ag_seed_15",
-          "name": "안내 메일 작성기",
-          "score": 0.394
-        },
-        {
           "agent_id": "ag_seed_14",
           "name": "비즈니스 이메일 드래프터",
           "score": 0.3809
         },
         {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.3706
+        },
+        {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.3627
+          "score": 0.3298
         }
       ]
     },
@@ -587,7 +568,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.024347543716430664,
-      "latency_ms": 25.99954605102539,
+      "latency_ms": 25.000810623168945,
       "top": [
         {
           "agent_id": "ag_seed_13",
@@ -602,7 +583,7 @@
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.4271
+          "score": 0.4272
         },
         {
           "agent_id": "ag_seed_08",
@@ -623,22 +604,22 @@
         "ag_seed_11"
       ],
       "word_overlap": false,
-      "best_rank": 2,
+      "best_rank": 1,
       "hit_at_k": true,
-      "top1": false,
-      "rr": 0.5,
-      "margin": 0.041544198989868164,
-      "latency_ms": 23.513317108154297,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.09286490082740784,
+      "latency_ms": 25.003671646118164,
       "top": [
-        {
-          "agent_id": "ag_seed_06",
-          "name": "회의록 요약기",
-          "score": 0.617
-        },
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.5754
+          "score": 0.5862
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.4933
         },
         {
           "agent_id": "ag_seed_09",
@@ -669,7 +650,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.1090194582939148,
-      "latency_ms": 24.22308921813965,
+      "latency_ms": 26.505231857299805,
       "top": [
         {
           "agent_id": "ag_seed_14",
@@ -684,17 +665,17 @@
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.4857
+          "score": 0.4657
         },
         {
           "agent_id": "ag_seed_15",
           "name": "안내 메일 작성기",
-          "score": 0.4696
+          "score": 0.4557
         },
         {
           "agent_id": "ag_seed_17",
           "name": "회신 메일 톤 교정기",
-          "score": 0.4171
+          "score": 0.404
         }
       ]
     },
@@ -705,22 +686,17 @@
         "ag_seed_20"
       ],
       "word_overlap": false,
-      "best_rank": 2,
+      "best_rank": 1,
       "hit_at_k": true,
-      "top1": false,
-      "rr": 0.5,
-      "margin": 0.002886861562728882,
-      "latency_ms": 18.268108367919922,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.032907843589782715,
+      "latency_ms": 24.00040626525879,
       "top": [
-        {
-          "agent_id": "ag_seed_15",
-          "name": "안내 메일 작성기",
-          "score": 0.4087
-        },
         {
           "agent_id": "ag_seed_20",
           "name": "변경 사항 요약기",
-          "score": 0.4058
+          "score": 0.4224
         },
         {
           "agent_id": "ag_seed_16",
@@ -730,7 +706,12 @@
         {
           "agent_id": "ag_seed_19",
           "name": "커밋 메시지 작성기",
-          "score": 0.3829
+          "score": 0.3773
+        },
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.3374
         },
         {
           "agent_id": "ag_seed_14",
@@ -751,7 +732,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.08020758628845215,
-      "latency_ms": 25.99787712097168,
+      "latency_ms": 22.001266479492188,
       "top": [
         {
           "agent_id": "ag_seed_05",
@@ -771,7 +752,7 @@
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.45
+          "score": 0.433
         },
         {
           "agent_id": "ag_seed_04",
@@ -791,8 +772,8 @@
       "hit_at_k": true,
       "top1": true,
       "rr": 1.0,
-      "margin": 0.17632454633712769,
-      "latency_ms": 24.514436721801758,
+      "margin": 0.19768130779266357,
+      "latency_ms": 20.004749298095703,
       "top": [
         {
           "agent_id": "ag_seed_12",
@@ -802,7 +783,7 @@
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.5748
+          "score": 0.5535
         },
         {
           "agent_id": "ag_seed_10",
@@ -817,7 +798,7 @@
         {
           "agent_id": "ag_seed_06",
           "name": "회의록 요약기",
-          "score": 0.4522
+          "score": 0.5217
         }
       ]
     },
@@ -834,7 +815,7 @@
       "top1": true,
       "rr": 1.0,
       "margin": 0.1468881368637085,
-      "latency_ms": 24.000167846679688,
+      "latency_ms": 24.505615234375,
       "top": [
         {
           "agent_id": "ag_seed_08",
@@ -852,14 +833,96 @@
           "score": 0.5675
         },
         {
-          "agent_id": "ag_seed_19",
-          "name": "커밋 메시지 작성기",
-          "score": 0.55
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.5328
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.4947
+        }
+      ]
+    },
+    {
+      "id": "q21",
+      "query": "같은 내용을 여러 사람에게 한꺼번에 전달해야 하는데",
+      "answers": [
+        "ag_seed_15"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.16235214471817017,
+      "latency_ms": 25.002479553222656,
+      "top": [
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.6815
         },
         {
           "agent_id": "ag_seed_11",
           "name": "할 일 추출기",
-          "score": 0.5077
+          "score": 0.5192
+        },
+        {
+          "agent_id": "ag_seed_13",
+          "name": "마감 임박 업무 알림 정리",
+          "score": 0.4946
+        },
+        {
+          "agent_id": "ag_seed_10",
+          "name": "주간 일정 브리핑",
+          "score": 0.4782
+        },
+        {
+          "agent_id": "ag_seed_12",
+          "name": "회의 안건 정리기",
+          "score": 0.4739
+        }
+      ]
+    },
+    {
+      "id": "q22",
+      "query": "새로 쓸 필요는 없고 있는 글만 다듬어 줬으면",
+      "answers": [
+        "ag_seed_17"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.1872902512550354,
+      "latency_ms": 24.001121520996094,
+      "top": [
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.6342
+        },
+        {
+          "agent_id": "ag_seed_09",
+          "name": "장문 자료 핵심 추출기",
+          "score": 0.4469
+        },
+        {
+          "agent_id": "ag_seed_20",
+          "name": "변경 사항 요약기",
+          "score": 0.3777
+        },
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.374
+        },
+        {
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.3712
         }
       ]
     }
