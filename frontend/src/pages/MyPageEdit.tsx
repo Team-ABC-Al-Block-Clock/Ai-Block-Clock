@@ -1,11 +1,14 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import { shortAddress } from '@/lib/format'
 import { paths } from '@/routes/paths'
+import { useAuthStore } from '@/stores/authStore'
 
 export default function MyPageEdit() {
   const navigate = useNavigate()
   const [saved, setSaved] = useState(false)
+  const profile = useAuthStore((s) => s.profile)
 
   // 렌더마다 새로 만들어지는 지역 변수로는 정리 함수가 엉뚱한 핸들을 지운다
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -23,7 +26,7 @@ export default function MyPageEdit() {
       icon: 'WALLET',
       label: '연결된 지갑',
       brand: 'MetaMask',
-      number: '0xA1B2...7F3e',
+      number: shortAddress(profile?.walletAddress ?? ''),
       subLabel: '네트워크',
       subValue: 'Polygon Mainnet',
       action: '다시 연결',
@@ -160,7 +163,7 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue="이싸피"
+                    defaultValue={profile?.nickname ?? ''}
                     style={{ width: '100%' }}
                   />
                 </div>
@@ -181,7 +184,7 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue="나는척척박사입니다"
+                    defaultValue={profile?.introduction ?? ''}
                     style={{ width: '100%' }}
                   />
                 </div>

@@ -1,4 +1,6 @@
+import { shortAddress } from '@/lib/format'
 import { paths } from '@/routes/paths'
+import { useAuthStore } from '@/stores/authStore'
 
 const TABS = [
   { key: 'agents', label: '내 에이전트', href: paths.my.agents },
@@ -17,8 +19,8 @@ type Tab = (typeof TABS)[number]['key']
  *  마이페이지 5개 화면에 똑같이 들어갑니다. 화면마다 다른 건 선택 상태뿐 —
  *  탭 하나(active)가 채워지거나, 정보 수정 화면이면 수정 버튼(editing)이 채워집니다.
  *
- *  ponytail: 사용자 정보가 아직 하드코딩입니다. `GET /users/me` 는 mock 핸들러가
- *  있으니(8절) 쿼리로 바꿔 주세요.
+ *  사용자 정보는 인증 스토어에서 읽습니다 — 이 5개 화면이 모두 보호 라우트라
+ *  프로필 없이는 그려지지 않지만, 타입이 nullable 이라 빈 값을 대비해 둡니다.
  */
 interface SidebarProps {
   /** 채워질 탭 */
@@ -28,6 +30,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ active, editing = false }: SidebarProps) {
+  const profile = useAuthStore((s) => s.profile)
+
   return (
     <>
       <div
@@ -64,12 +68,21 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
               'radial-gradient(circle at 52% 28%, rgba(255,218,224,.18), rgba(255,214,232,0) 62%)',
           }}
         ></div>
-        <div
-          className="absolute inset-0 flex items-center justify-center text-[64px] font-semibold"
-          style={{ color: 'rgba(255,222,238,.85)' }}
-        >
-          김
-        </div>
+        {profile?.profileImageUrl ? (
+          // alt 는 비웁니다 — 바로 아래에 이름이 그대로 있어 읽어 주면 두 번 들립니다.
+          <img
+            src={profile.profileImageUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 flex items-center justify-center text-[64px] font-semibold"
+            style={{ color: 'rgba(255,222,238,.85)' }}
+          >
+            {profile?.nickname.slice(0, 1) ?? ''}
+          </div>
+        )}
       </div>
 
       <div
@@ -81,7 +94,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        이싸피
+        {profile?.nickname}
       </div>
       <div
         className="absolute text-[13px] tracking-[-.01em]"
@@ -92,7 +105,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        나는척척박사입니다
+        {profile?.introduction}
       </div>
 
       {editing ? (
@@ -180,7 +193,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           className="text-[16px] font-semibold text-white"
           style={{ marginTop: '12px', letterSpacing: '.01em' }}
         >
-          0xA1B2...7F3e
+          {shortAddress(profile?.walletAddress ?? '')}
         </div>
         <div className="text-[12px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
           Polygon Mainnet
