@@ -22,12 +22,25 @@ describe('getMarketplaceAgents', () => {
     expect(page).not.toHaveProperty('status')
   })
 
-  it('내부 자료(등급·노드 구성)는 목록에 없다', async () => {
+  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
     const [first] = (await getMarketplaceAgents()).content
 
-    expect(first).not.toHaveProperty('tier')
-    expect(first).not.toHaveProperty('baseCost')
-    expect(first).not.toHaveProperty('inputSchema')
+    // 없는 필드를 나열하면(tier·baseCost 처럼) 그 필드가 사라진 뒤 공허한 단언이 된다.
+    // 명세가 정한 키 집합과 정확히 맞는지를 본다 — 상세 필드(tokenUsage) 누출도 여기서 걸린다.
+    expect(Object.keys(first).sort()).toEqual([
+      'agentId',
+      'averageRating',
+      'createdAt',
+      'currency',
+      'executionCount',
+      'favorited',
+      'iconUrl',
+      'name',
+      'owner',
+      'price',
+      'reviewCount',
+      'summary',
+    ])
     expect(first.currency).toBe('ABC')
     // 소수점 오차를 막기 위해 문자열로 온다. 숫자로 바뀌면 화면 포맷이 깨진다.
     expect(typeof first.price).toBe('string')
