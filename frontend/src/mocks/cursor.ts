@@ -1,8 +1,9 @@
 import type { CursorPage } from '@/api/page'
+import { fail, ok } from '@/mocks/response'
 
 /**
- * 커서 페이지네이션. `paginate.ts` 와 나란히 두는 순수 모듈이다 —
- * 핸들러 안에 인라인하면 두 핸들러가 쓰기 시작할 때 조용히 갈라진다.
+ * 커서 페이지네이션. 이 프로젝트의 목록은 전부 이 방식이다.
+ * 핸들러 안에 인라인하면 목록마다 계산이 조용히 갈라진다.
  */
 
 /** 명세 기본값 9, 최대 30. */
@@ -66,4 +67,19 @@ export function cursorPage<T>(
     nextCursor: hasNext && last ? encodeCursor(idOf(last)) : null,
     hasNext,
   }
+}
+
+/**
+ * 명세가 아직 오지 않은 목록들의 공통 응답. 계산이 같아서 핸들러마다 다시 쓰지 않는다.
+ *
+ * 커서가 어긋나도 COMMON_001 로 돌려준다 — 마켓 목록의 MARKET_003 처럼 전용 코드를
+ * 두려면 명세가 있어야 한다. 마켓 목록은 명세가 확정됐으므로 핸들러에서 직접 다룬다.
+ */
+export function cursorOk<T>(url: URL, items: T[], idOf: (item: T) => string) {
+  const { cursor, size } = cursorParams(url)
+  if (size === null) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
+
+  const page = cursorPage(items, idOf, cursor, size)
+  if (!page) return fail(400, 'COMMON_001', '조회 기준이 올바르지 않습니다.')
+  return ok(page)
 }

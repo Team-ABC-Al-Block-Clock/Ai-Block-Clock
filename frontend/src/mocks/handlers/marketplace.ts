@@ -2,9 +2,8 @@ import { http } from 'msw'
 
 import type { AgentDetail, AgentProvenance, AgentReview, AgentSummary } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
-import { cursorPage, cursorParams } from '@/mocks/cursor'
+import { cursorOk, cursorPage, cursorParams } from '@/mocks/cursor'
 import { AGENTS } from '@/mocks/fixtures/agents'
-import { pageParams, paginate } from '@/mocks/paginate'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -116,8 +115,6 @@ export const marketplaceHandlers = [
       }),
     )
 
-    const url = new URL(request.url)
-    const { page, size } = pageParams(url)
-    return ok(paginate(reviews, page, size))
+    return cursorOk(new URL(request.url), reviews, (r) => r.reviewId)
   }),
 ]

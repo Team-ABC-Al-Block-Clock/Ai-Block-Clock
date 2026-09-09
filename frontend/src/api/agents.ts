@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { CursorPage, CursorParams, Page, PageParams } from '@/api/page'
+import type { CursorPage, CursorParams } from '@/api/page'
 
 /** 에이전트 · 마켓플레이스 API. */
 
@@ -29,9 +29,6 @@ export interface AgentSummary {
   createdAt: string
 }
 
-/** ⚠︎ 상세 명세는 아직 오지 않았다. 목록에서 확정된 필드명을 물려받고, 화면이 실제로
- *  읽는 것만 둔다 — 추측으로 필드를 늘려두면 명세가 왔을 때 무엇이 사실인지 알 수 없다.
- *  `tokenUsage` 는 마이페이지의 "내 에이전트"(GET /agents)가 쓴다. */
 export interface AgentDetail extends AgentSummary {
   tokenUsage: number
 }
@@ -72,9 +69,9 @@ export const getMarketplaceAgent = (agentId: string) =>
 export const getAgentProvenance = (agentId: string) =>
   api.get<AgentProvenance>(`/marketplace/agents/${agentId}/provenance`)
 
-export const getAgentReviews = (agentId: string, params: PageParams = {}) =>
-  api.get<Page<AgentReview>>(`/marketplace/agents/${agentId}/reviews`, { params })
+export const getAgentReviews = (agentId: string, params: CursorParams = {}) =>
+  api.get<CursorPage<AgentReview>>(`/marketplace/agents/${agentId}/reviews`, { params })
 
 /** 내가 등록한 에이전트 */
-export const getMyAgents = (params: PageParams = {}) =>
-  api.get<Page<AgentDetail>>('/agents', { params })
+export const getMyAgents = (params: CursorParams = {}) =>
+  api.get<CursorPage<AgentDetail>>('/agents', { params })
