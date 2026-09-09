@@ -1,20 +1,26 @@
 /**
- * 목록 응답 봉투.
- *
- * ⚠︎ 필드명은 추정이다. API 명세서(S15P21A403-4)가 Notion 에 있고 링크가 아직
- * 공유되지 않아, 백엔드가 Spring 이고 기존 응답이 camelCase 라는 점에 근거해 정했다.
- * 명세가 오면 이 파일과 각 도메인 모듈만 고친다 — 화면은 건드리지 않는다.
+ * 목록 응답 봉투. 이 프로젝트의 목록은 전부 커서 방식이다 —
+ * 페이지 번호 봉투(Spring `Page` 축약형)는 쓰는 곳이 없어 지웠다.
  */
-export interface Page<T> {
+
+/**
+ * 커서 페이지네이션 봉투. **확정** — GET /marketplace/agents 명세에서 왔다.
+ *
+ * 무한 스크롤로 불러오는 동안 새 항목이 등록되면 페이지 번호 방식은 항목이 밀려
+ * 중복·누락이 생긴다. 그래서 커서를 쓴다.
+ *
+ * 전수를 만들지 않으므로 `totalElements` 가 없다. 화면에 전체 개수를 띄우려 하지 않는다.
+ */
+export interface CursorPage<T> {
   content: T[]
-  /** 0-based */
-  page: number
-  size: number
-  totalElements: number
-  totalPages: number
+  /** 다음 조회에 넘길 커서. 마지막이면 null */
+  nextCursor: string | null
+  hasNext: boolean
 }
 
-export interface PageParams {
-  page?: number
+export interface CursorParams {
+  /** 이전 응답의 `nextCursor`. 없으면 처음부터 */
+  cursor?: string
+  /** 한 번에 가져올 개수. 기본 9, 최대 30 */
   size?: number
 }

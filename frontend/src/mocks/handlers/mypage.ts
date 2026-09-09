@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/api/client'
 import { MY_AGENTS } from '@/mocks/fixtures/agents'
 import { CREDIT_BALANCE, CREDIT_TRANSACTIONS } from '@/mocks/fixtures/user'
 import { WORKFLOWS } from '@/mocks/fixtures/workflows'
-import { pageParams, paginate } from '@/mocks/paginate'
+import { cursorOk } from '@/mocks/cursor'
 import { ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -15,15 +15,13 @@ export const mypageHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    const { page, size } = pageParams(new URL(request.url))
-    return ok(paginate(MY_AGENTS, page, size))
+    return cursorOk(new URL(request.url), MY_AGENTS, (a) => a.agentId)
   }),
   http.get(`${API_BASE_URL}/workflows`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
 
-    const { page, size } = pageParams(new URL(request.url))
-    return ok(paginate(WORKFLOWS, page, size))
+    return cursorOk(new URL(request.url), WORKFLOWS, (w) => w.workflowId)
   }),
   http.get(`${API_BASE_URL}/credits/balance`, async () => {
     const forced = await scene()
@@ -34,7 +32,6 @@ export const mypageHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    const { page, size } = pageParams(new URL(request.url))
-    return ok(paginate(CREDIT_TRANSACTIONS, page, size))
+    return cursorOk(new URL(request.url), CREDIT_TRANSACTIONS, (t) => t.transactionId)
   }),
 ]

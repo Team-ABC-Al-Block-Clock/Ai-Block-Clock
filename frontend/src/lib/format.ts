@@ -17,7 +17,31 @@ export function tokenLabel(n: number) {
   return compactCount(n)
 }
 
-/** 540 → '540 Credit' */
-export function creditLabel(n: number) {
-  return n.toLocaleString() + ' Credit'
+/**
+ * 단가를 문자열로 받는다. `Intl.NumberFormat` 은 문자열 인자를 **10진수 그대로** 파싱하므로
+ * (Intl.NumberFormat v3) Number 로 되돌리지 않아도 되고, 소수점 오차도 생기지 않는다.
+ * 천 단위 구분과 소수점 뒤 0 정리를 브라우저가 해 준다 —
+ * Jackson 이 BigDecimal('540.00') 을 '540.00' 으로 줘도 화면에는 '540' 이 나간다.
+ */
+const CREDIT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 })
+
+/** '540' → '540 Credit', '540.00' → '540 Credit', '1248.50' → '1,248.5 Credit'
+ *
+ *  TS 는 문자열 오버로드를 `StringNumericLiteral`(숫자 모양 리터럴)로 타이핑하기 때문에
+ *  API 에서 온 `string` 은 단언이 필요하다. 명세가 `price` 를 10진수 문자열로 확정했으니
+ *  여기 한 곳에서만 단언한다 — 값이 숫자가 아니면 RangeError 로 시끄럽게 터지는 편이
+ *  'abc Credit' 을 조용히 그리는 것보다 낫다. */
+export function creditLabel(price: string | number) {
+  return `${CREDIT.format(price as Intl.StringNumericLiteral)} Credit`
+}
+
+/**
+ * 4.7 · 35 → '4.7 (35)', 리뷰 0건 → '—'
+ *
+ * 콜드스타트(`averageRating: null`)를 한 곳에서 처리한다. 화면마다 따로 다루면
+ * 어딘가는 `NaN` 이나 빈칸이 된다.
+ */
+export function ratingLabel(averageRating: number | null, reviewCount: number) {
+  if (averageRating === null || reviewCount === 0) return '—'
+  return `${averageRating.toFixed(1)} (${compactCount(reviewCount)})`
 }

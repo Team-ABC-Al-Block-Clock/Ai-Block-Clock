@@ -41,8 +41,8 @@ export default function MyAgents() {
   const agents = (data?.content ?? []).map((a, i) => ({
     agentId: a.agentId,
     name: a.name,
-    desc: a.description,
-    uses: runLabel(a.runCount),
+    desc: a.summary,
+    uses: runLabel(a.executionCount),
     tokens: tokenLabel(a.tokenUsage),
     path: SPARKS[i % SPARKS.length],
     i,
@@ -54,7 +54,9 @@ export default function MyAgents() {
     )
   const on = 'rgba(255,255,255,.9)',
     off = 'rgba(255,255,255,.09)'
-  const total = data?.totalElements ?? 0
+  // 커서 목록은 전체 개수를 주지 않는다(전수를 만들지 않는 것이 설계 의도).
+  // 불러온 만큼만 세고, 더 있으면 '+' 를 붙인다.
+  const total = `${agents.length}${data?.hasNext ? '+' : ''}`
   const allLabel = '전체 ' + total
   const favLabel = '즐겨찾기 ' + Object.keys(favs).length
   const mineLabel = '내가 제작 ' + total
