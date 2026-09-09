@@ -1,4 +1,7 @@
 import { Fragment, useState } from 'react'
+import { useAccount } from 'wagmi'
+import { shortAddress } from '@/lib/format'
+import { chainLabel } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 
 export default function Signup() {
@@ -6,6 +9,7 @@ export default function Signup() {
   const [termsOpen, setTermsOpen] = useState(false)
   const [termsAt, setTermsAt] = useState(0)
   const [walletOpen, setWalletOpen] = useState(false)
+  const { address } = useAccount()
   /** ACC-005 확인. 약관 배열(`checked`)에 넣지 않는다 — `전체 동의` 로 한 번에
    *  넘어가면 계정을 복구할 수 없다는 고지를 읽지 않고 지나친다. */
   const [lossAck, setLossAck] = useState(false)
@@ -201,13 +205,13 @@ export default function Signup() {
                   className="text-[14px] font-semibold text-white"
                   style={{ letterSpacing: '.01em' }}
                 >
-                  0xA1B2...7F3e
+                  {address ? shortAddress(address) : '지갑이 연결되지 않았습니다'}
                 </div>
                 <div
                   className="text-[11.5px]"
                   style={{ marginTop: '4px', color: 'rgba(255,236,246,.62)' }}
                 >
-                  MetaMask · Polygon Mainnet
+                  {`MetaMask · ${chainLabel}`}
                 </div>
               </div>
               <div className="flex items-center" style={{ gap: '6px' }}>

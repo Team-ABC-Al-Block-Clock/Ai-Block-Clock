@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import { shortAddress } from '@/lib/format'
+import { chainLabel } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -28,7 +29,7 @@ export default function MyPageEdit() {
       brand: 'MetaMask',
       number: shortAddress(profile?.walletAddress ?? ''),
       subLabel: '네트워크',
-      subValue: 'Polygon Mainnet',
+      subValue: chainLabel,
       action: '다시 연결',
     },
   ]

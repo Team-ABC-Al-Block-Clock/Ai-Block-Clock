@@ -37,6 +37,14 @@ declare module 'react' {
         /** 있으면 로그아웃 행이 보인다. `bool()` 이 hasAttribute 라서 빈 문자열로 넘긴다 */
         'signed-in'?: string
       }>
+      'wallet-dialog': El<{
+        /** 'idle' | 'request' | 'signing' | 'rejected' — 화면이 단계를 소유한다 */
+        phase?: string
+        address?: string
+        nonce?: string
+        chain?: string
+        'error-code'?: string
+      }>
       'profile-sidebar': El
       'tab-row': El<{ items?: string }>
       'agent-card': El

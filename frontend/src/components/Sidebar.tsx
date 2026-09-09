@@ -1,4 +1,5 @@
 import { shortAddress } from '@/lib/format'
+import { chainLabel } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -196,7 +197,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           {shortAddress(profile?.walletAddress ?? '')}
         </div>
         <div className="text-[12px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
-          Polygon Mainnet
+          {chainLabel}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
           <div

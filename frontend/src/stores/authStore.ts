@@ -117,7 +117,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     signOut: async () => {
-      // 지갑 연결 해제(wagmi disconnect)는 181 에서 여기에 붙는다.
+      // 지갑 연결 해제는 여기서 하지 않는다 — 스토어는 wagmi 를 모르고,
+      // 세션 만료로 끊길 때는 지갑을 유지해야 한다. `App.tsx` 의 useLogout 참고.
       try {
         await requestLogout()
       } finally {

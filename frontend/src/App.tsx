@@ -7,6 +7,7 @@ import { useSessionRestore } from './hooks/useSessionRestore'
 import { shellFor } from './lib/shell'
 import { REQUIRES_AUTH } from './routes/access'
 import { paths, routePatterns, type ScreenKey } from './routes/paths'
+import { useAccount, useDisconnect } from 'wagmi'
 import { useAuthStore } from './stores/authStore'
 import './components/index'
 
@@ -59,18 +60,40 @@ function useInternalLinks() {
  */
 function useLogout() {
   const navigate = useNavigate()
+  const { disconnectAsync } = useDisconnect()
+
   useEffect(() => {
     const onLogout = () => {
-      // 실패해도 signOut 이 클라이언트 세션은 끊는다. 홈으로 보내는 것만 이어서 한다.
-      void useAuthStore
-        .getState()
-        .signOut()
-        .catch(() => {})
+      // 스스로 누른 로그아웃은 지갑 연결까지 끊는다. 세션 만료(401)로 끊길 때는
+      // 지갑을 그대로 두어 다시 연결할 필요 없이 로그인만 하면 되게 한다.
+      void disconnectAsync()
+        .catch(() => undefined)
+        .then(() => useAuthStore.getState().signOut())
+        .catch(() => undefined)
         .finally(() => navigate(paths.home, { replace: true }))
     }
     document.addEventListener('logout', onLogout)
     return () => document.removeEventListener('logout', onLogout)
-  }, [navigate])
+  }, [navigate, disconnectAsync])
+}
+
+/** 지갑 계정이 바뀌면 열려 있던 세션은 남의 것이 된다 — 끊는다.
+ *
+ *  `connected` 일 때만 본다. 부팅 직후에는 wagmi 가 아직 재연결 중이라
+ *  주소가 없는데, 그때 끊으면 쿠키로 되살린 세션이 매번 날아간다.
+ *  지갑을 사용자가 끊은 것(`disconnected`)만으로는 세션을 끝내지 않는다 —
+ *  서버 세션은 살아 있고, 끝내려면 로그아웃을 누르면 된다.
+ */
+function useWalletAccountGuard() {
+  const { address, status } = useAccount()
+
+  useEffect(() => {
+    if (status !== 'connected' || !address) return
+    const session = useAuthStore.getState()
+    if (session.status !== 'authenticated' || !session.walletAddress) return
+    if (session.walletAddress.toLowerCase() === address.toLowerCase()) return
+    void session.signOut().catch(() => undefined)
+  }, [address, status])
 }
 
 /** 화면 키 → 엔트리.
@@ -100,6 +123,7 @@ export default function App() {
   useInternalLinks()
   useSessionRestore()
   useLogout()
+  useWalletAccountGuard()
 
   // 프로필 메뉴의 아바타와 로그아웃 행만 세션을 본다 — 로그아웃한 사람에게
   // 남의 이니셜과 로그아웃을 보여줄 수는 없다. 나머지 껍데기는 그대로다.
