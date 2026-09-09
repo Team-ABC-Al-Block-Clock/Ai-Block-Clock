@@ -212,7 +212,8 @@ export class ProfileMenu extends BaseElement {
         '<div style="margin:6px 4px 2px;height:1px;background:rgba(255,255,255,.14)"></div>' +
         '<div data-row data-logout role="button" tabindex="0" style="' +
         ROW_STYLE +
-        '">' +
+        // <a> 가 아니라 <div> 라 기본 커서가 붙지 않는다
+        ';cursor:pointer">' +
         ICON_LOGOUT +
         '<span>로그아웃</span></div>'
     }

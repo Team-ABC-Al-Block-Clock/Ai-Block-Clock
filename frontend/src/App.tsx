@@ -101,8 +101,10 @@ export default function App() {
   useSessionRestore()
   useLogout()
 
-  // 로그아웃 행만 세션을 본다. 나머지 껍데기는 로그인 여부와 무관하게 그대로다.
+  // 프로필 메뉴의 아바타와 로그아웃 행만 세션을 본다 — 로그아웃한 사람에게
+  // 남의 이니셜과 로그아웃을 보여줄 수는 없다. 나머지 껍데기는 그대로다.
   const signedIn = useAuthStore((s) => s.status === 'authenticated')
+  const nickname = useAuthStore((s) => s.profile?.nickname)
 
   const { pathname } = useLocation()
   const shell = shellFor(pathname)
@@ -198,7 +200,7 @@ export default function App() {
         <profile-menu
           className="absolute"
           style={{ left: '1374px', top: '26px', zIndex: '40' }}
-          initial="이"
+          initial={nickname?.slice(0, 1) ?? ''}
           search-href={paths.search}
           mypage-href={paths.my.agents}
           {...(signedIn ? { 'signed-in': '' } : {})}
