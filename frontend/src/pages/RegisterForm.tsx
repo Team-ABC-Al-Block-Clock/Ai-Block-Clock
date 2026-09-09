@@ -7,7 +7,10 @@ import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
 /** 입력이 제어 컴포넌트가 아니라 제출할 때 한 번 읽는다.
- *  값이 화면 로직에 쓰이지 않아 타자마다 리렌더할 이유가 없다 — MyAgents 의 검색 칸과 같은 방식. */
+ *  값이 화면 로직에 쓰이지 않아 타자마다 리렌더할 이유가 없다 — MyAgents 의 검색 칸과 같은 방식.
+ *
+ *  JSX 도 이 맵으로 id 를 붙인다. 리터럴로 적어 두면 한쪽만 고쳐졌을 때 read() 가
+ *  빈 문자열을 돌려주고, 설명은 조용히 사라지고 이름은 원인 모를 COMMON_001 이 된다. */
 const FIELD = {
   onboardingMessage: 'regOnboarding',
   name: 'regName',
@@ -195,7 +198,7 @@ export default function RegisterForm() {
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
               type="text"
-              id="regOnboarding"
+              id={FIELD.onboardingMessage}
               placeholder="에이전트에 어떤 프롬프트를 입력해야할지 사용자에게 알려주세요"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -226,7 +229,7 @@ export default function RegisterForm() {
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
               type="text"
-              id="regName"
+              id={FIELD.name}
               defaultValue="문서 정리"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -251,7 +254,7 @@ export default function RegisterForm() {
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
               type="text"
-              id="regSummary"
+              id={FIELD.summary}
               placeholder="지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -275,7 +278,7 @@ export default function RegisterForm() {
           >
             <textarea
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
-              id="regDescription"
+              id={FIELD.description}
               placeholder="에이전트의 기능을 자세히 설명해주세요"
               style={{
                 left: '18px',
@@ -467,7 +470,7 @@ export default function RegisterForm() {
           >
             <textarea
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
-              id="regUsageExample"
+              id={FIELD.usageExample}
               placeholder="에이전트 실행 결과 예시를 입력해주세요"
               style={{
                 left: '18px',
