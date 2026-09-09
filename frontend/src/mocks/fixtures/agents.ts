@@ -112,8 +112,10 @@ function build(seed: Seed, index: number): AgentDetail {
 export const AGENTS: AgentDetail[] = SEEDS.map(build)
 
 // 눈으로 세면 어긋난다 — 실제로 한 번 29건이 됐다.
+// 31건을 넘기면 build() 의 day 가 8월 범위를 벗어나 createdAt 이 Invalid Date 가 되는데,
+// 정렬은 문자열 비교라 계속 동작하는 것처럼 보인다. warn 으로는 아무도 못 잡는다.
 if (AGENTS.length !== 30) {
-  console.warn(`[mock] 에이전트 픽스처가 ${AGENTS.length}건이다. 30건이어야 한다.`)
+  throw new Error(`[mock] 에이전트 픽스처가 ${AGENTS.length}건이다. 30건이어야 한다.`)
 }
 
 /** 마이페이지의 "내 에이전트" */

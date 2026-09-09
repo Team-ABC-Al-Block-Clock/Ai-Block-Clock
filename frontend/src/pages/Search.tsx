@@ -2,7 +2,6 @@ import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
 import { getMarketplaceAgents } from '@/api/agents'
-import { ApiError } from '@/api/errors'
 import { creditLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
@@ -37,13 +36,12 @@ export default function Search() {
   const {
     data,
     isPending,
+    isPlaceholderData,
     isError,
-    error,
     hasNextPage,
     isFetchingNextPage,
     isFetchNextPageError,
     fetchNextPage,
-    refetch,
   } = useInfiniteQuery({
     queryKey: queryKeys.marketplace.agents.list({ keyword, size: PAGE_SIZE }),
     queryFn: ({ pageParam }) =>
@@ -65,12 +63,17 @@ export default function Search() {
     if (!node || !hasNextPage || isFetchNextPageError) return
     const observer = new IntersectionObserver(
       ([entry]) => {
+        // cancelRefetch 기본값이 true 라 진행 중이면 취소하고 같은 커서로 다시 보낸다.
         if (entry.isIntersecting && !isFetchingNextPage) void fetchNextPage()
       },
       { root: document.getElementById('gridScroll'), rootMargin: '200px' },
     )
     observer.observe(node)
     return () => observer.disconnect()
+    // isFetchingNextPage 를 deps 에 두는 것은 낭비가 아니다. 이 값이 바뀔 때 observer 가
+    // 다시 만들어지고, observe() 가 이미 교차 중인 sentinel 에 콜백을 다시 발사해 다음
+    // 장을 잇는다. 카드 9장이 그리드를 거의 채워(스크롤 여유 41px) sentinel 이 계속
+    // 교차 상태로 남기 때문에, 교차 '변화' 만 기다리면 이어지지 않는다.
   }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, fetchNextPage])
 
   const cards = agents.map((a, i) => ({
@@ -91,38 +94,17 @@ export default function Search() {
       setInfoAt((v) => (v === a.agentId ? null : a.agentId))
     },
     // 새로 불러온 페이지 안에서만 시차를 준다 — 누적 index 를 쓰면 전부 같은 지연이 된다.
-    anim:
-      'rise .6s ' +
-      (0.16 + Math.min(i % PAGE_SIZE, 8) * 0.04).toFixed(2) +
-      's cubic-bezier(.2,.8,.25,1) both',
+    anim: `rise .6s ${(0.16 + (i % PAGE_SIZE) * 0.04).toFixed(2)}s cubic-bezier(.2,.8,.25,1) both`,
   }))
 
-  /**
-   * 커서 만료(MARKET_003)는 화면에 띄울 상태가 아니다. 목록이 갱신되어 커서가 어긋난
-   * 것뿐이므로 첫 페이지부터 다시 받으면 끝난다 — refetch 는 저장된 커서를 재생하지 않고
-   * initialPageParam(커서 없음)부터 커서를 다시 만든다.
-   *
-   * 한 번만 시도한다. 다시 만료가 오면 서버가 이상한 것이므로 일반 실패로 흘려보낸다 —
-   * 아니면 무한 재요청이 된다.
-   */
-  const isExpiredCursor = error instanceof ApiError && error.code === 'MARKET_003'
-  const isRecovering = useRef(false)
-  useEffect(() => {
-    if (!isExpiredCursor) {
-      isRecovering.current = false
-      return
-    }
-    if (isRecovering.current) return
-    isRecovering.current = true
-    void refetch()
-  }, [isExpiredCursor, refetch])
-
+  // 이전 검색어의 결과를 보여주는 동안(placeholder)은 아직 "이번 검색 결과" 가 아니다.
+  // hasNextPage 는 새 쿼리 키의 데이터로 계산되므로 그 사이 '+' 가 사라진다.
+  const isSettled = !isPending && !isPlaceholderData
   // 전체 개수는 명세에 없다(전수를 만들지 않는 것이 설계 의도). 불러온 만큼만 센다.
-  const countLabel = isPending ? '…' : `${agents.length}개${hasNextPage ? '+' : ''}`
+  const countLabel = isSettled ? `${agents.length}개${hasNextPage ? '+' : ''}` : '…'
   // 불러오는 중에는 "결과 없음" 을 띄우지 않는다 — 매 검색마다 한 번씩 깜빡인다.
-  const empty = !isPending && !isError && agents.length === 0
-  // 카드가 한 장이라도 있으면 띄우지 않는다 — 이 안내는 absolute 라 카드 위에 겹쳐 그려진다.
-  const notice = agents.length === 0 && (empty || isError)
+  // 카드가 한 장이라도 있으면 띄우지 않는다 — absolute 라 카드 위에 겹쳐 그려진다.
+  const notice = isSettled && agents.length === 0
   const handleChangeQuery = (e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)
 
   useEffect(() => {
@@ -456,7 +438,9 @@ export default function Search() {
             top: '452px',
             width: '896px',
             color: 'rgba(255,236,246,.62)',
-            animation: 'fadeIn .3s ease both',
+            // 그리드(1.6s)와 같이 올라와야 한다. 지연이 없으면 "추천 에이전트"·개수가
+            // 아직 안 뜬 화면에 이 안내만 혼자 떠 있는다.
+            animation: 'fadeIn .3s 1.6s ease both',
           }}
         >
           {isError ? '목록을 불러오지 못했습니다' : '검색 결과가 없습니다'}
