@@ -49,7 +49,8 @@ export default function Detail() {
   } = useQuery({
     queryKey: queryKeys.marketplace.agents.detail(agentId ?? ''),
     queryFn: () => getMarketplaceAgent(agentId ?? ''),
-    // '/agent' — 등록 API 가 붙기 전까지 남겨 둔 ID 없는 경로. 요청을 보내지 않는다.
+    // 라우트가 '/agent/:agentId' 뿐이라 실제로는 늘 있지만 useParams 는 string | undefined 다.
+    // 단언 대신 enabled 로 막는다 — 빈 ID 로 요청이 나가지 않는다.
     enabled: !!agentId,
   })
 
@@ -82,7 +83,7 @@ export default function Detail() {
   }, [refetch, isError])
 
   // ID 가 없거나 404 면 '없는 에이전트' 다. 로딩 판정보다 먼저 와야 한다 —
-  // enabled: false 면 isPending 이 계속 true 라서 뒤에 두면 영원히 '불러오는 중' 이다.
+  // enabled: false 면 isPending 이 계속 true 라서 뒤에 두면 영원히 '불러오는 중' 이 된다.
   if (!agentId || (error instanceof ApiError && error.status === 404))
     return (
       <empty-state
