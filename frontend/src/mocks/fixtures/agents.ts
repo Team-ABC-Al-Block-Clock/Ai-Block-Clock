@@ -1,4 +1,10 @@
-import type { AgentDetail, AgentImage, AgentSummary, MyAgent } from '@/api/agents'
+import type {
+  AgentDetail,
+  AgentImage,
+  AgentSummary,
+  CreateAgentRequest,
+  MyAgent,
+} from '@/api/agents'
 import iconUrl from '@/assets/logo.png'
 
 /**
@@ -19,6 +25,9 @@ const OWNERS = {
   최싸피: { userId: 'usr_04', profileImageUrl: null },
   정싸피: { userId: 'usr_05', profileImageUrl: null },
 } satisfies Record<string, { userId: string; profileImageUrl: string | null }>
+
+/** 로그인한 사용자 자리. 인증 연동(S15P21A403-180) 전까지 이 닉네임이 '나' 다. */
+const ME = '이싸피' satisfies keyof typeof OWNERS
 
 interface Seed {
   name: string
@@ -182,11 +191,55 @@ export function toSummary(agent: AgentDetail): AgentSummary {
   }
 }
 
-/** 마이페이지의 "내 에이전트". GET /agents 는 목록 항목 + tokenUsage 다. */
-export const MY_AGENTS: MyAgent[] = AGENTS.filter((a) => a.owner.nickname === '이싸피').map(
-  (a) => ({
+/**
+ * 마이페이지의 "내 에이전트". GET /agents 는 목록 항목 + tokenUsage 다.
+ *
+ * 상수가 아니라 함수다 — `addAgent` 로 새로 등록한 것이 여기에도 보여야 하는데,
+ * 모듈 로드 시점에 한 번 계산해 두면 등록해도 목록이 그대로다.
+ */
+export function myAgents(): MyAgent[] {
+  return AGENTS.filter((a) => a.owner.nickname === ME).map((a) => ({
     ...toSummary(a),
     // 실행 횟수에서 만든다 — 통계 엔드포인트가 없어 실측값을 알 수 없다.
     tokenUsage: a.executionCount * 1900,
-  }),
-)
+  }))
+}
+
+/**
+ * 등록 화면이 만든 에이전트. **명세 미확정** — 화면이 넘기는 텍스트만 받고
+ * 나머지는 서버가 채울 기본값을 흉내 낸다.
+ *
+ * `onboardingMessage` 는 받아서 버린다. 등록 화면은 입력받지만 상세 응답에는 없다 —
+ * 실행 대기 화면이 쓸 필드라 그 작업에서 저장 위치가 정해진다.
+ */
+export function addAgent(input: CreateAgentRequest): AgentDetail {
+  const owner = OWNERS[ME]
+  const agent: AgentDetail = {
+    // 실서버는 UUID 를 준다. 픽스처의 `agt_NN` 은 build() 가 날짜에서 만드는 것이라
+    // 여기서 이어 붙이면 8월 범위를 넘겨 createdAt 이 깨진다.
+    agentId: crypto.randomUUID(),
+    name: input.name,
+    summary: input.summary,
+    description: input.description,
+    usageExample: input.usageExample || null,
+    // 아이콘·스크린샷 업로드는 등록 화면에서 아직 연결되지 않았다.
+    iconUrl: null,
+    images: [],
+    // ponytail: 단가는 서버가 워크플로우에서 계산한다. 등록 화면에 입력 칸이 없어
+    // 고정값을 둔다 — 산정 명세가 오면 그대로 받는다.
+    price: '540',
+    currency: 'ABC',
+    // 갓 등록한 것이라 실적이 없다. 상세 화면이 '—' 를 내야 한다.
+    executionCount: 0,
+    successRate: 0,
+    averageRating: null,
+    reviewCount: 0,
+    favorited: false,
+    favoriteCount: 0,
+    owner: { userId: owner.userId, nickname: ME, profileImageUrl: owner.profileImageUrl },
+    // 목록은 등록 시각 역순이라 방금 만든 것이 첫 장에 뜬다.
+    createdAt: new Date().toISOString(),
+  }
+  AGENTS.push(agent)
+  return agent
+}

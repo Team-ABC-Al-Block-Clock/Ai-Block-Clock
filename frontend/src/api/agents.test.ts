@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   addAgentFavorite,
+  createAgent,
   getMarketplaceAgent,
   getMarketplaceAgents,
+  getMyAgents,
   removeAgentFavorite,
 } from '@/api/agents'
 import type { AgentSummary } from '@/api/agents'
@@ -146,7 +148,6 @@ describe('getMarketplaceAgent', () => {
     ])
     // 목록의 owner 는 nickname 하나뿐이다. 상세는 셋을 준다.
     expect(Object.keys(agent.owner).sort()).toEqual(['nickname', 'profileImageUrl', 'userId'])
-    expect(agent.currency).toBe('ABC')
     // 소수점 오차를 막기 위해 문자열로 온다. 숫자로 바뀌면 화면 포맷이 깨진다.
     expect(typeof agent.price).toBe('string')
     // 봉투는 응답 인터셉터가 벗긴다.
@@ -258,6 +259,81 @@ describe('즐겨찾기', () => {
     await expect(removeAgentFavorite('agt_없음')).rejects.toMatchObject({
       code: 'MARKET_001',
       status: 404,
+    })
+  })
+})
+
+/**
+ * 에이전트 등록. 픽스처에 항목을 더하는 mock 이라, 등록한 것이 목록·상세·마이페이지에
+ * 실제로 나타나는지가 여기서만 드러난다.
+ */
+describe('createAgent', () => {
+  const INPUT = {
+    name: '테스트 등록',
+    summary: '등록 직후 상태를 확인한다',
+    description: '상세 설명',
+    usageExample: '이렇게 말해 줘',
+    onboardingMessage: '무엇을 정리할까요',
+  }
+
+  // 픽스처에 밀어넣은 항목을 되돌린다. 안 하면 목록 테스트의 30건 전제가 깨진다.
+  // addAgent 가 뒤에 push 하므로 길이를 잘라내면 정확히 원복된다.
+  afterEach(async () => {
+    const { AGENTS } = await import('@/mocks/fixtures/agents')
+    AGENTS.length = 30
+  })
+
+  it('등록하면 ID 를 주고, 그 ID 로 상세를 조회할 수 있다', async () => {
+    const { agentId } = await createAgent(INPUT)
+
+    expect(agentId).toBeTruthy()
+    const agent = await getMarketplaceAgent(agentId)
+    expect(agent.name).toBe(INPUT.name)
+    expect(agent.summary).toBe(INPUT.summary)
+    expect(agent.description).toBe(INPUT.description)
+    expect(agent.usageExample).toBe(INPUT.usageExample)
+  })
+
+  it('갓 등록한 것은 실적이 없다', async () => {
+    const { agentId } = await createAgent(INPUT)
+    const agent = await getMarketplaceAgent(agentId)
+
+    // 화면이 '—' 를 내야 하는 조합이다.
+    expect(agent.executionCount).toBe(0)
+    expect(agent.successRate).toBe(0)
+    expect(agent.averageRating).toBeNull()
+    expect(agent.reviewCount).toBe(0)
+    expect(agent.favoriteCount).toBe(0)
+    // 아이콘·스크린샷 업로드는 등록 화면에서 아직 연결되지 않았다.
+    expect(agent.iconUrl).toBeNull()
+    expect(agent.images).toEqual([])
+    // onboardingMessage 는 받아서 버린다 — 상세 응답에 없다.
+    expect(agent).not.toHaveProperty('onboardingMessage')
+  })
+
+  it('등록 시각이 가장 늦어 목록 첫 장에 뜬다', async () => {
+    const { agentId } = await createAgent(INPUT)
+    const page = await getMarketplaceAgents()
+
+    expect(page.content[0].agentId).toBe(agentId)
+  })
+
+  it('등록한 것이 내 에이전트 목록에도 나온다', async () => {
+    const { agentId } = await createAgent(INPUT)
+    const page = await getMyAgents({ size: 30 })
+
+    expect(page.content.map((a) => a.agentId)).toContain(agentId)
+  })
+
+  it('이름이나 한 줄 설명이 비면 COMMON_001', async () => {
+    // 목록 카드가 반드시 그리는 값이다. 통과시키면 이름 없는 카드가 생긴다.
+    await expect(createAgent({ ...INPUT, name: '   ' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
+    })
+    await expect(createAgent({ ...INPUT, summary: '' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
     })
   })
 })

@@ -47,9 +47,14 @@ function setFavorite(agentId: unknown, next: boolean): AgentFavorite | null {
   return { agentId: agent.agentId, favorited: agent.favorited, favoriteCount: agent.favoriteCount }
 }
 
-/** 등록 시각 역순. 커서가 이 순서를 전제하므로 요청마다 같아야 한다.
- *  공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항). */
-const PUBLISHED = [...AGENTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+/**
+ * 등록 시각 역순. 공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항).
+ *
+ * 상수가 아니라 함수다 — 등록(POST /agents)이 픽스처에 항목을 더하는데, 모듈 로드
+ * 시점에 한 번 정렬해 두면 등록해도 목록에 안 나온다. 커서는 이 순서를 전제하지만
+ * 정렬 기준(등록 시각)이 고정이라 요청마다 다시 계산해도 순서는 같다.
+ */
+const published = () => [...AGENTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
 export const marketplaceHandlers = [
   http.get(`${API_BASE_URL}/marketplace/agents`, async ({ request }) => {
@@ -61,7 +66,7 @@ export const marketplaceHandlers = [
     if (size === null) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
     const keyword = url.searchParams.get('keyword') ?? ''
-    const filtered = PUBLISHED.filter((a) => matchKeyword(a.name, a.summary, keyword))
+    const filtered = published().filter((a) => matchKeyword(a.name, a.summary, keyword))
 
     const page = cursorPage(filtered, (a) => a.agentId, cursor, size)
     if (!page)

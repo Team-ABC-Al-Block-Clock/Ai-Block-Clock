@@ -85,6 +85,29 @@ export interface AgentFavorite {
   favoriteCount: number
 }
 
+/**
+ * 에이전트 등록 요청. **추정** — POST /agents 명세가 아직 없다.
+ *
+ * 등록 화면이 모으는 텍스트만 담았다. 아이콘·스크린샷 업로드와 워크플로우 연결,
+ * 가격 산정은 명세가 오면 붙인다 — 지금 필드를 지어내면 화면이 그것을 물게 된다.
+ *
+ * `onboardingMessage` 는 등록 화면이 입력받지만 상세 응답에는 없다(상세 화면이 읽지 않는다).
+ */
+export interface CreateAgentRequest {
+  name: string
+  summary: string
+  description: string
+  usageExample: string
+  onboardingMessage: string
+}
+
+/** 등록 응답. 화면이 상세로 이동하는 데 필요한 것은 ID 뿐이다. */
+export interface CreatedAgent {
+  agentId: string
+}
+
+export const createAgent = (body: CreateAgentRequest) => api.post<CreatedAgent>('/agents', body)
+
 /** 내가 등록한 에이전트. GET /agents — **추정** (명세 미확정) */
 export interface MyAgent extends AgentSummary {
   tokenUsage: number
