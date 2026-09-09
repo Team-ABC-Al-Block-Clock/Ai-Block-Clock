@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
+    // jsdom 이 필요한 이유는 두 가지다 — mocks/scenario.ts 가 location·localStorage 를
+    // 읽고, msw 가 '/api/v1/...' 상대 경로 핸들러를 풀려면 location.href 가 있어야 한다.
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./src/test/setup.ts'],
+    },
     server: {
       port: 5173,
       proxy: {

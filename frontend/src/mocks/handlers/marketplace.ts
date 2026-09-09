@@ -66,7 +66,8 @@ export const marketplaceHandlers = [
     const filtered = PUBLISHED.filter((a) => matchKeyword(a, keyword))
 
     const page = cursorPage(filtered, (a) => a.agentId, cursor, size)
-    if (!page) return fail(400, 'MARKET_003', '조회 기준이 만료되었습니다. 처음부터 다시 불러오세요.')
+    if (!page)
+      return fail(400, 'MARKET_003', '조회 기준이 만료되었습니다. 처음부터 다시 불러오세요.')
 
     return ok({ ...page, content: page.content.map(toSummary) })
   }),
