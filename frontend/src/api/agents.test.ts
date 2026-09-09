@@ -38,7 +38,6 @@ describe('getMarketplaceAgents', () => {
       'agentId',
       'averageRating',
       'createdAt',
-      'currency',
       'executionCount',
       'favorited',
       'iconUrl',
@@ -48,7 +47,6 @@ describe('getMarketplaceAgents', () => {
       'reviewCount',
       'summary',
     ])
-    expect(first.currency).toBe('ABC')
     // 소수점 오차를 막기 위해 문자열로 온다. 숫자로 바뀌면 화면 포맷이 깨진다.
     expect(typeof first.price).toBe('string')
   })
@@ -131,7 +129,6 @@ describe('getMarketplaceAgent', () => {
       'agentId',
       'averageRating',
       'createdAt',
-      'currency',
       'description',
       'executionCount',
       'favoriteCount',

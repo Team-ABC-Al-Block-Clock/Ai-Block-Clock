@@ -16,8 +16,6 @@ export interface AgentSummary {
   iconUrl: string | null
   /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다. */
   price: string
-  /** 사용자에게 노출하는 단위는 'ABC' */
-  currency: string
   /** 누적 실행 횟수 */
   executionCount: number
   /** 평점 평균. 리뷰가 없으면 null */
@@ -58,9 +56,9 @@ export interface AgentDetail {
   usageExample: string | null
   iconUrl: string | null
   images: AgentImage[]
-  /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다. */
+  /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다.
+   *  통화 필드는 두지 않는다 — 크레딧의 단위가 ABC 하나뿐이라 항상 같은 값이다. */
   price: string
-  currency: string
   executionCount: number
   /** 실행 성공률 0~1. 실행이 0회면 0 이므로 화면은 executionCount 로 가른다 */
   successRate: number

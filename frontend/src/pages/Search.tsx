@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { getMarketplaceAgents } from '@/api/agents'
-import { creditLabel, ratingLabel, runLabel } from '@/lib/format'
+import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 import { OceanTheme } from '../components/theme-store'
@@ -129,7 +129,7 @@ export default function Search() {
     iconUrl: a.iconUrl,
     initial: a.name.trim().charAt(0).toUpperCase(),
     uses: runLabel(a.executionCount),
-    credit: creditLabel(a.price),
+    credit: priceLabel(a.price),
     author: a.owner.nickname,
     infoOpen: infoAt === a.agentId,
     infoBg: infoAt === a.agentId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',

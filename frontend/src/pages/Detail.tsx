@@ -9,7 +9,7 @@ import {
   type AgentDetail,
 } from '@/api/agents'
 import { ApiError } from '@/api/errors'
-import { compactCount, creditLabel, ratingLabel, runLabel, successLabel } from '@/lib/format'
+import { compactCount, priceLabel, ratingLabel, runLabel, successLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
@@ -411,7 +411,7 @@ export default function Detail() {
                 className="text-[13px] font-semibold tracking-[-.01em]"
                 style={{ color: '#ffe4f0' }}
               >
-                {creditLabel(agent.price)}
+                {priceLabel(agent.price)}
               </div>
             </div>
           </div>

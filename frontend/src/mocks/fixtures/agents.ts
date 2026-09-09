@@ -144,7 +144,6 @@ function build(seed: Seed, index: number): AgentDetail {
     iconUrl: seed.hasIcon ? iconUrl : null,
     images: buildImages(agentId, seed.name, index),
     price: seed.price,
-    currency: 'ABC',
     executionCount: seed.executionCount,
     successRate: seed.successRate,
     averageRating: seed.averageRating,
@@ -181,7 +180,6 @@ export function toSummary(agent: AgentDetail): AgentSummary {
     summary: agent.summary,
     iconUrl: agent.iconUrl,
     price: agent.price,
-    currency: agent.currency,
     executionCount: agent.executionCount,
     averageRating: agent.averageRating,
     reviewCount: agent.reviewCount,
@@ -228,7 +226,6 @@ export function addAgent(input: CreateAgentRequest): AgentDetail {
     // ponytail: 단가는 서버가 워크플로우에서 계산한다. 등록 화면에 입력 칸이 없어
     // 고정값을 둔다 — 산정 명세가 오면 그대로 받는다.
     price: '540',
-    currency: 'ABC',
     // 갓 등록한 것이라 실적이 없다. 상세 화면이 '—' 를 내야 한다.
     executionCount: 0,
     successRate: 0,
