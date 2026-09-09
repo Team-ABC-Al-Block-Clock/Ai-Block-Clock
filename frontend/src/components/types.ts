@@ -10,3 +10,13 @@ export interface ThemeOption {
   value: Theme
   label: string
 }
+
+/** 빈 상태에서 고를 수 있는 다음 행동.
+ *  `href` 가 있으면 링크, 없으면 `event` 이름으로 CustomEvent 를 올립니다. */
+export interface EmptyAction {
+  label: string
+  href?: string
+  /** href 가 없을 때 올릴 이벤트 이름 */
+  event?: string
+  primary?: boolean
+}

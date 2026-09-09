@@ -1,5 +1,6 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import { getMarketplaceAgents } from '@/api/agents'
 import { creditLabel, ratingLabel, runLabel } from '@/lib/format'
@@ -13,9 +14,52 @@ const PAGE_SIZE = 9
 /** 입력이 멈춘 뒤에만 검색한다. 없으면 타자 한 번에 요청 한 번이다. */
 const DEBOUNCE_MS = 300
 
+/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다.
+ *  <empty-state> 가 JSON 으로 받는다(`components/types.ts` 의 EmptyAction). */
+const EMPTY_ACTIONS = JSON.stringify([
+  { label: '직접 만들어보기', href: paths.home, primary: true },
+  { label: '검색어 지우기', event: 'clear' },
+])
+
+const EMPTY_BODY =
+  '찾는 일을 다르게 적어보거나, 프롬프트로 에이전트를 직접 만들어 보세요.\n ' +
+  '여러 에이전트를 이어 붙이는 일도 프롬프트 한 줄로 됩니다.'
+
+/** 실패 안내는 그리드 안쪽 폭(272~1168)에 맞춘다. */
+const NOTICE_BOX = { left: '272px', top: '470px', width: '896px' } as const
+
+/** 빈 상태 카드. 그리드 안쪽(896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
+ *  translateX 로 중앙 정렬하지 않는다: transform 이 걸리면 backdrop 루트가 되어
+ *  카드의 backdrop-filter 가 바깥 배경을 못 가져온다(컨벤션 10절). */
+const EMPTY_BOX = { left: '410px', top: '486px', width: '620px' } as const
+
 export default function Search() {
-  const [q, setQ] = useState('')
-  const [keyword, setKeyword] = useState('')
+  /**
+   * 검색어의 원본은 주소다. 컴포넌트 상태에만 두면 새로고침하면 사라지고 링크로
+   * 공유할 수도 없다 — 뒤로가기도 검색을 되돌리지 않고 화면을 벗어난다.
+   * mock 시나리오 스위치(`mocks/scenario.ts`)가 쓰는 것과 같은 성격의 값이다.
+   */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const q = searchParams.get('keyword') ?? ''
+  const [keyword, setKeyword] = useState(q)
+
+  /** 주소는 타자마다 갱신하되 히스토리는 쌓지 않는다(replace) — 안 그러면
+   *  '계'·'계약'·'계약서' 를 전부 거쳐야 뒤로 나갈 수 있다.
+   *  mockDelay 같은 다른 쿼리는 그대로 남긴다. */
+  const setQ = useCallback(
+    (next: string) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (next) params.set('keyword', next)
+          else params.delete('keyword')
+          return params
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
   // 카드 index 로 잡으면 무한 스크롤로 목록이 늘어날 때 엉뚱한 카드가 열린다.
   const [infoAt, setInfoAt] = useState<string | null>(null)
 
@@ -27,6 +71,7 @@ export default function Search() {
   const descColor = bright ? 'rgba(255,240,248,.82)' : 'rgba(255,236,246,.7)'
   const headShadow = bright ? '0 2px 14px rgba(24,8,34,.85)' : '0 1px 10px rgba(35,8,45,.6)'
 
+  // 주소는 즉시 반영하고 요청만 늦춘다. 없으면 타자 한 번에 요청 한 번이다.
   useEffect(() => {
     const timer = setTimeout(() => setKeyword(q.trim()), DEBOUNCE_MS)
     return () => clearTimeout(timer)
@@ -105,7 +150,19 @@ export default function Search() {
   // 불러오는 중에는 "결과 없음" 을 띄우지 않는다 — 매 검색마다 한 번씩 깜빡인다.
   // 카드가 한 장이라도 있으면 띄우지 않는다 — absolute 라 카드 위에 겹쳐 그려진다.
   const notice = isSettled && agents.length === 0
+  const showEmpty = notice && !isError
   const handleChangeQuery = (e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)
+
+  // <empty-state> 의 '검색어 지우기'. React 는 커스텀 이벤트를 on* 으로 받지 않아
+  // 직접 붙인다. emit 이 호스트에서 bubbles 로 올리므로 호스트에서 받으면 된다.
+  const emptyRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const node = emptyRef.current
+    if (!node) return
+    const onClear = () => setQ('')
+    node.addEventListener('clear', onClear)
+    return () => node.removeEventListener('clear', onClear)
+  }, [showEmpty, setQ])
 
   useEffect(() => {
     // 타자 치듯 타이틀 입력. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
@@ -430,22 +487,33 @@ export default function Search() {
         </div>
       </div>
 
-      {notice && (
-        <div
-          className="absolute text-center text-[15px]"
-          style={{
-            left: '272px',
-            top: '452px',
-            width: '896px',
-            color: 'rgba(255,236,246,.62)',
-            // 그리드(1.6s)와 같이 올라와야 한다. 지연이 없으면 "추천 에이전트"·개수가
-            // 아직 안 뜬 화면에 이 안내만 혼자 떠 있는다.
-            animation: 'fadeIn .3s 1.6s ease both',
-          }}
-        >
-          {isError ? '목록을 불러오지 못했습니다' : '검색 결과가 없습니다'}
-        </div>
-      )}
+      {/* 그리드(1.6s)와 같이 올라와야 한다. 지연이 없으면 "추천 에이전트"·개수가
+          아직 안 뜬 화면에 안내만 혼자 떠 있는다. */}
+      {notice &&
+        (isError ? (
+          <div
+            className="absolute text-center text-[15px]"
+            style={{
+              ...NOTICE_BOX,
+              color: 'rgba(255,236,246,.62)',
+              animation: 'fadeIn .3s 1.6s ease both',
+            }}
+          >
+            목록을 불러오지 못했습니다
+          </div>
+        ) : (
+          <empty-state
+            ref={emptyRef}
+            style={{ position: 'absolute', ...EMPTY_BOX, animation: 'fadeIn .3s 1.6s ease both' }}
+            heading={
+              keyword
+                ? `'${keyword}' 에 맞는 에이전트가 없습니다`
+                : '아직 등록된 에이전트가 없습니다'
+            }
+            body={EMPTY_BODY}
+            actions={EMPTY_ACTIONS}
+          />
+        ))}
     </>
   )
 }
