@@ -88,6 +88,23 @@ uv run python -m src.runner --workflow report --file data/demo_scores.xlsx \
 uv run uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 
+### Docker
+
+```bash
+docker build -t ai-block-clock-ai-runtime:local .
+docker run --rm -p 8000:8000 \
+  -e GEMINI_API_KEY=... -e ABC_SERVICE_TOKEN=... \
+  ai-block-clock-ai-runtime:local
+```
+
+한글 폰트는 이미지 안에 `fonts-nanum`으로 설치된다. 폰트 파일을 저장소에 커밋하지 않는다. 배포 환경에서 경로가 다르면 `PDF_FONT_PATH` 환경변수로 TTF를 직접 지정할 수 있다.
+
+백엔드와 같은 네트워크에 올릴 때는 `compose.yaml`을 쓴다. 백엔드 compose가 만든 `ai-block-clock-network`에 외부 네트워크로 참여하며, 백엔드에서 본 주소는 `http://ai-runtime:8000`이다.
+
+```bash
+docker compose up -d --build
+```
+
 Swagger는 `http://localhost:8000/docs`에서 열린다. 엔드포인트와 요청 · 응답 형식은 [연동 계약 문서](../../docs/ai-runtime-api.md)를 따른다.
 
 ```bash
