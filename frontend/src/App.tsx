@@ -7,6 +7,7 @@ import { useSessionRestore } from './hooks/useSessionRestore'
 import { shellFor } from './lib/shell'
 import { REQUIRES_AUTH } from './routes/access'
 import { paths, routePatterns, type ScreenKey } from './routes/paths'
+import { useAuthStore } from './stores/authStore'
 import './components/index'
 
 import Detail from './pages/Detail'
@@ -51,6 +52,27 @@ function useInternalLinks() {
   }, [navigate])
 }
 
+/** `<profile-menu>` 의 로그아웃 행이 던지는 이벤트를 받는다.
+ *
+ *  커스텀 엘리먼트는 shadow DOM 안에 있어 스토어를 읽을 수 없다. 메뉴는 이벤트만
+ *  던지고, 세션을 끊고 어디로 보낼지는 라우터를 아는 이쪽이 정한다.
+ */
+function useLogout() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const onLogout = () => {
+      // 실패해도 signOut 이 클라이언트 세션은 끊는다. 홈으로 보내는 것만 이어서 한다.
+      void useAuthStore
+        .getState()
+        .signOut()
+        .catch(() => {})
+        .finally(() => navigate(paths.home, { replace: true }))
+    }
+    document.addEventListener('logout', onLogout)
+    return () => document.removeEventListener('logout', onLogout)
+  }, [navigate])
+}
+
 /** 화면 키 → 엔트리.
  *  Record<ScreenKey, …> 라서 화면을 추가하면 여기를 채울 때까지 컴파일이 실패한다. */
 const SCREENS: Record<ScreenKey, ReactElement> = {
@@ -77,6 +99,10 @@ const SCREEN_KEYS = Object.keys(routePatterns) as ScreenKey[]
 export default function App() {
   useInternalLinks()
   useSessionRestore()
+  useLogout()
+
+  // 로그아웃 행만 세션을 본다. 나머지 껍데기는 로그인 여부와 무관하게 그대로다.
+  const signedIn = useAuthStore((s) => s.status === 'authenticated')
 
   const { pathname } = useLocation()
   const shell = shellFor(pathname)
@@ -175,6 +201,7 @@ export default function App() {
           initial="이"
           search-href={paths.search}
           mypage-href={paths.my.agents}
+          {...(signedIn ? { 'signed-in': '' } : {})}
         ></profile-menu>
       )}
     </screen-frame>

@@ -34,6 +34,8 @@ declare module 'react' {
         align?: 'left' | 'right'
         'hide-theme'?: boolean
         initial?: string
+        /** 있으면 로그아웃 행이 보인다. `bool()` 이 hasAttribute 라서 빈 문자열로 넘긴다 */
+        'signed-in'?: string
       }>
       'profile-sidebar': El
       'tab-row': El<{ items?: string }>

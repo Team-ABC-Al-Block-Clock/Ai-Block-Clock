@@ -6,6 +6,9 @@ export default function Signup() {
   const [termsOpen, setTermsOpen] = useState(false)
   const [termsAt, setTermsAt] = useState(0)
   const [walletOpen, setWalletOpen] = useState(false)
+  /** ACC-005 확인. 약관 배열(`checked`)에 넣지 않는다 — `전체 동의` 로 한 번에
+   *  넘어가면 계정을 복구할 수 없다는 고지를 읽지 않고 지나친다. */
+  const [lossAck, setLossAck] = useState(false)
 
   const labels = [
     '이용약관에 동의합니다 (필수)',
@@ -67,7 +70,7 @@ export default function Signup() {
   ]
   const c = checked
   const all = c.every(Boolean)
-  const required = c[0] && c[1]
+  const required = c[0] && c[1] && lossAck
   const terms = labels.map((label, i) => ({
     label,
     bg: c[i] ? '#e9b7d2' : 'rgba(255,255,255,.12)',
@@ -89,7 +92,10 @@ export default function Signup() {
   const submitBg = required ? '#b98da9' : 'rgba(255,255,255,.12)'
   const submitFg = required ? '#2f1527' : 'rgba(255,255,255,.45)'
   const handleSubmit = () => {
-    if (required) setWalletOpen(true)
+    if (!required) return
+    // 확인 사실을 서버에 남기는 것은 `completeOnboarding`(PATCH /users/me/onboarding) 인데
+    // 인증이 필요하다. 지갑 로그인이 붙는 182 에서 이 자리에 이어 붙인다.
+    setWalletOpen(true)
   }
   const termsTitle = titles[termsAt]
   const termsBody = bodies[termsAt]
@@ -371,6 +377,43 @@ export default function Signup() {
                   </div>
                 </Fragment>
               ))}
+            </div>
+
+            {/* ACC-005 — 지갑 분실 시 복구 불가 고지. 약관과 같은 줄에 두지 않고
+                한 단 아래에서 따로 받는다. */}
+            <div
+              onClick={() => setLossAck((v) => !v)}
+              style={{ marginTop: '10px', padding: '11px 16px', borderRadius: '10px', gap: '11px' }}
+              className="flex cursor-pointer items-start transition-colors duration-[140ms] hover:bg-[rgba(255,255,255,.06)]"
+            >
+              <div
+                className="flex flex-none items-center justify-center text-[10px] font-bold transition-colors duration-[160ms]"
+                style={{
+                  width: '17px',
+                  height: '17px',
+                  marginTop: '1px',
+                  borderRadius: '5px',
+                  background: lossAck ? '#e9b7d2' : 'rgba(255,255,255,.12)',
+                  color: '#2f1527',
+                }}
+              >
+                {lossAck ? '✓' : ''}
+              </div>
+              <div className="flex-1">
+                <div
+                  className="text-[13px] leading-[1.45] tracking-[-.01em]"
+                  // keep-all — 없으면 패널 폭에서 `확인했습니 / 다` 로 단어 중간이 끊긴다
+                  style={{ color: 'rgba(255,240,247,.84)', wordBreak: 'keep-all' }}
+                >
+                  지갑을 분실하면 계정을 복구할 수 없다는 점을 확인했습니다
+                </div>
+                <div
+                  className="text-[11.5px] tracking-[-.01em]"
+                  style={{ marginTop: '4px', color: 'rgba(255,236,246,.56)' }}
+                >
+                  비밀번호 재발급이나 계정 이관이 불가능합니다 · 필수
+                </div>
+              </div>
             </div>
 
             <div

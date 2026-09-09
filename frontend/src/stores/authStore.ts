@@ -102,6 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     signOut: async () => {
+      // 지갑 연결 해제(wagmi disconnect)는 181 에서 여기에 붙는다.
       try {
         await requestLogout()
       } finally {
