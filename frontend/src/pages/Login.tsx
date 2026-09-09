@@ -7,8 +7,7 @@ import { redirectTargetFrom } from '@/routes/access'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 
-/** 연결한 지갑 대신 쓰는 값. 181(wagmi 도입)·182(서명 요청)에서 실제 계정의
- *  주소와 서명으로 바뀝니다 — 지금은 보호 라우트 복귀를 확인할 만큼만 태웁니다. */
+/** 연결한 지갑 대신 쓰는 값. 실제 주소·서명은 181(wagmi)·182(서명 요청) 에서 들어옵니다. */
 const PLACEHOLDER_WALLET = '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a'
 const PLACEHOLDER_SIGNATURE = `0x${'ab'.repeat(65)}`
 
@@ -32,13 +31,13 @@ export default function Login() {
     setError(null)
     try {
       await signIn({ walletAddress: PLACEHOLDER_WALLET, signature: PLACEHOLDER_SIGNATURE })
-      // 보호 라우트에 막혀 왔으면 그 경로로, 직접 들어왔으면 홈으로.
-      // replace — 로그인 화면을 히스토리에 남기면 뒤로 가기가 다시 여기로 온다.
+      // 막혀 왔으면 그 경로로, 직접 들어왔으면 홈으로.
+      // replace — 로그인 화면이 히스토리에 남으면 뒤로 가기가 다시 여기로 온다.
       navigate(redirectTargetFrom(state), { replace: true })
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : '지갑 연결에 실패했습니다. 다시 시도해 주세요.')
-    } finally {
+      // 성공하면 화면이 사라지므로 실패한 경우에만 버튼을 되돌린다.
       setIsSigningIn(false)
+      setError(e instanceof ApiError ? e.message : '지갑 연결에 실패했습니다. 다시 시도해 주세요.')
     }
   }
 

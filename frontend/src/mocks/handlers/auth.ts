@@ -16,11 +16,8 @@ import { scene } from '@/mocks/scenario'
 let profile: UserProfile = { ...PROFILE }
 
 /**
- * Refresh Token 쿠키 대역.
- *
- * 실서버는 HttpOnly 쿠키로 세션을 들고 있어 새로고침해도 남는다. mock 은 쿠키를
- * 세팅하지 않으므로 localStorage 로 흉내 낸다 — 그래야 부팅 시 재발급으로 세션을
- * 되살리는 경로(`restoreSession`)와 보호 라우트를 실제로 확인할 수 있다.
+ * Refresh Token 쿠키 대역. mock 은 쿠키를 세팅하지 않아 localStorage 로 흉내 낸다 —
+ * 그래야 새로고침 후 재발급으로 세션이 되살아나는 경로를 확인할 수 있다.
  */
 const SESSION_KEY = 'mockWalletSession'
 
@@ -81,8 +78,10 @@ export const authHandlers = [
   }),
 
   /** 인터셉터가 401(AUTH_007) 을 받고, 부팅 시 `restoreSession` 이 부른다.
-   *  세션이 없으면 실서버처럼 쿠키 미전달로 거절한다 — 여기서 늘 성공을 주면
-   *  로그인하지 않은 사용자도 부팅 때 인증되어 보호 라우트를 검증할 수 없다. */
+   *  세션이 없으면 실서버처럼 거절한다 — 늘 성공을 주면 로그인 없이도 인증된다.
+   *
+   *  여기만 `scene()` 을 건너뛴다. `?mockFail=` 로 화면의 실패 UI 를 볼 때 재발급까지
+   *  실패하면 그 화면이 로그인으로 튕긴다. 재발급 실패는 세션을 지워서 만든다. */
   http.post(`${API_BASE_URL}/auth/reissue`, () => {
     if (!readSession()) return fail(401, AUTH_ERROR.REFRESH_MISSING, '로그인이 필요합니다.')
     return issueTokens()

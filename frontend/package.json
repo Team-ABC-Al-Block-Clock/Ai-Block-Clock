@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "verify:auth": "node scripts/verify-auth-session.mjs"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.11",
