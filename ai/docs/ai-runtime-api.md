@@ -1,16 +1,23 @@
-# AI Runtime API v0.1 — 백엔드 · 프론트 연동 계약
+# AI Runtime API — 백엔드 · 프론트 연동 계약
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | v0.1 (선형 워크플로우 스파이크) |
+| 버전 | **v0.2** (선형 워크플로우 스파이크 + 정산 입력값) |
 | 작성일 | 2026-09-09 |
 | 작성 | AI 파트 (김정윤) |
 | 대상 | 백엔드(Spring), 프론트엔드(React) |
 | 구현 위치 | `ai/spike/linear-mvp/src/api.py` |
 | 대응 Jira | S15P21A403-171 |
-| 상태 | **구현 완료 · 동작 확인됨.** 실제 Gemini 호출 5회로 검증 |
+| 상태 | **구현 완료 · 동작 확인됨.** 실제 Gemini 호출 5회, 정산 필드는 성공 · 실패 케이스로 검증 |
 
-> 이 문서는 규격(A2A · H2A)과 분기를 도입하지 않기로 한 팀 결정(09-08)에 따른 **최소 계약**이다. 노드를 순서대로 실행해 마지막 산출물을 PDF로 렌더링하는 것까지만 다룬다. 스키마 검증 · 분기 · 정산 입력값은 이 버전에 없다.
+### 개정 이력
+
+| 버전 | 변경 |
+| --- | --- |
+| v0.1 | 최초. 실행 요청 · 진행 조회 · PDF 다운로드 |
+| **v0.2** | 정산 입력값 추가. 요청에 `owner_id` · `unit_price`, 응답에 `contribution` · `not_executed` · `failure.fault`. 파일명을 버전 없는 이름으로 변경 |
+
+> 이 문서는 규격(A2A · H2A)과 분기를 도입하지 않기로 한 팀 결정(09-08)에 따른 **최소 계약**이다. 노드를 순서대로 실행해 마지막 산출물을 PDF로 렌더링하고, 정산에 필요한 값을 돌려주는 것까지 다룬다. 스키마 검증과 분기는 이 버전에 없다.
 
 ---
 
@@ -85,15 +92,26 @@
     { "id": "analyze",                     // 필수. 워크플로우 안에서 유일해야 한다
       "name": "성적 분석",                  // 선택. 진행 화면에 표시되는 이름
       "prompt": "당신은 학원 성적 데이터 분석가입니다. ...",   // 필수. 판매자가 작성한 프롬프트 원문
-      "context": "user" },                 // 선택. 기본값 "prev"
+      "context": "user",                   // 선택. 기본값 "prev"
+
+      // ── 정산 입력값 (v0.2). 없으면 응답의 정산 필드가 null 로 채워진다 ──
+      "owner_id": "u_2001",                // 이 노드의 원작자. 정산금을 받을 계정
+      "unit_price": 3.9,                   // 백엔드가 등급을 반영해 확정한 실행 단가(ABC)
+      "base_cost": 3.0,                    // 참고용
+      "premium_rate": 0.30 },              // 참고용
     { "id": "letter",
       "name": "가정통신문 작성",
       "prompt": "당신은 교육 심리 전문가입니다. ...",
-      "context": "prev" }
+      "context": "prev",
+      "owner_id": "u_3001", "unit_price": 4.0, "base_cost": 4.0, "premium_rate": 0.0 }
   ],
   "output": { "type": "pdf", "title": "3월 성적 리포트" }   // type: "pdf" | "markdown"
 }
 ```
+
+**등급과 단가는 AI Runtime이 계산하지 않는다.** 백엔드의 등급 산정 배치가 확정한 값을 요청에 실어 보내면, Runtime은 **실제로 실행된 노드에만 그 값을 붙여 되돌려준다.** 정산 계산과 장부 기록은 백엔드 몫이다.
+
+**프롬프트 전달 방식은 미결이다.** 지금은 원문을 그대로 받는다. 남의 에이전트를 조합한 워크플로우에서는 백엔드 로그와 DB 덤프에 타인의 프롬프트가 남아 SEC-001(프롬프트 비노출)에 걸린다. 마켓 조합을 실제로 열기 전에 `prompt_ref`(참조 ID)만 넘기고 Runtime이 직접 조회하는 방식으로 바꿔야 한다.
 
 **`nodes` 배열의 순서가 곧 실행 순서다.** 엣지나 그래프 개념은 이 버전에 없다.
 
@@ -179,18 +197,25 @@ curl -X POST http://localhost:8000/v1/runs \
   },
   "nodes": [
     { "id": "analyze", "name": "성적 분석", "status": "succeeded", "context": "user",
-      "duration_ms": 28900, "input_tokens": 1288, "output_tokens": 1344, "retries": 0 },
+      "duration_ms": 28900, "input_tokens": 1288, "output_tokens": 1344, "retries": 0,
+      "owner_id": "u_2001", "unit_price": 3.9 },
     { "id": "letter", "name": "가정통신문 작성", "status": "running", "context": "prev",
-      "duration_ms": null, "input_tokens": null, "output_tokens": null, "retries": 0 }
+      "duration_ms": null, "input_tokens": null, "output_tokens": null, "retries": 0,
+      "owner_id": "u_3001", "unit_price": 4.0 }
   ],
   "totals": { "input_tokens": 1288, "output_tokens": 1344 },
   "started_at": "2026-09-09T01:04:51+00:00",
   "finished_at": null,
   "total_duration_ms": null,
+  "contribution": [ { "node_id": "analyze", "owner_id": "u_2001", "charged_abc": 3.9 } ],
+  "not_executed": [],
+  "failure": null,
   "result": null,
   "error": null
 }
 ```
+
+`contribution`은 **성공한 노드가 늘어날 때마다 즉시 늘어난다.** 실행이 끝나기를 기다리지 않는다.
 
 **응답 예시 (완료)**
 
@@ -218,8 +243,20 @@ curl -X POST http://localhost:8000/v1/runs \
   "status": "failed",
   "nodes": [ { "id": "analyze", "status": "succeeded", "...": "..." },
              { "id": "letter",  "status": "failed",    "...": "..." } ],
+  "contribution": [ { "node_id": "analyze", "owner_id": "u_2001", "charged_abc": 3.9 } ],
+  "not_executed": [],
+  "failure": {
+    "node_id": "letter",
+    "error_code": "MODEL_API_ERROR",
+    "fault": "supplier",                   // supplier | consumer | platform
+    "affects_success_rate": true,          // 이 노드 공급자의 성공률에 실패로 집계할지
+    "refund_scope": {
+      "refund_node_ids":  ["letter"],      // 수요자에게 환원할 노드
+      "settled_node_ids": ["analyze"]      // 정산을 유지할 노드
+    }
+  },
   "result": null,
-  "error": { "code": "RATE_LIMITED", "message": "429 …", "node_id": "letter" }
+  "error": { "code": "MODEL_API_ERROR", "message": "…", "node_id": "letter" }
 }
 ```
 
@@ -227,14 +264,15 @@ curl -X POST http://localhost:8000/v1/runs \
 
 **실행 오류 코드**
 
-| code | 의미 | 재시도 |
-| --- | --- | --- |
-| `RATE_LIMITED` | Gemini 무료 등급 요청 상한. Runtime이 이미 10초 간격 2회 재시도한 뒤의 최종 실패 | 잠시 후 |
-| `MODEL_API_ERROR` | 모델 API 5xx 또는 기타 오류 | 가능 |
-| `MODEL_TIMEOUT` | 노드 60초 초과 | 가능 |
-| `PDF_RENDER_FAILED` | 마크다운을 PDF로 그리는 중 실패 | 무의미 |
-| `LLM_INIT_FAILED` | API 키 없음 등 설정 오류 | 무의미 |
-| `RUNTIME_INTERNAL` | Runtime 내부 오류 | 무의미. AI 파트에 알릴 것 |
+| code | 의미 | `fault` | 성공률 반영 | 재시도 |
+| --- | --- | --- | --- | --- |
+| `MODEL_TIMEOUT` | 노드 60초 초과 | `supplier` | 반영 | 가능 |
+| `MODEL_API_ERROR` | 모델 API 5xx 또는 기타 오류 | `supplier` | 반영 | 가능 |
+| `FILE_PARSE_FAILED` | 업로드 파일을 읽지 못함 | `consumer` | 미반영 | 무의미 |
+| `RATE_LIMITED` | 무료 등급 요청 상한. 10초 간격 2회 재시도 후 최종 실패 | `platform` | 미반영 | 잠시 후 |
+| `PDF_RENDER_FAILED` | 마크다운을 PDF로 그리는 중 실패 | `platform` | 미반영 | 무의미 |
+| `LLM_INIT_FAILED` | API 키 없음 등 설정 오류 | `platform` | 미반영 | 무의미 |
+| `RUNTIME_INTERNAL` | Runtime 내부 오류 | `platform` | 미반영 | 무의미. AI 파트에 알릴 것 |
 
 ### 4.3 `GET /v1/runs/{run_id}/pdf` — 결과 PDF
 
@@ -252,7 +290,54 @@ curl -X POST http://localhost:8000/v1/runs \
 
 ---
 
-## 5. 파트별 할 일
+## 5. 정산 연동
+
+### 돈이 움직이는 네 지점
+
+| 시점 | 무슨 일 | 누가 실행 | AI가 주는 근거 |
+| --- | --- | --- | --- |
+| 실행 시작 | 노드 단가 합계를 선차감(예치) | 백엔드 | 없음. 백엔드가 이미 단가를 안다 |
+| 노드 성공 | 그 노드 원작자에게 정산금 즉시 적립 | 백엔드 | `nodes[i].status` 변화 + `contribution` |
+| 노드 실패 | 책임에 따라 적립 보류, ABC 환원 | 백엔드 | `failure.fault` + `refund_scope` |
+| 실행 종료 | 미실행 구간 환원, 정산 확정 | 백엔드 | `not_executed` |
+
+MVP는 플랫폼 수수료 0%라, 차감한 ABC 전액이 그대로 각 노드 원작자에게 간다.
+
+### 노드 단위 즉시 적립을 폴링으로 처리하는 법
+
+기획서는 "노드가 성공할 때마다 실시간 적립"을 요구한다. 콜백 없이 폴링만으로 된다.
+
+1. 2초마다 `GET /v1/runs/{run_id}`를 조회한다
+2. `nodes[i].status`가 `succeeded`로 바뀐 노드를 찾는다
+3. 그 노드의 `owner_id`와 `unit_price`로 정산금을 적립한다
+
+**멱등성은 백엔드가 지켜야 한다.** 폴링은 같은 상태를 여러 번 본다. 이미 적립한 `(run_id, node_id)`를 기록해 두 번 적립하지 않게 한다. `contribution` 배열을 그대로 써도 되는데, 이 배열도 성공한 노드가 늘어날 때마다 커지므로 같은 주의가 필요하다.
+
+### 환원 범위 규칙
+
+| `fault` | 환원 대상 | 정산 유지 | 공급자 등급 |
+| --- | --- | --- | --- |
+| `supplier` | 실패 노드 + 이후 미실행 구간 | 앞서 성공한 노드 | 성공률에 실패로 집계 |
+| `consumer` | 실패 노드 + 이후 미실행 구간 | 앞서 성공한 노드 | 영향 없음 |
+| `platform` | **전체 노드** | 앞서 성공한 노드 | 영향 없음 |
+
+`platform`일 때만 환원액과 정산액의 합이 차감액을 넘는다. 플랫폼 과실로 공급자가 손해를 보지 않게 하려는 것이고, 차액은 플랫폼이 부담한다는 뜻이다.
+
+### ⚠️ 이 버전에서 판정할 수 없는 것
+
+기획서 6-③은 책임 판정을 **A2A 스키마 검증 결과**로 하도록 정의한다. 이 버전에는 스키마가 없어서 아래가 성립하지 않는다.
+
+> **조합 오류(수요자 책임)를 탐지할 수 없다.** 앞 노드의 출력이 뒤 노드에 맞지 않아도, 자유 텍스트에서는 뒤 노드가 입력을 거부하지 않는다. 그냥 품질이 낮은 결과를 내고 성공으로 끝난다. 실패로 잡히지 않으니 환원할 근거도, 수요자 책임이라 판정할 근거도 없다.
+
+따라서 지금 실제로 나오는 `fault`는 `supplier`와 `platform` 두 가지뿐이고, `consumer`는 파일 파싱 실패에서만 나온다. 발표에서 "실패 책임 자동 판정"을 다룰 때 이 범위를 정확히 말해야 한다. 스키마를 도입하면 판정 로직만 정교해지고 이 계약의 필드 구조는 그대로 간다.
+
+### 실측 원가
+
+`nodes[i].input_tokens`와 `output_tokens`가 그 노드의 실측 사용량이다. Base Cost를 주기적으로 보정하는 근거로 쓴다(NOD-007). **토큰을 ABC로 환산하는 비율은 아직 정하지 않았다.** 모델별 단가표를 확정하면 Runtime이 `cost_abc`를 함께 반환하도록 추가한다.
+
+---
+
+## 6. 파트별 할 일
 
 ### 백엔드
 
@@ -273,7 +358,7 @@ curl -X POST http://localhost:8000/v1/runs \
 
 ---
 
-## 6. 이 버전의 한계
+## 7. 이 버전의 한계
 
 | 한계 | 내용 |
 | --- | --- |
@@ -287,7 +372,7 @@ curl -X POST http://localhost:8000/v1/runs \
 
 ---
 
-## 7. 실측값 (참고)
+## 8. 실측값 (참고)
 
 학생 20명 · 3과목 · 2개월 데이터, 노드 2개, `gemini-2.5-flash`, 실호출 5회 기준.
 
@@ -302,7 +387,7 @@ curl -X POST http://localhost:8000/v1/runs \
 
 ---
 
-## 8. 로컬 실행
+## 9. 로컬 실행
 
 ```bash
 cd ai/spike/linear-mvp

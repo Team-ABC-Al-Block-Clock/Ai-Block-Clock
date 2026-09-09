@@ -144,10 +144,16 @@ def execute(
         "nodes": [
             {"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
              "context": n.get("context", "prev"), "duration_ms": None,
-             "input_tokens": None, "output_tokens": None, "retries": 0, "output": None}
+             "input_tokens": None, "output_tokens": None, "retries": 0, "output": None,
+             # 정산 입력값. 백엔드가 요청에 실어 보내면 그대로 되돌려준다
+             "owner_id": n.get("owner_id"), "unit_price": n.get("unit_price"),
+             "base_cost": n.get("base_cost"), "premium_rate": n.get("premium_rate")}
             for n in nodes
         ],
         "totals": {"input_tokens": 0, "output_tokens": 0},
+        "contribution": [],
+        "not_executed": [],
+        "failure": None,
         "result": None,
         "error": None,
         "out_dir": str(out_dir),
@@ -161,11 +167,20 @@ def execute(
     except Exception as e:
         result.update(status="failed", finished_at=_now(),
                       error={"code": "LLM_INIT_FAILED", "message": str(e), "node_id": None})
+        _settlement(result, 0, "LLM_INIT_FAILED")
         _save(out_dir, result)
         emit("run.failed", {"run_id": run_id, "error": result["error"]})
         return result
 
-    user_input = build_user_input(comment, file_path)
+    try:
+        user_input = build_user_input(comment, file_path)
+    except Exception as e:
+        result.update(status="failed", finished_at=_now(),
+                      error={"code": "FILE_PARSE_FAILED", "message": str(e)[:500], "node_id": None})
+        _settlement(result, 0, "FILE_PARSE_FAILED")
+        _save(out_dir, result)
+        emit("run.failed", {"run_id": run_id, "error": result["error"]})
+        return result
     (out_dir / "input.md").write_text(user_input, encoding="utf-8")
     _save(out_dir, result)
     emit("run.started", {"run_id": run_id, "total": len(nodes)})
@@ -189,9 +204,11 @@ def execute(
             res = llm.generate(system=node["prompt"], user=message, label=node.get("id", ""))
         except Exception as e:
             entry.update(status="failed")
+            code = _error_code(e)
             result.update(status="failed", finished_at=_now(),
                           total_duration_ms=int((time.perf_counter() - started) * 1000),
-                          error={"code": _error_code(e), "message": str(e)[:500], "node_id": node.get("id")})
+                          error={"code": code, "message": str(e)[:500], "node_id": node.get("id")})
+            _settlement(result, i, code)
             _save(out_dir, result)
             emit("node.failed", {"run_id": run_id, "index": i, "node_id": node.get("id")})
             emit("run.failed", {"run_id": run_id, "error": result["error"]})
@@ -222,12 +239,14 @@ def execute(
             result.update(status="failed", finished_at=_now(),
                           total_duration_ms=int((time.perf_counter() - started) * 1000),
                           error={"code": "PDF_RENDER_FAILED", "message": str(e)[:500], "node_id": None})
+            _settlement(result, len(nodes) - 1, "PDF_RENDER_FAILED")
             _save(out_dir, result)
             emit("run.failed", {"run_id": run_id, "error": result["error"]})
             return result
 
     result.update(status="succeeded", finished_at=_now(),
                   total_duration_ms=int((time.perf_counter() - started) * 1000))
+    _settlement(result, None, None)
     _save(out_dir, result)
     emit("run.succeeded", {"run_id": run_id})
     return result
@@ -242,6 +261,55 @@ def _error_code(e: Exception) -> str:
     if "timeout" in str(e).lower():
         return "MODEL_TIMEOUT"
     return "MODEL_API_ERROR"
+
+
+# 오류 코드 → 책임 구분. 기획서 6-③ 의 2분법에 platform 을 더한 3분류다.
+# 스키마 검증이 없는 이 버전에서는 "조합 오류(수요자 책임)" 를 탐지할 수 없다. 계약 문서 참조.
+FAULT_BY_CODE = {
+    "FILE_PARSE_FAILED": "consumer",
+    "MODEL_TIMEOUT": "supplier",
+    "MODEL_API_ERROR": "supplier",
+    "RATE_LIMITED": "platform",
+    "PDF_RENDER_FAILED": "platform",
+    "LLM_INIT_FAILED": "platform",
+    "RUNTIME_INTERNAL": "platform",
+}
+
+
+def _fault_of(code: str) -> str:
+    return FAULT_BY_CODE.get(code, "platform")
+
+
+def _settlement(result: dict, failed_index: int | None, code: str | None) -> None:
+    """contribution · not_executed · failure 를 채운다.
+
+    성공 노드는 원작자에게 정산하고, 실패 노드와 그 이후 미실행 구간은 수요자에게 환원한다.
+    platform 책임일 때는 수요자에게 전액을 환원하되 성공 노드의 정산은 유지한다.
+    플랫폼 과실로 공급자가 손해를 보지 않게 하려는 것이며, 차액은 플랫폼이 부담한다.
+    """
+    nodes = result["nodes"]
+    result["contribution"] = [
+        {"node_id": n["id"], "owner_id": n.get("owner_id"), "charged_abc": n.get("unit_price")}
+        for n in nodes if n["status"] == "succeeded"
+    ]
+    result["not_executed"] = [
+        {"node_id": n["id"], "reason": "not_reached", "refund_abc": n.get("unit_price")}
+        for n in nodes if n["status"] == "pending"
+    ]
+    if failed_index is None:
+        result["failure"] = None
+        return
+
+    fault = _fault_of(code or "")
+    succeeded = [n["id"] for n in nodes if n["status"] == "succeeded"]
+    refund = [n["id"] for n in nodes[failed_index:]] if fault != "platform" else [n["id"] for n in nodes]
+    result["failure"] = {
+        "node_id": nodes[failed_index]["id"] if 0 <= failed_index < len(nodes) else None,
+        "error_code": code,
+        "fault": fault,
+        "affects_success_rate": fault == "supplier",
+        "refund_scope": {"refund_node_ids": refund, "settled_node_ids": succeeded},
+    }
 
 
 def _save(out_dir: Path, result: dict) -> None:

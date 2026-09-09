@@ -2,7 +2,7 @@
 
 규격(A2A · H2A)과 분기 없이, 노드가 직선으로 이어진 워크플로우 하나를 끝까지 실행해 흐름을 확인하는 실험 코드다. 팀 결정(2026-09-08)에 따른 것이며, 설계된 Runtime(`ai/runtime/`)과 섞이지 않게 여기에 격리했다.
 
-- 백엔드 · 프론트 연동 계약: [`../../docs/ai-runtime-api-v0.1.md`](../../docs/ai-runtime-api-v0.1.md)
+- 백엔드 · 프론트 연동 계약: [`../../docs/ai-runtime-api.md`](../../docs/ai-runtime-api.md)
 - 실험 계획과 관찰 결과: 팀 문서 폴더의 `MVP 스파이크 계획서.md`
 
 ## 무엇을 하는가
@@ -87,7 +87,7 @@ uv run python -m src.runner --workflow report --file data/demo_scores.xlsx \
 uv run uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 
-Swagger는 `http://localhost:8000/docs`에서 열린다. 엔드포인트와 요청 · 응답 형식은 [연동 계약 문서](../../docs/ai-runtime-api-v0.1.md)를 따른다.
+Swagger는 `http://localhost:8000/docs`에서 열린다. 엔드포인트와 요청 · 응답 형식은 [연동 계약 문서](../../docs/ai-runtime-api.md)를 따른다.
 
 ```bash
 # 견본 워크플로우를 그대로 써서 한 번 실행

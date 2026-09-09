@@ -52,8 +52,9 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     """백엔드에 돌려줄 형태. 노드 출력 전문은 요청할 때만 포함한다."""
     nodes = []
     for n in run["nodes"]:
-        item = {k: n[k] for k in ("id", "name", "status", "context", "duration_ms",
-                                  "input_tokens", "output_tokens", "retries")}
+        item = {k: n.get(k) for k in ("id", "name", "status", "context", "duration_ms",
+                                      "input_tokens", "output_tokens", "retries",
+                                      "owner_id", "unit_price")}
         if include_node_output:
             item["output"] = n["output"]
         nodes.append(item)
@@ -89,6 +90,10 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
         "started_at": run["started_at"],
         "finished_at": run["finished_at"],
         "total_duration_ms": run["total_duration_ms"],
+        # 정산 입력값 (계약 문서 6장)
+        "contribution": run.get("contribution", []),
+        "not_executed": run.get("not_executed", []),
+        "failure": run.get("failure"),
         "result": result,
         "error": run["error"],
     }
@@ -173,8 +178,12 @@ async def create_run(
             "total_duration_ms": None,
             "nodes": [{"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
                        "context": n.get("context", "prev"), "duration_ms": None, "input_tokens": None,
-                       "output_tokens": None, "retries": 0, "output": None} for n in nodes],
+                       "output_tokens": None, "retries": 0, "output": None,
+                       "owner_id": n.get("owner_id"), "unit_price": n.get("unit_price"),
+                       "base_cost": n.get("base_cost"), "premium_rate": n.get("premium_rate")}
+                      for n in nodes],
             "totals": {"input_tokens": 0, "output_tokens": 0},
+            "contribution": [], "not_executed": [], "failure": None,
             "result": None, "error": None,
         }
 
