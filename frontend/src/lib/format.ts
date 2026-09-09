@@ -18,18 +18,21 @@ export function tokenLabel(n: number) {
 }
 
 /**
- * '540' → '540 Credit', '540.00' → '540 Credit', '1248.50' → '1,248.5 Credit'
- *
- * `price` 가 문자열로 오는 이유가 소수점 오차 방지이므로 Number 로 되돌리지 않는다.
- * 천 단위 구분만 문자열 위에서 넣는다.
+ * 단가를 문자열로 받는다. `Intl.NumberFormat` 은 문자열 인자를 **10진수 그대로** 파싱하므로
+ * (Intl.NumberFormat v3) Number 로 되돌리지 않아도 되고, 소수점 오차도 생기지 않는다.
+ * 천 단위 구분과 소수점 뒤 0 정리를 브라우저가 해 준다 —
+ * Jackson 이 BigDecimal('540.00') 을 '540.00' 으로 줘도 화면에는 '540' 이 나간다.
  */
+const CREDIT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 })
+
+/** '540' → '540 Credit', '540.00' → '540 Credit', '1248.50' → '1,248.5 Credit'
+ *
+ *  TS 는 문자열 오버로드를 `StringNumericLiteral`(숫자 모양 리터럴)로 타이핑하기 때문에
+ *  API 에서 온 `string` 은 단언이 필요하다. 명세가 `price` 를 10진수 문자열로 확정했으니
+ *  여기 한 곳에서만 단언한다 — 값이 숫자가 아니면 RangeError 로 시끄럽게 터지는 편이
+ *  'abc Credit' 을 조용히 그리는 것보다 낫다. */
 export function creditLabel(price: string | number) {
-  const [int, frac = ''] = String(price).split('.')
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  // 소수점 뒤 0 은 떼어낸다. Jackson 이 BigDecimal('540.00') 을 '540.00' 으로 주는데
-  // 그대로 쓰면 카드마다 '540.00 Credit' 이 된다 — DB 컬럼 자릿수가 화면에 새는 것이다.
-  const fraction = frac.replace(/0+$/, '')
-  return (fraction ? `${grouped}.${fraction}` : grouped) + ' Credit'
+  return `${CREDIT.format(price as Intl.StringNumericLiteral)} Credit`
 }
 
 /**
