@@ -19,9 +19,9 @@ import { scene } from '@/mocks/scenario'
  */
 
 /**
- * 목록에는 상세 필드를 내려주지 않는다.
+ * 목록에는 상세 필드(`tokenUsage`)를 내려주지 않는다.
  *
- * 픽스처를 그대로 흘려보내면 실서버에 없는 `tier`·`baseCost` 를 화면이 몰래 쓰게 되고,
+ * 픽스처를 그대로 흘려보내면 실서버에 없는 필드를 화면이 몰래 쓰게 되고,
  * 백엔드를 붙이는 날 조용히 `undefined` 가 된다.
  */
 function toSummary(agent: AgentDetail): AgentSummary {
@@ -48,10 +48,9 @@ function matchKeyword(agent: AgentDetail, keyword: string) {
   return agent.name.toLowerCase().includes(q) || agent.summary.toLowerCase().includes(q)
 }
 
-/** 등록 시각 역순. 커서가 이 순서를 전제하므로 요청마다 같아야 한다. */
-const PUBLISHED = AGENTS.filter((a) => a.visibility === 'PUBLIC').sort((a, b) =>
-  b.createdAt.localeCompare(a.createdAt),
-)
+/** 등록 시각 역순. 커서가 이 순서를 전제하므로 요청마다 같아야 한다.
+ *  공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항). */
+const PUBLISHED = [...AGENTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
 export const marketplaceHandlers = [
   http.get(`${API_BASE_URL}/marketplace/agents`, async ({ request }) => {

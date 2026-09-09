@@ -3,21 +3,6 @@ import type { CursorPage, CursorParams, Page, PageParams } from '@/api/page'
 
 /** 에이전트 · 마켓플레이스 API. */
 
-/** Tier 1(Platinum) ~ Tier 4(Bronze).
- *  등급은 내부 자료라 목록 응답에 포함되지 않고 정렬 기준으로도 쓰이지 않는다.
- *  단가를 만드는 근거로만 남아 있다. */
-export type Tier = 1 | 2 | 3 | 4
-
-/** 단가 = Base Cost × (1 + Premium Rate) */
-export const PREMIUM_RATE: Record<Tier, number> = { 1: 0.5, 2: 0.3, 3: 0.1, 4: 0 }
-
-/** ⚠︎ 추정. 명세에 열거되어 있지 않아 화면 문안에서 추린 잠정값.
- *  목록에는 카테고리 필드도 필터도 없다 — 상세 화면에서만 쓴다. */
-export type AgentCategory = '문서' | '데이터' | '개발' | '커뮤니케이션' | '리서치' | '금융'
-
-/** ⚠︎ 추정. 등록 여부가 곧 공개 여부라 목록에는 공개 범위 필터가 없다. */
-export type Visibility = 'PUBLIC' | 'PRIVATE'
-
 /**
  * 마켓 목록 항목. **확정** — GET /marketplace/agents 명세와 1:1 이다.
  *
@@ -44,22 +29,11 @@ export interface AgentSummary {
   createdAt: string
 }
 
-/** ⚠︎ 상세 명세는 아직 오지 않았다. 목록에서 확정된 필드명을 그대로 물려받고,
- *  아래 추가 필드는 추정이다. */
+/** ⚠︎ 상세 명세는 아직 오지 않았다. 목록에서 확정된 필드명을 물려받고, 화면이 실제로
+ *  읽는 것만 둔다 — 추측으로 필드를 늘려두면 명세가 왔을 때 무엇이 사실인지 알 수 없다.
+ *  `tokenUsage` 는 마이페이지의 "내 에이전트"(GET /agents)가 쓴다. */
 export interface AgentDetail extends AgentSummary {
-  category: AgentCategory
-  tier: Tier
-  baseCost: number
   tokenUsage: number
-  premiumRate: number
-  visibility: Visibility
-  /** 0~1 */
-  successRate: number
-  nodeCount: number
-  avgDurationSec: number
-  /** 공개되는 것은 입출력 스키마뿐이다. 내부 노드 구성은 내려오지 않는다. */
-  inputSchema: string
-  outputSchema: string
 }
 
 export interface AgentProvenance {
