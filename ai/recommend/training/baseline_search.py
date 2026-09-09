@@ -1,190 +1,234 @@
 """
-ABC 추천 엔진 — 임베딩 모델 baseline 비교 스크립트 (AI-10-1 / S15P21A403-199)
+ABC 추천 엔진 — 임베딩 모델 후보 평가 (AI-10-1 / S15P21A403-199)
 
-목적: 파인튜닝 전, '사전학습 가중치 그대로'의 검색 성능을 후보 모델별로 측정한다.
-      단어가 겹치지 않는 질의로도 정답 에이전트가 상위에 오는지 확인하는 것이 핵심.
+09-08 baseline(에이전트 6개 · 질의 5개)에서 확장한 판이다.
+이제 시드 카탈로그 20개와 골든 쿼리 20개를 파일에서 읽어 측정한다.
 
-지표
-  Recall@K       정답이 상위 K개 안에 있는 비율          (관대함 — 3등이어도 만점)
-  1등 정답률     정답이 정확히 1등인 비율
-  MRR@K          정답 순위의 역수 평균 (1등=1.0, 2등=0.5, 3등=0.33)
-  1·2등 격차     1등과 2등 점수 차이. 클수록 변별력이 좋다
-  질의 지연      질의 1건 임베딩 + 검색에 걸린 시간
+지표 (09-08에 Recall 하나로는 후보가 전부 동점이라 판정이 안 돼서 늘렸다)
+  Recall@5      정답이 상위 5개 안에 있는 비율. 서비스가 5~8개를 보여주므로 이 K를 쓴다
+  1등 정답률    정답이 정확히 1등인 비율
+  MRR@10        정답 순위의 역수 평균. 1등=1.0, 2등=0.5, 3등=0.33
+  1·2등 격차    1등과 2등 점수 차이. 클수록 정답을 확실히 구분한 것
+  단어 불일치   에이전트 이름과 겹치는 단어가 없는 질의만 따로 집계.
+                키워드 검색이 명확히 실패하는 구간이라 임베딩의 존재 이유가 여기서 드러난다
 
 실행:  python baseline_search.py
+       MODEL_NAME 을 바꿔가며 세 번 돌리면 마지막에 비교표가 자동으로 나온다.
 """
 
+import json
 import time
+from pathlib import Path
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from catalog import build_agent_text, load_agents, load_queries, load_schemas
+
 # ─────────────────────────────────────────────────────────────
-# 1. 모델 선택 — 주석을 옮겨가며 후보 3개를 비교한다
+# 설정 — 여기만 바꿔가며 후보를 비교한다
 # ─────────────────────────────────────────────────────────────
 # MODEL_NAME = "jhgan/ko-sroberta-multitask"
 # MODEL_NAME = "intfloat/multilingual-e5-base"
 MODEL_NAME = "nlpai-lab/KURE-v1"
 
-# e5 계열은 학습 시 "query: " / "passage: " 접두어를 붙여 배웠다.
-# 안 붙이면 성능이 눈에 띄게 떨어지므로 모델명으로 자동 판별한다.
+# 임베딩 텍스트에 입출력 스키마 설명을 넣을지.
+# ko-sroberta(128토큰)에서 잘림이 나면 False 로 두고 점수가 유지되는지 본다.
+INCLUDE_SCHEMA_TEXT = True
+
+# e5 계열은 학습 시 "query: " / "passage: " 접두어를 붙여 배웠다. 안 붙이면 성능이 떨어진다.
 USE_E5_PREFIX = "e5" in MODEL_NAME
 
-TOP_K = 3
+TOP_K = 5     # Recall@5 · 화면에 보여줄 개수와 맞춘다
+MRR_K = 10    # MRR@10
+
+RESULT_DIR = Path(__file__).resolve().parent / "results"
 
 
-# ─────────────────────────────────────────────────────────────
-# 2. 문서 = 마켓의 에이전트 (지금은 손으로 쓴 6개짜리 장난감 카탈로그)
-#    나중에 시드 에이전트 15~20개로 교체된다.
-#    ★ 프롬프트 원문은 절대 넣지 않는다 (SEC-001) — 공개 메타데이터만.
-# ─────────────────────────────────────────────────────────────
-AGENTS = [
-    {
-        "id": "ag_01",
-        "name": "성적 데이터 분석기",
-        "description": "학생별 성적 엑셀을 받아 평균, 증감, 취약 과목을 통계 JSON으로 산출합니다.",
-        "tags": ["교육", "통계", "엑셀"],
-        "category": "데이터분석",
-    },
-    {
-        "id": "ag_02",
-        "name": "가정통신문 작성기",
-        "description": "성적 통계를 바탕으로 학부모에게 보낼 안내문 초안을 학생별로 작성합니다.",
-        "tags": ["교육", "문서작성"],
-        "category": "문서정리",
-    },
-    {
-        "id": "ag_03",
-        "name": "비즈니스 이메일 드래프터",
-        "description": "요청 내용을 정중한 업무용 메일 초안으로 바꿔줍니다.",
-        "tags": ["메일", "업무"],
-        "category": "메일초안",
-    },
-    {
-        "id": "ag_04",
-        "name": "회의록 요약기",
-        "description": "긴 회의 기록을 핵심 논의와 결정사항 중심으로 요약합니다.",
-        "tags": ["회의", "요약"],
-        "category": "문서정리",
-    },
-    {
-        "id": "ag_05",
-        "name": "코드 리뷰 코멘트 생성기",
-        "description": "변경된 코드에 대해 개선점과 리뷰 코멘트를 생성합니다.",
-        "tags": ["개발", "리뷰"],
-        "category": "코드리뷰",
-    },
-    {
-        "id": "ag_06",
-        "name": "출결 리포트 작성기",
-        "description": "출석 데이터를 정리해 결석 추이와 특이사항 리포트를 만듭니다.",
-        "tags": ["교육", "출결"],
-        "category": "데이터분석",
-    },
-]
+def evaluate():
+    agents = load_agents()
+    schemas = load_schemas()
+    queries = load_queries()
 
-
-def agent_to_text(a: dict) -> str:
-    """에이전트 하나를 임베딩에 넣을 한 덩어리 문장으로 만든다. (가이드 §12.5)"""
-    return f"{a['name']}\n{a['description']}\n{' '.join(a['tags'])}\n{a['category']}"
-
-
-# ─────────────────────────────────────────────────────────────
-# 3. 질의 = 사용자가 랜딩 검색창에 칠 법한 말
-#    ★ 뒤의 3개는 에이전트 이름과 단어가 하나도 안 겹친다. 이게 이 스크립트의 핵심.
-# ─────────────────────────────────────────────────────────────
-QUERIES = [
-    ("성적 데이터 분석하고 싶어", "ag_01"),                      # 단어 겹침 (쉬움)
-    ("회의록 요약해줘", "ag_04"),                                 # 단어 겹침 (쉬움)
-    ("학원 애들 점수가 얼마나 올랐는지 보고 싶은데", "ag_01"),      # 단어 안 겹침
-    ("부모님께 보낼 안내문 좀 써줘", "ag_02"),                     # 단어 안 겹침
-    ("우리 팀이 짠 코드 좀 봐줄 사람 없나", "ag_05"),              # 단어 안 겹침
-]
-
-
-def main():
     # ── 모델 로딩 ──
     print(f"[1] 모델 로딩: {MODEL_NAME}")
     t0 = time.time()
     model = SentenceTransformer(MODEL_NAME)
     load_sec = time.time() - t0
 
-    print(f"    로딩 완료 — {load_sec:.1f}초")
-    print(f"    임베딩 차원: {model.get_embedding_dimension()}")
-    print(f"    최대 입력 길이: {model.max_seq_length} 토큰")
-
-    # 에이전트 텍스트가 모델의 최대 입력 길이를 넘으면 뒤가 잘려나간다.
-    # 실제 시드 에이전트는 설명이 길어 128토큰 모델에서 문제가 될 수 있다.
-    token_lens = [len(model.tokenizer.encode(agent_to_text(a))) for a in AGENTS]
-    print(f"    에이전트 텍스트 토큰: 최대 {max(token_lens)} / 평균 {np.mean(token_lens):.0f}")
-    if max(token_lens) > model.max_seq_length:
-        print(f"    ⚠️ 최대 입력 길이({model.max_seq_length})를 초과 — 텍스트가 잘립니다")
-    print()
+    dim = model.get_embedding_dimension()
+    max_seq = model.max_seq_length
+    print(f"    로딩 완료 — {load_sec:.1f}초 | {dim}차원 | 최대 입력 {max_seq} 토큰")
+    print(f"    스키마 설명 포함: {INCLUDE_SCHEMA_TEXT}")
 
     # ── 문서 임베딩 (인덱싱에 해당) ──
-    docs = [agent_to_text(a) for a in AGENTS]
-    if USE_E5_PREFIX:
-        docs = [f"passage: {d}" for d in docs]
+    texts = [build_agent_text(a, schemas, INCLUDE_SCHEMA_TEXT) for a in agents]
 
-    # normalize_embeddings=True → 벡터 길이를 1로 맞춤.
-    # 이러면 코사인 유사도가 그냥 내적(행렬곱) 한 번으로 계산된다.
-    doc_vecs = model.encode(docs, normalize_embeddings=True)
-    print(f"[2] 에이전트 {len(AGENTS)}개 인덱싱 완료 — 행렬 shape: {doc_vecs.shape}\n")
+    tok_lens = [len(model.tokenizer.encode(t)) for t in texts]
+    over = sum(1 for n in tok_lens if n > max_seq)
+    print(f"    에이전트 텍스트 토큰: 최대 {max(tok_lens)} / 평균 {np.mean(tok_lens):.0f}", end="")
+    print(f"  ⚠️ {over}건 잘림" if over else "  ✅ 잘림 없음")
+
+    if USE_E5_PREFIX:
+        texts = [f"passage: {t}" for t in texts]
+
+    # normalize_embeddings=True → 벡터 길이를 1로 맞춘다.
+    # 그러면 코사인 유사도가 내적(행렬곱) 한 번으로 계산된다.
+    doc_vecs = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+    print(f"\n[2] 에이전트 {len(agents)}개 인덱싱 완료 — 행렬 {doc_vecs.shape}\n")
 
     # ── 질의 검색 ──
-    recall_hits = 0       # 정답이 상위 K개 안에 있었던 횟수
-    top1_hits = 0         # 정답이 정확히 1등이었던 횟수
-    latencies, margins, rr = [], [], []
-
-    for query, answer_id in QUERIES:
-        q = f"query: {query}" if USE_E5_PREFIX else query
+    rows = []
+    for q in queries:
+        text = f"query: {q['query']}" if USE_E5_PREFIX else q["query"]
 
         t0 = time.time()
-        q_vec = model.encode(q, normalize_embeddings=True)
-        scores = doc_vecs @ q_vec          # ← 코사인 유사도 전부 한 방에
-        latencies.append((time.time() - t0) * 1000)
+        q_vec = model.encode(text, normalize_embeddings=True, show_progress_bar=False)
+        scores = doc_vecs @ q_vec
+        latency_ms = (time.time() - t0) * 1000
 
-        order = np.argsort(-scores)        # 점수 높은 순 전체 정렬
-        top_idx = order[:TOP_K]
+        order = np.argsort(-scores)                    # 점수 높은 순 전체 정렬
+        margin = float(scores[order[0]] - scores[order[1]])
 
-        # 1등과 2등의 점수 차이 — 클수록 정답을 확실히 구분한 것
-        margins.append(scores[order[0]] - scores[order[1]])
+        # 정답 중 가장 앞선 순위 (1부터)
+        ranks = [r for r, i in enumerate(order, 1)
+                 if agents[i]["agent_id"] in q["answers"]]
+        best_rank = min(ranks) if ranks else None
 
-        # 정답이 전체에서 몇 등인지 (1부터). 없으면 None
-        rank = next((r for r, i in enumerate(order, 1)
-                     if AGENTS[i]["id"] == answer_id), None)
+        rows.append({
+            "id": q["id"],
+            "query": q["query"],
+            "answers": q["answers"],
+            "word_overlap": q["word_overlap"],
+            "best_rank": best_rank,
+            "hit_at_k": bool(best_rank and best_rank <= TOP_K),
+            "top1": best_rank == 1,
+            "rr": 1 / best_rank if best_rank and best_rank <= MRR_K else 0.0,
+            "margin": margin,
+            "latency_ms": latency_ms,
+            "top": [
+                {"agent_id": agents[i]["agent_id"],
+                 "name": agents[i]["name"],
+                 "score": round(float(scores[i]), 4)}
+                for i in order[:TOP_K]
+            ],
+        })
 
-        in_topk = rank is not None and rank <= TOP_K
-        recall_hits += in_topk
-        top1_hits += (rank == 1)
-        rr.append(1 / rank if in_topk else 0.0)
-
-        if rank == 1:
+        # ── 질의별 출력 (상위 3개만 — 전체 순위는 결과 JSON에 남는다) ──
+        if best_rank == 1:
             verdict = "✅ 1등"
-        elif in_topk:
-            verdict = f"⚠️ {rank}등 (Recall은 통과했지만 1등을 놓침)"
+        elif rows[-1]["hit_at_k"]:
+            verdict = f"⚠️ {best_rank}등"
+        elif best_rank:
+            verdict = f"❌ {best_rank}등 — 상위 {TOP_K} 밖"
         else:
-            verdict = f"❌ 놓침 ({rank}등)"
+            verdict = "❌ 정답 없음"
 
-        print(f"질의: {query}")
-        print(f"  정답: {answer_id}  →  {verdict}   [1·2등 격차 {margins[-1]:.3f}]")
-        for r, i in enumerate(top_idx, 1):
-            mark = " ←정답" if AGENTS[i]["id"] == answer_id else ""
-            print(f"  {r}. {scores[i]:.3f}  {AGENTS[i]['name']}{mark}")
+        tag = "" if q["word_overlap"] else "  [단어 불일치]"
+        print(f"{q['id']}  {q['query']}{tag}")
+        print(f"      {verdict}   격차 {margin:.3f}")
+        for r, i in enumerate(order[:3], 1):
+            mark = " ←정답" if agents[i]["agent_id"] in q["answers"] else ""
+            print(f"      {r}. {scores[i]:.3f}  {agents[i]['name']}{mark}")
         print()
 
-    # ── 요약 ──
-    n = len(QUERIES)
-    print("─" * 58)
-    print(f"모델            : {MODEL_NAME}")
-    print(f"Recall@{TOP_K}       : {recall_hits}/{n} = {recall_hits / n:.2f}")
-    print(f"1등 정답        : {top1_hits}/{n} = {top1_hits / n:.2f}")
-    print(f"MRR@{TOP_K}          : {np.mean(rr):.3f}")
-    print(f"평균 1·2등 격차 : {np.mean(margins):.3f}")
-    print(f"평균 질의 지연  : {np.mean(latencies):.0f} ms")
-    print(f"모델 로딩       : {load_sec:.1f}초")
-    print("─" * 58)
+    return summarize(rows, load_sec, dim, max_seq, max(tok_lens), over, len(agents))
+
+
+def summarize(rows, load_sec, dim, max_seq, tok_max, tok_over, n_agents):
+    def mean(key, subset=None):
+        data = subset if subset is not None else rows
+        return float(np.mean([r[key] for r in data])) if data else 0.0
+
+    overlap = [r for r in rows if r["word_overlap"]]
+    no_overlap = [r for r in rows if not r["word_overlap"]]
+
+    result = {
+        "model": MODEL_NAME,
+        "include_schema_text": INCLUDE_SCHEMA_TEXT,
+        "n_agents": n_agents,
+        "n_queries": len(rows),
+        "top_k": TOP_K,
+        "mrr_k": MRR_K,
+        "dim": dim,
+        "max_seq_length": max_seq,
+        "agent_token_max": tok_max,
+        "agent_token_truncated": tok_over,
+        "load_sec": round(load_sec, 1),
+        f"recall_at_{TOP_K}": round(mean("hit_at_k"), 3),
+        "top1_acc": round(mean("top1"), 3),
+        f"mrr_at_{MRR_K}": round(mean("rr"), 3),
+        "avg_margin": round(mean("margin"), 3),
+        "avg_latency_ms": round(mean("latency_ms"), 1),
+        "recall_word_overlap": round(mean("hit_at_k", overlap), 3),
+        "recall_no_word_overlap": round(mean("hit_at_k", no_overlap), 3),
+        "top1_no_word_overlap": round(mean("top1", no_overlap), 3),
+        "misses": [
+            {"id": r["id"], "query": r["query"], "rank": r["best_rank"],
+             "got": r["top"][0]["name"]}
+            for r in rows if not r["top1"]
+        ],
+        "per_query": rows,
+    }
+
+    print("─" * 62)
+    print(f"모델              : {MODEL_NAME}")
+    print(f"스키마 설명 포함  : {INCLUDE_SCHEMA_TEXT}")
+    print(f"Recall@{TOP_K}          : {result[f'recall_at_{TOP_K}']:.2f}")
+    print(f"1등 정답률        : {result['top1_acc']:.2f}")
+    print(f"MRR@{MRR_K}           : {result[f'mrr_at_{MRR_K}']:.3f}")
+    print(f"평균 1·2등 격차   : {result['avg_margin']:.3f}")
+    print(f"평균 질의 지연    : {result['avg_latency_ms']:.0f} ms")
+    print(f"모델 로딩         : {result['load_sec']:.1f}초")
+    print("-" * 62)
+    print(f"단어 겹침 질의    : Recall {result['recall_word_overlap']:.2f}  ({len(overlap)}건)")
+    print(f"단어 불일치 질의  : Recall {result['recall_no_word_overlap']:.2f}"
+          f" / 1등 {result['top1_no_word_overlap']:.2f}  ({len(no_overlap)}건)")
+    print("─" * 62)
+
+    if result["misses"]:
+        print(f"\n1등을 놓친 질의 {len(result['misses'])}건")
+        for m in result["misses"]:
+            rank = f"{m['rank']}등" if m["rank"] else "순위 밖"
+            print(f"  {m['id']} {m['query']}")
+            print(f"       → {rank}. 1등은 '{m['got']}'")
+
+    return result
+
+
+def save_and_compare(result):
+    RESULT_DIR.mkdir(exist_ok=True)
+    slug = MODEL_NAME.replace("/", "__")
+    if not INCLUDE_SCHEMA_TEXT:
+        slug += "__noschema"
+    path = RESULT_DIR / f"eval_{slug}.json"
+    path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"\n결과 저장: {path.name}")
+
+    # 지금까지 저장된 결과 전부를 한 표로 — 손으로 옮겨 적지 않게
+    files = sorted(RESULT_DIR.glob("eval_*.json"))
+    if len(files) < 2:
+        return
+
+    saved = [json.loads(f.read_text(encoding="utf-8")) for f in files]
+    print("\n" + "=" * 96)
+    print("후보 비교  (골든 쿼리 20개 기준)")
+    print("=" * 96)
+    head = f"{'모델':<34}{'Recall@5':>9}{'1등':>7}{'MRR@10':>9}{'격차':>8}{'불일치1등':>10}{'지연ms':>8}{'토큰':>7}"
+    print(head)
+    print("-" * 96)
+    for s in saved:
+        name = s["model"].split("/")[-1][:26]
+        if not s["include_schema_text"]:
+            name += "(스키마X)"
+        trunc = "잘림" if s["agent_token_truncated"] else "OK"
+        print(f"{name:<34}{s['recall_at_5']:>9.2f}{s['top1_acc']:>7.2f}"
+              f"{s['mrr_at_10']:>9.3f}{s['avg_margin']:>8.3f}"
+              f"{s['top1_no_word_overlap']:>10.2f}{s['avg_latency_ms']:>8.0f}{trunc:>7}")
+    print("=" * 96)
+    print("선정 기준 (가이드 §12.3): ① Recall@5 · MRR  ② CPU 지연 200ms 이내")
+    print("                          ③ 서빙 메모리 1.5GB 이내  ④ 상업 이용 가능 라이선스")
 
 
 if __name__ == "__main__":
-    main()
+    save_and_compare(evaluate())
