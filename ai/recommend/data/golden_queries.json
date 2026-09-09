@@ -1,126 +1,185 @@
 {
-  "description": "추천 엔진 평가용 골든 쿼리. 정답은 seed_agents.json 의 agent_id 를 가리킨다.",
+  "description": "추천 엔진 평가용 골든 쿼리. 정답은 seed_agents.json 의 agent_id 를 가리킨다. 시드 에이전트 20개를 모두 최소 한 번씩 정답으로 포함한다.",
   "overlap_note": "word_overlap=false 는 에이전트 이름과 겹치는 단어가 없는 질의. 키워드 검색으로는 못 찾고 임베딩만 찾을 수 있는 케이스이며, 이 지표를 따로 집계한다.",
   "queries": [
     {
       "id": "q01",
       "query": "회의록 요약해줘",
-      "answers": ["ag_seed_06"],
+      "answers": [
+        "ag_seed_06"
+      ],
       "word_overlap": true
     },
     {
       "id": "q02",
       "query": "성적 데이터 분석하고 싶어",
-      "answers": ["ag_seed_01", "ag_seed_03"],
+      "answers": [
+        "ag_seed_01",
+        "ag_seed_03"
+      ],
       "word_overlap": true
     },
     {
       "id": "q03",
       "query": "커밋 메시지 좀 써줘",
-      "answers": ["ag_seed_19"],
+      "answers": [
+        "ag_seed_19"
+      ],
       "word_overlap": true
     },
     {
       "id": "q04",
       "query": "주간 일정 브리핑 만들어줘",
-      "answers": ["ag_seed_10"],
+      "answers": [
+        "ag_seed_10"
+      ],
       "word_overlap": true
     },
     {
       "id": "q05",
       "query": "코드 리뷰 코멘트 달아줘",
-      "answers": ["ag_seed_18"],
+      "answers": [
+        "ag_seed_18"
+      ],
       "word_overlap": true
     },
     {
       "id": "q06",
       "query": "사과문 초안 작성해줘",
-      "answers": ["ag_seed_16"],
+      "answers": [
+        "ag_seed_16"
+      ],
       "word_overlap": true
     },
     {
       "id": "q07",
       "query": "출결 리포트 뽑아줘",
-      "answers": ["ag_seed_04"],
+      "answers": [
+        "ag_seed_04"
+      ],
       "word_overlap": true
     },
-
     {
       "id": "q08",
       "query": "학원 애들 점수가 얼마나 올랐는지 보고 싶은데",
-      "answers": ["ag_seed_01", "ag_seed_03"],
+      "answers": [
+        "ag_seed_01",
+        "ag_seed_03"
+      ],
       "word_overlap": false
     },
     {
       "id": "q09",
       "query": "부모님께 보낼 안내문 좀 써줘",
-      "answers": ["ag_seed_02"],
+      "answers": [
+        "ag_seed_02"
+      ],
       "word_overlap": false
     },
     {
       "id": "q10",
       "query": "우리 팀이 짠 코드 좀 봐줄 사람 없나",
-      "answers": ["ag_seed_18"],
+      "answers": [
+        "ag_seed_18"
+      ],
       "word_overlap": false
     },
     {
       "id": "q11",
       "query": "애들이 몇 번이나 안 나왔는지 정리해야 해",
-      "answers": ["ag_seed_04"],
+      "answers": [
+        "ag_seed_04"
+      ],
       "word_overlap": false
     },
     {
       "id": "q12",
       "query": "긴 글에서 중요한 부분만 뽑아줘",
-      "answers": ["ag_seed_09"],
+      "answers": [
+        "ag_seed_09"
+      ],
       "word_overlap": false
     },
     {
       "id": "q13",
       "query": "고객사에 늦어져서 죄송하다고 연락드려야 하는데",
-      "answers": ["ag_seed_16"],
+      "answers": [
+        "ag_seed_16"
+      ],
       "word_overlap": false
     },
     {
       "id": "q14",
       "query": "앞으로 며칠간 뭘 해야 하는지 한눈에 보고 싶어",
-      "answers": ["ag_seed_10", "ag_seed_13"],
+      "answers": [
+        "ag_seed_10",
+        "ag_seed_13"
+      ],
       "word_overlap": false
     },
     {
       "id": "q15",
       "query": "대화 내용에서 해야 할 것만 뽑아낼 수 있나",
-      "answers": ["ag_seed_11"],
+      "answers": [
+        "ag_seed_11"
+      ],
       "word_overlap": false
     },
     {
       "id": "q16",
       "query": "거래처에 정중하게 연락해야 하는데 문장이 안 떠올라",
-      "answers": ["ag_seed_14"],
+      "answers": [
+        "ag_seed_14"
+      ],
       "word_overlap": false
     },
     {
       "id": "q17",
       "query": "이번에 뭐가 바뀌었는지 팀에 알려야 해",
-      "answers": ["ag_seed_20"],
+      "answers": [
+        "ag_seed_20"
+      ],
       "word_overlap": false
     },
     {
       "id": "q18",
       "query": "학부모랑 얘기한 내용 문서로 남겨야 해",
-      "answers": ["ag_seed_05"],
+      "answers": [
+        "ag_seed_05"
+      ],
       "word_overlap": false
     },
     {
       "id": "q19",
       "query": "다음 모임에서 뭘 다룰지 목록으로 만들어줘",
-      "answers": ["ag_seed_12"],
+      "answers": [
+        "ag_seed_12"
+      ],
       "word_overlap": false
     },
     {
       "id": "q20",
       "query": "조사한 내용 가지고 문서 뼈대부터 잡아줘",
-      "answers": ["ag_seed_08", "ag_seed_07"],
+      "answers": [
+        "ag_seed_08",
+        "ag_seed_07"
+      ],
+      "word_overlap": false
+    },
+    {
+      "id": "q21",
+      "query": "같은 내용을 여러 사람에게 한꺼번에 전달해야 하는데",
+      "answers": [
+        "ag_seed_15"
+      ],
+      "word_overlap": false
+    },
+    {
+      "id": "q22",
+      "query": "새로 쓸 필요는 없고 있는 글만 다듬어 줬으면",
+      "answers": [
+        "ag_seed_17"
+      ],
       "word_overlap": false
     }
   ]
