@@ -34,17 +34,25 @@ export default function Search() {
   }, [q])
 
   // 검색은 서버가 한다. 목록은 커서로 이어 받는다 — 명세가 전체 개수를 주지 않는다.
-  const { data, isPending, isError, error, hasNextPage, fetchNextPage, refetch } = useInfiniteQuery(
-    {
-      queryKey: queryKeys.marketplace.agents.list({ keyword, size: PAGE_SIZE }),
-      queryFn: ({ pageParam }) =>
-        getMarketplaceAgents({ keyword: keyword || undefined, cursor: pageParam, size: PAGE_SIZE }),
-      initialPageParam: undefined as string | undefined,
-      getNextPageParam: (last) => last.nextCursor ?? undefined,
-      // 검색어가 바뀌는 동안 그리드가 비었다가 차오르지 않게 이전 결과를 남긴다.
-      placeholderData: keepPreviousData,
-    },
-  )
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: queryKeys.marketplace.agents.list({ keyword, size: PAGE_SIZE }),
+    queryFn: ({ pageParam }) =>
+      getMarketplaceAgents({ keyword: keyword || undefined, cursor: pageParam, size: PAGE_SIZE }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    // 검색어가 바뀌는 동안 그리드가 비었다가 차오르지 않게 이전 결과를 남긴다.
+    placeholderData: keepPreviousData,
+  })
 
   const agents = data?.pages.flatMap((page) => page.content) ?? []
 
@@ -53,16 +61,17 @@ export default function Search() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const node = sentinelRef.current
-    if (!node || !hasNextPage) return
+    // 실패한 커서로는 다시 시도하지 않는다 — sentinel 이 교차할 때마다 같은 요청이 반복된다.
+    if (!node || !hasNextPage || isFetchNextPageError) return
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) void fetchNextPage()
+        if (entry.isIntersecting && !isFetchingNextPage) void fetchNextPage()
       },
       { root: document.getElementById('gridScroll'), rootMargin: '200px' },
     )
     observer.observe(node)
     return () => observer.disconnect()
-  }, [hasNextPage, fetchNextPage])
+  }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, fetchNextPage])
 
   const cards = agents.map((a, i) => ({
     agentId: a.agentId,
@@ -88,14 +97,32 @@ export default function Search() {
       's cubic-bezier(.2,.8,.25,1) both',
   }))
 
+  /**
+   * 커서 만료(MARKET_003)는 화면에 띄울 상태가 아니다. 목록이 갱신되어 커서가 어긋난
+   * 것뿐이므로 첫 페이지부터 다시 받으면 끝난다 — refetch 는 저장된 커서를 재생하지 않고
+   * initialPageParam(커서 없음)부터 커서를 다시 만든다.
+   *
+   * 한 번만 시도한다. 다시 만료가 오면 서버가 이상한 것이므로 일반 실패로 흘려보낸다 —
+   * 아니면 무한 재요청이 된다.
+   */
+  const isExpiredCursor = error instanceof ApiError && error.code === 'MARKET_003'
+  const isRecovering = useRef(false)
+  useEffect(() => {
+    if (!isExpiredCursor) {
+      isRecovering.current = false
+      return
+    }
+    if (isRecovering.current) return
+    isRecovering.current = true
+    void refetch()
+  }, [isExpiredCursor, refetch])
+
   // 전체 개수는 명세에 없다(전수를 만들지 않는 것이 설계 의도). 불러온 만큼만 센다.
   const countLabel = isPending ? '…' : `${agents.length}개${hasNextPage ? '+' : ''}`
   // 불러오는 중에는 "결과 없음" 을 띄우지 않는다 — 매 검색마다 한 번씩 깜빡인다.
   const empty = !isPending && !isError && agents.length === 0
-  // 커서 만료는 "결과 없음" 이 아니라 처음부터 다시 불러와야 하는 상태다.
-  const isExpiredCursor = error instanceof ApiError && error.code === 'MARKET_003'
-  const errorText = isExpiredCursor ? '목록이 갱신되었습니다' : '목록을 불러오지 못했습니다'
-  const handleRetry = () => void refetch()
+  // 카드가 한 장이라도 있으면 띄우지 않는다 — 이 안내는 absolute 라 카드 위에 겹쳐 그려진다.
+  const notice = agents.length === 0 && (empty || isError)
   const handleChangeQuery = (e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)
 
   useEffect(() => {
@@ -421,7 +448,7 @@ export default function Search() {
         </div>
       </div>
 
-      {(empty || isError) && (
+      {notice && (
         <div
           className="absolute text-center text-[15px]"
           style={{
@@ -432,20 +459,7 @@ export default function Search() {
             animation: 'fadeIn .3s ease both',
           }}
         >
-          {isError ? (
-            <>
-              {errorText}
-              <button
-                type="button"
-                onClick={handleRetry}
-                className="ml-3 cursor-pointer rounded-full bg-[rgba(255,255,255,.16)] px-3 py-1 text-[13px] text-white hover:bg-[rgba(255,255,255,.28)]"
-              >
-                다시 불러오기
-              </button>
-            </>
-          ) : (
-            '검색 결과가 없습니다'
-          )}
+          {isError ? '목록을 불러오지 못했습니다' : '검색 결과가 없습니다'}
         </div>
       )}
     </>

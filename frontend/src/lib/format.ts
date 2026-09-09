@@ -18,15 +18,18 @@ export function tokenLabel(n: number) {
 }
 
 /**
- * '540' → '540 Credit', '1248.5' → '1,248.5 Credit'
+ * '540' → '540 Credit', '540.00' → '540 Credit', '1248.50' → '1,248.5 Credit'
  *
  * `price` 가 문자열로 오는 이유가 소수점 오차 방지이므로 Number 로 되돌리지 않는다.
  * 천 단위 구분만 문자열 위에서 넣는다.
  */
 export function creditLabel(price: string | number) {
-  const [int, frac] = String(price).split('.')
+  const [int, frac = ''] = String(price).split('.')
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  return (frac ? `${grouped}.${frac}` : grouped) + ' Credit'
+  // 소수점 뒤 0 은 떼어낸다. Jackson 이 BigDecimal('540.00') 을 '540.00' 으로 주는데
+  // 그대로 쓰면 카드마다 '540.00 Credit' 이 된다 — DB 컬럼 자릿수가 화면에 새는 것이다.
+  const fraction = frac.replace(/0+$/, '')
+  return (fraction ? `${grouped}.${fraction}` : grouped) + ' Credit'
 }
 
 /**
