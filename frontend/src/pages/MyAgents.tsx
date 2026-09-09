@@ -388,7 +388,7 @@ export default function MyAgents() {
                 </div>
 
                 <a
-                  href={paths.agentDetail.withoutId}
+                  href={paths.agentDetail(r.agentId)}
                   style={{
                     width: '96px',
                     height: '34px',
