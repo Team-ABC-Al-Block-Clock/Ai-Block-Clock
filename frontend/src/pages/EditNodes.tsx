@@ -1,6 +1,8 @@
 import { Fragment, useState } from 'react'
-import { cssToStyle } from '../lib/css'
+
+import { priceLabel } from '@/lib/format'
 import { paths } from '@/routes/paths'
+import { cssToStyle } from '../lib/css'
 
 /** 노드 편집 화면. 판매자 흐름(/edit/nodes-seller)은 문구와 하단 버튼만 다릅니다. */
 interface EditNodesProps {
@@ -55,7 +57,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
     i,
     initial: name.trim().charAt(0),
     uses: (820 + i * 143).toLocaleString() + '회',
-    credit: 40 + (i % 5) * 25 + ' Credit',
+    price: priceLabel(40 + (i % 5) * 25),
     kind: ['LLM', '도구', '출력'][i % 3],
     infoOpen: infoAt === i,
     infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
@@ -1067,8 +1069,8 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                             <span className="font-semibold text-white">{item.uses}</span>
                           </div>
                           <div className="flex justify-between text-[10.5px]">
-                            <span style={{ color: 'rgba(255,236,246,.58)' }}>크레딧</span>
-                            <span className="font-semibold text-white">{item.credit}</span>
+                            <span style={{ color: 'rgba(255,236,246,.58)' }}>실행 단가</span>
+                            <span className="font-semibold text-white">{item.price}</span>
                           </div>
                           <div className="flex justify-between text-[10.5px]">
                             <span style={{ color: 'rgba(255,236,246,.58)' }}>유형</span>

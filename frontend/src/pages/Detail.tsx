@@ -1,55 +1,179 @@
-import { Fragment, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
+
+import {
+  addAgentFavorite,
+  getMarketplaceAgent,
+  removeAgentFavorite,
+  type AgentDetail,
+  type AgentImage,
+} from '@/api/agents'
+import { ApiError, AUTH_ERROR } from '@/api/errors'
+import { compactCount, priceLabel, ratingLabel, runLabel, successLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
+/** 안내 카드. 그리드 안쪽(272~1168, 896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
+ *  translateX 로 중앙 정렬하지 않는다: transform 이 걸리면 backdrop 루트가 되어
+ *  카드의 backdrop-filter 가 바깥 배경을 못 가져온다(컨벤션 10절). */
+const NOTICE_BOX = { left: '410px', top: '360px', width: '620px' } as const
+
+/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다.
+ *  <empty-state> 가 JSON 으로 받는다(`components/types.ts` 의 EmptyAction). */
+const NOT_FOUND_ACTIONS = JSON.stringify([
+  { label: '에이전트 둘러보기', href: paths.search, primary: true },
+  { label: '홈으로', href: paths.home },
+])
+
+const ERROR_ACTIONS = JSON.stringify([
+  { label: '다시 시도', event: 'retry', primary: true },
+  { label: '목록으로', href: paths.search },
+])
+
+/** 즐겨찾기 실패 중 로그인 문제. 401 안에서도 문구가 갈린다(`api/errors.ts`). */
+const AUTH_CODES: string[] = [AUTH_ERROR.MISSING, AUTH_ERROR.INVALID, AUTH_ERROR.EXPIRED]
+
+type ShotTab = AgentImage['type']
+
 export default function Detail() {
-  const [creditOpen, setCreditOpen] = useState(false)
-  const [fav, setFav] = useState(false)
-  const [tab, setTab] = useState('in')
+  const { agentId } = useParams<{ agentId: string }>()
+  const [tab, setTab] = useState<ShotTab>('INPUT')
   const [shot, setShot] = useState(0)
 
-  const captions: Record<string, string[]> = {
-    in: ['원본 문서 화면', '폴더 선택 창', '분류 기준 입력', '실행 확인', '진행 상황'],
-    out: ['생성된 폴더 목록', '이동 내역', '요약 리포트', '오류 항목', '완료 화면'],
-  }
-  const handleToggleFav = () => setFav((v) => !v)
-  const handleTabIn = () => {
-    setTab('in')
+  const {
+    data: agent,
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.marketplace.agents.detail(agentId ?? ''),
+    queryFn: () => getMarketplaceAgent(agentId ?? ''),
+    // 라우트가 '/agent/:agentId' 뿐이라 실제로는 늘 있지만 useParams 는 string | undefined 다.
+    // 단언 대신 enabled 로 막는다 — 빈 ID 로 요청이 나가지 않는다.
+    enabled: !!agentId,
+  })
+
+  const queryClient = useQueryClient()
+  const favorite = useMutation({
+    mutationFn: (next: boolean) =>
+      next ? addAgentFavorite(agentId ?? '') : removeAgentFavorite(agentId ?? ''),
+    /** 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 — refetch 하지 않고 덮는다.
+     *
+     *  ponytail: 목록은 무효화하지 않는다. Search 는 `favorited` 를 그리지 않고 MyAgents 의
+     *  즐겨찾기 탭은 아직 화면 안 상태라 무효화해도 보이는 변화가 없다. 목록이 별을 그리기
+     *  시작하면 invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() }) 를 붙인다. */
+    onSuccess: (res) =>
+      queryClient.setQueryData(
+        queryKeys.marketplace.agents.detail(agentId ?? ''),
+        (prev: AgentDetail | undefined) =>
+          prev && { ...prev, favorited: res.favorited, favoriteCount: res.favoriteCount },
+      ),
+  })
+
+  // <empty-state> 의 '다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지 않아 직접 붙인다.
+  // emit 이 호스트에서 bubbles 로 올리므로 호스트에서 받으면 된다.
+  const noticeRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const node = noticeRef.current
+    if (!node) return
+    const onRetry = () => void refetch()
+    node.addEventListener('retry', onRetry)
+    return () => node.removeEventListener('retry', onRetry)
+  }, [refetch, isError])
+
+  // ID 가 없거나 404 면 '없는 에이전트' 다. 로딩 판정보다 먼저 와야 한다 —
+  // enabled: false 면 isPending 이 계속 true 라서 뒤에 두면 영원히 '불러오는 중' 이 된다.
+  if (!agentId || (error instanceof ApiError && error.status === 404))
+    return (
+      <empty-state
+        style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
+        heading="에이전트를 찾을 수 없습니다"
+        body="삭제되었거나 주소가 잘못된 에이전트입니다."
+        actions={NOT_FOUND_ACTIONS}
+      />
+    )
+
+  if (isError)
+    return (
+      <empty-state
+        ref={noticeRef}
+        style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
+        heading="에이전트를 불러오지 못했습니다"
+        body={
+          error instanceof ApiError && error.isNetworkError
+            ? '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.'
+            : '잠시 후 다시 시도해 주세요.'
+        }
+        actions={ERROR_ACTIONS}
+      />
+    )
+
+  // 불러오는 중에 '없음' 을 띄우지 않는다 — 요청마다 한 번씩 깜빡인다(컨벤션 6절).
+  if (isPending || !agent)
+    return (
+      <div
+        className="absolute text-center text-[15px]"
+        style={{
+          ...NOTICE_BOX,
+          top: '420px',
+          color: 'rgba(255,236,246,.62)',
+          animation: 'fadeIn .3s ease both',
+        }}
+      >
+        불러오는 중…
+      </div>
+    )
+
+  // 유형별로 갈라 order 순으로. 탭마다 장수가 달라서 인덱스를 잘라 준다.
+  const shots = agent.images.filter((img) => img.type === tab).sort((a, b) => a.order - b.order)
+  const at = Math.min(shot, Math.max(0, shots.length - 1))
+  const current = shots[at]
+
+  const handleTab = (next: ShotTab) => () => {
+    setTab(next)
     setShot(0)
   }
-  const handleTabOut = () => {
-    setTab('out')
-    setShot(0)
-  }
-  const handlePrev = () => setShot((v) => (v + 4) % 5)
-  const handleNext = () => setShot((v) => (v + 1) % 5)
+  const step = (delta: number) => () =>
+    setShot(shots.length ? (at + delta + shots.length) % shots.length : 0)
   const pickShot = (i: number) => () => setShot(i)
-  const isIn = tab === 'in'
-  const creditBtnBg = creditOpen ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.72)'
-  const creditLeft = 776
-  const handleToggleCredit = () => setCreditOpen((v) => !v)
-  const handleCloseCredit = () => setCreditOpen(false)
-  const creditRows = [
-    { label: '기본 실행', value: '540 Credit' },
-    { label: '문서 100건 기준', value: '약 1,200 Credit' },
-    { label: '이번 달 내 사용량', value: '3,860 Credit' },
-  ]
-  const chips = ['노드 4개', '평균 12초', '사용 128회', '공개', '즐겨찾기 42'].map((label) => ({
-    label,
-  }))
+  // 진행 중에 또 누르면 등록·해제가 엇갈린다. mutations retry 는 false 가 기본이다(컨벤션 6절).
+  const handleToggleFav = () => {
+    if (!favorite.isPending) favorite.mutate(!agent.favorited)
+  }
+
+  const favError = favorite.error
+  const favMessage = !favError
+    ? null
+    : favError instanceof ApiError && favError.code && AUTH_CODES.includes(favError.code)
+      ? '로그인이 필요합니다'
+      : '즐겨찾기에 실패했습니다'
+
+  const isIn = tab === 'INPUT'
   const slotLabel = isIn ? '입력' : '출력'
-  const shotCaption = captions[tab][shot]
-  const counter = shot + 1 + ' / 5'
   const inBg = isIn ? 'rgba(255,255,255,.9)' : 'transparent'
   const inFg = isIn ? '#3a1030' : 'rgba(255,255,255,.72)'
   const outBg = isIn ? 'transparent' : 'rgba(255,255,255,.9)'
   const outFg = isIn ? 'rgba(255,255,255,.72)' : '#3a1030'
-  const favBg = fav ? 'rgba(255,179,205,.26)' : 'rgba(255,255,255,.11)'
-  const favStarColor = fav ? '#e3c8a3' : 'rgba(255,255,255,.5)'
-  const thumbs = [0, 1, 2, 3, 4].map((i) => ({
+  const favBg = agent.favorited ? 'rgba(255,179,205,.26)' : 'rgba(255,255,255,.11)'
+  const favStarColor = agent.favorited ? '#e3c8a3' : 'rgba(255,255,255,.5)'
+
+  // 노드 개수·등급·평균 실행 시간·공개 범위는 명세가 반환하지 않는다
+  // (내부 구조 보호 / 내부 자료 / 미집계 / 등록이 곧 공개).
+  const chips = [
+    `사용 ${runLabel(agent.executionCount)}`,
+    `성공률 ${successLabel(agent.successRate, agent.executionCount)}`,
+    `★ ${ratingLabel(agent.averageRating, agent.reviewCount)}`,
+    `즐겨찾기 ${compactCount(agent.favoriteCount)}`,
+  ]
+  const thumbs = shots.map((img, i) => ({
+    imageId: img.imageId,
+    url: img.url,
     pick: pickShot(i),
-    bg: i === shot ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)',
+    bg: i === at ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)',
     ring:
-      i === shot ? 'inset 0 0 0 2px rgba(255,194,216,.9)' : 'inset 0 0 0 1px rgba(255,255,255,.12)',
+      i === at ? 'inset 0 0 0 2px rgba(255,194,216,.9)' : 'inset 0 0 0 1px rgba(255,255,255,.12)',
   }))
 
   return (
@@ -107,12 +231,16 @@ export default function Detail() {
                   'radial-gradient(circle at 52% 28%, rgba(255,218,224,.16), rgba(255,214,232,0) 66%)',
               }}
             ></div>
-            <div
-              className="absolute inset-0 flex items-center justify-center text-[44px] font-semibold"
-              style={{ color: 'rgba(255,226,238,.75)' }}
-            >
-              문
-            </div>
+            {agent.iconUrl ? (
+              <img className="h-full w-full object-cover" src={agent.iconUrl} alt="" />
+            ) : (
+              <div
+                className="absolute inset-0 flex items-center justify-center text-[44px] font-semibold"
+                style={{ color: 'rgba(255,226,238,.75)' }}
+              >
+                {agent.name.trim().charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
 
           <div
@@ -124,7 +252,7 @@ export default function Detail() {
               animation: 'rise .7s .08s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            문서 정리
+            {agent.name}
           </div>
           <div
             className="absolute text-[15px] tracking-[-.01em]"
@@ -137,7 +265,7 @@ export default function Detail() {
               animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다.
+            {agent.summary}
           </div>
 
           <div
@@ -152,11 +280,21 @@ export default function Detail() {
             }}
           >
             <div
-              className="flex-none rounded-full"
+              className="flex-none overflow-hidden rounded-full"
               style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,.14)' }}
-            ></div>
+            >
+              {agent.owner.profileImageUrl && (
+                <img
+                  className="h-full w-full object-cover"
+                  src={agent.owner.profileImageUrl}
+                  alt=""
+                />
+              )}
+            </div>
             <div className="flex flex-col" style={{ gap: '2px' }}>
-              <div className="text-[14px] font-semibold tracking-[-.01em] text-white">이싸피</div>
+              <div className="text-[14px] font-semibold tracking-[-.01em] text-white">
+                {agent.owner.nickname}
+              </div>
               <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.6)' }}>
                 만든 사람
               </div>
@@ -175,7 +313,8 @@ export default function Detail() {
               backdropFilter: 'blur(18px)',
               WebkitBackdropFilter: 'blur(18px)',
               gap: '8px',
-              transition: 'background .18s',
+              opacity: favorite.isPending ? 0.6 : 1,
+              transition: 'background .18s,opacity .18s',
               animation: 'rise .7s .2s cubic-bezier(.2,.8,.25,1) both',
             }}
             className="absolute flex cursor-pointer items-center justify-center hover:bg-[rgba(255,255,255,.2)]"
@@ -185,6 +324,22 @@ export default function Detail() {
             </div>
             <div className="text-[15px] font-semibold tracking-[-.01em] text-white">즐겨찾기</div>
           </div>
+
+          {/* 실패를 조용히 넘기지 않는다. 토스트가 없어 버튼 아래에 한 줄로 둔다. */}
+          {favMessage && (
+            <div
+              className="absolute text-right text-[12.5px] tracking-[-.01em]"
+              style={{
+                left: '860px',
+                top: '266px',
+                width: '308px',
+                color: 'rgba(255,196,214,.9)',
+                animation: 'fadeIn .2s ease both',
+              }}
+            >
+              {favMessage}
+            </div>
+          )}
 
           <a
             href={paths.run.waiting.withoutId}
@@ -227,8 +382,8 @@ export default function Detail() {
               animation: 'rise .7s .28s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            {chips.map((chip, i) => (
-              <Fragment key={i}>
+            {chips.map((label) => (
+              <Fragment key={label}>
                 <div
                   className="flex items-center text-[13px] tracking-[-.01em] whitespace-nowrap"
                   style={{
@@ -239,100 +394,28 @@ export default function Detail() {
                     color: 'rgba(255,240,247,.86)',
                   }}
                 >
-                  {chip.label}
+                  {label}
                 </div>
               </Fragment>
             ))}
+            {/* 명세 「가격은 한 줄이다」 — 실행 1회당 가격만 보여준다. 토큰 단위 단가는 없다. */}
             <div
               className="flex flex-none items-center whitespace-nowrap"
               style={{
                 height: '32px',
-                padding: '0 8px 0 15px',
+                padding: '0 15px',
                 borderRadius: '100px',
                 background: 'rgba(185,141,169,.26)',
-                gap: '9px',
               }}
             >
               <div
                 className="text-[13px] font-semibold tracking-[-.01em]"
                 style={{ color: '#ffe4f0' }}
               >
-                540 Credit
-              </div>
-              <div
-                onClick={handleToggleCredit}
-                title="사용량 안내"
-                style={{
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '9px',
-                  background: `${creditBtnBg}`,
-                  color: '#2f1527',
-                }}
-                className="flex flex-none cursor-pointer items-center justify-center text-[11px] font-bold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.9)]"
-              >
-                ?
+                {priceLabel(agent.price)}
               </div>
             </div>
           </div>
-
-          {creditOpen && (
-            <>
-              <div
-                className="absolute top-0 left-0"
-                onClick={handleCloseCredit}
-                style={{ width: '1440px', height: '1520px', zIndex: '8' }}
-              ></div>
-              <div
-                className="absolute box-border flex flex-col"
-                style={{
-                  left: `${creditLeft}px`,
-                  top: '416px',
-                  width: '392px',
-                  padding: '20px',
-                  borderRadius: '16px',
-                  background: 'rgba(20,11,36,.94)',
-                  backdropFilter: 'blur(26px) saturate(122%)',
-                  WebkitBackdropFilter: 'blur(26px) saturate(122%)',
-                  boxShadow: '0 12px 34px rgba(4,2,12,.5)',
-                  gap: '11px',
-                  animation: 'fadeIn .18s ease both',
-                  zIndex: '9',
-                }}
-              >
-                <div className="text-[14px] font-semibold tracking-[-.01em] text-white">
-                  크레딧 사용량
-                </div>
-                {creditRows.map((row, i) => (
-                  <Fragment key={i}>
-                    <div
-                      className="flex justify-between text-[13px]"
-                      style={{ alignItems: 'baseline' }}
-                    >
-                      <span
-                        className="tracking-[-.01em]"
-                        style={{ color: 'rgba(255,236,246,.66)' }}
-                      >
-                        {row.label}
-                      </span>
-                      <span
-                        className="font-semibold tracking-[-.01em]"
-                        style={{ color: '#e9b7d2' }}
-                      >
-                        {row.value}
-                      </span>
-                    </div>
-                  </Fragment>
-                ))}
-                <div
-                  className="text-[12px] tracking-[-.01em]"
-                  style={{ marginTop: '3px', lineHeight: '1.5', color: 'rgba(255,236,246,.5)' }}
-                >
-                  문서 수와 길이에 따라 실제 사용량은 달라질 수 있습니다.
-                </div>
-              </div>
-            </>
-          )}
 
           <div
             className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
@@ -356,9 +439,7 @@ export default function Detail() {
               animation: 'rise .7s .34s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            폴더를 지정하면 안에 있는 문서를 하나씩 읽어 주제를 파악하고, 비슷한 문서끼리 묶어 새
-            폴더로 옮깁니다. 파일 이름은 바꾸지 않으며, 옮긴 내역은 실행이 끝난 뒤 목록으로 확인할
-            수 있습니다. 분류 기준을 직접 정하고 싶다면 실행 전에 주제 목록을 넣어 주세요.
+            {agent.description}
           </div>
 
           <div
@@ -386,7 +467,7 @@ export default function Detail() {
           >
             <div
               className="flex cursor-pointer items-center justify-center text-[13px] font-semibold transition-colors duration-[160ms]"
-              onClick={handleTabIn}
+              onClick={handleTab('INPUT')}
               style={{
                 width: '56px',
                 height: '26px',
@@ -399,7 +480,7 @@ export default function Detail() {
             </div>
             <div
               className="flex cursor-pointer items-center justify-center text-[13px] font-semibold transition-colors duration-[160ms]"
-              onClick={handleTabOut}
+              onClick={handleTab('OUTPUT')}
               style={{
                 width: '56px',
                 height: '26px',
@@ -423,60 +504,72 @@ export default function Detail() {
               animation: 'unfold .8s .4s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            <div
-              className="absolute top-0 left-0 flex flex-col items-center justify-center"
-              style={{ width: '896px', height: '480px', gap: '10px' }}
-            >
+            {current ? (
+              <img
+                className="absolute top-0 left-0 h-full w-full object-cover"
+                src={current.url}
+                alt={`${agent.name} ${slotLabel} 스크린샷 ${at + 1}`}
+              />
+            ) : (
               <div
-                className="flex items-center justify-center bg-[rgba(255,255,255,.10)] text-[22px]"
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '14px',
-                  fontWeight: '300',
-                  color: 'rgba(255,255,255,.6)',
-                }}
+                className="absolute top-0 left-0 flex flex-col items-center justify-center"
+                style={{ width: '896px', height: '480px', gap: '10px' }}
               >
-                +
+                <div
+                  className="flex items-center justify-center bg-[rgba(255,255,255,.10)] text-[22px]"
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '14px',
+                    fontWeight: '300',
+                    color: 'rgba(255,255,255,.6)',
+                  }}
+                >
+                  +
+                </div>
+                <div
+                  className="text-[13px] tracking-[-.01em]"
+                  style={{ color: 'rgba(255,240,247,.52)' }}
+                >
+                  {slotLabel} 스크린샷이 없습니다
+                </div>
               </div>
-              <div
-                className="text-[13px] tracking-[-.01em]"
-                style={{ color: 'rgba(255,240,247,.52)' }}
-              >
-                {slotLabel} 스크린샷이 들어갈 자리
-              </div>
-            </div>
+            )}
 
-            <div
-              onClick={handlePrev}
-              style={{
-                left: '16px',
-                top: '218px',
-                width: '44px',
-                height: '44px',
-                background: 'rgba(20,9,34,.5)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-              }}
-              className="absolute flex cursor-pointer items-center justify-center rounded-full text-[16px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(20,9,34,.78)]"
-            >
-              ←
-            </div>
-            <div
-              onClick={handleNext}
-              style={{
-                left: '836px',
-                top: '218px',
-                width: '44px',
-                height: '44px',
-                background: 'rgba(20,9,34,.5)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-              }}
-              className="absolute flex cursor-pointer items-center justify-center rounded-full text-[16px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(20,9,34,.78)]"
-            >
-              →
-            </div>
+            {shots.length > 1 && (
+              <>
+                <div
+                  onClick={step(-1)}
+                  style={{
+                    left: '16px',
+                    top: '218px',
+                    width: '44px',
+                    height: '44px',
+                    background: 'rgba(20,9,34,.5)',
+                    backdropFilter: 'blur(14px)',
+                    WebkitBackdropFilter: 'blur(14px)',
+                  }}
+                  className="absolute flex cursor-pointer items-center justify-center rounded-full text-[16px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(20,9,34,.78)]"
+                >
+                  ←
+                </div>
+                <div
+                  onClick={step(1)}
+                  style={{
+                    left: '836px',
+                    top: '218px',
+                    width: '44px',
+                    height: '44px',
+                    background: 'rgba(20,9,34,.5)',
+                    backdropFilter: 'blur(14px)',
+                    WebkitBackdropFilter: 'blur(14px)',
+                  }}
+                  className="absolute flex cursor-pointer items-center justify-center rounded-full text-[16px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(20,9,34,.78)]"
+                >
+                  →
+                </div>
+              </>
+            )}
 
             <div
               className="absolute flex items-center"
@@ -489,32 +582,27 @@ export default function Detail() {
                 background: 'rgba(20,9,34,.55)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
-                gap: '9px',
               }}
             >
               <div className="text-[12px] font-semibold text-white">{slotLabel}</div>
-              <div className="text-[12px]" style={{ color: 'rgba(255,255,255,.36)' }}>
-                ·
-              </div>
-              <div className="text-[12px]" style={{ color: 'rgba(255,240,247,.74)' }}>
-                {shotCaption}
-              </div>
             </div>
-            <div
-              className="absolute flex items-center text-[12px] font-semibold text-white"
-              style={{
-                left: '812px',
-                top: '436px',
-                height: '28px',
-                padding: '0 14px',
-                borderRadius: '100px',
-                background: 'rgba(20,9,34,.55)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-              }}
-            >
-              {counter}
-            </div>
+            {shots.length > 0 && (
+              <div
+                className="absolute flex items-center text-[12px] font-semibold text-white"
+                style={{
+                  left: '812px',
+                  top: '436px',
+                  height: '28px',
+                  padding: '0 14px',
+                  borderRadius: '100px',
+                  background: 'rgba(20,9,34,.55)',
+                  backdropFilter: 'blur(14px)',
+                  WebkitBackdropFilter: 'blur(14px)',
+                }}
+              >
+                {at + 1} / {shots.length}
+              </div>
+            )}
           </div>
 
           <div
@@ -528,8 +616,8 @@ export default function Detail() {
               animation: 'rise .7s .46s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            {thumbs.map((th, i) => (
-              <Fragment key={i}>
+            {thumbs.map((th) => (
+              <Fragment key={th.imageId}>
                 <div
                   className="relative flex-none cursor-pointer overflow-hidden"
                   onClick={th.pick}
@@ -542,88 +630,45 @@ export default function Detail() {
                     transition: 'background .16s,box-shadow .16s',
                   }}
                 >
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        'radial-gradient(circle at 52% 28%, rgba(255,218,224,.14), rgba(255,214,232,0) 66%)',
-                    }}
-                  ></div>
+                  <img className="h-full w-full object-cover" src={th.url} alt="" />
                 </div>
               </Fragment>
             ))}
-            <div
-              style={{
-                width: '104px',
-                height: '72px',
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,.05)',
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)',
-                gap: '3px',
-              }}
-              className="flex flex-none cursor-pointer flex-col items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.12)]"
-            >
-              <div
-                className="text-[15px]"
-                style={{ fontWeight: '300', color: 'rgba(255,255,255,.62)' }}
-              >
-                +
-              </div>
-              <div className="text-[11px]" style={{ color: 'rgba(255,240,247,.55)' }}>
-                사진 추가
-              </div>
-            </div>
           </div>
 
-          <div
-            className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
-            style={{
-              left: '272px',
-              top: '1268px',
-              animation: 'rise .7s .5s cubic-bezier(.2,.8,.25,1) both',
-            }}
-          >
-            실행 예시
-          </div>
-          <div
-            className="absolute box-border"
-            style={{
-              left: '272px',
-              top: '1300px',
-              width: '896px',
-              padding: '24px',
-              borderRadius: '14px',
-              background: 'rgba(255,255,255,.07)',
-              animation: 'unfold .8s .52s cubic-bezier(.2,.8,.25,1) both',
-            }}
-          >
-            <div className="flex flex-col" style={{ gap: '12px' }}>
+          {agent.usageExample && (
+            <>
               <div
-                className="text-[13.5px] tracking-[-.01em]"
-                style={{ color: 'rgba(255,240,247,.82)' }}
+                className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
+                style={{
+                  left: '272px',
+                  top: '1268px',
+                  animation: 'rise .7s .5s cubic-bezier(.2,.8,.25,1) both',
+                }}
               >
-                입력 · 다운로드 폴더에 있는 문서 42개
+                실행 예시
               </div>
               <div
-                className="text-[13.5px] tracking-[-.01em]"
-                style={{ color: 'rgba(255,240,247,.66)' }}
+                className="absolute box-border"
+                style={{
+                  left: '272px',
+                  top: '1300px',
+                  width: '896px',
+                  padding: '24px',
+                  borderRadius: '14px',
+                  background: 'rgba(255,255,255,.07)',
+                  animation: 'unfold .8s .52s cubic-bezier(.2,.8,.25,1) both',
+                }}
               >
-                1. 문서를 읽고 주제를 뽑습니다 — 계약, 회의록, 영수증, 기타
+                <div
+                  className="text-[13.5px] tracking-[-.01em]"
+                  style={{ lineHeight: '1.7', color: 'rgba(255,240,247,.82)' }}
+                >
+                  {agent.usageExample}
+                </div>
               </div>
-              <div
-                className="text-[13.5px] tracking-[-.01em]"
-                style={{ color: 'rgba(255,240,247,.66)' }}
-              >
-                2. 주제별 폴더를 만들어 파일을 옮깁니다
-              </div>
-              <div
-                className="text-[13.5px] tracking-[-.01em]"
-                style={{ color: 'rgba(255,240,247,.82)' }}
-              >
-                출력 · 4개 폴더, 42개 파일 이동 · 12초
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
     </>

@@ -1,9 +1,9 @@
 import { http } from 'msw'
 
-import type { AgentDetail, AgentProvenance, AgentReview, AgentSummary } from '@/api/agents'
+import type { AgentFavorite, AgentProvenance, AgentReview } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import { cursorOk, cursorPage, cursorParams } from '@/mocks/cursor'
-import { AGENTS } from '@/mocks/fixtures/agents'
+import { AGENTS, byNewest, toSummary } from '@/mocks/fixtures/agents'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -17,39 +17,44 @@ import { scene } from '@/mocks/scenario'
  * 등록 시각 역순 하나로 고정이다.
  */
 
-/**
- * 목록에는 상세 필드(`tokenUsage`)를 내려주지 않는다.
- *
- * 픽스처를 그대로 흘려보내면 실서버에 없는 필드를 화면이 몰래 쓰게 되고,
- * 백엔드를 붙이는 날 조용히 `undefined` 가 된다.
- */
-function toSummary(agent: AgentDetail): AgentSummary {
-  return {
-    agentId: agent.agentId,
-    name: agent.name,
-    summary: agent.summary,
-    iconUrl: agent.iconUrl,
-    price: agent.price,
-    currency: agent.currency,
-    executionCount: agent.executionCount,
-    averageRating: agent.averageRating,
-    reviewCount: agent.reviewCount,
-    favorited: agent.favorited,
-    owner: { nickname: agent.owner.nickname },
-    createdAt: agent.createdAt,
-  }
-}
+/** 에이전트를 못 찾았을 때. 명세가 확정한 코드는 MARKET_001 하나다. */
+const notFound = () => fail(404, 'MARKET_001', '에이전트를 찾을 수 없습니다.')
+
+const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
 
 /** 명세상 검색 대상은 이름과 한 줄 설명뿐이다. */
-function matchKeyword(agent: AgentDetail, keyword: string) {
+function matchKeyword(name: string, summary: string, keyword: string) {
   const q = keyword.trim().toLowerCase()
   if (!q) return true
-  return agent.name.toLowerCase().includes(q) || agent.summary.toLowerCase().includes(q)
+  return name.toLowerCase().includes(q) || summary.toLowerCase().includes(q)
 }
 
-/** 등록 시각 역순. 커서가 이 순서를 전제하므로 요청마다 같아야 한다.
- *  공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항). */
-const PUBLISHED = [...AGENTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+/**
+ * 즐겨찾기를 픽스처에 반영한다.
+ *
+ * 이 파일의 다른 핸들러와 달리 상태를 바꾼다. 안 바꾸면 토글한 뒤 다시 조회하면
+ * 원래대로 돌아가고, 멱등 처리도 확인할 수 없다.
+ *
+ * 멱등 — 이미 같은 상태면 횟수를 건드리지 않고 현재 상태를 준다(명세 참고사항).
+ */
+function setFavorite(agentId: unknown, next: boolean): AgentFavorite | null {
+  const agent = find(agentId)
+  if (!agent) return null
+  if (agent.favorited !== next) {
+    agent.favorited = next
+    agent.favoriteCount += next ? 1 : -1
+  }
+  return { agentId: agent.agentId, favorited: agent.favorited, favoriteCount: agent.favoriteCount }
+}
+
+/**
+ * 등록 시각 역순. 공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항).
+ *
+ * 상수가 아니라 함수다 — 등록(POST /agents)이 픽스처에 항목을 더하는데, 모듈 로드
+ * 시점에 한 번 정렬해 두면 등록해도 목록에 안 나온다. 커서는 이 순서를 전제하지만
+ * 정렬 기준(등록 시각)이 고정이라 요청마다 다시 계산해도 순서는 같다.
+ */
+const published = () => [...AGENTS].sort(byNewest)
 
 export const marketplaceHandlers = [
   http.get(`${API_BASE_URL}/marketplace/agents`, async ({ request }) => {
@@ -61,7 +66,7 @@ export const marketplaceHandlers = [
     if (size === null) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
     const keyword = url.searchParams.get('keyword') ?? ''
-    const filtered = PUBLISHED.filter((a) => matchKeyword(a, keyword))
+    const filtered = published().filter((a) => matchKeyword(a.name, a.summary, keyword))
 
     const page = cursorPage(filtered, (a) => a.agentId, cursor, size)
     if (!page)
@@ -73,16 +78,31 @@ export const marketplaceHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    const agent = AGENTS.find((a) => a.agentId === params.agentId)
-    if (!agent) return fail(404, 'AGENT_001', '에이전트를 찾을 수 없습니다.')
-    return ok(agent)
+    const agent = find(params.agentId)
+    return agent ? ok(agent) : notFound()
+  }),
+  /** 즐겨찾기 등록. 명세상 201 이다. */
+  http.post(`${API_BASE_URL}/marketplace/agents/:agentId/favorites`, async ({ params }) => {
+    const forced = await scene()
+    if (forced) return forced
+
+    const result = setFavorite(params.agentId, true)
+    return result ? ok(result, { status: 201 }) : notFound()
+  }),
+  /** 즐겨찾기 해제 */
+  http.delete(`${API_BASE_URL}/marketplace/agents/:agentId/favorites`, async ({ params }) => {
+    const forced = await scene()
+    if (forced) return forced
+
+    const result = setFavorite(params.agentId, false)
+    return result ? ok(result) : notFound()
   }),
   http.get(`${API_BASE_URL}/marketplace/agents/:agentId/provenance`, async ({ params }) => {
     const forced = await scene()
     if (forced) return forced
 
-    const agent = AGENTS.find((a) => a.agentId === params.agentId)
-    if (!agent) return fail(404, 'AGENT_001', '에이전트를 찾을 수 없습니다.')
+    const agent = find(params.agentId)
+    if (!agent) return notFound()
 
     const txHash = `0x${agent.agentId.replace(/\D/g, '').padStart(6, '0').repeat(10).slice(0, 64)}`
     return ok<AgentProvenance>({
@@ -97,8 +117,8 @@ export const marketplaceHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    const agent = AGENTS.find((a) => a.agentId === params.agentId)
-    if (!agent) return fail(404, 'AGENT_001', '에이전트를 찾을 수 없습니다.')
+    const agent = find(params.agentId)
+    if (!agent) return notFound()
 
     const reviews: AgentReview[] = Array.from(
       { length: Math.min(agent.reviewCount, 24) },

@@ -1,9 +1,9 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { getMarketplaceAgents } from '@/api/agents'
-import { creditLabel, ratingLabel, runLabel } from '@/lib/format'
+import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 import { OceanTheme } from '../components/theme-store'
@@ -40,26 +40,12 @@ export default function Search() {
    * mock 시나리오 스위치(`mocks/scenario.ts`)가 쓰는 것과 같은 성격의 값이다.
    */
   const [searchParams, setSearchParams] = useSearchParams()
-  const q = searchParams.get('keyword') ?? ''
+  /** 첫 진입의 ?keyword= 만 읽는다. 그 뒤로 입력값의 주인은 이 state 다.
+   *  주소를 되읽어 value 로 쓰면 한글이 낱자로 떨어진다 — React 는 IME 조합 중에
+   *  onChange 를 쏘지 않는데, 디바운스·쿼리 전환으로 리렌더는 계속 일어나서
+   *  조합 중인 input 에 옛 값이 덮인다. 그 순간 브라우저 IME 조합이 끊긴다. */
+  const [q, setQ] = useState(() => searchParams.get('keyword') ?? '')
   const [keyword, setKeyword] = useState(q)
-
-  /** 주소는 타자마다 갱신하되 히스토리는 쌓지 않는다(replace) — 안 그러면
-   *  '계'·'계약'·'계약서' 를 전부 거쳐야 뒤로 나갈 수 있다.
-   *  mockDelay 같은 다른 쿼리는 그대로 남긴다. */
-  const setQ = useCallback(
-    (next: string) => {
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev)
-          if (next) params.set('keyword', next)
-          else params.delete('keyword')
-          return params
-        },
-        { replace: true },
-      )
-    },
-    [setSearchParams],
-  )
   // 카드 index 로 잡으면 무한 스크롤로 목록이 늘어날 때 엉뚱한 카드가 열린다.
   const [infoAt, setInfoAt] = useState<string | null>(null)
 
@@ -71,11 +57,25 @@ export default function Search() {
   const descColor = bright ? 'rgba(255,240,248,.82)' : 'rgba(255,236,246,.7)'
   const headShadow = bright ? '0 2px 14px rgba(24,8,34,.85)' : '0 1px 10px rgba(35,8,45,.6)'
 
-  // 주소는 즉시 반영하고 요청만 늦춘다. 없으면 타자 한 번에 요청 한 번이다.
+  /** 요청도 주소도 타자가 멎은 뒤에 갱신한다. 없으면 타자 한 번에 요청 한 번이다.
+   *  히스토리는 쌓지 않는다(replace) — 안 그러면 '계'·'계약'·'계약서' 를 전부 거쳐야
+   *  뒤로 나갈 수 있다. mockDelay 같은 다른 쿼리는 그대로 남긴다. */
   useEffect(() => {
-    const timer = setTimeout(() => setKeyword(q.trim()), DEBOUNCE_MS)
+    const timer = setTimeout(() => {
+      const next = q.trim()
+      setKeyword(next)
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (next) params.set('keyword', next)
+          else params.delete('keyword')
+          return params
+        },
+        { replace: true },
+      )
+    }, DEBOUNCE_MS)
     return () => clearTimeout(timer)
-  }, [q])
+  }, [q, setSearchParams])
 
   // 검색은 서버가 한다. 목록은 커서로 이어 받는다 — 명세가 전체 개수를 주지 않는다.
   const {
@@ -129,7 +129,7 @@ export default function Search() {
     iconUrl: a.iconUrl,
     initial: a.name.trim().charAt(0).toUpperCase(),
     uses: runLabel(a.executionCount),
-    credit: creditLabel(a.price),
+    price: priceLabel(a.price),
     author: a.owner.nickname,
     infoOpen: infoAt === a.agentId,
     infoBg: infoAt === a.agentId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
@@ -446,8 +446,8 @@ export default function Search() {
                       <span className="font-semibold text-white">{c.uses}</span>
                     </div>
                     <div className="flex justify-between text-[12px]">
-                      <span style={{ color: 'rgba(255,236,246,.6)' }}>평균 크레딧</span>
-                      <span className="font-semibold text-white">{c.credit}</span>
+                      <span style={{ color: 'rgba(255,236,246,.6)' }}>실행 단가</span>
+                      <span className="font-semibold text-white">{c.price}</span>
                     </div>
                     <div className="flex justify-between text-[12px]">
                       <span style={{ color: 'rgba(255,236,246,.6)' }}>만든 사람</span>
