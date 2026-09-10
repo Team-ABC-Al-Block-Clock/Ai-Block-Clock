@@ -2,9 +2,24 @@ import type { CursorPage } from '@/api/page'
 import { fail, ok } from '@/mocks/response'
 
 /**
- * 커서 페이지네이션. 이 프로젝트의 목록은 전부 이 방식이다.
- * 핸들러 안에 인라인하면 목록마다 계산이 조용히 갈라진다.
+ * 목록 조회의 공통 계산 — 검색어 매칭과 커서 페이지네이션.
+ *
+ * 핸들러 안에 인라인하면 목록마다 계산이 조용히 갈라진다. 실제로 갈라진 적이 있다:
+ * 마켓은 필드별로 보고 마이페이지는 `name + ' ' + summary` 를 한 덩어리로 봐서,
+ * 두 필드에 걸친 검색어('초안 받은')가 마이페이지에서만 매칭됐다.
  */
+
+/**
+ * 명세상 검색 대상은 이름과 한 줄 설명뿐이고, **각각을 따로** 본다.
+ *
+ * 이어 붙여 한 덩어리로 보면 이름 끝과 설명 앞에 걸친 말이 매칭된다 —
+ * 서버는 `LIKE` 를 필드별로 걸으므로 실서버에서는 안 걸린다.
+ */
+export function matchKeyword(keyword: string, ...fields: string[]) {
+  const q = keyword.trim().toLowerCase()
+  if (!q) return true
+  return fields.some((field) => field.toLowerCase().includes(q))
+}
 
 /** 마켓 목록의 기본값. 마이페이지 목록은 10 이라 호출부가 넘긴다. 최대는 공통 30. */
 const DEFAULT_SIZE = 9

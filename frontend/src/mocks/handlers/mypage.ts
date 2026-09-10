@@ -3,7 +3,7 @@ import { http } from 'msw'
 import type { CreateAgentRequest, CreatedAgent, MyAgentSort, UsedAgentSort } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import type { DeletedWorkflow, WorkflowSort } from '@/api/workflows'
-import { cursorOk } from '@/mocks/cursor'
+import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { addAgent, byNewest, favoriteAgents, myAgents, usedAgents } from '@/mocks/fixtures/agents'
 import { CREDIT_BALANCE, CREDIT_TRANSACTIONS } from '@/mocks/fixtures/user'
 import { WORKFLOWS, toWorkflowSummary } from '@/mocks/fixtures/workflows'
@@ -27,12 +27,6 @@ function readSort<T extends string>(url: URL, allowed: readonly T[], fallback: T
   const raw = url.searchParams.get('sort')
   if (raw === null || raw === '') return fallback
   return (allowed as readonly string[]).includes(raw) ? (raw as T) : null
-}
-
-/** 명세상 검색 대상은 이름과 한 줄 설명뿐이다. */
-function matchKeyword(haystack: string, keyword: string) {
-  const q = keyword.trim().toLowerCase()
-  return !q || haystack.toLowerCase().includes(q)
 }
 
 const keywordOf = (url: URL) => url.searchParams.get('keyword') ?? ''
@@ -67,7 +61,7 @@ export const mypageHandlers = [
     if (sort === null) return invalidQuery()
 
     const keyword = keywordOf(url)
-    const list = myAgents().filter((a) => matchKeyword(`${a.name} ${a.summary}`, keyword))
+    const list = myAgents().filter((a) => matchKeyword(keyword, a.name, a.summary))
     // 수익은 문자열이다(소수점 오차 방지). 정렬만 하므로 여기서만 숫자로 읽는다.
     if (sort === 'EXECUTIONS') list.sort((a, b) => b.executionCount - a.executionCount)
     else if (sort === 'REVENUE') list.sort((a, b) => Number(b.revenue) - Number(a.revenue))
@@ -125,7 +119,7 @@ export const mypageHandlers = [
     if (sort === null) return invalidQuery()
 
     const keyword = keywordOf(url)
-    const list = usedAgents().filter((a) => matchKeyword(`${a.name} ${a.summary}`, keyword))
+    const list = usedAgents().filter((a) => matchKeyword(keyword, a.name, a.summary))
     if (sort === 'MOST_EXECUTED') list.sort((a, b) => b.myExecutionCount - a.myExecutionCount)
     else list.sort(byLastExecuted)
 
@@ -145,7 +139,7 @@ export const mypageHandlers = [
 
     // 명세상 워크플로우는 이름만 검색한다(에이전트 목록과 다르다).
     const keyword = keywordOf(url)
-    const list = WORKFLOWS.filter((w) => matchKeyword(w.name, keyword))
+    const list = WORKFLOWS.filter((w) => matchKeyword(keyword, w.name))
     if (sort === 'LATEST') list.sort(byNewest)
     else list.sort(byLastExecuted)
 

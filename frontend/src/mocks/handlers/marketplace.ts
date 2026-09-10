@@ -2,7 +2,7 @@ import { http } from 'msw'
 
 import type { AgentProvenance, AgentReview } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
-import { cursorOk } from '@/mocks/cursor'
+import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { AGENTS, byNewest, setFavorite, toSummary } from '@/mocks/fixtures/agents'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -21,13 +21,6 @@ import { scene } from '@/mocks/scenario'
 const notFound = () => fail(404, 'MARKET_001', '에이전트를 찾을 수 없습니다.')
 
 const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
-
-/** 명세상 검색 대상은 이름과 한 줄 설명뿐이다. */
-function matchKeyword(name: string, summary: string, keyword: string) {
-  const q = keyword.trim().toLowerCase()
-  if (!q) return true
-  return name.toLowerCase().includes(q) || summary.toLowerCase().includes(q)
-}
 
 /**
  * 등록 시각 역순. 공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항).
@@ -48,7 +41,7 @@ export const marketplaceHandlers = [
     // 투영을 페이지 계산 앞에 둔다 — cursorOk 는 이미 걸러진 배열을 받아 페이지만 만든다.
     // 상세 필드(설명·스크린샷·성공률)를 흘려보내면 실서버에 없는 필드를 화면이 몰래 쓴다.
     const filtered = published()
-      .filter((a) => matchKeyword(a.name, a.summary, keyword))
+      .filter((a) => matchKeyword(keyword, a.name, a.summary))
       .map(toSummary)
 
     return cursorOk(url, filtered, (a) => a.agentId, { cursorCode: 'MARKET_003' })
