@@ -1,6 +1,9 @@
+import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import { updateMyProfile } from '@/api/auth'
+import { ApiError } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
 import { chainLabel } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
@@ -8,18 +11,47 @@ import { useAuthStore } from '@/stores/authStore'
 
 export default function MyPageEdit() {
   const navigate = useNavigate()
-  const [saved, setSaved] = useState(false)
   const profile = useAuthStore((s) => s.profile)
+  const setProfile = useAuthStore((s) => s.setProfile)
+
+  // 보호 라우트라 첫 렌더에 프로필이 이미 있다.
+  const [nickname, setNickname] = useState(profile?.nickname ?? '')
+  const [introduction, setIntroduction] = useState(profile?.introduction ?? '')
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
 
   // 렌더마다 새로 만들어지는 지역 변수로는 정리 함수가 엉뚱한 핸들을 지운다
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  const trimmedNickname = nickname.trim()
+  const trimmedIntro = introduction.trim()
+  // 서버도 빈 닉네임을 400 으로 막는다(mock 포함). 보내기 전에 여기서 먼저 잡는다.
+  const invalid = trimmedNickname === ''
+  const dirty =
+    trimmedNickname !== (profile?.nickname ?? '') || trimmedIntro !== (profile?.introduction ?? '')
+
+  const save = useMutation({
+    mutationFn: () => updateMyProfile({ nickname: trimmedNickname, introduction: trimmedIntro }),
+    onSuccess: (updated) => {
+      // 프로필은 쿼리가 아니라 스토어에 있다(7절). 저장 결과를 스토어에 되돌려
+      // 넣어야 사이드바 이름·소개가 같이 바뀐다.
+      setProfile(updated)
+      setToast({ ok: true, text: '변경사항이 저장되었습니다' })
+      saveTimer.current = setTimeout(() => navigate(paths.my.agents), 1100)
+    },
+    onError: (e) => {
+      setToast({
+        ok: false,
+        text: e instanceof ApiError ? e.message : '저장하지 못했습니다. 다시 시도해 주세요.',
+      })
+    },
+  })
+
+  const canSave = !invalid && dirty && !save.isPending
+
   const handleSave = () => {
-    setSaved(true)
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      navigate(paths.my.agents)
-    }, 1100)
+    if (!canSave) return
+    setToast(null)
+    save.mutate()
   }
   const tags = ['AI', '데이터 분석', '스마트 컨트랙트', '블록체인'].map((name) => ({ name }))
   const payments = [
@@ -164,10 +196,19 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue={profile?.nickname ?? ''}
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
                     style={{ width: '100%' }}
                   />
                 </div>
+                {invalid && (
+                  <div
+                    className="text-[11.5px] tracking-[-.01em]"
+                    style={{ marginTop: '6px', color: '#ffb4c8' }}
+                  >
+                    이름은 비워 둘 수 없습니다
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
@@ -185,7 +226,8 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue={profile?.introduction ?? ''}
+                    value={introduction}
+                    onChange={(e) => setIntroduction(e.target.value)}
                     style={{ width: '100%' }}
                   />
                 </div>
@@ -390,24 +432,26 @@ export default function MyPageEdit() {
         >
           취소
         </a>
-        <div
+        <button
+          type="button"
           onClick={handleSave}
+          disabled={!canSave}
           style={{
             width: '142px',
             height: '44px',
             borderRadius: '22px',
-            background: '#b98da9',
-            boxShadow: '0 8px 22px rgba(140,100,130,.24)',
-            color: '#2f1527',
-            transition: 'transform .18s',
+            background: canSave ? '#b98da9' : 'rgba(255,255,255,.12)',
+            boxShadow: canSave ? '0 8px 22px rgba(140,100,130,.24)' : 'none',
+            color: canSave ? '#2f1527' : 'rgba(255,255,255,.45)',
+            transition: 'transform .18s, background .18s, color .18s',
           }}
-          className="flex cursor-pointer items-center justify-center text-[14px] font-bold hover:-translate-y-[2px]"
+          className="flex items-center justify-center text-[14px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"
         >
-          변경사항 저장
-        </div>
+          {save.isPending ? '저장 중…' : '변경사항 저장'}
+        </button>
       </div>
 
-      {saved && (
+      {toast && (
         <>
           <div
             className="pointer-events-none absolute left-0 flex justify-center"
@@ -433,10 +477,14 @@ export default function MyPageEdit() {
             >
               <div
                 className="rounded-full"
-                style={{ width: '7px', height: '7px', background: '#84bf9f' }}
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  background: toast.ok ? '#84bf9f' : '#f0b6c8',
+                }}
               ></div>
               <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
-                변경사항이 저장되었습니다
+                {toast.text}
               </div>
             </div>
           </div>
