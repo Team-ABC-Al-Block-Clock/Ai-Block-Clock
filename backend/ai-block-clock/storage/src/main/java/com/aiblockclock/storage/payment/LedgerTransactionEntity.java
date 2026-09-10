@@ -1,6 +1,7 @@
 package com.aiblockclock.storage.payment;
 
 import com.aiblockclock.enums.payment.LedgerEventType;
+import com.aiblockclock.storage.audit.BaseCreatedAtEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,42 +13,35 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Entity
 @Table(name = "ledger_transaction")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LedgerTransactionEntity {
+public class LedgerTransactionEntity extends BaseCreatedAtEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false, length = 30, updatable = false)
+    @Column(nullable = false, length = 30, updatable = false)
     private LedgerEventType eventType;
 
-    @Column(name = "idempotency_key", nullable = false, length = 150, updatable = false)
+    @Column(nullable = false, length = 150, updatable = false)
     private String idempotencyKey;
 
-    @Column(name = "reference_type", nullable = false, length = 30, updatable = false)
+    @Column(nullable = false, length = 30, updatable = false)
     private String referenceType;
 
-    @Column(name = "reference_id", nullable = false, length = 100, updatable = false)
+    @Column(nullable = false, length = 100, updatable = false)
     private String referenceId;
 
-    @Column(name = "chain_id", updatable = false)
+    @Column(updatable = false)
     private Long chainId;
 
-    @Column(name = "transaction_hash", length = 66, updatable = false)
+    @Column(length = 66, updatable = false)
     private String transactionHash;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     public static LedgerTransactionEntity of(
             LedgerEventType eventType,

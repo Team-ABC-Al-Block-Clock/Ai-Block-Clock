@@ -1,5 +1,6 @@
 package com.aiblockclock.storage.payment;
 
+import com.aiblockclock.storage.audit.BaseCreatedAtEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -12,16 +13,14 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Getter
 @Entity
 @Table(name = "ledger_entry")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LedgerEntryEntity {
+public class LedgerEntryEntity extends BaseCreatedAtEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,17 +43,12 @@ public class LedgerEntryEntity {
     private LedgerAccountEntity account;
 
     @Column(
-            name = "amount_delta",
             nullable = false,
             precision = 38,
             scale = 3,
             updatable = false
     )
     private BigDecimal amountDelta;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     public static LedgerEntryEntity of(
             LedgerTransactionEntity transaction,
