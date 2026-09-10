@@ -66,7 +66,6 @@ export default function MyPageEdit() {
     setToast(null)
     save.mutate()
   }
-  const tags = ['AI', '데이터 분석', '스마트 컨트랙트', '블록체인'].map((name) => ({ name }))
   const payments = [
     {
       icon: 'WALLET',
@@ -117,7 +116,7 @@ export default function MyPageEdit() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        프로필과 계정 정보를 수정할 수 있습니다.
+        프로필과 연결된 지갑을 확인·수정할 수 있습니다. 결제 수단은 저장하지 않습니다.
       </div>
 
       <div
@@ -126,7 +125,7 @@ export default function MyPageEdit() {
           left: '442px',
           top: '248px',
           width: '900px',
-          height: '248px',
+          height: '196px',
           padding: '24px',
           borderRadius: '16px',
           animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
@@ -255,44 +254,6 @@ export default function MyPageEdit() {
                 </div>
               </div>
             </div>
-            <div>
-              <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-                전문 분야
-              </div>
-              <div className="flex" style={{ marginTop: '12px', gap: '10px' }}>
-                {tags.map((t, i) => (
-                  <Fragment key={i}>
-                    <div
-                      style={{
-                        height: '31px',
-                        padding: '0 13px',
-                        borderRadius: '9px',
-                        gap: '8px',
-                        color: 'rgba(255,240,247,.86)',
-                      }}
-                      className="flex cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[12px] whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)]"
-                    >
-                      <span>{t.name}</span>
-                      <span className="text-[12px]" style={{ color: 'rgba(255,255,255,.5)' }}>
-                        ×
-                      </span>
-                    </div>
-                  </Fragment>
-                ))}
-                <div
-                  style={{
-                    height: '31px',
-                    padding: '0 13px',
-                    borderRadius: '9px',
-                    background: 'rgba(255,255,255,.05)',
-                    color: 'rgba(255,240,247,.6)',
-                  }}
-                  className="flex cursor-pointer items-center text-[12px] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
-                >
-                  + 추가
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -301,58 +262,7 @@ export default function MyPageEdit() {
         className="bg-surface-card absolute box-border"
         style={{
           left: '442px',
-          top: '516px',
-          width: '900px',
-          height: '146px',
-          padding: '24px',
-          borderRadius: '16px',
-          animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <div className="text-[14.5px] font-semibold tracking-[-.01em] text-white">계정 정보</div>
-        <div className="flex" style={{ marginTop: '20px', gap: '24px' }}>
-          <div className="flex-1">
-            <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              이메일 · 변경 불가
-            </div>
-            <div
-              className="flex items-center text-[13.5px]"
-              style={{
-                marginTop: '8px',
-                height: '42px',
-                borderRadius: '11px',
-                background: 'rgba(255,255,255,.04)',
-                padding: '0 14px',
-                color: 'rgba(255,240,247,.42)',
-              }}
-            >
-              sunmi.kim@example.com
-            </div>
-          </div>
-          <div className="flex-1">
-            <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              연락처
-            </div>
-            <div
-              className="bg-surface-card flex items-center"
-              style={{ marginTop: '8px', height: '42px', borderRadius: '11px', padding: '0 14px' }}
-            >
-              <input
-                className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
-                type="text"
-                defaultValue="010-1234-5678"
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="bg-surface-card absolute box-border"
-        style={{
-          left: '442px',
-          top: '682px',
+          top: '464px',
           width: '900px',
           height: '166px',
           padding: '24px',
