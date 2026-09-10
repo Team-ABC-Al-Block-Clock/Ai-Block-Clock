@@ -1,8 +1,11 @@
 package com.aiblockclock.domain.payment;
 
+import org.springframework.stereotype.Component;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+@Component
 public final class AbcConversionPolicy {
 
     public BigDecimal convert(BigDecimal usdcAmount) {
