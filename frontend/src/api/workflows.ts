@@ -1,7 +1,7 @@
 import { api } from '@/api/client'
 import type { CursorPage, CursorParams } from '@/api/page'
 
-/** 워크플로우 API. **확정** — `docs/api-mypage.md` MYP-002·MYP-005. */
+/** 워크플로우 API. **확정** — 마이페이지 API 명세 MYP-002·MYP-005. */
 
 /**
  * 내 워크플로우 목록 항목. **확정** — MYP-002 명세와 1:1 이다.
