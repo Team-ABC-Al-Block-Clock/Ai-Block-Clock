@@ -1,22 +1,17 @@
 import { BaseElement, define } from './base'
 
-/** 지갑 연결·서명 대화상자 — 연결 요청 → 서명 대기 → 거절 세 단계.
+/** 지갑 연결·서명 대화상자 — 연결 요청 → 서명 대기 → 거절.
  *
- *    <wallet-dialog phase="request" address="0x1f9c…072a" chain="Polygon Amoy" />
+ *    <wallet-dialog phase="request" address="0x1f9c…072a" />
  *
- *  단계는 화면이 속성으로 정하고, 컴포넌트는 결과만 이벤트로 알립니다.
- *  지갑 호출은 화면 쪽이 합니다 — 이 컴포넌트는 체인도 지갑도 모릅니다.
- *
- *    sign    서명 요청·다시 서명이 눌렸다
- *    cancel  취소·닫기·Esc·배경 클릭
- *
- *  명령형(`el.phase = …`)이 아니라 속성으로 받는 이유: React 가 단계를 들고 있어야
- *  화면 상태와 갈라지지 않는다. 스스로 닫지 않고 `cancel` 만 던진다.
+ *  단계는 화면이 속성으로 정하고 컴포넌트는 `sign`·`cancel` 만 던진다.
+ *  React 가 단계를 들고 있어야 화면 상태와 갈라지지 않으므로 스스로 닫지 않는다.
+ *  지갑 호출도 화면 쪽 몫이라, 이 컴포넌트는 체인도 지갑도 모른다.
  */
 export type WalletPhase = 'idle' | 'request' | 'signing' | 'rejected'
 
 export class WalletDialog extends BaseElement {
-  static observedAttributes = ['phase', 'address', 'nonce', 'chain', 'error-code']
+  static observedAttributes = ['phase', 'address', 'nonce', 'error-code']
 
   protected override usesShadow = true
 
@@ -24,8 +19,7 @@ export class WalletDialog extends BaseElement {
     if (e.key === 'Escape') this.emit('cancel')
   }
 
-  /** 관찰 속성과 같은 이름의 프로퍼티를 두지 않는다 — React 19 는 프로퍼티가 있으면
-   *  속성 대신 그것에 대입해서, getter 만 있으면 그 자리에서 터진다(컨벤션 10절). */
+  /** 속성과 같은 이름의 프로퍼티를 두면 React 19 가 거기 대입하려다 터진다(10절). */
   private readPhase(): WalletPhase {
     return this.str('phase', 'idle') as WalletPhase
   }

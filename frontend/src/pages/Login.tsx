@@ -13,12 +13,7 @@ import { useAuthStore } from '@/stores/authStore'
 /** 서명은 182 몫입니다. 지금은 자리표시자로 세션까지 열어 흐름을 확인합니다. */
 const PLACEHOLDER_SIGNATURE = `0x${'ab'.repeat(65)}`
 
-/** 지갑 연결로 시작하는 로그인 화면.
- *
- *  좌표는 1440×1024 설계 그대로 인라인 style 에 둡니다 — 좌표마다 값이 달라서
- *  Tailwind 임의값(left-[504px])으로 옮겨봐야 길어지기만 합니다.
- *  반복되는 색·유리판·hover 만 Tailwind 클래스로 가져갑니다.
- */
+/** 지갑 연결로 시작하는 로그인 화면. 좌표는 1440×1024 설계 그대로 인라인 style 에 둡니다(9절). */
 export default function Login() {
   const [phase, setPhase] = useState<WalletPhase>('idle')
   const [wallet, setWallet] = useState<string | null>(null)
@@ -46,8 +41,7 @@ export default function Login() {
         onChain = result.chainId
       }
 
-      // 네트워크가 다르면 전환을 권한다. 거절해도 로그인은 막지 않는다 —
-      // 서명 자체는 체인과 무관하고, 잔액·정산 화면에서 다시 안내하면 된다.
+      // 거절해도 로그인은 막지 않는다. 그 뒤로는 ChainBanner 가 계속 안내한다.
       if (onChain !== chain.id) {
         await switchChainAsync({ chainId: chain.id }).catch(() => undefined)
       }
@@ -68,8 +62,7 @@ export default function Login() {
       // replace — 로그인 화면이 히스토리에 남으면 뒤로 가기가 다시 여기로 온다.
       navigate(redirectTargetFrom(state), { replace: true })
     } catch (e) {
-      // 서버 검증 실패는 대화상자의 거절 화면이 아니라 카드에 알린다 —
-      // 거절 화면 문구는 사용자가 서명을 거부한 경우를 말한다(182).
+      // 거절 화면 문구는 사용자가 서명을 거부한 경우다(182). 서버 실패는 카드에 알린다.
       setPhase('idle')
       setError(e instanceof ApiError ? e.message : describeWalletError(e).message)
     }
@@ -185,12 +178,7 @@ export default function Login() {
         </div>
       </div>
 
-      <wallet-dialog
-        ref={dialogRef}
-        phase={phase}
-        chain={chainLabel}
-        address={wallet ? shortAddress(wallet) : ''}
-      />
+      <wallet-dialog ref={dialogRef} phase={phase} address={wallet ? shortAddress(wallet) : ''} />
     </>
   )
 }

@@ -54,11 +54,8 @@ function useInternalLinks() {
   }, [navigate])
 }
 
-/** `<profile-menu>` 의 로그아웃 행이 던지는 이벤트를 받는다.
- *
- *  커스텀 엘리먼트는 shadow DOM 안에 있어 스토어를 읽을 수 없다. 메뉴는 이벤트만
- *  던지고, 세션을 끊고 어디로 보낼지는 라우터를 아는 이쪽이 정한다.
- */
+/** `<profile-menu>` 의 로그아웃 행이 던지는 이벤트를 받는다. 메뉴는 shadow DOM 안이라
+ *  스토어를 못 읽으니 이벤트만 던지고, 세션과 이동은 여기서 정한다. */
 function useLogout() {
   const navigate = useNavigate()
   const { disconnectAsync } = useDisconnect()
@@ -80,10 +77,9 @@ function useLogout() {
 
 /** 지갑 계정이 바뀌면 열려 있던 세션은 남의 것이 된다 — 끊는다.
  *
- *  `connected` 일 때만 본다. 부팅 직후에는 wagmi 가 아직 재연결 중이라
- *  주소가 없는데, 그때 끊으면 쿠키로 되살린 세션이 매번 날아간다.
- *  지갑을 사용자가 끊은 것(`disconnected`)만으로는 세션을 끝내지 않는다 —
- *  서버 세션은 살아 있고, 끝내려면 로그아웃을 누르면 된다.
+ *  `connected` 일 때만 본다. 부팅 직후엔 wagmi 가 재연결 중이라 주소가 없는데,
+ *  그때 끊으면 쿠키로 되살린 세션이 매번 날아간다. 사용자가 지갑만 끊은 경우도
+ *  세션은 두고, 끝내려면 로그아웃을 누른다.
  */
 function useWalletAccountGuard() {
   const { address, status } = useAccount()

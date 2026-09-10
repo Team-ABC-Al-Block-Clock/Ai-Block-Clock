@@ -2,12 +2,9 @@ import { useAccount, useSwitchChain } from 'wagmi'
 
 import { chain, chainLabel } from '@/lib/wagmi'
 
-/** 지갑이 다른 네트워크에 있을 때 띄우는 알림.
- *
- *  연결할 때 한 번 전환을 권하지만, 그 뒤에 사용자가 지갑에서 바꿀 수 있습니다.
- *  wagmi 가 `chainChanged` 를 구독하고 있어 `chainId` 만 보면 됩니다.
- *
- *  모달로 막지 않습니다 — 검색·상세는 체인과 무관하게 볼 수 있어야 합니다.
+/** 지갑이 다른 네트워크에 있을 때 띄우는 알림. 연결할 때 한 번 전환을 권하지만
+ *  그 뒤에 사용자가 지갑에서 바꿀 수 있다(wagmi 가 `chainChanged` 구독).
+ *  검색·상세는 체인과 무관하게 볼 수 있어야 하므로 모달로 막지 않는다.
  */
 export default function ChainBanner() {
   const { isConnected, chainId } = useAccount()
@@ -17,8 +14,8 @@ export default function ChainBanner() {
   if (!isConnected || chainId === chain.id) return null
 
   return (
-    // 가운데 정렬을 transform 대신 flex 로 한다 — 유리판에 transform 을 걸면
-    // backdrop 루트가 되어 뒤 배경을 못 가져온다(컨벤션 10절).
+    // 가운데 정렬은 transform 이 아니라 flex 로 — 유리판에 transform 을 걸면
+    // backdrop 루트가 되어 뒤 배경을 못 가져온다(10절).
     <div
       className="pointer-events-none absolute left-0 flex justify-center"
       style={{ top: '26px', width: '1440px', zIndex: 50 }}

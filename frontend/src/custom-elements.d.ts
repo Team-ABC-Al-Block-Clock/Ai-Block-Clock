@@ -1,5 +1,5 @@
 /** components/*.ts 가 등록하는 커스텀 엘리먼트를 JSX에서 쓰기 위한 선언.
- *  React는 하이픈 있는 태그의 속성을 그대로 DOM 속성으로 넘깁니다. */
+ *  React는 하이픈 있는 태그의 속성을 그대로 DOM 속성으로 넘긴다. */
 import type { DetailedHTMLProps, HTMLAttributes } from 'react'
 
 type El<P = object> = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & P
@@ -42,7 +42,6 @@ declare module 'react' {
         phase?: string
         address?: string
         nonce?: string
-        chain?: string
         'error-code'?: string
       }>
       'profile-sidebar': El
@@ -64,7 +63,7 @@ declare module 'react' {
 
 declare global {
   interface Window {
-    /** dc 화면 전환 셸이 넣어주던 훅 — 라우터가 들어오면 대체됩니다 */
+    /** dc 화면 전환 셸이 넣어주던 훅 — 라우터가 들어오면 대체 */
     __navigate?: (href: string) => void
   }
 }
