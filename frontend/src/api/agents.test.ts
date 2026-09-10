@@ -6,6 +6,8 @@ import {
   getMarketplaceAgent,
   getMarketplaceAgents,
   getMyAgents,
+  getMyFavorites,
+  getUsedAgents,
   removeAgentFavorite,
 } from '@/api/agents'
 import type { AgentSummary } from '@/api/agents'
@@ -359,5 +361,241 @@ describe('byNewest', () => {
 
     expect([fixture, registered].sort(byNewest)[0]).toBe(registered)
     expect([registered, fixture].sort(byNewest)[0]).toBe(registered)
+  })
+})
+
+/**
+ * 마이페이지 「판매 중」. MYP-001
+ *
+ * 명세가 확정되기 전의 추정 타입(`tokenUsage`)이 남아 있으면 키 집합 검사에서 걸린다.
+ */
+describe('getMyAgents', () => {
+  it('명세 기본값 10건을 준다', async () => {
+    const page = await getMyAgents()
+
+    // 마켓 목록은 9 다. 한쪽으로 박아 두면 화면이 size 를 안 넘길 때 페이지 크기가 갈린다.
+    expect(page.content.length).toBeLessThanOrEqual(10)
+    expect(page).not.toHaveProperty('status')
+  })
+
+  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+    const [first] = (await getMyAgents()).content
+
+    expect(Object.keys(first).sort()).toEqual([
+      'agentId',
+      'createdAt',
+      'executionCount',
+      'favorited',
+      'iconUrl',
+      'name',
+      'price',
+      'revenue',
+      'summary',
+      'trend',
+    ])
+    // 소수점 오차를 막기 위해 둘 다 문자열이다. 숫자로 바뀌면 화면 포맷이 깨진다.
+    expect(typeof first.price).toBe('string')
+    expect(typeof first.revenue).toBe('string')
+  })
+
+  it('trend 는 7일치이고 실행이 없으면 전부 0 이다', async () => {
+    const page = await getMyAgents({ size: 30 })
+
+    for (const agent of page.content) expect(agent.trend).toHaveLength(7)
+    // 콜드스타트. 화면이 평평한 선을 내는지는 이 상태에서만 드러난다.
+    const cold = page.content.filter((a) => a.executionCount === 0)
+    expect(cold.length).toBeGreaterThan(0)
+    for (const agent of cold) {
+      expect(agent.trend).toEqual([0, 0, 0, 0, 0, 0, 0])
+      expect(agent.revenue).toBe('0')
+    }
+  })
+
+  it('keyword 는 이름과 한 줄 설명만 검색한다', async () => {
+    const page = await getMyAgents({ keyword: '계약', size: 30 })
+
+    expect(page.content.length).toBeGreaterThan(0)
+    for (const agent of page.content) expect(`${agent.name} ${agent.summary}`).toContain('계약')
+  })
+
+  it('sort 마다 순서가 실제로 달라진다', async () => {
+    const latest = await getMyAgents({ size: 30 })
+    const runs = await getMyAgents({ sort: 'EXECUTIONS', size: 30 })
+    const revenue = await getMyAgents({ sort: 'REVENUE', size: 30 })
+
+    // 기본값은 LATEST — 등록 시각 역순
+    const times = latest.content.map((a) => Date.parse(a.createdAt))
+    expect(times).toEqual([...times].sort((a, b) => b - a))
+
+    const counts = runs.content.map((a) => a.executionCount)
+    expect(counts).toEqual([...counts].sort((a, b) => b - a))
+
+    // 수익은 문자열이라 사전순으로 정렬하면 '9946800' 이 '1120' 보다 앞에 온다.
+    const amounts = revenue.content.map((a) => Number(a.revenue))
+    expect(amounts).toEqual([...amounts].sort((a, b) => b - a))
+
+    // 세 정렬이 같은 결과를 주면 무엇도 검증하지 못한다.
+    expect(runs.content[0].agentId).not.toBe(latest.content[0].agentId)
+  })
+
+  it('sort 가 명세에 없는 값이면 COMMON_001', async () => {
+    // 조용히 기본값으로 떨어지면 화면이 잘못된 값을 보내도 실서버에서만 400 이 난다.
+    await expect(getMyAgents({ sort: 'RATING' as unknown as 'LATEST' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
+    })
+  })
+
+  it('size 가 범위를 벗어나면 COMMON_001, 커서가 어긋나면 COMMON_001', async () => {
+    await expect(getMyAgents({ size: 31 })).rejects.toMatchObject({ code: 'COMMON_001' })
+    await expect(getMyAgents({ cursor: 'not-a-cursor' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+  })
+
+  it('커서로 이어 받으면 중복도 누락도 없다', async () => {
+    const whole = await getMyAgents({ size: 30 })
+    const expected = whole.content.map((a) => a.agentId)
+
+    const collected: string[] = []
+    let cursor: string | undefined
+    let last
+    do {
+      last = await getMyAgents({ cursor, size: 3 })
+      collected.push(...last.content.map((a) => a.agentId))
+      cursor = last.nextCursor ?? undefined
+    } while (cursor)
+
+    expect(collected).toEqual(expected)
+    expect(last.hasNext).toBe(false)
+  })
+})
+
+/** 마이페이지 「즐겨찾기」. MYP-003 — 검색어도 정렬도 받지 않는다. */
+describe('getMyFavorites', () => {
+  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+    const [first] = (await getMyFavorites()).content
+
+    // 수익은 오지 않는다 — 내가 만들지 않은 에이전트가 섞여 있다(명세 참고사항).
+    expect(Object.keys(first).sort()).toEqual([
+      'agentId',
+      'executionCount',
+      'favoritedAt',
+      'iconUrl',
+      'name',
+      'owner',
+      'price',
+      'summary',
+    ])
+  })
+
+  it('즐겨찾기한 시각 역순이다', async () => {
+    const page = await getMyFavorites({ size: 30 })
+
+    const times = page.content.map((a) => Date.parse(a.favoritedAt))
+    expect(times).toEqual([...times].sort((a, b) => b - a))
+    expect(page.content.length).toBeGreaterThan(10)
+  })
+
+  it('별을 켜면 목록 맨 앞에 오고, 끄면 사라진다', async () => {
+    // 즐겨찾기 상태가 곧 이 목록이다. 두 곳에 나눠 두면 별은 켜졌는데 탭에는 안 나온다.
+    const ID = 'agt_20'
+    const before = (await getMyFavorites({ size: 30 })).content.map((a) => a.agentId)
+    expect(before).not.toContain(ID)
+
+    await addAgentFavorite(ID)
+    const after = await getMyFavorites({ size: 30 })
+    // 방금 켠 것이 즐겨찾기한 시각이 가장 늦다.
+    expect(after.content[0].agentId).toBe(ID)
+
+    await removeAgentFavorite(ID)
+    const restored = (await getMyFavorites({ size: 30 })).content.map((a) => a.agentId)
+    expect(restored).toEqual(before)
+  })
+
+  it('커서가 유효하지 않으면 MARKET_003', async () => {
+    // 마이페이지 목록 중 /users/me/* 두 개만 이 코드다(명세).
+    await expect(getMyFavorites({ cursor: 'not-a-cursor' })).rejects.toMatchObject({
+      code: 'MARKET_003',
+      status: 400,
+    })
+  })
+})
+
+/** 마이페이지 「사용한 에이전트」. MYP-004 */
+describe('getUsedAgents', () => {
+  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+    const [first] = (await getUsedAgents()).content
+
+    // currency 는 받지 않는다 — 단위가 ABC 하나뿐이라 화면이 붙인다.
+    expect(Object.keys(first).sort()).toEqual([
+      'agentId',
+      'averageRating',
+      'favorited',
+      'iconUrl',
+      'lastExecutedAt',
+      'myExecutionCount',
+      'name',
+      'owner',
+      'price',
+      'reviewCount',
+      'summary',
+      'totalSpent',
+    ])
+    expect(first).not.toHaveProperty('currency')
+    // 남이 만든 것이 대부분이라 수익은 오지 않는다.
+    expect(first).not.toHaveProperty('revenue')
+  })
+
+  it('내 실행 횟수는 전체 누적과 다른 값이다', async () => {
+    const page = await getUsedAgents({ size: 30 })
+
+    for (const agent of page.content) {
+      expect(agent.myExecutionCount).toBeGreaterThan(0)
+      // 단가 x 내 실행 횟수. 둘 다 응답에 있으니 화면이 검산할 수 있어야 한다.
+      expect(Number(agent.totalSpent)).toBe(Number(agent.price) * agent.myExecutionCount)
+    }
+  })
+
+  it('기본은 마지막 실행 역순, MOST_EXECUTED 는 내 실행 횟수 순', async () => {
+    const recent = await getUsedAgents({ size: 30 })
+    const most = await getUsedAgents({ sort: 'MOST_EXECUTED', size: 30 })
+
+    const times = recent.content.map((a) => Date.parse(a.lastExecutedAt))
+    expect(times).toEqual([...times].sort((a, b) => b - a))
+
+    const counts = most.content.map((a) => a.myExecutionCount)
+    expect(counts).toEqual([...counts].sort((a, b) => b - a))
+  })
+
+  it('내가 등록한 에이전트도, 평점이 없는 건도 섞여 있다', async () => {
+    const page = await getUsedAgents({ size: 30 })
+    const mine = await getMyAgents({ size: 30 })
+    const myIds = new Set(mine.content.map((a) => a.agentId))
+
+    // 「판매 중」 탭과 양쪽에 나타날 수 있다 — 보는 축이 다르다(명세 참고사항).
+    expect(page.content.some((a) => myIds.has(a.agentId))).toBe(true)
+    // 콜드스타트. 화면이 '—' 를 내는지는 이 건에서만 드러난다.
+    expect(page.content.some((a) => a.averageRating === null)).toBe(true)
+  })
+
+  it('실행이 0회인 에이전트는 목록에 없다', async () => {
+    // COMPLETED 실행이 하나도 없으면 차감된 금액이 없으므로 사용했다고 보지 않는다.
+    const page = await getUsedAgents({ size: 30 })
+    const cold = (await getMyAgents({ size: 30 })).content.filter((a) => a.executionCount === 0)
+
+    expect(cold.length).toBeGreaterThan(0)
+    for (const agent of cold) {
+      expect(page.content.map((a) => a.agentId)).not.toContain(agent.agentId)
+    }
+  })
+
+  it('sort 가 명세에 없으면 COMMON_001, 커서가 어긋나면 MARKET_003', async () => {
+    await expect(
+      getUsedAgents({ sort: 'REVENUE' as unknown as 'LAST_EXECUTED' }),
+    ).rejects.toMatchObject({ code: 'COMMON_001' })
+    await expect(getUsedAgents({ cursor: 'not-a-cursor' })).rejects.toMatchObject({
+      code: 'MARKET_003',
+    })
   })
 })
