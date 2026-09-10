@@ -190,7 +190,7 @@ class ChargeRequestIntegrationTest {
     }
 
     @Test
-    void 대기_중인_충전_요청을_취소하면_CANCELED가_된다() {
+    void 충전_요청을_여러_번_취소해도_CANCELED가_유지된다() {
         ChargeRequestEntity chargeRequest =
                 ChargeRequestEntity.pending(
                         "user-600",
@@ -200,6 +200,7 @@ class ChargeRequestIntegrationTest {
                         new BigDecimal("10.000000")
                 );
 
+        chargeRequest.cancel();
         chargeRequest.cancel();
 
         ChargeRequestEntity saved =

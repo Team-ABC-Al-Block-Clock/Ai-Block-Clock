@@ -133,6 +133,10 @@ public class ChargeRequestEntity extends BaseTimeEntity {
     }
 
     public void cancel() {
+        if (status == ChargeStatus.CANCELED) {
+            return;
+        }
+
         if (status != ChargeStatus.PENDING) {
             throw new IllegalStateException(
                     "대기 중인 충전 요청만 취소할 수 있습니다."
