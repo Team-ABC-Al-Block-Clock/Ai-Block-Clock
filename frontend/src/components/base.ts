@@ -144,10 +144,8 @@ export abstract class BaseElement extends HTMLElement {
   }
 
   /** shadow 안에서는 문서의 @keyframes 가 안 닿는다 — 쓰는 것만 안에 넣어준다.
-   *
-   *  자식 `<style>` 이 아니라 `adoptedStyleSheets` 로 넣는다. 자식으로 붙이면
-   *  update() 가 `root.innerHTML` 로 다시 그릴 때 같이 지워져, 애니메이션이
-   *  오류 없이 조용히 죽는다. */
+   *  자식 `<style>` 이 아니라 `adoptedStyleSheets` 로: 자식은 `root.innerHTML` 재렌더에
+   *  지워져 애니메이션이 오류 없이 조용히 죽는다(10절). */
   protected addStyle(css: string): void {
     const root = this.root
     if (root instanceof ShadowRoot) {

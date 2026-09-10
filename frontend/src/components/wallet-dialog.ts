@@ -4,9 +4,8 @@ import { BaseElement, define } from './base'
  *
  *    <wallet-dialog phase="signing" address="0x1f9c…072a" message-text={message} />
  *
- *  단계는 화면이 속성으로 정하고 컴포넌트는 `sign`·`cancel` 만 던진다.
- *  React 가 단계를 들고 있어야 화면 상태와 갈라지지 않으므로 스스로 닫지 않는다.
- *  지갑 호출도 화면 쪽 몫이라, 이 컴포넌트는 체인도 지갑도 모른다.
+ *  단계는 화면이 속성으로 정하고 컴포넌트는 `sign`·`cancel` 만 던진다 — 스스로 닫지
+ *  않고, 지갑 호출도 화면 몫이라 체인도 지갑도 모른다.
  */
 export type WalletPhase = 'idle' | 'signing' | 'rejected'
 
