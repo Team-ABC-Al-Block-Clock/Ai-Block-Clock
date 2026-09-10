@@ -142,7 +142,9 @@ export default function MyAgents() {
     used: 0,
     flows: 0,
   })
-  const [deleteAt, setDeleteAt] = useState<string | null>(null)
+  /** 삭제 대상. 이름을 함께 붙들어 둔다 — WORKFLOW_002 로 목록을 무효화하면 그 행이
+   *  사라져서, 목록에서 찾아 쓰면 모달 제목이 '‘’를 삭제할까요?' 가 된다. */
+  const [deleteAt, setDeleteAt] = useState<{ workflowId: string; name: string } | null>(null)
 
   /** 요청은 타자가 멎은 뒤에 갱신한다. 없으면 타자 한 번에 요청 한 번이다.
    *  주소를 되읽어 value 로 쓰지 않는다 — 리렌더가 조합 중인 input 을 덮으면 한글이
@@ -261,9 +263,11 @@ export default function MyAgents() {
    *  넷을 넘기면 그때 드롭다운을 만든다. */
   const cycleSort = () =>
     setSortAt((prev) => ({ ...prev, [tab]: (prev[tab] + 1) % Math.max(1, options.length) }))
+  /** 같은 행을 연달아 누르면 등록·해제가 엇갈리므로 막는다. 다른 행은 막지 않는다 —
+   *  전역 `isPending` 으로 막으면 옆 행의 별 클릭이 아무 표시 없이 사라진다. */
+  const pendingFavAt = favorite.isPending ? favorite.variables.agentId : null
   const toggleFav = (agentId: string, next: boolean) => () => {
-    // 진행 중에 또 누르면 등록·해제가 엇갈린다. mutations retry 는 false 가 기본이다.
-    if (!favorite.isPending) favorite.mutate({ agentId, next })
+    if (pendingFavAt !== agentId) favorite.mutate({ agentId, next })
   }
 
   const rows: Row[] =
@@ -363,7 +367,6 @@ export default function MyAgents() {
     }
   }, [tab, notice])
 
-  const target = flowRows.find((flow) => flow.workflowId === deleteAt)
   const deleteError = remove.error
   const deleteMessage =
     deleteError instanceof ApiError
@@ -377,7 +380,7 @@ export default function MyAgents() {
     remove.reset()
   }
   const handleConfirmDelete = () => {
-    if (deleteAt && !remove.isPending) remove.mutate(deleteAt)
+    if (deleteAt && !remove.isPending) remove.mutate(deleteAt.workflowId)
   }
 
   return (
@@ -581,7 +584,7 @@ export default function MyAgents() {
               lastExecutedAt={flow.lastExecutedAt}
               href={paths.edit.nodes(flow.workflowId)}
               delay={i % PAGE_SIZE}
-              onDelete={() => setDeleteAt(flow.workflowId)}
+              onDelete={() => setDeleteAt({ workflowId: flow.workflowId, name: flow.name })}
             />
           ))}
           {/* 이 칸이 보이면 다음 장을 불러온다. 마지막 장이면 걸지 않는다. */}
@@ -645,7 +648,7 @@ export default function MyAgents() {
             }}
           >
             <div className="text-[17px] font-semibold tracking-[-.01em] text-white">
-              ‘{target?.name}’{josa(target?.name ?? '')} 삭제할까요?
+              ‘{deleteAt.name}’{josa(deleteAt.name)} 삭제할까요?
             </div>
             <div
               className="text-[13px]"
