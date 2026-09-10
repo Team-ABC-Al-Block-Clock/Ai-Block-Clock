@@ -1,17 +1,19 @@
 import { BaseElement, define } from './base'
 
-/** 지갑 연결·서명 대화상자 — 연결 요청 → 서명 대기 → 거절.
+/** 지갑 서명 대화상자 — 서명 대기 → 거절.
  *
- *    <wallet-dialog phase="request" address="0x1f9c…072a" />
+ *    <wallet-dialog phase="signing" address="0x1f9c…072a" message-text={message} />
  *
  *  단계는 화면이 속성으로 정하고 컴포넌트는 `sign`·`cancel` 만 던진다.
  *  React 가 단계를 들고 있어야 화면 상태와 갈라지지 않으므로 스스로 닫지 않는다.
  *  지갑 호출도 화면 쪽 몫이라, 이 컴포넌트는 체인도 지갑도 모른다.
  */
-export type WalletPhase = 'idle' | 'request' | 'signing' | 'rejected'
+export type WalletPhase = 'idle' | 'signing' | 'rejected'
 
 export class WalletDialog extends BaseElement {
-  static observedAttributes = ['phase', 'address', 'nonce', 'error-code']
+  /** 이름에 접미사를 붙인다 — 표준 프로퍼티(`HTMLElement.nonce` 등)와 겹치면
+   *  React 가 속성 대신 프로퍼티에 넣어 조용히 기본값이 그려진다(10절). */
+  static observedAttributes = ['phase', 'address', 'message-text', 'error-code']
 
   protected override usesShadow = true
 
@@ -28,11 +30,27 @@ export class WalletDialog extends BaseElement {
     this.host(
       'position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:70',
     )
-    // shadow 안에는 문서의 @keyframes 가 닿지 않는다 — 쓰는 것만 직접 넣는다
+    // shadow 안에는 문서의 @keyframes 가 닿지 않는다 — 쓰는 것만 직접 넣는다.
+    // 서명 대기 표시는 조각이 많아 클래스로 둔다. shadow 안이라 이름이 새지 않는다.
     this.addStyle(
       '@keyframes wd-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}' +
         '@keyframes wd-fade{from{opacity:0}to{opacity:1}}' +
-        '@keyframes wd-spin{to{transform:rotate(360deg)}}',
+        '@keyframes wd-halo{0%,100%{transform:scale(.88);opacity:.4}50%{transform:scale(1.08);opacity:.8}}' +
+        '@keyframes wd-orbit{to{transform:rotate(360deg)}}' +
+        // 가는 링 하나. 안쪽에 뭘 더 넣으면 카메라 렌즈처럼 보인다.
+        '.wd-orb{position:relative;width:56px;height:56px;margin:0 auto}' +
+        '.wd-orb>span{position:absolute;display:block;border-radius:50%}' +
+        // 달빛이 번지는 듯한 후광 — 대기 중이라는 것을 멀리서도 알아보게 한다
+        '.wd-halo{inset:-9px;background:radial-gradient(circle,rgba(233,183,210,.3),rgba(233,183,210,0) 66%);animation:wd-halo 2.4s ease-in-out infinite}' +
+        '.wd-track{inset:0;background:rgba(255,255,255,.07)}' +
+        '.wd-arc{inset:0;background:conic-gradient(from 0deg,rgba(233,183,210,0) 0deg,' +
+        'var(--color-accent,#e9b7d2) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
+        'mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
+        '-webkit-mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
+        'animation:wd-orbit 1.5s cubic-bezier(.55,.12,.45,.88) infinite}' +
+        // 움직임을 줄여 달라고 설정한 사람에게는 후광만 천천히 남긴다
+        '@media (prefers-reduced-motion:reduce){.wd-arc{animation:none}' +
+        '.wd-halo{animation-duration:4s}}',
     )
   }
 
@@ -55,7 +73,7 @@ export class WalletDialog extends BaseElement {
     }
 
     const sheet =
-      'position:relative;width:400px;box-sizing:border-box;padding:28px;border-radius:20px;' +
+      'position:relative;width:456px;box-sizing:border-box;padding:28px;border-radius:20px;' +
       'background:rgba(22,12,38,.96);backdrop-filter:blur(26px) saturate(120%);' +
       '-webkit-backdrop-filter:blur(26px) saturate(120%);box-shadow:0 20px 52px rgba(4,2,12,.55);' +
       'text-align:center;animation:wd-in .3s cubic-bezier(.2,.9,.3,1) both'
@@ -88,42 +106,29 @@ export class WalletDialog extends BaseElement {
   }
 
   private bodyFor(phase: WalletPhase): string {
-    if (phase === 'request')
-      return (
-        this.badge('M') +
-        this.heading('지갑 연결 요청') +
-        this.lead('MetaMask 확장에서 연결을 승인해 주세요.<br>승인하면 지갑 주소로 로그인됩니다.') +
-        '<div style="margin-top:18px;height:44px;border-radius:11px;background:rgba(255,255,255,.07);' +
-        'display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;' +
-        'color:#fff;letter-spacing:.01em">' +
-        this.str('address', '0x0000…0000') +
-        '</div>' +
-        this.actions([
-          { label: '취소', kind: 'cancel' },
-          { label: '서명 요청', kind: 'sign', primary: true },
-        ])
-      )
-
     if (phase === 'signing')
       return (
         this.spinner() +
-        this.heading('서명을 기다리는 중') +
-        this.lead('MetaMask 창에서 서명을 승인해 주세요.<br>자산이 이동하지는 않습니다.') +
-        this.note('서명할 메시지', 'ABC 로그인 · nonce ' + this.str('nonce', '000000')) +
+        this.heading('지갑에서 서명을 기다리는 중') +
+        this.lead('MetaMask 창에서 서명을 완료해 주세요.\n서명에는 가스비가 들지 않습니다.') +
+        // 지갑이 실제로 서명하는 원문을 그대로 보여 준다. 요약을 손으로 만들면
+        // MetaMask 창과 달라져, 대조해 확인하려는 사람을 오히려 속인다.
+        this.note([
+          ...this.str('message-text').split(/\r?\n/).filter(Boolean),
+          `서명 계정: ${this.str('address', '0x0000…0000')}`,
+        ]) +
         // 승인·거절은 MetaMask 창이 받는다. 여기에는 물러날 길만 둔다.
         this.actions([{ label: '취소', kind: 'cancel' }])
       )
 
     return (
-      this.badge('×', 22, 600) +
+      this.badge('!', 20, 700) +
       this.heading('서명이 거절되었습니다') +
-      this.lead(
-        '서명하지 않으면 로그인할 수 없습니다.<br>다시 시도하거나 지갑을 바꿔 연결해 주세요.',
-      ) +
-      this.note('오류 코드', this.str('error-code', 'ACTION_REJECTED · 4001'), '#f0b6c8') +
+      this.lead('지갑에서 서명을 취소했습니다. 로그인을 계속하려면 다시 시도해 주세요.') +
+      this.code(this.str('error-code', 'ACTION_REJECTED · 4001')) +
       this.actions([
-        { label: '닫기', kind: 'cancel' },
-        { label: '다시 서명', kind: 'sign', primary: true },
+        { label: '취소', kind: 'cancel' },
+        { label: '다시 시도', kind: 'sign', primary: true },
       ])
     )
   }
@@ -132,30 +137,25 @@ export class WalletDialog extends BaseElement {
 
   private badge(glyph: string, size = 19, weight = 700): string {
     return (
-      '<div style="width:52px;height:52px;margin:0 auto;border-radius:15px;' +
-      'background:rgba(233,174,196,.2);display:flex;align-items:center;justify-content:center;' +
+      '<div style="width:52px;height:52px;margin:0 auto;border-radius:50%;' +
+      'background:rgba(240,150,170,.22);display:flex;align-items:center;justify-content:center;' +
       'font-size:' +
       size +
       'px;font-weight:' +
       weight +
-      ';color:#ffd7e6">' +
+      ';color:#ffb4c8">' +
       glyph +
       '</div>'
     )
   }
 
+  /** 서명을 기다리는 동안의 표시. 스타일은 `build()` 의 클래스에 있다. */
   private spinner(): string {
-    const ring = 'radial-gradient(farthest-side, transparent 66%, #000 68%)'
     return (
-      '<div style="width:52px;height:52px;margin:0 auto;position:relative">' +
-      '<div style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,.09)"></div>' +
-      '<div style="position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,' +
-      'rgba(201,169,221,0) 0deg, var(--color-lilac,#c9a9dd) 300deg, rgba(201,169,221,0) 360deg);' +
-      'mask:' +
-      ring +
-      ';-webkit-mask:' +
-      ring +
-      ';animation:wd-spin 1.4s linear infinite"></div>' +
+      '<div class="wd-orb">' +
+      '<span class="wd-halo"></span>' +
+      '<span class="wd-track"></span>' +
+      '<span class="wd-arc"></span>' +
       '</div>'
     )
   }
@@ -169,27 +169,48 @@ export class WalletDialog extends BaseElement {
     )
   }
 
-  private lead(html: string): string {
+  /** 마크업으로 해석되지 않게 막는다. `note` 에는 서버가 준 문자열이 들어온다. */
+  private esc(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+
+  private lead(text: string): string {
+    // 줄바꿈은 `\n` 으로 쓴다. `pre-line` 이 없으면 HTML 이 공백으로 접어 버린다.
     return (
-      '<div style="margin-top:8px;font-size:13px;line-height:1.6;' +
+      '<div style="margin-top:8px;font-size:13px;line-height:1.6;white-space:pre-line;' +
       'color:rgba(255,236,246,.68);letter-spacing:-.01em">' +
-      html +
+      this.esc(text) +
       '</div>'
     )
   }
 
-  private note(label: string, value: string, color = 'rgba(255,240,247,.8)'): string {
+  private note(lines: string[]): string {
     return (
       '<div style="margin-top:18px;box-sizing:border-box;padding:12px 14px;border-radius:11px;' +
-      'background:rgba(255,255,255,.06);text-align:left">' +
-      '<div style="font-size:11px;color:rgba(255,236,246,.55);letter-spacing:-.01em">' +
-      label +
-      '</div>' +
-      '<div style="margin-top:5px;font-size:12px;line-height:1.55;color:' +
-      color +
-      ';letter-spacing:-.01em">' +
-      value +
-      '</div></div>'
+      'background:rgba(255,255,255,.06)">' +
+      lines
+        .map(
+          (line, i) =>
+            '<div style="' +
+            (i === 0
+              ? 'font-size:12.5px;font-weight:600;color:#fff'
+              : 'margin-top:5px;font-size:11.5px;color:rgba(255,236,246,.62)') +
+            ';letter-spacing:-.01em">' +
+            this.esc(line) +
+            '</div>',
+        )
+        .join('') +
+      '</div>'
+    )
+  }
+
+  /** 오류 코드는 박스 없이 한 줄로 — 시안에서 안내문과 버튼 사이에 조용히 놓인다. */
+  private code(text: string): string {
+    return (
+      '<div style="margin-top:14px;font-size:11.5px;color:rgba(255,236,246,.55);' +
+      'letter-spacing:-.01em">' +
+      text +
+      '</div>'
     )
   }
 

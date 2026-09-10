@@ -341,6 +341,9 @@ this.root.innerHTML = …                 // this.innerHTML (✗)
 ```
 
 shadow 안에는 문서의 `@keyframes` 가 닿지 않으므로 `addStyle()` 로 함께 넣는다.
+`addStyle()` 은 자식 `<style>` 이 아니라 `adoptedStyleSheets` 로 넣는다 — 자식으로 붙이면
+`update()` 가 `root.innerHTML` 로 다시 그릴 때 같이 지워진다. 오류가 나지 않고 애니메이션만
+조용히 멈추므로, 서명 대기 스피너가 한참 동안 돌지 않는 채로 있었다.
 
 ### 커스텀 엘리먼트 속성명이 프로퍼티와 겹치지 않게 한다
 
@@ -350,6 +353,8 @@ React 19 는 해당 프로퍼티가 엘리먼트에 있으면 **속성이 아니
 <ocean-bg blur={5} />               // ✗ 속성이 안 붙는다
 <ocean-bg {...{ 'blur-px': 5 }} />  // ○
 ```
+
+`nonce` 도 같다 — `HTMLElement.nonce`(CSP)와 겹쳐 프로퍼티로 들어가고, 브라우저가 보안상 content 속성을 비워서 `getAttribute` 가 `null` 이다. **표준 프로퍼티와 이름이 겹치는지 의심되면 접미사를 붙인다**(`nonce-value`·`blur-px`). 겹치면 조용히 기본값이 그려진다.
 
 **내가 만든 getter 도 프로퍼티다.** 관찰 속성과 같은 이름의 getter 를 두면 React 가 거기에 대입하려 하고, setter 가 없으면 그 자리에서 터진다 — `Cannot set property phase of #<WalletDialog> which has only a getter`. 속성은 `str('phase')` 로 읽고 이름이 겹치는 프로퍼티는 두지 않는다(`components/wallet-dialog.ts`).
 

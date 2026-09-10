@@ -41,7 +41,8 @@ declare module 'react' {
         /** 'idle' | 'request' | 'signing' | 'rejected' — 화면이 단계를 소유한다 */
         phase?: string
         address?: string
-        nonce?: string
+        /** 지갑이 서명할 원문. 이름에 접미사를 붙인 이유는 10절 참고 */
+        'message-text'?: string
         'error-code'?: string
       }>
       'profile-sidebar': El

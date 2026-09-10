@@ -15,6 +15,8 @@ import { scene } from '@/mocks/scenario'
  * 새로고침마다 픽스처로 돌아가서 "저장했는데 안 남는다" 로 보인다.
  */
 const PROFILE_KEY = 'mockProfile'
+/** 한 번이라도 로그인한 지갑. 처음 보는 주소는 온보딩 전으로 취급해 가입 화면을 태운다. */
+const KNOWN_WALLETS_KEY = 'mockKnownWallets'
 
 /** 저장된 것이 있으면 픽스처 위에 덮는다. 필드가 늘어나도 옛 저장값이 깨지지 않는다. */
 function readProfile(): UserProfile {
@@ -23,6 +25,26 @@ function readProfile(): UserProfile {
     return raw ? { ...PROFILE, ...(JSON.parse(raw) as Partial<UserProfile>) } : { ...PROFILE }
   } catch {
     return { ...PROFILE }
+  }
+}
+
+function readKnownWallets(): string[] {
+  try {
+    const raw = localStorage.getItem(KNOWN_WALLETS_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+function rememberWallet(address: string): void {
+  try {
+    const known = readKnownWallets()
+    if (!known.includes(address)) {
+      localStorage.setItem(KNOWN_WALLETS_KEY, JSON.stringify([...known, address]))
+    }
+  } catch {
+    /* 접근 불가 환경 */
   }
 }
 
@@ -76,7 +98,7 @@ export const authHandlers = [
 
     const nonce = crypto.randomUUID()
     return ok<WalletMessage>({
-      message: `ABC AI Block Clock 로그인에 서명합니다.\nnonce: ${nonce}`,
+      message: `ABC AI Block Clock 로그인\nnonce: ${nonce}`,
       nonce,
     })
   }),
@@ -91,6 +113,20 @@ export const authHandlers = [
       signature?: string
     }
     if (!walletAddress || !signature) return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
+
+    // 실제 검증은 서버가 주소를 복원해서 한다. mock 은 모양만 본다 —
+    // 그래야 자리표시자 서명으로 로그인되던 예전 동작이 되살아나지 않는다.
+    // 요청에 nonce 가 없어 어떤 메시지에 서명했는지 알 수 없다(아래 주석 참고).
+    if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+      return fail(400, 'COMMON_001', '서명이 올바르지 않습니다.')
+    }
+
+    // 실서버는 계정이 없으면 만들고 프로필이 빈 채로 준다. 여기서는 처음 보는
+    // 지갑이면 온보딩 전으로 되돌려 가입 화면 분기를 확인할 수 있게 한다.
+    if (!readKnownWallets().includes(walletAddress)) {
+      writeProfile({ ...readProfile(), onboardingCompleted: false })
+    }
+    rememberWallet(walletAddress)
 
     writeSession(walletAddress)
     return issueTokens()
@@ -121,7 +157,8 @@ export const authHandlers = [
 
     // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — 픽스처 주소를 그대로
     // 돌려주면 어느 지갑으로 들어왔는지 화면에서 확인할 수 없다.
-    return ok<UserProfile>({ ...readProfile(), walletAddress })
+    const stored = readProfile()
+    return ok<UserProfile>({ ...stored, wallet: { ...stored.wallet, address: walletAddress } })
   }),
   http.patch(`${API_BASE_URL}/users/me`, async ({ request }) => {
     const forced = await scene()
