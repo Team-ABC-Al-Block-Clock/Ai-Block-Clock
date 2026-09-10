@@ -121,10 +121,7 @@ export interface MyAgent {
   iconUrl: string | null
   /** 실행 1회당 판매 가격(단가). 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다. */
   price: string
-  /**
-   * 누적 수익. **추정** — API 설명은 「실행 횟수와 수익을 함께 반환한다」인데 Response Field
-   * 표에는 없다. 단가와 같은 이유로 문자열이다.
-   */
+  /** 누적 수익. 단가와 같은 이유로 문자열이다 — 숫자로 되돌리지 않는다. */
   revenue: string
   /** 누적 실행 횟수 */
   executionCount: number
