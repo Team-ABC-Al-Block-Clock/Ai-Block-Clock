@@ -1,6 +1,7 @@
 import { useEffect, type ReactElement } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import logo from './assets/logo.png'
+import ChainBanner from './components/ChainBanner'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useSessionRestore } from './hooks/useSessionRestore'
@@ -175,6 +176,7 @@ export default function App() {
       </div>
 
       {/* 껍데기 — 화면 내용과 달리 라우트가 바뀌어도 그대로 붙어 있습니다 */}
+      <ChainBanner />
       {shell.header && <app-header home-href={paths.home} logo-src={logo}></app-header>}
       {/* My Agent Studio — 아바타(1374,26,48×48) 왼쪽 12px. 알약 크기는 와이어프레임 그대로,
           색·그림자·hover 는 이 앱의 primary 버튼(실행하기 등)과 같은 accent 계열로. */}
