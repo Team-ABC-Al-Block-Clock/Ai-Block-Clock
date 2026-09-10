@@ -259,12 +259,10 @@ API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 �
 
 추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
 
-`GET /users/me` 는 이 규칙이 값을 한 이유다. 명세가 오니 지갑이 평평한 `walletAddress` 가 아니라
-`wallet: { provider, address, network, chainId }` 였다 — 화면이 `api/` 타입만 참조하고 있었으므로
-고친 곳은 타입·스토어 한 줄·표시 두 곳뿐이었다. 여기서 나온 규칙 둘:
+확정된 `GET /users/me` 에서 지갑은 평평한 필드가 아니라 `wallet: { provider, address, network, chainId }` 다.
 
-- **지갑 주소는 `profile.wallet.address`.** 평평하게 읽으면 mock 에서는 통과하고 실서버에서만 조용히 `undefined` 가 된다
-- **제공자·네트워크는 서버가 준다**(`wallet.provider` · `wallet.chainId`). 배포 설정이라 화면이 정할 값이 아니다 — `chainLabel` 을 박아 두면 메인넷으로 옮길 때 갈라진다. 「정상 연결」 같은 표시만 브라우저 지갑 상태라서 화면이 판단한다
+- **지갑 주소는 `profile.wallet.address`.** 평평하게 읽으면 mock 은 통과하고 실서버에서만 조용히 `undefined` 가 된다
+- **프로필에 표시하는 제공자·네트워크는 서버 값을 쓴다**(`wallet.provider`·`wallet.chainId`). 배포 설정이라 화면이 정할 값이 아니다. 「정상 연결」 표시만 브라우저 지갑 상태라서 화면이 판단한다
 
 ### 토큰
 
