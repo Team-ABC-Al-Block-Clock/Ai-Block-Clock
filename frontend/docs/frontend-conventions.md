@@ -20,33 +20,9 @@
 | 상수                  | UPPER_SNAKE_CASE            | `const TABS = [...]`                           |
 | 불리언                | `is` · `has` · `can` 접두사 | `isActive` · `hasError`                        |
 
-- 인터페이스에 `I` 를 붙이지 않는다. `IUserData` (✗) → `UserData` (○)
-- Props 타입이 한 줄이면 인라인도 허용하되, 두 개를 넘으면 이름을 붙인다
-
-```tsx
-// ○ 짧으면 인라인
-function Sidebar({ active }: { active?: Tab }) {}
-
-// ○ 늘어나면 이름을 붙인다
-interface SidebarProps {
-  active?: Tab
-  editing?: boolean
-  onSelect?: (tab: Tab) => void
-}
-```
-
-### 예외 — 웹 컴포넌트는 kebab-case
-
-커스텀 엘리먼트는 **HTML 표준이 태그명에 하이픈을 요구한다.** 파일명을 태그명과 맞춘다.
-
-```
-src/components/screen-frame.ts   →  <screen-frame>
-src/components/ocean-bg.ts       →  <ocean-bg>
-src/components/app-header.ts     →  <app-header>
-src/components/profile-menu.ts   →  <profile-menu>
-```
-
-React 컴포넌트(`Sidebar.tsx`)와 웹 컴포넌트(`app-header.ts`)를 파일명만으로 구분할 수 있다.
+- 인터페이스에 `I` 를 붙이지 않는다. `IUserData`(✗) → `UserData`(○)
+- Props 가 한 줄이면 인라인, 두 개를 넘으면 이름을 붙인다
+- **예외 — 웹 컴포넌트는 kebab-case.** 커스텀 엘리먼트는 HTML 표준이 태그명에 하이픈을 요구한다. 파일명을 태그명과 맞춘다(`components/ocean-bg.ts` → `<ocean-bg>`). React 컴포넌트(`Sidebar.tsx`)와 파일명만으로 구분된다
 
 ---
 
@@ -80,19 +56,7 @@ frontend/src/
 
 ## 3. 화면 구조
 
-껍데기와 내용을 분리한다.
-
-```tsx
-// App.tsx — 라우트가 바뀌어도 유지되는 것
-<screen-frame>
-  <ocean-bg /> {/* 배경: 다시 만들면 셰이더 재컴파일 */}
-  <div className="animate-screen-in">
-    <Routes>…</Routes> {/* 내용만 갈아끼움 */}
-  </div>
-  <app-header /> {/* 로고 */}
-  <profile-menu /> {/* 프로필 메뉴 */}
-</screen-frame>
-```
+껍데기와 내용을 분리한다. `App.tsx` 가 `<screen-frame>` 안에 배경(`<ocean-bg>`)·로고·프로필 메뉴를 두고 `<Routes>` 의 내용만 갈아끼운다 — 배경을 다시 만들면 셰이더가 재컴파일되어 캔버스가 잠깐 비어 까맣게 보인다.
 
 - 라우트별 설정(배경 밝기·로고 표시 여부 등)은 `lib/shell.ts` 한 곳에 모은다
 - 화면(`pages/*.tsx`)은 **자기 내용만** 그린다. 배경·로고·헤더를 각자 넣지 않는다
@@ -103,14 +67,6 @@ frontend/src/
 
 경로는 `routes/paths.ts` 에서만 정의한다. 나머지는 전부 여기서 파생된다.
 
-```ts
-// routes/paths.ts — 유일한 정의
-export const routePatterns = {
-  agentDetail: ['/agent', '/agent/:agentId'],
-  // …
-}
-```
-
 | 쓰는 곳            | 무엇을                                           |
 | ------------------ | ------------------------------------------------ |
 | `App.tsx`          | `SCREENS[key]` 로 `<Route>` 를 만든다            |
@@ -118,41 +74,22 @@ export const routePatterns = {
 | `routes/access.ts` | `REQUIRES_AUTH[key]` 로 인증 요구를 정한다       |
 | 화면 · 컴포넌트    | `paths.agentDetail(id)` 로 링크 주소를 만든다    |
 
-- **경로 문자열을 컴포넌트에 직접 쓰지 않는다**
+- **경로 문자열을 컴포넌트에 직접 쓰지 않는다.** `<a href={paths.my.agents}>`(○) · `<a href="/my/agents">`(✗)
+- 화면을 추가하려면 `routePatterns` 에 키를 하나 넣는다. 위 세 곳이 모두 `Record<ScreenKey, …>` 라서 다 채울 때까지 컴파일이 실패한다
+- ID 를 받는 화면은 `[ID 없는 경로, ID 있는 경로]` 두 패턴을 갖는다. 해당 도메인 mock 핸들러가 아직 없어(8절) 넘길 ID 가 없기 때문이고, 핸들러가 붙으면 앞쪽 패턴과 `.withoutId` 를 같이 지운다 — 남은 호출부가 전부 컴파일 에러로 드러난다
 
 ```tsx
-<a href={paths.my.agents}>   {/* ○ */}
-<a href="/my/agents">        {/* ✗ */}
+paths.agentDetail(agentId) // ID 가 있으면 언제나 이쪽 — 인자는 필수다
+paths.agentDetail.withoutId // 아직 ID 가 없는 화면만
 ```
 
-- 화면을 추가하려면 `routePatterns` 에 키를 하나 넣는다. `SCREENS` 와 `BY_SCREEN` 이 `Record<ScreenKey, …>` 라서 둘 다 채울 때까지 컴파일이 실패한다
-- 리소스 ID 를 받는 화면은 `[ID 없는 경로, ID 있는 경로]` 두 패턴을 갖는다. 해당 도메인 mock 핸들러가 아직 없어(8절) 쓸 ID 가 없기 때문이고, 핸들러가 붙으면 앞쪽을 지운다
+인자를 선택으로 두면 ID 를 빠뜨렸을 때 에러 없이 옛 경로로 착지해 버린다.
 
-```tsx
-paths.agentDetail(agentId) // '/agent/{id}' — ID 가 있으면 언제나 이쪽
-paths.agentDetail.withoutId // '/agent'      — 아직 ID 가 없는 화면만
-```
-
-`paths.agentDetail(id)` 의 인자는 **필수**다. 옛날처럼 인자를 선택으로 두면 ID 를 빠뜨렸을 때 에러 없이 옛 경로로 착지해 버린다. 전환이 끝나면 `routePatterns` 의 앞쪽 패턴과 `.withoutId` 를 같이 지운다 — 남은 호출부가 전부 컴파일 에러로 드러난다
-
-### 왜 이렇게까지 하나
-
-패턴이 `App.tsx`·`paths.ts`·`shell.ts` 세 곳에 손으로 복제돼 있던 적이 있다. `App.tsx` 에만 `/agent/:agentId` 를 추가하고 `shell.ts` 를 빠뜨렸는데 **컴파일이 통과했고**, 상세 화면의 배경 밝기와 프로필 메뉴가 사라졌다. 사람이 지키는 규약 대신 타입으로 묶는다.
+> 이 패턴이 `App.tsx`·`paths.ts`·`shell.ts` 세 곳에 손으로 복제돼 있던 적이 있다. `App.tsx` 에만 `/agent/:agentId` 를 추가하고 `shell.ts` 를 빠뜨렸는데 **컴파일이 통과했고**, 상세 화면의 배경 밝기와 프로필 메뉴가 사라졌다. 사람이 지키는 규약 대신 타입으로 묶는 이유다.
 
 ### 보호 라우트
 
-인증이 필요한 화면은 `routes/access.ts` 의 `REQUIRES_AUTH` 에 적고, `App.tsx` 가 그 값을 보고 `<ProtectedRoute>` 로 감싼다. 화면 안에서 로그인 여부를 확인하지 않는다.
-
-```ts
-// routes/access.ts — 화면별 인증 요구
-export const REQUIRES_AUTH: Record<ScreenKey, boolean> = {
-  home: false, // 마켓 둘러보기까지는 지갑 없이 열어 둔다
-  myAgents: true, // 등록·실행·마이페이지는 지갑 세션이 필요하다
-  // …
-}
-```
-
-`Record<ScreenKey, boolean>` 이라 화면을 추가하면 **공개인지 보호인지 정할 때까지 컴파일이 실패한다.** 새 화면이 판단 없이 조용히 공개로 열리는 것을 막는다.
+인증이 필요한 화면은 `routes/access.ts` 의 `REQUIRES_AUTH` 에 적고 `App.tsx` 가 그 값을 보고 `<ProtectedRoute>` 로 감싼다. **화면 안에서 로그인 여부를 확인하지 않는다.** 여기도 `Record<ScreenKey, boolean>` 이라 새 화면이 판단 없이 조용히 공개로 열리는 것을 막는다.
 
 | 상태                 | 화면                                        |
 | -------------------- | ------------------------------------------- |
@@ -161,34 +98,16 @@ export const REQUIRES_AUTH: Record<ScreenKey, boolean> = {
 | `authenticated`      | 화면 그대로                                 |
 
 - **확인이 끝나기 전을 미인증으로 보지 않는다.** Access Token 은 메모리에만 있어(7절) 새로고침하면 사라지고, 부팅 시 재발급으로 되살린다. 그 사이를 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다
-- 로그인 화면으로 보낼 때 막힌 경로를 history state 로 넘기고, 로그인이 끝나면 `redirectTargetFrom(state)` 으로 그 경로로 돌아간다. state 는 사용자가 만질 수 있으므로 내부 경로인지 확인한다 — `//evil.com` 과 `/\evil.com` 은 `/` 로 시작하지만 브라우저가 외부 주소로 읽는다
-- 이동은 `replace` 로 한다. 막힌 경로나 로그인 화면을 히스토리에 남기면 뒤로 가기가 다시 그 자리로 튕긴다
+- 막힌 경로를 history state 로 넘기고, 로그인이 끝나면 `redirectTargetFrom(state)` 으로 그 경로로 돌아간다. state 는 사용자가 만질 수 있으므로 내부 경로인지 확인한다 — `//evil.com` 과 `/\evil.com` 은 `/` 로 시작하지만 브라우저가 외부 주소로 읽는다
+- 이동은 `replace` 로 한다. 막힌 경로나 로그인 화면이 히스토리에 남으면 뒤로 가기가 다시 그 자리로 튕긴다
 
 ---
 
 ## 5. 환경변수 · 경로 alias
 
-### `@/` 로 임포트한다
+**`@/` 로 임포트한다.** `vite.config.ts` 와 `tsconfig.app.json` 에 `@/*` → `src/*` 가 걸려 있다. 같은 폴더 안(`./base`)은 상대 경로 그대로 둔다.
 
-`vite.config.ts` 와 `tsconfig.app.json` 에 `@/*` → `src/*` 가 걸려 있다.
-
-```ts
-import { paths } from '@/routes/paths' // ○
-import { paths } from '../../routes/paths' // ✗
-```
-
-같은 폴더 안(`./base`)은 상대 경로 그대로 둔다.
-
-### `import.meta.env` 를 직접 읽지 않는다
-
-`lib/env.ts` 를 거친다.
-
-```ts
-env.apiBaseUrl // ○
-import.meta.env.VITE_API_BASE_URL // ✗ — 없을 수 있다
-```
-
-`.env` 는 커밋되지 않는다 (`.env.example` 만 예외). 클론 직후에는 **어느 값도 없을 수 있으므로** `ImportMetaEnv` 의 필드는 전부 선택이고, 기본값은 `lib/env.ts` 가 채운다.
+**`import.meta.env` 를 직접 읽지 않는다.** `lib/env.ts` 를 거친다. `.env` 는 커밋되지 않으므로(`.env.example` 만 예외) 클론 직후에는 **어느 값도 없을 수 있다** — `ImportMetaEnv` 의 필드는 전부 선택이고 기본값은 `lib/env.ts` 가 채운다.
 
 값이 없을 때 조용히 잘못된 값으로 굴러가지 않게 하는 것이 이 모듈의 목적이다. `VITE_API_BASE_URL` 을 그냥 읽으면 `baseURL` 이 `undefined/v1` 이 되는데, 상대 경로라서 요청이 dev 서버로 붙고 index.html 이 **200 으로** 돌아온다 — 네트워크 탭은 성공인데 JSON 파싱만 실패한다.
 
@@ -197,13 +116,9 @@ import.meta.env.VITE_API_BASE_URL // ✗ — 없을 수 있다
 | `VITE_APP_NAME`         | `ABC AI Block Clock`    | `lib/env.ts`     |                                     |
 | `VITE_API_BASE_URL`     | `/api`                  | `lib/env.ts`     | vite 프록시가 받는다                |
 | `VITE_USE_MOCK`         | `true`                  | `lib/env.ts`     | 끄려면 `false` 를 **명시**해야 한다 |
-| `VITE_API_PROXY_TARGET` | `http://localhost:8080` | `vite.config.ts` | 빌드타임 전용 — 아래 참고           |
+| `VITE_API_PROXY_TARGET` | `http://localhost:8080` | `vite.config.ts` | 빌드타임 전용                       |
 
-> `VITE_USE_MOCK` 이 실제로 무엇을 켜는지는 8절을 본다.
-
-변수를 추가하면 `.env.example` · `vite-env.d.ts` · `lib/env.ts` 세 곳을 같이 고친다.
-
-**단, 브라우저에 실리는 변수만 그렇다.** `VITE_API_PROXY_TARGET` 은 dev 서버의 프록시 설정값이라 `vite.config.ts` 가 `loadEnv` 로 읽는다. 번들에 들어가지 않으므로 `ImportMetaEnv` 에도 `lib/env.ts` 에도 없는 것이 맞다 — `.env.example` 에만 적는다.
+변수를 추가하면 `.env.example` · `vite-env.d.ts` · `lib/env.ts` 세 곳을 같이 고친다. **단, 브라우저에 실리는 변수만 그렇다** — `VITE_API_PROXY_TARGET` 은 dev 서버 프록시 설정값이라 `vite.config.ts` 가 `loadEnv` 로 읽고 번들에 들어가지 않으므로 `.env.example` 에만 적는다.
 
 ---
 
@@ -211,7 +126,7 @@ import.meta.env.VITE_API_BASE_URL // ✗ — 없을 수 있다
 
 서버에서 온 것은 TanStack Query, 화면 안에서만 사는 것은 `useState`·zustand. **서버 응답을 `useState` 로 복사하지 않는다.**
 
-### 기본 옵션 (`lib/queryClient.ts`)
+기본 옵션은 `lib/queryClient.ts` 에 있다.
 
 | 옵션                   | 값                  | 이유                                                              |
 | ---------------------- | ------------------- | ----------------------------------------------------------------- |
@@ -227,33 +142,17 @@ useQuery({ queryKey: queryKeys.marketplace.agents.list({ page }) }) // ○
 useQuery({ queryKey: ['agents', page] }) // ✗
 ```
 
-**규칙**
-
 - 키 구조를 API 경로와 일치시킨다. `/api/v1/marketplace/agents` → `queryKeys.marketplace.agents`
 - 도메인마다 `all` 을 최상위에 둔다. **`all` 은 언제나 배열, 그 아래는 언제나 함수** — 괄호 유무로 헷갈리지 않게
-- `all` 을 갖는 것은 도메인뿐이다. 하위 리소스(`credits.transactions`, `settlements.statistics`)는 `lists()` 가 그 역할을 하므로 따로 두지 않는다
-- 하위 리소스가 `all` 을 갖는 유일한 예외는 `marketplace.agents` 다. 이때 키는 **상위에서 파생**한다 — 리터럴로 다시 적으면 상위를 고쳤을 때 두 키가 조용히 갈라진다
-
-```ts
-all: [...MARKETPLACE, 'agents'] as const // ○
-all: ['marketplace', 'agents'] as const // ✗
-```
-
-> `all` 은 함수가 아니라 배열이라 즉시 평가된다. 그 시점의 `queryKeys` 는 아직 TDZ 라 `[...queryKeys.marketplace.all, …]` 이 `ReferenceError` 가 된다 — 그래서 루트만 모듈 상단의 `const` 로 뺀다. 함수 안(`lists()` 등)에서는 `queryKeys` 를 그대로 참조해도 된다
-
-- 목록은 예외 없이 `lists()` → `list(params)`, 상세는 `details()` → `detail(id)`
-- 중간 계층이 있어야 부분 무효화가 된다
-
-```ts
-invalidateQueries({ queryKey: queryKeys.agents.lists() }) // 목록만
-invalidateQueries({ queryKey: queryKeys.agents.all }) // 도메인 전체
-```
-
+- `all` 을 갖는 것은 도메인뿐이다. 하위 리소스(`credits.transactions` 등)는 `lists()` 가 그 역할을 한다. 유일한 예외인 `marketplace.agents` 는 키를 **상위에서 파생**한다 — `all: [...MARKETPLACE, 'agents']`(○) · `all: ['marketplace', 'agents']`(✗). 리터럴로 다시 적으면 상위를 고쳤을 때 두 키가 조용히 갈라진다
+- 목록은 예외 없이 `lists()` → `list(params)`, 상세는 `details()` → `detail(id)`. 중간 계층이 있어야 부분 무효화(`invalidateQueries({ queryKey: queryKeys.agents.lists() })`)가 된다
 - 서버가 받는 query parameter 를 그대로 키에 넣는다. `undefined` 필드는 TanStack Query 의 해시에서 자동으로 빠진다
+
+> `all` 은 함수가 아니라 배열이라 즉시 평가된다. 그 시점의 `queryKeys` 는 아직 TDZ 라 `[...queryKeys.marketplace.all, …]` 이 `ReferenceError` 가 된다 — 그래서 루트만 모듈 상단의 `const` 로 뺀다. 함수 안(`lists()` 등)에서는 `queryKeys` 를 그대로 참조해도 된다.
 
 ### 불러오는 중에는 "없음" 을 띄우지 않는다
 
-`data` 가 아직 `undefined` 인 동안을 빈 목록으로 보고 "결과 없음" 을 그리면 **매 요청마다 한 번씩 깜빡인다.**
+`data` 가 아직 `undefined` 인 동안을 빈 목록으로 보면 **매 요청마다 "결과 없음" 이 한 번씩 깜빡인다.**
 
 ```ts
 const empty = list.length === 0 // ✗ 로딩 중에도 참
@@ -264,69 +163,56 @@ const empty = !isPending && !isError && list.length === 0 // ○
 
 ## 7. API 레이어
 
-### 요청은 `api/<도메인>.ts` 의 함수로만
+**요청은 `api/<도메인>.ts` 의 함수로만 한다.** 엔드포인트 하나당 함수 하나 — 화면에 URL 문자열이 없어야 경로가 바뀔 때 고칠 곳이 하나다. 응답 타입도 `api/` 에 둔다. 숫자를 문자열로 바꾸는 것은 `lib/format.ts` 가 한다(API 는 `runCount: 1248`, 화면은 `1,248회`).
 
-화면에서 URL 문자열을 쓰지 않는다. 엔드포인트 하나당 함수 하나를 export 한다. 경로가 바뀌어도 고칠 곳이 하나다.
+**응답은 봉투가 벗겨진 채로 온다.** 서버가 `{ status, data }` 로 감싸고 응답 인터셉터가 `data` 만 넘기므로 화면은 `res.data.data` 를 몰라도 된다.
 
-```ts
-// api/auth.ts
-export const getMyProfile = () => api.get<UserProfile>('/users/me')
-```
-
-### 응답 타입도 `api/` 에 둔다
-
-화면은 API 응답 타입을 직접 선언하지 않는다. 필드명이 바뀔 때 고칠 곳이 `api/` 안으로 한정된다. 숫자를 문자열로 바꾸는 것은 `lib/format.ts` 가 한다 — API 는 `runCount: 1248` 을 주고 화면은 `1,248회` 를 쓴다.
-
-### 명세가 확정되지 않은 필드는 추정임을 적는다
-
-API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다. 그래서 아래는 **추정**이다.
-
-| 구분     | 내용                                                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **확정** | 경로 접두어 `/api/v1` · 봉투 `{status, data}` · `{status, code, message}`(백엔드 `ApiResponse`·`ErrorResponse`) · 인증 계열 필드명(`api/auth.ts`) |
-| **추정** | 목록 봉투(`api/page.ts`, Spring `Page` 축약형) · `page`·`size`·`sort`·필터 파라미터명 · 식별자·등급·단가 필드명 · 카테고리 값                     |
-
-추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
-
-### 응답은 봉투가 벗겨진 채로 온다
-
-서버는 `{ status, data }` 로 감싸 준다. 응답 인터셉터가 `data` 만 넘기므로 화면은 `res.data.data` 를 몰라도 된다.
-
-### 오류는 `ApiError` 로 정규화된다
-
-HTTP status 대신 **`code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `AGENT_003`(visibility 값 오류)이 섞여 있어 status 만으로는 무엇이 잘못됐는지 알 수 없다.
+**오류는 `ApiError` 로 정규화된다. HTTP status 대신 `code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `AGENT_003`(visibility 값 오류)이 섞여 있다.
 
 ```ts
 if (e instanceof ApiError && e.code === 'AGENT_003') …
 if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받음
 ```
 
+**`Content-Type` 을 인스턴스 기본값으로 박지 않는다.** axios 가 본문 타입을 보고 붙인다. `application/json` 을 고정하면 FormData 가 **JSON 문자열로 바뀌어** 나간다 — 요청은 200 으로 성공하고 파일만 사라진다.
+
+### 명세가 확정되지 않은 필드는 추정임을 적는다
+
+API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다.
+
+| 구분     | 내용                                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------------------- |
+| **확정** | `/api/v1` 접두어 · 봉투 `{status, data}`·`{status, code, message}` · 인증 계열 필드명(`api/auth.ts`)            |
+| **추정** | 목록 봉투(`api/page.ts`, Spring `Page` 축약형) · `page`·`size`·`sort`·필터 파라미터명 · 식별자·등급·단가 필드명 |
+
+추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+
 ### 토큰
 
-- Access Token 은 **메모리에만** 둔다 (`lib/tokenStorage.ts`). localStorage 는 XSS 로 탈취된다
+- Access Token 은 **메모리에만** 둔다(`lib/tokenStorage.ts`). localStorage 는 XSS 로 탈취된다
 - Refresh Token 은 HttpOnly 쿠키다. JS 는 값을 알 수도 없고 알 필요도 없다
 - 401 중 `AUTH_007`(Access Token 만료)만 재발급 대상이다. 나머지는 재발급해도 결과가 같다
 - 재발급은 **동시에 두 번 나가면 안 된다.** 서버가 이전 Refresh Token 을 폐기하므로 두 번째 요청은 `AUTH_004` 가 되고 세션이 끝난다. `client.ts` 가 진행 중인 재발급을 공유한다
 
 ### 인증 세션은 스토어 하나가 들고 있다
 
-`stores/authStore.ts` 가 지갑 주소·프로필·연결 상태(`AuthStatus`)의 단일 소스다. 화면은 `useAuthStore` 로 읽고, 세션을 여닫는 것도 이 스토어의 액션(`signIn`·`signOut`·`restore`)으로만 한다.
+`stores/authStore.ts` 가 지갑 주소·프로필·연결 상태(`AuthStatus`)의 단일 소스다. 세션을 여닫는 것도 이 스토어의 액션(`signIn`·`signOut`·`restore`)으로만 한다.
 
-**Access Token 은 스토어에 복사하지 않는다.** axios 인터셉터는 React 트리 밖에서 돌아 훅을 쓸 수 없어 `lib/tokenStorage.ts` 를 읽는다. 같은 토큰을 두 곳에 두면 한쪽만 갱신됐을 때 조용히 갈라진다 — 스토어는 토큰의 수명만 관리하고 값은 tokenStorage 를 거친다.
+- **Access Token 은 스토어에 복사하지 않는다.** 인터셉터가 React 트리 밖에서 `lib/tokenStorage.ts` 를 읽어야 한다. 두 곳에 두면 한쪽만 갱신됐을 때 조용히 갈라진다
+- **늦게 도착한 응답이 지나간 세션을 되살리지 못하게 한다.** 복구·로그인은 요청을 두 번(토큰 → 프로필) 기다리고 그 사이 세션이 갈릴 수 있다. 스토어가 세션마다 올라가는 번호를 들고, 시작할 때 받은 번호가 최신일 때만 상태를 쓴다. 없으면 느리게 실패한 부팅 재발급이 그 사이 성공한 로그인을 미인증으로 덮고, 401 로 끊은 뒤 도착한 프로필이 화면을 다시 인증으로 만든다
+- **보호 화면은 프로필을 스토어에서 읽는다.** `restore`·`signIn` 이 이미 받아 두고 보호 화면은 `authenticated` 일 때만 그려지므로, `GET /users/me` 를 쿼리로 다시 부르지 않는다(`components/Sidebar.tsx`)
+- **껍데기는 화면 구성을 세션에 따라 바꾸지 않는다.** 로그인 여부와 무관하게 같은 화면을 보여 주고 보호 라우트에서 막는다. 예외는 프로필 메뉴 안의 두 가지 — 아바타 이니셜과 로그아웃 행이다. 로그아웃한 사람에게 남의 이니셜과 로그아웃을 보여줄 수는 없다. 메뉴는 shadow DOM 안이라 스토어를 못 읽으므로 `App.tsx` 가 속성으로 넘긴다
+- **api 계층은 라우터를 알지 않는다.** 회복 불가능한 401 은 `setOnAuthFailure` 로 스토어에 알리고 스토어는 상태만 비운다. 화면 이동은 `ProtectedRoute` 의 몫이다(4절)
 
-**늦게 도착한 응답이 지나간 세션을 되살리지 못하게 한다.** 복구·로그인은 요청을 두 번(토큰 → 프로필) 기다리고, 그 사이에 세션이 갈릴 수 있다. 스토어는 세션이 바뀔 때마다 올라가는 번호를 들고 있어 시작할 때 받은 번호가 아직 최신일 때만 상태를 쓴다. 이게 없으면 부팅 재발급이 느리게 실패하면서 그 사이 성공한 로그인을 미인증으로 덮고(`?mockDelay=1500` 으로 재현된다), 인터셉터가 401 로 세션을 끊은 뒤 도착한 프로필이 화면을 다시 인증으로 만든다.
+타이밍이 맞아야 재현되는 것이라 손으로 눌러서는 확인할 수 없다. `npm run verify:auth` 가 응답 도착 순서를 직접 정해 이 전이들을 확인한다 — 스토어를 고치면 이걸 돌린다. vitest 가 들어오면 시나리오를 `authStore.test.ts` 로 옮기고 스크립트를 지운다.
 
-`npm run verify:auth` 가 응답 도착 순서를 직접 정해 이 전이들을 확인한다. 타이밍이 맞아야 재현되는 것이라 손으로 눌러서는 확인할 수 없다 — 스토어를 고치면 이걸 돌린다. vitest 가 들어오면 시나리오를 `authStore.test.ts` 로 옮기고 스크립트를 지운다.
+### 지갑 연결과 서버 세션은 별개다
 
-**보호 화면은 프로필을 스토어에서 읽는다.** `GET /users/me` 를 쿼리로 다시 부르지 않는다 — `restore`·`signIn` 이 이미 받아 스토어에 넣어 두고, 보호 화면은 `authenticated` 일 때만 그려지므로 프로필이 항상 채워져 있다. 두 번 부르면 같은 값이 두 곳에 생겨 갈라진다(`components/Sidebar.tsx`).
+`lib/wagmi.ts` 가 체인과 커넥터를 들고 있다. MetaMask 하나만 붙이므로 RainbowKit·WalletConnect 를 쓰지 않는다.
 
-**껍데기(`lib/shell.ts` 의 프로필 메뉴)는 세션을 읽지 않는다.** 공개 화면에도 붙어 있어 로그아웃 상태에서는 프로필이 없다. 로그인 여부와 무관하게 같은 화면을 보여 주고 보호 라우트에서 막는 방식이라, 껍데기가 세션에 따라 달라지면 그 전제가 깨진다.
-
-**api 계층은 라우터를 알지 않는다.** 회복 불가능한 401 은 `setOnAuthFailure` 콜백으로 스토어에 알리고, 스토어는 상태만 비운다. 로그인 화면으로 보내는 것은 그 상태를 보는 `ProtectedRoute` 의 몫이다(4절).
-
-### `Content-Type` 을 인스턴스 기본값으로 박지 않는다
-
-axios 가 본문 타입을 보고 알아서 붙인다. `application/json` 을 고정해두면 FormData 를 넘겼을 때 axios 가 그것을 **JSON 문자열로 바꿔** 보낸다 — 요청은 200 으로 성공하고 파일만 사라진다.
+- **네트워크 이름을 손으로 적지 않는다.** `chainLabel` 에서 가져온다 — 화면 네 곳에 `Polygon Mainnet` 이 박혀 있었는데 실제 체인은 Amoy 였다
+- **스스로 누른 로그아웃은 지갑까지 끊고, 세션 만료(401)는 세션만 끊는다.** 만료 때 지갑까지 풀면 다시 연결부터 해야 한다
+- **지갑 계정이 바뀌면 세션을 끊는다.** 열려 있던 세션은 남의 것이 된다. 단 `connected` 일 때만 본다 — 부팅 직후엔 wagmi 가 재연결 중이라 주소가 없고, 그때 끊으면 쿠키로 되살린 세션이 매번 날아간다
 
 ---
 
@@ -336,48 +222,29 @@ axios 가 본문 타입을 보고 알아서 붙인다. `application/json` 을 �
 
 ```
 src/mocks/
-├─ start.ts            켜기 — main.tsx 가 렌더 전에 await 한다
-├─ browser.ts          setupWorker
-├─ response.ts         응답 봉투 헬퍼 (ok · fail)
-├─ scenario.ts         지연 · 강제 실패 스위치
-├─ paginate.ts         목록 페이지 계산
-├─ fixtures/           도메인별 데이터
-│  ├─ agents.ts
-│  ├─ user.ts
-│  └─ workflows.ts
-└─ handlers/           응답 만들기 — api/<도메인>.ts 와 짝
-   ├─ index.ts         도메인 핸들러를 모은다
-   ├─ auth.ts
-   ├─ marketplace.ts
-   └─ mypage.ts
+├─ start.ts       켜기 — main.tsx 가 렌더 전에 await 한다
+├─ browser.ts     setupWorker
+├─ response.ts    응답 봉투 (ok · fail)
+├─ scenario.ts    지연 · 강제 실패 스위치
+├─ paginate.ts    목록 페이지 계산
+├─ fixtures/      도메인별 데이터
+└─ handlers/      응답 만들기 — api/<도메인>.ts 와 짝
 ```
 
-### 도메인 하나가 파일 하나
-
-`api/<도메인>.ts` 와 이름을 맞춘다. 추가할 때는 `handlers/<도메인>.ts` 를 만들고 `handlers/index.ts` 의 배열에 펼쳐 넣는다.
-
-### 데이터는 `fixtures/`, 응답 만들기는 `handlers/`
-
-핸들러 안에 데이터를 인라인으로 두지 않는다. 같은 데이터를 두 핸들러가 쓰기 시작하면 조용히 갈라진다.
-
-파생값은 **계산해서** 만든다. 단가처럼 다른 필드에서 나오는 값을 손으로 적으면 등급을 바꿀 때 같이 안 바뀌어 거짓 데이터가 된다.
-
-```ts
-unitPrice: Math.round(seed.baseCost * (1 + premiumRate)) // ○
-unitPrice: 540 // ✗
-```
-
-평점·사용량이 0 인 **콜드스타트 건을 반드시 섞는다.** 요구사항이 그 상태를 전제로 하고, 화면이 NaN·빈칸을 내는지는 그때만 드러난다.
-
-### 목록은 핸들러 안에서 실제로 걸러낸다
-
-검색·필터·정렬·페이지네이션을 모두 계산한다. 전체를 한 번에 돌려주면 화면의 검색어·필터·페이지 이동이 아무 효과가 없어 **검증 자체가 불가능하다.**
+- **도메인 하나가 파일 하나.** `api/<도메인>.ts` 와 이름을 맞추고 `handlers/index.ts` 의 배열에 펼쳐 넣는다
+- **데이터는 `fixtures/`, 응답 만들기는 `handlers/`.** 핸들러에 데이터를 인라인으로 두면 두 핸들러가 같은 데이터를 쓰기 시작할 때 조용히 갈라진다
+- 파생값은 **계산해서** 만든다. `unitPrice: Math.round(seed.baseCost * (1 + premiumRate))`(○) · `unitPrice: 540`(✗) — 손으로 적으면 등급을 바꿀 때 같이 안 바뀌어 거짓 데이터가 된다
+- 평점·사용량이 0 인 **콜드스타트 건을 반드시 섞는다.** 화면이 NaN·빈칸을 내는지는 그때만 드러난다
+- **목록은 핸들러 안에서 실제로 걸러낸다.** 전체를 한 번에 돌려주면 검색어·필터·페이지 이동이 아무 효과가 없어 **검증 자체가 불가능하다**
+- **봉투를 그대로 흉내 낸다.** `ok`·`fail` 만 쓴다. 알맹이만 돌려주면 화면이 받는 모양이 실서버와 달라져 **mock 에서만 되는 코드**가 만들어진다. 오류는 실제 도메인 코드를 쓴다 — 화면이 `code` 로 분기하기 때문에(7절) 코드를 대충 주면 분기를 검증할 수 없다
+- **URL 은 `API_BASE_URL`(`api/client.ts`)에서 만든다.** 한쪽만 바뀌면 mock 이 요청을 못 잡고 **조용히 실서버로 새어 나간다**
+- **핸들러가 없는 요청은 통과시킨다**(`onUnhandledRequest: 'bypass'`). `'warn'` 은 이미지·폰트까지 콘솔을 채운다. 요청이 프록시로 나간다면 **핸들러가 없는 것**이지 mock 이 꺼진 게 아니다
+- **프로덕션 번들에 들어가지 않는다.** `start.ts` 만 `import.meta.env.DEV` 를 직접 읽는다(5절의 예외) — Vite 가 이 값을 `false` 로 치환해 블록을 통째로 지워야 devDependency 인 `msw` 가 번들에서 빠진다. `env.useMock` 으로는 정적으로 지울 수 없다
+- `public/mockServiceWorker.js` 는 `npx msw init public/ --save` 가 만든 벤더 스크립트다. 손으로 고치지 않고 린트·포맷 대상에서도 뺀다
 
 ### 지갑 세션만 새로고침을 넘어 남는다
 
-mock 상태는 새로고침하면 픽스처 초기값으로 돌아가지만, 로그인 세션은 예외다. 실서버는 Refresh Token 을 HttpOnly 쿠키로 들고 있어 새로고침해도 남고, 부팅 시 재발급으로 화면이 되살아난다(4절·7절). mock 이 쿠키를 세팅하지 않으면 **새로고침마다 로그아웃되어 그 경로를 확인할 수 없다.**
-
-`handlers/auth.ts` 가 localStorage 의 `mockWalletSession` 으로 쿠키를 흉내 낸다.
+mock 상태는 새로고침하면 픽스처 초기값으로 돌아가지만 로그인 세션은 예외다. 실서버는 Refresh Token 쿠키로 세션이 남아 부팅 시 재발급으로 되살아나는데(4절·7절), mock 이 쿠키를 세팅하지 않으면 **새로고침마다 로그아웃되어 그 경로를 확인할 수 없다.** `handlers/auth.ts` 가 localStorage 의 `mockWalletSession` 으로 흉내 낸다.
 
 | 요청                 | 세션 없음      | 세션 있음          |
 | -------------------- | -------------- | ------------------ |
@@ -398,62 +265,16 @@ mock 상태는 새로고침하면 픽스처 초기값으로 돌아가지만, 로
 ?mockDelay=0&mockFail=                 끈다
 ```
 
-### 봉투를 그대로 흉내 낸다
-
-`response.ts` 의 `ok` · `fail` 만 쓴다. 봉투 없이 알맹이만 돌려주면 인터셉터를 통과해도 화면이 받는 모양이 실서버와 달라져 **mock 에서만 되는 코드**가 만들어진다.
-
-```ts
-ok<UserProfile>(profile) // { status: 'success', data: … }
-fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.') // { status: 'error', code, message }
-```
-
-오류는 실제 도메인 코드를 쓴다. 화면이 `code` 로 분기하기 때문에(7절) mock 이 코드를 대충 주면 분기를 검증할 수 없다.
-
-### URL 은 `API_BASE_URL` 에서 만든다
-
-```ts
-http.get(`${API_BASE_URL}/users/me`, …) // ○
-http.get('/api/v1/users/me', …) // ✗
-```
-
-`api/client.ts` 가 내보내는 값이다. 한쪽만 바뀌면 mock 이 요청을 못 잡고 **조용히 실서버로 새어 나간다.**
-
-### 핸들러가 없는 요청은 통과시킨다
-
-`onUnhandledRequest: 'bypass'`. `'warn'` 으로 두면 이미지·폰트 같은 정적 요청까지 콘솔을 채운다. mock 을 켰는데 요청이 프록시로 나간다면 **핸들러가 없는 것**이지 mock 이 꺼진 게 아니다.
-
-### mock 은 프로덕션 번들에 들어가지 않는다
-
-`start.ts` 만 `import.meta.env.DEV` 를 직접 읽는다(5절의 예외). Vite 가 프로덕션 빌드에서 이 값을 `false` 로 치환해 블록을 통째로 지우고, 그래야 devDependency 인 `msw` 가 번들에서 빠진다. `env.useMock` 만으로는 정적으로 지울 수 없다.
-
-`public/mockServiceWorker.js` 는 `npx msw init public/ --save` 가 만든 벤더 스크립트다. 손으로 고치지 않고, 린트·포맷 대상에서도 빼 둔다.
+`POST /auth/reissue` 만 예외로 `scene()` 을 건너뛴다. 재발급까지 같이 실패하면 실패 UI 를 보려던 화면이 로그인으로 튕긴다.
 
 ---
 
 ## 9. Tailwind
 
-### 반복되는 것만 Tailwind, 1회성 좌표는 인라인
-
-이 프로젝트 화면은 1440×1024 고정 좌표다. 좌표를 Tailwind 임의값으로 옮기면 길어지기만 하고 재사용 이득이 없다.
-
-```tsx
-// ○ 반복되는 것 = Tailwind
-className="flex items-center bg-accent text-accent-ink hover:bg-white/16"
-
-// ○ 화면마다 다른 좌표 = 인라인 style
-style={{ left: '504px', top: '322px', width: '432px' }}
-```
-
-기준: **2회 이상 나오는 선언은 Tailwind, 1회성 수치는 인라인.**
-
-### 색·그림자·반경은 토큰으로
-
-`index.css` 의 `@theme` 에 정의하고 클래스로 쓴다. 값을 직접 박지 않는다.
-
-```tsx
-className="bg-surface-card text-muted shadow-menu rounded-card"   // ○
-style={{ background: 'rgba(255,255,255,.08)' }}                    // △ 토큰에 있으면 쓰지 않는다
-```
+- **반복되는 것만 Tailwind, 1회성 좌표는 인라인.** 이 프로젝트 화면은 1440×1024 고정 좌표라, 좌표를 Tailwind 임의값으로 옮기면 길어지기만 하고 재사용 이득이 없다. 기준은 **2회 이상 나오는 선언은 Tailwind, 1회성 수치는 인라인 style**
+- **색·그림자·반경은 토큰으로.** `index.css` 의 `@theme` 에 정의하고 클래스로 쓴다(`bg-surface-card` · `text-muted` · `shadow-menu`). 토큰에 있는 값을 인라인으로 다시 박지 않는다
+- **클래스 정렬은 Prettier 에 맡긴다.** `prettier-plugin-tailwindcss` 가 저장할 때 정렬한다. 손으로 맞추지 않는다
+- **조건부는 지금 세 곳 미만이라 삼항으로 충분하다.** 다섯 곳을 넘으면 `clsx` + `tailwind-merge` 로 `cn()` 을 도입한다. 그 전에는 의존성을 늘리지 않는다
 
 ### 기본 스타일은 반드시 `@layer base` 안에
 
@@ -473,20 +294,6 @@ a {
 }
 ```
 
-### 클래스 정렬은 Prettier 에 맡긴다
-
-`prettier-plugin-tailwindcss` 를 설치하면 저장할 때 레이아웃 → 여백 → 색 순으로 자동 정렬된다. 손으로 맞추지 않는다.
-
-### 조건부 클래스
-
-지금은 조건부 스타일이 세 곳 미만이라 삼항 연산자로 충분하다.
-
-```tsx
-className={`${TAB} ${isActive ? 'bg-white/90 text-accent-ink' : 'bg-white/9'}`}
-```
-
-**조건부가 다섯 곳을 넘으면** `clsx` + `tailwind-merge` 로 만든 `cn()` 유틸리티를 도입한다. 그 전에는 의존성을 늘리지 않는다.
-
 ---
 
 ## 10. 하지 말 것 — 이 프로젝트에서 실제로 터진 것들
@@ -505,7 +312,7 @@ className={`${TAB} ${isActive ? 'bg-white/90 text-accent-ink' : 'bg-white/9'}`}
 
 ### 커스텀 엘리먼트는 shadow DOM 에 그린다
 
-웹 컴포넌트가 light DOM 에 직접 쓰면, React 가 모르는 자식이 생겨 **리렌더 때 `removeChild` 에서 터진다.**
+웹 컴포넌트가 light DOM 에 직접 쓰면 React 가 모르는 자식이 생겨 **리렌더 때 `removeChild` 에서 터진다.**
 
 ```ts
 protected override usesShadow = true;   // BaseElement 가 shadowRoot 를 만들어 준다
@@ -514,7 +321,7 @@ this.root.innerHTML = …                 // this.innerHTML (✗)
 
 shadow 안에는 문서의 `@keyframes` 가 닿지 않으므로 `addStyle()` 로 함께 넣는다.
 
-### 커스텀 엘리먼트 속성명에 DOM 메서드명을 쓰지 않는다
+### 커스텀 엘리먼트 속성명이 프로퍼티와 겹치지 않게 한다
 
 React 19 는 해당 프로퍼티가 엘리먼트에 있으면 **속성이 아니라 프로퍼티로 넣는다.** `blur` 는 `HTMLElement.blur()` 와 겹쳐 속성이 아예 붙지 않는다.
 
@@ -523,9 +330,11 @@ React 19 는 해당 프로퍼티가 엘리먼트에 있으면 **속성이 아니
 <ocean-bg {...{ 'blur-px': 5 }} />  // ○
 ```
 
+**내가 만든 getter 도 프로퍼티다.** 관찰 속성과 같은 이름의 getter 를 두면 React 가 거기에 대입하려 하고, setter 가 없으면 그 자리에서 터진다 — `Cannot set property phase of #<WalletDialog> which has only a getter`. 속성은 `str('phase')` 로 읽고 이름이 겹치는 프로퍼티는 두지 않는다(`components/wallet-dialog.ts`).
+
 ### shadow DOM 을 넘는 이벤트는 `composedPath()` 로 잡는다
 
-shadow 경계를 넘으면 `e.target` 이 호스트로 바뀐다. `closest('a')` 가 못 찾는다.
+shadow 경계를 넘으면 `e.target` 이 호스트로 바뀌어 `closest('a')` 가 못 찾는다.
 
 ```ts
 const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement)
@@ -536,13 +345,13 @@ const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTML
 `value` 만 주면 React 가 제어 컴포넌트로 보고 **읽기 전용**이 된다. 초기값만 채울 때는 `defaultValue`.
 
 ```tsx
-<input value="김선미" />          // ✗ 입력이 안 된다
-<input defaultValue="김선미" />   // ○
+<input value={nickname} />          // ✗ 입력이 안 된다
+<input defaultValue={nickname} />   // ○
 ```
 
 ### 화면 이동은 라우터로
 
-`<a href="https://…">` 처럼 외부 주소를 쓰면 **전체 페이지가 재로드**되어 배경이 깜빡인다. `App.tsx` 의 전역 클릭 인터셉터가 `/` 로 시작하는 내부 링크를 클라이언트 라우팅으로 넘기고 있으므로, 내부 이동은 `paths` 가 만든 주소만 쓴다 (4절).
+`<a href="https://…">` 처럼 외부 주소를 쓰면 **전체 페이지가 재로드**되어 배경이 깜빡인다. `App.tsx` 의 전역 클릭 인터셉터가 `/` 로 시작하는 내부 링크를 클라이언트 라우팅으로 넘기므로, 내부 이동은 `paths` 가 만든 주소만 쓴다(4절).
 
 ---
 
@@ -553,3 +362,5 @@ npm run build      # tsc -b && vite build — 타입 에러 0
 npm run lint
 npm run format
 ```
+
+인증 스토어를 고쳤다면 `npm run verify:auth` 도 돌린다(7절).
