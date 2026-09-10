@@ -38,7 +38,8 @@ const server = await createServer({
   },
 })
 
-const PROFILE = { userId: 'u1', nickname: '이싸피', walletAddress: '0xaaa' }
+// 지갑은 `wallet` 아래에 있다(명세) — 스토어가 거기서 주소를 꺼내는지도 함께 확인한다
+const PROFILE = { userId: 'u1', nickname: '이싸피', wallet: { address: '0xaaa' } }
 
 /** 손으로 풀어 주는 promise — 시나리오가 응답 도착 시점을 정한다. */
 function deferred() {
@@ -161,7 +162,7 @@ console.log('\n[4] 정상 경로')
   // Refresh Token 을 폐기해 두 번째가 세션을 끊는다.
   await Promise.all([useAuthStore.getState().restore(), useAuthStore.getState().restore()])
   check('복구 성공 → authenticated', useAuthStore.getState().status, 'authenticated')
-  check('프로필 주소를 쓴다', useAuthStore.getState().walletAddress, '0xaaa')
+  check('프로필의 wallet.address 를 쓴다', useAuthStore.getState().walletAddress, '0xaaa')
   check('이중 호출에도 재발급은 한 번', reissues, 1)
 
   useAuthStore = await freshStore({ restoreSession: async () => false })
@@ -209,6 +210,48 @@ console.log('\n[4] 정상 경로')
     .catch(() => {})
   check('로그아웃 요청이 실패해도 끊는다', useAuthStore.getState().status, 'unauthenticated')
   check('로그아웃 후 토큰 없음', globalThis.__authHarness.token, null)
+}
+
+// ── 5 ───────────────────────────────────────────────────────────
+// 로그인 화면이 이 값으로 안내를 고른다. 스스로 누른 로그아웃에 안내가 붙으면
+// 사고처럼 보이고, 지갑이 끊겨 밀려난 사람에게 안 붙으면 이유를 알 수 없다.
+console.log('\n[5] 세션이 끝난 이유를 남긴다')
+{
+  const authed = {
+    restoreSession: async () => true,
+    getMyProfile: async () => PROFILE,
+    logout: async () => undefined,
+  }
+
+  let useAuthStore = await freshStore(authed)
+  await useAuthStore.getState().restore()
+  await useAuthStore.getState().signOut()
+  check('스스로 누른 로그아웃은 사유 없음', useAuthStore.getState().endedBy, null)
+
+  useAuthStore = await freshStore(authed)
+  await useAuthStore.getState().restore()
+  await useAuthStore.getState().signOut('disconnected')
+  check('지갑 연결 해제 → disconnected', useAuthStore.getState().endedBy, 'disconnected')
+
+  useAuthStore = await freshStore(authed)
+  await useAuthStore.getState().restore()
+  await useAuthStore.getState().signOut('account')
+  check('지갑 계정 교체 → account', useAuthStore.getState().endedBy, 'account')
+
+  useAuthStore = await freshStore(authed)
+  await useAuthStore.getState().restore()
+  useAuthStore.getState().clearSession()
+  check('회복 불가 401 → expired', useAuthStore.getState().endedBy, 'expired')
+
+  // 다시 로그인하면 지난 안내는 사라져야 한다 — 로그인 직후 화면에 남으면 안 된다.
+  useAuthStore = await freshStore({
+    ...authed,
+    loginWithWallet: async () => ({ accessToken: 't' }),
+  })
+  await useAuthStore.getState().restore()
+  useAuthStore.getState().clearSession()
+  await useAuthStore.getState().signIn({ walletAddress: '0xaaa', signature: '0xsig' })
+  check('다시 로그인하면 사유가 지워진다', useAuthStore.getState().endedBy, null)
 }
 
 await server.close()

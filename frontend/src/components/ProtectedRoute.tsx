@@ -12,7 +12,7 @@ import { isSessionPending, useAuthStore } from '@/stores/authStore'
  */
 export default function ProtectedRoute({ children }: { children: ReactElement }) {
   const status = useAuthStore((s) => s.status)
-  const expired = useAuthStore((s) => s.expired)
+  const endedBy = useAuthStore((s) => s.endedBy)
   const location = useLocation()
 
   // 확인이 끝나기 전에 로그인 화면을 그리면 새로고침마다 화면이 튄다.
@@ -33,7 +33,7 @@ export default function ProtectedRoute({ children }: { children: ReactElement })
         state={
           {
             from: location.pathname + location.search + location.hash,
-            expired,
+            endedBy,
           } satisfies LoginRedirectState
         }
       />

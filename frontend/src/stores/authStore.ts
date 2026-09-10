@@ -19,19 +19,23 @@ import { tokenStorage } from '@/lib/tokenStorage'
 /** `idle`·`restoring` 은 "아직 모른다" 이고 미인증이 아니다. */
 export type AuthStatus = 'idle' | 'restoring' | 'authenticated' | 'unauthenticated'
 
+/** 세션이 왜 끝났는지. 스스로 누른 로그아웃은 이유가 없다(`null`) —
+ *  본인이 아는 일에 안내를 띄우면 사고처럼 보인다. */
+export type SessionEndReason = 'expired' | 'disconnected' | 'account'
+
 interface AuthState {
   status: AuthStatus
   walletAddress: string | null
   profile: UserProfile | null
-  /** 쓰던 중 세션이 끊겼는지. 스스로 로그아웃한 것과 구분해 로그인 화면이 안내한다 */
-  expired: boolean
+  /** 쓰던 중 세션이 끊긴 이유. 로그인 화면이 이 값으로 안내를 고른다 */
+  endedBy: SessionEndReason | null
 
   /** 부팅 시 한 번 — Refresh Token 쿠키로 세션을 되살린다 */
   restore: () => Promise<void>
   /** 실패는 그대로 던져 화면이 안내한다 */
   signIn: (params: { walletAddress: string; signature: string }) => Promise<void>
-  /** 서버 쿠키까지 지운다 */
-  signOut: () => Promise<void>
+  /** 서버 쿠키까지 지운다. 사유를 주면 로그인 화면이 이유를 띄운다 */
+  signOut: (endedBy?: SessionEndReason) => Promise<void>
   /** 클라이언트 상태만 비운다 — 회복 불가능한 401 */
   clearSession: () => void
   /** 바뀐 필드만 덮는다 — 내 정보를 고치면 화면들이 같이 바뀐다.
@@ -45,7 +49,7 @@ const SIGNED_OUT = {
   status: 'unauthenticated',
   walletAddress: null,
   profile: null,
-  expired: false,
+  endedBy: null,
 } satisfies Partial<AuthState>
 
 /** 이때 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다. */
@@ -56,19 +60,18 @@ export const isSessionPending = (status: AuthStatus) => status === 'idle' || sta
 let epoch = 0
 
 export const useAuthStore = create<AuthState>((set, get) => {
-  /** 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다.
-   *  `expired` 는 쓰던 중 끊긴 경우에만 참이다 — 로그인 화면이 이유를 안내한다. */
-  const dropSession = (expired = false) => {
+  /** 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다. */
+  const dropSession = (endedBy: SessionEndReason | null = null) => {
     epoch += 1
     tokenStorage.clear()
-    set({ ...SIGNED_OUT, expired })
+    set({ ...SIGNED_OUT, endedBy })
   }
 
   return {
     status: 'idle',
     walletAddress: null,
     profile: null,
-    expired: false,
+    endedBy: null,
 
     restore: async () => {
       // 부팅 때 한 번만. StrictMode 의 두 번째 effect 로 재발급이 두 번 나가면
@@ -88,8 +91,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({
           status: 'authenticated',
           profile,
-          walletAddress: profile.walletAddress,
-          expired: false,
+          walletAddress: profile.wallet.address,
+          endedBy: null,
         })
       } catch {
         // 프로필 없이 인증된 척하는 화면이 되지 않도록 끊는다.
@@ -111,8 +114,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({
           status: 'authenticated',
           profile,
-          walletAddress: profile.walletAddress,
-          expired: false,
+          walletAddress: profile.wallet.address,
+          endedBy: null,
         })
       } catch (error) {
         if (mine === epoch) dropSession()
@@ -120,18 +123,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    signOut: async () => {
+    signOut: async (endedBy) => {
       // 지갑 연결 해제는 여기서 하지 않는다 — 스토어는 wagmi 를 모르고,
       // 세션 만료로 끊길 때는 지갑을 유지해야 한다. `App.tsx` 의 useLogout 참고.
       try {
         await requestLogout()
       } finally {
         // 사용자가 누른 로그아웃은 서버 응답이 실패해도 이긴다.
-        dropSession()
+        dropSession(endedBy ?? null)
       }
     },
 
-    clearSession: () => dropSession(true),
+    clearSession: () => dropSession('expired'),
 
     setProfile: (patch) => {
       // 세션이 끝난 뒤 늦게 도착한 저장 응답이 화면을 되살리지 않게 한다.

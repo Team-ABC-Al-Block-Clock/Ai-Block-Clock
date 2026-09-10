@@ -24,18 +24,33 @@ const ICON_PERSON =
   'inset -2px 0 0 rgba(255,255,255,.8)"></div>' +
   '</div>'
 
-/** 열린 문에서 화살표가 나가는 모양 */
-const ICON_LOGOUT =
-  '<div style="width:18px;height:18px;flex:none;position:relative">' +
-  '<div style="position:absolute;left:0;top:1px;width:9px;height:16px;border-radius:2px;' +
-  'box-shadow:inset 2px 0 0 rgba(255,255,255,.8),inset 0 2px 0 rgba(255,255,255,.8),' +
-  'inset 0 -2px 0 rgba(255,255,255,.8)"></div>' +
-  '<div style="position:absolute;left:7px;top:8px;width:8px;height:2px;border-radius:1px;' +
-  'background:rgba(255,255,255,.8)"></div>' +
-  '<div style="position:absolute;left:13px;top:5px;width:0;height:0;' +
-  'border-top:4px solid transparent;border-bottom:4px solid transparent;' +
-  'border-left:5px solid rgba(255,255,255,.8)"></div>' +
-  '</div>'
+/** 열린 문에서 화살표가 나가는 모양. fg 는 글씨와 맞춘다. */
+function logoutIcon(fg: string): string {
+  return (
+    '<div style="width:18px;height:18px;flex:none;position:relative">' +
+    '<div style="position:absolute;left:0;top:1px;width:9px;height:16px;border-radius:2px;' +
+    'box-shadow:inset 2px 0 0 ' +
+    fg +
+    ',inset 0 2px 0 ' +
+    fg +
+    ',inset 0 -2px 0 ' +
+    fg +
+    '"></div>' +
+    '<div style="position:absolute;left:7px;top:8px;width:8px;height:2px;border-radius:1px;' +
+    'background:' +
+    fg +
+    '"></div>' +
+    '<div style="position:absolute;left:13px;top:5px;width:0;height:0;' +
+    'border-top:4px solid transparent;border-bottom:4px solid transparent;' +
+    'border-left:5px solid ' +
+    fg +
+    '"></div>' +
+    '</div>'
+  )
+}
+
+/** 세션을 끊는 동작이라 다른 행과 색을 달리한다. */
+const LOGOUT_FG = '#ffb4c8'
 
 /** 테마 아이콘 — fg는 선택 여부에 따라 바뀌는 색 */
 function themeIcon(kind: Theme, fg: string): string {
@@ -213,8 +228,10 @@ export class ProfileMenu extends BaseElement {
         '<div data-row data-logout role="button" tabindex="0" style="' +
         ROW_STYLE +
         // <a> 가 아니라 <div> 라 기본 커서가 붙지 않는다
-        ';cursor:pointer">' +
-        ICON_LOGOUT +
+        ';cursor:pointer;color:' +
+        LOGOUT_FG +
+        '">' +
+        logoutIcon(LOGOUT_FG) +
         '<span>로그아웃</span></div>'
     }
 
