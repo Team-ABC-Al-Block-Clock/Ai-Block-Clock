@@ -5,10 +5,16 @@ import type { CreditBalance, CreditTransaction } from '@/api/credits'
 export const PROFILE: UserProfile = {
   userId: 'u_1001',
   nickname: '이싸피',
-  walletAddress: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
   introduction: '온체인 리서치 에이전트를 만듭니다.',
   profileImageUrl: null,
+  wallet: {
+    provider: 'MetaMask',
+    address: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
+    network: 'POLYGON_AMOY',
+    chainId: 80002,
+  },
   onboardingCompleted: true,
+  createdAt: '2026-09-08T15:02:00Z',
 }
 
 export const CREDIT_BALANCE: CreditBalance = {

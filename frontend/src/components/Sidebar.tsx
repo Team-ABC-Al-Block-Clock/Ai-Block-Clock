@@ -1,5 +1,5 @@
 import { shortAddress } from '@/lib/format'
-import { chainLabel } from '@/lib/wagmi'
+import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -194,10 +194,11 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           className="text-[16px] font-semibold text-white"
           style={{ marginTop: '12px', letterSpacing: '.01em' }}
         >
-          {shortAddress(profile?.walletAddress ?? '')}
+          {shortAddress(profile?.wallet.address ?? '')}
         </div>
+        {/* 네트워크는 서버가 알려준다 — 배포 설정이라 화면이 정할 값이 아니다 */}
         <div className="text-[12px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
-          {chainLabel}
+          {profile ? chainNameOf(profile.wallet.chainId) : chainLabel}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
           <div

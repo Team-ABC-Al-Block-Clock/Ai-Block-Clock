@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar'
 import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
 import { ApiError } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
-import { chainLabel } from '@/lib/wagmi'
+import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -70,10 +70,11 @@ export default function MyPageEdit() {
     {
       icon: 'WALLET',
       label: '연결된 지갑',
-      brand: 'MetaMask',
-      number: shortAddress(profile?.walletAddress ?? ''),
+      // 제공자·네트워크도 서버가 준다 — 손으로 적으면 배포가 바뀔 때 갈라진다
+      brand: profile?.wallet.provider ?? 'MetaMask',
+      number: shortAddress(profile?.wallet.address ?? ''),
       subLabel: '네트워크',
-      subValue: chainLabel,
+      subValue: profile ? chainNameOf(profile.wallet.chainId) : chainLabel,
       action: '다시 연결',
     },
   ]
@@ -86,13 +87,6 @@ export default function MyPageEdit() {
 
   return (
     <>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(20,9,34,.42) 0%, rgba(20,9,34,.22) 30%, rgba(20,9,34,.30) 100%)',
-        }}
-      ></div>
       <Sidebar editing />
 
       <div

@@ -21,13 +21,30 @@ export interface AuthTokens {
   expiresIn: number
 }
 
+/** GET /users/me 의 지갑 블록.
+ *
+ *  네트워크는 사용자가 고르는 값이 아니라 서버 배포 설정이라 서버가 알려준다.
+ *  「정상 연결」 같은 표시는 브라우저 지갑의 상태여서 응답에 없다 — 화면이 판단한다. */
+export interface ConnectedWallet {
+  /** 화면에 그대로 표시한다 — 명세가 `MetaMask` 로 준다 */
+  provider: string
+  address: string
+  /** 서버가 배포된 네트워크. MVP 는 `POLYGON_AMOY` */
+  network: string
+  chainId: number
+}
+
+/** GET /users/me. 지갑은 평평한 필드가 아니라 `wallet` 아래에 있다 —
+ *  `profile.walletAddress` 로 읽으면 실서버에서 조용히 undefined 가 된다. */
 export interface UserProfile {
   userId: string
   nickname: string
-  walletAddress: string
   introduction: string | null
   profileImageUrl: string | null
+  wallet: ConnectedWallet
+  /** 가입 절차 완료 여부. 로그인 분기와 `OnboardingGate` 가 이 값을 본다 */
   onboardingCompleted: boolean
+  createdAt: string
 }
 
 /** 서명할 메시지를 발급받는다. */
@@ -44,6 +61,7 @@ export const loginWithWallet = (params: { walletAddress: string; signature: stri
 
 export const logout = () => api.post<void>('/auth/logout')
 
+/** GET /users/me — 프로필과 연결된 지갑. 명세 확정(7절) */
 export const getMyProfile = () => api.get<UserProfile>('/users/me')
 
 /** PATCH /users/me 응답. GET 과 달리 지갑 주소·온보딩 여부가 없다 —
