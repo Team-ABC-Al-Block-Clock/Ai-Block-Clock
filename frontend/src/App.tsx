@@ -1,9 +1,19 @@
-import { useEffect, type ReactElement } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type RefObject,
+} from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import logo from './assets/logo.png'
 import ChainBanner from './components/ChainBanner'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import OnboardingGate from './components/OnboardingGate'
 import ProtectedRoute from './components/ProtectedRoute'
+import { BANNER_HEIGHT, useChainBanner } from './hooks/useChainBanner'
 import { useSessionRestore } from './hooks/useSessionRestore'
 import { shellFor } from './lib/shell'
 import { REQUIRES_AUTH } from './routes/access'
@@ -64,10 +74,14 @@ function useLogout() {
     const onLogout = () => {
       // 스스로 누른 로그아웃은 지갑 연결까지 끊는다. 세션 만료(401)로 끊길 때는
       // 지갑을 그대로 두어 다시 연결할 필요 없이 로그인만 하면 되게 한다.
-      void disconnectAsync()
+      //
+      // 세션을 먼저 끊는다 — 지갑을 먼저 끊으면 아래 가드가 "연결이 해제됐다" 로
+      // 읽어, 본인이 누른 로그아웃에 엉뚱한 안내가 붙는다.
+      void useAuthStore
+        .getState()
+        .signOut()
         .catch(() => undefined)
-        .then(() => useAuthStore.getState().signOut())
-        .catch(() => undefined)
+        .then(() => disconnectAsync().catch(() => undefined))
         .finally(() => navigate(paths.home, { replace: true }))
     }
     document.addEventListener('logout', onLogout)
@@ -75,23 +89,72 @@ function useLogout() {
   }, [navigate, disconnectAsync])
 }
 
-/** 지갑 계정이 바뀌면 열려 있던 세션은 남의 것이 된다 — 끊는다.
+/** 세션의 근거는 지갑이다 — 지갑이 바뀌거나 떨어지면 세션도 끝난다.
  *
- *  `connected` 일 때만 본다. 부팅 직후엔 wagmi 가 재연결 중이라 주소가 없는데,
- *  그때 끊으면 쿠키로 되살린 세션이 매번 날아간다. 사용자가 지갑만 끊은 경우도
- *  세션은 두고, 끝내려면 로그아웃을 누른다.
+ *  계정이 바뀌면 열려 있던 세션은 남의 것이 되고, MetaMask 에서 연결을 끊거나
+ *  권한을 취소하면 우리에게 남은 것은 쿠키뿐이다. 둘 다 서버 쿠키까지 지운다 —
+ *  클라이언트 상태만 비우면 새로고침 한 번에 되살아난다.
+ *
+ *  연결이 끊긴 것은 `connected` 를 본 적이 있을 때만 센다. 부팅 직후엔 wagmi 가
+ *  재연결 중이라 아직 `disconnected` 로 보이는데, 그때 끊으면 쿠키로 되살린
+ *  세션이 매번 날아간다.
  */
-function useWalletAccountGuard() {
+function useWalletSessionGuard() {
   const { address, status } = useAccount()
+  const sawConnected = useRef(false)
 
   useEffect(() => {
-    if (status !== 'connected' || !address) return
     const session = useAuthStore.getState()
-    if (session.status !== 'authenticated' || !session.walletAddress) return
-    if (session.walletAddress.toLowerCase() === address.toLowerCase()) return
-    void session.signOut().catch(() => undefined)
+
+    if (status === 'connected' && address) {
+      sawConnected.current = true
+      if (session.status !== 'authenticated' || !session.walletAddress) return
+      if (session.walletAddress.toLowerCase() === address.toLowerCase()) return
+      void session.signOut('account').catch(() => undefined)
+      return
+    }
+
+    if (status === 'disconnected' && sawConnected.current) {
+      sawConnected.current = false
+      if (session.status === 'authenticated') {
+        void session.signOut('disconnected').catch(() => undefined)
+      }
+    }
   }, [address, status])
 }
+
+/** 껍데기(로고·버튼·안내 띠)를 놓을 창 크기 — 설계 단위로 환산해 돌려준다.
+ *
+ *  껍데기는 캔버스가 아니라 창 모서리에 붙어야 한다. 캔버스 끝에 두면 비율이
+ *  다를 때 남는 여백만큼 안쪽으로 들어가 떠 보인다. 그렇다고 창 좌표에 1:1 로
+ *  그리면 글자만 커져 화면 내용과 어긋나므로, 캔버스와 같은 배율로 그리고
+ *  크기만 창에 맞춘다.
+ *
+ *  배율은 `screen-frame` 이 던지는 `framefit` 에서 받는다 — 같은 계산을 두 벌
+ *  두면 리사이즈 중 한쪽만 갱신돼 껍데기가 화면과 어긋난다.
+ */
+function useShellBox(frame: RefObject<HTMLElement | null>) {
+  const [box, setBox] = useState({ scale: 1, width: 1440, height: 1024 })
+
+  // 레이아웃 단계에서 재야 첫 프레임에 배율 1 로 한 번 커졌다 줄지 않는다.
+  useLayoutEffect(() => {
+    const el = frame.current as (HTMLElement & { scale: number }) | null
+    if (!el) return
+    const sync = () => {
+      const scale = el.scale || 1
+      setBox({ scale, width: window.innerWidth / scale, height: window.innerHeight / scale })
+    }
+    sync()
+    el.addEventListener('framefit', sync)
+    return () => el.removeEventListener('framefit', sync)
+  }, [frame])
+
+  return box
+}
+
+/** 우상단 붙임 여백 — 시안의 1440 기준 좌표에서 뽑은 값(아바타 18px, 알약 78px). */
+const MENU_RIGHT = 18 + 48
+const STUDIO_RIGHT = 78 + 171
 
 /** 화면 키 → 엔트리.
  *  Record<ScreenKey, …> 라서 화면을 추가하면 여기를 채울 때까지 컴파일이 실패한다. */
@@ -120,21 +183,30 @@ export default function App() {
   useInternalLinks()
   useSessionRestore()
   useLogout()
-  useWalletAccountGuard()
+  useWalletSessionGuard()
 
   // 프로필 메뉴의 아바타와 로그아웃 행만 세션을 본다 — 로그아웃한 사람에게
   // 남의 이니셜과 로그아웃을 보여줄 수는 없다. 나머지 껍데기는 그대로다.
   const signedIn = useAuthStore((s) => s.status === 'authenticated')
+  const banner = useChainBanner()
   const nickname = useAuthStore((s) => s.profile?.nickname)
 
   const { pathname } = useLocation()
   const shell = shellFor(pathname)
 
+  const frameRef = useRef<HTMLElement>(null)
+  const shellBox = useShellBox(frameRef)
+
   return (
-    <screen-frame width={1440} height={1024} className="bg-abyss">
-      {/* 배경은 라우트 밖에 한 번만 — key 를 바꾸면 리마운트되어 WebGL 컨텍스트가 늘어난다.
+    <>
+      {/* 배경은 캔버스가 아니라 창 전체를 채운다 — 설계 캔버스(1440×1024)와 창
+          비율이 다르면 `screen-frame` 이 비율을 지키며 맞추느라 좌우나 위아래가
+          남는데, 배경을 캔버스 안에 두면 그 여백이 어두운 띠로 남는다.
+          UI 는 그대로 캔버스 좌표에 둔다 — 시안 좌표를 건드리지 않는다.
+
+          라우트 밖에 한 번만 — key 를 바꾸면 리마운트되어 WebGL 컨텍스트가 늘어난다.
           화면을 옮겨도 같은 캔버스를 유지하고 dim·blur 값만 갈아끼운다. */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="fixed inset-0 overflow-hidden">
         <ocean-bg
           wave-intensity={shell.waveIntensity}
           sun-height={shell.sunHeight}
@@ -142,92 +214,161 @@ export default function App() {
           dim={shell.dim}
           {...{ 'blur-px': shell.blur }}
         />
+
+        {/* 화면별 어둡기도 창 전체에 — 캔버스 안에만 깔면 여백과의 경계가 선으로 보인다 */}
+        {shell.vignette && (
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: shell.vignette }}
+          />
+        )}
       </div>
 
-      {/* 화면 내용만 갈아끼운다 — key 로 진입 모션을 매번 다시 태운다 */}
-      <div key={pathname} className="animate-screen-in absolute inset-0">
-        <ErrorBoundary resetKey={pathname}>
-          <Routes>
-            {/* 인증이 필요한 화면은 ProtectedRoute 로 감싼다 — 어느 화면인지는 routes/access.ts */}
-            {SCREEN_KEYS.map((key) =>
-              routePatterns[key].map((path) => (
-                <Route
-                  key={path}
-                  path={path}
-                  element={
-                    REQUIRES_AUTH[key] ? (
-                      <ProtectedRoute>{SCREENS[key]}</ProtectedRoute>
-                    ) : (
-                      SCREENS[key]
-                    )
-                  }
-                />
-              )),
-            )}
-
-            {/* 어느 것에도 걸리지 않은 경로 — 없으면 배경만 남은 빈 화면이 된다 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </ErrorBoundary>
-      </div>
-
-      {/* 껍데기 — 화면 내용과 달리 라우트가 바뀌어도 그대로 붙어 있습니다 */}
-      <ChainBanner />
-      {shell.header && <app-header home-href={paths.home} logo-src={logo}></app-header>}
-      {/* My Agent Studio — 아바타(1374,26,48×48) 왼쪽 12px. 알약 크기는 와이어프레임 그대로,
-          색·그림자·hover 는 이 앱의 primary 버튼(실행하기 등)과 같은 accent 계열로. */}
-      {shell.studio && (
-        <a
-          href={paths.edit.nodesSeller.withoutId}
-          className="group bg-accent text-accent-ink absolute box-border flex cursor-pointer items-center justify-center text-[14px] font-semibold tracking-[-.01em] whitespace-nowrap transition-transform duration-[180ms] hover:-translate-y-[2px]"
+      {/* 배경이 뒤에 깔리도록 bg-abyss 를 얹지 않는다. 창 바탕은 index.css 가 칠한다.
+          `--edge` 는 캔버스와 창 사이 한쪽 여백 — 편집 화면이 사이드바를 창 끝까지
+          밀 때 쓴다. overflow 는 늘 명시한다: 빼면 React 가 값을 지워 버려서
+          bleed 화면을 한 번 지난 뒤 모든 화면이 잘리지 않는다. */}
+      <screen-frame
+        width={1440}
+        height={1024}
+        ref={frameRef}
+        style={
+          {
+            overflow: shell.bleed ? 'visible' : 'hidden',
+            '--edge': `${Math.max(0, (shellBox.width - 1440) / 2)}px`,
+          } as CSSProperties
+        }
+      >
+        {/* 띠가 뜨면 앞쪽 내용만 밀린다 — 배경까지 밀면 수평선이 튄다 */}
+        <div
+          className="absolute inset-x-0 bottom-0"
           style={{
-            left: '1191px',
-            top: '30px',
-            width: '171px',
-            height: '41px',
-            padding: '0 20px',
-            borderRadius: '100px',
-            gap: '8px',
-            boxShadow: '0 10px 26px rgba(140,100,130,.24)',
-            zIndex: 40,
+            top: banner.visible ? BANNER_HEIGHT : 0,
+            transition: 'top .34s cubic-bezier(.2,.8,.25,1)',
           }}
         >
-          <span className="text-[17px] leading-none">+</span>
-          <span>My Agent Studio</span>
+          {/* 화면 내용만 갈아끼운다 — key 로 진입 모션을 매번 다시 태운다 */}
+          <div key={pathname} className="animate-screen-in absolute inset-0">
+            <ErrorBoundary resetKey={pathname}>
+              {/* 가입을 마치지 않은 계정은 어느 화면으로도 새지 않는다 */}
+              <OnboardingGate>
+                <Routes>
+                  {/* 인증이 필요한 화면은 ProtectedRoute 로 감싼다 — 어느 화면인지는 routes/access.ts */}
+                  {SCREEN_KEYS.map((key) =>
+                    routePatterns[key].map((path) => (
+                      <Route
+                        key={path}
+                        path={path}
+                        element={
+                          REQUIRES_AUTH[key] ? (
+                            <ProtectedRoute>{SCREENS[key]}</ProtectedRoute>
+                          ) : (
+                            SCREENS[key]
+                          )
+                        }
+                      />
+                    )),
+                  )}
 
-          {/* 버튼 아래 10px, 버튼 중심 정렬. 색·유리효과는 앱의 기존 팝오버와 동일 */}
-          <div
-            className="glass-card absolute left-1/2 box-border hidden flex-col items-center text-center whitespace-normal group-hover:flex"
-            style={{
-              top: 'calc(100% + 10px)',
-              transform: 'translateX(-50%)',
-              width: '268px',
-              padding: '12px 14px',
-              gap: '6px',
-              borderRadius: '10px',
-              background: 'rgba(20,11,36,.93)',
-              boxShadow: '0 10px 34px rgba(10,4,20,.34)',
-            }}
-          >
-            <div className="text-[13px] leading-[1.4] font-semibold tracking-[-.01em] text-white">
-              나만의 에이전트를 만들어 팔아보세요
-            </div>
-            <div className="text-[12px] leading-[18px]" style={{ color: 'rgba(255,236,246,.6)' }}>
-              내가 등록한 에이전트만 조합해 판매용 에이전트를 만들 수 있어요
-            </div>
+                  {/* 어느 것에도 걸리지 않은 경로 — 없으면 배경만 남은 빈 화면이 된다 */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </OnboardingGate>
+            </ErrorBoundary>
           </div>
-        </a>
-      )}
-      {shell.menu && (
-        <profile-menu
-          className="absolute"
-          style={{ left: '1374px', top: '26px', zIndex: '40' }}
-          initial={nickname?.slice(0, 1) ?? ''}
-          search-href={paths.search}
-          mypage-href={paths.my.agents}
-          {...(signedIn ? { 'signed-in': '' } : {})}
-        ></profile-menu>
-      )}
-    </screen-frame>
+        </div>
+      </screen-frame>
+
+      {/* 껍데기는 창 모서리에 붙인다 — 라우트가 바뀌어도 그대로 있고, 캔버스가 아니라
+          창 크기를 따른다(useShellBox). 배율은 화면 내용과 같다.
+          레이어 자체는 클릭을 통과시키고 껍데기 조각만 받는다. */}
+      <div
+        className="pointer-events-none fixed top-0 left-0"
+        style={{
+          width: `${shellBox.width}px`,
+          height: `${shellBox.height}px`,
+          transform: `scale(${shellBox.scale})`,
+          transformOrigin: 'top left',
+          zIndex: 40,
+        }}
+      >
+        <ChainBanner {...banner} />
+
+        {/* 띠가 뜨면 껍데기도 같이 내려간다 — 화면 내용과 같은 만큼 */}
+        <div
+          className="absolute inset-x-0"
+          style={{
+            top: banner.visible ? BANNER_HEIGHT : 0,
+            transition: 'top .34s cubic-bezier(.2,.8,.25,1)',
+          }}
+        >
+          {/* 껍데기 — 화면 내용과 달리 라우트가 바뀌어도 그대로 붙어 있습니다 */}
+          {shell.header && (
+            <app-header
+              className="pointer-events-auto"
+              home-href={paths.home}
+              logo-src={logo}
+            ></app-header>
+          )}
+          {/* My Agent Studio — 아바타(1374,26,48×48) 왼쪽 12px. 알약 크기는 와이어프레임 그대로,
+        색·그림자·hover 는 이 앱의 primary 버튼(실행하기 등)과 같은 accent 계열로. */}
+          {shell.studio && (
+            <a
+              href={paths.edit.nodesSeller.withoutId}
+              className="group bg-accent text-accent-ink pointer-events-auto absolute box-border flex cursor-pointer items-center justify-center text-[14px] font-semibold tracking-[-.01em] whitespace-nowrap transition-transform duration-[180ms] hover:-translate-y-[2px]"
+              style={{
+                left: `${shellBox.width - STUDIO_RIGHT}px`,
+                top: '30px',
+                width: '171px',
+                height: '41px',
+                padding: '0 20px',
+                borderRadius: '100px',
+                gap: '8px',
+                boxShadow: '0 10px 26px rgba(140,100,130,.24)',
+                zIndex: 40,
+              }}
+            >
+              <span className="text-[17px] leading-none">+</span>
+              <span>My Agent Studio</span>
+
+              {/* 버튼 아래 10px, 버튼 중심 정렬. 색·유리효과는 앱의 기존 팝오버와 동일 */}
+              <div
+                className="glass-card absolute left-1/2 box-border hidden flex-col items-center text-center whitespace-normal group-hover:flex"
+                style={{
+                  top: 'calc(100% + 10px)',
+                  transform: 'translateX(-50%)',
+                  width: '268px',
+                  padding: '12px 14px',
+                  gap: '6px',
+                  borderRadius: '10px',
+                  background: 'rgba(20,11,36,.93)',
+                  boxShadow: '0 10px 34px rgba(10,4,20,.34)',
+                }}
+              >
+                <div className="text-[13px] leading-[1.4] font-semibold tracking-[-.01em] text-white">
+                  나만의 에이전트를 만들어 팔아보세요
+                </div>
+                <div
+                  className="text-[12px] leading-[18px]"
+                  style={{ color: 'rgba(255,236,246,.6)' }}
+                >
+                  내가 등록한 에이전트만 조합해 판매용 에이전트를 만들 수 있어요
+                </div>
+              </div>
+            </a>
+          )}
+          {shell.menu && (
+            <profile-menu
+              className="pointer-events-auto absolute"
+              style={{ left: `${shellBox.width - MENU_RIGHT}px`, top: '26px', zIndex: '40' }}
+              initial={nickname?.slice(0, 1) ?? ''}
+              search-href={paths.search}
+              mypage-href={paths.my.agents}
+              {...(signedIn ? { 'signed-in': '' } : {})}
+            ></profile-menu>
+          )}
+        </div>
+      </div>
+    </>
   )
 }

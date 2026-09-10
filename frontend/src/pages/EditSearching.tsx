@@ -35,10 +35,6 @@ export default function EditSearching() {
         style={{
           width: '1076px',
           height: '1024px',
-          background: 'rgba(15,8,30,.48)',
-          backdropFilter: 'blur(6px) saturate(112%)',
-          WebkitBackdropFilter: 'blur(6px) saturate(112%)',
-          boxShadow: 'inset -1px 0 0 rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.08)',
           animation: 'paneInDeep 1.15s cubic-bezier(.18,.86,.24,1) both',
           transformOrigin: '44% 46%',
         }}
@@ -120,7 +116,7 @@ export default function EditSearching() {
           <span className="relative inline-block">검색 중</span>
         </div>
         <div
-          className="absolute left-0 text-center text-[14px]"
+          className="absolute left-0 text-center text-[15px]"
           style={{
             top: '598px',
             width: '1076px',
@@ -136,12 +132,9 @@ export default function EditSearching() {
       <div
         className="absolute top-0"
         style={{
-          left: '1076px',
-          width: '364px',
+          right: 'calc(-1 * var(--edge, 0px))',
+          width: '400px',
           height: '1024px',
-          background: 'rgba(13,7,26,.68)',
-          backdropFilter: 'blur(26px) saturate(125%)',
-          WebkitBackdropFilter: 'blur(26px) saturate(125%)',
           boxShadow: 'inset 1px 0 0 rgba(255,255,255,.14),-30px 0 60px rgba(10,4,20,.35)',
           animation: 'sideInDeep 1.05s .12s cubic-bezier(.18,.86,.24,1) both',
         }}
@@ -151,7 +144,7 @@ export default function EditSearching() {
           style={{
             left: '30px',
             top: '30px',
-            width: '304px',
+            width: '340px',
             height: '40px',
             borderRadius: '10px',
           }}
@@ -179,7 +172,7 @@ export default function EditSearching() {
             }}
           ></div>
           <input
-            className="absolute border-0 bg-transparent font-[inherit] text-[13px] text-white outline-0"
+            className="absolute border-0 bg-transparent font-[inherit] text-[14px] text-white outline-0"
             id="searchSide"
             type="text"
             placeholder="에이전트 검색"
@@ -188,13 +181,13 @@ export default function EditSearching() {
         </div>
 
         <div
-          className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
+          className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
           style={{ left: '30px', top: '88px' }}
         >
           검색 결과
         </div>
         <div
-          className="absolute text-right text-[12px]"
+          className="absolute text-right text-[13px]"
           style={{ left: '266px', top: '90px', width: '68px', color: 'rgba(255,236,246,.6)' }}
         >
           10개
@@ -205,7 +198,7 @@ export default function EditSearching() {
           style={{
             left: '30px',
             top: '116px',
-            width: '304px',
+            width: '340px',
             height: '876px',
             gap: '14px',
             alignContent: 'flex-start',
@@ -215,7 +208,7 @@ export default function EditSearching() {
             <Fragment key={i}>
               <div
                 style={{
-                  width: '145px',
+                  width: '163px',
                   height: '160px',
                   borderRadius: '12px',
                   transition: 'background .18s,transform .18s',
@@ -233,14 +226,14 @@ export default function EditSearching() {
                   }}
                 >
                   <div
-                    className="absolute inset-0 flex items-center justify-center text-[15px] font-semibold"
+                    className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
                     style={{ color: 'rgba(255,226,238,.65)' }}
                   >
                     {item.initial}
                   </div>
                 </div>
                 <div
-                  className="absolute text-[13px] font-semibold tracking-[-.01em] text-white"
+                  className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
                   style={{ left: '16px', top: '76px' }}
                 >
                   {item.name}

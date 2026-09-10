@@ -95,13 +95,6 @@ export default function Main() {
   return (
     <>
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(120% 80% at 50% 42%, rgba(0,0,0,0) 35%, rgba(26,12,40,.34) 100%)',
-        }}
-      ></div>
-      <div
         className="pointer-events-none absolute"
         style={{
           left: '120px',

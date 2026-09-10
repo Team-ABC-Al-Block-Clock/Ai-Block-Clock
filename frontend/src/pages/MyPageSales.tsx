@@ -81,13 +81,6 @@ export default function MyPageSales() {
 
   return (
     <>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(20,9,34,.42) 0%, rgba(20,9,34,.22) 30%, rgba(20,9,34,.30) 100%)',
-        }}
-      ></div>
       <Sidebar active="sales" />
 
       <div
