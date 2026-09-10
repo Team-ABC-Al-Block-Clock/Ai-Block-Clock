@@ -370,12 +370,25 @@ describe('byNewest', () => {
  * 명세가 확정되기 전의 추정 타입(`tokenUsage`)이 남아 있으면 키 집합 검사에서 걸린다.
  */
 describe('getMyAgents', () => {
-  it('명세 기본값 10건을 준다', async () => {
+  it('명세 기본값 10건과 다음 커서를 준다', async () => {
     const page = await getMyAgents()
 
     // 마켓 목록은 9 다. 한쪽으로 박아 두면 화면이 size 를 안 넘길 때 페이지 크기가 갈린다.
-    expect(page.content.length).toBeLessThanOrEqual(10)
+    expect(page.content).toHaveLength(10)
+    // ME 가 11건 미만이면 두 번째 장이 없어 화면의 무한 스크롤과 'N개+' 를 검증할 수 없다.
+    expect(page.hasNext).toBe(true)
+    expect(page.nextCursor).toBeTruthy()
     expect(page).not.toHaveProperty('status')
+  })
+
+  it('두 번째 장까지 이어 받으면 내가 등록한 것이 전부 나온다', async () => {
+    const first = await getMyAgents()
+    const second = await getMyAgents({ cursor: first.nextCursor ?? undefined })
+    const ids = [...first.content, ...second.content].map((a) => a.agentId)
+
+    expect(second.hasNext).toBe(false)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toHaveLength((await getMyAgents({ size: 30 })).content.length)
   })
 
   it('목록 응답은 확정 명세의 필드만 담는다', async () => {
@@ -411,11 +424,21 @@ describe('getMyAgents', () => {
     }
   })
 
-  it('keyword 는 이름과 한 줄 설명만 검색한다', async () => {
+  it('keyword 는 이름과 한 줄 설명을 각각 본다', async () => {
     const page = await getMyAgents({ keyword: '계약', size: 30 })
 
     expect(page.content.length).toBeGreaterThan(0)
-    for (const agent of page.content) expect(`${agent.name} ${agent.summary}`).toContain('계약')
+    for (const agent of page.content) {
+      // 이어 붙인 문자열로 단정하면 필드 경계를 넘는 매칭을 통과시킨다. 각각을 본다.
+      expect(agent.name.includes('계약') || agent.summary.includes('계약')).toBe(true)
+    }
+  })
+
+  it('두 필드에 걸친 검색어는 매칭되지 않는다', async () => {
+    // '메일 초안' + '받은 메일에 답장 초안 작성' 을 이어 붙이면 '초안 받은' 이 걸린다.
+    // 서버는 LIKE 를 필드별로 걸므로 실서버에서는 0건이다.
+    const page = await getMyAgents({ keyword: '초안 받은', size: 30 })
+    expect(page.content).toHaveLength(0)
   })
 
   it('sort 마다 순서가 실제로 달라진다', async () => {
