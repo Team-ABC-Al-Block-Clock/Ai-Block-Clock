@@ -89,16 +89,10 @@ function useLogout() {
   }, [navigate, disconnectAsync])
 }
 
-/** 세션의 근거는 지갑이다 — 지갑이 바뀌거나 떨어지면 세션도 끝난다.
+/** 세션의 근거는 지갑이다 — 계정이 바뀌거나 연결이 끊기면 서버 쿠키까지 끊는다(7절).
  *
- *  계정이 바뀌면 열려 있던 세션은 남의 것이 되고, MetaMask 에서 연결을 끊거나
- *  권한을 취소하면 우리에게 남은 것은 쿠키뿐이다. 둘 다 서버 쿠키까지 지운다 —
- *  클라이언트 상태만 비우면 새로고침 한 번에 되살아난다.
- *
- *  연결이 끊긴 것은 `connected` 를 본 적이 있을 때만 센다. 부팅 직후엔 wagmi 가
- *  재연결 중이라 아직 `disconnected` 로 보이는데, 그때 끊으면 쿠키로 되살린
- *  세션이 매번 날아간다.
- */
+ *  연결 해제는 `connected` 를 본 적이 있을 때만 센다. 부팅 직후 wagmi 재연결 중에
+ *  끊으면 쿠키로 되살린 세션이 매번 날아간다. */
 function useWalletSessionGuard() {
   const { address, status } = useAccount()
   const sawConnected = useRef(false)
@@ -123,16 +117,10 @@ function useWalletSessionGuard() {
   }, [address, status])
 }
 
-/** 껍데기(로고·버튼·안내 띠)를 놓을 창 크기 — 설계 단위로 환산해 돌려준다.
+/** 껍데기를 놓을 창 크기 — 설계 단위로 환산해 돌려준다(3절).
  *
- *  껍데기는 캔버스가 아니라 창 모서리에 붙어야 한다. 캔버스 끝에 두면 비율이
- *  다를 때 남는 여백만큼 안쪽으로 들어가 떠 보인다. 그렇다고 창 좌표에 1:1 로
- *  그리면 글자만 커져 화면 내용과 어긋나므로, 캔버스와 같은 배율로 그리고
- *  크기만 창에 맞춘다.
- *
- *  배율은 `screen-frame` 이 던지는 `framefit` 에서 받는다 — 같은 계산을 두 벌
- *  두면 리사이즈 중 한쪽만 갱신돼 껍데기가 화면과 어긋난다.
- */
+ *  배율은 `screen-frame` 의 `framefit` 에서 받는다. 같은 계산을 두 벌 두면
+ *  리사이즈 중 한쪽만 갱신돼 껍데기가 화면과 어긋난다. */
 function useShellBox(frame: RefObject<HTMLElement | null>) {
   const [box, setBox] = useState({ scale: 1, width: 1440, height: 1024 })
 
@@ -199,13 +187,8 @@ export default function App() {
 
   return (
     <>
-      {/* 배경은 캔버스가 아니라 창 전체를 채운다 — 설계 캔버스(1440×1024)와 창
-          비율이 다르면 `screen-frame` 이 비율을 지키며 맞추느라 좌우나 위아래가
-          남는데, 배경을 캔버스 안에 두면 그 여백이 어두운 띠로 남는다.
-          UI 는 그대로 캔버스 좌표에 둔다 — 시안 좌표를 건드리지 않는다.
-
-          라우트 밖에 한 번만 — key 를 바꾸면 리마운트되어 WebGL 컨텍스트가 늘어난다.
-          화면을 옮겨도 같은 캔버스를 유지하고 dim·blur 값만 갈아끼운다. */}
+      {/* 배경은 캔버스가 아니라 창 전체를 채운다 — 캔버스 안에 두면 여백이 어두운 띠로 남는다(3절).
+          라우트 밖에 한 번만 — key 를 바꾸면 리마운트되어 WebGL 컨텍스트가 늘어난다. */}
       <div className="fixed inset-0 overflow-hidden">
         <ocean-bg
           wave-intensity={shell.waveIntensity}
@@ -224,10 +207,8 @@ export default function App() {
         )}
       </div>
 
-      {/* 배경이 뒤에 깔리도록 bg-abyss 를 얹지 않는다. 창 바탕은 index.css 가 칠한다.
-          `--edge` 는 캔버스와 창 사이 한쪽 여백 — 편집 화면이 사이드바를 창 끝까지
-          밀 때 쓴다. overflow 는 늘 명시한다: 빼면 React 가 값을 지워 버려서
-          bleed 화면을 한 번 지난 뒤 모든 화면이 잘리지 않는다. */}
+      {/* bg-abyss 를 얹지 않는다 — 배경을 가린다. `--edge` 는 캔버스와 창 사이 한쪽 여백.
+          overflow 는 늘 명시한다: 빼면 React 가 값을 지워 이후 화면이 잘리지 않는다(3절). */}
       <screen-frame
         width={1440}
         height={1024}
