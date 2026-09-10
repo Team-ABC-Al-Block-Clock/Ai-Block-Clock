@@ -10,13 +10,9 @@ import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 import logo from '../assets/logo.png'
 
-/**
- * 가입 화면 — 지갑 서명이 끝났고 프로필이 비어 있을 때만 들른다(시안 4).
- *
- * 지갑 서명이 인증을 대신하므로 받을 것은 프로필과 두 가지 확인뿐이다.
- * 유리 패널을 얹지 않고 로그인 화면과 같은 열(504·432)에 세워, 서명에서
- * 넘어올 때 화면이 갈리지 않고 이어져 보인다.
- */
+/** 가입 화면 — 서명이 끝났고 프로필이 비어 있을 때만 들른다(시안 4).
+ *  서명이 인증을 대신하므로 받을 것은 프로필과 두 가지 확인뿐이다.
+ *  카드 없이 로그인 화면과 같은 열(504·432)에 세워 화면이 이어져 보이게 한다. */
 export default function Signup() {
   const navigate = useNavigate()
   const { disconnectAsync } = useDisconnect()
@@ -75,11 +71,8 @@ export default function Signup() {
     join.mutate()
   }
 
-  /** 프로필을 채우기 전에 나가면 반쯤 열린 세션이 남는다 — 로그아웃과 같이
-   *  끊고 로그인 화면으로 되돌린다. 지갑까지 끊어야 다음 시도가 계정 선택부터다.
-   *
-   *  순서가 로그아웃과 같다: 세션을 먼저 끊는다. 지갑을 먼저 끊으면 App 의
-   *  지갑 가드가 "연결이 해제됐다" 로 읽어 엉뚱한 안내가 붙는다. */
+  /** 프로필을 채우기 전에 나가면 반쯤 열린 세션이 남는다 — 로그아웃처럼 끊고 돌려보낸다.
+   *  세션을 먼저 끊는다: 지갑이 먼저면 App 의 가드가 "연결 해제" 로 읽는다(7절). */
   const handleBack = () => {
     void useAuthStore
       .getState()
@@ -89,8 +82,7 @@ export default function Signup() {
       .finally(() => navigate(paths.login, { replace: true }))
   }
 
-  // 이미 가입을 마친 사람이 주소로 들어오면 빈 양식을 보여 주게 된다 —
-  // 그대로 저장하면 쓰던 이름이 지워진다.
+  // 이미 가입한 사람에게 빈 양식을 보여 주면, 그대로 저장해 쓰던 이름이 지워진다
   if (onboarded) return <Navigate to={paths.home} replace />
 
   const label = (text: string, suffix?: string, required = false) => (
