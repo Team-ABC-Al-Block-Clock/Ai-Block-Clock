@@ -203,7 +203,47 @@ const empty = !isPending && !isError && list.length === 0 // ○
 
 **응답은 봉투가 벗겨진 채로 온다.** 서버가 `{ status, data }` 로 감싸고 응답 인터셉터가 `data` 만 넘기므로 화면은 `res.data.data` 를 몰라도 된다.
 
-**오류는 `ApiError` 로 정규화된다. HTTP status 대신 `code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `AGENT_003`(visibility 값 오류)이 섞여 있다.
+```ts
+// api/auth.ts
+export const getMyProfile = () => api.get<UserProfile>('/users/me')
+```
+
+### 응답 타입도 `api/` 에 둔다
+
+화면은 API 응답 타입을 직접 선언하지 않는다. 필드명이 바뀔 때 고칠 곳이 `api/` 안으로 한정된다. 숫자를 문자열로 바꾸는 것은 `lib/format.ts` 가 한다 — API 는 `runCount: 1248` 을 주고 화면은 `1,248회` 를 쓴다.
+
+### 명세가 확정되지 않은 필드는 추정임을 적는다
+
+API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다. 그래서 아래는 **추정**이다.
+
+| 구분     | 내용                                                                                                                                                                                                                                                             |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **확정** | 경로 접두어 `/api/v1` · 봉투 `{status, data}` · `{status, code, message}`(백엔드 `ApiResponse`·`ErrorResponse`) · 인증 계열 필드명(`api/auth.ts`) · `GET /users/me` 전문 · 마켓 목록 전체(`CursorPage` 봉투 · `AgentSummary` 필드명 · `keyword`·`cursor`·`size`) |
+| **추정** | 마켓 목록 밖의 목록들이 정말 `CursorPage` 를 주는지 · 상세(`/marketplace/agents/{id}`)·`/agents` 응답의 추가 필드                                                                                                                                                |
+
+추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+
+### 목록은 전부 커서다 — 전체 개수를 만들지 않는다
+
+페이지 번호 방식(`page`·`totalElements`·`totalPages`)은 쓰지 않는다. 무한 스크롤로 불러오는
+동안 새 항목이 등록되면 항목이 밀려 중복·누락이 생기기 때문이다. `api/page.ts` 에는
+`CursorPage`·`CursorParams` 만 있다.
+
+커서 목록은 `totalElements` 를 주지 않는다. 전수를 만들지 않는 것이 설계 의도이므로,
+화면이 "N개" 를 띄우려고 개수를 세어 만들지 않는다 — 불러온 만큼만 세고 더 있으면 `+` 를
+붙인다.
+
+이 목록에는 **필터도 정렬도 없다.** 카테고리는 화면에 표시할 자리가 없고, 등급은 내부 자료이며,
+등록 여부가 곧 공개 여부다. 순서는 등록 시각 역순 하나로 고정이다. 서버가 받지 않는 조건을
+화면에서 거르면 "안 불러온 페이지는 안 걸러지는" 버그가 된다.
+
+### 응답은 봉투가 벗겨진 채로 온다
+
+서버는 `{ status, data }` 로 감싸 준다. 응답 인터셉터가 `data` 만 넘기므로 화면은 `res.data.data` 를 몰라도 된다.
+
+### 오류는 `ApiError` 로 정규화된다
+
+HTTP status 대신 **`code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `AGENT_003`(visibility 값 오류)이 섞여 있어 status 만으로는 무엇이 잘못됐는지 알 수 없다.
 
 ```ts
 if (e instanceof ApiError && e.code === 'AGENT_003') …
@@ -211,17 +251,6 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 ```
 
 **`Content-Type` 을 인스턴스 기본값으로 박지 않는다.** axios 가 본문 타입을 보고 붙인다. `application/json` 을 고정하면 FormData 가 **JSON 문자열로 바뀌어** 나간다 — 요청은 200 으로 성공하고 파일만 사라진다.
-
-### 명세가 확정되지 않은 필드는 추정임을 적는다
-
-API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 않았다.
-
-| 구분     | 내용                                                                                                                                                                                   |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **확정** | `/api/v1` 접두어 · 봉투 `{status, data}`·`{status, code, message}` · 인증 계열 필드명(`api/auth.ts`) · `GET /users/me` 전문                                                            |
-| **추정** | 목록 봉투(`api/page.ts`, Spring `Page` 축약형) · `page`·`size`·`sort`·필터 파라미터명 · 식별자·등급·단가 필드명 · `PATCH /users/me` 의 multipart 전송과 `USER_00x` 코드(API 문서 초안) |
-
-추정 필드는 `api/page.ts` 와 각 도메인 모듈에만 둔다. **화면에 필드명을 직접 박지 않는다** — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
 
 확정된 `GET /users/me` 에서 지갑은 평평한 필드가 아니라 `wallet: { provider, address, network, chainId }` 다.
 
@@ -266,18 +295,25 @@ API 명세서(S15P21A403-4)는 Notion 에 있고 링크가 아직 공유되지 �
 
 ```
 src/mocks/
-├─ start.ts       켜기 — main.tsx 가 렌더 전에 await 한다
-├─ browser.ts     setupWorker
-├─ response.ts    응답 봉투 (ok · fail)
-├─ scenario.ts    지연 · 강제 실패 스위치
-├─ paginate.ts    목록 페이지 계산
-├─ fixtures/      도메인별 데이터
-└─ handlers/      응답 만들기 — api/<도메인>.ts 와 짝
+├─ start.ts            켜기 — main.tsx 가 렌더 전에 await 한다
+├─ browser.ts          setupWorker
+├─ response.ts         응답 봉투 헬퍼 (ok · fail)
+├─ scenario.ts         지연 · 강제 실패 스위치
+├─ cursor.ts           목록 커서 계산 (cursor/size)
+├─ fixtures/           도메인별 데이터
+│  ├─ agents.ts
+│  ├─ user.ts
+│  └─ workflows.ts
+└─ handlers/           응답 만들기 — api/<도메인>.ts 와 짝
+   ├─ index.ts         도메인 핸들러를 모은다
+   ├─ auth.ts
+   ├─ marketplace.ts
+   └─ mypage.ts
 ```
 
 - **도메인 하나가 파일 하나.** `api/<도메인>.ts` 와 이름을 맞추고 `handlers/index.ts` 의 배열에 펼쳐 넣는다
 - **데이터는 `fixtures/`, 응답 만들기는 `handlers/`.** 핸들러에 데이터를 인라인으로 두면 두 핸들러가 같은 데이터를 쓰기 시작할 때 조용히 갈라진다
-- 파생값은 **계산해서** 만든다. `unitPrice: Math.round(seed.baseCost * (1 + premiumRate))`(○) · `unitPrice: 540`(✗) — 손으로 적으면 등급을 바꿀 때 같이 안 바뀌어 거짓 데이터가 된다
+- 파생값은 **계산해서** 만든다. `unitPrice: Math.round(seed.baseCost * (1 + premiumRate))`(○) · `unitPrice: 540`(✗) — 손으로 적으면 등급을 바꿀 때 같이 안 바뀌어 거짓 데이터가 된다. 단, **화면에 안 보이는 값에서 파생시키지 않는다** — 응답에도 화면에도 없는 필드를 근거로 계산하면 규칙의 전제가 사라지고 mock 이 서버 정책을 재구현하는 꼴이 된다
 - 평점·사용량이 0 인 **콜드스타트 건을 반드시 섞는다.** 화면이 NaN·빈칸을 내는지는 그때만 드러난다
 - **목록은 핸들러 안에서 실제로 걸러낸다.** 전체를 한 번에 돌려주면 검색어·필터·페이지 이동이 아무 효과가 없어 **검증 자체가 불가능하다**
 - **봉투를 그대로 흉내 낸다.** `ok`·`fail` 만 쓴다. 알맹이만 돌려주면 화면이 받는 모양이 실서버와 달라져 **mock 에서만 되는 코드**가 만들어진다. 오류는 실제 도메인 코드를 쓴다 — 화면이 `code` 로 분기하기 때문에(7절) 코드를 대충 주면 분기를 검증할 수 없다
@@ -418,9 +454,13 @@ const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTML
 ## 11. 커밋 전 확인
 
 ```bash
+npm test           # vitest run
 npm run build      # tsc -b && vite build — 타입 에러 0
 npm run lint
 npm run format
 ```
 
 인증 스토어를 고쳤다면 `npm run verify:auth` 도 돌린다(7절).
+
+테스트는 mock 핸들러를 실제로 호출한다(`src/test/server.ts` 가 `mocks/handlers` 를 그대로 쓴다).
+핸들러를 테스트용으로 따로 만들지 않는다 — 갈라지면 테스트가 통과해도 화면이 받는 응답은 다를 수 있다.

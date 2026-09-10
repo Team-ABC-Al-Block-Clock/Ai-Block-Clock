@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { Page, PageParams } from '@/api/page'
+import type { CursorPage, CursorParams } from '@/api/page'
 
 /** 워크플로우 API. 필드명은 추정이다 — `api/page.ts` 참고. */
 
@@ -21,5 +21,5 @@ export interface WorkflowSummary {
   updatedAt: string
 }
 
-export const getMyWorkflows = (params: PageParams = {}) =>
-  api.get<Page<WorkflowSummary>>('/workflows', { params })
+export const getMyWorkflows = (params: CursorParams = {}) =>
+  api.get<CursorPage<WorkflowSummary>>('/workflows', { params })

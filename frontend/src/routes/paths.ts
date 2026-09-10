@@ -4,9 +4,8 @@
  * 규칙은 docs/frontend-conventions.md 4절.
  */
 
-/** ID 를 받는 화면은 `[ID 없는 경로, ID 있는 경로]` 순으로 둔다.
- *  이 도메인들은 mock 핸들러가 아직 없어 화면에 넘길 ID 가 없다.
- *  핸들러가 붙으면 앞쪽 경로를 지운다. */
+/** ID 를 받는 화면 중 mock 핸들러가 아직 없는 것은 `[ID 없는 경로, ID 있는 경로]` 순으로 둔다.
+ *  넘길 ID 가 없어서다. 핸들러가 붙으면 앞쪽 경로를 지운다 — `agentDetail` 이 그렇게 했다. */
 export const routePatterns = {
   home: ['/'],
   login: ['/login'],
@@ -15,8 +14,9 @@ export const routePatterns = {
 
   /** 마켓 목록. GET /api/v1/marketplace/agents */
   search: ['/search'],
-  /** 마켓 상세. GET /api/v1/marketplace/agents/{agentId} */
-  agentDetail: ['/agent', '/agent/:agentId'],
+  /** 마켓 상세. GET /api/v1/marketplace/agents/{agentId} — 목록·마이페이지·등록 완료
+   *  화면이 모두 실제 ID 를 넘기므로 ID 없는 경로를 지웠다. */
+  agentDetail: ['/agent/:agentId'],
 
   /** 노드 팔레트. GET /api/v1/workflows/node-palette */
   editSearching: ['/edit/searching'],
@@ -46,6 +46,12 @@ export type ScreenKey = keyof typeof routePatterns
 /** `:param` 자리를 채운 경로를 만든다. ID 는 필수다.
  *  아직 ID 가 없는 화면은 `.withoutId` 를 쓴다 — 인자를 빠뜨렸을 때 조용히 옛 경로로
  *  착지하지 않도록 둘을 갈라 둔다. */
+/** ID 없는 경로가 사라진 화면. mock 핸들러가 붙어 넘길 ID 가 언제나 있다.
+ *  나머지 도메인도 핸들러가 붙으면 이쪽으로 옮기고 idPath 를 지운다. */
+function requiredIdPath([withId]: readonly [string]) {
+  return (id: string) => withId.replace(/:[^/]+/, id)
+}
+
 function idPath([plain, withId]: readonly [string, string]) {
   const build = (id: string) => withId.replace(/:[^/]+/, id)
   /** 해당 도메인 mock 핸들러가 붙기 전까지만 쓰는 임시 경로.
@@ -62,7 +68,7 @@ export const paths = {
   register: routePatterns.register[0],
 
   search: routePatterns.search[0],
-  agentDetail: idPath(routePatterns.agentDetail),
+  agentDetail: requiredIdPath(routePatterns.agentDetail),
 
   edit: {
     searching: routePatterns.editSearching[0],

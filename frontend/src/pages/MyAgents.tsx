@@ -37,12 +37,16 @@ export default function MyAgents() {
     })
   const query = q.trim()
   // GET /agents 는 내가 등록한 것만 준다 — 전체와 "내가 제작" 이 같다.
-  // 즐겨찾기는 서버에 엔드포인트가 없어 이 화면 안에서만 유지된다.
+  //
+  // 즐겨찾기 API(POST·DELETE /marketplace/agents/{id}/favorites)는 생겼고 목록 응답도
+  // `favorited` 를 준다. 그런데 이 화면은 아직 화면 안 상태로만 별을 그린다 —
+  // 상세에서 즐겨찾기한 것이 여기서는 빈 별로 보이고, 탭 전환하면 토글이 사라진다.
+  // 「즐겨찾기」 탭을 제대로 붙이려면 즐겨찾기 목록 조회 명세가 필요해 별도 작업으로 둔다.
   const agents = (data?.content ?? []).map((a, i) => ({
     agentId: a.agentId,
     name: a.name,
-    desc: a.description,
-    uses: runLabel(a.runCount),
+    desc: a.summary,
+    uses: runLabel(a.executionCount),
     tokens: tokenLabel(a.tokenUsage),
     path: SPARKS[i % SPARKS.length],
     i,
@@ -54,7 +58,9 @@ export default function MyAgents() {
     )
   const on = 'rgba(255,255,255,.9)',
     off = 'rgba(255,255,255,.09)'
-  const total = data?.totalElements ?? 0
+  // 커서 목록은 전체 개수를 주지 않는다(전수를 만들지 않는 것이 설계 의도).
+  // 불러온 만큼만 세고, 더 있으면 '+' 를 붙인다.
+  const total = `${agents.length}${data?.hasNext ? '+' : ''}`
   const allLabel = '전체 ' + total
   const favLabel = '즐겨찾기 ' + Object.keys(favs).length
   const mineLabel = '내가 제작 ' + total
@@ -378,7 +384,7 @@ export default function MyAgents() {
                 </div>
 
                 <a
-                  href={paths.agentDetail.withoutId}
+                  href={paths.agentDetail(r.agentId)}
                   style={{
                     width: '96px',
                     height: '34px',

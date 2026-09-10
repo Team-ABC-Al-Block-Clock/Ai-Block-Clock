@@ -45,6 +45,13 @@ declare module 'react' {
         'message-text'?: string
         'error-code'?: string
       }>
+      'empty-state': El<{
+        heading?: string
+        body?: string
+        /** EmptyAction[] 의 JSON 문자열 */
+        actions?: string
+        'body-width'?: number | string
+      }>
       'profile-sidebar': El
       'tab-row': El<{ items?: string }>
       'agent-card': El

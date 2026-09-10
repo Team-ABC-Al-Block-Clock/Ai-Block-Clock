@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { Page, PageParams } from '@/api/page'
+import type { CursorPage, CursorParams } from '@/api/page'
 
 /**
  * ABC 크레딧 API. 필드명은 추정이다 — `api/page.ts` 참고.
@@ -30,5 +30,5 @@ export interface CreditTransaction {
 
 export const getCreditBalance = () => api.get<CreditBalance>('/credits/balance')
 
-export const getCreditTransactions = (params: PageParams = {}) =>
-  api.get<Page<CreditTransaction>>('/credits/transactions', { params })
+export const getCreditTransactions = (params: CursorParams = {}) =>
+  api.get<CursorPage<CreditTransaction>>('/credits/transactions', { params })

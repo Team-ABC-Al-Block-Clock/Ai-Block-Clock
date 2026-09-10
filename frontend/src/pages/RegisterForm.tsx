@@ -1,10 +1,65 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
+
+import { createAgent } from '@/api/agents'
+import { ApiError } from '@/api/errors'
+import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
-export default function RegisterForm() {
-  const [done, setDone] = useState(false)
+/** 입력이 제어 컴포넌트가 아니라 제출할 때 한 번 읽는다.
+ *  값이 화면 로직에 쓰이지 않아 타자마다 리렌더할 이유가 없다 — MyAgents 의 검색 칸과 같은 방식.
+ *
+ *  JSX 도 이 맵으로 id 를 붙인다. 리터럴로 적어 두면 한쪽만 고쳐졌을 때 read() 가
+ *  빈 문자열을 돌려주고, 설명은 조용히 사라지고 이름은 원인 모를 COMMON_001 이 된다. */
+const FIELD = {
+  onboardingMessage: 'regOnboarding',
+  name: 'regName',
+  summary: 'regSummary',
+  description: 'regDescription',
+  usageExample: 'regUsageExample',
+} as const
 
-  const handleSubmit = () => setDone(true)
+function read(id: string) {
+  const node = document.getElementById(id)
+  return node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement
+    ? node.value.trim()
+    : ''
+}
+
+export default function RegisterForm() {
+  /** 등록된 에이전트 ID. 완료 화면의 「상세 페이지 보기」가 이걸로 주소를 만든다 —
+   *  별도 done 플래그를 두면 ID 없이 완료 화면이 뜨는 상태가 생긴다. */
+  const [agentId, setAgentId] = useState<string | null>(null)
+
+  const queryClient = useQueryClient()
+  const register = useMutation({
+    mutationFn: createAgent,
+    onSuccess: (res) => {
+      setAgentId(res.agentId)
+      // 등록하면 마켓 목록과 마이페이지에 바로 보여야 한다.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents.lists() })
+    },
+  })
+
+  const handleSubmit = () => {
+    if (register.isPending) return
+    register.mutate({
+      name: read(FIELD.name),
+      summary: read(FIELD.summary),
+      description: read(FIELD.description),
+      usageExample: read(FIELD.usageExample),
+      onboardingMessage: read(FIELD.onboardingMessage),
+    })
+  }
+
+  const error = register.error
+  const errorMessage = !error
+    ? null
+    : error instanceof ApiError && error.code === 'COMMON_001'
+      ? '에이전트 이름과 한 줄 설명을 입력해 주세요'
+      : '등록에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
   const shots = [0, 1, 2, 3, 4].map((i) => ({ i }))
 
   return (
@@ -132,6 +187,7 @@ export default function RegisterForm() {
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
               type="text"
+              id={FIELD.onboardingMessage}
               placeholder="에이전트에 어떤 프롬프트를 입력해야할지 사용자에게 알려주세요"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -162,6 +218,7 @@ export default function RegisterForm() {
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
               type="text"
+              id={FIELD.name}
               defaultValue="문서 정리"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -186,6 +243,7 @@ export default function RegisterForm() {
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
               type="text"
+              id={FIELD.summary}
               placeholder="지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -209,6 +267,7 @@ export default function RegisterForm() {
           >
             <textarea
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              id={FIELD.description}
               placeholder="에이전트의 기능을 자세히 설명해주세요"
               style={{
                 left: '18px',
@@ -400,6 +459,7 @@ export default function RegisterForm() {
           >
             <textarea
               className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              id={FIELD.usageExample}
               placeholder="에이전트 실행 결과 예시를 입력해주세요"
               style={{
                 left: '18px',
@@ -446,12 +506,28 @@ export default function RegisterForm() {
             }}
             className="absolute flex cursor-pointer items-center justify-center text-[15px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
           >
-            등록 완료
+            {register.isPending ? '등록 중…' : '등록 완료'}
           </div>
+
+          {/* 실패를 조용히 넘기지 않는다. 토스트가 없어 버튼 위에 한 줄로 둔다. */}
+          {errorMessage && (
+            <div
+              className="absolute text-right text-[12.5px] tracking-[-.01em]"
+              style={{
+                left: '672px',
+                top: '1552px',
+                width: '496px',
+                color: 'rgba(255,196,214,.9)',
+                animation: 'fadeIn .2s ease both',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
         </div>
       </div>
 
-      {done && (
+      {agentId && (
         <>
           <div
             className="absolute top-0 left-0"
@@ -513,7 +589,7 @@ export default function RegisterForm() {
               </a>
               <a
                 className="flex flex-1 items-center justify-center text-[14px] font-bold"
-                href={paths.agentDetail.withoutId}
+                href={paths.agentDetail(agentId)}
                 style={{
                   height: '50px',
                   borderRadius: '25px',
