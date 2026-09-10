@@ -1,10 +1,12 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.ChargeStatusReason;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Objects;
 
+@Component
 public final class ChargeVerifier {
 
     public ChargeVerificationResult verify(
