@@ -11,10 +11,28 @@ import { scene } from '@/mocks/scenario'
 /**
  * 인증 · 계정 mock. `api/auth.ts` 의 함수와 일대일로 맞춘다.
  *
- * 상태를 모듈에 들고 있어서 PATCH 결과가 다음 GET 에 보인다.
- * 새로고침하면 픽스처 초기값으로 돌아간다 — 지갑 세션만 예외다(아래).
+ * 지갑 세션과 프로필은 localStorage 에 둔다 — 모듈 변수로 들고 있으면
+ * 새로고침마다 픽스처로 돌아가서 "저장했는데 안 남는다" 로 보인다.
  */
-let profile: UserProfile = { ...PROFILE }
+const PROFILE_KEY = 'mockProfile'
+
+/** 저장된 것이 있으면 픽스처 위에 덮는다. 필드가 늘어나도 옛 저장값이 깨지지 않는다. */
+function readProfile(): UserProfile {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY)
+    return raw ? { ...PROFILE, ...(JSON.parse(raw) as Partial<UserProfile>) } : { ...PROFILE }
+  } catch {
+    return { ...PROFILE }
+  }
+}
+
+function writeProfile(next: UserProfile): void {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(next))
+  } catch {
+    /* 접근 불가 환경 — 이번 세션에서만 값이 살아 있다 */
+  }
+}
 
 /**
  * Refresh Token 쿠키 대역. mock 은 쿠키를 세팅하지 않아 localStorage 로 흉내 낸다 —
@@ -103,7 +121,7 @@ export const authHandlers = [
 
     // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — 픽스처 주소를 그대로
     // 돌려주면 어느 지갑으로 들어왔는지 화면에서 확인할 수 없다.
-    return ok<UserProfile>({ ...profile, walletAddress })
+    return ok<UserProfile>({ ...readProfile(), walletAddress })
   }),
   http.patch(`${API_BASE_URL}/users/me`, async ({ request }) => {
     const forced = await scene()
@@ -126,14 +144,16 @@ export const authHandlers = [
     }
 
     // 보내지 않은 필드는 그대로 둔다
-    if (typeof nickname === 'string') profile = { ...profile, nickname }
-    if (typeof introduction === 'string') profile = { ...profile, introduction }
+    let next = readProfile()
+    if (typeof nickname === 'string') next = { ...next, nickname }
+    if (typeof introduction === 'string') next = { ...next, introduction }
+    writeProfile(next)
 
     return ok<UpdatedProfile>({
-      userId: profile.userId,
-      nickname: profile.nickname,
-      introduction: profile.introduction,
-      profileImageUrl: profile.profileImageUrl,
+      userId: next.userId,
+      nickname: next.nickname,
+      introduction: next.introduction,
+      profileImageUrl: next.profileImageUrl,
       updatedAt: new Date().toISOString(),
     })
   }),
@@ -143,7 +163,7 @@ export const authHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    profile = { ...profile, onboardingCompleted: true }
+    writeProfile({ ...readProfile(), onboardingCompleted: true })
     return ok(null)
   }),
 ]
