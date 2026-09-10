@@ -242,9 +242,14 @@ src/mocks/
 - **프로덕션 번들에 들어가지 않는다.** `start.ts` 만 `import.meta.env.DEV` 를 직접 읽는다(5절의 예외) — Vite 가 이 값을 `false` 로 치환해 블록을 통째로 지워야 devDependency 인 `msw` 가 번들에서 빠진다. `env.useMock` 으로는 정적으로 지울 수 없다
 - `public/mockServiceWorker.js` 는 `npx msw init public/ --save` 가 만든 벤더 스크립트다. 손으로 고치지 않고 린트·포맷 대상에서도 뺀다
 
-### 지갑 세션만 새로고침을 넘어 남는다
+### 세션과 프로필은 새로고침을 넘어 남긴다
 
-mock 상태는 새로고침하면 픽스처 초기값으로 돌아가지만 로그인 세션은 예외다. 실서버는 Refresh Token 쿠키로 세션이 남아 부팅 시 재발급으로 되살아나는데(4절·7절), mock 이 쿠키를 세팅하지 않으면 **새로고침마다 로그아웃되어 그 경로를 확인할 수 없다.** `handlers/auth.ts` 가 localStorage 의 `mockWalletSession` 으로 흉내 낸다.
+mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 결과를 새로고침 뒤에도 확인해야 하는 것은 localStorage 에 둔다.** 모듈 변수로 들고 있으면 "저장했는데 안 남는다" 로 보여서 그 경로를 검증할 수 없다. `handlers/auth.ts` 가 두 가지를 그렇게 들고 있다.
+
+| 키                  | 무엇을                     | 없으면                    |
+| ------------------- | -------------------------- | ------------------------- |
+| `mockWalletSession` | Refresh Token 쿠키 대역    | 재발급·`/users/me` 가 401 |
+| `mockProfile`       | 이름·소개 등 수정된 프로필 | 픽스처 초기값             |
 
 | 요청                 | 세션 없음      | 세션 있음          |
 | -------------------- | -------------- | ------------------ |
@@ -252,7 +257,11 @@ mock 상태는 새로고침하면 픽스처 초기값으로 돌아가지만 로�
 | `GET /users/me`      | 401 `AUTH_005` | 세션 주소의 프로필 |
 | `POST /auth/logout`  | —              | 세션을 지운다      |
 
-로그아웃 상태로 되돌리려면 로그아웃하거나 `localStorage.removeItem('mockWalletSession')` 을 실행한다.
+되돌리려면 `localStorage.removeItem('mockWalletSession')` · `removeItem('mockProfile')` 을 실행한다.
+
+### mock 이 안 켜지면 조용히 프록시로 샌다
+
+`onUnhandledRequest: 'bypass'` 라서 mock 이 꺼져 있으면 요청이 vite 프록시로 나가고, 백엔드가 없으면 **502 로만 보인다.** `main.tsx` 가 시작 실패를 삼키지 않고 콘솔에 남기니 그것부터 확인한다. 콘솔에 `[MSW] Mocking enabled.` 가 없으면 mock 이 안 켜진 것이다.
 
 ### 로딩·실패는 시나리오 스위치로 확인한다
 
