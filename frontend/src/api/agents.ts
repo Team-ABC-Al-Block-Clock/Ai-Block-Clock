@@ -106,9 +106,102 @@ export interface CreatedAgent {
 
 export const createAgent = (body: CreateAgentRequest) => api.post<CreatedAgent>('/agents', body)
 
-/** 내가 등록한 에이전트. GET /agents — **추정** (명세 미확정) */
-export interface MyAgent extends AgentSummary {
-  tokenUsage: number
+/**
+ * 내 에이전트(판매 중). **확정** — MYP-001 명세와 1:1 이다.
+ *
+ * `AgentSummary` 를 확장하지 않는다 — 명세에 없는 평점·리뷰 수·만든 사람이 딸려 들어오면
+ * 화면이 그것을 몰래 쓰게 되고, 백엔드를 붙이는 날 조용히 `undefined` 가 된다.
+ * 등급과 보정 평점은 내려오지 않고, 등록이 곧 공개라 visibility 도 없다.
+ */
+export interface MyAgent {
+  agentId: string
+  name: string
+  /** 한 줄 설명 */
+  summary: string
+  iconUrl: string | null
+  /** 실행 1회당 판매 가격(단가). 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다. */
+  price: string
+  /**
+   * 누적 수익. **추정** — API 설명은 「실행 횟수와 수익을 함께 반환한다」인데 Response Field
+   * 표에는 없다. 단가와 같은 이유로 문자열이다.
+   */
+  revenue: string
+  /** 누적 실행 횟수 */
+  executionCount: number
+  /** 내가 즐겨찾기했는지 여부 */
+  favorited: boolean
+  /** 카드 스파크라인에 쓸 일별 실행 횟수. 최근 7일 —
+   *  에이전트마다 통계 API 를 따로 부르지 않게 목록이 함께 준다(명세 참고사항). */
+  trend: number[]
+  createdAt: string
+}
+
+/** 판매 중 탭의 정렬 기준. 화면의 정렬 옵션은 이 유니온에서 파생한다. */
+export type MyAgentSort = 'LATEST' | 'EXECUTIONS' | 'REVENUE'
+
+export interface MyAgentsQuery extends CursorParams {
+  /** 이름 또는 한 줄 설명 검색어 */
+  keyword?: string
+  /** 기본값 LATEST */
+  sort?: MyAgentSort
+}
+
+/**
+ * 즐겨찾기한 에이전트. **확정** — MYP-003 명세와 1:1 이다.
+ *
+ * 남이 만든 것이 섞여 있어 수익은 오지 않는다. `favorited` 도 없다 —
+ * 이 목록에 있다는 것이 곧 즐겨찾기했다는 뜻이다.
+ */
+export interface FavoriteAgent {
+  agentId: string
+  name: string
+  /** 한 줄 설명 */
+  summary: string
+  iconUrl: string | null
+  /** 판매 가격(단가) */
+  price: string
+  /** 누적 실행 횟수 */
+  executionCount: number
+  owner: { nickname: string }
+  /** 즐겨찾기한 시각. 이 값 역순이 목록 순서다 */
+  favoritedAt: string
+}
+
+/**
+ * 사용한 에이전트. **확정** — MYP-004 명세와 1:1 이다.
+ *
+ * `currency` 는 받지 않는다 — 단위가 ABC 하나뿐이라 항상 같은 값이고 `priceLabel` 이 붙인다.
+ * 두 번째 단위가 생기면 그때 되살린다.
+ */
+export interface UsedAgent {
+  agentId: string
+  name: string
+  /** 한 줄 설명 */
+  summary: string
+  iconUrl: string | null
+  /** 1회 실행 가격(단가) */
+  price: string
+  owner: { nickname: string }
+  /** 요청자 본인이 실행한 횟수. 마켓 카드의 `executionCount`(전체 누적)와 다른 값이라 이름을 구분한다 */
+  myExecutionCount: number
+  /** 이 에이전트에 요청자가 쓴 누적 금액 */
+  totalSpent: string
+  /** 요청자가 마지막으로 실행한 시각 */
+  lastExecutedAt: string
+  /** 평점 평균. 리뷰가 없으면 null */
+  averageRating: number | null
+  reviewCount: number
+  favorited: boolean
+}
+
+/** 사용한 에이전트 탭의 정렬 기준 */
+export type UsedAgentSort = 'LAST_EXECUTED' | 'MOST_EXECUTED'
+
+export interface UsedAgentsQuery extends CursorParams {
+  /** 이름 또는 한 줄 설명 검색어 */
+  keyword?: string
+  /** 기본값 LAST_EXECUTED */
+  sort?: UsedAgentSort
 }
 
 export interface AgentProvenance {
@@ -158,6 +251,14 @@ export const getAgentProvenance = (agentId: string) =>
 export const getAgentReviews = (agentId: string, params: CursorParams = {}) =>
   api.get<CursorPage<AgentReview>>(`/marketplace/agents/${agentId}/reviews`, { params })
 
-/** 내가 등록한 에이전트 */
-export const getMyAgents = (params: CursorParams = {}) =>
+/** 내가 등록해 판매 중인 에이전트. MYP-001 */
+export const getMyAgents = (params: MyAgentsQuery = {}) =>
   api.get<CursorPage<MyAgent>>('/agents', { params })
+
+/** 내가 즐겨찾기한 에이전트. MYP-003 — 검색어도 정렬도 받지 않는다(즐겨찾기한 시각 역순 고정). */
+export const getMyFavorites = (params: CursorParams = {}) =>
+  api.get<CursorPage<FavoriteAgent>>('/users/me/favorites', { params })
+
+/** 내가 한 번이라도 실행한 에이전트. MYP-004 */
+export const getUsedAgents = (params: UsedAgentsQuery = {}) =>
+  api.get<CursorPage<UsedAgent>>('/users/me/used-agents', { params })
