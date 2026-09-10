@@ -7,8 +7,9 @@ import {
   getMarketplaceAgent,
   removeAgentFavorite,
   type AgentDetail,
+  type AgentImage,
 } from '@/api/agents'
-import { ApiError } from '@/api/errors'
+import { ApiError, AUTH_ERROR } from '@/api/errors'
 import { compactCount, priceLabel, ratingLabel, runLabel, successLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
@@ -31,9 +32,9 @@ const ERROR_ACTIONS = JSON.stringify([
 ])
 
 /** 즐겨찾기 실패 중 로그인 문제. 401 안에서도 문구가 갈린다(`api/errors.ts`). */
-const AUTH_CODES = ['AUTH_005', 'AUTH_006', 'AUTH_007']
+const AUTH_CODES: string[] = [AUTH_ERROR.MISSING, AUTH_ERROR.INVALID, AUTH_ERROR.EXPIRED]
 
-type ShotTab = 'INPUT' | 'OUTPUT'
+type ShotTab = AgentImage['type']
 
 export default function Detail() {
   const { agentId } = useParams<{ agentId: string }>()
