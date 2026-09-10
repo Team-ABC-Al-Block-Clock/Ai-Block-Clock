@@ -34,8 +34,10 @@ interface AuthState {
   signOut: () => Promise<void>
   /** 클라이언트 상태만 비운다 — 회복 불가능한 401 */
   clearSession: () => void
-  /** 프로필만 갈아끼운다 — 세션은 그대로. 내 정보를 고치면 화면들이 같이 바뀐다 */
-  setProfile: (profile: UserProfile) => void
+  /** 바뀐 필드만 덮는다 — 내 정보를 고치면 화면들이 같이 바뀐다.
+   *  병합을 스토어가 맡는 이유: PATCH 응답에 지갑 주소가 없어서 호출부가
+   *  통째로 넣으면 그 값이 조용히 사라진다 */
+  setProfile: (patch: Partial<UserProfile>) => void
 }
 
 /** 로그아웃·인증 실패·복구 실패가 모두 같은 모양으로 끝나야 한다. */
@@ -131,10 +133,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     clearSession: () => dropSession(true),
 
-    setProfile: (profile) => {
+    setProfile: (patch) => {
       // 세션이 끝난 뒤 늦게 도착한 저장 응답이 화면을 되살리지 않게 한다.
-      if (get().status !== 'authenticated') return
-      set({ profile, walletAddress: profile.walletAddress })
+      const { status, profile } = get()
+      if (status !== 'authenticated' || !profile) return
+      set({ profile: { ...profile, ...patch } })
     },
   }
 })

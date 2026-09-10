@@ -1,6 +1,7 @@
 import { http } from 'msw'
 
-import type { AuthTokens, UserProfile, WalletMessage } from '@/api/auth'
+import type { AuthTokens, UpdatedProfile, UserProfile, WalletMessage } from '@/api/auth'
+import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
 import { AUTH_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
@@ -108,13 +109,33 @@ export const authHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    const patch = (await request.json()) as { nickname?: string; introduction?: string }
-    if (patch.nickname !== undefined && patch.nickname.trim() === '') {
-      return fail(400, 'COMMON_001', '닉네임은 비워 둘 수 없습니다.')
+    // 명세가 multipart 다 — 프로필 이미지가 같은 요청에 실린다
+    const form = await request.formData()
+    const nickname = form.get('nickname')
+    const introduction = form.get('introduction')
+
+    const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+    if (
+      typeof nickname === 'string' &&
+      (nickname.length < nickLimit.min || nickname.length > nickLimit.max)
+    ) {
+      return fail(400, 'USER_002', `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`)
+    }
+    if (typeof introduction === 'string' && introduction.length > introLimit.max) {
+      return fail(400, 'USER_002', `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`)
     }
 
-    profile = { ...profile, ...patch }
-    return ok<UserProfile>(profile)
+    // 보내지 않은 필드는 그대로 둔다
+    if (typeof nickname === 'string') profile = { ...profile, nickname }
+    if (typeof introduction === 'string') profile = { ...profile, introduction }
+
+    return ok<UpdatedProfile>({
+      userId: profile.userId,
+      nickname: profile.nickname,
+      introduction: profile.introduction,
+      profileImageUrl: profile.profileImageUrl,
+      updatedAt: new Date().toISOString(),
+    })
   }),
 
   /** 계정 복구 불가 고지 확인 */

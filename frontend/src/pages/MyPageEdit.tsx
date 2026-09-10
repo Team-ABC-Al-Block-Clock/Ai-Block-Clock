@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
-import { updateMyProfile } from '@/api/auth'
+import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
 import { ApiError } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
 import { chainLabel } from '@/lib/wagmi'
@@ -24,17 +24,30 @@ export default function MyPageEdit() {
 
   const trimmedNickname = nickname.trim()
   const trimmedIntro = introduction.trim()
-  // 서버도 빈 닉네임을 400 으로 막는다(mock 포함). 보내기 전에 여기서 먼저 잡는다.
-  const invalid = trimmedNickname === ''
+
+  // 서버가 USER_002 로 막는 범위를 보내기 전에 여기서 먼저 잡는다.
+  const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+  const nicknameError =
+    trimmedNickname.length < nickLimit.min || trimmedNickname.length > nickLimit.max
+      ? `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다`
+      : null
+  const introError =
+    trimmedIntro.length > introLimit.max ? `한 줄 소개는 ${introLimit.max}자까지입니다` : null
+  const invalid = nicknameError !== null || introError !== null
+
   const dirty =
     trimmedNickname !== (profile?.nickname ?? '') || trimmedIntro !== (profile?.introduction ?? '')
 
   const save = useMutation({
     mutationFn: () => updateMyProfile({ nickname: trimmedNickname, introduction: trimmedIntro }),
     onSuccess: (updated) => {
-      // 프로필은 쿼리가 아니라 스토어에 있다(7절). 저장 결과를 스토어에 되돌려
-      // 넣어야 사이드바 이름·소개가 같이 바뀐다.
-      setProfile(updated)
+      // 프로필은 쿼리가 아니라 스토어에 있다(7절). 저장 결과를 되돌려 넣어야
+      // 사이드바 이름·소개가 같이 바뀐다. 응답에 없는 필드는 스토어가 유지한다.
+      setProfile({
+        nickname: updated.nickname,
+        introduction: updated.introduction,
+        profileImageUrl: updated.profileImageUrl,
+      })
       setToast({ ok: true, text: '변경사항이 저장되었습니다' })
       saveTimer.current = setTimeout(() => navigate(paths.my.agents), 1100)
     },
@@ -201,12 +214,12 @@ export default function MyPageEdit() {
                     style={{ width: '100%' }}
                   />
                 </div>
-                {invalid && (
+                {nicknameError && (
                   <div
                     className="text-[11.5px] tracking-[-.01em]"
                     style={{ marginTop: '6px', color: '#ffb4c8' }}
                   >
-                    이름은 비워 둘 수 없습니다
+                    {nicknameError}
                   </div>
                 )}
               </div>
@@ -230,6 +243,15 @@ export default function MyPageEdit() {
                     onChange={(e) => setIntroduction(e.target.value)}
                     style={{ width: '100%' }}
                   />
+                </div>
+                <div
+                  className="flex items-center justify-between text-[11.5px] tracking-[-.01em]"
+                  style={{ marginTop: '6px' }}
+                >
+                  <span style={{ color: '#ffb4c8' }}>{introError}</span>
+                  <span style={{ color: introError ? '#ffb4c8' : 'rgba(255,236,246,.5)' }}>
+                    {`${trimmedIntro.length} / ${introLimit.max}`}
+                  </span>
                 </div>
               </div>
             </div>
