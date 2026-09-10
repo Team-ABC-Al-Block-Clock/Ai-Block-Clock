@@ -261,7 +261,9 @@ mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 
 
 ### mock 이 안 켜지면 조용히 프록시로 샌다
 
-`onUnhandledRequest: 'bypass'` 라서 mock 이 꺼져 있으면 요청이 vite 프록시로 나가고, 백엔드가 없으면 **502 로만 보인다.** `main.tsx` 가 시작 실패를 삼키지 않고 콘솔에 남기니 그것부터 확인한다. 콘솔에 `[MSW] Mocking enabled.` 가 없으면 mock 이 안 켜진 것이다.
+`onUnhandledRequest: 'bypass'` 라서 mock 이 꺼져 있으면 요청이 vite 프록시로 나가고, 백엔드가 없으면 **502 로만 보인다.** 콘솔에 `[MSW] Mocking enabled.` 가 없으면 mock 이 안 켜진 것이다. `main.tsx` 가 시작 실패를 삼키지 않고 남기니 그것부터 확인한다.
+
+**`src/mocks/` 는 HMR 로 갈아끼우지 않는다.** 핫 교체하면 새 모듈이 생겨도 이미 떠 있는 워커는 옛 핸들러 목록을 들고 있어, 그 뒤 요청이 전부 프록시로 새어 나간다 — mock 을 고치자마자 502 가 나는 이유였다. `vite.config.ts` 의 `reloadOnMockChange` 가 이 폴더 변경 시 페이지를 다시 읽는다.
 
 ### 로딩·실패는 시나리오 스위치로 확인한다
 

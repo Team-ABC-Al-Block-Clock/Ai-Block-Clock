@@ -12,6 +12,23 @@ import { injected } from 'wagmi/connectors'
 export const chain = polygonAmoy
 export const chainLabel = chain.name
 
+/** 배너가 "지금 어디에 붙어 있는지" 를 말할 때 쓴다. 모르는 체인은 번호로. */
+const CHAIN_NAMES: Record<number, string> = {
+  1: 'Ethereum',
+  10: 'OP Mainnet',
+  56: 'BNB Smart Chain',
+  137: 'Polygon',
+  8453: 'Base',
+  42161: 'Arbitrum One',
+  11155111: 'Sepolia',
+  [polygonAmoy.id]: polygonAmoy.name,
+}
+
+export function chainNameOf(id: number | undefined): string {
+  if (id === undefined) return '다른 네트워크'
+  return CHAIN_NAMES[id] ?? `체인 ${id}`
+}
+
 export const wagmiConfig = createConfig({
   chains: [chain],
   // target 을 지정하지 않으면 `window.ethereum` 을 선점한 다른 지갑 확장을 잡는다.

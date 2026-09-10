@@ -109,6 +109,16 @@ client.interceptors.response.use(
       throw new ApiError('서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.', { cause: error })
     }
 
+    // 개발 중 502 는 대개 MSW 가 요청을 못 잡아 프록시로 샌 것이다. 서비스 워커가
+    // 유휴로 종료되면 로드 직후엔 되던 것이 도중에 이렇게 된다 — 원인을 찾느라
+    // 시간 쓰지 않도록 답을 바로 알려 준다.
+    if (import.meta.env.DEV && env.useMock && response.status === 502) {
+      console.error(
+        '[mocks] 502 — MSW 가 요청을 잡지 못했습니다. 페이지를 새로고침하세요.',
+        error.config?.url,
+      )
+    }
+
     const body = response.data
     const code = isApiErrorBody(body) ? body.code : undefined
     const message = isApiErrorBody(body) ? body.message : error.message

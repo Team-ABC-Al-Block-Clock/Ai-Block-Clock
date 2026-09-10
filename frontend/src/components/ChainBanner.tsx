@@ -1,55 +1,87 @@
-import { useAccount, useSwitchChain } from 'wagmi'
+import { chainLabel, chainNameOf } from '@/lib/wagmi'
+import { BANNER_HEIGHT, type ChainBannerState, type SwitchPhase } from '@/hooks/useChainBanner'
 
-import { chain, chainLabel } from '@/lib/wagmi'
+const MESSAGE: Record<Exclude<SwitchPhase, 'idle'>, string> = {
+  pending: '지갑에서 네트워크 전환을 승인해 주세요',
+  rejected: `전환을 취소했습니다 — 실행하려면 ${chainLabel}가 필요합니다`,
+  failed: '네트워크를 전환할 수 없었습니다. 지갑에서 직접 바꿔주세요',
+}
 
-/** 지갑이 다른 네트워크에 있을 때 띄우는 알림. 연결할 때 한 번 전환을 권하지만
- *  그 뒤에 사용자가 지갑에서 바꿀 수 있다(wagmi 가 `chainChanged` 구독).
- *  검색·상세는 체인과 무관하게 볼 수 있어야 하므로 모달로 막지 않는다.
+/**
+ * 네트워크가 다를 때 화면 맨 위에 뜨는 띠.
+ *
+ * 캡슐이 아니라 띠인 이유는 하늘 한가운데를 뚫지 않기 위해서다 — 배경이
+ * 주인공인 화면에서 경고가 배경을 가리면 안 된다. 모달로 막지도 않는다.
+ * 검색·상세는 체인과 무관하게 볼 수 있어야 한다.
  */
-export default function ChainBanner() {
-  const { isConnected, chainId } = useAccount()
-  const { switchChain, isPending } = useSwitchChain()
+export default function ChainBanner({
+  visible,
+  phase,
+  chainId,
+  switchToChain,
+  dismiss,
+}: ChainBannerState) {
+  if (!visible) return null
 
-  // 지갑을 붙이지 않은 사람에게 네트워크 얘기는 소음이다.
-  if (!isConnected || chainId === chain.id) return null
+  const message =
+    phase === 'idle'
+      ? `${chainNameOf(chainId)}에 연결돼 있습니다 — 실행은 ${chainLabel}에서만 처리됩니다`
+      : MESSAGE[phase]
 
   return (
-    // 가운데 정렬은 transform 이 아니라 flex 로 — 유리판에 transform 을 걸면
-    // backdrop 루트가 되어 뒤 배경을 못 가져온다(10절).
     <div
-      className="pointer-events-none absolute left-0 flex justify-center"
-      style={{ top: '26px', width: '1440px', zIndex: 50 }}
+      role="status"
+      aria-live="polite"
+      className="pointer-events-auto absolute inset-x-0 top-0 flex items-center justify-center"
+      style={{
+        height: `${BANNER_HEIGHT}px`,
+        gap: '9px',
+        zIndex: 60,
+        // 위가 진하고 아래로 사라지는 띠 — 경계선을 긋지 않고 화면에 얹힌다
+        background: 'linear-gradient(180deg, rgba(184,120,150,.42), rgba(184,120,150,.14))',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        animation: 'dropInDown .34s cubic-bezier(.2,.8,.25,1) both',
+      }}
     >
       <div
-        className="pointer-events-auto flex items-center"
+        className="flex-none rounded-full"
         style={{
-          height: '44px',
-          padding: '0 8px 0 20px',
-          borderRadius: '22px',
-          background: 'rgba(20,10,32,.9)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          boxShadow: '0 16px 40px rgba(6,3,14,.45)',
-          gap: '14px',
+          width: '5px',
+          height: '5px',
+          background: '#ffd0e0',
+          animation: phase === 'pending' ? 'pulseDot 1.4s ease-in-out infinite' : undefined,
         }}
-      >
-        <div
-          className="rounded-full"
-          style={{ width: '7px', height: '7px', flex: 'none', background: '#f0b6c8' }}
-        />
-        <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
-          {`${chainLabel} 네트워크가 아닙니다`}
-        </div>
+      />
+
+      <div className="truncate text-[12.5px] font-medium tracking-[-.01em] text-white">
+        {message}
+      </div>
+
+      {phase !== 'pending' && (
         <button
           type="button"
-          onClick={() => switchChain({ chainId: chain.id })}
-          disabled={isPending}
-          className="bg-accent text-accent-ink flex cursor-pointer items-center justify-center text-[12.5px] font-bold whitespace-nowrap transition-transform duration-[160ms] hover:-translate-y-[1px] disabled:cursor-default disabled:opacity-60 disabled:hover:translate-y-0"
-          style={{ height: '30px', padding: '0 14px', borderRadius: '15px' }}
+          onClick={() => void switchToChain()}
+          className="cursor-pointer text-[12.5px] font-bold tracking-[-.01em] text-white underline transition-colors duration-[160ms] hover:text-[#ffd7e6]"
+          style={{ textUnderlineOffset: '3px' }}
         >
-          {isPending ? '전환 중…' : '네트워크 전환'}
+          {phase === 'idle' ? '전환' : '다시 시도'}
         </button>
-      </div>
+      )}
+
+      {/* 닫기는 전환이 실패했을 때만. 정상 경로에서 숨겨 버리면 실행 단계에서
+          같은 문제를 다시 만나고, 그때는 이유를 모른다. */}
+      {phase === 'failed' && (
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="닫기"
+          className="absolute cursor-pointer text-sm leading-none"
+          style={{ right: '16px', top: '12px', color: 'rgba(255,255,255,.6)' }}
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }
