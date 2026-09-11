@@ -3,6 +3,7 @@ package com.aiblockclock.domain.payment;
 import com.aiblockclock.domain.payment.ChargeNetworkPolicy;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,15 +13,10 @@ import java.util.Locale;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class ChargeRequestService {
 
     private final ChargeRequestRepository chargeRequestRepository;
-
-    public ChargeRequestService(
-            ChargeRequestRepository chargeRequestRepository
-    ) {
-        this.chargeRequestRepository = chargeRequestRepository;
-    }
 
     @Transactional
     public ChargeRequestEntity createPending(

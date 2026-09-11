@@ -5,6 +5,7 @@ import com.aiblockclock.domain.payment.ChargeVerificationResult;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,21 +13,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
+@RequiredArgsConstructor
 public class ChargeSettlementService {
 
     private final ChargeRequestRepository chargeRequestRepository;
     private final AbcConversionPolicy conversionPolicy;
     private final AbcChargeLedgerWriter ledgerWriter;
-
-    public ChargeSettlementService(
-            ChargeRequestRepository chargeRequestRepository,
-            AbcConversionPolicy conversionPolicy,
-            AbcChargeLedgerWriter ledgerWriter
-    ) {
-        this.chargeRequestRepository = chargeRequestRepository;
-        this.conversionPolicy = conversionPolicy;
-        this.ledgerWriter = ledgerWriter;
-    }
 
     @Transactional
     public ChargeRequestEntity applyResult(

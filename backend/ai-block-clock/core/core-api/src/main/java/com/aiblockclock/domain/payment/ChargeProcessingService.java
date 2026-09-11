@@ -9,27 +9,19 @@ import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class ChargeProcessingService {
 
     private final ChargeRequestRepository chargeRequestRepository;
     private final ChargeVerifier chargeVerifier;
     private final ChargeSettlementService settlementService;
-
-    public ChargeProcessingService(
-            ChargeRequestRepository chargeRequestRepository,
-            ChargeVerifier chargeVerifier,
-            ChargeSettlementService settlementService
-    ) {
-        this.chargeRequestRepository = chargeRequestRepository;
-        this.chargeVerifier = chargeVerifier;
-        this.settlementService = settlementService;
-    }
 
     @Transactional
     public ChargeRequestEntity process(

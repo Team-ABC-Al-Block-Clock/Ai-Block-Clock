@@ -9,6 +9,7 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class AbcChargeLedgerWriter {
 
     private static final String SYSTEM_REFERENCE_ID = "SYSTEM";
@@ -24,16 +26,6 @@ public class AbcChargeLedgerWriter {
     private final LedgerAccountRepository ledgerAccountRepository;
     private final LedgerTransactionRepository ledgerTransactionRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
-
-    public AbcChargeLedgerWriter(
-            LedgerAccountRepository ledgerAccountRepository,
-            LedgerTransactionRepository ledgerTransactionRepository,
-            LedgerEntryRepository ledgerEntryRepository
-    ) {
-        this.ledgerAccountRepository = ledgerAccountRepository;
-        this.ledgerTransactionRepository = ledgerTransactionRepository;
-        this.ledgerEntryRepository = ledgerEntryRepository;
-    }
 
     @Transactional
     public LedgerTransactionEntity recordCharge(
