@@ -6,8 +6,6 @@ import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Objects;
-
 @Service
 @RequiredArgsConstructor
 public class ChargeProcessingService {
@@ -29,9 +27,8 @@ public class ChargeProcessingService {
             return chargeRequest;
         }
 
-        if (!Objects.equals(
-                chargeRequest.getChainId(),
-                networkPolicy.chainId()
+        if (!networkPolicy.supportsChain(
+                chargeRequest.getChainId()
         )) {
             return settlementManager.applyResult(
                     chargeRequestId,
@@ -42,14 +39,8 @@ public class ChargeProcessingService {
         }
 
         ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
-                        networkPolicy.chainId(),
-                        chargeRequest.getTransactionHash(),
-                        chargeRequest.getSenderWalletAddress(),
-                        chargeRequest.getRequestedUsdcAmount(),
-                        networkPolicy.custodyAddress(),
-                        networkPolicy.usdcContractAddress(),
-                        networkPolicy.requiredConfirmations()
+                networkPolicy.createVerificationCommand(
+                        chargeRequest
                 );
 
         ChargeVerificationResult verificationResult =
