@@ -3,6 +3,8 @@ package com.aiblockclock.domain.payment;
 import com.aiblockclock.domain.payment.ChargeNetworkPolicy;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -105,9 +107,12 @@ class ChargeRequestServiceIntegrationTest {
                         new BigDecimal("10")
                 )
         )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage(
-                        "이미 다른 사용자의 충전에 사용된 트랜잭션입니다."
+                .isInstanceOfSatisfying(
+                        CoreException.class,
+                        exception -> assertThat(exception.getErrorType())
+                                .isEqualTo(
+                                        ErrorType.CHARGE_TRANSACTION_ALREADY_USED
+                                )
                 );
     }
 
@@ -137,9 +142,26 @@ class ChargeRequestServiceIntegrationTest {
                         "other-user"
                 )
         )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage(
-                        "다른 사용자의 충전 요청은 조회할 수 없습니다."
+                .isInstanceOfSatisfying(
+                        CoreException.class,
+                        exception -> assertThat(exception.getErrorType())
+                                .isEqualTo(
+                                        ErrorType.CHARGE_REQUEST_FORBIDDEN
+                                )
                 );
+    }
+
+    @Test
+    void 존재하지_않는_충전_요청은_조회할_수_없다() {
+        assertThatThrownBy(
+                () -> chargeRequestService.getOwnedCharge(
+                        Long.MAX_VALUE,
+                        "user-request-600"
+                )
+        ).isInstanceOfSatisfying(
+                CoreException.class,
+                exception -> assertThat(exception.getErrorType())
+                        .isEqualTo(ErrorType.CHARGE_REQUEST_NOT_FOUND)
+        );
     }
 }

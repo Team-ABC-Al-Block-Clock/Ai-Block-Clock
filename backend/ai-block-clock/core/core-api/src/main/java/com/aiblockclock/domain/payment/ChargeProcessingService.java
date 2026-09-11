@@ -9,6 +9,8 @@ import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,8 +34,8 @@ public class ChargeProcessingService {
         ChargeRequestEntity chargeRequest =
                 chargeRequestRepository.findById(chargeRequestId)
                         .orElseThrow(
-                                () -> new IllegalArgumentException(
-                                        "충전 요청을 찾을 수 없습니다."
+                                () -> new CoreException(
+                                        ErrorType.CHARGE_REQUEST_NOT_FOUND
                                 )
                         );
 

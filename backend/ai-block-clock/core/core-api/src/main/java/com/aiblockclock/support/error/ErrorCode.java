@@ -10,5 +10,11 @@ public enum ErrorCode {
     AGENT_001,
     AGENT_002,
     AGENT_006,
-    AGENT_007
+    AGENT_007,
+
+    PAYMENT_001,
+    PAYMENT_002,
+    PAYMENT_003,
+    PAYMENT_004,
+    PAYMENT_005
 }

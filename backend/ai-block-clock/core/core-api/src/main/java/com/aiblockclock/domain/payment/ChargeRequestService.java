@@ -3,6 +3,8 @@ package com.aiblockclock.domain.payment;
 import com.aiblockclock.domain.payment.ChargeNetworkPolicy;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,8 +46,8 @@ public class ChargeRequestService {
                 .map(existing -> {
                     if (!existing.getUserReferenceId()
                             .equals(userReferenceId)) {
-                        throw new IllegalStateException(
-                                "이미 다른 사용자의 충전에 사용된 트랜잭션입니다."
+                        throw new CoreException(
+                                ErrorType.CHARGE_TRANSACTION_ALREADY_USED
                         );
                     }
 
@@ -73,15 +75,15 @@ public class ChargeRequestService {
         ChargeRequestEntity chargeRequest =
                 chargeRequestRepository.findById(chargeRequestId)
                         .orElseThrow(
-                                () -> new IllegalArgumentException(
-                                        "충전 요청을 찾을 수 없습니다."
+                                () -> new CoreException(
+                                        ErrorType.CHARGE_REQUEST_NOT_FOUND
                                 )
                         );
 
         if (!chargeRequest.getUserReferenceId()
                 .equals(userReferenceId)) {
-            throw new IllegalStateException(
-                    "다른 사용자의 충전 요청은 조회할 수 없습니다."
+            throw new CoreException(
+                    ErrorType.CHARGE_REQUEST_FORBIDDEN
             );
         }
 

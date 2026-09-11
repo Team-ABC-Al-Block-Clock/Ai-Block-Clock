@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -11,14 +13,20 @@ public final class AbcConversionPolicy {
     public BigDecimal convert(BigDecimal usdcAmount) {
         if (usdcAmount == null
                 || usdcAmount.signum() <= 0) {
-            throw new IllegalArgumentException(
-                    "USDC 수량은 0보다 커야 합니다."
+            throw new CoreException(
+                    ErrorType.CHARGE_INVALID_AMOUNT
             );
         }
 
-        return usdcAmount.setScale(
-                3,
-                RoundingMode.UNNECESSARY
-        );
+        try {
+            return usdcAmount.setScale(
+                    3,
+                    RoundingMode.UNNECESSARY
+            );
+        } catch (ArithmeticException exception) {
+            throw new CoreException(
+                    ErrorType.CHARGE_INVALID_AMOUNT
+            );
+        }
     }
 }

@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -33,6 +35,24 @@ class AbcConversionPolicyTest {
                 () -> policy.convert(
                         new BigDecimal("10.123456")
                 )
-        ).isInstanceOf(ArithmeticException.class);
+        ).isInstanceOfSatisfying(
+                CoreException.class,
+                exception -> assertThat(exception.getErrorType())
+                        .isEqualTo(ErrorType.CHARGE_INVALID_AMOUNT)
+        );
+    }
+
+    @Test
+    void USDC_수량이_0_이하면_변환하지_않는다() {
+        AbcConversionPolicy policy =
+                new AbcConversionPolicy();
+
+        assertThatThrownBy(
+                () -> policy.convert(BigDecimal.ZERO)
+        ).isInstanceOfSatisfying(
+                CoreException.class,
+                exception -> assertThat(exception.getErrorType())
+                        .isEqualTo(ErrorType.CHARGE_INVALID_AMOUNT)
+        );
     }
 }

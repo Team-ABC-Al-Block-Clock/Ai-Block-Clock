@@ -10,6 +10,8 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("integration")
 @SpringBootTest
@@ -173,5 +176,53 @@ class AbcChargeLedgerWriterIntegrationTest {
 
         assertThat(userAccount.getBalance())
                 .isEqualByComparingTo("10.000");
+    }
+
+    @Test
+    void 저장되지_않은_충전_요청은_원장에_기록하지_않는다() {
+        ChargeRequestEntity unsavedChargeRequest =
+                ChargeRequestEntity.pending(
+                        "user-ledger-300",
+                        "0x3333333333333333333333333333333333333333",
+                        12345L,
+                        "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                        new BigDecimal("10.000000")
+                );
+
+        assertThatThrownBy(
+                () -> ledgerWriter.recordCharge(
+                        unsavedChargeRequest,
+                        new BigDecimal("10.000")
+                )
+        ).isInstanceOfSatisfying(
+                CoreException.class,
+                exception -> assertThat(exception.getErrorType())
+                        .isEqualTo(ErrorType.CHARGE_INVALID_STATE)
+        );
+    }
+
+    @Test
+    void 원장에_0_이하의_ABC를_기록하지_않는다() {
+        ChargeRequestEntity chargeRequest =
+                chargeRequestRepository.saveAndFlush(
+                        ChargeRequestEntity.pending(
+                                "user-ledger-400",
+                                "0x4444444444444444444444444444444444444444",
+                                12345L,
+                                "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                                new BigDecimal("10.000000")
+                        )
+                );
+
+        assertThatThrownBy(
+                () -> ledgerWriter.recordCharge(
+                        chargeRequest,
+                        BigDecimal.ZERO
+                )
+        ).isInstanceOfSatisfying(
+                CoreException.class,
+                exception -> assertThat(exception.getErrorType())
+                        .isEqualTo(ErrorType.CHARGE_INVALID_AMOUNT)
+        );
     }
 }

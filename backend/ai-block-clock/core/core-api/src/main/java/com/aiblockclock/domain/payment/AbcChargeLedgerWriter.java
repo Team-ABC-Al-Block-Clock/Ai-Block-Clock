@@ -9,6 +9,8 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,15 +34,15 @@ public class AbcChargeLedgerWriter {
             ChargeRequestEntity chargeRequest,
             BigDecimal abcAmount
     ) {
-        if (chargeRequest.getId() == null) {
-            throw new IllegalArgumentException(
-                    "저장된 충전 요청만 원장에 기록할 수 있습니다."
+        if (chargeRequest == null || chargeRequest.getId() == null) {
+            throw new CoreException(
+                    ErrorType.CHARGE_INVALID_STATE
             );
         }
 
         if (abcAmount == null || abcAmount.signum() <= 0) {
-            throw new IllegalArgumentException(
-                    "원장에 기록할 ABC 수량은 0보다 커야 합니다."
+            throw new CoreException(
+                    ErrorType.CHARGE_INVALID_AMOUNT
             );
         }
 
