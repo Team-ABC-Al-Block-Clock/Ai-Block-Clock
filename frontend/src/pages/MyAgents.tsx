@@ -4,7 +4,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   addAgentFavorite,
@@ -345,17 +345,26 @@ export default function MyAgents() {
     // 장을 잇는다. 교차 '변화' 만 기다리면 행이 컨테이너를 채운 상태에서 이어지지 않는다.
   }, [tab, hasNextPage, isFetchNextPageError, isFetchingNextPage])
 
+  /** 위 observer 는 실패한 커서를 다시 밟지 않으려고 스스로를 끈다. 그것을 되살릴 유일한
+   *  수단이 그 observer 라 사람이 눌러서 나갈 길이 없으면 무한 스크롤이 영구히 멈춘다. */
+  const handleRetryNextPage = () => {
+    if (!isFetchingNextPage) void latest.current.fetchNextPage()
+  }
+
   // 이전 검색어의 결과를 보여주는 동안(placeholder)은 아직 '이번 결과' 가 아니다.
   const isSettled = !active.isPending && !active.isPlaceholderData
   // 불러오는 중에는 '없음' 을 띄우지 않는다 — 요청마다 한 번씩 깜빡인다(컨벤션 6절).
   const notice = isSettled && count === 0
   const countLabel = isSettled ? `${count}개${hasNextPage ? '+' : ''}` : '…'
 
-  // <empty-state> 의 '검색어 지우기'·'다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지
-  // 않아 직접 붙인다. emit 이 호스트에서 bubbles 로 올리므로 호스트에서 받으면 된다.
-  const noticeRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const node = noticeRef.current
+  /** <empty-state> 의 '검색어 지우기'·'다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지
+   *  않아 직접 붙인다. emit 이 호스트에서 bubbles 로 올리므로 호스트에서 받으면 된다.
+   *
+   *  effect + deps 로 붙이면 세 분기 사이의 이동을 deps 가 못 따라간다 — 검색어 없이 0개인
+   *  분기(ref 가 없어 노드를 못 잡는다)에서 백그라운드 refetch 가 실패해 isError 분기로
+   *  넘어갈 때 tab·notice 가 그대로라 effect 가 돌지 않고 '다시 시도' 가 죽는다.
+   *  노드가 붙는 시점에 직접 매달아 분기와 무관하게 만든다. */
+  const bindNotice = useCallback((node: HTMLElement | null) => {
     if (!node) return
     const onClear = () => setQ('')
     const onRetry = () => void latest.current.refetch()
@@ -365,7 +374,7 @@ export default function MyAgents() {
       node.removeEventListener('clear', onClear)
       node.removeEventListener('retry', onRetry)
     }
-  }, [tab, notice])
+  }, [])
 
   const deleteError = remove.error
   const deleteMessage =
@@ -502,7 +511,7 @@ export default function MyAgents() {
           }}
         ></div>
         <input
-          className="absolute border-0 bg-transparent font-[inherit] text-[13px] tracking-[-.01em] text-white outline-0 disabled:cursor-not-allowed"
+          className="absolute border-0 bg-transparent font-[inherit] text-[13px] tracking-[-.01em] text-white outline-0 placeholder:text-white/50 disabled:cursor-not-allowed"
           type="text"
           value={q}
           onChange={handleChangeQuery}
@@ -589,13 +598,45 @@ export default function MyAgents() {
           ))}
           {/* 이 칸이 보이면 다음 장을 불러온다. 마지막 장이면 걸지 않는다. */}
           <div ref={sentinelRef} style={{ width: '100%', height: '1px' }} />
+          {isFetchNextPageError && (
+            <div
+              className="flex flex-none items-center justify-center"
+              style={{
+                width: '896px',
+                gap: '12px',
+                padding: '10px 0 2px',
+                animation: 'fadeIn .2s ease both',
+              }}
+            >
+              <div
+                className="text-[12.5px] tracking-[-.01em]"
+                style={{ color: 'rgba(255,196,214,.9)' }}
+              >
+                다음 목록을 불러오지 못했습니다
+              </div>
+              <div
+                onClick={handleRetryNextPage}
+                className={`${CHIP} justify-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
+                style={{
+                  height: '30px',
+                  padding: '0 14px',
+                  borderRadius: '15px',
+                  background: 'rgba(255,255,255,.09)',
+                  opacity: isFetchingNextPage ? 0.6 : 1,
+                  cursor: isFetchingNextPage ? 'default' : 'pointer',
+                }}
+              >
+                {isFetchingNextPage ? '불러오는 중…' : '다시 시도'}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {notice &&
         (active.isError ? (
           <empty-state
-            ref={noticeRef}
+            ref={bindNotice}
             style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
             heading="목록을 불러오지 못했습니다"
             body={
@@ -607,7 +648,7 @@ export default function MyAgents() {
           />
         ) : keyword ? (
           <empty-state
-            ref={noticeRef}
+            ref={bindNotice}
             style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
             heading={`‘${keyword}’ 에 맞는 결과가 없습니다`}
             body="찾는 이름을 다르게 적어보거나 검색어를 지워 전체를 확인해 보세요."
@@ -615,6 +656,7 @@ export default function MyAgents() {
           />
         ) : (
           <empty-state
+            ref={bindNotice}
             style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
             heading={EMPTY[tab].heading}
             body={EMPTY[tab].body}
@@ -717,7 +759,7 @@ function AgentRow({
 
   return (
     <div
-      className={ROW}
+      className={`${ROW} rowCard`}
       style={{
         width: '896px',
         height: '112px',
@@ -809,7 +851,10 @@ function AgentRow({
 
       {/* 그래프와 그 아래 보조 줄. 보조 줄이 88px 보다 길면 왼쪽으로 넘치는데, 그쪽은
           비어 있어 겹칠 것이 없다 — 오른쪽 끝(그래프 끝)에 맞추는 것이 중요하다. */}
-      <div className="flex flex-none flex-col items-end" style={{ width: '88px', gap: '4px' }}>
+      <div
+        className="spark flex flex-none flex-col items-end"
+        style={{ width: '88px', gap: '4px' }}
+      >
         <svg width="90" height="28" viewBox="0 0 90 28" fill="none" style={{ overflow: 'visible' }}>
           <defs>
             <linearGradient id={gradId} x1="0" y1="1" x2="1" y2="0">
@@ -825,6 +870,7 @@ function AgentRow({
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              strokeDasharray="120"
             />
           )}
         </svg>
