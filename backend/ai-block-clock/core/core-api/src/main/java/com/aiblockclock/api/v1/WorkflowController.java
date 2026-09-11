@@ -21,13 +21,10 @@ import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.support.paging.CursorPage;
 import com.aiblockclock.support.response.ApiResult;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Positive;
-
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,16 +41,17 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/workflows")
+@RequestMapping(value = "/api/v1/workflows", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
-public class WorkflowController {
+public class WorkflowController implements WorkflowApi {
     private final WorkflowService workflowService;
 
+    @Override
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<WorkflowSaveResponse> save(
             @CurrentOwner OwnerId owner,
-            @RequestBody @Valid WorkflowSaveRequest request
+            @RequestBody WorkflowSaveRequest request
     ) {
         List<NodePlacement> nodes = NodePlacementRequest.toPlacements(request.nodes());
         List<GraphEdge> edges = EdgePlacementRequest.toEdges(request.edges());
@@ -63,6 +61,7 @@ public class WorkflowController {
         return ApiResult.success(WorkflowSaveResponse.from(saved));
     }
 
+    @Override
     @GetMapping("/{workflowId}")
     public ApiResult<WorkflowDetailResponse> get(
             @CurrentOwner OwnerId owner,
@@ -73,11 +72,12 @@ public class WorkflowController {
         return ApiResult.success(WorkflowDetailResponse.from(workflow));
     }
 
+    @Override
     @PutMapping("/{workflowId}")
     public ApiResult<WorkflowSaveResponse> replace(
             @CurrentOwner OwnerId owner,
             @PathVariable UUID workflowId,
-            @RequestBody @Valid WorkflowReplaceRequest request
+            @RequestBody WorkflowReplaceRequest request
     ) {
         List<NodePlacement> nodes = NodePlacementRequest.toPlacements(request.nodes());
         List<GraphEdge> edges = EdgePlacementRequest.toEdges(request.edges());
@@ -89,6 +89,7 @@ public class WorkflowController {
         return ApiResult.success(WorkflowSaveResponse.from(replaced));
     }
 
+    @Override
     @DeleteMapping("/{workflowId}")
     public ApiResult<WorkflowDeleteResponse> delete(
             @CurrentOwner OwnerId owner,
@@ -99,13 +100,14 @@ public class WorkflowController {
         return ApiResult.success(WorkflowDeleteResponse.of(workflowId, Instant.now()));
     }
 
+    @Override
     @GetMapping
     public ApiResult<WorkflowPageResponse> findMine(
             @CurrentOwner OwnerId owner,
             @RequestParam(defaultValue = "LAST_EXECUTED") WorkflowSort sort,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "10") @Positive @Max(100) int size
+            @RequestParam(defaultValue = "10") int size
     ) {
         CursorPage<WorkflowSummary> page = workflowService.findMine(owner, sort, keyword, cursor, size);
 
