@@ -1,17 +1,24 @@
 package com.aiblockclock.api.config;
 
+import com.aiblockclock.api.support.auth.CurrentOwner;
+
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.http.HttpHeaders;
 
 @Configuration
 public class OpenApiConfig {
 
     public static final String BEARER_AUTH = "bearerAuth";
+
+    static {
+        SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentOwner.class);
+    }
 
     @Bean
     public OpenAPI openAPI() {

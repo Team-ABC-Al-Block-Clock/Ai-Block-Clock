@@ -38,7 +38,7 @@ class ApiResultTest {
 
         assertEquals("FAIL", json.get("status").asText());
         assertTrue(json.get("data").isNull());
-        assertEquals("WORKFLOW_005", json.get("error").get("code").asText());
+        assertEquals("WORKFLOW_016", json.get("error").get("code").asText());
         assertEquals("워크플로우가 다른 요청에 의해 수정되었습니다.", json.get("error").get("message").asText());
         assertEquals(7L, json.get("error").get("data").get("expectedRevision").asLong());
         assertEquals(8L, json.get("error").get("data").get("currentRevision").asLong());
