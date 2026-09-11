@@ -202,4 +202,32 @@ class WorkflowControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_015"));
     }
+
+    @Test
+    @DisplayName("워크플로우 ID 자리에 아무 문자열이나 오면 400 이다")
+    void rejectsMalformedWorkflowId() throws Exception {
+        mockMvc.perform(get("/api/v1/workflows/{id}", "워크플로우아님").header("X-Owner-Id", OWNER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"))
+                .andExpect(jsonPath("$.error.data.field").value("workflowId"));
+    }
+
+    @Test
+    @DisplayName("목록 조회 크기가 범위를 벗어나면 400 이다")
+    void rejectsSizeOutOfRange() throws Exception {
+        mockMvc.perform(get("/api/v1/workflows").header("X-Owner-Id", OWNER).param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("읽을 수 없는 본문은 400 이다")
+    void rejectsUnreadableBody() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .header("X-Owner-Id", OWNER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"name\": "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
 }
