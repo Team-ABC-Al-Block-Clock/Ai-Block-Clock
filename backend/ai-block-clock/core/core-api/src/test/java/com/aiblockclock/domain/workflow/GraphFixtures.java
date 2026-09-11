@@ -1,8 +1,5 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.agent.AgentId;
-import com.aiblockclock.domain.agent.AgentVersionId;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,10 +15,6 @@ public final class GraphFixtures {
 
     public static AgentNode agent(String key, UUID agentId, UUID versionId) {
         return new AgentNode(NodeKey.of(key), agentId, versionId);
-    }
-
-    public static AgentNode agent(String key, AgentId agentId, AgentVersionId versionId) {
-        return agent(key, agentId.value(), versionId.value());
     }
 
     public static GraphEdge edge(String key, String source, String target) {
@@ -49,10 +42,6 @@ public final class GraphFixtures {
         return WorkflowGraph.of(
                 List.of(node("n1"), agent("n2", agentId, versionId), node("n3")),
                 List.of(edge("e1", "n1", "n2"), edge("e2", "n2", "n3")));
-    }
-
-    public static WorkflowGraph withAgent(AgentId agentId, AgentVersionId versionId) {
-        return withAgent(agentId.value(), versionId.value());
     }
 
     private static UUID deterministicId(String key) {
