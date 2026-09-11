@@ -1,4 +1,4 @@
-package com.aiblockclock.application.payment;
+package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;

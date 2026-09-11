@@ -1,4 +1,4 @@
-package com.aiblockclock.application.payment;
+package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.domain.payment.ChargeVerificationResult;
 import com.aiblockclock.enums.payment.ChargeStatus;
