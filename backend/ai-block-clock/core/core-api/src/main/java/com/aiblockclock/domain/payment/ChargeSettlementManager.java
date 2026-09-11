@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.ChargeStatus;
+import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.support.error.CoreException;
@@ -40,33 +41,40 @@ public class ChargeSettlementManager {
 
         return switch (verificationResult.outcome()) {
             case WAITING -> chargeRequest;
-
-            case REJECTED -> {
-                chargeRequest.fail(
-                        verificationResult.reason()
-                );
-                yield chargeRequest;
-            }
-
-            case VERIFIED -> {
-                BigDecimal abcAmount =
-                        conversionPolicy.convert(
-                                chargeRequest
-                                        .getRequestedUsdcAmount()
-                        );
-
-                ledgerWriter.recordCharge(
-                        chargeRequest,
-                        abcAmount
-                );
-
-                chargeRequest.confirm(
-                        abcAmount,
-                        LocalDateTime.now()
-                );
-
-                yield chargeRequest;
-            }
+            case REJECTED -> rejectCharge(
+                    chargeRequest,
+                    verificationResult.reason()
+            );
+            case VERIFIED -> confirmCharge(chargeRequest);
         };
+    }
+
+    private ChargeRequestEntity rejectCharge(
+            ChargeRequestEntity chargeRequest,
+            ChargeStatusReason reason
+    ) {
+        chargeRequest.fail(reason);
+        return chargeRequest;
+    }
+
+    private ChargeRequestEntity confirmCharge(
+            ChargeRequestEntity chargeRequest
+    ) {
+        BigDecimal abcAmount =
+                conversionPolicy.convert(
+                        chargeRequest.getRequestedUsdcAmount()
+                );
+
+        ledgerWriter.recordCharge(
+                chargeRequest,
+                abcAmount
+        );
+
+        chargeRequest.confirm(
+                abcAmount,
+                LocalDateTime.now()
+        );
+
+        return chargeRequest;
     }
 }
