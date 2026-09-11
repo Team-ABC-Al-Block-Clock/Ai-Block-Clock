@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Component
 @RequiredArgsConstructor
@@ -72,7 +72,7 @@ public class ChargeSettlementManager {
 
         chargeRequest.confirm(
                 abcAmount,
-                LocalDateTime.now()
+                Instant.now()
         );
 
         return chargeRequest;

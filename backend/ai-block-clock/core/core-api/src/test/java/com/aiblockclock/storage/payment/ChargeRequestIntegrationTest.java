@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -134,8 +134,8 @@ class ChargeRequestIntegrationTest {
                         new BigDecimal("10.000000")
                 );
 
-        LocalDateTime confirmedAt =
-                LocalDateTime.of(2026, 9, 10, 15, 0);
+        Instant confirmedAt =
+                Instant.parse("2026-09-10T06:00:00Z");
 
         chargeRequest.confirm(
                 new BigDecimal("100.000"),

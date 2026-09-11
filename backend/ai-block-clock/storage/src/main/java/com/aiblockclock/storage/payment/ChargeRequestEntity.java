@@ -17,7 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Entity
@@ -64,7 +64,7 @@ public class ChargeRequestEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Long version;
 
-    private LocalDateTime confirmedAt;
+    private Instant confirmedAt;
 
     public static ChargeRequestEntity pending(
             String userReferenceId,
@@ -85,7 +85,7 @@ public class ChargeRequestEntity extends BaseTimeEntity {
 
     public void confirm(
             BigDecimal creditedAbcAmount,
-            LocalDateTime confirmedAt
+            Instant confirmedAt
     ) {
         if (status != ChargeStatus.PENDING) {
             throw new IllegalStateException(
