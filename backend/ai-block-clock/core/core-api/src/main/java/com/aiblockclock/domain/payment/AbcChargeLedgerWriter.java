@@ -12,13 +12,12 @@ import com.aiblockclock.storage.payment.LedgerTransactionRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-@Service
+@Component
 @RequiredArgsConstructor
 public class AbcChargeLedgerWriter {
 
@@ -29,7 +28,6 @@ public class AbcChargeLedgerWriter {
     private final LedgerTransactionRepository ledgerTransactionRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
 
-    @Transactional
     public LedgerTransactionEntity recordCharge(
             ChargeRequestEntity chargeRequest,
             BigDecimal abcAmount

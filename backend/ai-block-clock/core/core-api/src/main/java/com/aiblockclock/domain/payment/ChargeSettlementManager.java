@@ -1,22 +1,20 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.domain.payment.AbcConversionPolicy;
-import com.aiblockclock.domain.payment.ChargeVerificationResult;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Service
+@Component
 @RequiredArgsConstructor
-public class ChargeSettlementService {
+public class ChargeSettlementManager {
 
     private final ChargeRequestRepository chargeRequestRepository;
     private final AbcConversionPolicy conversionPolicy;

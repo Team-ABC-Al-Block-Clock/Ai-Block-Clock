@@ -19,10 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 @Transactional
-class ChargeSettlementServiceIntegrationTest {
+class ChargeSettlementManagerIntegrationTest {
 
     @Autowired
-    private ChargeSettlementService settlementService;
+    private ChargeSettlementManager settlementManager;
 
     @Autowired
     private ChargeRequestRepository chargeRequestRepository;
@@ -44,7 +44,7 @@ class ChargeSettlementServiceIntegrationTest {
                 );
 
         ChargeRequestEntity result =
-                settlementService.applyResult(
+                settlementManager.applyResult(
                         chargeRequest.getId(),
                         ChargeVerificationResult.waiting()
                 );
@@ -73,7 +73,7 @@ class ChargeSettlementServiceIntegrationTest {
                 );
 
         ChargeRequestEntity result =
-                settlementService.applyResult(
+                settlementManager.applyResult(
                         chargeRequest.getId(),
                         ChargeVerificationResult.rejected(
                                 ChargeStatusReason.AMOUNT_MISMATCH
@@ -109,7 +109,7 @@ class ChargeSettlementServiceIntegrationTest {
                 );
 
         ChargeRequestEntity result =
-                settlementService.applyResult(
+                settlementManager.applyResult(
                         chargeRequest.getId(),
                         ChargeVerificationResult.verified()
                 );
@@ -146,13 +146,13 @@ class ChargeSettlementServiceIntegrationTest {
                 );
 
         ChargeRequestEntity firstResult =
-                settlementService.applyResult(
+                settlementManager.applyResult(
                         chargeRequest.getId(),
                         ChargeVerificationResult.verified()
                 );
 
         ChargeRequestEntity secondResult =
-                settlementService.applyResult(
+                settlementManager.applyResult(
                         chargeRequest.getId(),
                         ChargeVerificationResult.verified()
                 );

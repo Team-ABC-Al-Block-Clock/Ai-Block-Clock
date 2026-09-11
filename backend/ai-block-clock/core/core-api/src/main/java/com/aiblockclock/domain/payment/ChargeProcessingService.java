@@ -1,19 +1,10 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.domain.payment.ChargeNetworkPolicy;
-import com.aiblockclock.domain.payment.ChargeVerificationCommand;
-import com.aiblockclock.domain.payment.ChargeVerificationResult;
-import com.aiblockclock.domain.payment.ChargeVerifier;
-import com.aiblockclock.domain.payment.OnChainUsdcTransfer;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
-import com.aiblockclock.storage.payment.ChargeRequestRepository;
-import com.aiblockclock.support.error.CoreException;
-import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
@@ -21,23 +12,17 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class ChargeProcessingService {
 
-    private final ChargeRequestRepository chargeRequestRepository;
+    private final ChargeRequestReader chargeRequestReader;
     private final ChargeVerifier chargeVerifier;
-    private final ChargeSettlementService settlementService;
+    private final ChargeSettlementManager settlementManager;
 
-    @Transactional
     public ChargeRequestEntity process(
             Long chargeRequestId,
             OnChainUsdcTransfer transfer,
             ChargeNetworkPolicy networkPolicy
     ) {
         ChargeRequestEntity chargeRequest =
-                chargeRequestRepository.findById(chargeRequestId)
-                        .orElseThrow(
-                                () -> new CoreException(
-                                        ErrorType.CHARGE_REQUEST_NOT_FOUND
-                                )
-                        );
+                chargeRequestReader.read(chargeRequestId);
 
         if (chargeRequest.getStatus()
                 != ChargeStatus.PENDING) {
@@ -48,7 +33,7 @@ public class ChargeProcessingService {
                 chargeRequest.getChainId(),
                 networkPolicy.chainId()
         )) {
-            return settlementService.applyResult(
+            return settlementManager.applyResult(
                     chargeRequestId,
                     ChargeVerificationResult.rejected(
                             ChargeStatusReason.CHAIN_ID_MISMATCH
@@ -73,7 +58,7 @@ public class ChargeProcessingService {
                         transfer
                 );
 
-        return settlementService.applyResult(
+        return settlementManager.applyResult(
                 chargeRequestId,
                 verificationResult
         );
