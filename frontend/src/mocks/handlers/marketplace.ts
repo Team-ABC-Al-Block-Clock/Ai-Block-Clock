@@ -1,9 +1,9 @@
 import { http } from 'msw'
 
-import type { AgentFavorite, AgentProvenance, AgentReview } from '@/api/agents'
+import type { AgentProvenance, AgentReview } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
-import { cursorOk, cursorPage, cursorParams } from '@/mocks/cursor'
-import { AGENTS, byNewest, toSummary } from '@/mocks/fixtures/agents'
+import { cursorOk, matchKeyword } from '@/mocks/cursor'
+import { AGENTS, byNewest, setFavorite, toSummary } from '@/mocks/fixtures/agents'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -22,31 +22,6 @@ const notFound = () => fail(404, 'MARKET_001', '에이전트를 찾을 수 없�
 
 const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
 
-/** 명세상 검색 대상은 이름과 한 줄 설명뿐이다. */
-function matchKeyword(name: string, summary: string, keyword: string) {
-  const q = keyword.trim().toLowerCase()
-  if (!q) return true
-  return name.toLowerCase().includes(q) || summary.toLowerCase().includes(q)
-}
-
-/**
- * 즐겨찾기를 픽스처에 반영한다.
- *
- * 이 파일의 다른 핸들러와 달리 상태를 바꾼다. 안 바꾸면 토글한 뒤 다시 조회하면
- * 원래대로 돌아가고, 멱등 처리도 확인할 수 없다.
- *
- * 멱등 — 이미 같은 상태면 횟수를 건드리지 않고 현재 상태를 준다(명세 참고사항).
- */
-function setFavorite(agentId: unknown, next: boolean): AgentFavorite | null {
-  const agent = find(agentId)
-  if (!agent) return null
-  if (agent.favorited !== next) {
-    agent.favorited = next
-    agent.favoriteCount += next ? 1 : -1
-  }
-  return { agentId: agent.agentId, favorited: agent.favorited, favoriteCount: agent.favoriteCount }
-}
-
 /**
  * 등록 시각 역순. 공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항).
  *
@@ -62,17 +37,14 @@ export const marketplaceHandlers = [
     if (forced) return forced
 
     const url = new URL(request.url)
-    const { cursor, size } = cursorParams(url)
-    if (size === null) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
-
     const keyword = url.searchParams.get('keyword') ?? ''
-    const filtered = published().filter((a) => matchKeyword(a.name, a.summary, keyword))
+    // 투영을 페이지 계산 앞에 둔다 — cursorOk 는 이미 걸러진 배열을 받아 페이지만 만든다.
+    // 상세 필드(설명·스크린샷·성공률)를 흘려보내면 실서버에 없는 필드를 화면이 몰래 쓴다.
+    const filtered = published()
+      .filter((a) => matchKeyword(keyword, a.name, a.summary))
+      .map(toSummary)
 
-    const page = cursorPage(filtered, (a) => a.agentId, cursor, size)
-    if (!page)
-      return fail(400, 'MARKET_003', '조회 기준이 만료되었습니다. 처음부터 다시 불러오세요.')
-
-    return ok({ ...page, content: page.content.map(toSummary) })
+    return cursorOk(url, filtered, (a) => a.agentId, { cursorCode: 'MARKET_003' })
   }),
   http.get(`${API_BASE_URL}/marketplace/agents/:agentId`, async ({ params }) => {
     const forced = await scene()
