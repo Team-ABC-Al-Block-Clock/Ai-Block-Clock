@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { priceLabel, ratingLabel, successLabel } from '@/lib/format'
+import { josa, priceLabel, ratingLabel, successLabel, timeLabel } from '@/lib/format'
 
 /** 돈과 콜드스타트 경로. 손으로 쓴 자릿수 정규식과 null 분기는 검사가 있어야 한다. */
 
@@ -57,5 +57,39 @@ describe('successLabel', () => {
     // 실행이 없으면 서버도 비율을 만들 수 없어 0 이 온다.
     // 그대로 그리면 '전부 실패했다' 는 거짓말이 된다.
     expect(successLabel(0, 0)).toBe('—')
+  })
+})
+
+describe('timeLabel', () => {
+  it('서울 시각으로 MM.DD HH:mm 을 만든다', () => {
+    // 명세 예시가 Z 표기다. 14:22Z 는 서울에서 다음 날 23:22 이다.
+    expect(timeLabel('2026-09-07T14:22:00Z')).toBe('09.07 23:22')
+    // 픽스처는 +09:00 표기 — 같은 시각이면 같은 문자열이어야 한다.
+    expect(timeLabel('2026-09-07T23:22:00+09:00')).toBe('09.07 23:22')
+  })
+
+  it('자정을 24:00 이 아니라 00:00 으로 쓴다', () => {
+    expect(timeLabel('2026-09-08T00:00:00+09:00')).toBe('09.08 00:00')
+  })
+
+  it('아직 실행하지 않았거나 값이 깨졌으면 —', () => {
+    // 그대로 그리면 'Invalid Date' 가 카드에 박힌다.
+    expect(timeLabel(null)).toBe('—')
+    expect(timeLabel('언젠가')).toBe('—')
+  })
+})
+
+describe('josa', () => {
+  it('받침이 있으면 을, 없으면 를', () => {
+    expect(josa('메일 초안')).toBe('을')
+    expect(josa('성적 분석 리포트')).toBe('를')
+    // 받침이 없는 글자로 끝나는 이름
+    expect(josa('문서 정리')).toBe('를')
+  })
+
+  it('한글이 아닌 끝 글자와 빈 이름은 를', () => {
+    expect(josa('Contract Analyzer')).toBe('를')
+    expect(josa('워크플로우 2')).toBe('를')
+    expect(josa('   ')).toBe('를')
   })
 })

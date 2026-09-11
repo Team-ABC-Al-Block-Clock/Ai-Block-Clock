@@ -69,6 +69,10 @@ export class EmptyState extends BaseElement {
     // 아이콘은 돋보기 하나. 장식을 늘리지 않는다.
     // ponytail: 검색 화면 전용 도형이다. "사용 내역 없음" 처럼 다른 그림이 필요해지면
     // 그때 icon 속성을 받는다 — 지금 아이콘 체계를 만들 이유가 없다.
+    //
+    // 정적 마크업이라 innerHTML 로 둔다. 아래 heading·body·라벨은 절대 이 경로로 넣지
+    // 않는다 — 호출부가 검색어를 그대로 넘기므로(Search·MyAgents) `?keyword=` 에 태그를
+    // 실은 링크 하나로 shadow DOM 안에 <img onerror> 가 만들어진다.
     this.root.innerHTML =
       '<div style="width:60px;height:60px;border-radius:18px;position:relative;' +
       'background:var(--color-surface-quiet,rgb(255 255 255 / .055))">' +
@@ -76,63 +80,61 @@ export class EmptyState extends BaseElement {
       'box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)"></div>' +
       '<div style="position:absolute;left:34px;top:34px;width:9px;height:2px;border-radius:1px;' +
       'background:rgba(255,255,255,.5);transform:rotate(45deg)"></div>' +
-      '</div>' +
-      '<div style="margin-top:20px;font-size:20px;font-weight:700;letter-spacing:-.015em;' +
-      'text-align:center;word-break:keep-all;color:#fff;' +
-      'text-shadow:0 1px 12px rgba(24,8,34,.5)">' +
-      this.str('heading') +
-      '</div>' +
-      (body
-        ? '<div style="margin-top:10px;width:' +
-          this.num('body-width', 440) +
-          'px;text-align:center;' +
-          'font-size:14.5px;line-height:1.8;letter-spacing:-.01em;' +
-          'color:var(--color-muted,rgb(255 236 246 / .66));' +
-          // 한글은 keep-all 이 없으면 어절 중간에서 끊긴다 — "여러 에이전트를 이 / 어 붙이는"
-          'word-break:keep-all;text-wrap:pretty">' +
-          body +
-          '</div>'
-        : '') +
-      (actions.length
-        ? '<div style="margin-top:24px;display:flex;gap:12px">' +
-          actions
-            .map((a, i) => {
-              const tag = a.href ? 'a' : 'div'
-              const surface = a.primary
-                ? 'background:var(--color-accent,#b98da9);color:var(--color-accent-ink,#2f1527);' +
-                  'box-shadow:0 8px 22px rgb(10 4 20 / .28)'
-                : 'background:rgb(255 255 255 / .12);color:#fff'
-              return (
-                '<' +
-                tag +
-                (a.href ? ' href="' + a.href + '"' : '') +
-                ' data-act="' +
-                i +
-                '" style="height:46px;padding:0 26px;border-radius:23px;' +
-                'display:flex;align-items:center;font-size:15px;font-weight:600;letter-spacing:-.01em;' +
-                'text-decoration:none;cursor:pointer;transition:background .16s,filter .16s;' +
-                surface +
-                '">' +
-                a.label +
-                '</' +
-                tag +
-                '>'
-              )
-            })
-            .join('') +
-          '</div>'
-        : '')
+      '</div>'
 
-    // 인라인 스타일이라 :hover를 못 쓴다
-    this.root.querySelectorAll<HTMLElement>('[data-act]').forEach((el) => {
-      const a = actions[Number(el.dataset.act)]
-      if (!a) return
-      if (a.primary) this.hover(el, 'brightness(1.08)', 'none', 'filter')
+    // 텍스트는 textContent 로만 넣는다. 사용자가 입력한 검색어가 여기로 들어온다.
+    const heading = document.createElement('div')
+    heading.style.cssText =
+      'margin-top:20px;font-size:20px;font-weight:700;letter-spacing:-.015em;' +
+      'text-align:center;word-break:keep-all;color:#fff;' +
+      'text-shadow:0 1px 12px rgba(24,8,34,.5)'
+    heading.textContent = this.str('heading')
+    this.root.append(heading)
+
+    if (body) {
+      const paragraph = document.createElement('div')
+      paragraph.style.cssText =
+        `margin-top:10px;width:${this.num('body-width', 440)}px;text-align:center;` +
+        'font-size:14.5px;line-height:1.8;letter-spacing:-.01em;' +
+        'color:var(--color-muted,rgb(255 236 246 / .66));' +
+        // 한글은 keep-all 이 없으면 어절 중간에서 끊긴다 — "여러 에이전트를 이 / 어 붙이는"
+        'word-break:keep-all;text-wrap:pretty'
+      paragraph.textContent = body
+      this.root.append(paragraph)
+    }
+
+    if (!actions.length) return
+
+    const row = document.createElement('div')
+    row.style.cssText = 'margin-top:24px;display:flex;gap:12px'
+
+    for (const action of actions) {
+      // href 는 `routes/paths.ts` 가 만든 내부 경로만 받는다. 'javascript:' 같은 스킴이
+      // 섞이면 클릭 한 번이 실행이 된다 — 내부 링크가 아니면 버튼으로 떨어뜨린다.
+      const href = action.href
+      const isInternal = typeof href === 'string' && href.startsWith('/')
+      const el = document.createElement(isInternal ? 'a' : 'div')
+      if (isInternal && el instanceof HTMLAnchorElement) el.setAttribute('href', href)
+      el.style.cssText =
+        'height:46px;padding:0 26px;border-radius:23px;' +
+        'display:flex;align-items:center;font-size:15px;font-weight:600;letter-spacing:-.01em;' +
+        'text-decoration:none;cursor:pointer;transition:background .16s,filter .16s;' +
+        (action.primary
+          ? 'background:var(--color-accent,#b98da9);color:var(--color-accent-ink,#2f1527);' +
+            'box-shadow:0 8px 22px rgb(10 4 20 / .28)'
+          : 'background:rgb(255 255 255 / .12);color:#fff')
+      el.textContent = action.label
+      row.append(el)
+
+      // 인라인 스타일이라 :hover를 못 쓴다
+      if (action.primary) this.hover(el, 'brightness(1.08)', 'none', 'filter')
       else this.hover(el, 'rgb(255 255 255 / .2)', 'rgb(255 255 255 / .12)')
-      if (!a.href && a.event) {
-        el.addEventListener('click', () => this.emit(a.event as string))
+      if (!isInternal && action.event) {
+        el.addEventListener('click', () => this.emit(action.event as string))
       }
-    })
+    }
+
+    this.root.append(row)
   }
 }
 

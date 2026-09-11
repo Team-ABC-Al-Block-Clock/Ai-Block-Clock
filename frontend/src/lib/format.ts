@@ -11,12 +11,6 @@ export function runLabel(n: number) {
   return n.toLocaleString() + '회'
 }
 
-/** 2_370_000 → '2.4M', 42_066_000 → '42.1M' */
-export function tokenLabel(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-  return compactCount(n)
-}
-
 /**
  * 단가를 문자열로 받는다. `Intl.NumberFormat` 은 문자열 인자를 **10진수 그대로** 파싱하므로
  * (Intl.NumberFormat v3) Number 로 되돌리지 않아도 되고, 소수점 오차도 생기지 않는다.
@@ -61,4 +55,47 @@ export function ratingLabel(averageRating: number | null, reviewCount: number) {
 export function successLabel(successRate: number, executionCount: number) {
   if (executionCount === 0) return '—'
   return (Math.floor(successRate * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%'
+}
+
+/**
+ * '2026-09-07T14:22:00Z' → '09.07 14:22', null → '—'
+ *
+ * 아직 실행하지 않은 워크플로우는 `lastExecutedAt` 이 null 로 온다. 그대로 그리면 'Invalid Date' 다.
+ *
+ * 상대 시각('3일 전')은 만들지 않는다 — 시계에 의존해 경계마다 답이 달라지고, 목록을 열어 둔
+ * 채로 자정을 넘기면 화면과 값이 어긋난다.
+ *
+ * 표준시를 서울로 고정한다. 안 그러면 같은 응답이 기계의 TZ 에 따라 다르게 보이고,
+ * 테스트가 CI 의 TZ 설정에 따라 통과하거나 실패한다.
+ */
+const DATE_TIME = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  // h23 이 아니면 자정이 '24:00' 으로 나오는 엔진이 있다.
+  hourCycle: 'h23',
+})
+
+export function timeLabel(iso: string | null) {
+  if (!iso) return '—'
+  const at = Date.parse(iso)
+  if (Number.isNaN(at)) return '—'
+  // 구분자를 로케일에 맡기지 않는다 — ko-KR 이 '9. 7. 14:22' 같은 모양을 줄 수 있다.
+  const part = Object.fromEntries(DATE_TIME.formatToParts(at).map((p) => [p.type, p.value]))
+  return `${part.month}.${part.day} ${part.hour}:${part.minute}`
+}
+
+/**
+ * 받침이 있으면 '을', 없으면 '를'. '성적 분석 리포트를' · '메일 초안을'
+ *
+ * 삭제 확인 모달이 사용자가 만든 이름을 문장에 넣는다. 조사를 고정하면 이름에 따라
+ * 어색한 문장이 나온다. 한글이 아닌 끝 글자(영문·숫자)는 '를' 로 둔다 —
+ * 발음까지 따지려면 표를 들여야 하고, 이 화면에는 그만한 값어치가 없다.
+ */
+export function josa(name: string) {
+  const code = name.trim().slice(-1).charCodeAt(0)
+  const isHangul = code >= 0xac00 && code <= 0xd7a3
+  return isHangul && (code - 0xac00) % 28 !== 0 ? '을' : '를'
 }

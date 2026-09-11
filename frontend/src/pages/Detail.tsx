@@ -59,17 +59,21 @@ export default function Detail() {
   const favorite = useMutation({
     mutationFn: (next: boolean) =>
       next ? addAgentFavorite(agentId ?? '') : removeAgentFavorite(agentId ?? ''),
-    /** 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 — refetch 하지 않고 덮는다.
+    /** 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 — 상세는 refetch 하지 않고 덮는다.
      *
-     *  ponytail: 목록은 무효화하지 않는다. Search 는 `favorited` 를 그리지 않고 MyAgents 의
-     *  즐겨찾기 탭은 아직 화면 안 상태라 무효화해도 보이는 변화가 없다. 목록이 별을 그리기
-     *  시작하면 invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() }) 를 붙인다. */
-    onSuccess: (res) =>
+     *  목록은 무효화한다. 마이페이지가 `favorited` 로 별을 그리고 즐겨찾기 탭 자체가
+     *  이 상태로 만들어지므로(MYP-003), 안 하면 여기서 켠 별이 목록에서는 빈 별로 남는다. */
+    onSuccess: (res) => {
       queryClient.setQueryData(
         queryKeys.marketplace.agents.detail(agentId ?? ''),
         (prev: AgentDetail | undefined) =>
           prev && { ...prev, favorited: res.favorited, favoriteCount: res.favoriteCount },
-      ),
+      )
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.favorites.lists() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.usedAgents.lists() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agents.lists() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() })
+    },
   })
 
   // <empty-state> 의 '다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지 않아 직접 붙인다.

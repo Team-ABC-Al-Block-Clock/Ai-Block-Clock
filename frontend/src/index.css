@@ -145,20 +145,17 @@ input::placeholder {
 #agentInput::placeholder {
   color: rgba(255, 255, 255, 0.72);
 }
-#myQ::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-#agentRows::-webkit-scrollbar {
+#myRows::-webkit-scrollbar {
   width: 8px;
 }
-#agentRows::-webkit-scrollbar-track {
+#myRows::-webkit-scrollbar-track {
   background: transparent;
 }
-#agentRows::-webkit-scrollbar-thumb {
+#myRows::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.22);
   border-radius: 4px;
 }
-#agentRows::-webkit-scrollbar-thumb:hover {
+#myRows::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.36);
 }
 .rowCard:hover .spark path {

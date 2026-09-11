@@ -13,6 +13,8 @@ export type ListParams = Record<string, string | number | boolean | undefined>
  *  `all` 은 함수가 아니라 배열이라 즉시 평가되고, 그 시점의 `queryKeys` 는 아직 TDZ 라
  *  자기 참조가 불가능하다 — 루트만 밖에 둔다. */
 const MARKETPLACE = ['marketplace'] as const
+/** `/users/me/*` 하위 목록들이 파생해 쓴다. `all` 이 배열이라 즉시 평가되므로 루트만 밖에 둔다. */
+const USERS_ME = ['users', 'me'] as const
 
 export const queryKeys = {
   /** 인증. /api/v1/auth/*, /api/v1/users/me */
@@ -53,6 +55,24 @@ export const queryKeys = {
     list: (params: ListParams) => [...queryKeys.agents.lists(), params] as const,
     details: () => [...queryKeys.agents.all, 'detail'] as const,
     detail: (agentId: string) => [...queryKeys.agents.details(), agentId] as const,
+  },
+
+  /** 내 계정 하위 목록. /api/v1/users/me/*
+   *
+   *  `auth` 와 경로가 겹치지만 성격이 다르다 — `auth.session()` 은 로그인 상태이고,
+   *  이쪽은 내가 가진 리소스 목록이다. 키를 합치면 세션 무효화가 목록까지 날린다. */
+  users: {
+    all: USERS_ME,
+    /** GET /users/me/favorites */
+    favorites: {
+      lists: () => [...queryKeys.users.all, 'favorites'] as const,
+      list: (params: ListParams) => [...queryKeys.users.favorites.lists(), params] as const,
+    },
+    /** GET /users/me/used-agents */
+    usedAgents: {
+      lists: () => [...queryKeys.users.all, 'used-agents'] as const,
+      list: (params: ListParams) => [...queryKeys.users.usedAgents.lists(), params] as const,
+    },
   },
 
   /** 워크플로우. /api/v1/workflows */
