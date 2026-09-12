@@ -23,15 +23,19 @@ public class CreditTransactionReader {
     @Transactional(readOnly = true)
     public CreditTransactionPage readPage(
             String userReferenceId,
-            int page
+            CreditTransactionSearchCondition condition
     ) {
         Page<LedgerEntryEntity> entries =
                 ledgerEntryRepository
-                        .findAllByAccountAccountTypeAndAccountReferenceIdOrderByTransactionCreatedAtDescTransactionIdDesc(
+                        .searchCreditTransactions(
                                 LedgerAccountType.ABC_BALANCE,
                                 userReferenceId,
+                                condition.eventType(),
+                                condition.startAtInclusive(),
+                                condition.endAtExclusive(),
                                 PageRequest.of(
-                                        page - FIRST_PAGE,
+                                        condition.page()
+                                                - FIRST_PAGE,
                                         PAGE_SIZE
                                 )
                         );

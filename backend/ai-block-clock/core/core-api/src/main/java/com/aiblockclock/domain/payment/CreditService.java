@@ -16,11 +16,11 @@ public class CreditService {
 
     public CreditTransactionPage readTransactions(
             String userReferenceId,
-            int page
+            CreditTransactionSearchCondition condition
     ) {
         return creditTransactionReader.readPage(
                 userReferenceId,
-                page
+                condition
         );
     }
 }

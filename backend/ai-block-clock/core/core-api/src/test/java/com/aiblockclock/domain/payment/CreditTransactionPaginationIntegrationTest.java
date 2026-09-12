@@ -65,10 +65,18 @@ class CreditTransactionPaginationIntegrationTest {
         }
 
         CreditTransactionPage firstPage =
-                creditService.readTransactions("user-a", 1);
+                creditService.readTransactions(
+                        "user-a",
+                        CreditTransactionSearchCondition
+                                .allDates(1, null)
+                );
 
         CreditTransactionPage secondPage =
-                creditService.readTransactions("user-a", 2);
+                creditService.readTransactions(
+                        "user-a",
+                        CreditTransactionSearchCondition
+                                .allDates(2, null)
+                );
 
         assertThat(firstPage.items())
                 .extracting(CreditTransaction::transactionId)

@@ -68,7 +68,8 @@ class CreditServiceIntegrationTest {
         CreditTransactionPage transactionPage =
                 creditService.readTransactions(
                         "user-without-account",
-                        1
+                        CreditTransactionSearchCondition
+                                .allDates(1, null)
                 );
 
         assertThat(transactionPage.items()).isEmpty();
@@ -135,7 +136,8 @@ class CreditServiceIntegrationTest {
         List<CreditTransaction> transactions =
                 creditService.readTransactions(
                                 "user-a",
-                                1
+                                CreditTransactionSearchCondition
+                                        .allDates(1, null)
                         )
                         .items();
 
