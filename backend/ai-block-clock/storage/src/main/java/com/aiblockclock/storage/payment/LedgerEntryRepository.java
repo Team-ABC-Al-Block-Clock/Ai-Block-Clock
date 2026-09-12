@@ -1,5 +1,7 @@
 package com.aiblockclock.storage.payment;
 
+import com.aiblockclock.enums.payment.LedgerAccountType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,5 +15,12 @@ public interface LedgerEntryRepository
 
     List<LedgerEntryEntity> findAllByAccountIdOrderByIdAsc(
             Long accountId
+    );
+
+    @EntityGraph(attributePaths = "transaction")
+    List<LedgerEntryEntity>
+    findAllByAccountAccountTypeAndAccountReferenceIdOrderByTransactionCreatedAtDescTransactionIdDesc(
+            LedgerAccountType accountType,
+            String referenceId
     );
 }

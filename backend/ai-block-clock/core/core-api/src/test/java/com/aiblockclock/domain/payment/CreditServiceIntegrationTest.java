@@ -1,8 +1,13 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.LedgerAccountType;
+import com.aiblockclock.enums.payment.LedgerEventType;
 import com.aiblockclock.storage.payment.LedgerAccountEntity;
 import com.aiblockclock.storage.payment.LedgerAccountRepository;
+import com.aiblockclock.storage.payment.LedgerEntryEntity;
+import com.aiblockclock.storage.payment.LedgerEntryRepository;
+import com.aiblockclock.storage.payment.LedgerTransactionEntity;
+import com.aiblockclock.storage.payment.LedgerTransactionRepository;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,6 +29,12 @@ class CreditServiceIntegrationTest {
 
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
+
+    @Autowired
+    private LedgerTransactionRepository ledgerTransactionRepository;
+
+    @Autowired
+    private LedgerEntryRepository ledgerEntryRepository;
 
     @Test
     void 장부_계좌가_없으면_ABC_잔액은_0이다() {
@@ -51,17 +63,157 @@ class CreditServiceIntegrationTest {
                 .isEqualByComparingTo("99.000");
     }
 
-    private void saveAccount(
+    @Test
+    void 장부_계좌가_없으면_ABC_사용_내역은_비어_있다() {
+        List<CreditTransaction> transactions =
+                creditService.readTransactions(
+                        "user-without-account"
+                );
+
+        assertThat(transactions).isEmpty();
+    }
+
+    @Test
+    void 사용자_ABC_사용_내역만_최신순으로_조회한다() {
+        LedgerAccountEntity issuanceAccount =
+                saveAccount(
+                        LedgerAccountType.ABC_ISSUANCE,
+                        "SYSTEM"
+                );
+
+        LedgerAccountEntity userAAccount =
+                saveAccount("user-a", "0.000");
+
+        LedgerAccountEntity userBAccount =
+                saveAccount("user-b", "0.000");
+
+        LedgerAccountEntity escrowAccount =
+                saveAccount(
+                        LedgerAccountType.EXECUTION_ESCROW,
+                        "execution-a"
+                );
+
+        LedgerTransactionEntity userACharge =
+                recordTransfer(
+                        LedgerEventType.CHARGE,
+                        "charge-user-a",
+                        "CHARGE_REQUEST",
+                        "101",
+                        issuanceAccount,
+                        userAAccount,
+                        "10.000"
+                );
+
+        recordTransfer(
+                LedgerEventType.CHARGE,
+                "charge-user-b",
+                "CHARGE_REQUEST",
+                "102",
+                issuanceAccount,
+                userBAccount,
+                "20.000"
+        );
+
+        LedgerTransactionEntity userAReserve =
+                recordTransfer(
+                        LedgerEventType.RESERVE,
+                        "reserve-user-a",
+                        "EXECUTION",
+                        "201",
+                        userAAccount,
+                        escrowAccount,
+                        "3.000"
+                );
+
+        List<CreditTransaction> transactions =
+                creditService.readTransactions("user-a");
+
+        assertThat(transactions)
+                .extracting(CreditTransaction::transactionId)
+                .containsExactly(
+                        userAReserve.getId(),
+                        userACharge.getId()
+                );
+
+        assertThat(transactions)
+                .extracting(CreditTransaction::eventType)
+                .containsExactly(
+                        LedgerEventType.RESERVE,
+                        LedgerEventType.CHARGE
+                );
+
+        assertThat(transactions.get(0).amount())
+                .isEqualByComparingTo("-3.000");
+
+        assertThat(transactions.get(1).amount())
+                .isEqualByComparingTo("10.000");
+    }
+
+    private LedgerAccountEntity saveAccount(
             String userReferenceId,
             String balance
     ) {
         LedgerAccountEntity account =
-                LedgerAccountEntity.of(
+                saveAccount(
                         LedgerAccountType.ABC_BALANCE,
                         userReferenceId
                 );
 
         account.modifyBalance(new BigDecimal(balance));
-        ledgerAccountRepository.save(account);
+        return account;
+    }
+
+    private LedgerAccountEntity saveAccount(
+            LedgerAccountType accountType,
+            String referenceId
+    ) {
+        LedgerAccountEntity account =
+                LedgerAccountEntity.of(
+                        accountType,
+                        referenceId
+                );
+
+        return ledgerAccountRepository.save(account);
+    }
+
+    private LedgerTransactionEntity recordTransfer(
+            LedgerEventType eventType,
+            String idempotencyKey,
+            String referenceType,
+            String referenceId,
+            LedgerAccountEntity fromAccount,
+            LedgerAccountEntity toAccount,
+            String amount
+    ) {
+        LedgerTransactionEntity transaction =
+                ledgerTransactionRepository.save(
+                        LedgerTransactionEntity.of(
+                                eventType,
+                                idempotencyKey,
+                                referenceType,
+                                referenceId,
+                                null,
+                                null
+                        )
+                );
+
+        BigDecimal transferAmount = new BigDecimal(amount);
+
+        ledgerEntryRepository.saveAllAndFlush(
+                List.of(
+                        LedgerEntryEntity.of(
+                                transaction,
+                                fromAccount,
+                                transferAmount.negate()
+                        ),
+                        LedgerEntryEntity.of(
+                                transaction,
+                                toAccount,
+                                transferAmount
+                        )
+                )
+        );
+
+        return transaction;
     }
 }
