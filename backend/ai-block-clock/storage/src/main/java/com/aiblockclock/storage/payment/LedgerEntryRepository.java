@@ -1,6 +1,8 @@
 package com.aiblockclock.storage.payment;
 
 import com.aiblockclock.enums.payment.LedgerAccountType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -18,9 +20,10 @@ public interface LedgerEntryRepository
     );
 
     @EntityGraph(attributePaths = "transaction")
-    List<LedgerEntryEntity>
+    Page<LedgerEntryEntity>
     findAllByAccountAccountTypeAndAccountReferenceIdOrderByTransactionCreatedAtDescTransactionIdDesc(
             LedgerAccountType accountType,
-            String referenceId
+            String referenceId,
+            Pageable pageable
     );
 }

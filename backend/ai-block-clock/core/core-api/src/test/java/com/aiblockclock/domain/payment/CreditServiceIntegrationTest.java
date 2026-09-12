@@ -65,12 +65,19 @@ class CreditServiceIntegrationTest {
 
     @Test
     void 장부_계좌가_없으면_ABC_사용_내역은_비어_있다() {
-        List<CreditTransaction> transactions =
+        CreditTransactionPage transactionPage =
                 creditService.readTransactions(
-                        "user-without-account"
+                        "user-without-account",
+                        1
                 );
 
-        assertThat(transactions).isEmpty();
+        assertThat(transactionPage.items()).isEmpty();
+        assertThat(transactionPage.page()).isEqualTo(1);
+        assertThat(transactionPage.size()).isEqualTo(10);
+        assertThat(transactionPage.totalElements()).isZero();
+        assertThat(transactionPage.totalPages()).isZero();
+        assertThat(transactionPage.hasPrevious()).isFalse();
+        assertThat(transactionPage.hasNext()).isFalse();
     }
 
     @Test
@@ -126,7 +133,11 @@ class CreditServiceIntegrationTest {
                 );
 
         List<CreditTransaction> transactions =
-                creditService.readTransactions("user-a");
+                creditService.readTransactions(
+                                "user-a",
+                                1
+                        )
+                        .items();
 
         assertThat(transactions)
                 .extracting(CreditTransaction::transactionId)

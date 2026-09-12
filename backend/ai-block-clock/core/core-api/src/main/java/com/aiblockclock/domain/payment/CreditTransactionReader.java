@@ -4,6 +4,8 @@ import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,20 +15,41 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CreditTransactionReader {
 
+    private static final int FIRST_PAGE = 1;
+    private static final int PAGE_SIZE = 10;
+
     private final LedgerEntryRepository ledgerEntryRepository;
 
     @Transactional(readOnly = true)
-    public List<CreditTransaction> readAll(
-            String userReferenceId
+    public CreditTransactionPage readPage(
+            String userReferenceId,
+            int page
     ) {
-        return ledgerEntryRepository
-                .findAllByAccountAccountTypeAndAccountReferenceIdOrderByTransactionCreatedAtDescTransactionIdDesc(
-                        LedgerAccountType.ABC_BALANCE,
-                        userReferenceId
-                )
+        Page<LedgerEntryEntity> entries =
+                ledgerEntryRepository
+                        .findAllByAccountAccountTypeAndAccountReferenceIdOrderByTransactionCreatedAtDescTransactionIdDesc(
+                                LedgerAccountType.ABC_BALANCE,
+                                userReferenceId,
+                                PageRequest.of(
+                                        page - FIRST_PAGE,
+                                        PAGE_SIZE
+                                )
+                        );
+
+        List<CreditTransaction> items = entries
                 .stream()
                 .map(this::toCreditTransaction)
                 .toList();
+
+        return CreditTransactionPage.of(
+                items,
+                entries.getNumber() + FIRST_PAGE,
+                entries.getSize(),
+                entries.getTotalElements(),
+                entries.getTotalPages(),
+                entries.hasPrevious(),
+                entries.hasNext()
+        );
     }
 
     private CreditTransaction toCreditTransaction(

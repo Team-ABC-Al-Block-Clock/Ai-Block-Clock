@@ -3,8 +3,6 @@ package com.aiblockclock.domain.payment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class CreditService {
@@ -16,9 +14,13 @@ public class CreditService {
         return creditBalanceReader.read(userReferenceId);
     }
 
-    public List<CreditTransaction> readTransactions(
-            String userReferenceId
+    public CreditTransactionPage readTransactions(
+            String userReferenceId,
+            int page
     ) {
-        return creditTransactionReader.readAll(userReferenceId);
+        return creditTransactionReader.readPage(
+                userReferenceId,
+                page
+        );
     }
 }
