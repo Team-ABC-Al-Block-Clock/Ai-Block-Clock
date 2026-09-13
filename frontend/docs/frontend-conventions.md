@@ -326,12 +326,13 @@ src/mocks/
 
 ### 세션과 프로필은 새로고침을 넘어 남긴다
 
-mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 결과를 새로고침 뒤에도 확인해야 하는 것은 localStorage 에 둔다.** 모듈 변수로 들고 있으면 "저장했는데 안 남는다" 로 보여서 그 경로를 검증할 수 없다. `handlers/auth.ts` 가 두 가지를 그렇게 들고 있다.
+mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 결과를 새로고침 뒤에도 확인해야 하는 것은 localStorage 에 둔다.** 모듈 변수로 들고 있으면 "저장했는데 안 남는다" 로 보여서 그 경로를 검증할 수 없다. `handlers/auth.ts` 가 세 가지를 그렇게 들고 있다.
 
-| 키                  | 무엇을                     | 없으면                    |
-| ------------------- | -------------------------- | ------------------------- |
-| `mockWalletSession` | Refresh Token 쿠키 대역    | 재발급·`/users/me` 가 401 |
-| `mockProfile`       | 이름·소개 등 수정된 프로필 | 픽스처 초기값             |
+| 키                  | 무엇을                     | 없으면                     |
+| ------------------- | -------------------------- | -------------------------- |
+| `mockWalletSession` | Refresh Token 쿠키 대역    | 재발급·`/users/me` 가 401  |
+| `mockProfile`       | 이름·소개 등 수정된 프로필 | 픽스처 초기값              |
+| `mockKnownWallets`  | 한 번이라도 로그인한 지갑  | 모든 주소가 온보딩 전 취급 |
 
 | 요청                 | 세션 없음      | 세션 있음          |
 | -------------------- | -------------- | ------------------ |
@@ -339,7 +340,9 @@ mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 
 | `GET /users/me`      | 401 `AUTH_005` | 세션 주소의 프로필 |
 | `POST /auth/logout`  | —              | 세션을 지운다      |
 
-되돌리려면 `localStorage.removeItem('mockWalletSession')` · `removeItem('mockProfile')` 을 실행한다.
+되돌리려면 `localStorage.removeItem('mockWalletSession')` · `removeItem('mockProfile')` ·
+`removeItem('mockKnownWallets')` 를 실행한다. 셋을 다 지워야 처음 보는 지갑으로 돌아가 가입 화면
+분기를 다시 탈 수 있다 — `mockKnownWallets` 를 남기면 로그인이 곧장 홈으로 간다.
 
 ### mock 이 안 켜지면 조용히 프록시로 샌다
 
