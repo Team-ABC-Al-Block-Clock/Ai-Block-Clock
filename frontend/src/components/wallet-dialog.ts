@@ -9,12 +9,26 @@ import { BaseElement, define } from './base'
  */
 export type WalletPhase = 'idle' | 'signing' | 'rejected'
 
+/** 단계마다 대화상자의 이름. 스크린리더가 열릴 때 이것을 읽는다. */
+const TITLE: Record<Exclude<WalletPhase, 'idle'>, string> = {
+  signing: '지갑에서 서명을 기다리는 중',
+  rejected: '서명이 거절되었습니다',
+}
+
 export class WalletDialog extends BaseElement {
   /** 이름에 접미사를 붙인다 — 표준 프로퍼티(`HTMLElement.nonce` 등)와 겹치면
    *  React 가 속성 대신 프로퍼티에 넣어 조용히 기본값이 그려진다(10절). */
   static observedAttributes = ['phase', 'address', 'message-text', 'error-code']
 
   protected override usesShadow = true
+
+  /** 열기 직전에 포커스를 갖고 있던 요소 — 닫을 때 여기로 돌려준다.
+   *  돌려주지 않으면 키보드 사용자가 문서 맨 앞부터 다시 짚어 내려와야 한다. */
+  private returnFocusTo: HTMLElement | null = null
+
+  /** 마지막으로 그린 단계. 포커스는 단계가 바뀔 때만 옮긴다 —
+   *  `message-text` 가 늦게 붙어 다시 그릴 때마다 옮기면 포커스를 빼앗는다. */
+  private drawn: WalletPhase = 'idle'
 
   private onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') this.emit('cancel')
@@ -61,15 +75,37 @@ export class WalletDialog extends BaseElement {
   protected override update(): void {
     const phase = this.readPhase()
     const open = phase !== 'idle'
+    const changed = phase !== this.drawn
 
     this.style.display = open ? 'flex' : 'none'
     document.removeEventListener('keydown', this.onKey)
     if (open) document.addEventListener('keydown', this.onKey)
 
+    // 열리기 직전의 포커스를 잡아 둔다. 다시 그릴 때 덮어쓰면 대화상자 안의
+    // 버튼으로 돌아가게 되므로 닫힌 상태에서 열릴 때만 잡는다.
+    if (open && this.drawn === 'idle') {
+      const active = document.activeElement
+      this.returnFocusTo = active instanceof HTMLElement ? active : null
+    }
+    this.drawn = phase
+
     if (!open) {
+      this.removeAttribute('role')
+      this.removeAttribute('aria-modal')
+      this.removeAttribute('aria-label')
       this.root.innerHTML = ''
+      if (changed) {
+        this.returnFocusTo?.focus()
+        this.returnFocusTo = null
+      }
       return
     }
+
+    // 모달이라는 것을 보조 기술에 알린다. `observedAttributes` 에 없으니
+    // 여기서 붙여도 다시 그리지 않는다.
+    this.setAttribute('role', 'dialog')
+    this.setAttribute('aria-modal', 'true')
+    this.setAttribute('aria-label', TITLE[phase])
 
     const sheet =
       'position:relative;width:456px;box-sizing:border-box;padding:28px;border-radius:20px;' +
@@ -100,8 +136,25 @@ export class WalletDialog extends BaseElement {
       } else {
         this.hover(el, 'rgba(255,255,255,.16)', 'rgba(255,255,255,.08)')
       }
-      el.addEventListener('click', () => this.emit(kind === 'sign' ? 'sign' : 'cancel'))
+      const fire = () => this.emit(kind === 'sign' ? 'sign' : 'cancel')
+      el.addEventListener('click', fire)
+      // `div[role=button]` 은 Enter·Space 를 스스로 누르지 않는다. 포커스를 주는
+      // 이상 키보드로도 눌려야 한다.
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        fire()
+      })
     })
+
+    // 단계가 바뀐 순간에만 안으로 포커스를 넣는다. 주 버튼이 있으면 그쪽이
+    // 다음 행동이고, 서명 대기처럼 없으면 첫 버튼(취소)이 유일한 길이다.
+    if (changed) {
+      const enter =
+        this.root.querySelector<HTMLElement>('[data-primary="1"]') ??
+        this.root.querySelector<HTMLElement>('[data-btn]')
+      enter?.focus()
+    }
   }
 
   private bodyFor(phase: WalletPhase): string {
