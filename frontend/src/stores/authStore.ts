@@ -32,8 +32,9 @@ interface AuthState {
 
   /** 부팅 시 한 번 — Refresh Token 쿠키로 세션을 되살린다 */
   restore: () => Promise<void>
-  /** 실패는 그대로 던져 화면이 안내한다 */
-  signIn: (params: { walletAddress: string; signature: string }) => Promise<void>
+  /** 실패는 그대로 던져 화면이 안내한다. 성공해도 그 사이 세션이 갈렸으면
+   *  이 로그인은 버려지고 `null` 이 온다 — 호출부가 모르고 지나가지 않도록 */
+  signIn: (params: { walletAddress: string; signature: string }) => Promise<UserProfile | null>
   /** 서버 쿠키까지 지운다. 사유를 주면 로그인 화면이 이유를 띄운다 */
   signOut: (endedBy?: SessionEndReason) => Promise<void>
   /** 클라이언트 상태만 비운다 — 회복 불가능한 401 */
@@ -104,19 +105,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // 사용자가 누른 로그인이 부팅 복구를 이긴다.
       const mine = ++epoch
       const tokens = await loginWithWallet({ walletAddress, signature })
-      if (mine !== epoch) return // 그 사이 세션이 갈렸다 — 이 토큰은 버린다
+      // 그 사이 세션이 갈렸다 — 이 토큰은 버리고, 로그인이 안 됐다고 알린다.
+      if (mine !== epoch) return null
       tokenStorage.set(tokens.accessToken)
 
       try {
         // 지갑이 준 주소가 아니라 서버 프로필의 주소를 쓴다.
         const profile = await getMyProfile()
-        if (mine !== epoch) return
+        if (mine !== epoch) return null
         set({
           status: 'authenticated',
           profile,
           walletAddress: profile.wallet.address,
           endedBy: null,
         })
+        return profile
       } catch (error) {
         if (mine === epoch) dropSession()
         throw error

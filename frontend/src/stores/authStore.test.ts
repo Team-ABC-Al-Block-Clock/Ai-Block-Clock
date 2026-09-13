@@ -129,7 +129,8 @@ describe('늦게 도착한 응답이 지나간 세션을 되살리지 않는다'
     expect(h.token).toBeNull()
   })
 
-  it('로그인 도중 세션이 끊기면 늦게 온 토큰을 버린다', async () => {
+  it('로그인 도중 세션이 끊기면 늦게 온 토큰을 버리고 null 을 준다', async () => {
+    // null 이 아니라 조용히 끝내면, 화면은 로그인이 된 줄 알고 홈으로 넘어간다.
     const login = deferred<unknown>()
     h.restoreSession.mockResolvedValue(false)
     h.loginWithWallet.mockReturnValue(login.promise)
@@ -140,7 +141,7 @@ describe('늦게 도착한 응답이 지나간 세션을 되살리지 않는다'
     await settle()
     useAuthStore.getState().clearSession()
     login.resolve({ accessToken: 'stale-token' })
-    await signing
+    await expect(signing).resolves.toBeNull()
     await settle()
     expect(useAuthStore.getState().status).toBe('unauthenticated')
     expect(h.token).toBeNull()
@@ -169,6 +170,15 @@ describe('정상 경로', () => {
 
     expect(h.restoreSession).toHaveBeenCalledTimes(1)
     expect(useAuthStore.getState().status).toBe('authenticated')
+  })
+
+  it('로그인이 성공하면 프로필을 돌려준다', async () => {
+    h.restoreSession.mockResolvedValue(false)
+    h.loginWithWallet.mockResolvedValue({ accessToken: 't' })
+    h.getMyProfile.mockResolvedValue(PROFILE)
+    const useAuthStore = await freshStore()
+
+    await expect(useAuthStore.getState().signIn(CREDENTIALS)).resolves.toBe(PROFILE)
   })
 
   it('복구가 실패하면 미인증이 된다', async () => {

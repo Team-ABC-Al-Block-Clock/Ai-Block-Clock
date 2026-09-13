@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAccount, useConnect, useSignMessage, useSwitchChain } from 'wagmi'
 
 import { requestWalletMessage } from '@/api/auth'
@@ -31,6 +31,8 @@ export default function Login() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const signIn = useAuthStore((s) => s.signIn)
+  // 이미 세션이 있는 사람에게 지갑 연결 버튼을 다시 보여 줄 이유가 없다.
+  const status = useAuthStore((s) => s.status)
   // 쓰던 중 밀려온 것인지. 이유를 알려주지 않으면 로그아웃한 것과 구분되지 않는다.
   const endedBy = endReasonFrom(state)
 
@@ -51,12 +53,10 @@ export default function Login() {
         setMessage(challenge.message)
 
         const signature = await signMessageAsync({ message: challenge.message })
-        await signIn({ walletAddress, signature })
+        const profile = await signIn({ walletAddress, signature })
 
-        // `signIn` 이 프로필을 스토어에 넣어 두므로 여기서 바로 읽는다.
-        // 프로필이 없다는 것은 그 사이 세션이 갈려 `signIn` 이 결과를 버렸다는 뜻이다 —
-        // 없는 것을 "온보딩 완료" 로 읽고 넘어가면 로그인된 척 홈으로 들어간다.
-        const profile = useAuthStore.getState().profile
+        // 그 사이 세션이 갈려 이 로그인이 버려졌다는 뜻이다 — 성공으로 읽고
+        // 넘어가면 로그인된 척 홈으로 들어간다.
         if (!profile) {
           setPhase('idle')
           setError('로그인이 완료되지 않았습니다. 다시 시도해 주세요.')
@@ -127,6 +127,11 @@ export default function Login() {
       el.removeEventListener('cancel', onCancel)
     }
   }, [signInWith, wallet])
+
+  // 훅을 모두 부른 뒤에 돌려보낸다. 헤더에서 잘못 눌러 들어온 사람이
+  // 지갑 연결부터 다시 하게 두지 않는다. 온보딩이 남았으면 `OnboardingGate` 가
+  // 홈에서 다시 가입 화면으로 붙잡는다.
+  if (status === 'authenticated') return <Navigate to={redirectTargetFrom(state)} replace />
 
   return (
     <>
