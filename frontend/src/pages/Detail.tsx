@@ -183,22 +183,11 @@ export default function Detail() {
   return (
     <>
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(22,10,36,.34) 0%, rgba(22,10,36,.18) 24%, rgba(22,10,36,.14) 58%, rgba(22,10,36,.26) 100%)',
-        }}
-      ></div>
-
-      <div
-        className="absolute top-0 left-0 overflow-x-hidden"
+        className="scroll-quiet absolute top-0 left-0 overflow-x-hidden"
         id="detailScroll"
         style={{
           width: '1440px',
           height: '1024px',
-          overflowY: 'auto',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,.28) transparent',
         }}
       >
         <div className="relative" style={{ width: '1440px', height: '1520px' }}>

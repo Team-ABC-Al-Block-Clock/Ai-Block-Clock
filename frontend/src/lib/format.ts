@@ -57,6 +57,12 @@ export function successLabel(successRate: number, executionCount: number) {
   return (Math.floor(successRate * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%'
 }
 
+/** '0x1f9c4b2e…5b8072a' → '0x1f9c…072a' — 지갑 주소는 전체가 화면에 들어가지 않는다 */
+export function shortAddress(address: string) {
+  if (address.length <= 13) return address
+  return `${address.slice(0, 6)}…${address.slice(-4)}`
+}
+
 /**
  * '2026-09-07T14:22:00Z' → '09.07 14:22', null → '—'
  *

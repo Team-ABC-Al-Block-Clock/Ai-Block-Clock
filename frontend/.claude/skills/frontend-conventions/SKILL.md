@@ -74,3 +74,10 @@ ID 를 받는 경로는 인자가 **필수**다. 아직 ID 가 없는 화면만 
 paths.agentDetail(agentId) // '/agent/{id}'
 paths.agentDetail.withoutId // '/agent' — 해당 도메인 mock 핸들러 붙기 전까지만
 ```
+
+**인증이 필요한 화면은 `routes/access.ts` 의 `REQUIRES_AUTH` 에 적는다.** `App.tsx` 가 그 값을 보고
+`<ProtectedRoute>` 로 감싼다 — 화면 안에서 로그인 여부를 확인하지 않는다. 여기도
+`Record<ScreenKey, boolean>` 이라 화면을 추가하면 공개·보호를 정할 때까지 컴파일이 실패한다.
+
+세션은 `stores/authStore.ts` 하나가 들고 있다. Access Token 은 스토어에 복사하지 않고
+`lib/tokenStorage.ts` 에 둔다 — axios 인터셉터가 React 트리 밖에서 읽어야 한다. 자세한 것은 원본 4절·7절.

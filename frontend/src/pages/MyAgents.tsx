@@ -394,14 +394,6 @@ export default function MyAgents() {
 
   return (
     <>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(20,9,34,.40) 0%, rgba(20,9,34,.22) 26%, rgba(20,9,34,.18) 62%, rgba(20,9,34,.30) 100%)',
-        }}
-      ></div>
-
       <Sidebar active="agents" />
 
       <div

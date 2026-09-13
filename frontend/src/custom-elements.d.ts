@@ -1,5 +1,5 @@
 /** components/*.ts 가 등록하는 커스텀 엘리먼트를 JSX에서 쓰기 위한 선언.
- *  React는 하이픈 있는 태그의 속성을 그대로 DOM 속성으로 넘깁니다. */
+ *  React는 하이픈 있는 태그의 속성을 그대로 DOM 속성으로 넘긴다. */
 import type { DetailedHTMLProps, HTMLAttributes } from 'react'
 
 type El<P = object> = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & P
@@ -34,6 +34,16 @@ declare module 'react' {
         align?: 'left' | 'right'
         'hide-theme'?: boolean
         initial?: string
+        /** 있으면 로그아웃 행이 보인다. `bool()` 이 hasAttribute 라서 빈 문자열로 넘긴다 */
+        'signed-in'?: string
+      }>
+      'wallet-dialog': El<{
+        /** 'idle' | 'request' | 'signing' | 'rejected' — 화면이 단계를 소유한다 */
+        phase?: string
+        address?: string
+        /** 지갑이 서명할 원문. 이름에 접미사를 붙인 이유는 10절 참고 */
+        'message-text'?: string
+        'error-code'?: string
       }>
       'empty-state': El<{
         heading?: string
@@ -61,7 +71,7 @@ declare module 'react' {
 
 declare global {
   interface Window {
-    /** dc 화면 전환 셸이 넣어주던 훅 — 라우터가 들어오면 대체됩니다 */
+    /** dc 화면 전환 셸이 넣어주던 훅 — 라우터가 들어오면 대체 */
     __navigate?: (href: string) => void
   }
 }

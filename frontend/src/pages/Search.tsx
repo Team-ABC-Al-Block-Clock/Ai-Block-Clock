@@ -200,21 +200,6 @@ export default function Search() {
   return (
     <>
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(130% 90% at 50% 44%, rgba(0,0,0,0) 46%, rgba(26,12,40,.22) 100%)',
-        }}
-      ></div>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(22,10,36,.30) 0%, rgba(22,10,36,.16) 22%, rgba(22,10,36,.10) 55%, rgba(22,10,36,.20) 100%)',
-        }}
-      ></div>
-
-      <div
         className="pointer-events-none absolute"
         style={{
           left: '360px',

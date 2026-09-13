@@ -91,17 +91,17 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         style={{
           width: '1076px',
           height: '1024px',
-          background: 'rgba(13,8,28,.58)',
-          backdropFilter: 'blur(7px) saturate(112%)',
-          WebkitBackdropFilter: 'blur(7px) saturate(112%)',
-          boxShadow: 'inset -1px 0 0 rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.08)',
           animation: 'paneIn 1.1s cubic-bezier(.18,.86,.24,1) both',
           transformOrigin: '44% 46%',
         }}
       >
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute"
           style={{
+            left: 'calc(-1 * var(--edge, 0px))',
+            right: 'calc(36px - var(--edge, 0px))',
+            top: 0,
+            bottom: 0,
             backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
             backgroundPosition: '13px 13px',
@@ -109,15 +109,19 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           }}
         ></div>
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute"
           style={{
+            left: 'calc(-1 * var(--edge, 0px))',
+            right: 'calc(36px - var(--edge, 0px))',
+            top: 0,
+            bottom: 0,
             background:
               'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
           }}
         ></div>
 
         <div
-          className="absolute left-0 text-center text-[13px] tracking-[-.01em]"
+          className="absolute left-0 text-center text-[14px] tracking-[-.01em]"
           style={{
             top: '104px',
             width: '1076px',
@@ -237,9 +241,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             1
           </div>
-          <div className="text-[15px] font-semibold tracking-[-.01em] text-white">파일 수집</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">파일 수집</div>
           <div
-            className="text-[11px]"
+            className="text-[12.5px]"
             style={{ color: 'rgba(228,190,172,.82)', letterSpacing: '.06em' }}
           >
             트리거
@@ -269,9 +273,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             2
           </div>
-          <div className="text-[15px] font-semibold tracking-[-.01em] text-white">내용 분석</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">내용 분석</div>
           <div
-            className="text-[11px]"
+            className="text-[12.5px]"
             style={{ color: 'rgba(230,196,212,.85)', letterSpacing: '.06em' }}
           >
             LLM
@@ -301,9 +305,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             3
           </div>
-          <div className="text-[15px] font-semibold tracking-[-.01em] text-white">분류 및 태깅</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">분류 및 태깅</div>
           <div
-            className="text-[11px]"
+            className="text-[12.5px]"
             style={{ color: 'rgba(226,211,180,.8)', letterSpacing: '.06em' }}
           >
             도구
@@ -333,9 +337,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             4
           </div>
-          <div className="text-[15px] font-semibold tracking-[-.01em] text-white">요약 생성</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">요약 생성</div>
           <div
-            className="text-[11px]"
+            className="text-[12.5px]"
             style={{ color: 'rgba(230,196,212,.82)', letterSpacing: '.06em' }}
           >
             LLM
@@ -365,9 +369,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             5
           </div>
-          <div className="text-[15px] font-semibold tracking-[-.01em] text-white">결과 전달</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">결과 전달</div>
           <div
-            className="text-[11px]"
+            className="text-[12.5px]"
             style={{ color: 'rgba(190,183,222,.82)', letterSpacing: '.06em' }}
           >
             출력
@@ -377,7 +381,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         <div
           className="absolute flex items-center overflow-hidden"
           style={{
-            left: '32px',
+            left: 'calc(32px - var(--edge, 0px))',
             top: '952px',
             height: '36px',
             borderRadius: '18px',
@@ -389,19 +393,19 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         >
           <div
             style={{ width: '41px', height: '36px', color: 'rgba(255,255,255,.82)' }}
-            className="flex cursor-pointer items-center justify-center text-[14px] font-semibold hover:bg-[rgba(255,255,255,.12)]"
+            className="flex cursor-pointer items-center justify-center text-[15px] font-semibold hover:bg-[rgba(255,255,255,.12)]"
           >
             −
           </div>
           <div
-            className="flex items-center justify-center text-[13px] font-semibold"
+            className="flex items-center justify-center text-[14px] font-semibold"
             style={{ width: '67px', height: '36px', color: 'rgba(255,255,255,.82)' }}
           >
             100%
           </div>
           <div
             style={{ width: '41px', height: '36px', color: 'rgba(255,255,255,.82)' }}
-            className="flex cursor-pointer items-center justify-center text-[14px] font-semibold hover:bg-[rgba(255,255,255,.12)]"
+            className="flex cursor-pointer items-center justify-center text-[15px] font-semibold hover:bg-[rgba(255,255,255,.12)]"
           >
             +
           </div>
@@ -409,7 +413,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           <div
             onClick={handleTogglePanel}
             style={{ height: '36px', padding: '0 16px', gap: '7px' }}
-            className="flex cursor-pointer items-center text-[13px] font-semibold text-white hover:bg-[rgba(255,255,255,.12)]"
+            className="flex cursor-pointer items-center text-[14px] font-semibold text-white hover:bg-[rgba(255,255,255,.12)]"
           >
             <span>+</span>
             <span>에이전트 추가</span>
@@ -421,7 +425,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             <div
               className="absolute box-border flex flex-col"
               style={{
-                left: '32px',
+                left: 'calc(32px - var(--edge, 0px))',
                 top: '262px',
                 width: '500px',
                 height: '700px',
@@ -450,7 +454,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                     borderRadius: '6px',
                     color: 'rgba(255,255,255,.6)',
                   }}
-                  className="flex cursor-pointer items-center justify-center text-[15px] hover:bg-[rgba(255,255,255,.14)] hover:text-[#fff]"
+                  className="flex cursor-pointer items-center justify-center text-[16px] hover:bg-[rgba(255,255,255,.14)] hover:text-[#fff]"
                 >
                   ×
                 </div>
@@ -468,7 +472,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 }}
               >
                 <div
-                  className="text-[16px]"
+                  className="text-[17px]"
                   style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
                 >
                   에이전트 이름
@@ -491,7 +495,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 </div>
 
                 <div
-                  className="text-[16px]"
+                  className="text-[17px]"
                   style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
                 >
                   입력 파일
@@ -515,14 +519,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                       borderRadius: '8px',
                       background: 'rgba(255,255,255,.16)',
                     }}
-                    className="flex cursor-pointer items-center text-[11.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.28)]"
+                    className="flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.28)]"
                   >
                     찾기
                   </div>
                 </div>
 
                 <div
-                  className="text-[16px]"
+                  className="text-[17px]"
                   style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
                 >
                   AI 모델
@@ -549,7 +553,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 </div>
 
                 <div
-                  className="text-[16px] font-semibold"
+                  className="text-[17px] font-semibold"
                   style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
                 >
                   프롬프트
@@ -571,7 +575,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 </div>
 
                 <div
-                  className="text-[16px]"
+                  className="text-[17px]"
                   style={{ color: 'rgba(255,214,232,.85)', marginBottom: '10px' }}
                 >
                   제어 흐름 노드
@@ -579,19 +583,19 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 <div className="flex" style={{ gap: '8px', marginBottom: '2px' }}>
                   <div
                     style={{ height: '36px', padding: '0 13px', borderRadius: '10px' }}
-                    className="bg-surface-card flex cursor-pointer items-center text-[11.5px] font-semibold whitespace-nowrap text-white hover:bg-[rgba(255,255,255,.2)]"
+                    className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold whitespace-nowrap text-white hover:bg-[rgba(255,255,255,.2)]"
                   >
                     조건 분기 (if / else)
                   </div>
                   <div
                     style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                    className="bg-surface-card flex cursor-pointer items-center text-[11.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
+                    className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
                   >
                     반복
                   </div>
                   <div
                     style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                    className="bg-surface-card flex cursor-pointer items-center text-[11.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
+                    className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
                   >
                     병합
                   </div>
@@ -638,7 +642,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           <a
             href={paths.run.waiting.withoutId}
             style={{
-              left: '710px',
+              left: 'calc(674px + var(--edge, 0px))',
               top: '943px',
               width: '160px',
               height: '52px',
@@ -649,7 +653,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               transition: 'background .18s,transform .18s',
               animation: 'uiIn .7s .58s cubic-bezier(.2,.8,.25,1) both',
             }}
-            className="absolute flex cursor-pointer items-center justify-center bg-[rgba(255,255,255,.10)] text-[16px] font-semibold tracking-[-.01em] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.2)]"
+            className="absolute flex cursor-pointer items-center justify-center bg-[rgba(255,255,255,.10)] text-[17px] font-semibold tracking-[-.01em] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.2)]"
           >
             테스트하기
           </a>
@@ -657,7 +661,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         <a
           href={seller ? paths.register : paths.run.waiting.withoutId}
           style={{
-            left: '882px',
+            left: 'calc(846px + var(--edge, 0px))',
             top: '943px',
             width: '160px',
             height: '52px',
@@ -668,7 +672,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             transition: 'transform .18s,box-shadow .18s',
             animation: 'uiIn .7s .62s cubic-bezier(.2,.8,.25,1) both',
           }}
-          className="absolute flex cursor-pointer items-center justify-center text-[16px] font-bold tracking-[-.01em] hover:-translate-y-[2px] hover:shadow-[0_14px_32px_rgba(140,100,130,.28),inset_0_1px_0_rgba(255,255,255,.6)]"
+          className="absolute flex cursor-pointer items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px] hover:shadow-[0_14px_32px_rgba(140,100,130,.28),inset_0_1px_0_rgba(255,255,255,.6)]"
         >
           {seller ? '마켓에 등록' : '실행하기'}
         </a>
@@ -677,12 +681,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
       <div
         className="absolute top-0"
         style={{
-          left: '1076px',
-          width: '364px',
+          right: 'calc(-1 * var(--edge, 0px))',
+          width: '400px',
           height: '1024px',
-          background: 'rgba(13,7,26,.72)',
-          backdropFilter: 'blur(26px) saturate(125%)',
-          WebkitBackdropFilter: 'blur(26px) saturate(125%)',
           boxShadow: 'inset 1px 0 0 rgba(255,255,255,.14),-30px 0 60px rgba(10,4,20,.35)',
           animation: 'sideIn 1s .1s cubic-bezier(.18,.86,.24,1) both',
         }}
@@ -692,7 +693,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           style={{
             left: '30px',
             top: '30px',
-            width: '304px',
+            width: '340px',
             height: '40px',
             borderRadius: '10px',
           }}
@@ -720,7 +721,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             }}
           ></div>
           <input
-            className="absolute border-0 bg-transparent font-[inherit] text-[13px] text-white outline-0"
+            className="absolute border-0 bg-transparent font-[inherit] text-[14px] text-white outline-0"
             type="text"
             placeholder="에이전트 검색"
             style={{ left: '38px', top: '9px', width: '250px', height: '22px' }}
@@ -729,7 +730,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         {hasSelection && (
           <>
             <div
-              className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
+              className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
               style={{ left: '30px', top: '90px' }}
             >
               선택한 노드
@@ -739,7 +740,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               style={{
                 left: '30px',
                 top: '118px',
-                width: '304px',
+                width: '340px',
                 height: '92px',
                 borderRadius: '12px',
                 background: 'rgba(255,255,255,.11)',
@@ -756,20 +757,20 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 }}
               >
                 <div
-                  className="absolute inset-0 flex items-center justify-center text-[15px] font-semibold"
+                  className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
                   style={{ color: 'rgba(255,226,238,.65)' }}
                 >
                   {selInitial}
                 </div>
               </div>
               <div
-                className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
+                className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
                 style={{ left: '76px', top: '29px' }}
               >
                 {selName}
               </div>
               <div
-                className="absolute text-[12px]"
+                className="absolute text-[13px]"
                 style={{ left: '76px', top: '52px', color: 'rgba(255,214,232,.8)' }}
               >
                 {selKind} 노드
@@ -777,7 +778,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             </div>
 
             <div
-              className="absolute text-[13px] font-semibold"
+              className="absolute text-[14px] font-semibold"
               style={{ left: '30px', top: '234px', color: 'rgba(255,255,255,.82)' }}
             >
               노드 개요
@@ -788,7 +789,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               style={{
                 left: '30px',
                 top: '258px',
-                width: '304px',
+                width: '340px',
                 height: '120px',
                 borderRadius: '10px',
                 background: 'rgba(255,255,255,.07)',
@@ -840,7 +841,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             </div>
 
             <div
-              className="absolute text-[13px] font-semibold"
+              className="absolute text-[14px] font-semibold"
               style={{ left: '30px', top: '398px', color: 'rgba(255,255,255,.82)' }}
             >
               모델
@@ -850,14 +851,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               style={{
                 left: '30px',
                 top: '422px',
-                width: '304px',
+                width: '340px',
                 height: '44px',
                 borderRadius: '10px',
                 background: 'rgba(255,255,255,.07)',
               }}
             >
               <div
-                className="absolute text-[13px]"
+                className="absolute text-[14px]"
                 style={{ left: '14px', top: '14px', color: 'rgba(255,255,255,.8)' }}
               >
                 기본 모델
@@ -865,7 +866,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               <div
                 className="absolute"
                 style={{
-                  left: '274px',
+                  left: '310px',
                   top: '20px',
                   width: '0',
                   height: '0',
@@ -877,20 +878,20 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             </div>
 
             <div
-              className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
+              className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
               style={{ left: '30px', top: '496px' }}
             >
               노드 목록
             </div>
             <div
               className="absolute flex flex-col"
-              style={{ left: '30px', top: '524px', width: '304px', gap: '10px' }}
+              style={{ left: '30px', top: '524px', width: '340px', gap: '10px' }}
             >
               {nodeList.map((row, i) => (
                 <Fragment key={i}>
                   <div
                     style={{
-                      width: '304px',
+                      width: '340px',
                       height: '56px',
                       borderRadius: '10px',
                       background: 'rgba(255,255,255,.07)',
@@ -908,7 +909,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                       }}
                     ></div>
                     <div
-                      className="absolute text-[13px] font-semibold"
+                      className="absolute text-[14px] font-semibold"
                       style={{ left: '54px', top: '19px', color: 'rgba(255,255,255,.92)' }}
                     >
                       {row.name}
@@ -916,7 +917,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                     <div
                       className="absolute"
                       style={{
-                        left: '274px',
+                        left: '310px',
                         top: '27px',
                         width: '14px',
                         height: '2px',
@@ -933,14 +934,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               style={{
                 left: '30px',
                 top: '870px',
-                width: '304px',
+                width: '340px',
                 height: '48px',
                 borderRadius: '10px',
                 background: 'rgba(255,255,255,.06)',
                 boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)',
                 color: 'rgba(255,255,255,.85)',
               }}
-              className="absolute flex cursor-pointer items-center justify-center text-[14px] font-semibold hover:bg-[rgba(255,255,255,.14)]"
+              className="absolute flex cursor-pointer items-center justify-center text-[15px] font-semibold hover:bg-[rgba(255,255,255,.14)]"
             >
               + 노드 추가
             </div>
@@ -950,13 +951,13 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         {noSelection && (
           <>
             <div
-              className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
+              className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
               style={{ left: '30px', top: '88px' }}
             >
               검색 결과
             </div>
             <div
-              className="absolute text-right text-[12px]"
+              className="absolute text-right text-[13px]"
               style={{ left: '266px', top: '90px', width: '68px', color: 'rgba(255,236,246,.6)' }}
             >
               10개
@@ -966,7 +967,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               style={{
                 left: '30px',
                 top: '116px',
-                width: '304px',
+                width: '340px',
                 height: '876px',
                 gap: '14px',
                 alignContent: 'flex-start',
@@ -994,14 +995,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                       }}
                     >
                       <div
-                        className="absolute inset-0 flex items-center justify-center text-[15px] font-semibold"
+                        className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
                         style={{ color: 'rgba(255,226,238,.65)' }}
                       >
                         {item.initial}
                       </div>
                     </div>
                     <div
-                      className="absolute text-[13px] font-semibold tracking-[-.01em] text-white"
+                      className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
                       style={{ left: '16px', top: '76px' }}
                     >
                       {item.name}
@@ -1039,7 +1040,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                         background: `${item.infoBg}`,
                         zIndex: '2',
                       }}
-                      className="absolute flex cursor-pointer items-center justify-center text-[12px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
+                      className="absolute flex cursor-pointer items-center justify-center text-[13px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
                     >
                       i
                     </div>
@@ -1061,23 +1062,23 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                             zIndex: '3',
                           }}
                         >
-                          <div className="text-[12px] font-semibold tracking-[-.01em] text-white">
+                          <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
                             {item.name}
                           </div>
-                          <div className="flex justify-between text-[10.5px]">
+                          <div className="flex justify-between text-[12px]">
                             <span style={{ color: 'rgba(255,236,246,.58)' }}>사용</span>
                             <span className="font-semibold text-white">{item.uses}</span>
                           </div>
-                          <div className="flex justify-between text-[10.5px]">
+                          <div className="flex justify-between text-[12px]">
                             <span style={{ color: 'rgba(255,236,246,.58)' }}>실행 단가</span>
                             <span className="font-semibold text-white">{item.price}</span>
                           </div>
-                          <div className="flex justify-between text-[10.5px]">
+                          <div className="flex justify-between text-[12px]">
                             <span style={{ color: 'rgba(255,236,246,.58)' }}>유형</span>
                             <span className="font-semibold text-white">{item.kind}</span>
                           </div>
                           <div
-                            className="text-center text-[10px] tracking-[-.01em]"
+                            className="text-center text-[11.5px] tracking-[-.01em]"
                             style={{
                               marginTop: 'auto',
                               lineHeight: '1.4',
@@ -1112,7 +1113,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         }}
       >
         <input
-          className="absolute rounded-md border-0 bg-transparent font-[inherit] text-[14px] font-semibold tracking-[-.01em] text-white outline-0 transition-colors duration-[160ms] hover:bg-white/8 focus:bg-white/12"
+          className="absolute rounded-md border-0 bg-transparent font-[inherit] text-[15px] font-semibold tracking-[-.01em] text-white outline-0 transition-colors duration-[160ms] hover:bg-white/8 focus:bg-white/12"
           defaultValue="문서 정리"
           aria-label="에이전트 이름"
           style={{ left: '10px', top: '8px', width: '234px', height: '24px', padding: '0 4px' }}

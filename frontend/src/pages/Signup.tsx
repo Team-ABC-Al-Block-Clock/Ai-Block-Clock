@@ -1,589 +1,307 @@
-import { Fragment, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { useDisconnect } from 'wagmi'
+
+import { completeOnboarding, PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
+import { ApiError } from '@/api/errors'
+import { shortAddress } from '@/lib/format'
 import { paths } from '@/routes/paths'
+import { useAuthStore } from '@/stores/authStore'
+import logo from '../assets/logo.png'
 
+/** 가입 화면 — 서명이 끝났고 프로필이 비어 있을 때만 들른다(시안 4).
+ *  서명이 인증을 대신하므로 받을 것은 프로필과 두 가지 확인뿐이다.
+ *  카드 없이 로그인 화면과 같은 열(504·432)에 세워 화면이 이어져 보이게 한다. */
 export default function Signup() {
-  const [checked, setChecked] = useState([false, false, false])
-  const [termsOpen, setTermsOpen] = useState(false)
-  const [termsAt, setTermsAt] = useState(0)
-  const [walletOpen, setWalletOpen] = useState(false)
+  const navigate = useNavigate()
+  const { disconnectAsync } = useDisconnect()
+  const setProfile = useAuthStore((s) => s.setProfile)
+  const walletAddress = useAuthStore((s) => s.walletAddress)
+  const onboarded = useAuthStore((s) => s.profile?.onboardingCompleted === true)
 
-  const labels = [
-    '이용약관에 동의합니다 (필수)',
-    '개인정보 처리방침에 동의합니다 (필수)',
-    '마케팅 정보 수신에 동의합니다 (선택)',
-  ]
-  const titles = ['이용약관', '개인정보 처리방침', '마케팅 정보 수신 동의']
-  const bodies = [
-    [
-      {
-        head: '제1조 (목적)',
-        body: '본 약관은 서비스 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정합니다.',
-      },
-      {
-        head: '제2조 (에이전트의 등록)',
-        body: '회원은 직접 구성한 에이전트를 마켓에 등록할 수 있으며, 등록된 에이전트의 동작과 결과에 대한 책임은 등록한 회원에게 있습니다.',
-      },
-      {
-        head: '제3조 (코인 정산)',
-        body: '에이전트가 사용된 만큼 적립된 코인은 회원이 연결한 지갑으로 정산됩니다. 정산 주기와 수수료는 서비스 내 안내를 따릅니다.',
-      },
-      {
-        head: '제4조 (이용 제한)',
-        body: '타인의 권리를 침해하거나 법령을 위반하는 에이전트는 사전 통지 없이 노출이 제한될 수 있습니다.',
-      },
-      {
-        head: '제5조 (약관의 변경)',
-        body: '회사는 약관을 변경할 수 있으며, 변경 시 적용일 7일 전부터 서비스 내에 공지합니다.',
-      },
-    ],
-    [
-      {
-        head: '수집하는 정보',
-        body: '지갑 주소, 닉네임, 한 줄 소개를 수집합니다. 프로필 이미지는 선택 항목입니다.',
-      },
-      {
-        head: '이용 목적',
-        body: '계정 식별, 에이전트 실행 기록 관리, 코인 정산, 서비스 개선을 위한 통계 분석에 이용합니다.',
-      },
-      {
-        head: '보관 기간',
-        body: '회원 탈퇴 시 지체 없이 파기합니다. 다만 정산 기록은 관계 법령에 따라 5년간 보관합니다.',
-      },
-      {
-        head: '제3자 제공',
-        body: '법령에 근거한 경우를 제외하고 회원의 정보를 제3자에게 제공하지 않습니다.',
-      },
-    ],
-    [
-      {
-        head: '수신 항목',
-        body: '새로운 에이전트 소식, 기능 업데이트, 이벤트 안내를 서비스 알림과 메일로 받습니다.',
-      },
-      {
-        head: '철회 방법',
-        body: '마이페이지 > 내 정보 수정에서 언제든 수신 동의를 철회할 수 있습니다. 철회해도 서비스 이용에는 제한이 없습니다.',
-      },
-    ],
-  ]
-  const c = checked
-  const all = c.every(Boolean)
-  const required = c[0] && c[1]
-  const terms = labels.map((label, i) => ({
-    label,
-    bg: c[i] ? '#e9b7d2' : 'rgba(255,255,255,.12)',
-    mark: c[i] ? '✓' : '',
-    toggle: () =>
-      setChecked((s) => {
-        const n = s.slice()
-        n[i] = !n[i]
-        return n
-      }),
-    view: () => {
-      setTermsOpen(true)
-      setTermsAt(i)
+  const [nickname, setNickname] = useState('')
+  const [introduction, setIntroduction] = useState('')
+  const [agreed, setAgreed] = useState(false)
+  /** ACC-005 확인. 약관과 한 줄로 묶지 않는다 — 한 번에 넘어가면 계정을
+   *  복구할 수 없다는 고지를 읽지 않고 지나친다. */
+  const [lossAck, setLossAck] = useState(false)
+
+  const trimmedNickname = nickname.trim()
+  const trimmedIntro = introduction.trim()
+
+  // 서버가 USER_002 로 막는 범위를 보내기 전에 여기서 먼저 잡는다.
+  const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+  const nicknameError =
+    trimmedNickname.length < nickLimit.min || trimmedNickname.length > nickLimit.max
+      ? `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다`
+      : null
+  const introError =
+    trimmedIntro.length > introLimit.max ? `한 줄 소개는 ${introLimit.max}자까지입니다` : null
+
+  const join = useMutation({
+    mutationFn: async () => {
+      // 프로필을 먼저 저장한다. 순서가 뒤집히면 온보딩만 끝나 이름 없는 계정이
+      // 마켓에 들어가고, 이 화면으로는 다시 오지 못한다.
+      const updated = await updateMyProfile({
+        nickname: trimmedNickname,
+        // 선택 항목이라 비어 있으면 필드를 빼고 보낸다 — 명세가 보낸 것만 반영한다.
+        ...(trimmedIntro ? { introduction: trimmedIntro } : {}),
+      })
+      await completeOnboarding()
+      return updated
     },
-  }))
-  const allBg = all ? '#e9b7d2' : 'rgba(255,255,255,.12)'
-  const allMark = all ? '✓' : ''
-  const handleToggleAll = () => setChecked((v) => v.map(() => !v.every(Boolean)))
-  const submitBg = required ? '#b98da9' : 'rgba(255,255,255,.12)'
-  const submitFg = required ? '#2f1527' : 'rgba(255,255,255,.45)'
+    onSuccess: (updated) => {
+      // 프로필은 쿼리가 아니라 스토어에 있다(7절). 온보딩 여부까지 같이 덮어야
+      // 다음 로그인이 이 화면으로 되돌리지 않는다.
+      setProfile({
+        nickname: updated.nickname,
+        introduction: updated.introduction,
+        profileImageUrl: updated.profileImageUrl,
+        onboardingCompleted: true,
+      })
+      navigate(paths.home, { replace: true })
+    },
+  })
+
+  const canSubmit = agreed && lossAck && !nicknameError && !introError && !join.isPending
+
   const handleSubmit = () => {
-    if (required) setWalletOpen(true)
+    if (!canSubmit) return
+    join.mutate()
   }
-  const termsTitle = titles[termsAt]
-  const termsBody = bodies[termsAt]
-  const handleCloseTerms = () => setTermsOpen(false)
-  const handleAgreeTerms = () => {
-    setChecked((prev) => {
-      const n = prev.slice()
-      n[termsAt] = true
-      return n
-    })
-    setTermsOpen(false)
+
+  /** 프로필을 채우기 전에 나가면 반쯤 열린 세션이 남는다 — 로그아웃처럼 끊고 돌려보낸다.
+   *  세션을 먼저 끊는다: 지갑이 먼저면 App 의 가드가 "연결 해제" 로 읽는다(7절). */
+  const handleBack = () => {
+    void useAuthStore
+      .getState()
+      .signOut()
+      .catch(() => undefined)
+      .then(() => disconnectAsync().catch(() => undefined))
+      .finally(() => navigate(paths.login, { replace: true }))
+  }
+
+  // 이미 가입한 사람에게 빈 양식을 보여 주면, 그대로 저장해 쓰던 이름이 지워진다
+  if (onboarded) return <Navigate to={paths.home} replace />
+
+  const label = (text: string, suffix?: string, required = false) => (
+    <div
+      className="text-[13px] font-semibold tracking-[-.01em] text-white"
+      style={{ marginTop: '22px' }}
+    >
+      {text}
+      {required && <span style={{ marginLeft: '3px', color: '#ffb4c8' }}>*</span>}
+      {suffix && (
+        <span
+          className="text-[11.5px] font-normal"
+          style={{ marginLeft: '5px', color: 'rgba(255,236,246,.56)' }}
+        >
+          {suffix}
+        </span>
+      )}
+    </div>
+  )
+
+  const check = (on: boolean, toggle: () => void, main: string, sub?: string) => (
+    <div
+      onClick={toggle}
+      style={{ padding: '8px 10px', borderRadius: '10px', gap: '10px' }}
+      className="flex cursor-pointer items-start transition-colors duration-[140ms] hover:bg-[rgba(255,255,255,.06)]"
+    >
+      <div
+        className="flex flex-none items-center justify-center text-[10px] font-bold transition-colors duration-[160ms]"
+        style={{
+          width: '17px',
+          height: '17px',
+          marginTop: '1px',
+          borderRadius: '5px',
+          background: on ? '#e9b7d2' : 'rgba(255,255,255,.12)',
+          color: '#2f1527',
+        }}
+      >
+        {on ? '✓' : ''}
+      </div>
+      <div className="flex-1">
+        {/* keep-all — 없으면 열 폭에서 `확인했습니 / 다` 로 단어 중간이 끊긴다 */}
+        <div
+          className="text-[13px] leading-[1.45] tracking-[-.01em]"
+          style={{ color: 'rgba(255,240,247,.84)', wordBreak: 'keep-all' }}
+        >
+          {main}
+        </div>
+        {sub && (
+          <div
+            className="text-[11.5px] tracking-[-.01em]"
+            style={{ marginTop: '4px', color: 'rgba(255,236,246,.56)' }}
+          >
+            {sub}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const field = {
+    marginTop: '8px',
+    width: '100%',
+    height: '48px',
+    padding: '0 15px',
+    borderRadius: '12px',
   }
 
   return (
     <>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(20,9,34,.32) 0%, rgba(20,9,34,.14) 34%, rgba(20,9,34,.3) 100%)',
-        }}
-      ></div>
-
-      <div
-        className="absolute top-0 left-0 overflow-x-hidden"
-        id="signupScroll"
-        style={{
-          width: '1440px',
-          height: '1024px',
-          overflowY: 'auto',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,.24) transparent',
-        }}
+      {/* 돌아갈 길 — 서명까지 마친 사람이 프로필 앞에서 멈췄을 때 빠져나갈 곳이
+          없으면 새로고침 말고는 방법이 없다. 껍데기 헤더가 꺼져 있어 직접 그린다. */}
+      <button
+        type="button"
+        onClick={handleBack}
+        aria-label="뒤로"
+        className="animate-rise bg-surface-card absolute flex cursor-pointer items-center justify-center text-[15px] text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
+        style={{ left: '44px', top: '34px', width: '40px', height: '40px', borderRadius: '12px' }}
       >
-        <div className="relative" style={{ width: '1440px', height: '1230px' }}>
-          <div
-            className="absolute text-center text-[34px] font-bold tracking-[-.02em] text-white"
-            style={{
-              left: '504px',
-              top: '136px',
-              width: '432px',
-              textShadow: '0 2px 22px rgba(35,8,45,.6)',
-              animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-            }}
-          >
-            계정 만들기
-          </div>
-          <div
-            className="absolute text-center text-[14px] tracking-[-.01em]"
-            style={{
-              left: '504px',
-              top: '188px',
-              width: '432px',
-              color: 'rgba(255,236,246,.72)',
-              animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-            }}
-          >
-            에이전트를 만들고 거래하려면 계정이 필요합니다
+        ←
+      </button>
+
+      <div className="absolute" style={{ left: '504px', top: '116px', width: '432px' }}>
+        <img
+          src={logo}
+          alt=""
+          className="animate-rise block"
+          style={{ width: '64px', height: '64px', margin: '0 auto', objectFit: 'contain' }}
+        />
+        <div
+          className="animate-rise text-center text-[30px] font-bold tracking-[-.02em] text-white [animation-delay:.06s]"
+          style={{ marginTop: '20px', textShadow: '0 2px 22px rgba(35,8,45,.6)' }}
+        >
+          회원가입
+        </div>
+        <div
+          className="animate-rise text-center text-[14px] tracking-[-.01em] [animation-delay:.1s]"
+          style={{ marginTop: '8px', color: 'rgba(255,236,246,.72)' }}
+        >
+          프로필만 설정하면 바로 시작할 수 있어요
+        </div>
+        <div
+          className="animate-rise text-center text-[12.5px] tracking-[-.01em] [animation-delay:.12s]"
+          style={{ marginTop: '7px', color: 'rgba(255,236,246,.52)' }}
+        >
+          {walletAddress ? `${shortAddress(walletAddress)} 연결됨` : '지갑이 연결되지 않았습니다'}
+        </div>
+
+        <div className="animate-rise [animation-delay:.16s]">
+          {label('프로필 이미지')}
+          <div className="flex items-center" style={{ marginTop: '12px', gap: '16px' }}>
+            <div
+              className="bg-surface-card flex-none"
+              style={{ width: '72px', height: '72px', borderRadius: '36px' }}
+            />
+            <div className="flex-1">
+              {/* 업로드는 별도 이슈다. 자리와 안내만 시안대로 두고 끈다 —
+                  눌러도 아무 일이 없는 버튼보다 꺼져 있는 편이 정직하다. */}
+              <button
+                type="button"
+                disabled
+                className="bg-surface-card box-border cursor-default text-[13px] font-semibold tracking-[-.01em] text-white opacity-55"
+                style={{ height: '40px', padding: '0 18px', borderRadius: '11px' }}
+              >
+                + 사진 추가
+              </button>
+              <div
+                className="text-[11.5px] tracking-[-.01em]"
+                style={{ marginTop: '8px', color: 'rgba(255,236,246,.56)' }}
+              >
+                PNG · JPG, 5MB 이하 · 나중에 변경할 수 있어요
+              </div>
+            </div>
           </div>
 
-          <div
-            className="absolute box-border"
-            style={{
-              left: '504px',
-              top: '246px',
-              width: '432px',
-              padding: '30px',
-              borderRadius: '22px',
-              background: 'rgba(20,11,36,.5)',
-              backdropFilter: 'blur(26px) saturate(120%)',
-              WebkitBackdropFilter: 'blur(26px) saturate(120%)',
-              animation: 'rise .8s .14s cubic-bezier(.2,.8,.25,1) both',
-            }}
-          >
-            <div className="text-[15px] font-semibold tracking-[-.01em] text-white">
-              연결된 지갑
-            </div>
-            <div
-              className="box-border flex items-center"
-              style={{
-                marginTop: '14px',
-                height: '66px',
-                padding: '0 16px',
-                borderRadius: '12px',
-                background: 'rgba(255,255,255,.07)',
-                gap: '13px',
-              }}
-            >
-              <div
-                className="flex flex-none items-center justify-center text-[12px] font-bold"
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'rgba(233,174,196,.24)',
-                  color: '#ffd7e6',
-                }}
-              >
-                M
-              </div>
-              <div className="flex-1">
-                <div
-                  className="text-[14px] font-semibold text-white"
-                  style={{ letterSpacing: '.01em' }}
-                >
-                  0xA1B2...7F3e
-                </div>
-                <div
-                  className="text-[11.5px]"
-                  style={{ marginTop: '4px', color: 'rgba(255,236,246,.62)' }}
-                >
-                  MetaMask · Polygon Mainnet
-                </div>
-              </div>
-              <div className="flex items-center" style={{ gap: '6px' }}>
-                <div
-                  className="rounded-full"
-                  style={{ width: '7px', height: '7px', background: '#84bf9f' }}
-                ></div>
-                <div className="text-[11.5px] font-semibold" style={{ color: '#9ad0b4' }}>
-                  연결됨
-                </div>
-              </div>
-            </div>
+          {label('이름', undefined, true)}
+          <input
+            className="bg-surface-card box-border border-0 font-[inherit] text-[14px] text-white outline-0"
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="마켓플레이스에 표시될 이름을 입력하세요"
+            maxLength={nickLimit.max}
+            style={field}
+          />
+          {nickname.length > 0 && nicknameError && (
             <div
               className="text-[11.5px] tracking-[-.01em]"
-              style={{ marginTop: '10px', color: 'rgba(255,236,246,.58)' }}
+              style={{ marginTop: '7px', color: '#ffb4c8' }}
             >
-              지갑 서명이 인증을 대신하므로 아이디·비밀번호는 받지 않습니다.
+              {nicknameError}
             </div>
+          )}
 
-            <div
-              className="bg-[rgba(255,255,255,.12)]"
-              style={{ marginTop: '26px', height: '1px' }}
-            ></div>
-
-            <div
-              className="text-[15px] font-semibold tracking-[-.01em] text-white"
-              style={{ marginTop: '24px' }}
-            >
-              프로필
-            </div>
-            <div className="flex items-center" style={{ marginTop: '14px', gap: '16px' }}>
-              <div
-                style={{
-                  width: '72px',
-                  height: '72px',
-                  borderRadius: '36px',
-                  fontWeight: '300',
-                  color: 'rgba(255,255,255,.6)',
-                }}
-                className="bg-surface-card flex flex-none cursor-pointer items-center justify-center text-[20px] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.15)]"
-              >
-                +
-              </div>
-              <div className="flex-1">
-                <div
-                  className="text-[12.5px] font-semibold"
-                  style={{ color: 'rgba(255,236,246,.78)' }}
-                >
-                  닉네임
-                </div>
-                <input
-                  className="bg-surface-card box-border border-0 font-[inherit] text-[14px] text-white outline-0"
-                  type="text"
-                  placeholder="표시될 이름"
-                  style={{
-                    marginTop: '7px',
-                    width: '100%',
-                    height: '46px',
-                    padding: '0 15px',
-                    borderRadius: '12px',
-                  }}
-                />
-              </div>
-            </div>
-            <div
-              className="text-[12.5px] font-semibold"
-              style={{ marginTop: '14px', color: 'rgba(255,236,246,.78)' }}
-            >
-              한 줄 소개
-            </div>
-            <input
-              className="bg-surface-card box-border border-0 font-[inherit] text-[14px] text-white outline-0"
-              type="text"
-              placeholder="예: 문서 자동화를 만듭니다"
-              style={{
-                marginTop: '7px',
-                width: '100%',
-                height: '46px',
-                padding: '0 15px',
-                borderRadius: '12px',
-              }}
-            />
-
-            <div
-              className="bg-[rgba(255,255,255,.12)]"
-              style={{ marginTop: '26px', height: '1px' }}
-            ></div>
-
-            <div
-              className="text-[15px] font-semibold tracking-[-.01em] text-white"
-              style={{ marginTop: '24px' }}
-            >
-              약관 동의
-            </div>
-            <div
-              onClick={handleToggleAll}
-              style={{
-                marginTop: '14px',
-                height: '48px',
-                padding: '0 16px',
-                borderRadius: '12px',
-                background: 'rgba(255,255,255,.07)',
-                gap: '11px',
-              }}
-              className="flex cursor-pointer items-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.12)]"
-            >
-              <div
-                className="flex flex-none items-center justify-center text-[11px] font-bold transition-colors duration-[160ms]"
-                style={{
-                  width: '19px',
-                  height: '19px',
-                  borderRadius: '6px',
-                  background: `${allBg}`,
-                  color: '#2f1527',
-                }}
-              >
-                {allMark}
-              </div>
-              <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
-                전체 동의
-              </div>
-            </div>
-            <div className="flex flex-col" style={{ marginTop: '10px', gap: '2px' }}>
-              {terms.map((t, i) => (
-                <Fragment key={i}>
-                  <div
-                    style={{
-                      height: '40px',
-                      padding: '0 16px',
-                      borderRadius: '10px',
-                      gap: '11px',
-                      transition: 'background .14s',
-                    }}
-                    className="flex items-center hover:bg-[rgba(255,255,255,.06)]"
-                  >
-                    <div
-                      className="flex flex-none cursor-pointer items-center justify-center text-[10px] font-bold transition-colors duration-[160ms]"
-                      onClick={t.toggle}
-                      style={{
-                        width: '17px',
-                        height: '17px',
-                        borderRadius: '5px',
-                        background: `${t.bg}`,
-                        color: '#2f1527',
-                      }}
-                    >
-                      {t.mark}
-                    </div>
-                    <div
-                      className="flex-1 cursor-pointer text-[13px] tracking-[-.01em]"
-                      onClick={t.toggle}
-                      style={{ color: 'rgba(255,240,247,.84)' }}
-                    >
-                      {t.label}
-                    </div>
-                    <div
-                      onClick={t.view}
-                      style={{
-                        color: 'rgba(255,236,246,.56)',
-                        textDecoration: 'underline',
-                        textUnderlineOffset: '3px',
-                      }}
-                      className="cursor-pointer text-[12px] tracking-[-.01em] hover:text-[#fff]"
-                    >
-                      보기
-                    </div>
-                  </div>
-                </Fragment>
-              ))}
-            </div>
-
-            <div
-              onClick={handleSubmit}
-              style={{
-                marginTop: '26px',
-                height: '52px',
-                borderRadius: '14px',
-                background: `${submitBg}`,
-                boxShadow: '0 10px 24px rgba(140,100,130,.2)',
-                color: `${submitFg}`,
-                transition: 'transform .18s,background .18s',
-              }}
-              className="flex cursor-pointer items-center justify-center text-[16px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
-            >
-              가입하기
-            </div>
-            <div
-              className="text-center text-[12.5px] tracking-[-.01em]"
-              style={{ marginTop: '24px', marginBottom: '6px', color: 'rgba(255,236,246,.62)' }}
-            >
-              이미 계정이 있으신가요?{' '}
-              <a className="font-semibold" href={paths.login} style={{ color: '#e9b7d2' }}>
-                로그인
-              </a>
-            </div>
+          {label('한 줄 소개', '(선택)')}
+          <input
+            className="bg-surface-card box-border border-0 font-[inherit] text-[14px] text-white outline-0"
+            type="text"
+            value={introduction}
+            onChange={(e) => setIntroduction(e.target.value)}
+            placeholder="예) AI로 문서를 정리하는 걸 좋아합니다"
+            maxLength={introLimit.max}
+            style={field}
+          />
+          <div
+            className="text-right text-[11.5px] tracking-[-.01em]"
+            style={{ marginTop: '7px', color: introError ? '#ffb4c8' : 'rgba(255,236,246,.5)' }}
+          >
+            {`${trimmedIntro.length} / ${introLimit.max}`}
           </div>
+
+          {/* 좌우 -10px — 행의 hover 여백만큼 밀려 나가 체크박스가 입력칸 왼쪽 선에 맞는다 */}
+          <div
+            className="flex flex-col"
+            style={{ marginTop: '10px', marginLeft: '-10px', marginRight: '-10px', gap: '2px' }}
+          >
+            {check(
+              agreed,
+              () => setAgreed((v) => !v),
+              '이용약관 및 개인정보처리방침에 동의합니다 · 필수',
+            )}
+            {check(
+              lossAck,
+              () => setLossAck((v) => !v),
+              '지갑을 분실하면 계정을 복구할 수 없다는 점을 확인했습니다 · 필수',
+              '비밀번호 재발급이나 계정 이관이 불가능합니다',
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            style={{
+              marginTop: '18px',
+              width: '100%',
+              height: '52px',
+              borderRadius: '14px',
+              background: canSubmit ? '#b98da9' : 'rgba(255,255,255,.12)',
+              boxShadow: canSubmit ? '0 10px 24px rgba(140,100,130,.2)' : undefined,
+              color: canSubmit ? '#2f1527' : 'rgba(255,255,255,.45)',
+              transition: 'transform .18s,background .18s,color .18s',
+            }}
+            className="flex cursor-pointer items-center justify-center text-[16px] font-bold tracking-[-.01em] hover:-translate-y-[2px] disabled:cursor-default disabled:hover:translate-y-0"
+          >
+            {join.isPending ? '가입 중…' : '가입하기'}
+          </button>
+
+          {join.isError && (
+            <div
+              className="text-center text-[12.5px] leading-[1.5] tracking-[-.01em]"
+              style={{ marginTop: '12px', color: '#ffb4c8' }}
+            >
+              {join.error instanceof ApiError
+                ? join.error.message
+                : '가입을 마치지 못했습니다. 다시 시도해 주세요.'}
+            </div>
+          )}
         </div>
       </div>
-
-      {termsOpen && (
-        <>
-          <div
-            className="absolute top-0 left-0"
-            onClick={handleCloseTerms}
-            style={{
-              width: '1440px',
-              height: '1024px',
-              background: 'rgba(12,5,22,.55)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
-              animation: 'fadeIn .2s ease both',
-              zIndex: '20',
-            }}
-          ></div>
-          <div
-            className="absolute box-border flex flex-col"
-            style={{
-              left: '440px',
-              top: '172px',
-              width: '560px',
-              height: '680px',
-              padding: '28px',
-              borderRadius: '20px',
-              background: 'rgba(22,12,38,.97)',
-              backdropFilter: 'blur(26px)',
-              WebkitBackdropFilter: 'blur(26px)',
-              boxShadow: '0 20px 52px rgba(4,2,12,.55)',
-              animation: 'rise .3s cubic-bezier(.2,.9,.3,1) both',
-              zIndex: '21',
-            }}
-          >
-            <div className="flex flex-none items-center justify-between">
-              <div className="text-[18px] font-semibold tracking-[-.01em] text-white">
-                {termsTitle}
-              </div>
-              <div
-                onClick={handleCloseTerms}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '10px',
-                  color: 'rgba(255,255,255,.8)',
-                }}
-                className="bg-surface-card flex cursor-pointer items-center justify-center text-[15px] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.18)]"
-              >
-                ✕
-              </div>
-            </div>
-            <div
-              className="flex-1"
-              id="termsBody"
-              style={{
-                marginTop: '18px',
-                minHeight: '0',
-                overflowY: 'auto',
-                paddingRight: '8px',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(255,255,255,.24) transparent',
-              }}
-            >
-              {termsBody.map((p, i) => (
-                <Fragment key={i}>
-                  <div style={{ marginBottom: '18px' }}>
-                    <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
-                      {p.head}
-                    </div>
-                    <div
-                      className="text-[13px] tracking-[-.01em]"
-                      style={{
-                        marginTop: '7px',
-                        lineHeight: '1.8',
-                        color: 'rgba(255,240,247,.72)',
-                        textWrap: 'pretty',
-                      }}
-                    >
-                      {p.body}
-                    </div>
-                  </div>
-                </Fragment>
-              ))}
-            </div>
-            <div
-              onClick={handleAgreeTerms}
-              style={{
-                marginTop: '20px',
-                height: '50px',
-                borderRadius: '13px',
-                background: '#b98da9',
-                color: '#2f1527',
-                transition: 'transform .16s',
-              }}
-              className="flex flex-none cursor-pointer items-center justify-center text-[15px] font-bold hover:-translate-y-[2px]"
-            >
-              동의하고 닫기
-            </div>
-          </div>
-        </>
-      )}
-
-      {walletOpen && (
-        <>
-          <div
-            className="absolute top-0 left-0"
-            style={{
-              width: '1440px',
-              height: '1024px',
-              background: 'rgba(12,5,22,.55)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
-              animation: 'fadeIn .2s ease both',
-              zIndex: '22',
-            }}
-          ></div>
-          <div
-            className="absolute box-border text-center"
-            style={{
-              left: '520px',
-              top: '376px',
-              width: '400px',
-              padding: '28px',
-              borderRadius: '20px',
-              background: 'rgba(22,12,38,.97)',
-              backdropFilter: 'blur(26px)',
-              WebkitBackdropFilter: 'blur(26px)',
-              boxShadow: '0 20px 52px rgba(4,2,12,.55)',
-              animation: 'rise .3s cubic-bezier(.2,.9,.3,1) both',
-              zIndex: '23',
-            }}
-          >
-            <div
-              className="flex items-center justify-center text-[19px] font-bold"
-              style={{
-                width: '52px',
-                height: '52px',
-                margin: '0 auto',
-                borderRadius: '15px',
-                background: 'rgba(233,174,196,.2)',
-                color: '#ffd7e6',
-              }}
-            >
-              M
-            </div>
-            <div
-              className="text-[18px] font-semibold tracking-[-.01em] text-white"
-              style={{ marginTop: '16px' }}
-            >
-              지금 지갑을 연결하실래요?
-            </div>
-            <div
-              className="text-[13px] tracking-[-.01em]"
-              style={{ marginTop: '9px', lineHeight: '1.65', color: 'rgba(255,236,246,.68)' }}
-            >
-              에이전트를 판매하거나 코인을 정산받으려면
-              <br />
-              지갑 연결이 필요합니다. 나중에 연결해도 됩니다.
-            </div>
-            <div className="flex flex-col" style={{ marginTop: '22px', gap: '10px' }}>
-              <a
-                href={paths.home}
-                style={{
-                  height: '48px',
-                  borderRadius: '12px',
-                  background: '#b98da9',
-                  gap: '9px',
-                  color: '#2f1527',
-                  transition: 'transform .16s',
-                }}
-                className="flex items-center justify-center text-[15px] font-bold hover:-translate-y-[2px]"
-              >
-                MetaMask 연결하기
-              </a>
-              <a
-                href={paths.home}
-                style={{ height: '48px', borderRadius: '12px' }}
-                className="bg-surface-card flex items-center justify-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
-              >
-                나중에 하기
-              </a>
-            </div>
-          </div>
-        </>
-      )}
     </>
   )
 }

@@ -24,6 +24,34 @@ const ICON_PERSON =
   'inset -2px 0 0 rgba(255,255,255,.8)"></div>' +
   '</div>'
 
+/** 열린 문에서 화살표가 나가는 모양. fg 는 글씨와 맞춘다. */
+function logoutIcon(fg: string): string {
+  return (
+    '<div style="width:18px;height:18px;flex:none;position:relative">' +
+    '<div style="position:absolute;left:0;top:1px;width:9px;height:16px;border-radius:2px;' +
+    'box-shadow:inset 2px 0 0 ' +
+    fg +
+    ',inset 0 2px 0 ' +
+    fg +
+    ',inset 0 -2px 0 ' +
+    fg +
+    '"></div>' +
+    '<div style="position:absolute;left:7px;top:8px;width:8px;height:2px;border-radius:1px;' +
+    'background:' +
+    fg +
+    '"></div>' +
+    '<div style="position:absolute;left:13px;top:5px;width:0;height:0;' +
+    'border-top:4px solid transparent;border-bottom:4px solid transparent;' +
+    'border-left:5px solid ' +
+    fg +
+    '"></div>' +
+    '</div>'
+  )
+}
+
+/** 세션을 끊는 동작이라 다른 행과 색을 달리한다. */
+const LOGOUT_FG = '#ffb4c8'
+
 /** 테마 아이콘 — fg는 선택 여부에 따라 바뀌는 색 */
 function themeIcon(kind: Theme, fg: string): string {
   if (kind === 'auto')
@@ -98,7 +126,14 @@ function themeIcon(kind: Theme, fg: string): string {
  *  테마 선택은 OceanTheme에 반영되므로 <ocean-bg>가 자동으로 따라옵니다.
  */
 export class ProfileMenu extends BaseElement {
-  static observedAttributes = ['search-href', 'mypage-href', 'align', 'hide-theme', 'initial']
+  static observedAttributes = [
+    'search-href',
+    'mypage-href',
+    'align',
+    'hide-theme',
+    'initial',
+    'signed-in',
+  ]
 
   protected override usesShadow = true
 
@@ -184,6 +219,22 @@ export class ProfileMenu extends BaseElement {
         'color:rgba(255,236,246,.55)">테마</div>' +
         '<div data-themes style="display:flex;gap:8px;padding:0 8px 4px"></div>'
     }
+
+    // 세션을 끊는 동작이라 이동·설정과 섞지 않고 맨 아래에 구분선으로 떼어 둔다.
+    // 로그인 상태는 속성으로 받는다 — 이 컴포넌트는 스토어를 읽지 않는다.
+    if (this.bool('signed-in')) {
+      html +=
+        '<div style="margin:6px 4px 2px;height:1px;background:rgba(255,255,255,.14)"></div>' +
+        '<div data-row data-logout role="button" tabindex="0" style="' +
+        ROW_STYLE +
+        // <a> 가 아니라 <div> 라 기본 커서가 붙지 않는다
+        ';cursor:pointer;color:' +
+        LOGOUT_FG +
+        '">' +
+        logoutIcon(LOGOUT_FG) +
+        '<span>로그아웃</span></div>'
+    }
+
     this.panel.innerHTML = html
 
     this.panel.querySelectorAll<HTMLElement>('[data-row]').forEach((el) => {
@@ -191,6 +242,21 @@ export class ProfileMenu extends BaseElement {
       // 이동하면 메뉴는 닫힌다 — 화면이 리마운트되지 않는 SPA 에서도 남지 않게
       el.addEventListener('click', () => this.close())
     })
+
+    const logout = this.panel.querySelector<HTMLElement>('[data-logout]')
+    if (logout) {
+      const fire = () => this.emit('logout')
+      logout.addEventListener('click', fire)
+      // <a> 가 아니라 div 라서 키보드 조작을 직접 붙인다
+      logout.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          this.close()
+          fire()
+        }
+      })
+    }
+
     this.paintThemes()
   }
 

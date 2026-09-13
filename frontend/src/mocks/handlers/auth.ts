@@ -1,7 +1,9 @@
 import { http } from 'msw'
 
-import type { AuthTokens, UserProfile, WalletMessage } from '@/api/auth'
+import type { AuthTokens, UpdatedProfile, UserProfile, WalletMessage } from '@/api/auth'
+import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
+import { AUTH_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -9,12 +11,74 @@ import { scene } from '@/mocks/scenario'
 /**
  * 인증 · 계정 mock. `api/auth.ts` 의 함수와 일대일로 맞춘다.
  *
- * 상태를 모듈에 들고 있어서 PATCH 결과가 다음 GET 에 보인다.
- * 새로고침하면 픽스처 초기값으로 돌아간다.
+ * 지갑 세션과 프로필은 localStorage 에 둔다 — 모듈 변수로 들고 있으면
+ * 새로고침마다 픽스처로 돌아가서 "저장했는데 안 남는다" 로 보인다.
  */
-let profile: UserProfile = { ...PROFILE }
+const PROFILE_KEY = 'mockProfile'
+/** 한 번이라도 로그인한 지갑. 처음 보는 주소는 온보딩 전으로 취급해 가입 화면을 태운다. */
+const KNOWN_WALLETS_KEY = 'mockKnownWallets'
 
-/** 재발급은 항상 성공으로 둔다. 실패 경로는 `?mockFail=AUTH_003&mockFailStatus=401` 로 본다. */
+/** 저장된 것이 있으면 픽스처 위에 덮는다. 필드가 늘어나도 옛 저장값이 깨지지 않는다. */
+function readProfile(): UserProfile {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY)
+    return raw ? { ...PROFILE, ...(JSON.parse(raw) as Partial<UserProfile>) } : { ...PROFILE }
+  } catch {
+    return { ...PROFILE }
+  }
+}
+
+function readKnownWallets(): string[] {
+  try {
+    const raw = localStorage.getItem(KNOWN_WALLETS_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+function rememberWallet(address: string): void {
+  try {
+    const known = readKnownWallets()
+    if (!known.includes(address)) {
+      localStorage.setItem(KNOWN_WALLETS_KEY, JSON.stringify([...known, address]))
+    }
+  } catch {
+    /* 접근 불가 환경 */
+  }
+}
+
+function writeProfile(next: UserProfile): void {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(next))
+  } catch {
+    /* 접근 불가 환경 — 이번 세션에서만 값이 살아 있다 */
+  }
+}
+
+/**
+ * Refresh Token 쿠키 대역. mock 은 쿠키를 세팅하지 않아 localStorage 로 흉내 낸다 —
+ * 그래야 새로고침 후 재발급으로 세션이 되살아나는 경로를 확인할 수 있다.
+ */
+const SESSION_KEY = 'mockWalletSession'
+
+function readSession(): string | null {
+  try {
+    return localStorage.getItem(SESSION_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writeSession(walletAddress: string | null) {
+  try {
+    if (walletAddress) localStorage.setItem(SESSION_KEY, walletAddress)
+    else localStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* 접근 불가 환경 */
+  }
+}
+
 function issueTokens() {
   return ok<AuthTokens>({
     accessToken: `mock-access-token.${Date.now()}`,
@@ -34,7 +98,7 @@ export const authHandlers = [
 
     const nonce = crypto.randomUUID()
     return ok<WalletMessage>({
-      message: `ABC AI Block Clock 로그인에 서명합니다.\nnonce: ${nonce}`,
+      message: `ABC AI Block Clock 로그인\nnonce: ${nonce}`,
       nonce,
     })
   }),
@@ -49,32 +113,86 @@ export const authHandlers = [
       signature?: string
     }
     if (!walletAddress || !signature) return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
+
+    // 실제 검증은 서버가 주소를 복원해서 한다. mock 은 모양만 본다 —
+    // 그래야 자리표시자 서명으로 로그인되던 예전 동작이 되살아나지 않는다.
+    // 요청에 nonce 가 없어 어떤 메시지에 서명했는지 알 수 없다(아래 주석 참고).
+    if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+      return fail(400, 'COMMON_001', '서명이 올바르지 않습니다.')
+    }
+
+    // 실서버는 계정이 없으면 만들고 프로필이 빈 채로 준다. 여기서는 처음 보는
+    // 지갑이면 온보딩 전으로 되돌려 가입 화면 분기를 확인할 수 있게 한다.
+    if (!readKnownWallets().includes(walletAddress)) {
+      writeProfile({ ...readProfile(), onboardingCompleted: false })
+    }
+    rememberWallet(walletAddress)
+
+    writeSession(walletAddress)
     return issueTokens()
   }),
 
-  /** 인터셉터가 401(AUTH_007) 을 받고 부른다. */
-  http.post(`${API_BASE_URL}/auth/reissue`, () => issueTokens()),
+  /** 인터셉터가 401(AUTH_007) 을 받고, 부팅 시 `restoreSession` 이 부른다.
+   *  세션이 없으면 실서버처럼 거절한다 — 늘 성공을 주면 로그인 없이도 인증된다.
+   *
+   *  여기만 `scene()` 을 건너뛴다. `?mockFail=` 로 화면의 실패 UI 를 볼 때 재발급까지
+   *  실패하면 그 화면이 로그인으로 튕긴다. 재발급 실패는 세션을 지워서 만든다. */
+  http.post(`${API_BASE_URL}/auth/reissue`, () => {
+    if (!readSession()) return fail(401, AUTH_ERROR.REFRESH_MISSING, '로그인이 필요합니다.')
+    return issueTokens()
+  }),
   http.post(`${API_BASE_URL}/auth/logout`, async () => {
     const forced = await scene()
     if (forced) return forced
+
+    writeSession(null)
     return ok(null)
   }),
   http.get(`${API_BASE_URL}/users/me`, async () => {
     const forced = await scene()
     if (forced) return forced
-    return ok<UserProfile>(profile)
+
+    const walletAddress = readSession()
+    if (!walletAddress) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+
+    // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — 픽스처 주소를 그대로
+    // 돌려주면 어느 지갑으로 들어왔는지 화면에서 확인할 수 없다.
+    const stored = readProfile()
+    return ok<UserProfile>({ ...stored, wallet: { ...stored.wallet, address: walletAddress } })
   }),
   http.patch(`${API_BASE_URL}/users/me`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
 
-    const patch = (await request.json()) as { nickname?: string; introduction?: string }
-    if (patch.nickname !== undefined && patch.nickname.trim() === '') {
-      return fail(400, 'COMMON_001', '닉네임은 비워 둘 수 없습니다.')
+    // 명세가 multipart 다 — 프로필 이미지가 같은 요청에 실린다
+    const form = await request.formData()
+    const nickname = form.get('nickname')
+    const introduction = form.get('introduction')
+
+    const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+    if (
+      typeof nickname === 'string' &&
+      (nickname.length < nickLimit.min || nickname.length > nickLimit.max)
+    ) {
+      return fail(400, 'USER_002', `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`)
+    }
+    if (typeof introduction === 'string' && introduction.length > introLimit.max) {
+      return fail(400, 'USER_002', `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`)
     }
 
-    profile = { ...profile, ...patch }
-    return ok<UserProfile>(profile)
+    // 보내지 않은 필드는 그대로 둔다
+    let next = readProfile()
+    if (typeof nickname === 'string') next = { ...next, nickname }
+    if (typeof introduction === 'string') next = { ...next, introduction }
+    writeProfile(next)
+
+    return ok<UpdatedProfile>({
+      userId: next.userId,
+      nickname: next.nickname,
+      introduction: next.introduction,
+      profileImageUrl: next.profileImageUrl,
+      updatedAt: new Date().toISOString(),
+    })
   }),
 
   /** 계정 복구 불가 고지 확인 */
@@ -82,7 +200,7 @@ export const authHandlers = [
     const forced = await scene()
     if (forced) return forced
 
-    profile = { ...profile, onboardingCompleted: true }
+    writeProfile({ ...readProfile(), onboardingCompleted: true })
     return ok(null)
   }),
 ]

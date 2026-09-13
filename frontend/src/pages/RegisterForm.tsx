@@ -65,22 +65,11 @@ export default function RegisterForm() {
   return (
     <>
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(18,8,32,.44) 0%, rgba(18,8,32,.22) 30%, rgba(18,8,32,.26) 100%)',
-        }}
-      ></div>
-
-      <div
-        className="absolute top-0 left-0 overflow-x-hidden"
+        className="scroll-quiet absolute top-0 left-0 overflow-x-hidden"
         id="formScroll"
         style={{
           width: '1440px',
           height: '1024px',
-          overflowY: 'auto',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,.28) transparent',
         }}
       >
         <div className="relative" style={{ width: '1440px', height: '1690px' }}>

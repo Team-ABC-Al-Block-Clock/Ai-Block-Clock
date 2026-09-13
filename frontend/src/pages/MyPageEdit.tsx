@@ -1,31 +1,80 @@
+import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
+import { ApiError } from '@/api/errors'
+import { shortAddress } from '@/lib/format'
+import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
+import { useAuthStore } from '@/stores/authStore'
 
 export default function MyPageEdit() {
   const navigate = useNavigate()
-  const [saved, setSaved] = useState(false)
+  const profile = useAuthStore((s) => s.profile)
+  const setProfile = useAuthStore((s) => s.setProfile)
+
+  // 보호 라우트라 첫 렌더에 프로필이 이미 있다.
+  const [nickname, setNickname] = useState(profile?.nickname ?? '')
+  const [introduction, setIntroduction] = useState(profile?.introduction ?? '')
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
 
   // 렌더마다 새로 만들어지는 지역 변수로는 정리 함수가 엉뚱한 핸들을 지운다
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  const trimmedNickname = nickname.trim()
+  const trimmedIntro = introduction.trim()
+
+  // 서버가 USER_002 로 막는 범위를 보내기 전에 여기서 먼저 잡는다.
+  const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+  const nicknameError =
+    trimmedNickname.length < nickLimit.min || trimmedNickname.length > nickLimit.max
+      ? `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다`
+      : null
+  const introError =
+    trimmedIntro.length > introLimit.max ? `한 줄 소개는 ${introLimit.max}자까지입니다` : null
+  const invalid = nicknameError !== null || introError !== null
+
+  const dirty =
+    trimmedNickname !== (profile?.nickname ?? '') || trimmedIntro !== (profile?.introduction ?? '')
+
+  const save = useMutation({
+    mutationFn: () => updateMyProfile({ nickname: trimmedNickname, introduction: trimmedIntro }),
+    onSuccess: (updated) => {
+      // 프로필은 쿼리가 아니라 스토어에 있다(7절). 저장 결과를 되돌려 넣어야
+      // 사이드바 이름·소개가 같이 바뀐다. 응답에 없는 필드는 스토어가 유지한다.
+      setProfile({
+        nickname: updated.nickname,
+        introduction: updated.introduction,
+        profileImageUrl: updated.profileImageUrl,
+      })
+      setToast({ ok: true, text: '변경사항이 저장되었습니다' })
+      saveTimer.current = setTimeout(() => navigate(paths.my.agents), 1100)
+    },
+    onError: (e) => {
+      setToast({
+        ok: false,
+        text: e instanceof ApiError ? e.message : '저장하지 못했습니다. 다시 시도해 주세요.',
+      })
+    },
+  })
+
+  const canSave = !invalid && dirty && !save.isPending
+
   const handleSave = () => {
-    setSaved(true)
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      navigate(paths.my.agents)
-    }, 1100)
+    if (!canSave) return
+    setToast(null)
+    save.mutate()
   }
-  const tags = ['AI', '데이터 분석', '스마트 컨트랙트', '블록체인'].map((name) => ({ name }))
   const payments = [
     {
       icon: 'WALLET',
       label: '연결된 지갑',
-      brand: 'MetaMask',
-      number: '0xA1B2...7F3e',
+      // 제공자·네트워크도 서버가 준다 — 손으로 적으면 배포가 바뀔 때 갈라진다
+      brand: profile?.wallet.provider ?? 'MetaMask',
+      number: shortAddress(profile?.wallet.address ?? ''),
       subLabel: '네트워크',
-      subValue: 'Polygon Mainnet',
+      subValue: profile ? chainNameOf(profile.wallet.chainId) : chainLabel,
       action: '다시 연결',
     },
   ]
@@ -38,13 +87,6 @@ export default function MyPageEdit() {
 
   return (
     <>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(20,9,34,.42) 0%, rgba(20,9,34,.22) 30%, rgba(20,9,34,.30) 100%)',
-        }}
-      ></div>
       <Sidebar editing />
 
       <div
@@ -68,7 +110,7 @@ export default function MyPageEdit() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        프로필과 계정 정보를 수정할 수 있습니다.
+        프로필과 연결된 지갑을 확인·수정할 수 있습니다. 결제 수단은 저장하지 않습니다.
       </div>
 
       <div
@@ -77,7 +119,7 @@ export default function MyPageEdit() {
           left: '442px',
           top: '248px',
           width: '900px',
-          height: '248px',
+          height: '196px',
           padding: '24px',
           borderRadius: '16px',
           animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
@@ -160,10 +202,19 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue="이싸피"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
                     style={{ width: '100%' }}
                   />
                 </div>
+                {nicknameError && (
+                  <div
+                    className="text-[11.5px] tracking-[-.01em]"
+                    style={{ marginTop: '6px', color: '#ffb4c8' }}
+                  >
+                    {nicknameError}
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
@@ -181,47 +232,19 @@ export default function MyPageEdit() {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
                     type="text"
-                    defaultValue="나는척척박사입니다"
+                    value={introduction}
+                    onChange={(e) => setIntroduction(e.target.value)}
                     style={{ width: '100%' }}
                   />
                 </div>
-              </div>
-            </div>
-            <div>
-              <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-                전문 분야
-              </div>
-              <div className="flex" style={{ marginTop: '12px', gap: '10px' }}>
-                {tags.map((t, i) => (
-                  <Fragment key={i}>
-                    <div
-                      style={{
-                        height: '31px',
-                        padding: '0 13px',
-                        borderRadius: '9px',
-                        gap: '8px',
-                        color: 'rgba(255,240,247,.86)',
-                      }}
-                      className="flex cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[12px] whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)]"
-                    >
-                      <span>{t.name}</span>
-                      <span className="text-[12px]" style={{ color: 'rgba(255,255,255,.5)' }}>
-                        ×
-                      </span>
-                    </div>
-                  </Fragment>
-                ))}
                 <div
-                  style={{
-                    height: '31px',
-                    padding: '0 13px',
-                    borderRadius: '9px',
-                    background: 'rgba(255,255,255,.05)',
-                    color: 'rgba(255,240,247,.6)',
-                  }}
-                  className="flex cursor-pointer items-center text-[12px] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
+                  className="flex items-center justify-between text-[11.5px] tracking-[-.01em]"
+                  style={{ marginTop: '6px' }}
                 >
-                  + 추가
+                  <span style={{ color: '#ffb4c8' }}>{introError}</span>
+                  <span style={{ color: introError ? '#ffb4c8' : 'rgba(255,236,246,.5)' }}>
+                    {`${trimmedIntro.length} / ${introLimit.max}`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -233,58 +256,7 @@ export default function MyPageEdit() {
         className="bg-surface-card absolute box-border"
         style={{
           left: '442px',
-          top: '516px',
-          width: '900px',
-          height: '146px',
-          padding: '24px',
-          borderRadius: '16px',
-          animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <div className="text-[14.5px] font-semibold tracking-[-.01em] text-white">계정 정보</div>
-        <div className="flex" style={{ marginTop: '20px', gap: '24px' }}>
-          <div className="flex-1">
-            <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              이메일 · 변경 불가
-            </div>
-            <div
-              className="flex items-center text-[13.5px]"
-              style={{
-                marginTop: '8px',
-                height: '42px',
-                borderRadius: '11px',
-                background: 'rgba(255,255,255,.04)',
-                padding: '0 14px',
-                color: 'rgba(255,240,247,.42)',
-              }}
-            >
-              sunmi.kim@example.com
-            </div>
-          </div>
-          <div className="flex-1">
-            <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              연락처
-            </div>
-            <div
-              className="bg-surface-card flex items-center"
-              style={{ marginTop: '8px', height: '42px', borderRadius: '11px', padding: '0 14px' }}
-            >
-              <input
-                className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
-                type="text"
-                defaultValue="010-1234-5678"
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="bg-surface-card absolute box-border"
-        style={{
-          left: '442px',
-          top: '682px',
+          top: '464px',
           width: '900px',
           height: '166px',
           padding: '24px',
@@ -386,24 +358,26 @@ export default function MyPageEdit() {
         >
           취소
         </a>
-        <div
+        <button
+          type="button"
           onClick={handleSave}
+          disabled={!canSave}
           style={{
             width: '142px',
             height: '44px',
             borderRadius: '22px',
-            background: '#b98da9',
-            boxShadow: '0 8px 22px rgba(140,100,130,.24)',
-            color: '#2f1527',
-            transition: 'transform .18s',
+            background: canSave ? '#b98da9' : 'rgba(255,255,255,.12)',
+            boxShadow: canSave ? '0 8px 22px rgba(140,100,130,.24)' : 'none',
+            color: canSave ? '#2f1527' : 'rgba(255,255,255,.45)',
+            transition: 'transform .18s, background .18s, color .18s',
           }}
-          className="flex cursor-pointer items-center justify-center text-[14px] font-bold hover:-translate-y-[2px]"
+          className="flex items-center justify-center text-[14px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"
         >
-          변경사항 저장
-        </div>
+          {save.isPending ? '저장 중…' : '변경사항 저장'}
+        </button>
       </div>
 
-      {saved && (
+      {toast && (
         <>
           <div
             className="pointer-events-none absolute left-0 flex justify-center"
@@ -429,10 +403,14 @@ export default function MyPageEdit() {
             >
               <div
                 className="rounded-full"
-                style={{ width: '7px', height: '7px', background: '#84bf9f' }}
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  background: toast.ok ? '#84bf9f' : '#f0b6c8',
+                }}
               ></div>
               <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
-                변경사항이 저장되었습니다
+                {toast.text}
               </div>
             </div>
           </div>

@@ -36,12 +36,17 @@ export const client = axios.create({
 })
 
 /**
- * 인증이 완전히 실패했을 때 호출된다.
+ * 인증이 완전히 실패했을 때, 그 원인 코드와 함께 호출된다.
  * 인증 스토어가 등록해서 상태 정리와 로그인 화면 이동을 처리한다.
  * api 계층이 라우터를 직접 알지 않도록 콜백으로 뺐다.
+ *
+ * 코드를 넘기는 이유: 만료와 폐기·위조는 로그인 화면이 띄울 문구가 다르다.
+ * 여기서 버리면 스토어는 이유를 지어낼 수밖에 없다.
  */
-let onAuthFailure: (() => void) | null = null
-export function setOnAuthFailure(handler: (() => void) | null) {
+export type AuthFailureHandler = (code?: string) => void
+
+let onAuthFailure: AuthFailureHandler | null = null
+export function setOnAuthFailure(handler: AuthFailureHandler | null) {
   onAuthFailure = handler
 }
 
@@ -80,9 +85,15 @@ function reissueOnce(): Promise<string> {
   return refreshing
 }
 
-function failAuth() {
+function failAuth(code?: string) {
   tokenStorage.clear()
-  onAuthFailure?.()
+  onAuthFailure?.(code)
+}
+
+/** 인터셉터를 타지 않은 오류(재발급 요청)에서 도메인 코드만 꺼낸다. */
+function codeOf(error: unknown): string | undefined {
+  const body = error instanceof AxiosError ? error.response?.data : undefined
+  return isApiErrorBody(body) ? body.code : undefined
 }
 
 // ── 응답 인터셉터 ────────────────────────────────────────────────
@@ -109,6 +120,16 @@ client.interceptors.response.use(
       throw new ApiError('서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.', { cause: error })
     }
 
+    // 개발 중 502 는 대개 MSW 가 요청을 못 잡아 프록시로 샌 것이다. 서비스 워커가
+    // 유휴로 종료되면 로드 직후엔 되던 것이 도중에 이렇게 된다 — 원인을 찾느라
+    // 시간 쓰지 않도록 답을 바로 알려 준다.
+    if (import.meta.env.DEV && env.useMock && response.status === 502) {
+      console.error(
+        '[mocks] 502 — MSW 가 요청을 잡지 못했습니다. 페이지를 새로고침하세요.',
+        error.config?.url,
+      )
+    }
+
     const body = response.data
     const code = isApiErrorBody(body) ? body.code : undefined
     const message = isApiErrorBody(body) ? body.message : error.message
@@ -122,9 +143,11 @@ client.interceptors.response.use(
           const accessToken = await reissueOnce()
           config.headers.Authorization = `Bearer ${accessToken}`
           return client.request(config)
-        } catch {
+        } catch (reissueError) {
           // Refresh Token 쪽 실패(AUTH_001~004)는 회복 수단이 없다.
-          failAuth()
+          // 원인은 재발급 응답에 있다 — 원 요청의 코드(AUTH_007)를 넘기면
+          // 폐기된 세션까지 "만료" 로 안내하게 된다.
+          failAuth(codeOf(reissueError))
           throw new ApiError('세션이 만료되었습니다. 다시 로그인해 주세요.', {
             code,
             status: 401,
@@ -133,7 +156,7 @@ client.interceptors.response.use(
         }
       }
 
-      failAuth()
+      failAuth(code)
     }
 
     throw new ApiError(message, { code, status: response.status, cause: error })
@@ -160,7 +183,7 @@ export const api = {
  * Access Token 은 메모리에만 있어 새로고침하면 사라진다.
  * Refresh Token 쿠키가 살아 있으면 조용히 다시 받아온다.
  *
- * 인증 스토어(S15P21A403-180)가 부팅 시 한 번 호출한다.
+ * 인증 스토어(`stores/authStore.ts`)의 restore 가 부팅 시 한 번 호출한다.
  */
 export async function restoreSession(): Promise<boolean> {
   try {

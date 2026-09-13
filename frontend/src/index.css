@@ -92,6 +92,17 @@
   scrollbar-color: rgb(255 255 255 / 0.28) transparent;
 }
 
+/* 캔버스 전체를 스크롤하는 화면은 막대를 숨긴다 — 캔버스 오른쪽 끝은 창 끝이
+ * 아니라서 막대가 화면 한가운데 뜬 세로선처럼 보인다(3절). 패널 안에서 스크롤하는
+ * 목록은 그대로 scroll-thin 을 쓴다 — 그건 막대가 놓일 테두리가 있다. */
+@utility scroll-quiet {
+  overflow-y: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* 기본값은 @layer base 안에 — 레이어 밖에 두면 Tailwind 유틸리티(@layer utilities)를
  * 이겨버려서 <a> 의 text-* 클래스가 통째로 무력화됩니다. */
 @layer base {

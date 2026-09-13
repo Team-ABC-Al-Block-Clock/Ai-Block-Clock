@@ -202,17 +202,17 @@ export default function RunRunning() {
         style={{
           width: '1076px',
           height: '1024px',
-          background: 'linear-gradient(160deg, rgba(16,9,32,.52), rgba(10,6,24,.68))',
-          backdropFilter: 'blur(7px) saturate(112%)',
-          WebkitBackdropFilter: 'blur(7px) saturate(112%)',
-          boxShadow: 'inset -1px 0 0 rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.08)',
           animation: 'paneIn 1.1s cubic-bezier(.18,.86,.24,1) both',
           transformOrigin: '44% 46%',
         }}
       >
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute"
           style={{
+            left: 'calc(-1 * var(--edge, 0px))',
+            right: 'calc(36px - var(--edge, 0px))',
+            top: 0,
+            bottom: 0,
             backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
             backgroundPosition: '13px 13px',
@@ -220,8 +220,12 @@ export default function RunRunning() {
           }}
         ></div>
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute"
           style={{
+            left: 'calc(-1 * var(--edge, 0px))',
+            right: 'calc(36px - var(--edge, 0px))',
+            top: 0,
+            bottom: 0,
             background:
               'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
           }}
@@ -279,12 +283,9 @@ export default function RunRunning() {
       <div
         className="absolute top-0"
         style={{
-          left: '1076px',
-          width: '364px',
+          right: 'calc(-1 * var(--edge, 0px))',
+          width: '400px',
           height: '1024px',
-          background: 'rgba(13,7,26,.72)',
-          backdropFilter: 'blur(26px) saturate(125%)',
-          WebkitBackdropFilter: 'blur(26px) saturate(125%)',
           boxShadow: 'inset 1px 0 0 rgba(255,255,255,.14),-30px 0 60px rgba(10,4,20,.35)',
           animation: 'sideIn 1s .1s cubic-bezier(.18,.86,.24,1) both',
         }}
@@ -320,14 +321,14 @@ export default function RunRunning() {
         </div>
 
         <div
-          className="absolute left-0 text-center text-[15px] font-semibold tracking-[-.01em]"
-          style={{ top: '330px', width: '364px', color: 'rgba(255,255,255,.9)' }}
+          className="absolute left-0 text-center text-[16px] font-semibold tracking-[-.01em]"
+          style={{ top: '330px', width: '400px', color: 'rgba(255,255,255,.9)' }}
         >
           {stepTitle}
         </div>
         <div
-          className="absolute left-0 text-center text-[13px]"
-          style={{ top: '356px', width: '364px', color: 'rgba(255,236,246,.55)' }}
+          className="absolute left-0 text-center text-[14px]"
+          style={{ top: '356px', width: '400px', color: 'rgba(255,236,246,.55)' }}
         >
           {stepMeta}
         </div>
@@ -335,14 +336,14 @@ export default function RunRunning() {
         {running && (
           <>
             <div
-              className="absolute text-[15px] font-semibold tracking-[-.01em]"
+              className="absolute text-[16px] font-semibold tracking-[-.01em]"
               style={{ left: '30px', top: '420px', color: 'rgba(255,255,255,.88)' }}
             >
               실시간 출력
             </div>
             <div
               className="absolute flex flex-col"
-              style={{ left: '30px', top: '452px', width: '304px', gap: '15px' }}
+              style={{ left: '30px', top: '452px', width: '340px', gap: '15px' }}
             >
               {logs.map((l, i) => (
                 <Fragment key={i}>
@@ -375,21 +376,21 @@ export default function RunRunning() {
               style={{
                 left: '30px',
                 top: '400px',
-                width: '304px',
+                width: '340px',
                 height: '88px',
                 borderRadius: '12px',
                 animation: 'uiIn .6s cubic-bezier(.2,.8,.25,1) both',
               }}
             >
               <div
-                className="absolute left-0 text-center text-[16px] font-semibold tracking-[-.01em] text-white"
-                style={{ top: '20px', width: '304px' }}
+                className="absolute left-0 text-center text-[17px] font-semibold tracking-[-.01em] text-white"
+                style={{ top: '20px', width: '340px' }}
               >
                 완료되었습니다.
               </div>
               <div
-                className="absolute left-0 text-center text-[13px]"
-                style={{ top: '48px', width: '304px', color: 'rgba(255,236,246,.62)' }}
+                className="absolute left-0 text-center text-[14px]"
+                style={{ top: '48px', width: '340px', color: 'rgba(255,236,246,.62)' }}
               >
                 결과를 텍스트 파일로 저장하세요.
               </div>
@@ -399,7 +400,7 @@ export default function RunRunning() {
               style={{
                 left: '30px',
                 top: '508px',
-                width: '304px',
+                width: '340px',
                 height: '56px',
                 borderRadius: '12px',
                 background: '#b98da9',
@@ -419,7 +420,7 @@ export default function RunRunning() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <div className="text-[16px] font-bold tracking-[-.01em]" style={{ color: '#2f1527' }}>
+              <div className="text-[17px] font-bold tracking-[-.01em]" style={{ color: '#2f1527' }}>
                 결과 다운로드 (.txt)
               </div>
             </div>
@@ -429,7 +430,7 @@ export default function RunRunning() {
               style={{
                 left: '30px',
                 top: '576px',
-                width: '304px',
+                width: '340px',
                 height: '56px',
                 borderRadius: '12px',
                 boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
@@ -448,7 +449,7 @@ export default function RunRunning() {
                 />
               </svg>
               <div
-                className="text-[16px] font-semibold tracking-[-.01em]"
+                className="text-[17px] font-semibold tracking-[-.01em]"
                 style={{ color: 'rgba(255,255,255,.9)' }}
               >
                 다시 수정하기
@@ -456,7 +457,7 @@ export default function RunRunning() {
             </a>
 
             <div
-              className="absolute text-[15px] font-semibold tracking-[-.01em]"
+              className="absolute text-[16px] font-semibold tracking-[-.01em]"
               style={{ left: '30px', top: '660px', color: 'rgba(255,255,255,.88)' }}
             >
               출력 결과
@@ -487,7 +488,7 @@ export default function RunRunning() {
                 <path d="M8.4 1H2.4A1.4 1.4 0 0 0 1 2.4v6" />
               </svg>
               <div
-                className="text-[11.5px] font-semibold tracking-[-.01em] whitespace-nowrap"
+                className="text-[12.5px] font-semibold tracking-[-.01em] whitespace-nowrap"
                 style={{ color: `${copyFg}` }}
               >
                 {copyLabel}
@@ -499,7 +500,7 @@ export default function RunRunning() {
               style={{
                 left: '30px',
                 top: '692px',
-                width: '304px',
+                width: '340px',
                 height: '318px',
                 padding: '16px',
                 borderRadius: '12px',
@@ -517,7 +518,7 @@ export default function RunRunning() {
                 {resultLines.map((r, i) => (
                   <Fragment key={i}>
                     <div
-                      className="text-[15px] tracking-[-.01em]"
+                      className="text-[16px] tracking-[-.01em]"
                       style={{
                         lineHeight: '1.55',
                         color: `${r.color}`,
@@ -539,7 +540,7 @@ export default function RunRunning() {
         <>
           <div
             className="pointer-events-none absolute flex items-center justify-center"
-            style={{ left: '1106px', top: '692px', width: '304px', height: '318px', zIndex: '6' }}
+            style={{ left: '1106px', top: '692px', width: '340px', height: '318px', zIndex: '6' }}
           >
             <div
               className="flex items-center"
@@ -572,7 +573,7 @@ export default function RunRunning() {
                   <path d="M1 5.2 4.3 8.5 11 1.5" />
                 </svg>
               </div>
-              <div className="text-[15px] font-semibold tracking-[-.01em] whitespace-nowrap text-white">
+              <div className="text-[16px] font-semibold tracking-[-.01em] whitespace-nowrap text-white">
                 복사 완료
               </div>
             </div>
