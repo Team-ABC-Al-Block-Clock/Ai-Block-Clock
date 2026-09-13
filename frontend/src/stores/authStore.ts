@@ -7,6 +7,7 @@ import {
   type UserProfile,
 } from '@/api/auth'
 import { restoreSession, setOnAuthFailure } from '@/api/client'
+import { AUTH_ERROR } from '@/api/errors'
 import { tokenStorage } from '@/lib/tokenStorage'
 
 /**
@@ -21,7 +22,25 @@ export type AuthStatus = 'idle' | 'restoring' | 'authenticated' | 'unauthenticat
 
 /** 세션이 왜 끝났는지. 스스로 누른 로그아웃은 이유가 없다(`null`) —
  *  본인이 아는 일에 안내를 띄우면 사고처럼 보인다. */
-export type SessionEndReason = 'expired' | 'disconnected' | 'account'
+export type SessionEndReason = 'expired' | 'revoked' | 'invalid' | 'disconnected' | 'account'
+
+/** 회복 불가능한 401 의 도메인 코드를 안내 사유로 옮긴다.
+ *
+ *  시간이 지나 끊긴 것(만료)과 서버가 끊은 것(폐기 토큰 재사용), 토큰 자체가
+ *  성립하지 않는 것은 사용자가 할 일이 달라서 문구를 나눈다. */
+export function endReasonFromAuthCode(code?: string): SessionEndReason {
+  switch (code) {
+    case AUTH_ERROR.REFRESH_REUSED:
+      return 'revoked'
+    case AUTH_ERROR.REFRESH_INVALID:
+    case AUTH_ERROR.MISSING:
+    case AUTH_ERROR.INVALID:
+      return 'invalid'
+    default:
+      // AUTH_001·003·007 과 코드를 못 읽은 경우. 만료가 압도적으로 흔하다.
+      return 'expired'
+  }
+}
 
 interface AuthState {
   status: AuthStatus
@@ -38,7 +57,7 @@ interface AuthState {
   /** 서버 쿠키까지 지운다. 사유를 주면 로그인 화면이 이유를 띄운다 */
   signOut: (endedBy?: SessionEndReason) => Promise<void>
   /** 클라이언트 상태만 비운다 — 회복 불가능한 401 */
-  clearSession: () => void
+  clearSession: (endedBy?: SessionEndReason) => void
   /** 바뀐 필드만 덮는다 — 내 정보를 고치면 화면들이 같이 바뀐다.
    *  병합을 스토어가 맡는 이유: PATCH 응답에 지갑 주소가 없어서 호출부가
    *  통째로 넣으면 그 값이 조용히 사라진다 */
@@ -137,7 +156,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    clearSession: () => dropSession('expired'),
+    clearSession: (endedBy = 'expired') => dropSession(endedBy),
 
     setProfile: (patch) => {
       // 세션이 끝난 뒤 늦게 도착한 저장 응답이 화면을 되살리지 않게 한다.
@@ -150,6 +169,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
 /** 회복 불가능한 401 — 상태만 비우고 화면 이동은 ProtectedRoute 가 한다.
  *  api 계층이 라우터를 알지 않도록 콜백으로 갈라 둔 것이다. */
-setOnAuthFailure(() => {
-  useAuthStore.getState().clearSession()
+setOnAuthFailure((code) => {
+  useAuthStore.getState().clearSession(endReasonFromAuthCode(code))
 })

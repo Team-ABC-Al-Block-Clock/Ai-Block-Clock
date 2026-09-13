@@ -20,12 +20,12 @@ const h = vi.hoisted(() => ({
   loginWithWallet: vi.fn<() => Promise<unknown>>(),
   logout: vi.fn<() => Promise<unknown>>(),
   /** 인터셉터가 회복 불가능한 401 을 알려 오는 자리 — 스토어가 등록한다 */
-  onAuthFailure: (() => {}) as () => void,
+  onAuthFailure: (() => {}) as (code?: string) => void,
 }))
 
 vi.mock('@/api/client', () => ({
   restoreSession: () => h.restoreSession(),
-  setOnAuthFailure: (handler: () => void) => {
+  setOnAuthFailure: (handler: (code?: string) => void) => {
     h.onAuthFailure = handler
   },
 }))
@@ -254,10 +254,23 @@ describe('세션이 끝난 이유를 남긴다', () => {
     expect(useAuthStore.getState().endedBy).toBe('account')
   })
 
-  it('회복 불가능한 401 은 expired 로 남는다', async () => {
+  it('회복 불가능한 401 은 기본이 expired 다', async () => {
     const useAuthStore = await authenticated()
     useAuthStore.getState().clearSession()
     expect(useAuthStore.getState().endedBy).toBe('expired')
+  })
+
+  // 인터셉터가 코드를 넘겨 주지 않으면 스토어가 이유를 지어내고, 폐기된 세션도
+  // "만료" 로 안내된다.
+  it.each([
+    ['AUTH_004', 'revoked'],
+    ['AUTH_006', 'invalid'],
+    ['AUTH_007', 'expired'],
+    [undefined, 'expired'],
+  ])('401 코드 %s 는 %s 로 남는다', async (code, reason) => {
+    const useAuthStore = await authenticated()
+    h.onAuthFailure(code)
+    expect(useAuthStore.getState().endedBy).toBe(reason)
   })
 
   it('다시 로그인하면 지난 사유가 지워진다', async () => {

@@ -36,12 +36,17 @@ export const client = axios.create({
 })
 
 /**
- * 인증이 완전히 실패했을 때 호출된다.
+ * 인증이 완전히 실패했을 때, 그 원인 코드와 함께 호출된다.
  * 인증 스토어가 등록해서 상태 정리와 로그인 화면 이동을 처리한다.
  * api 계층이 라우터를 직접 알지 않도록 콜백으로 뺐다.
+ *
+ * 코드를 넘기는 이유: 만료와 폐기·위조는 로그인 화면이 띄울 문구가 다르다.
+ * 여기서 버리면 스토어는 이유를 지어낼 수밖에 없다.
  */
-let onAuthFailure: (() => void) | null = null
-export function setOnAuthFailure(handler: (() => void) | null) {
+export type AuthFailureHandler = (code?: string) => void
+
+let onAuthFailure: AuthFailureHandler | null = null
+export function setOnAuthFailure(handler: AuthFailureHandler | null) {
   onAuthFailure = handler
 }
 
@@ -80,9 +85,15 @@ function reissueOnce(): Promise<string> {
   return refreshing
 }
 
-function failAuth() {
+function failAuth(code?: string) {
   tokenStorage.clear()
-  onAuthFailure?.()
+  onAuthFailure?.(code)
+}
+
+/** 인터셉터를 타지 않은 오류(재발급 요청)에서 도메인 코드만 꺼낸다. */
+function codeOf(error: unknown): string | undefined {
+  const body = error instanceof AxiosError ? error.response?.data : undefined
+  return isApiErrorBody(body) ? body.code : undefined
 }
 
 // ── 응답 인터셉터 ────────────────────────────────────────────────
@@ -132,9 +143,11 @@ client.interceptors.response.use(
           const accessToken = await reissueOnce()
           config.headers.Authorization = `Bearer ${accessToken}`
           return client.request(config)
-        } catch {
+        } catch (reissueError) {
           // Refresh Token 쪽 실패(AUTH_001~004)는 회복 수단이 없다.
-          failAuth()
+          // 원인은 재발급 응답에 있다 — 원 요청의 코드(AUTH_007)를 넘기면
+          // 폐기된 세션까지 "만료" 로 안내하게 된다.
+          failAuth(codeOf(reissueError))
           throw new ApiError('세션이 만료되었습니다. 다시 로그인해 주세요.', {
             code,
             status: 401,
@@ -143,7 +156,7 @@ client.interceptors.response.use(
         }
       }
 
-      failAuth()
+      failAuth(code)
     }
 
     throw new ApiError(message, { code, status: response.status, cause: error })

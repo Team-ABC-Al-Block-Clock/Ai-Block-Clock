@@ -15,6 +15,8 @@ import logo from '../assets/logo.png'
 /** 밀려온 이유별 안내. 스스로 로그아웃한 사람에게는 아무것도 띄우지 않는다. */
 const ENDED_BY: Record<SessionEndReason, string> = {
   expired: '세션이 만료되었습니다. 다시 로그인해 주세요.',
+  revoked: '보안을 위해 세션이 종료되었습니다. 다시 로그인해 주세요.',
+  invalid: '인증 정보를 확인할 수 없습니다. 다시 로그인해 주세요.',
   disconnected: '지갑 연결이 해제되어 로그아웃되었습니다. 다시 연결해 주세요.',
   account: '지갑 계정이 바뀌어 로그아웃되었습니다. 새 계정으로 다시 로그인해 주세요.',
 }
