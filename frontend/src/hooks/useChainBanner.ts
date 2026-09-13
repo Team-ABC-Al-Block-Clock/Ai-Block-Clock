@@ -33,6 +33,10 @@ export function useChainBanner() {
     try {
       // 지갑에 체인이 없으면(4902) wagmi 가 추가까지 알아서 한다.
       await switchChainAsync({ chainId: chain.id })
+      // 성공하면 대개 chainId 가 바뀌어 위 조건이 알아서 idle 로 돌린다. 다만
+      // 지갑이 resolve 만 하고 실제로 안 바꾸면 chainId 가 그대로라 버튼이 영영
+      // 대기로 남는다 — 여기서 한 번 풀어 준다.
+      setAttempt({ chainId, phase: 'idle' })
     } catch (e) {
       // 사용자가 거절한 것과 지갑이 못 바꾼 것은 다음 안내가 다르다.
       setAttempt({ chainId, phase: describeWalletError(e).code ? 'rejected' : 'failed' })
