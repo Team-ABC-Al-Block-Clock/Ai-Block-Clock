@@ -314,6 +314,8 @@ export const authHandlers = [
       ...current,
       nickname,
       introduction: typeof introduction === 'string' && introduction ? introduction : null,
+      // 안 보내면 기본 아바타 그대로다 — 명세 「없으면 profileImageUrl 을 null 로 반환」
+      profileImageUrl: image instanceof File ? await toDataUrl(image) : current.profileImageUrl,
       onboardingCompleted: true,
     }
     writeProfile(next)

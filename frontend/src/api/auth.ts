@@ -132,11 +132,12 @@ export interface SignupResult {
  * 동의 두 값은 필수다. 화면에서 버튼을 막는 것만으로는 동의를 받았다는 기록이
  * 어디에도 남지 않는다.
  *
- * `profileImageFile` 은 아직 보내지 않는다 — 업로드는 별도 이슈다.
+ * 프로필 이미지는 선택이다. 안 보내면 서버가 `profileImageUrl` 을 null 로 준다.
  */
 export const signup = (params: {
   nickname: string
   introduction?: string
+  profileImageFile?: File
   termsAgreed: boolean
   recoveryNoticeConfirmed: boolean
 }) => {

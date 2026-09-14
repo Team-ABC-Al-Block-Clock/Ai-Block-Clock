@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useDisconnect } from 'wagmi'
 
@@ -22,10 +22,24 @@ export default function Signup() {
 
   const [nickname, setNickname] = useState('')
   const [introduction, setIntroduction] = useState('')
+  /** 고른 프로필 이미지와 미리보기 URL. 선택 항목이라 안 골라도 가입된다. */
+  const [picked, setPicked] = useState<{ file: File; url: string } | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  // 바뀌거나 화면을 떠날 때 푼다. 안 풀면 고를 때마다 blob 이 쌓인다.
+  useEffect(() => {
+    const url = picked?.url
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [picked])
+
   const [agreed, setAgreed] = useState(false)
   /** ACC-005 확인. 약관과 한 줄로 묶지 않는다 — 한 번에 넘어가면 계정을
    *  복구할 수 없다는 고지를 읽지 않고 지나친다. */
   const [lossAck, setLossAck] = useState(false)
+
+  const [imageError, setImageError] = useState<string | null>(null)
 
   const trimmedNickname = nickname.trim()
   const trimmedIntro = introduction.trim()
@@ -46,6 +60,7 @@ export default function Signup() {
         nickname: trimmedNickname,
         // 선택 항목이라 비어 있으면 필드를 빼고 보낸다 — 명세가 보낸 것만 반영한다.
         ...(trimmedIntro ? { introduction: trimmedIntro } : {}),
+        ...(picked ? { profileImageFile: picked.file } : {}),
         // 버튼을 막는 것만으로는 동의를 받았다는 기록이 어디에도 남지 않는다.
         termsAgreed: agreed,
         recoveryNoticeConfirmed: lossAck,
@@ -77,6 +92,26 @@ export default function Signup() {
   const handleSubmit = () => {
     if (!canSubmit) return
     join.mutate()
+  }
+
+  /** 고르는 즉시 막는다 — 서버도 USER_004·USER_005 로 막지만 왕복할 이유가 없다. */
+  const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // 같은 파일을 다시 고를 수 있게 값을 비운다. 안 그러면 onChange 가 안 뜬다.
+    e.target.value = ''
+    if (!file) return
+
+    const { types, maxBytes } = PROFILE_LIMITS.image
+    if (!(types as readonly string[]).includes(file.type)) {
+      setImageError('PNG 또는 JPG 만 올릴 수 있습니다')
+      return
+    }
+    if (file.size > maxBytes) {
+      setImageError('이미지는 5MB 이하여야 합니다')
+      return
+    }
+    setImageError(null)
+    setPicked({ file, url: URL.createObjectURL(file) })
   }
 
   /** 프로필을 채우기 전에 나가면 반쯤 열린 세션이 남는다 — 로그아웃처럼 끊고 돌려보낸다.
@@ -202,25 +237,47 @@ export default function Signup() {
           {label('프로필 이미지')}
           <div className="flex items-center" style={{ marginTop: '12px', gap: '16px' }}>
             <div
-              className="bg-surface-card flex-none"
+              className="bg-surface-card flex-none overflow-hidden"
               style={{ width: '72px', height: '72px', borderRadius: '36px' }}
-            />
+            >
+              {picked && <img src={picked.url} alt="" className="h-full w-full object-cover" />}
+            </div>
             <div className="flex-1">
-              {/* 업로드는 별도 이슈다. 자리와 안내만 시안대로 두고 끈다 —
-                  눌러도 아무 일이 없는 버튼보다 꺼져 있는 편이 정직하다. */}
-              <button
-                type="button"
-                disabled
-                className="bg-surface-card box-border cursor-default text-[13px] font-semibold tracking-[-.01em] text-white opacity-55"
-                style={{ height: '40px', padding: '0 18px', borderRadius: '11px' }}
-              >
-                + 사진 추가
-              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={handlePickImage}
+                className="hidden"
+              />
+              <div className="flex items-center" style={{ gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  className="bg-surface-card box-border cursor-pointer text-[13px] font-semibold tracking-[-.01em] text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
+                  style={{ height: '40px', padding: '0 18px', borderRadius: '11px' }}
+                >
+                  {picked ? '사진 변경' : '+ 사진 추가'}
+                </button>
+                {picked && (
+                  <button
+                    type="button"
+                    onClick={() => setPicked(null)}
+                    className="cursor-pointer text-[12.5px] tracking-[-.01em] transition-colors duration-[160ms] hover:text-[#fff]"
+                    style={{ color: 'rgba(255,236,246,.56)' }}
+                  >
+                    지우기
+                  </button>
+                )}
+              </div>
               <div
                 className="text-[11.5px] tracking-[-.01em]"
-                style={{ marginTop: '8px', color: 'rgba(255,236,246,.56)' }}
+                style={{
+                  marginTop: '8px',
+                  color: imageError ? '#ffb4c8' : 'rgba(255,236,246,.56)',
+                }}
               >
-                PNG · JPG, 5MB 이하 · 나중에 변경할 수 있어요
+                {imageError ?? 'PNG · JPG, 5MB 이하 · 나중에 변경할 수 있어요'}
               </div>
             </div>
           </div>
