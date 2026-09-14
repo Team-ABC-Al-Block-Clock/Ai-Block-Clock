@@ -8,12 +8,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aiblockclock.enums.payment.ChargeStatusReason;
 
-class ChargeVerifierTest {
+class OnChainChargeVerifierTest {
 
     @Test
     void 온체인_거래를_찾지_못하면_WAITING을_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                         "0x1111111111111111111111111111111111111111",
@@ -36,7 +36,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.WAITING);
@@ -46,8 +46,8 @@ class ChargeVerifierTest {
 
     @Test
     void 온체인_거래가_처리_중이면_WAITING을_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                         "0x1111111111111111111111111111111111111111",
@@ -70,7 +70,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.WAITING);
@@ -80,8 +80,8 @@ class ChargeVerifierTest {
 
     @Test
     void 온체인_거래가_실패하면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
                         "0x1111111111111111111111111111111111111111",
@@ -104,7 +104,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -117,8 +117,8 @@ class ChargeVerifierTest {
 
     @Test
     void 온체인_거래는_성공했지만_확인_블록이_부족하면_WAITING을_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
                         "0x1111111111111111111111111111111111111111",
@@ -141,7 +141,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.WAITING);
@@ -152,8 +152,8 @@ class ChargeVerifierTest {
 
     @Test
     void 체인_ID가_다르면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
                         "0x1111111111111111111111111111111111111111",
@@ -176,7 +176,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -187,8 +187,8 @@ class ChargeVerifierTest {
 
     @Test
     void 거래_해시가_다르면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                         "0x1111111111111111111111111111111111111111",
@@ -211,7 +211,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -224,8 +224,8 @@ class ChargeVerifierTest {
 
     @Test
     void 보낸_사람의_지갑_주소가_다르면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0x4444444444444444444444444444444444444444444444444444444444444444",
                         "0x1111111111111111111111111111111111111111",
@@ -248,7 +248,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -261,8 +261,8 @@ class ChargeVerifierTest {
 
     @Test
     void USDC_수신_주소가_커스터디_주소와_다르면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0x5555555555555555555555555555555555555555555555555555555555555555",
                         "0x1111111111111111111111111111111111111111",
@@ -285,7 +285,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -298,8 +298,8 @@ class ChargeVerifierTest {
 
     @Test
     void USDC_컨트랙트_주소가_다르면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0x6666666666666666666666666666666666666666666666666666666666666666",
                         "0x1111111111111111111111111111111111111111",
@@ -322,7 +322,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -335,8 +335,8 @@ class ChargeVerifierTest {
 
     @Test
     void 실제_USDC_전송_금액이_다르면_REJECTED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0x7777777777777777777777777777777777777777777777777777777777777777",
                         "0x1111111111111111111111111111111111111111",
@@ -359,7 +359,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.REJECTED);
@@ -370,8 +370,8 @@ class ChargeVerifierTest {
 
     @Test
     void 모든_충전_조건을_충족하면_VERIFIED를_반환한다() {
-        ChargeVerificationCommand command =
-                new ChargeVerificationCommand(
+        ChargeVerificationCriteria criteria =
+                new ChargeVerificationCriteria(
                         12345L,
                         "0x8888888888888888888888888888888888888888888888888888888888888888",
                         "0x1111111111111111111111111111111111111111",
@@ -394,7 +394,7 @@ class ChargeVerifierTest {
                 );
 
         ChargeVerificationResult result =
-                new ChargeVerifier().verify(command, transfer);
+                new OnChainChargeVerifier().verify(criteria, transfer);
 
         assertThat(result.outcome())
                 .isEqualTo(ChargeVerificationOutcome.VERIFIED);

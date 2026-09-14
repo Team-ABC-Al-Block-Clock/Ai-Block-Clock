@@ -46,24 +46,24 @@ class ChargeNetworkPolicyTest {
                         new BigDecimal("10.000000")
                 );
 
-        ChargeVerificationCommand command =
-                policy.createVerificationCommand(chargeRequest);
+        ChargeVerificationCriteria criteria =
+                policy.createVerificationCriteria(chargeRequest);
 
-        assertThat(command.expectedChainId())
+        assertThat(criteria.expectedChainId())
                 .isEqualTo(CHAIN_ID);
-        assertThat(command.expectedTransactionHash())
+        assertThat(criteria.expectedTransactionHash())
                 .isEqualTo(chargeRequest.getTransactionHash());
-        assertThat(command.expectedSenderWalletAddress())
+        assertThat(criteria.expectedSenderWalletAddress())
                 .isEqualTo(chargeRequest.getSenderWalletAddress());
-        assertThat(command.expectedUsdcAmount())
+        assertThat(criteria.expectedUsdcAmount())
                 .isEqualByComparingTo(
                         chargeRequest.getRequestedUsdcAmount()
                 );
-        assertThat(command.expectedCustodyAddress())
+        assertThat(criteria.expectedCustodyAddress())
                 .isEqualTo(CUSTODY_ADDRESS);
-        assertThat(command.expectedUsdcContractAddress())
+        assertThat(criteria.expectedUsdcContractAddress())
                 .isEqualTo(USDC_CONTRACT_ADDRESS);
-        assertThat(command.requiredConfirmations())
+        assertThat(criteria.requiredConfirmations())
                 .isEqualTo(REQUIRED_CONFIRMATIONS);
     }
 }

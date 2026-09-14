@@ -64,7 +64,10 @@ public enum ErrorType {
             "현재 상태에서는 충전 요청을 처리할 수 없습니다.", LogLevel.WARN),
 
     CHARGE_INVALID_AMOUNT(HttpStatus.BAD_REQUEST, ErrorCode.PAYMENT_005,
-            "충전 수량이 올바르지 않습니다.", LogLevel.WARN);
+            "충전 수량이 올바르지 않습니다.", LogLevel.WARN),
+
+    LEDGER_INVALID_TRANSACTION(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_006,
+            "원장 거래 구성이 올바르지 않습니다.", LogLevel.ERROR);
 
     private final HttpStatus status;
     private final ErrorCode code;

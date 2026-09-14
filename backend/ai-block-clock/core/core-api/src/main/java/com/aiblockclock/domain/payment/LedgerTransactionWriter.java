@@ -64,9 +64,8 @@ public class LedgerTransactionWriter {
                         ledgerEntry.accountReferenceId()
                 );
 
-        ledgerAccountEntity.modifyBalance(
-                ledgerAccountEntity.getBalance()
-                        .add(ledgerEntry.amountDelta())
+        ledgerAccountEntity.applyBalanceDelta(
+                ledgerEntry.amountDelta()
         );
 
         return LedgerEntryEntity.of(

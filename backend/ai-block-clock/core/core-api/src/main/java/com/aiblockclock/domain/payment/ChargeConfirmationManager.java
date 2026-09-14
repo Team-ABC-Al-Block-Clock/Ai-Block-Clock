@@ -1,24 +1,15 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.enums.payment.LedgerAccountType;
-import com.aiblockclock.enums.payment.LedgerEventType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class ChargeConfirmationManager {
-
-    private static final String SYSTEM_ACCOUNT_REFERENCE_ID = "SYSTEM";
-    private static final String CHARGE_REQUEST_REFERENCE_TYPE =
-            "CHARGE_REQUEST";
-    private static final String CHARGE_IDEMPOTENCY_KEY_PREFIX =
-            "charge-request:";
 
     private final ChargeRequestReader chargeRequestReader;
     private final LedgerTransactionWriter ledgerTransactionWriter;
@@ -42,7 +33,7 @@ public class ChargeConfirmationManager {
         );
 
         LedgerTransaction ledgerTransaction =
-                createChargeLedgerTransaction(
+                LedgerTransaction.forCharge(
                         chargeRequest,
                         creditedAbcAmount
                 );
@@ -50,32 +41,5 @@ public class ChargeConfirmationManager {
         ledgerTransactionWriter.append(ledgerTransaction);
 
         return chargeRequestWriter.update(chargeRequest);
-    }
-
-    private LedgerTransaction createChargeLedgerTransaction(
-            ChargeRequest chargeRequest,
-            BigDecimal creditedAbcAmount
-    ) {
-        return new LedgerTransaction(
-                LedgerEventType.CHARGE,
-                CHARGE_IDEMPOTENCY_KEY_PREFIX
-                        + chargeRequest.getId(),
-                CHARGE_REQUEST_REFERENCE_TYPE,
-                chargeRequest.getId().toString(),
-                chargeRequest.getChainId(),
-                chargeRequest.getTransactionHash(),
-                List.of(
-                        new LedgerEntry(
-                                LedgerAccountType.ABC_ISSUANCE,
-                                SYSTEM_ACCOUNT_REFERENCE_ID,
-                                creditedAbcAmount.negate()
-                        ),
-                        new LedgerEntry(
-                                LedgerAccountType.ABC_BALANCE,
-                                chargeRequest.getUserReferenceId(),
-                                creditedAbcAmount
-                        )
-                )
-        );
     }
 }

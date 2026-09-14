@@ -233,10 +233,10 @@ class PaymentLedgerIntegrationTest {
                 new BigDecimal("1.000")
         );
 
-        issuanceAccount.modifyBalance(new BigDecimal("-10.000"));
-        userAccount.modifyBalance(new BigDecimal("7.000"));
-        escrowAccount.modifyBalance(new BigDecimal("0.000"));
-        payoutAccount.modifyBalance(new BigDecimal("3.000"));
+        issuanceAccount.applyBalanceDelta(new BigDecimal("-10.000"));
+        userAccount.applyBalanceDelta(new BigDecimal("7.000"));
+        escrowAccount.applyBalanceDelta(new BigDecimal("0.000"));
+        payoutAccount.applyBalanceDelta(new BigDecimal("3.000"));
 
         ledgerAccountRepository.flush();
 

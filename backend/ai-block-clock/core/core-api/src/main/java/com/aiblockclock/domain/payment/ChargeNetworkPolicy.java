@@ -12,10 +12,10 @@ public record ChargeNetworkPolicy(
                 && chainId.equals(requestedChainId);
     }
 
-    public ChargeVerificationCommand createVerificationCommand(
+    public ChargeVerificationCriteria createVerificationCriteria(
             ChargeRequest chargeRequest
     ) {
-        return new ChargeVerificationCommand(
+        return new ChargeVerificationCriteria(
                 chainId,
                 chargeRequest.getTransactionHash(),
                 chargeRequest.getSenderWalletAddress(),

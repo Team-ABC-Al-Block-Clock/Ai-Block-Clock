@@ -16,5 +16,6 @@ public enum ErrorCode {
     PAYMENT_002,
     PAYMENT_003,
     PAYMENT_004,
-    PAYMENT_005
+    PAYMENT_005,
+    PAYMENT_006
 }

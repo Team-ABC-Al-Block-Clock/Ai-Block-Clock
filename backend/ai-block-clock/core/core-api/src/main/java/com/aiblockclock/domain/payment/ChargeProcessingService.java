@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 public class ChargeProcessingService {
 
     private final ChargeRequestReader chargeRequestReader;
-    private final ChargeVerifier chargeVerifier;
+    private final OnChainChargeVerifier onChainChargeVerifier;
     private final AbcConversionPolicy abcConversionPolicy;
     private final ChargeRequestWriter chargeRequestWriter;
     private final ChargeConfirmationManager chargeConfirmationManager;
@@ -37,14 +37,14 @@ public class ChargeProcessingService {
             );
         }
 
-        ChargeVerificationCommand verificationCommand =
-                chargeNetworkPolicy.createVerificationCommand(
+        ChargeVerificationCriteria verificationCriteria =
+                chargeNetworkPolicy.createVerificationCriteria(
                         chargeRequest
                 );
 
         ChargeVerificationResult verificationResult =
-                chargeVerifier.verify(
-                        verificationCommand,
+                onChainChargeVerifier.verify(
+                        verificationCriteria,
                         onChainUsdcTransfer
                 );
 

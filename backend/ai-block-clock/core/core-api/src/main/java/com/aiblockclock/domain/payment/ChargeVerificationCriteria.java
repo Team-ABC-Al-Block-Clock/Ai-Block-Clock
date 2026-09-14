@@ -2,7 +2,7 @@ package com.aiblockclock.domain.payment;
 
 import java.math.BigDecimal;
 
-public record ChargeVerificationCommand(
+public record ChargeVerificationCriteria(
         Long expectedChainId,
         String expectedTransactionHash,
         String expectedSenderWalletAddress,
