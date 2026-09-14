@@ -26,7 +26,7 @@ public final class WorkflowGraph {
     private final Map<NodeKey, GraphNode> nodeIndex;
 
     @Getter(AccessLevel.NONE)
-    private final Map<NodeKey, List<NodeKey>> successors;
+    private final Map<NodeKey, List<GraphEdge>> outgoing;
 
     private WorkflowGraph(List<GraphNode> nodes, List<GraphEdge> edges) {
         this.nodeIndex = indexNodes(nodes);
@@ -34,7 +34,7 @@ public final class WorkflowGraph {
 
         this.nodes = List.copyOf(nodes);
         this.edges = List.copyOf(edges);
-        this.successors = indexSuccessors(this.nodes, this.edges);
+        this.outgoing = indexOutgoing(this.nodes, this.edges);
     }
 
     public static WorkflowGraph empty() {
@@ -81,12 +81,12 @@ public final class WorkflowGraph {
         }
     }
 
-    private static Map<NodeKey, List<NodeKey>> indexSuccessors(List<GraphNode> nodes, List<GraphEdge> edges) {
-        Map<NodeKey, List<NodeKey>> successors = new HashMap<>();
-        nodes.forEach(node -> successors.put(node.key(), new ArrayList<>()));
-        edges.forEach(edge -> successors.get(edge.sourceNodeKey()).add(edge.targetNodeKey()));
+    private static Map<NodeKey, List<GraphEdge>> indexOutgoing(List<GraphNode> nodes, List<GraphEdge> edges) {
+        Map<NodeKey, List<GraphEdge>> outgoing = new HashMap<>();
+        nodes.forEach(node -> outgoing.put(node.key(), new ArrayList<>()));
+        edges.forEach(edge -> outgoing.get(edge.sourceNodeKey()).add(edge));
 
-        return Map.copyOf(successors);
+        return Map.copyOf(outgoing);
     }
 
     public boolean isEmpty() {
@@ -106,23 +106,47 @@ public final class WorkflowGraph {
     }
 
     public int chainLength() {
+        return isEmpty() ? 0 : chain().size();
+    }
+
+    /** 저장한 연결 순서대로 줄 세운 노드. 한 줄 그래프라 답은 하나뿐이다. */
+    public List<GraphNode> nodesInOrder() {
         if (isEmpty()) {
-            return 0;
+            return List.of();
         }
 
+        return chain().stream().map(nodeIndex::get).toList();
+    }
+
+    /** 위 노드 순서를 따라가며 지나친 연결선. 마지막 노드는 나가는 연결선이 없다. */
+    public List<GraphEdge> edgesInOrder() {
+        if (isEmpty()) {
+            return List.of();
+        }
+
+        List<NodeKey> walked = chain();
+
+        return walked.stream()
+                .limit(walked.size() - 1L)
+                .map(this::outgoingEdgeOf)
+                .toList();
+    }
+
+    private List<NodeKey> chain() {
         NodeKey current = soleStart();
-        int visited = 1;
+        List<NodeKey> walked = new ArrayList<>();
+        walked.add(current);
 
         while (hasSuccessor(current)) {
-            current = successorOf(current);
-            visited++;
+            current = outgoingEdgeOf(current).targetNodeKey();
+            walked.add(current);
         }
 
-        if (visited != nodes.size()) {
+        if (walked.size() != nodes.size()) {
             throw new CoreException(ErrorType.WORKFLOW_GRAPH_CYCLE);
         }
 
-        return visited;
+        return walked;
     }
 
     private NodeKey soleStart() {
@@ -157,11 +181,11 @@ public final class WorkflowGraph {
     }
 
     private boolean hasSuccessor(NodeKey key) {
-        return !successors.get(key).isEmpty();
+        return !outgoing.get(key).isEmpty();
     }
 
-    private NodeKey successorOf(NodeKey key) {
-        List<NodeKey> next = successors.get(key);
+    private GraphEdge outgoingEdgeOf(NodeKey key) {
+        List<GraphEdge> next = outgoing.get(key);
         if (next.size() > 1) {
             throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR,
                     Map.of("nodeKey", key.value()));

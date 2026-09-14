@@ -26,6 +26,7 @@ final class WorkflowEntityConverter {
                 WorkflowId.of(entity.getId()),
                 OwnerId.of(entity.getOwnerId()),
                 entity.getName(),
+                entity.getDescription(),
                 WorkflowGraph.of(nodes, edges),
                 entity.getValidationStatus(),
                 Revision.of(entity.getRevision()),
@@ -48,6 +49,7 @@ final class WorkflowEntityConverter {
                 workflow.getId().value(),
                 workflow.getOwner().value(),
                 workflow.getName(),
+                workflow.getDescription(),
                 workflow.getValidationStatus(),
                 workflow.getRevision().value());
         entity.applyGraph(

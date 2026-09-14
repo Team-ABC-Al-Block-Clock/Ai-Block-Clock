@@ -63,7 +63,7 @@ class WorkflowEntityConverterTest {
 
     private static WorkflowGraph toDomain(WorkflowNodeEntity node) {
         WorkflowEntity entity = new WorkflowEntity(
-                UUID.randomUUID(), 1L, "워크플로우", ValidationStatus.NOT_VALIDATED, 1L);
+                UUID.randomUUID(), 1L, "워크플로우", null, ValidationStatus.NOT_VALIDATED, 1L);
         entity.applyGraph(List.of(node), List.of(), ValidationStatus.NOT_VALIDATED, 1L);
         return WorkflowEntityConverter.toDomain(entity).getGraph();
     }

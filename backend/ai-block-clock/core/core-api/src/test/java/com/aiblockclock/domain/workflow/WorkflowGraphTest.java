@@ -127,6 +127,35 @@ class WorkflowGraphTest {
         }
 
         @Test
+        @DisplayName("담은 순서가 뒤섞여 있어도 연결을 따라 줄 세운다")
+        void ordersByFollowingEdges() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n3"), node("n1"), node("n2")),
+                    List.of(edge("e2", "n2", "n3"), edge("e1", "n1", "n2")));
+
+            assertThat(graph.nodesInOrder()).extracting(n -> n.key().value())
+                    .containsExactly("n1", "n2", "n3");
+            assertThat(graph.edgesInOrder()).extracting(e -> e.key().value())
+                    .containsExactly("e1", "e2");
+        }
+
+        @Test
+        @DisplayName("노드가 하나면 노드 하나에 연결선은 없다")
+        void ordersSingleNode() {
+            WorkflowGraph graph = WorkflowGraph.of(List.of(node("n1")), List.of());
+
+            assertThat(graph.nodesInOrder()).extracting(n -> n.key().value()).containsExactly("n1");
+            assertThat(graph.edgesInOrder()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("빈 그래프는 줄 세울 것이 없다")
+        void ordersEmptyGraph() {
+            assertThat(WorkflowGraph.empty().nodesInOrder()).isEmpty();
+            assertThat(WorkflowGraph.empty().edgesInOrder()).isEmpty();
+        }
+
+        @Test
         @DisplayName("한 줄로 이어지면 그 길이를 센다")
         void measuresChainLength() {
             assertThat(GraphFixtures.straightLine().chainLength()).isEqualTo(3);

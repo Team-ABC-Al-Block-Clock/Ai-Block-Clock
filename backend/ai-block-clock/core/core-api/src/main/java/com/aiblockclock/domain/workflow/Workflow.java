@@ -18,14 +18,16 @@ public final class Workflow {
     private final OwnerId owner;
 
     private String name;
+    private String description;
     private WorkflowGraph graph;
     private ValidationStatus validationStatus;
     private Revision revision;
 
     private final WorkflowTimestamps timestamps;
 
-    public static Workflow create(WorkflowId id, OwnerId owner, String name, WorkflowGraph graph) {
-        return new Workflow(id, owner, name, graph,
+    public static Workflow create(
+            WorkflowId id, OwnerId owner, String name, String description, WorkflowGraph graph) {
+        return new Workflow(id, owner, name, description, graph,
                 ValidationStatus.NOT_VALIDATED, Revision.initial(), WorkflowTimestamps.unsaved());
     }
 
@@ -33,12 +35,13 @@ public final class Workflow {
             WorkflowId id,
             OwnerId owner,
             String name,
+            String description,
             WorkflowGraph graph,
             ValidationStatus validationStatus,
             Revision revision,
             WorkflowTimestamps timestamps
     ) {
-        return new Workflow(id, owner, name, graph, validationStatus, revision, timestamps);
+        return new Workflow(id, owner, name, description, graph, validationStatus, revision, timestamps);
     }
 
     public void rename(OwnerId requester, String name) {

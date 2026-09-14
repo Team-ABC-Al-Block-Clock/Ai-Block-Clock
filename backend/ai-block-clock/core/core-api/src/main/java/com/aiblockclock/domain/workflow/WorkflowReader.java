@@ -31,17 +31,27 @@ public class WorkflowReader {
         return WorkflowEntityConverter.toDomain(entity);
     }
 
+    public Workflow readForUpdate(WorkflowId id) {
+        WorkflowEntity entity = workflowRepository.findByIdForUpdate(id.value())
+                .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
+        return WorkflowEntityConverter.toDomain(entity);
+    }
+
     public CursorPage<WorkflowSummary> readMine(
             OwnerId owner, WorkflowSort sort, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
-        Pageable pageable = OffsetPageable.of(offset, size);
+
+        // 다음 페이지가 있는지는 size + 1 번째 행이 있는지로 판정한다.
+        // size 개가 꽉 찼다는 것만으로는 마지막 페이지와 구분되지 않는다.
+        Pageable pageable = OffsetPageable.of(offset, size + 1);
 
         List<WorkflowEntity> found = sort == WorkflowSort.LATEST
                 ? workflowRepository.findMineOrderByLatest(owner.value(), keyword, pageable)
                 : workflowRepository.findMineOrderByLastExecuted(owner.value(), keyword, pageable);
 
-        boolean hasNext = found.size() == size;
+        boolean hasNext = found.size() > size;
         List<WorkflowSummary> content = found.stream()
+                .limit(size)
                 .map(WorkflowEntityConverter::toSummary)
                 .toList();
         return new CursorPage<>(content, hasNext ? OffsetCursor.encode(offset + size) : null, hasNext);

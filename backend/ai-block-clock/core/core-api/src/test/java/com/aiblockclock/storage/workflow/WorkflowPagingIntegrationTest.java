@@ -33,6 +33,7 @@ class WorkflowPagingIntegrationTest {
                     UUID.randomUUID(),
                     OWNER_ID,
                     "workflow-%02d".formatted(i),
+                    null,
                     ValidationStatus.NOT_VALIDATED,
                     0L));
         }

@@ -51,4 +51,10 @@ public class WorkflowNodeEntity {
         this.referenceId = referenceId;
         this.versionId = versionId;
     }
+
+    void refer(SourceType sourceType, UUID referenceId, UUID versionId) {
+        this.sourceType = sourceType;
+        this.referenceId = referenceId;
+        this.versionId = versionId;
+    }
 }

@@ -56,7 +56,8 @@ public class WorkflowController implements WorkflowApi {
         List<NodePlacement> nodes = NodePlacementRequest.toPlacements(request.nodes());
         List<GraphEdge> edges = EdgePlacementRequest.toEdges(request.edges());
 
-        Workflow saved = workflowService.save(owner, request.name(), nodes, edges);
+        Workflow saved = workflowService.save(
+                owner, request.name(), request.description(), nodes, edges);
 
         return ApiResult.success(WorkflowSaveResponse.from(saved));
     }

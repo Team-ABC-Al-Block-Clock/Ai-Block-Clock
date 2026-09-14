@@ -110,6 +110,41 @@ class WorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("뒤섞어 보낸 노드도 다시 읽으면 연결 순서대로 나온다")
+    void returnsNodesInConnectedOrder() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/workflows")
+                        .header("X-Owner-Id", OWNER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "뒤섞어 보낸다",
+                                  "nodes": [
+                                    { "nodeKey": "n3", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e2", "sourceNodeKey": "n2", "targetNodeKey": "n3" },
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
+                                  ]
+                                }
+                                """.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String workflowId = mapper.readTree(created.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes[0].nodeKey").value("n1"))
+                .andExpect(jsonPath("$.data.nodes[1].nodeKey").value("n2"))
+                .andExpect(jsonPath("$.data.nodes[2].nodeKey").value("n3"))
+                .andExpect(jsonPath("$.data.edges[0].edgeKey").value("e1"))
+                .andExpect(jsonPath("$.data.edges[1].edgeKey").value("e2"));
+    }
+
+    @Test
     @DisplayName("주체를 밝히지 않으면 401 이다")
     void rejectsMissingOwner() throws Exception {
         mockMvc.perform(get("/api/v1/workflows"))

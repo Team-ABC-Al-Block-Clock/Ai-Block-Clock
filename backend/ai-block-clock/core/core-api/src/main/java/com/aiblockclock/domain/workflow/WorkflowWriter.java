@@ -28,9 +28,6 @@ public class WorkflowWriter {
 
         entity.rename(workflow.getName());
 
-        entity.clearGraph();
-        workflowRepository.flush();
-
         entity.applyGraph(
                 WorkflowEntityConverter.toNodeEntities(workflow.getGraph()),
                 WorkflowEntityConverter.toEdgeEntities(workflow.getGraph()),

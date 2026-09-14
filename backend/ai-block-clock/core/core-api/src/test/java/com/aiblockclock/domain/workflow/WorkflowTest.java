@@ -19,7 +19,8 @@ class WorkflowTest {
 
     @BeforeEach
     void setUp() {
-        workflow = Workflow.create(WorkflowId.newId(), OWNER, "성적 분석", GraphFixtures.straightLine());
+        workflow = Workflow.create(
+                WorkflowId.newId(), OWNER, "성적 분석", null, GraphFixtures.straightLine());
     }
 
     @Test

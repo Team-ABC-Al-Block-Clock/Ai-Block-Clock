@@ -17,13 +17,17 @@ public record WorkflowDetailResponse(
         @Schema(description = "워크플로우 이름", example = "성적 분석 리포트")
         String name,
 
+        @Schema(description = "워크플로우 설명. 없으면 null",
+                example = "학생별 성적을 모아 리포트로 만든다", nullable = true)
+        String description,
+
         @Schema(description = "저장 회차. 수정 요청에 그대로 넣는다", example = "1")
         long revision,
 
-        @Schema(description = "배치된 노드. 저장할 때 보낸 순서 그대로다")
+        @Schema(description = "배치된 노드. `edges` 를 따라간 연결 순서대로다")
         List<NodeResponse> nodes,
 
-        @Schema(description = "노드 연결선")
+        @Schema(description = "노드 연결선. 노드와 같은 연결 순서대로다")
         List<EdgeResponse> edges,
 
         @Schema(description = "실행 예상 차감액. 단가 산정 전이라 지금은 항상 0 이다", example = "0")
@@ -39,10 +43,10 @@ public record WorkflowDetailResponse(
         Instant updatedAt
 ) {
     public static WorkflowDetailResponse from(Workflow workflow) {
-        List<NodeResponse> nodes = workflow.getGraph().getNodes().stream()
+        List<NodeResponse> nodes = workflow.getGraph().nodesInOrder().stream()
                 .map(NodeResponse::from)
                 .toList();
-        List<EdgeResponse> edges = workflow.getGraph().getEdges().stream()
+        List<EdgeResponse> edges = workflow.getGraph().edgesInOrder().stream()
                 .map(edge -> new EdgeResponse(
                         edge.key().value(),
                         edge.sourceNodeKey().value(),
@@ -52,6 +56,7 @@ public record WorkflowDetailResponse(
         return new WorkflowDetailResponse(
                 workflow.getId().value().toString(),
                 workflow.getName(),
+                workflow.getDescription(),
                 workflow.getRevision().value(),
                 nodes,
                 edges,

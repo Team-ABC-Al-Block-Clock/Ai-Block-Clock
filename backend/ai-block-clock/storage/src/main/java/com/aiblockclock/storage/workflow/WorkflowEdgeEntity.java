@@ -35,4 +35,9 @@ public class WorkflowEdgeEntity {
         this.sourceNodeKey = sourceNodeKey;
         this.targetNodeKey = targetNodeKey;
     }
+
+    void connect(String sourceNodeKey, String targetNodeKey) {
+        this.sourceNodeKey = sourceNodeKey;
+        this.targetNodeKey = targetNodeKey;
+    }
 }
