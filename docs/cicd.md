@@ -1,7 +1,10 @@
 # CI/CD 가이드
 
-GitLab CI/CD 파이프라인 구성 문서다. 현재는 **프론트엔드(Vite 빌드 → 정적 파일 배포)** 만 다룬다.
-백엔드는 Dockerfile이 올라온 뒤 이 문서에 이어서 추가한다.
+GitLab CI/CD 파이프라인 구성 문서다. 프론트엔드(Vite 빌드 → 정적 파일 배포), 백엔드
+(Gradle 테스트 → Docker Compose 배포), AI Runtime(Docker 이미지 → Compose 배포)을 다룬다.
+
+AI 파이프라인의 잡 정의는 `.gitlab/ci/ai.gitlab-ci.yml` 에 있고, 이 문서에는 환경 변수
+([5장](#5-환경-변수))만 정리한다.
 
 ---
 
@@ -730,6 +733,26 @@ Vite는 **빌드 시점에** `VITE_*` 값을 번들에 박아 넣는다. 런타�
 런타임에 주입되므로 빌드와 무관하다. GitLab CI/CD Variables 로 관리하며 저장소에 두지
 않는다 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables)). `SPRING_PROFILES_ACTIVE` 와
 `DB_URL` 은 `compose.prod.yaml` / `compose.yaml` 이 조립하므로 변수로 넣지 않는다.
+
+### AI Runtime
+
+백엔드와 같은 방식이다. GitLab CI/CD Variables 에 넣고 `compose.yaml` 이 컨테이너
+환경변수로 주입한다. 둘 다 **Masked** 로 설정한다.
+
+| 변수 | 용도 | 비고 |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | LLM 호출 | 없으면 `ai:deploy` 가 실패한다 |
+| `ABC_SERVICE_TOKEN` | 백엔드 → AI Runtime 서비스 간 인증 | 백엔드도 같은 값을 갖고 `X-ABC-Service-Token` 헤더로 보낸다 |
+| `BACKEND_NETWORK` | (선택) 백엔드 Docker 네트워크 이름 | 비우면 `ai:deploy` 가 `docker network ls` 에서 찾는다 |
+
+**AI Runtime 은 Nginx 설정이 필요 없다.** 브라우저가 직접 부르지 않고 백엔드만
+호출하기 때문이다. 백엔드 compose 가 만든 네트워크에 참여해 컨테이너 이름으로 통신한다.
+
+```
+백엔드 → http://ai-block-clock-ai-runtime:8000
+```
+
+포트는 `127.0.0.1:8000` 에만 바인딩한다. 외부에서 직접 열지 않는다.
 
 **키·토큰류는 절대 `VITE_` 로 넣지 않는다** (번들에 그대로 노출됨). 필요하면
 GitLab CI/CD Variables(Settings > CI/CD > Variables, Masked 체크)에 넣고 빌드 잡에서 주입한다.

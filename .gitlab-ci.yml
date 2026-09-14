@@ -5,6 +5,7 @@
 #
 #   frontend/**  ->  .gitlab/ci/frontend.gitlab-ci.yml
 #   backend/**   ->  .gitlab/ci/backend.gitlab-ci.yml
+#   ai/**        ->  .gitlab/ci/ai.gitlab-ci.yml
 #
 # 자세한 내용은 docs/cicd.md 참고.
 
@@ -19,6 +20,7 @@ variables:
 include:
   - local: .gitlab/ci/frontend.gitlab-ci.yml
   - local: .gitlab/ci/backend.gitlab-ci.yml
+  - local: .gitlab/ci/ai.gitlab-ci.yml
 
 # 변경된 폴더가 없어 잡이 하나도 생성되지 않으면 파이프라인 자체를 만들지 않는다
 workflow:
