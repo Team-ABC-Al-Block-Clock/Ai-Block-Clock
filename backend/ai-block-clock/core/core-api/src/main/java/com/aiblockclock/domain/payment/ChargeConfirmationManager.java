@@ -1,9 +1,7 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
-import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,16 +25,21 @@ public class ChargeConfirmationManager {
     private final ChargeRequestWriter chargeRequestWriter;
 
     @Transactional
-    public ChargeRequestEntity confirm(
+    public ChargeRequest confirm(
             Long chargeRequestId,
             BigDecimal creditedAbcAmount
     ) {
-        ChargeRequestEntity chargeRequest =
+        ChargeRequest chargeRequest =
                 chargeRequestReader.read(chargeRequestId);
 
-        if (chargeRequest.getStatus() != ChargeStatus.PENDING) {
+        if (!chargeRequest.isPending()) {
             return chargeRequest;
         }
+
+        chargeRequest.confirm(
+                creditedAbcAmount,
+                Instant.now()
+        );
 
         LedgerTransaction ledgerTransaction =
                 createChargeLedgerTransaction(
@@ -46,15 +49,11 @@ public class ChargeConfirmationManager {
 
         ledgerTransactionWriter.append(ledgerTransaction);
 
-        return chargeRequestWriter.confirm(
-                chargeRequest,
-                creditedAbcAmount,
-                Instant.now()
-        );
+        return chargeRequestWriter.update(chargeRequest);
     }
 
     private LedgerTransaction createChargeLedgerTransaction(
-            ChargeRequestEntity chargeRequest,
+            ChargeRequest chargeRequest,
             BigDecimal creditedAbcAmount
     ) {
         return new LedgerTransaction(

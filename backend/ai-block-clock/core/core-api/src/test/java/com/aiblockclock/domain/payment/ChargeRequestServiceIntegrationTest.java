@@ -1,8 +1,6 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.domain.payment.ChargeNetworkPolicy;
 import com.aiblockclock.enums.payment.ChargeStatus;
-import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Tag;
@@ -34,7 +32,7 @@ class ChargeRequestServiceIntegrationTest {
 
     @Test
     void 새로운_충전_요청을_PENDING_상태로_저장한다() {
-        ChargeRequestEntity result =
+        ChargeRequest result =
                 chargeRequestService.createPending(
                         "user-request-100",
                         "0x1111111111111111111111111111111111111111",
@@ -63,7 +61,7 @@ class ChargeRequestServiceIntegrationTest {
         String transactionHash =
                 "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-        ChargeRequestEntity first =
+        ChargeRequest first =
                 chargeRequestService.createPending(
                         "user-request-200",
                         "0x4444444444444444444444444444444444444444",
@@ -72,7 +70,7 @@ class ChargeRequestServiceIntegrationTest {
                         new BigDecimal("10")
                 );
 
-        ChargeRequestEntity second =
+        ChargeRequest second =
                 chargeRequestService.createPending(
                         "user-request-200",
                         "0x4444444444444444444444444444444444444444",
@@ -118,7 +116,7 @@ class ChargeRequestServiceIntegrationTest {
 
     @Test
     void 본인의_충전_요청만_조회할_수_있다() {
-        ChargeRequestEntity saved =
+        ChargeRequest saved =
                 chargeRequestService.createPending(
                         "user-request-500",
                         "0x7777777777777777777777777777777777777777",
@@ -127,7 +125,7 @@ class ChargeRequestServiceIntegrationTest {
                         new BigDecimal("10")
                 );
 
-        ChargeRequestEntity found =
+        ChargeRequest found =
                 chargeRequestService.getOwnedCharge(
                         saved.getId(),
                         "user-request-500"

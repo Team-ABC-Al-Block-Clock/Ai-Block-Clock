@@ -1,51 +1,52 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.enums.payment.ChargeStatus;
-import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
+import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.Instant;
 
 @Component
 @RequiredArgsConstructor
 public class ChargeRequestWriter {
 
-    private final ChargeRequestReader chargeRequestReader;
+    private final ChargeRequestRepository chargeRequestRepository;
 
     @Transactional
-    public ChargeRequestEntity reject(
-            Long chargeRequestId,
-            ChargeStatusReason rejectionReason
+    public ChargeRequest append(
+            ChargeRequest chargeRequest
     ) {
-        ChargeRequestEntity chargeRequest =
-                chargeRequestReader.read(chargeRequestId);
+        ChargeRequestEntity entity =
+                ChargeRequestEntityConverter.toNewEntity(
+                        chargeRequest
+                );
 
-        if (chargeRequest.getStatus() != ChargeStatus.PENDING) {
-            return chargeRequest;
-        }
+        ChargeRequestEntity savedEntity =
+                chargeRequestRepository.save(entity);
 
-        chargeRequest.fail(rejectionReason);
-        return chargeRequest;
+        return ChargeRequestEntityConverter.toDomain(savedEntity);
     }
 
     @Transactional
-    public ChargeRequestEntity confirm(
-            ChargeRequestEntity chargeRequest,
-            BigDecimal creditedAbcAmount,
-            Instant confirmedAt
+    public ChargeRequest update(
+            ChargeRequest chargeRequest
     ) {
-        if (chargeRequest.getStatus() != ChargeStatus.PENDING) {
-            return chargeRequest;
-        }
+        ChargeRequestEntity entity =
+                chargeRequestRepository
+                        .findById(chargeRequest.getId())
+                        .orElseThrow(
+                                () -> new CoreException(
+                                        ErrorType.CHARGE_REQUEST_NOT_FOUND
+                                )
+                        );
 
-        chargeRequest.confirm(
-                creditedAbcAmount,
-                confirmedAt
+        ChargeRequestEntityConverter.applyToEntity(
+                chargeRequest,
+                entity
         );
-        return chargeRequest;
+
+        return ChargeRequestEntityConverter.toDomain(entity);
     }
 }

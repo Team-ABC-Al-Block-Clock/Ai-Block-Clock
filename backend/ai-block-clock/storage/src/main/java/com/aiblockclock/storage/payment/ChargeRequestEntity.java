@@ -83,69 +83,15 @@ public class ChargeRequestEntity extends BaseTimeEntity {
         return entity;
     }
 
-    public void confirm(
+    public void applyState(
             BigDecimal creditedAbcAmount,
+            ChargeStatus status,
+            ChargeStatusReason statusReason,
             Instant confirmedAt
     ) {
-        if (status != ChargeStatus.PENDING) {
-            throw new IllegalStateException(
-                    "대기 중인 충전 요청만 확정할 수 있습니다."
-            );
-        }
-
-        if (creditedAbcAmount == null
-                || creditedAbcAmount.signum() <= 0) {
-            throw new IllegalArgumentException(
-                    "지급할 ABC 수량은 0보다 커야 합니다."
-            );
-        }
-
-        if (confirmedAt == null) {
-            throw new IllegalArgumentException(
-                    "충전 확정 시각은 필수입니다."
-            );
-        }
-
         this.creditedAbcAmount = creditedAbcAmount;
-        this.status = ChargeStatus.CONFIRMED;
-        this.statusReason = null;
+        this.status = status;
+        this.statusReason = statusReason;
         this.confirmedAt = confirmedAt;
-    }
-
-    public void fail(ChargeStatusReason reason) {
-        if (status != ChargeStatus.PENDING) {
-            throw new IllegalStateException(
-                    "대기 중인 충전 요청만 실패 처리할 수 있습니다."
-            );
-        }
-
-        if (reason == null
-                || reason == ChargeStatusReason.USER_CANCELED) {
-            throw new IllegalArgumentException(
-                    "올바른 충전 실패 사유가 필요합니다."
-            );
-        }
-
-        this.status = ChargeStatus.FAILED;
-        this.statusReason = reason;
-        this.creditedAbcAmount = null;
-        this.confirmedAt = null;
-    }
-
-    public void cancel() {
-        if (status == ChargeStatus.CANCELED) {
-            return;
-        }
-
-        if (status != ChargeStatus.PENDING) {
-            throw new IllegalStateException(
-                    "대기 중인 충전 요청만 취소할 수 있습니다."
-            );
-        }
-
-        this.status = ChargeStatus.CANCELED;
-        this.statusReason = ChargeStatusReason.USER_CANCELED;
-        this.creditedAbcAmount = null;
-        this.confirmedAt = null;
     }
 }

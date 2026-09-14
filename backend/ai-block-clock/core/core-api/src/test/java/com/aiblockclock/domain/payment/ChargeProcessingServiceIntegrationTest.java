@@ -1,8 +1,5 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.domain.payment.ChargeNetworkPolicy;
-import com.aiblockclock.domain.payment.OnChainTransactionStatus;
-import com.aiblockclock.domain.payment.OnChainUsdcTransfer;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
@@ -65,7 +62,7 @@ class ChargeProcessingServiceIntegrationTest {
                         5L
                 );
 
-        ChargeRequestEntity result =
+        ChargeRequest result =
                 processingService.process(
                         chargeRequest.getId(),
                         transfer,
@@ -120,7 +117,7 @@ class ChargeProcessingServiceIntegrationTest {
                         5L
                 );
 
-        ChargeRequestEntity result =
+        ChargeRequest result =
                 processingService.process(
                         chargeRequest.getId(),
                         transfer,
@@ -167,7 +164,7 @@ class ChargeProcessingServiceIntegrationTest {
                         chargeNetworkPolicy.requiredConfirmations()
                 );
 
-        ChargeRequestEntity result =
+        ChargeRequest result =
                 processingService.process(
                         chargeRequest.getId(),
                         onChainUsdcTransfer,
@@ -210,7 +207,7 @@ class ChargeProcessingServiceIntegrationTest {
                         chargeNetworkPolicy.requiredConfirmations()
                 );
 
-        ChargeRequestEntity result =
+        ChargeRequest result =
                 processingService.process(
                         chargeRequest.getId(),
                         onChainUsdcTransfer,

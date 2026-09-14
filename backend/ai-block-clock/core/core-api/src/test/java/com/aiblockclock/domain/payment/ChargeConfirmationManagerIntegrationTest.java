@@ -36,7 +36,7 @@ class ChargeConfirmationManagerIntegrationTest {
                         "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
                 );
 
-        ChargeRequestEntity confirmedChargeRequest =
+        ChargeRequest confirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         chargeRequest.getId(),
                         new BigDecimal("10.000")
@@ -62,13 +62,13 @@ class ChargeConfirmationManagerIntegrationTest {
                         "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 );
 
-        ChargeRequestEntity firstConfirmedChargeRequest =
+        ChargeRequest firstConfirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         chargeRequest.getId(),
                         new BigDecimal("10.000")
                 );
 
-        ChargeRequestEntity secondConfirmedChargeRequest =
+        ChargeRequest secondConfirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         chargeRequest.getId(),
                         new BigDecimal("10.000")

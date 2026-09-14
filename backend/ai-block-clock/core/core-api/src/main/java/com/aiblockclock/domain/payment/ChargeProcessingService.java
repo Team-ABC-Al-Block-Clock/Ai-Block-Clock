@@ -1,8 +1,6 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.ChargeStatusReason;
-import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,24 +16,23 @@ public class ChargeProcessingService {
     private final ChargeRequestWriter chargeRequestWriter;
     private final ChargeConfirmationManager chargeConfirmationManager;
 
-    public ChargeRequestEntity process(
+    public ChargeRequest process(
             Long chargeRequestId,
             OnChainUsdcTransfer onChainUsdcTransfer,
             ChargeNetworkPolicy chargeNetworkPolicy
     ) {
-        ChargeRequestEntity chargeRequest =
+        ChargeRequest chargeRequest =
                 chargeRequestReader.read(chargeRequestId);
 
-        if (chargeRequest.getStatus()
-                != ChargeStatus.PENDING) {
+        if (!chargeRequest.isPending()) {
             return chargeRequest;
         }
 
         if (!chargeNetworkPolicy.supportsChain(
                 chargeRequest.getChainId()
         )) {
-            return chargeRequestWriter.reject(
-                    chargeRequestId,
+            return rejectCharge(
+                    chargeRequest,
                     ChargeStatusReason.CHAIN_ID_MISMATCH
             );
         }
@@ -53,16 +50,24 @@ public class ChargeProcessingService {
 
         return switch (verificationResult.outcome()) {
             case WAITING -> chargeRequest;
-            case REJECTED -> chargeRequestWriter.reject(
-                    chargeRequestId,
+            case REJECTED -> rejectCharge(
+                    chargeRequest,
                     verificationResult.reason()
             );
             case VERIFIED -> confirmCharge(chargeRequest);
         };
     }
 
-    private ChargeRequestEntity confirmCharge(
-            ChargeRequestEntity chargeRequest
+    private ChargeRequest rejectCharge(
+            ChargeRequest chargeRequest,
+            ChargeStatusReason failureReason
+    ) {
+        chargeRequest.fail(failureReason);
+        return chargeRequestWriter.update(chargeRequest);
+    }
+
+    private ChargeRequest confirmCharge(
+            ChargeRequest chargeRequest
     ) {
         BigDecimal creditedAbcAmount =
                 abcConversionPolicy.convert(

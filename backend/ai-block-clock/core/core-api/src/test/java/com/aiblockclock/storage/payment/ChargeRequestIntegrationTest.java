@@ -1,5 +1,4 @@
 package com.aiblockclock.storage.payment;
-import com.aiblockclock.enums.payment.ChargeStatusReason;
 
 import com.aiblockclock.enums.payment.ChargeStatus;
 import org.junit.jupiter.api.Tag;
@@ -10,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -123,99 +121,4 @@ class ChargeRequestIntegrationTest {
         ).isInstanceOf(DataIntegrityViolationException.class);
     }
 
-    @Test
-    void 대기_중인_충전_요청을_확정하면_CONFIRMED_상태가_된다() {
-        ChargeRequestEntity chargeRequest =
-                ChargeRequestEntity.pending(
-                        "user-400",
-                        "0x4444444444444444444444444444444444444444",
-                        12345L,
-                        "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-                        new BigDecimal("10.000000")
-                );
-
-        Instant confirmedAt =
-                Instant.parse("2026-09-10T06:00:00Z");
-
-        chargeRequest.confirm(
-                new BigDecimal("100.000"),
-                confirmedAt
-        );
-
-        ChargeRequestEntity saved =
-                chargeRequestRepository.saveAndFlush(chargeRequest);
-
-        assertThat(saved.getStatus())
-                .isEqualTo(ChargeStatus.CONFIRMED);
-
-        assertThat(saved.getCreditedAbcAmount())
-                .isEqualByComparingTo("100.000");
-
-        assertThat(saved.getConfirmedAt())
-                .isEqualTo(confirmedAt);
-
-        assertThat(saved.getStatusReason())
-                .isNull();
-    }
-
-    @Test
-    void 대기_중인_충전_요청을_실패_처리하면_사유와_함께_FAILED가_된다() {
-        ChargeRequestEntity chargeRequest =
-                ChargeRequestEntity.pending(
-                        "user-500",
-                        "0x5555555555555555555555555555555555555555",
-                        12345L,
-                        "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-                        new BigDecimal("10.000000")
-                );
-
-        chargeRequest.fail(
-                ChargeStatusReason.AMOUNT_MISMATCH
-        );
-
-        ChargeRequestEntity saved =
-                chargeRequestRepository.saveAndFlush(chargeRequest);
-
-        assertThat(saved.getStatus())
-                .isEqualTo(ChargeStatus.FAILED);
-
-        assertThat(saved.getStatusReason())
-                .isEqualTo(ChargeStatusReason.AMOUNT_MISMATCH);
-
-        assertThat(saved.getCreditedAbcAmount())
-                .isNull();
-
-        assertThat(saved.getConfirmedAt())
-                .isNull();
-    }
-
-    @Test
-    void 충전_요청을_여러_번_취소해도_CANCELED가_유지된다() {
-        ChargeRequestEntity chargeRequest =
-                ChargeRequestEntity.pending(
-                        "user-600",
-                        "0x6666666666666666666666666666666666666666",
-                        12345L,
-                        "0x9999999999999999999999999999999999999999999999999999999999999999",
-                        new BigDecimal("10.000000")
-                );
-
-        chargeRequest.cancel();
-        chargeRequest.cancel();
-
-        ChargeRequestEntity saved =
-                chargeRequestRepository.saveAndFlush(chargeRequest);
-
-        assertThat(saved.getStatus())
-                .isEqualTo(ChargeStatus.CANCELED);
-
-        assertThat(saved.getStatusReason())
-                .isEqualTo(ChargeStatusReason.USER_CANCELED);
-
-        assertThat(saved.getCreditedAbcAmount())
-                .isNull();
-
-        assertThat(saved.getConfirmedAt())
-                .isNull();
-    }
 }

@@ -8,19 +8,36 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Component
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ChargeRequestReader {
 
     private final ChargeRequestRepository chargeRequestRepository;
 
-    @Transactional(readOnly = true)
-    public ChargeRequestEntity read(Long chargeRequestId) {
-        return chargeRequestRepository.findById(chargeRequestId)
-                .orElseThrow(
-                        () -> new CoreException(
-                                ErrorType.CHARGE_REQUEST_NOT_FOUND
-                        )
-                );
+    public ChargeRequest read(Long chargeRequestId) {
+        ChargeRequestEntity entity =
+                chargeRequestRepository.findById(chargeRequestId)
+                        .orElseThrow(
+                                () -> new CoreException(
+                                        ErrorType.CHARGE_REQUEST_NOT_FOUND
+                                )
+                        );
+
+        return ChargeRequestEntityConverter.toDomain(entity);
+    }
+
+    public Optional<ChargeRequest> findByChainAndTransactionHash(
+            Long chainId,
+            String transactionHash
+    ) {
+        return chargeRequestRepository
+                .findByChainIdAndTransactionHash(
+                        chainId,
+                        transactionHash
+                )
+                .map(ChargeRequestEntityConverter::toDomain);
     }
 }

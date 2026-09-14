@@ -1,7 +1,5 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.storage.payment.ChargeRequestEntity;
-
 public record ChargeNetworkPolicy(
         Long chainId,
         String custodyAddress,
@@ -15,7 +13,7 @@ public record ChargeNetworkPolicy(
     }
 
     public ChargeVerificationCommand createVerificationCommand(
-            ChargeRequestEntity chargeRequest
+            ChargeRequest chargeRequest
     ) {
         return new ChargeVerificationCommand(
                 chainId,

@@ -1,6 +1,5 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -38,8 +37,8 @@ class ChargeNetworkPolicyTest {
 
     @Test
     void 충전_요청과_네트워크_정책으로_검증_명령을_생성한다() {
-        ChargeRequestEntity chargeRequest =
-                ChargeRequestEntity.pending(
+        ChargeRequest chargeRequest =
+                ChargeRequest.pending(
                         "user-request-100",
                         "0x1111111111111111111111111111111111111111",
                         CHAIN_ID,
