@@ -252,7 +252,7 @@ new CoreException(ErrorType.WORKFLOW_DUPLICATE_NODE_KEY, "노드 키가 중복�
 new CoreException(ErrorType.WORKFLOW_DUPLICATE_NODE_KEY, Map.of("nodeKey", node.key().value()));
 
 // 된다 — 클라이언트가 그대로 화면에 쓸 수 있는 값
-new CoreException(ErrorType.WORKFLOW_NODE_LIMIT_EXCEEDED, Map.of("limit", 50, "actual", 63));
+new CoreException(ErrorType.WORKFLOW_NODE_LIMIT_EXCEEDED, Map.of("limit", 20, "actual", 23));
 new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
         Map.of("expectedRevision", 7L, "currentRevision", 8L));
 
@@ -352,10 +352,14 @@ core-enum   com.aiblockclock.enums
             └── agent          Tier · Visibility · BaseCostStatus · PublicationState
 ```
 
-`implementation` 과 `storage` 는 아직 코드가 없다. 붙일 때 ARCHITECTURE.md 2.3 · 2.4 를 따른다.
+**`implementation` 계층은 자기 패키지를 갖지 않고 도메인 패키지 안에 들어간다.**
+`Reader` · `Writer` · `Manager` 는 `com.aiblockclock.implementation.workflow` 가 아니라
+`com.aiblockclock.domain.workflow` 에 둔다. 계층은 패키지가 아니라 접미사로 판별하고
+(NAMING.md 2.3), 패키지는 도메인으로 묶는다.
 
 - 도메인 모델은 스프링 빈이 아니다. `@Service`·`@Component` 를 붙이지 않는다.
 - 도메인 모델은 JPA 애노테이션을 갖지 않고, `storage` 의 엔티티를 참조하지 않는다 (ARCHITECTURE.md 2.2).
+  같은 패키지의 `Reader` · `Writer` · `Manager` 는 implementation 계층이므로 엔티티를 만진다. 모델과 혼동하지 않는다.
 - `support` 는 응답·예외 규약이라 계층 밖에 둔다. 어느 계층에서든 참조할 수 있다.
 
 ### 11.1 도메인 enum 은 `core-enum` 에 둔다
@@ -445,9 +449,12 @@ public final class UsageTypePolicy {           // 판정은 도메인에 남는�
 
 | 항목 | 지금 | 정해야 할 것 |
 | --- | --- | --- |
-| `GraphLimits` 기본값 | 노드 50개 / 깊이 20 | 실행 엔진의 처리 한계 |
+| `GraphLimits` 기본값 | 노드 20개 / 깊이 10 (API 명세서 값) | 실행 엔진의 처리 한계 |
+| 노드 수 / 깊이 한도 | 한 줄이라 둘을 같은 수(`chainLength`)로 잰다. 실효 한도는 10 하나뿐이고, 20 은 11개 이상일 때 어느 코드가 나가는지를 가르는 경계다 (11~20 은 깊이, 21 부터는 노드) | 명세서가 둘을 따로 둘 이유가 있는지 |
+| 목록 커서 | 오프셋을 Base64 로 감싼 것. `size + 1` 을 읽어 다음 페이지 유무를 판정한다 | 정렬 키 기반 커서. 지금은 페이지를 넘기다 행이 끼면 밀린다 |
+| 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `AGENT_006`, `AGENT_007` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| `ownerId` 출처 | 회원 도메인·인증이 없다 | 인증 붙은 뒤 현재 사용자 조회 방식 |
+| `ownerId` 출처 | 회원 도메인·인증이 없어 `X-Owner-Id` 헤더를 그대로 믿는다 (`CurrentOwnerArgumentResolver`). 클라이언트가 남을 가장할 수 있다 | 인증 붙은 뒤 현재 사용자 조회 방식 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |
 
 ### `domain` 이 Spring 을 참조하는 문제
@@ -462,4 +469,4 @@ public final class UsageTypePolicy {           // 판정은 도메인에 남는�
 ### `ErrorMessage` 가 내보내는 코드
 
 `ErrorMessage` 는 `errorType.getCode().name()` 을 `code` 로 내보낸다.
-예를 들어 `WORKFLOW_REVISION_CONFLICT` 는 `WORKFLOW_005` 로 응답한다.
+예를 들어 `WORKFLOW_REVISION_CONFLICT` 는 `WORKFLOW_016` 으로 응답한다.

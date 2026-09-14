@@ -1,6 +1,5 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.config.OpenApiConfig;
 import com.aiblockclock.api.v1.request.WorkflowReplaceRequest;
 import com.aiblockclock.api.v1.request.WorkflowSaveRequest;
 import com.aiblockclock.api.v1.response.WorkflowDeleteResponse;
@@ -19,7 +18,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
@@ -29,11 +27,11 @@ import jakarta.validation.constraints.Positive;
 import java.util.UUID;
 
 @Tag(name = "워크플로우", description = "캔버스에서 만든 워크플로우를 저장하고 다시 불러온다.")
-@SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 public interface WorkflowApi {
     String SAVE_REQUEST_EXAMPLE = """
             {
               "name": "성적 분석 리포트",
+              "description": "학생별 성적을 모아 리포트로 만든다",
               "nodes": [
                 { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13" },
                 { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "c0a8012e-5d31-4f0a-8b6d-77a1e9f3b210" }
@@ -64,6 +62,7 @@ public interface WorkflowApi {
               "data": {
                 "workflowId": "33567ab2-e08b-461b-a0f2-51a857df5ec7",
                 "name": "성적 분석 리포트",
+                "description": "학생별 성적을 모아 리포트로 만든다",
                 "revision": 1,
                 "nodes": [
                   { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13",
@@ -137,7 +136,8 @@ public interface WorkflowApi {
                     캔버스 구성을 새 워크플로우로 저장한다. `revision` 은 1 로 시작한다.
 
                     노드는 실체가 아니라 배치 정보(`nodeKey` · `sourceType` · `sourceId`)만 보낸다.
-                    서버가 `sourceType` 에 맞는 원본을 찾아 노드를 복원하므로, 없는 원본을 가리키면 `WORKFLOW_015` 로 거부한다.
+                    `AGENT` 는 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
+                    `NODE` 는 노드 카탈로그가 붙기 전까지 `sourceId` 를 검증하지 않고 그대로 저장한다.
 
                     구조 검사는 세 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
                     그리고 전체가 분기 없는 한 줄로 이어질 것. 분기·합류·단절은 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.""",
@@ -165,9 +165,10 @@ public interface WorkflowApi {
     @Operation(
             summary = "워크플로우 상세 조회",
             description = """
-                    저장된 노드와 연결선을 그대로 돌려준다. 캔버스는 이 값으로 복원한다.
+                    저장된 노드와 연결선을 돌려준다. 캔버스는 이 값으로 복원한다.
 
                     배치 좌표는 저장하지 않는다. `edges` 의 연결 순서만으로 화면이 배치를 계산한다.
+                    `nodes` 와 `edges` 는 그 연결을 따라간 순서로 나간다. 보낸 배열 순서가 달랐어도 같다.
                     소유자만 조회할 수 있다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 완료", useReturnTypeSchema = true,

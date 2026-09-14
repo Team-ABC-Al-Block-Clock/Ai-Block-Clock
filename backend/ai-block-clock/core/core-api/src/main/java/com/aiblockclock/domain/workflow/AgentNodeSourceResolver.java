@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+// 에이전트 애그리거트 연동 전까지 모든 AGENT 배치를 WORKFLOW_015 로 거부한다.
 @Component
 public class AgentNodeSourceResolver implements NodeSourceResolver {
     @Override

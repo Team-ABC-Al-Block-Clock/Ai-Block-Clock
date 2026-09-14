@@ -13,7 +13,7 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 
 @Component
 public class CurrentOwnerArgumentResolver implements HandlerMethodArgumentResolver {
-    static final String OWNER_HEADER = "X-Owner-Id";
+    public static final String OWNER_HEADER = "X-Owner-Id";
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
