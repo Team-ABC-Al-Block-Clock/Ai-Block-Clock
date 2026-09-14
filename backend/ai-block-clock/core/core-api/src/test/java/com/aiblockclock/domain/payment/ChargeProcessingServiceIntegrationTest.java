@@ -138,4 +138,101 @@ class ChargeProcessingServiceIntegrationTest {
         assertThat(ledgerTransactionRepository.count())
                 .isZero();
     }
+
+    @Test
+    void 온체인_거래가_아직_PENDING이면_충전_요청도_PENDING을_유지한다() {
+        ChargeRequestEntity chargeRequest =
+                chargeRequestRepository.saveAndFlush(
+                        ChargeRequestEntity.pending(
+                                "user-processing-300",
+                                "0x3333333333333333333333333333333333333333",
+                                12345L,
+                                "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                                new BigDecimal("10.000000")
+                        )
+                );
+
+        ChargeNetworkPolicy chargeNetworkPolicy =
+                createChargeNetworkPolicy();
+
+        OnChainUsdcTransfer onChainUsdcTransfer =
+                new OnChainUsdcTransfer(
+                        OnChainTransactionStatus.PENDING,
+                        12345L,
+                        chargeRequest.getTransactionHash(),
+                        chargeRequest.getSenderWalletAddress(),
+                        chargeNetworkPolicy.custodyAddress(),
+                        chargeNetworkPolicy.usdcContractAddress(),
+                        chargeRequest.getRequestedUsdcAmount(),
+                        chargeNetworkPolicy.requiredConfirmations()
+                );
+
+        ChargeRequestEntity result =
+                processingService.process(
+                        chargeRequest.getId(),
+                        onChainUsdcTransfer,
+                        chargeNetworkPolicy
+                );
+
+        assertThat(result.getStatus())
+                .isEqualTo(ChargeStatus.PENDING);
+        assertThat(result.getCreditedAbcAmount())
+                .isNull();
+        assertThat(ledgerTransactionRepository.count())
+                .isZero();
+    }
+
+    @Test
+    void 온체인_거래가_FAILED이면_실패_사유를_저장한다() {
+        ChargeRequestEntity chargeRequest =
+                chargeRequestRepository.saveAndFlush(
+                        ChargeRequestEntity.pending(
+                                "user-processing-400",
+                                "0x4444444444444444444444444444444444444444",
+                                12345L,
+                                "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                                new BigDecimal("10.000000")
+                        )
+                );
+
+        ChargeNetworkPolicy chargeNetworkPolicy =
+                createChargeNetworkPolicy();
+
+        OnChainUsdcTransfer onChainUsdcTransfer =
+                new OnChainUsdcTransfer(
+                        OnChainTransactionStatus.FAILED,
+                        12345L,
+                        chargeRequest.getTransactionHash(),
+                        chargeRequest.getSenderWalletAddress(),
+                        chargeNetworkPolicy.custodyAddress(),
+                        chargeNetworkPolicy.usdcContractAddress(),
+                        chargeRequest.getRequestedUsdcAmount(),
+                        chargeNetworkPolicy.requiredConfirmations()
+                );
+
+        ChargeRequestEntity result =
+                processingService.process(
+                        chargeRequest.getId(),
+                        onChainUsdcTransfer,
+                        chargeNetworkPolicy
+                );
+
+        assertThat(result.getStatus())
+                .isEqualTo(ChargeStatus.FAILED);
+        assertThat(result.getStatusReason())
+                .isEqualTo(
+                        ChargeStatusReason.ONCHAIN_TRANSACTION_FAILED
+                );
+        assertThat(ledgerTransactionRepository.count())
+                .isZero();
+    }
+
+    private ChargeNetworkPolicy createChargeNetworkPolicy() {
+        return new ChargeNetworkPolicy(
+                12345L,
+                "0x2222222222222222222222222222222222222222",
+                "0x3333333333333333333333333333333333333333",
+                5L
+        );
+    }
 }
