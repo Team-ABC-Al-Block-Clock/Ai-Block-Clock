@@ -69,10 +69,12 @@ export interface UpdatedProfile {
   updatedAt: string
 }
 
-/** 명세가 정한 길이. 화면 검증과 mock 이 같은 값을 본다. */
+/** 명세가 정한 제약. 화면 검증과 mock 이 같은 값을 본다. */
 export const PROFILE_LIMITS = {
   nickname: { min: 2, max: 20 },
   introduction: { max: 40 },
+  /** 프로필 이미지. 화면이 고르는 즉시 막아 5MB 를 올렸다가 거절당하는 왕복을 없앤다. */
+  image: { maxBytes: 5 * 1024 * 1024, types: ['image/png', 'image/jpeg'] },
 } as const
 
 /**
@@ -80,11 +82,23 @@ export const PROFILE_LIMITS = {
  *
  * 명세가 `multipart/form-data` 를 요구한다(프로필 이미지가 같은 요청에 실린다).
  * Content-Type 은 지정하지 않는다 — axios 가 boundary 까지 붙여 준다(7절).
+ *
+ * 이미지는 교체(`profileImageFile`)와 삭제(`removeProfileImage`)가 갈린다. 파일을 **안 보내는
+ * 것**은 "그대로 두라"는 뜻이라 삭제를 표현할 수 없어서 플래그가 따로 있다. 둘을 같이 보내면
+ * 서버가 USER_007 로 거절하므로 화면에서도 한쪽만 정해 보낸다.
  */
-export const updateMyProfile = (params: { nickname?: string; introduction?: string }) => {
+export const updateMyProfile = (params: {
+  nickname?: string
+  introduction?: string
+  profileImageFile?: File
+  removeProfileImage?: boolean
+}) => {
   const body = new FormData()
   if (params.nickname !== undefined) body.append('nickname', params.nickname)
   if (params.introduction !== undefined) body.append('introduction', params.introduction)
+  if (params.profileImageFile) body.append('profileImageFile', params.profileImageFile)
+  // FormData 는 값을 문자열로 만든다. mock 도 'true' 로 읽는다.
+  if (params.removeProfileImage) body.append('removeProfileImage', 'true')
   return api.patch<UpdatedProfile>('/users/me', body)
 }
 

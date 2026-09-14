@@ -19,6 +19,24 @@ export default function MyPageEdit() {
   const [introduction, setIntroduction] = useState(profile?.introduction ?? '')
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
 
+  /**
+   * 고른 파일과 삭제 의사는 배타적이다 — 서버가 둘을 같이 받으면 USER_007 로 거절한다.
+   *
+   * 미리보기 URL 을 파일과 한 덩어리로 들고 다닌다. 저장 전에도 얼굴이 바뀌어야 무엇을
+   * 올리는지 알 수 있고, URL 을 이펙트에서 만들면 렌더 한 번은 옛 얼굴로 지나간다.
+   */
+  const [picked, setPicked] = useState<{ file: File; url: string } | null>(null)
+  const [removeImage, setRemoveImage] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  // 바뀌거나 화면을 떠날 때 푼다. 안 풀면 고를 때마다 blob 이 쌓인다.
+  useEffect(() => {
+    const url = picked?.url
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [picked])
+
   // 렌더마다 새로 만들어지는 지역 변수로는 정리 함수가 엉뚱한 핸들을 지운다
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -36,10 +54,23 @@ export default function MyPageEdit() {
   const invalid = nicknameError !== null || introError !== null
 
   const dirty =
-    trimmedNickname !== (profile?.nickname ?? '') || trimmedIntro !== (profile?.introduction ?? '')
+    trimmedNickname !== (profile?.nickname ?? '') ||
+    trimmedIntro !== (profile?.introduction ?? '') ||
+    picked !== null ||
+    removeImage
+
+  /** 지금 얼굴로 보여줄 것. 고른 파일 > 삭제 예정 > 저장된 이미지 순으로 이긴다. */
+  const avatarUrl = picked?.url ?? (removeImage ? null : (profile?.profileImageUrl ?? null))
 
   const save = useMutation({
-    mutationFn: () => updateMyProfile({ nickname: trimmedNickname, introduction: trimmedIntro }),
+    mutationFn: () =>
+      updateMyProfile({
+        nickname: trimmedNickname,
+        introduction: trimmedIntro,
+        // 둘 중 하나만 보낸다. 같이 보내면 서버가 USER_007 로 거절한다.
+        ...(picked ? { profileImageFile: picked.file } : {}),
+        ...(removeImage ? { removeProfileImage: true } : {}),
+      }),
     onSuccess: (updated) => {
       // 프로필은 쿼리가 아니라 스토어에 있다(7절). 저장 결과를 되돌려 넣어야
       // 사이드바 이름·소개가 같이 바뀐다. 응답에 없는 필드는 스토어가 유지한다.
@@ -48,6 +79,10 @@ export default function MyPageEdit() {
         introduction: updated.introduction,
         profileImageUrl: updated.profileImageUrl,
       })
+      // 저장된 값이 스토어로 들어왔으니 고른 파일과 삭제 의사는 비운다 —
+      // 남겨 두면 dirty 가 계속 참이라 저장 버튼이 살아 있다.
+      setPicked(null)
+      setRemoveImage(false)
       setToast({ ok: true, text: '변경사항이 저장되었습니다' })
       saveTimer.current = setTimeout(() => navigate(paths.my.agents), 1100)
     },
@@ -65,6 +100,35 @@ export default function MyPageEdit() {
     if (!canSave) return
     setToast(null)
     save.mutate()
+  }
+
+  /** 고르는 즉시 막는다 — 5MB 를 올렸다가 서버가 거절하는 왕복을 없앤다. */
+  const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // 같은 파일을 다시 고를 수 있게 값을 비운다. 안 그러면 onChange 가 안 뜬다.
+    e.target.value = ''
+    if (!file) return
+
+    // 서버도 USER_004·USER_005 로 막지만, 여기서 걸러야 5MB 를 올렸다가 거절당하지 않는다.
+    const { types, maxBytes } = PROFILE_LIMITS.image
+    if (!(types as readonly string[]).includes(file.type)) {
+      setToast({ ok: false, text: 'PNG 또는 JPG 만 올릴 수 있습니다' })
+      return
+    }
+    if (file.size > maxBytes) {
+      setToast({ ok: false, text: '이미지는 5MB 이하여야 합니다' })
+      return
+    }
+    setToast(null)
+    setRemoveImage(false)
+    setPicked({ file, url: URL.createObjectURL(file) })
+  }
+
+  const handleRemoveImage = () => {
+    setToast(null)
+    setPicked(null)
+    // 저장된 이미지가 없으면 고른 것을 취소하는 것으로 끝난다 — 서버에 보낼 삭제가 없다.
+    setRemoveImage(profile?.profileImageUrl != null)
   }
   const payments = [
     {
@@ -132,15 +196,55 @@ export default function MyPageEdit() {
               className="relative overflow-hidden rounded-full bg-[rgba(255,255,255,.10)]"
               style={{ width: '104px', height: '104px' }}
             >
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    'radial-gradient(circle at 52% 28%, rgba(255,218,224,.20), rgba(255,214,232,0) 62%)',
-                }}
-              ></div>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      'radial-gradient(circle at 52% 28%, rgba(255,218,224,.20), rgba(255,214,232,0) 62%)',
+                  }}
+                ></div>
+              )}
             </div>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={handlePickImage}
+              className="hidden"
+            />
+
+            {/* 지울 것이 있을 때만 낸다 — 기본 아바타에 ✕ 는 아무 일도 하지 않는다 */}
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                aria-label="프로필 사진 삭제"
+                style={{
+                  left: '74px',
+                  top: '0px',
+                  width: '30px',
+                  height: '30px',
+                  background: 'rgba(28,12,42,.9)',
+                  color: 'rgba(255,214,232,.9)',
+                }}
+                className="absolute flex cursor-pointer items-center justify-center rounded-full text-[13px] transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
+              >
+                ✕
+              </button>
+            )}
+
             <div
+              onClick={() => fileInput.current?.click()}
+              role="button"
+              tabIndex={0}
+              aria-label="프로필 사진 선택"
               style={{
                 left: '74px',
                 top: '74px',

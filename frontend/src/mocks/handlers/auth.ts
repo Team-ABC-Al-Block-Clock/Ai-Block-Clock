@@ -20,9 +20,6 @@ import { scene } from '@/mocks/scenario'
  * 지갑 세션과 프로필은 localStorage 에 둔다 — 모듈 변수로 들고 있으면
  * 새로고침마다 픽스처로 돌아가서 "저장했는데 안 남는다" 로 보인다.
  */
-/** 명세의 프로필 이미지 상한. 5MB */
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024
-
 const PROFILE_KEY = 'mockProfile'
 /** 한 번이라도 로그인한 지갑. 처음 보는 주소는 온보딩 전으로 취급해 가입 화면을 태운다. */
 const KNOWN_WALLETS_KEY = 'mockKnownWallets'
@@ -63,6 +60,41 @@ function writeProfile(next: UserProfile): void {
   } catch {
     /* 접근 불가 환경 — 이번 세션에서만 값이 살아 있다 */
   }
+}
+
+/**
+ * 이미지 파트 검증. 가입과 프로필 수정이 같은 규칙을 쓴다(명세 USER_004·USER_005).
+ * 파일이 아니면 검사할 것이 없다 — 안 보낸 것은 「그대로 두라」는 뜻이다.
+ */
+function rejectBadImage(image: FormDataEntryValue | null) {
+  if (!(image instanceof File)) return null
+
+  const { types, maxBytes } = PROFILE_LIMITS.image
+  if (!(types as readonly string[]).includes(image.type)) {
+    return fail(400, USER_ERROR.IMAGE_TYPE, '프로필 이미지는 PNG 또는 JPG 여야 합니다.')
+  }
+  if (image.size > maxBytes) {
+    return fail(400, USER_ERROR.IMAGE_SIZE, '프로필 이미지는 5MB 를 넘을 수 없습니다.')
+  }
+  return null
+}
+
+/**
+ * 고른 이미지를 data URL 로 바꾼다 — mock 에는 파일을 둘 CDN 이 없고, blob URL 은
+ * 새로고침하면 죽어서 「저장했는데 안 남는다」가 된다.
+ *
+ * base64 는 원본의 약 1.37배라 큰 파일은 localStorage 한도를 넘는다. 그때는 `writeProfile`
+ * 이 조용히 실패해 이번 세션에서만 보인다. mock 으로 확인할 때 쓰는 이미지는 작다.
+ */
+async function toDataUrl(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  let binary = ''
+  // 한 번에 펼치면 인자가 너무 많아 스택이 넘친다.
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return `data:${file.type};base64,${btoa(binary)}`
 }
 
 /**
@@ -177,22 +209,42 @@ export const authHandlers = [
     const form = await request.formData()
     const nickname = form.get('nickname')
     const introduction = form.get('introduction')
+    const image = form.get('profileImageFile')
+    const removeImage = form.get('removeProfileImage') === 'true'
+
+    // 교체와 삭제를 같이 보내면 어느 쪽인지 정할 수 없다.
+    if (image instanceof File && removeImage) {
+      return fail(400, USER_ERROR.IMAGE_CONFLICT, '이미지 교체와 삭제를 함께 보낼 수 없습니다.')
+    }
 
     const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
     if (
       typeof nickname === 'string' &&
       (nickname.length < nickLimit.min || nickname.length > nickLimit.max)
     ) {
-      return fail(400, 'USER_002', `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`)
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`,
+      )
     }
     if (typeof introduction === 'string' && introduction.length > introLimit.max) {
-      return fail(400, 'USER_002', `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`)
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`,
+      )
     }
+
+    const badImage = rejectBadImage(image)
+    if (badImage) return badImage
 
     // 보내지 않은 필드는 그대로 둔다
     let next = readProfile()
     if (typeof nickname === 'string') next = { ...next, nickname }
     if (typeof introduction === 'string') next = { ...next, introduction }
+    if (image instanceof File) next = { ...next, profileImageUrl: await toDataUrl(image) }
+    if (removeImage) next = { ...next, profileImageUrl: null }
     writeProfile(next)
 
     return ok<UpdatedProfile>({
@@ -255,16 +307,8 @@ export const authHandlers = [
       )
     }
 
-    // 화면은 아직 파일을 보내지 않는다(업로드는 별도 이슈). 서버를 흉내 내는 쪽이라
-    // 명세에 있는 분기는 갖고 있는다 — 업로드가 붙는 날 바로 쓰인다.
-    if (image instanceof File) {
-      if (image.type !== 'image/png' && image.type !== 'image/jpeg') {
-        return fail(400, USER_ERROR.IMAGE_TYPE, '프로필 이미지는 PNG 또는 JPG 여야 합니다.')
-      }
-      if (image.size > IMAGE_MAX_BYTES) {
-        return fail(400, USER_ERROR.IMAGE_SIZE, '프로필 이미지는 5MB 를 넘을 수 없습니다.')
-      }
-    }
+    const badImage = rejectBadImage(image)
+    if (badImage) return badImage
 
     const next: UserProfile = {
       ...current,

@@ -76,6 +76,8 @@ export const USER_ERROR = {
   IMAGE_SIZE: 'USER_005',
   /** 이미 가입 절차를 마친 사용자가 다시 호출 — 409 */
   ALREADY_SIGNED_UP: 'USER_006',
+  /** 이미지 교체와 삭제를 한 요청에 같이 보냄 */
+  IMAGE_CONFLICT: 'USER_007',
 } as const
 
 /** 응답 본문이 서버의 실패 봉투 모양인지 확인한다. */

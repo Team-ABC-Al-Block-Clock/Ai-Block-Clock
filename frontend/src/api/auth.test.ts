@@ -143,3 +143,16 @@ describe('signup', () => {
     await expect(getMyProfile()).resolves.toMatchObject({ nickname: '김선미' })
   })
 })
+
+/**
+ * 프로필 이미지(`updateMyProfile` 의 `profileImageFile`·`removeProfileImage`)는 여기서 검증하지
+ * 않는다 — Node 에서 파일 파트를 실어 보낼 길이 없다.
+ *
+ * jsdom 의 `FormData`·`File` 은 axios 의 http 어댑터(`form-data`)도, undici 의 fetch 도 알아보지
+ * 못해 multipart 로 직렬화되지 않는다. 문자열 파트만 쓰는 위 가입 테스트가 http 어댑터로 도는
+ * 것이 가능한 최대치다.
+ *
+ * 그래서 이미지 분기(USER_004 형식 · USER_005 크기 · USER_007 교체와 삭제 동시 전송 · 부분
+ * 수정에서 기존 이미지 유지)는 브라우저에서 확인한다. 실제 브라우저는 boundary 를 붙인
+ * multipart 를 보내므로 같은 코드가 그대로 동작한다.
+ */
