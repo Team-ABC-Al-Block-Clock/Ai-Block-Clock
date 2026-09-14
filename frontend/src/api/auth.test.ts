@@ -51,6 +51,7 @@ describe('signup', () => {
 
     const result = await signup({ nickname: '김선미', introduction: '나는척척박사입니다', ...FORM })
 
+    // GET /users/me 와 같은 모양이다 — 지갑은 객체다.
     expect(Object.keys(result).sort()).toEqual([
       'createdAt',
       'introduction',
@@ -58,8 +59,9 @@ describe('signup', () => {
       'onboardingCompleted',
       'profileImageUrl',
       'userId',
-      'walletAddress',
+      'wallet',
     ])
+    expect(result.wallet.address).toMatch(/^0x/)
     expect(result.nickname).toBe('김선미')
     expect(result.onboardingCompleted).toBe(true)
     expect(result).not.toHaveProperty('status')

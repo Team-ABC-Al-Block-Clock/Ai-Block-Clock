@@ -68,13 +68,8 @@ export default function Signup() {
     onSuccess: (result) => {
       // 프로필은 쿼리가 아니라 스토어에 있다(7절). 온보딩 여부까지 같이 덮어야
       // 다음 로그인이 이 화면으로 되돌리지 않는다.
-      // 응답의 walletAddress 는 평평한 문자열이라 wallet 객체를 채울 수 없다 — 쓰지 않는다.
-      setProfile({
-        nickname: result.nickname,
-        introduction: result.introduction,
-        profileImageUrl: result.profileImageUrl,
-        onboardingCompleted: true,
-      })
+      // 응답이 곧 프로필이라 통째로 넣는다 — 지갑도 같은 모양으로 온다.
+      setProfile(result)
       navigate(paths.home, { replace: true })
     },
     onError: (error) => {

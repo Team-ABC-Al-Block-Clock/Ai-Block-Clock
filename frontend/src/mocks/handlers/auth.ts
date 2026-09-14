@@ -1,12 +1,6 @@
 import { http } from 'msw'
 
-import type {
-  AuthTokens,
-  SignupResult,
-  UpdatedProfile,
-  UserProfile,
-  WalletMessage,
-} from '@/api/auth'
+import type { AuthTokens, UpdatedProfile, UserProfile, WalletMessage } from '@/api/auth'
 import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
 import { AUTH_ERROR, USER_ERROR } from '@/api/errors'
@@ -312,6 +306,8 @@ export const authHandlers = [
 
     const next: UserProfile = {
       ...current,
+      // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — GET /users/me 와 같은 이유다.
+      wallet: { ...current.wallet, address: readSession() ?? current.wallet.address },
       nickname,
       introduction: typeof introduction === 'string' && introduction ? introduction : null,
       // 안 보내면 기본 아바타 그대로다 — 명세 「없으면 profileImageUrl 을 null 로 반환」
@@ -320,15 +316,7 @@ export const authHandlers = [
     }
     writeProfile(next)
 
-    return ok<SignupResult>({
-      userId: next.userId,
-      // 명세가 평평한 문자열로 준다 — GET /users/me 의 wallet 객체와 모양이 다르다.
-      walletAddress: readSession() ?? next.wallet.address,
-      nickname: next.nickname,
-      introduction: next.introduction,
-      profileImageUrl: next.profileImageUrl,
-      onboardingCompleted: true,
-      createdAt: next.createdAt,
-    })
+    // 응답이 곧 프로필이다 — 명세가 GET /users/me 와 같은 모양으로 준다.
+    return ok<UserProfile>(next)
   }),
 ]

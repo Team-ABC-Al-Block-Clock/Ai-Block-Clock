@@ -103,23 +103,6 @@ export const updateMyProfile = (params: {
 }
 
 /**
- * POST /users/me/signup 응답.
- *
- * 지갑이 `walletAddress` 평평한 문자열이다 — `GET /users/me` 는 `wallet` 객체로 준다.
- * 같은 것의 모양이 둘이라 서버에 통일을 요청해 둔 상태다. 그때까지는 이 값을 쓰지 않고
- * 프로필 필드만 스토어에 병합한다 — 평평한 주소로는 `UserProfile.wallet` 을 못 채운다.
- */
-export interface SignupResult {
-  userId: string
-  walletAddress: string
-  nickname: string
-  introduction: string | null
-  profileImageUrl: string | null
-  onboardingCompleted: boolean
-  createdAt: string
-}
-
-/**
  * POST /users/me/signup — 프로필과 두 가지 동의를 한 번에 저장하고 가입을 마친다.
  *
  * 저장과 동의 기록이 서버에서 한 트랜잭션이라 화면이 호출 순서를 고민할 필요가 없다.
@@ -133,6 +116,9 @@ export interface SignupResult {
  * 어디에도 남지 않는다.
  *
  * 프로필 이미지는 선택이다. 안 보내면 서버가 `profileImageUrl` 을 null 로 준다.
+ *
+ * 응답은 `GET /users/me` 와 같은 `UserProfile` 이다 — 지갑도 객체로 온다. 따로 타입을 두면
+ * 같은 것이 두 모양으로 갈린다.
  */
 export const signup = (params: {
   nickname: string
@@ -148,5 +134,5 @@ export const signup = (params: {
   // FormData 는 값을 문자열로 만든다. 'true' / 'false' 로 나가는 것을 mock 도 같은 규칙으로 읽는다.
   body.append('termsAgreed', String(params.termsAgreed))
   body.append('recoveryNoticeConfirmed', String(params.recoveryNoticeConfirmed))
-  return api.post<SignupResult>('/users/me/signup', body)
+  return api.post<UserProfile>('/users/me/signup', body)
 }
