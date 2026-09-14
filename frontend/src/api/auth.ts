@@ -88,5 +88,50 @@ export const updateMyProfile = (params: { nickname?: string; introduction?: stri
   return api.patch<UpdatedProfile>('/users/me', body)
 }
 
-/** 계정 복구 불가 고지 확인 (ACC-005) */
-export const completeOnboarding = () => api.patch<void>('/users/me/onboarding')
+/**
+ * POST /users/me/signup 응답.
+ *
+ * 지갑이 `walletAddress` 평평한 문자열이다 — `GET /users/me` 는 `wallet` 객체로 준다.
+ * 같은 것의 모양이 둘이라 서버에 통일을 요청해 둔 상태다. 그때까지는 이 값을 쓰지 않고
+ * 프로필 필드만 스토어에 병합한다 — 평평한 주소로는 `UserProfile.wallet` 을 못 채운다.
+ */
+export interface SignupResult {
+  userId: string
+  walletAddress: string
+  nickname: string
+  introduction: string | null
+  profileImageUrl: string | null
+  onboardingCompleted: boolean
+  createdAt: string
+}
+
+/**
+ * POST /users/me/signup — 프로필과 두 가지 동의를 한 번에 저장하고 가입을 마친다.
+ *
+ * 저장과 동의 기록이 서버에서 한 트랜잭션이라 화면이 호출 순서를 고민할 필요가 없다.
+ * 나눠 부르면 첫 호출만 성공한 채로 끊길 수 있고, 그러면 이름만 있고 가입은 안 끝난
+ * 계정이 남는다.
+ *
+ * 명세가 `multipart/form-data` 를 요구한다(프로필 이미지가 같은 요청에 실린다).
+ * Content-Type 은 지정하지 않는다 — axios 가 boundary 까지 붙여 준다(7절).
+ *
+ * 동의 두 값은 필수다. 화면에서 버튼을 막는 것만으로는 동의를 받았다는 기록이
+ * 어디에도 남지 않는다.
+ *
+ * `profileImageFile` 은 아직 보내지 않는다 — 업로드는 별도 이슈다.
+ */
+export const signup = (params: {
+  nickname: string
+  introduction?: string
+  termsAgreed: boolean
+  recoveryNoticeConfirmed: boolean
+}) => {
+  const body = new FormData()
+  body.append('nickname', params.nickname)
+  // 선택 항목이라 비어 있으면 필드를 빼고 보낸다 — 명세가 보낸 것만 반영한다.
+  if (params.introduction) body.append('introduction', params.introduction)
+  // FormData 는 값을 문자열로 만든다. 'true' / 'false' 로 나가는 것을 mock 도 같은 규칙으로 읽는다.
+  body.append('termsAgreed', String(params.termsAgreed))
+  body.append('recoveryNoticeConfirmed', String(params.recoveryNoticeConfirmed))
+  return api.post<SignupResult>('/users/me/signup', body)
+}

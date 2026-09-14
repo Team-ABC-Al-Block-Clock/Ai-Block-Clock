@@ -1,9 +1,15 @@
 import { http } from 'msw'
 
-import type { AuthTokens, UpdatedProfile, UserProfile, WalletMessage } from '@/api/auth'
+import type {
+  AuthTokens,
+  SignupResult,
+  UpdatedProfile,
+  UserProfile,
+  WalletMessage,
+} from '@/api/auth'
 import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
-import { AUTH_ERROR } from '@/api/errors'
+import { AUTH_ERROR, USER_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -14,6 +20,9 @@ import { scene } from '@/mocks/scenario'
  * 지갑 세션과 프로필은 localStorage 에 둔다 — 모듈 변수로 들고 있으면
  * 새로고침마다 픽스처로 돌아가서 "저장했는데 안 남는다" 로 보인다.
  */
+/** 명세의 프로필 이미지 상한. 5MB */
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
 const PROFILE_KEY = 'mockProfile'
 /** 한 번이라도 로그인한 지갑. 처음 보는 주소는 온보딩 전으로 취급해 가입 화면을 태운다. */
 const KNOWN_WALLETS_KEY = 'mockKnownWallets'
@@ -195,12 +204,85 @@ export const authHandlers = [
     })
   }),
 
-  /** 계정 복구 불가 고지 확인 */
-  http.patch(`${API_BASE_URL}/users/me/onboarding`, async () => {
+  /**
+   * 회원가입 완료 — 프로필과 두 가지 동의를 한 번에 저장한다.
+   *
+   * 검사 순서가 중요하다. 중복 호출 거부가 저장보다 앞에 와야 두 번째 요청이
+   * 이름을 덮어쓰고 나서 409 를 내는 일이 없다.
+   */
+  http.post(`${API_BASE_URL}/users/me/signup`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
 
-    writeProfile({ ...readProfile(), onboardingCompleted: true })
-    return ok(null)
+    if (!readSession()) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+
+    const current = readProfile()
+    if (current.onboardingCompleted) {
+      return fail(409, USER_ERROR.ALREADY_SIGNED_UP, '이미 가입 절차를 마친 계정입니다.')
+    }
+
+    const form = await request.formData()
+    const nickname = form.get('nickname')
+    const introduction = form.get('introduction')
+    const image = form.get('profileImageFile')
+
+    if (typeof nickname !== 'string' || nickname.trim() === '') {
+      return fail(400, 'COMMON_001', '이름이 필요합니다.')
+    }
+
+    const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+    if (nickname.length < nickLimit.min || nickname.length > nickLimit.max) {
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`,
+      )
+    }
+    if (typeof introduction === 'string' && introduction.length > introLimit.max) {
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`,
+      )
+    }
+
+    // FormData 는 값을 문자열로 만든다. api/auth.ts 가 String(boolean) 으로 넣는 것과 짝이다.
+    if (form.get('termsAgreed') !== 'true' || form.get('recoveryNoticeConfirmed') !== 'true') {
+      return fail(
+        400,
+        USER_ERROR.CONSENT_REQUIRED,
+        '약관 동의와 계정 복구 불가 고지 확인이 필요합니다.',
+      )
+    }
+
+    // 화면은 아직 파일을 보내지 않는다(업로드는 별도 이슈). 서버를 흉내 내는 쪽이라
+    // 명세에 있는 분기는 갖고 있는다 — 업로드가 붙는 날 바로 쓰인다.
+    if (image instanceof File) {
+      if (image.type !== 'image/png' && image.type !== 'image/jpeg') {
+        return fail(400, USER_ERROR.IMAGE_TYPE, '프로필 이미지는 PNG 또는 JPG 여야 합니다.')
+      }
+      if (image.size > IMAGE_MAX_BYTES) {
+        return fail(400, USER_ERROR.IMAGE_SIZE, '프로필 이미지는 5MB 를 넘을 수 없습니다.')
+      }
+    }
+
+    const next: UserProfile = {
+      ...current,
+      nickname,
+      introduction: typeof introduction === 'string' && introduction ? introduction : null,
+      onboardingCompleted: true,
+    }
+    writeProfile(next)
+
+    return ok<SignupResult>({
+      userId: next.userId,
+      // 명세가 평평한 문자열로 준다 — GET /users/me 의 wallet 객체와 모양이 다르다.
+      walletAddress: readSession() ?? next.wallet.address,
+      nickname: next.nickname,
+      introduction: next.introduction,
+      profileImageUrl: next.profileImageUrl,
+      onboardingCompleted: true,
+      createdAt: next.createdAt,
+    })
   }),
 ]

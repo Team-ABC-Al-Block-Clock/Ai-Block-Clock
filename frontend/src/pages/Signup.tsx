@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useDisconnect } from 'wagmi'
 
-import { completeOnboarding, PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
-import { ApiError } from '@/api/errors'
+import { PROFILE_LIMITS, signup } from '@/api/auth'
+import { ApiError, USER_ERROR } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
@@ -40,27 +40,35 @@ export default function Signup() {
     trimmedIntro.length > introLimit.max ? `한 줄 소개는 ${introLimit.max}자까지입니다` : null
 
   const join = useMutation({
-    mutationFn: async () => {
-      // 프로필을 먼저 저장한다. 순서가 뒤집히면 온보딩만 끝나 이름 없는 계정이
-      // 마켓에 들어가고, 이 화면으로는 다시 오지 못한다.
-      const updated = await updateMyProfile({
+    // 저장과 동의 기록이 서버에서 한 트랜잭션이다 — 화면이 호출 순서를 정하지 않는다.
+    mutationFn: () =>
+      signup({
         nickname: trimmedNickname,
         // 선택 항목이라 비어 있으면 필드를 빼고 보낸다 — 명세가 보낸 것만 반영한다.
         ...(trimmedIntro ? { introduction: trimmedIntro } : {}),
-      })
-      await completeOnboarding()
-      return updated
-    },
-    onSuccess: (updated) => {
+        // 버튼을 막는 것만으로는 동의를 받았다는 기록이 어디에도 남지 않는다.
+        termsAgreed: agreed,
+        recoveryNoticeConfirmed: lossAck,
+      }),
+    onSuccess: (result) => {
       // 프로필은 쿼리가 아니라 스토어에 있다(7절). 온보딩 여부까지 같이 덮어야
       // 다음 로그인이 이 화면으로 되돌리지 않는다.
+      // 응답의 walletAddress 는 평평한 문자열이라 wallet 객체를 채울 수 없다 — 쓰지 않는다.
       setProfile({
-        nickname: updated.nickname,
-        introduction: updated.introduction,
-        profileImageUrl: updated.profileImageUrl,
+        nickname: result.nickname,
+        introduction: result.introduction,
+        profileImageUrl: result.profileImageUrl,
         onboardingCompleted: true,
       })
       navigate(paths.home, { replace: true })
+    },
+    onError: (error) => {
+      // 이미 가입을 마친 계정이다 — 뒤로가기나 새로고침으로 두 번 제출될 수 있다.
+      // 붉은 오류로 가두면 나갈 길이 없으므로 스토어를 맞추고 보내 준다.
+      if (error instanceof ApiError && error.code === USER_ERROR.ALREADY_SIGNED_UP) {
+        setProfile({ onboardingCompleted: true })
+        navigate(paths.home, { replace: true })
+      }
     },
   })
 
