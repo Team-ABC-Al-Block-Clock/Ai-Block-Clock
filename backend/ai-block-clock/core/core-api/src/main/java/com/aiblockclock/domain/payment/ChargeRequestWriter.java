@@ -19,6 +19,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class ChargeRequestWriter {
 
+    // V2__create_charge_request_table.sql의 거래 중복 제약 이름과 연결되며, 변경 시 ChargeRequestWriterTest도 확인한다.
     private static final String CHAIN_HASH_UNIQUE_CONSTRAINT = "uq_charge_request_chain_hash";
 
     private final ChargeRequestRepository chargeRequestRepository;

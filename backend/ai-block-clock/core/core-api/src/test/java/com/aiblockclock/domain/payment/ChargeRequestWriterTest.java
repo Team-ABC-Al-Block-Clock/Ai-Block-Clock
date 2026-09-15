@@ -9,8 +9,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,6 +27,29 @@ class ChargeRequestWriterTest {
 
     private final ChargeRequestRepository repository = mock(ChargeRequestRepository.class);
     private final ChargeRequestWriter writer = new ChargeRequestWriter(repository);
+
+    @Test
+    void V2의_거래_중복_제약_이름을_Writer가_인식한다() throws IOException {
+        String migrationSql;
+        try (InputStream migration = getClass().getResourceAsStream(
+                "/db/migration/V2__create_charge_request_table.sql")) {
+            assertThat(migration).as("V2 마이그레이션 리소스").isNotNull();
+            migrationSql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        Matcher transactionConstraint = Pattern.compile(
+                "CONSTRAINT\\s+(\\w+)\\s+UNIQUE\\s*\\(\\s*chain_id\\s*,\\s*transaction_hash\\s*\\)",
+                Pattern.CASE_INSENSITIVE
+        ).matcher(migrationSql);
+        assertThat(transactionConstraint.find()).as("체인·거래 해시 UNIQUE 제약").isTrue();
+
+        DataIntegrityViolationException failure = constraintFailure(transactionConstraint.group(1));
+        when(repository.saveAndFlush(any())).thenThrow(failure);
+
+        assertThatThrownBy(() -> writer.saveNewRequest(request()))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_REQUEST_ALREADY_EXISTS));
+    }
 
     @Test
     void 저장된_요청을_도메인_객체로_반환한다() {
