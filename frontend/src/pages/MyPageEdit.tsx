@@ -366,9 +366,9 @@ export default function MyPageEdit() {
             width: '142px',
             height: '44px',
             borderRadius: '22px',
-            background: canSave ? '#b98da9' : 'rgba(255,255,255,.12)',
+            background: canSave ? 'var(--color-accent)' : 'rgba(255,255,255,.12)',
             boxShadow: canSave ? '0 8px 22px rgba(140,100,130,.24)' : 'none',
-            color: canSave ? '#2f1527' : 'rgba(255,255,255,.45)',
+            color: canSave ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.45)',
             transition: 'transform .18s, background .18s, color .18s',
           }}
           className="flex items-center justify-center text-[14px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"

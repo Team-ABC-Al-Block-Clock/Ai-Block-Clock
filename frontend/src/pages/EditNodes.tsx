@@ -625,9 +625,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                     height: '40px',
                     padding: '0 24px',
                     borderRadius: '11px',
-                    background: '#b98da9',
+                    background: 'var(--color-accent)',
                     boxShadow: '0 8px 20px rgba(140,100,130,.24)',
-                    color: '#2f1527',
+                    color: 'var(--color-accent-ink)',
                   }}
                   className="flex cursor-pointer items-center text-[17px] font-bold hover:brightness-[1.05]"
                 >
@@ -666,9 +666,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             width: '160px',
             height: '52px',
             borderRadius: '26px',
-            background: '#b98da9',
+            background: 'var(--color-accent)',
             boxShadow: '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.6)',
-            color: '#2f1527',
+            color: 'var(--color-accent-ink)',
             transition: 'transform .18s,box-shadow .18s',
             animation: 'uiIn .7s .62s cubic-bezier(.2,.8,.25,1) both',
           }}
@@ -792,7 +792,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 width: '340px',
                 height: '120px',
                 borderRadius: '10px',
-                background: 'rgba(255,255,255,.07)',
+                background: 'var(--color-surface-inset)',
               }}
             >
               <div
@@ -854,7 +854,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 width: '340px',
                 height: '44px',
                 borderRadius: '10px',
-                background: 'rgba(255,255,255,.07)',
+                background: 'var(--color-surface-inset)',
               }}
             >
               <div
@@ -894,7 +894,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                       width: '340px',
                       height: '56px',
                       borderRadius: '10px',
-                      background: 'rgba(255,255,255,.07)',
+                      background: 'var(--color-surface-inset)',
                     }}
                     className="relative cursor-pointer transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.15)]"
                   >
@@ -1082,7 +1082,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                             style={{
                               marginTop: 'auto',
                               lineHeight: '1.4',
-                              color: 'rgba(255,236,246,.48)',
+                              color: 'var(--color-faint)',
                             }}
                           >
                             다시 누르면

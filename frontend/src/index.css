@@ -2,16 +2,14 @@
 
 /* sample/export/assets/tokens.css 의 값을 Tailwind 테마로 옮긴 것.
  * 값은 그대로 — 이제 bg-surface-card, text-muted 처럼 클래스로 씁니다. */
-@theme {
+@theme static {
   /* 배경 — 바다 위에 얹히는 어두운 유리판 */
   --color-abyss: #1d1430;
   --color-surface-deep: rgb(13 7 26 / 0.72);
-  --color-surface-panel: rgb(18 9 32 / 0.44);
   --color-surface-card: rgb(255 255 255 / 0.08);
   --color-surface-menu: rgb(24 11 38 / 0.72);
   --color-surface-inset: rgb(255 255 255 / 0.07);
   --color-surface-quiet: rgb(255 255 255 / 0.055);
-  --color-surface-card-bright: rgb(24 13 40 / 0.42);
 
   /* 글자 */
   --color-body: rgb(255 255 255 / 0.88);
@@ -21,15 +19,13 @@
   /* 강조 — 핑크와 보라의 중간 */
   --color-accent: #b98da9;
   --color-accent-ink: #2f1527;
-  --color-lilac: #c9a9dd;
-  --color-positive: #7ce9b6;
-  --color-star: #e3c8a3;
+  /* 한 단계 밝은 분홍 — 빛나는 것(지갑 스피너·켜진 토글)에만 */
+  --color-accent-bright: #e9b7d2;
 
   /* 그림자 — 경계가 생기지 않게 넓고 옅게 */
   --shadow-card: 0 10px 34px rgb(10 4 20 / 0.14);
   --shadow-hover: 0 16px 46px rgb(10 4 20 / 0.26);
   --shadow-menu: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 24px 56px rgb(10 4 20 / 0.5);
-  --shadow-hairline: inset 0 1px 0 rgb(255 255 255 / 0.14);
 
   /* 반경 */
   --radius-card: 14px;
@@ -42,8 +38,6 @@
 
   /* 등장 연출 */
   --animate-rise: rise 0.7s cubic-bezier(0.2, 0.8, 0.25, 1) both;
-  --animate-fade: fade 0.5s ease both;
-  --animate-menu: menu 0.26s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
 @keyframes rise {
@@ -56,25 +50,6 @@
     transform: none;
   }
 }
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes menu {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 /* backdrop-filter 는 blur+saturate 조합이라 토큰 하나로 안 떨어집니다 */
 @utility glass-panel {
   backdrop-filter: blur(22px) saturate(118%);
@@ -147,9 +122,6 @@
 #detailScroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.36);
 }
-input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
-}
 #searchSide::placeholder {
   color: rgba(255, 255, 255, 0.6);
 }
@@ -174,23 +146,6 @@ input::placeholder {
 }
 #creditInput::placeholder {
   color: rgba(255, 236, 246, 0.5);
-}
-#usageRows::-webkit-scrollbar {
-  width: 6px;
-}
-#usageRows::-webkit-scrollbar-track {
-  background: transparent;
-}
-#usageRows::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 3px;
-}
-#usageRows::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.36);
-}
-input::placeholder,
-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.42);
 }
 #formScroll::-webkit-scrollbar {
   width: 8px;
@@ -218,6 +173,8 @@ textarea::placeholder {
 #resultBox::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.36);
 }
+/* 자리표시자 기본값 — 특이도가 같은 규칙을 여러 벌 두면 마지막 것만 이긴다.
+ * 더 옅게·짙게 가야 하는 입력은 아래 ID 규칙으로 따로 잡는다. */
 textarea::placeholder,
 input::placeholder {
   color: rgba(255, 255, 255, 0.45);
@@ -238,40 +195,13 @@ input::placeholder {
 #gridScroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.36);
 }
-#signupScroll::-webkit-scrollbar,
-#termsBody::-webkit-scrollbar {
-  width: 6px;
-}
-#signupScroll::-webkit-scrollbar-thumb,
-#termsBody::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 3px;
-}
 
-@keyframes appFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
 @keyframes fadeIn {
   from {
     opacity: 0;
   }
   to {
     opacity: 1;
-  }
-}
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
   }
 }
 @keyframes unfold {
@@ -334,19 +264,6 @@ input::placeholder {
     transform: scale(1.25);
   }
 }
-@keyframes selGlow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 2px rgba(255, 194, 216, 0.9),
-      0 0 34px rgba(255, 150, 190, 0.34);
-  }
-  50% {
-    box-shadow:
-      0 0 0 2px rgba(255, 214, 230, 1),
-      0 0 52px rgba(255, 150, 190, 0.5);
-  }
-}
 @keyframes dash {
   to {
     stroke-dashoffset: -28;
@@ -360,48 +277,6 @@ input::placeholder {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-@keyframes scrimIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes flowPk {
-  0% {
-    offset-distance: 0%;
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    offset-distance: 100%;
-    opacity: 0;
-  }
-}
-@keyframes seaPull {
-  from {
-    transform: scale(1.16);
-  }
-  to {
-    transform: scale(1);
   }
 }
 @keyframes paneInDeep {
@@ -431,16 +306,6 @@ input::placeholder {
   from {
     opacity: 0;
     transform: translateY(16px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes cardIn {
-  from {
-    opacity: 0;
-    transform: translateY(22px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -482,20 +347,6 @@ input::placeholder {
     opacity: 1;
   }
 }
-@keyframes dots {
-  0% {
-    opacity: 0.25;
-  }
-  33% {
-    opacity: 0.55;
-  }
-  66% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.25;
-  }
-}
 @keyframes mainCaret {
   0%,
   100% {
@@ -509,16 +360,6 @@ input::placeholder {
   from {
     opacity: 0;
     transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes menuIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -565,94 +406,6 @@ input::placeholder {
   }
   to {
     stroke-dasharray: 336.58 452.39;
-  }
-}
-@keyframes obShip {
-  from {
-    transform: translateX(-6%);
-  }
-  to {
-    transform: translateX(106%);
-  }
-}
-@keyframes obBob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-0.7deg);
-  }
-  50% {
-    transform: translateY(1.6px) rotate(0.7deg);
-  }
-}
-@keyframes obGlide {
-  from {
-    transform: translateX(-8%);
-  }
-  to {
-    transform: translateX(108%);
-  }
-}
-@keyframes obLamp {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  42% {
-    opacity: 1;
-  }
-  68% {
-    opacity: 0.7;
-  }
-}
-@keyframes obBeacon {
-  0%,
-  88% {
-    opacity: 0;
-  }
-  92% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes obSoar {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  35% {
-    transform: translateY(-14px);
-  }
-  70% {
-    transform: translateY(6px);
-  }
-}
-@keyframes obFlapL {
-  0%,
-  100% {
-    transform: rotate(-16deg);
-  }
-  50% {
-    transform: rotate(-38deg);
-  }
-}
-@keyframes obFlapR {
-  0%,
-  100% {
-    transform: rotate(16deg);
-  }
-  50% {
-    transform: rotate(38deg);
-  }
-}
-@keyframes obBuoy {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-4deg);
-  }
-  50% {
-    transform: translateY(4px) rotate(4deg);
   }
 }
 @keyframes toastIn {
@@ -702,15 +455,6 @@ input::placeholder {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-@keyframes breathe {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.62;
   }
 }
 @keyframes srchUp {

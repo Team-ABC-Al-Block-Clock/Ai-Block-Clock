@@ -27,7 +27,7 @@ export default function MyPageCredit() {
       }))
   const presets = raw.map((p, i) => ({
     ...p,
-    bg: i === pick ? 'rgba(185,141,169,.32)' : 'rgba(255,255,255,.08)',
+    bg: i === pick ? 'rgba(185,141,169,.32)' : 'var(--color-surface-card)',
     ring: 'none',
     fg: i === pick ? '#e6cbe0' : '#fff',
     anim: 'rise .7s ' + (0.2 + i * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
@@ -285,8 +285,8 @@ export default function MyPageCredit() {
             width: '262px',
             height: '52px',
             borderRadius: '10px',
-            background: '#b98da9',
-            color: '#2f1527',
+            background: 'var(--color-accent)',
+            color: 'var(--color-accent-ink)',
             transition: 'filter .16s',
           }}
           className="flex cursor-pointer items-center justify-center text-[16px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"

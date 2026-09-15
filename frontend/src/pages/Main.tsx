@@ -175,7 +175,7 @@ export default function Main() {
             height="18"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="rgba(255,255,255,.88)"
+            style={{ stroke: 'var(--color-body)' }}
             strokeWidth="1.9"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -209,7 +209,7 @@ export default function Main() {
             opacity: `${rowOpacity}`,
             pointerEvents: `${rowEvents}`,
             transition: 'opacity .22s ease',
-            background: '#b98da9',
+            background: 'var(--color-accent)',
             boxShadow: '0 6px 18px rgba(140,100,130,.26)',
             textDecoration: 'none',
           }}
@@ -220,7 +220,7 @@ export default function Main() {
             height="18"
             viewBox="0 0 18 18"
             fill="none"
-            stroke="#2f1527"
+            style={{ stroke: 'var(--color-accent-ink)' }}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -387,10 +387,10 @@ export default function Main() {
                 width: '100%',
                 height: '44px',
                 borderRadius: '12px',
-                background: '#b98da9',
+                background: 'var(--color-accent)',
                 boxShadow: '0 8px 20px rgba(140,100,130,.26)',
                 gap: '8px',
-                color: '#2f1527',
+                color: 'var(--color-accent-ink)',
               }}
               className="flex cursor-pointer items-center justify-center text-[14px] font-bold tracking-[-.01em] hover:brightness-[1.05]"
             >
@@ -399,7 +399,7 @@ export default function Main() {
                 height="16"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#2f1527"
+                style={{ stroke: 'var(--color-accent-ink)' }}
                 strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"

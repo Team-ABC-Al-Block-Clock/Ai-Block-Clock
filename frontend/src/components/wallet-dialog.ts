@@ -55,9 +55,9 @@ export class WalletDialog extends BaseElement {
         '.wd-orb>span{position:absolute;display:block;border-radius:50%}' +
         // 달빛이 번지는 듯한 후광 — 대기 중이라는 것을 멀리서도 알아보게 한다
         '.wd-halo{inset:-9px;background:radial-gradient(circle,rgba(233,183,210,.3),rgba(233,183,210,0) 66%);animation:wd-halo 2.4s ease-in-out infinite}' +
-        '.wd-track{inset:0;background:rgba(255,255,255,.07)}' +
+        '.wd-track{inset:0;background:var(--color-surface-inset)}' +
         '.wd-arc{inset:0;background:conic-gradient(from 0deg,rgba(233,183,210,0) 0deg,' +
-        'var(--color-accent,#e9b7d2) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
+        'var(--color-accent-bright) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
         'mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
         '-webkit-mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
         'animation:wd-orbit 1.5s cubic-bezier(.55,.12,.45,.88) infinite}' +
@@ -134,7 +134,7 @@ export class WalletDialog extends BaseElement {
         el.addEventListener('mouseenter', () => (el.style.transform = 'translateY(-1px)'))
         el.addEventListener('mouseleave', () => (el.style.transform = 'none'))
       } else {
-        this.hover(el, 'rgba(255,255,255,.16)', 'rgba(255,255,255,.08)')
+        this.hover(el, 'rgba(255,255,255,.16)', 'var(--color-surface-card)')
       }
       const fire = () => this.emit(kind === 'sign' ? 'sign' : 'cancel')
       el.addEventListener('click', fire)
@@ -280,9 +280,9 @@ export class WalletDialog extends BaseElement {
             ' style="flex:1;height:46px;border-radius:12px;display:flex;align-items:center;' +
             'justify-content:center;font-size:14px;cursor:pointer;letter-spacing:-.01em;' +
             (a.primary
-              ? 'background:var(--color-accent,#b98da9);color:var(--color-accent-ink,#2f1527);' +
+              ? 'background:var(--color-accent);color:var(--color-accent-ink);' +
                 'font-weight:700;transition:transform .16s'
-              : 'background:rgba(255,255,255,.08);color:#fff;font-weight:600;transition:background .16s') +
+              : 'background:var(--color-surface-card);color:#fff;font-weight:600;transition:background .16s') +
             '">' +
             a.label +
             '</div>',

@@ -161,9 +161,9 @@ export class ProfileMenu extends BaseElement {
       'box-shadow:0 4px 16px rgba(30,8,40,.25);cursor:pointer;overflow:hidden;' +
       'display:flex;align-items:center;justify-content:center;z-index:41"></div>' +
       '<div data-panel style="display:none;position:absolute;top:60px;width:246px;box-sizing:border-box;' +
-      'padding:10px;border-radius:var(--r-menu,16px);background:var(--surface-menu,rgba(24,11,38,.72));' +
+      'padding:10px;border-radius:var(--radius-menu);background:var(--color-surface-menu);' +
       'backdrop-filter:blur(28px) saturate(130%);-webkit-backdrop-filter:blur(28px) saturate(130%);' +
-      'box-shadow:var(--lift-menu,inset 0 1px 0 rgba(255,255,255,.18),0 24px 56px rgba(10,4,20,.5));' +
+      'box-shadow:var(--shadow-menu);' +
       'flex-direction:column;gap:4px;z-index:42;transform-origin:88% 0;' +
       'animation:ui-menu .26s cubic-bezier(.2,.9,.3,1) both"></div>'
 
@@ -282,8 +282,8 @@ export class ProfileMenu extends BaseElement {
 
     OceanTheme.OPTIONS.forEach((opt) => {
       const on = opt.value === current
-      const fg = on ? 'var(--accent-ink,#2f1527)' : 'rgba(255,255,255,.85)'
-      const idle = 'rgba(255,255,255,.08)'
+      const fg = on ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.85)'
+      const idle = 'var(--color-surface-card)'
       const cell = this.div(
         'flex:1;height:46px;border-radius:11px;display:flex;align-items:center;' +
           'justify-content:center;cursor:pointer;transition:background .16s;background:' +
