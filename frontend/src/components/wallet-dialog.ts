@@ -57,7 +57,7 @@ export class WalletDialog extends BaseElement {
         '.wd-halo{inset:-9px;background:radial-gradient(circle,rgba(233,183,210,.3),rgba(233,183,210,0) 66%);animation:wd-halo 2.4s ease-in-out infinite}' +
         '.wd-track{inset:0;background:rgba(255,255,255,.07)}' +
         '.wd-arc{inset:0;background:conic-gradient(from 0deg,rgba(233,183,210,0) 0deg,' +
-        'var(--color-accent-bright,#e9b7d2) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
+        'var(--color-accent-bright) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
         'mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
         '-webkit-mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
         'animation:wd-orbit 1.5s cubic-bezier(.55,.12,.45,.88) infinite}' +
@@ -280,7 +280,7 @@ export class WalletDialog extends BaseElement {
             ' style="flex:1;height:46px;border-radius:12px;display:flex;align-items:center;' +
             'justify-content:center;font-size:14px;cursor:pointer;letter-spacing:-.01em;' +
             (a.primary
-              ? 'background:var(--color-accent,#b98da9);color:var(--color-accent-ink,#2f1527);' +
+              ? 'background:var(--color-accent);color:var(--color-accent-ink);' +
                 'font-weight:700;transition:transform .16s'
               : 'background:rgba(255,255,255,.08);color:#fff;font-weight:600;transition:background .16s') +
             '">' +

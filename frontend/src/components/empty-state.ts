@@ -48,10 +48,10 @@ export class EmptyState extends BaseElement {
     this.host(
       'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
         'box-sizing:border-box;padding:38px 36px;' +
-        'border-radius:var(--radius-panel,20px);' +
+        'border-radius:var(--radius-panel);' +
         'backdrop-filter:blur(20px) saturate(125%);' +
         '-webkit-backdrop-filter:blur(20px) saturate(125%);' +
-        'box-shadow:var(--shadow-hover,0 16px 46px rgb(10 4 20 / .26))',
+        'box-shadow:var(--shadow-hover)',
     )
   }
 
@@ -75,7 +75,7 @@ export class EmptyState extends BaseElement {
     // 실은 링크 하나로 shadow DOM 안에 <img onerror> 가 만들어진다.
     this.root.innerHTML =
       '<div style="width:60px;height:60px;border-radius:18px;position:relative;' +
-      'background:var(--color-surface-quiet,rgb(255 255 255 / .055))">' +
+      'background:var(--color-surface-quiet)">' +
       '<div style="position:absolute;left:19px;top:18px;width:18px;height:18px;border-radius:50%;' +
       'box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)"></div>' +
       '<div style="position:absolute;left:34px;top:34px;width:9px;height:2px;border-radius:1px;' +
@@ -96,7 +96,7 @@ export class EmptyState extends BaseElement {
       paragraph.style.cssText =
         `margin-top:10px;width:${this.num('body-width', 440)}px;text-align:center;` +
         'font-size:14.5px;line-height:1.8;letter-spacing:-.01em;' +
-        'color:var(--color-muted,rgb(255 236 246 / .66));' +
+        'color:var(--color-muted);' +
         // 한글은 keep-all 이 없으면 어절 중간에서 끊긴다 — "여러 에이전트를 이 / 어 붙이는"
         'word-break:keep-all;text-wrap:pretty'
       paragraph.textContent = body
@@ -120,7 +120,7 @@ export class EmptyState extends BaseElement {
         'display:flex;align-items:center;font-size:15px;font-weight:600;letter-spacing:-.01em;' +
         'text-decoration:none;cursor:pointer;transition:background .16s,filter .16s;' +
         (action.primary
-          ? 'background:var(--color-accent,#b98da9);color:var(--color-accent-ink,#2f1527);' +
+          ? 'background:var(--color-accent);color:var(--color-accent-ink);' +
             'box-shadow:0 8px 22px rgb(10 4 20 / .28)'
           : 'background:rgb(255 255 255 / .12);color:#fff')
       el.textContent = action.label
