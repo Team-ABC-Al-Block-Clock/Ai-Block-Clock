@@ -75,7 +75,7 @@ public class ChargeProcessingService {
                 );
 
         return chargeConfirmationManager.confirm(
-                chargeRequest.getId(),
+                chargeRequest,
                 creditedAbcAmount
         );
     }

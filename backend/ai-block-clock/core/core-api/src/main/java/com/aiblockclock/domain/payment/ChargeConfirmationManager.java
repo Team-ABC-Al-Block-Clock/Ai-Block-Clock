@@ -11,18 +11,14 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class ChargeConfirmationManager {
 
-    private final ChargeRequestReader chargeRequestReader;
     private final LedgerTransactionWriter ledgerTransactionWriter;
     private final ChargeRequestWriter chargeRequestWriter;
 
     @Transactional
     public ChargeRequest confirm(
-            Long chargeRequestId,
+            ChargeRequest chargeRequest,
             BigDecimal creditedAbcAmount
     ) {
-        ChargeRequest chargeRequest =
-                chargeRequestReader.read(chargeRequestId);
-
         if (!chargeRequest.isPending()) {
             return chargeRequest;
         }
