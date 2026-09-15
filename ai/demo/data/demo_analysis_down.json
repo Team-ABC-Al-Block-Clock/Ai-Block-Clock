@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "student_count": 20,
+    "avg_current": 68.86,
+    "avg_previous": 74.26,
+    "avg_delta": -5.4
+  },
+  "students": [
+    {
+      "name": "강윤슬",
+      "avg_current": 76.5,
+      "avg_delta": 9.0,
+      "weak_subject": "국어",
+      "trend": "up"
+    },
+    {
+      "name": "고은채",
+      "avg_current": 79.25,
+      "avg_delta": -10.0,
+      "weak_subject": "영어",
+      "trend": "down"
+    },
+    {
+      "name": "권도하",
+      "avg_current": 73.0,
+      "avg_delta": -11.0,
+      "weak_subject": "과학",
+      "trend": "down"
+    },
+    {
+      "name": "김서린",
+      "avg_current": 71.25,
+      "avg_delta": -8.0,
+      "weak_subject": "수학",
+      "trend": "down"
+    },
+    {
+      "name": "남주하",
+      "avg_current": 63.25,
+      "avg_delta": -8.75,
+      "weak_subject": "수학",
+      "trend": "down"
+    },
+    {
+      "name": "노하람",
+      "avg_current": 88.75,
+      "avg_delta": 8.25,
+      "weak_subject": "영어",
+      "trend": "up"
+    },
+    {
+      "name": "류시온",
+      "avg_current": 63.25,
+      "avg_delta": -7.5,
+      "weak_subject": "국어",
+      "trend": "down"
+    },
+    {
+      "name": "문가온",
+      "avg_current": 64.25,
+      "avg_delta": -6.0,
+      "weak_subject": "수학",
+      "trend": "down"
+    },
+    {
+      "name": "박새힘",
+      "avg_current": 57.0,
+      "avg_delta": -8.5,
+      "weak_subject": "영어",
+      "trend": "down"
+    },
+    {
+      "name": "배온유",
+      "avg_current": 71.0,
+      "avg_delta": -8.5,
+      "weak_subject": "수학",
+      "trend": "down"
+    },
+    {
+      "name": "서루나",
+      "avg_current": 83.25,
+      "avg_delta": 6.5,
+      "weak_subject": "과학",
+      "trend": "up"
+    },
+    {
+      "name": "손나린",
+      "avg_current": 62.75,
+      "avg_delta": -8.75,
+      "weak_subject": "국어",
+      "trend": "down"
+    },
+    {
+      "name": "안슬아",
+      "avg_current": 66.75,
+      "avg_delta": -6.0,
+      "weak_subject": "영어",
+      "trend": "down"
+    },
+    {
+      "name": "오도윤",
+      "avg_current": 66.0,
+      "avg_delta": -9.5,
+      "weak_subject": "과학",
+      "trend": "down"
+    },
+    {
+      "name": "유하진",
+      "avg_current": 60.5,
+      "avg_delta": -11.25,
+      "weak_subject": "영어",
+      "trend": "down"
+    },
+    {
+      "name": "윤재이",
+      "avg_current": 85.0,
+      "avg_delta": 6.25,
+      "weak_subject": "수학",
+      "trend": "up"
+    },
+    {
+      "name": "임소울",
+      "avg_current": 57.5,
+      "avg_delta": -6.25,
+      "weak_subject": "수학",
+      "trend": "down"
+    },
+    {
+      "name": "정라온",
+      "avg_current": 55.25,
+      "avg_delta": -11.75,
+      "weak_subject": "영어",
+      "trend": "down"
+    },
+    {
+      "name": "차예린",
+      "avg_current": 63.75,
+      "avg_delta": -10.0,
+      "weak_subject": "영어",
+      "trend": "down"
+    },
+    {
+      "name": "한별하",
+      "avg_current": 69.0,
+      "avg_delta": -6.25,
+      "weak_subject": "영어",
+      "trend": "down"
+    }
+  ],
+  "subjects": [
+    {
+      "name": "국어",
+      "avg_current": 69.75,
+      "avg_delta": -4.55
+    },
+    {
+      "name": "영어",
+      "avg_current": 68.15,
+      "avg_delta": -5.4
+    },
+    {
+      "name": "수학",
+      "avg_current": 68.8,
+      "avg_delta": -6.75
+    },
+    {
+      "name": "과학",
+      "avg_current": 68.75,
+      "avg_delta": -4.9
+    }
+  ]
+}
