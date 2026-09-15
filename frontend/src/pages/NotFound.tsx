@@ -8,7 +8,7 @@ export default function NotFound() {
 
   return (
     <div className="absolute inset-0 flex items-center justify-center p-10">
-      <div className="glass-card bg-surface-deep shadow-card flex w-[420px] flex-col items-center gap-3 rounded-[20px] px-8 py-9 text-center">
+      <div className="glass-card bg-surface-deep shadow-card rounded-panel flex w-[420px] flex-col items-center gap-3 px-8 py-9 text-center">
         <div className="text-faint font-brand text-[44px] leading-none font-semibold tracking-[-0.02em]">
           404
         </div>

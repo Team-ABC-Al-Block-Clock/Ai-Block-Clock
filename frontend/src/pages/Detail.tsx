@@ -175,7 +175,7 @@ export default function Detail() {
     imageId: img.imageId,
     url: img.url,
     pick: pickShot(i),
-    bg: i === at ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)',
+    bg: i === at ? 'rgba(255,255,255,.16)' : 'var(--color-surface-card)',
     ring:
       i === at ? 'inset 0 0 0 2px rgba(255,194,216,.9)' : 'inset 0 0 0 1px rgba(255,255,255,.12)',
   }))
@@ -342,9 +342,9 @@ export default function Detail() {
               width: '160px',
               height: '52px',
               borderRadius: '26px',
-              background: '#b98da9',
+              background: 'var(--color-accent)',
               boxShadow: '0 10px 26px rgba(140,100,130,.24)',
-              color: '#2f1527',
+              color: 'var(--color-accent-ink)',
               transition: 'transform .18s',
               animation: 'rise .7s .24s cubic-bezier(.2,.8,.25,1) both',
             }}
@@ -649,7 +649,7 @@ export default function Detail() {
                   width: '896px',
                   padding: '24px',
                   borderRadius: '14px',
-                  background: 'rgba(255,255,255,.07)',
+                  background: 'var(--color-surface-inset)',
                   animation: 'unfold .8s .52s cubic-bezier(.2,.8,.25,1) both',
                 }}
               >

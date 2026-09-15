@@ -66,7 +66,7 @@ export default function MyPageSales() {
           ? fg(text)
           : i === dim
             ? 'rgba(255,255,255,.68)'
-            : 'rgba(255,255,255,.88)',
+            : 'var(--color-body)',
       weight: i === cells.length - 1 || i === 3 ? '600' : '400',
     })),
   }))
@@ -398,12 +398,12 @@ export default function MyPageSales() {
               <div
                 style={{
                   height: '27px',
-                  color: 'rgba(255,255,255,.88)',
+                  color: 'var(--color-body)',
                   fontVariantNumeric: 'tabular-nums',
                   borderRadius: '6px',
                   transition: 'background .14s',
                 }}
-                className="flex flex-none items-center text-[11.5px] hover:bg-[rgba(255,255,255,.07)]"
+                className="hover:bg-surface-inset flex flex-none items-center text-[11.5px]"
               >
                 {r.cells.map((c, i) => (
                   <Fragment key={i}>

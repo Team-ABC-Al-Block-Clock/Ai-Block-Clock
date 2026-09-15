@@ -10,8 +10,8 @@ export default function RunWaiting() {
     if (filled) navigate(paths.run.running.withoutId)
   }
   const on = filled
-  const btnBg = on ? '#b98da9' : 'rgba(255,255,255,.09)'
-  const btnColor = on ? '#2f1527' : 'rgba(255,255,255,.42)'
+  const btnBg = on ? 'var(--color-accent)' : 'rgba(255,255,255,.09)'
+  const btnColor = on ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.42)'
   const btnShadow = on
     ? '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.5)'
     : 'inset 0 1px 0 rgba(255,255,255,.12)'
@@ -287,7 +287,7 @@ export default function RunWaiting() {
 
         <div
           className="absolute text-[16px] font-semibold tracking-[-.01em]"
-          style={{ left: '30px', top: '100px', color: 'rgba(255,255,255,.88)' }}
+          style={{ left: '30px', top: '100px', color: 'var(--color-body)' }}
         >
           무엇을 정리할까요?
         </div>
@@ -299,7 +299,7 @@ export default function RunWaiting() {
             width: '340px',
             height: '180px',
             borderRadius: '12px',
-            background: 'rgba(255,255,255,.07)',
+            background: 'var(--color-surface-inset)',
           }}
         >
           <textarea
@@ -416,7 +416,7 @@ export default function RunWaiting() {
 
         <div
           className="absolute text-[16px] font-semibold tracking-[-.01em]"
-          style={{ left: '30px', top: '630px', color: 'rgba(255,255,255,.88)' }}
+          style={{ left: '30px', top: '630px', color: 'var(--color-body)' }}
         >
           최근 실행
         </div>

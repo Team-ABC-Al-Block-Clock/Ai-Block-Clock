@@ -91,7 +91,7 @@ export class OceanBg extends BaseElement {
     const root = this.attachShadow({ mode: 'open' })
     root.innerHTML =
       '<style>' +
-      ':host{position:absolute;inset:0;display:block;overflow:hidden;background:#1d1430}' +
+      ':host{position:absolute;inset:0;display:block;overflow:hidden;background:var(--color-abyss)}' +
       'canvas{position:absolute;inset:0;width:100%;height:100%;display:block}' +
       '.fx{position:absolute;inset:0;pointer-events:none}' +
       OVERLAY_KEYFRAMES +

@@ -93,7 +93,7 @@ export default function RegisterForm() {
             style={{
               left: '272px',
               top: '94px',
-              color: 'rgba(255,236,246,.66)',
+              color: 'var(--color-muted)',
               transition: 'color .16s',
               animation: 'rise .7s .04s cubic-bezier(.2,.8,.25,1) both',
             }}
@@ -149,7 +149,7 @@ export default function RegisterForm() {
               width: '100px',
               height: '100px',
               borderRadius: '20px',
-              background: 'rgba(255,255,255,.07)',
+              background: 'var(--color-surface-inset)',
               animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
             }}
             className="absolute flex cursor-pointer items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.13)]"
@@ -499,9 +499,9 @@ export default function RegisterForm() {
               width: '160px',
               height: '52px',
               borderRadius: '26px',
-              background: '#b98da9',
+              background: 'var(--color-accent)',
               boxShadow: '0 10px 26px rgba(140,100,130,.24)',
-              color: '#2f1527',
+              color: 'var(--color-accent-ink)',
               transition: 'transform .18s',
             }}
             className="absolute flex cursor-pointer items-center justify-center text-[15px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
@@ -593,8 +593,8 @@ export default function RegisterForm() {
                 style={{
                   height: '50px',
                   borderRadius: '25px',
-                  background: '#b98da9',
-                  color: '#2f1527',
+                  background: 'var(--color-accent)',
+                  color: 'var(--color-accent-ink)',
                 }}
               >
                 상세 페이지 보기

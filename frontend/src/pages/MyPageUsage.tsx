@@ -157,10 +157,7 @@ export default function MyPageUsage() {
               className="flex-none rounded-full"
               style={{ width: '7px', height: '7px', background: '#e9aec4' }}
             ></div>
-            <div
-              className="text-[11px] whitespace-nowrap"
-              style={{ color: 'rgba(255,236,246,.66)' }}
-            >
+            <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
               사용 코인
             </div>
           </div>
@@ -169,10 +166,7 @@ export default function MyPageUsage() {
               className="flex-none rounded-full"
               style={{ width: '7px', height: '7px', background: '#dba18b' }}
             ></div>
-            <div
-              className="text-[11px] whitespace-nowrap"
-              style={{ color: 'rgba(255,236,246,.66)' }}
-            >
+            <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
               호출 수
             </div>
           </div>
@@ -379,12 +373,12 @@ export default function MyPageUsage() {
               <div
                 style={{
                   height: '27px',
-                  color: 'rgba(255,255,255,.88)',
+                  color: 'var(--color-body)',
                   fontVariantNumeric: 'tabular-nums',
                   borderRadius: '6px',
                   transition: 'background .14s',
                 }}
-                className="flex flex-none items-center text-[11.5px] hover:bg-[rgba(255,255,255,.07)]"
+                className="hover:bg-surface-inset flex flex-none items-center text-[11.5px]"
               >
                 <div style={{ width: '120px' }}>{h.time}</div>
                 <div style={{ width: '160px' }}>{h.agent}</div>

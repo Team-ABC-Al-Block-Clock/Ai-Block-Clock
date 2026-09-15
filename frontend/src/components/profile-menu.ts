@@ -283,7 +283,7 @@ export class ProfileMenu extends BaseElement {
     OceanTheme.OPTIONS.forEach((opt) => {
       const on = opt.value === current
       const fg = on ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.85)'
-      const idle = 'rgba(255,255,255,.08)'
+      const idle = 'var(--color-surface-card)'
       const cell = this.div(
         'flex:1;height:46px;border-radius:11px;display:flex;align-items:center;' +
           'justify-content:center;cursor:pointer;transition:background .16s;background:' +

@@ -43,7 +43,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           width: '338px',
           height: '776px',
           borderRadius: '20px',
-          background: 'rgba(255,255,255,.08)', // 오른쪽 카드와 같은 흰 유리 (원본은 rgba(18,9,32,.44) 어두운 판)
+          background: 'var(--color-surface-card)', // 오른쪽 카드와 같은 흰 유리 (원본은 rgba(18,9,32,.44) 어두운 판)
           backdropFilter: 'blur(22px) saturate(118%)',
           WebkitBackdropFilter: 'blur(22px) saturate(118%)',
           animation: 'rise .8s cubic-bezier(.2,.8,.25,1) both',
@@ -102,7 +102,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
         style={{
           left: '102px',
           top: '502px',
-          color: 'rgba(255,236,246,.66)',
+          color: 'var(--color-muted)',
           animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
         }}
       >

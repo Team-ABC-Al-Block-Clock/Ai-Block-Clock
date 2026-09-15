@@ -181,7 +181,7 @@ export default function Login() {
         type="button"
         onClick={() => void handleConnect()}
         disabled={isPending}
-        className="bg-accent text-accent-ink animate-rise absolute flex h-14 cursor-pointer items-center justify-center gap-2.5 rounded-[14px] transition-transform duration-200 [animation-delay:.14s] hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-60 disabled:hover:translate-y-0"
+        className="bg-accent text-accent-ink animate-rise rounded-card absolute flex h-14 cursor-pointer items-center justify-center gap-2.5 transition-transform duration-200 [animation-delay:.14s] hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-60 disabled:hover:translate-y-0"
         style={{
           left: 504,
           top: 528,

@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return (
       <div className="absolute inset-0 flex items-center justify-center p-10">
-        <div className="glass-card bg-surface-deep shadow-card flex w-[420px] flex-col items-center gap-3 rounded-[20px] px-8 py-9 text-center">
+        <div className="glass-card bg-surface-deep shadow-card rounded-panel flex w-[420px] flex-col items-center gap-3 px-8 py-9 text-center">
           <h1 className="text-body text-[18px] font-semibold tracking-[-0.01em]">
             문제가 발생했어요
           </h1>

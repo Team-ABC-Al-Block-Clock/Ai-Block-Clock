@@ -117,7 +117,7 @@ export default function Signup() {
           marginTop: '1px',
           borderRadius: '5px',
           background: on ? 'var(--color-accent-bright)' : 'rgba(255,255,255,.12)',
-          color: '#2f1527',
+          color: 'var(--color-accent-ink)',
         }}
       >
         {on ? '✓' : ''}
@@ -280,9 +280,9 @@ export default function Signup() {
               width: '100%',
               height: '52px',
               borderRadius: '14px',
-              background: canSubmit ? '#b98da9' : 'rgba(255,255,255,.12)',
+              background: canSubmit ? 'var(--color-accent)' : 'rgba(255,255,255,.12)',
               boxShadow: canSubmit ? '0 10px 24px rgba(140,100,130,.2)' : undefined,
-              color: canSubmit ? '#2f1527' : 'rgba(255,255,255,.45)',
+              color: canSubmit ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.45)',
               transition: 'transform .18s,background .18s,color .18s',
             }}
             className="flex cursor-pointer items-center justify-center text-[16px] font-bold tracking-[-.01em] hover:-translate-y-[2px] disabled:cursor-default disabled:hover:translate-y-0"

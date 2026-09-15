@@ -706,7 +706,7 @@ export default function MyAgents() {
             <div className="flex" style={{ marginTop: '20px', gap: '10px' }}>
               <div
                 onClick={handleCloseDelete}
-                className={`${CHIP} flex-1 justify-center bg-[rgba(255,255,255,.08)] text-[14px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
+                className={`${CHIP} bg-surface-card flex-1 justify-center text-[14px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
                 style={{ height: '46px', borderRadius: '12px' }}
               >
                 취소
@@ -943,8 +943,8 @@ function WorkflowCard({
               height: '34px',
               padding: '0 16px',
               borderRadius: '17px',
-              background: '#b98da9',
-              color: '#2f1527',
+              background: 'var(--color-accent)',
+              color: 'var(--color-accent-ink)',
             }}
           >
             실행하기

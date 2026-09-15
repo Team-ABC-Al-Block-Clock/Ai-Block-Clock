@@ -173,7 +173,11 @@ export default function RunRunning() {
   const done = pctR >= 100
   const pctLabel = pctR + '%'
   const gaugeBg =
-    'conic-gradient(from 0deg, #b98da9 0 ' + pctR + '%, rgba(255,255,255,.10) ' + pctR + '% 100%)'
+    'conic-gradient(from 0deg, var(--color-accent) 0 ' +
+    pctR +
+    '%, rgba(255,255,255,.10) ' +
+    pctR +
+    '% 100%)'
   const stepTitle = pctR >= 100 ? '결과 전달 완료' : defs[active].name + ' 중'
   const stepMeta = (pctR >= 100 ? defs.length : active + 1) + ' / ' + defs.length + ' 단계'
 
@@ -337,7 +341,7 @@ export default function RunRunning() {
           <>
             <div
               className="absolute text-[16px] font-semibold tracking-[-.01em]"
-              style={{ left: '30px', top: '420px', color: 'rgba(255,255,255,.88)' }}
+              style={{ left: '30px', top: '420px', color: 'var(--color-body)' }}
             >
               실시간 출력
             </div>
@@ -403,7 +407,7 @@ export default function RunRunning() {
                 width: '340px',
                 height: '56px',
                 borderRadius: '12px',
-                background: '#b98da9',
+                background: 'var(--color-accent)',
                 boxShadow: '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.5)',
                 gap: '10px',
                 transition: 'transform .18s',
@@ -414,13 +418,16 @@ export default function RunRunning() {
               <svg className="block" width="16" height="17" viewBox="0 0 14 15" fill="none">
                 <path
                   d="M6.5 0V9.5M2 6L6.5 10.5L11 6M0 13.5H13"
-                  stroke="#2f1527"
+                  style={{ stroke: 'var(--color-accent-ink)' }}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
-              <div className="text-[17px] font-bold tracking-[-.01em]" style={{ color: '#2f1527' }}>
+              <div
+                className="text-[17px] font-bold tracking-[-.01em]"
+                style={{ color: 'var(--color-accent-ink)' }}
+              >
                 결과 다운로드 (.txt)
               </div>
             </div>
@@ -458,7 +465,7 @@ export default function RunRunning() {
 
             <div
               className="absolute text-[16px] font-semibold tracking-[-.01em]"
-              style={{ left: '30px', top: '660px', color: 'rgba(255,255,255,.88)' }}
+              style={{ left: '30px', top: '660px', color: 'var(--color-body)' }}
             >
               출력 결과
             </div>
@@ -504,7 +511,7 @@ export default function RunRunning() {
                 height: '318px',
                 padding: '16px',
                 borderRadius: '12px',
-                background: 'rgba(255,255,255,.055)',
+                background: 'var(--color-surface-quiet)',
                 overflowY: 'auto',
                 userSelect: 'text',
                 WebkitUserSelect: 'text',
