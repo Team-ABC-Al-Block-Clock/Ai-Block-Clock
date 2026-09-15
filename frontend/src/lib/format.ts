@@ -42,6 +42,13 @@ export function successLabel(successRate: number, executionCount: number) {
   return (Math.floor(successRate * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%'
 }
 
+/** 15230491 → '#15,230,491', 아직 블록에 안 들어간 트랜잭션(null) → '—' */
+export function blockLabel(blockNumber: number | null) {
+  if (blockNumber === null) return '—'
+  // 로케일을 기계에 맡기면 구분자가 갈려 CI 와 화면이 서로 달라진다.
+  return `#${blockNumber.toLocaleString('ko-KR')}`
+}
+
 /** '0x1f9c4b2e…5b8072a' → '0x1f9c…072a' — 지갑 주소는 일부만 화면에 넣는다. */
 export function shortAddress(address: string) {
   if (address.length <= 13) return address
@@ -55,6 +62,7 @@ export function shortAddress(address: string) {
  */
 const DATE_TIME = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
+  year: 'numeric',
   month: '2-digit',
   day: '2-digit',
   hour: '2-digit',
@@ -63,13 +71,30 @@ const DATE_TIME = new Intl.DateTimeFormat('ko-KR', {
   hourCycle: 'h23',
 })
 
-export function timeLabel(iso: string | null) {
-  if (!iso) return '—'
+// 구분자를 로케일에 맡기지 않는다 — ko-KR 이 '9. 7. 14:22' 같은 모양을 줄 수 있다.
+function timeParts(iso: string | null) {
+  if (!iso) return null
   const at = Date.parse(iso)
-  if (Number.isNaN(at)) return '—'
-  // 구분자를 로케일에 맡기지 않는다 — ko-KR 이 '9. 7. 14:22' 같은 모양을 줄 수 있다.
-  const part = Object.fromEntries(DATE_TIME.formatToParts(at).map((p) => [p.type, p.value]))
+  if (Number.isNaN(at)) return null
+  return Object.fromEntries(DATE_TIME.formatToParts(at).map((p) => [p.type, p.value]))
+}
+
+export function timeLabel(iso: string | null) {
+  const part = timeParts(iso)
+  if (!part) return '—'
   return `${part.month}.${part.day} ${part.hour}:${part.minute}`
+}
+
+/**
+ * '2026-09-01T09:00:00+09:00' → '2026.09.01 09:00'
+ *
+ * 해를 떼지 않는다. 온체인 등록 시각처럼 영구히 남는 기록은 재작년 것과 구별돼야 하고,
+ * 사용자가 익스플로러와 맞춰 보는 값이다.
+ */
+export function dateTimeLabel(iso: string | null) {
+  const part = timeParts(iso)
+  if (!part) return '—'
+  return `${part.year}.${part.month}.${part.day} ${part.hour}:${part.minute}`
 }
 
 /**

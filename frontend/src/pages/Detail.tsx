@@ -4,14 +4,25 @@ import { useParams } from 'react-router-dom'
 
 import {
   addAgentFavorite,
+  getAgentProvenance,
   getMarketplaceAgent,
   removeAgentFavorite,
   type AgentDetail,
   type AgentImage,
 } from '@/api/agents'
 import { ApiError, AUTH_ERROR } from '@/api/errors'
-import { compactCount, priceLabel, ratingLabel, runLabel, successLabel } from '@/lib/format'
+import {
+  blockLabel,
+  compactCount,
+  dateTimeLabel,
+  priceLabel,
+  ratingLabel,
+  runLabel,
+  shortAddress,
+  successLabel,
+} from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
+import { chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 
 /** 안내 카드. 그리드 안쪽(272~1168, 896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
@@ -54,6 +65,17 @@ export default function Detail() {
     // 단언 대신 enabled 로 막는다 — 빈 ID 로 요청이 나가지 않는다.
     enabled: !!agentId,
   })
+
+  // 상세를 기다리지 않는다 — 두 요청이 나란히 나간다.
+  const provenance = useQuery({
+    queryKey: queryKeys.marketplace.agents.provenance(agentId ?? ''),
+    queryFn: () => getAgentProvenance(agentId ?? ''),
+    enabled: !!agentId,
+  })
+
+  // 404 가 두 가지라 status 로는 못 가른다.
+  const provenanceMissing =
+    provenance.error instanceof ApiError && provenance.error.code === 'BLOCKCHAIN_003'
 
   const queryClient = useQueryClient()
   const favorite = useMutation({
@@ -171,6 +193,13 @@ export default function Detail() {
     `★ ${ratingLabel(agent.averageRating, agent.reviewCount)}`,
     `즐겨찾기 ${compactCount(agent.favoriteCount)}`,
   ]
+  // 실행 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
+  const proofTop = agent.usageExample ? 1440 : 1268
+  const proof = provenance.data
+  // 대조해 보라고 두는 값이라 주소는 줄이지 않는다.
+  const onChainOwner = proof?.verification.onChainOwnerAddress ?? ''
+  const onChainHash = proof ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…` : ''
+
   const thumbs = shots.map((img, i) => ({
     imageId: img.imageId,
     url: img.url,
@@ -190,7 +219,8 @@ export default function Detail() {
           height: '1024px',
         }}
       >
-        <div className="relative" style={{ width: '1440px', height: '1520px' }}>
+        {/* 470 = 증명 카드 높이 + 아래 여백 */}
+        <div className="relative" style={{ width: '1440px', height: `${proofTop + 470}px` }}>
           <a
             className="absolute flex items-center text-[14px] tracking-[-.01em]"
             href={paths.search}
@@ -662,6 +692,148 @@ export default function Detail() {
               </div>
             </>
           )}
+
+          <div
+            className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
+            style={{
+              left: '272px',
+              top: `${proofTop}px`,
+              animation: 'rise .7s .54s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            원본 증명
+          </div>
+          <div
+            className="absolute box-border text-[13.5px] tracking-[-.01em]"
+            style={{
+              left: '272px',
+              top: `${proofTop + 32}px`,
+              width: '896px',
+              padding: '24px',
+              borderRadius: '14px',
+              background: 'var(--color-surface-inset)',
+              animation: 'unfold .8s .56s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            {provenance.isPending && <div className="text-faint">불러오는 중…</div>}
+
+            {/* 재조회가 실패해도 직전 응답은 캐시에 남는다 — 안내와 증명을 같이 띄우지 않는다. */}
+            {provenanceMissing && !proof && (
+              <>
+                <div className="text-body">아직 온체인에 기록되지 않았습니다.</div>
+                <div className="text-muted" style={{ marginTop: '8px' }}>
+                  등록이 끝나면 원작자 주소와 트랜잭션이 여기에 표시됩니다.
+                </div>
+              </>
+            )}
+
+            {provenance.isError && !provenanceMissing && !proof && (
+              <div className="flex items-center" style={{ gap: '12px' }}>
+                <span style={{ color: 'rgba(255,196,214,.9)' }}>
+                  원본 증명을 불러오지 못했습니다.
+                </span>
+                <button
+                  className="text-muted cursor-pointer underline"
+                  onClick={() => void provenance.refetch()}
+                  style={{ background: 'none', border: 0, padding: 0 }}
+                  type="button"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
+            {proof && (
+              <>
+                <div
+                  className="inline-flex items-center text-[12.5px] font-semibold"
+                  style={{
+                    height: '26px',
+                    padding: '0 12px',
+                    borderRadius: '13px',
+                    background: 'var(--color-surface-quiet)',
+                    color: proof.verification.verified
+                      ? 'var(--color-accent-bright)'
+                      : 'rgba(255,196,214,.9)',
+                  }}
+                >
+                  {proof.verification.verified ? '✓ 원본 검증됨' : '✗ 원본 검증 불일치'}
+                </div>
+                {/* 아직 블록에 안 들어간 트랜잭션은 되돌려질 수 있다 — 블록 칸의 '—' 만으로는 안 보인다. */}
+                {proof.blockchain.transactionStatus === 'PENDING' && (
+                  <span className="text-muted" style={{ marginLeft: '10px' }}>
+                    블록 확정 대기 중
+                  </span>
+                )}
+
+                <div style={{ marginTop: '18px' }}>
+                  {(
+                    [
+                      [
+                        '원작자',
+                        `${proof.owner.nickname}  ${shortAddress(proof.owner.walletAddress)}`,
+                      ],
+                      // 네트워크 이름은 손으로 적지 않는다 — chainId 로 찾는다.
+                      [
+                        '네트워크',
+                        `${chainNameOf(proof.blockchain.chainId)} · ${proof.blockchain.chainId}`,
+                      ],
+                      ['트랜잭션', shortAddress(proof.blockchain.transactionHash)],
+                      ['블록', blockLabel(proof.blockchain.blockNumber)],
+                      ['등록 시각', dateTimeLabel(proof.blockchain.registeredAt)],
+                    ] as const
+                  ).map(([label, value], i) => (
+                    <div className="flex" key={label} style={{ marginTop: i === 0 ? 0 : '10px' }}>
+                      <div className="text-muted" style={{ width: '88px' }}>
+                        {label}
+                      </div>
+                      <div className="text-body">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: '18px' }}>
+                  {(
+                    [
+                      ['원작자 주소', proof.verification.ownerMatched, onChainOwner],
+                      ['메타데이터 해시', proof.verification.metadataMatched, onChainHash],
+                    ] as const
+                  ).map(([label, matched, value], i) => (
+                    <div
+                      className="flex items-center"
+                      key={label}
+                      style={{ gap: '10px', marginTop: i === 0 ? 0 : '8px' }}
+                    >
+                      <span
+                        style={{
+                          color: matched ? 'var(--color-accent-bright)' : 'rgba(255,196,214,.9)',
+                        }}
+                      >
+                        {matched ? `✓ ${label} 일치` : `✗ ${label} 불일치`}
+                      </span>
+                      <span className="text-faint text-[12.5px]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 외부 주소라 paths 를 거치지 않는다. */}
+                <a
+                  className="text-accent-bright inline-block"
+                  href={proof.blockchain.explorerUrl}
+                  rel="noreferrer"
+                  style={{ marginTop: '18px' }}
+                  target="_blank"
+                >
+                  Polygonscan에서 보기 →
+                </a>
+
+                <div className="text-faint text-[12.5px]" style={{ marginTop: '16px' }}>
+                  노드 구성·연결 관계·프롬프트는 블록체인에 기록하지 않습니다. 소유권과 해시만
+                  기록합니다.
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </>

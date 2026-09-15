@@ -164,12 +164,33 @@ export interface UsedAgentsQuery extends CursorParams {
   sort?: UsedAgentSort
 }
 
+/** 온체인 기록이 없으면 404 `BLOCKCHAIN_003` 이다 — 에이전트가 없는 `MARKET_001` 과 다르다. */
 export interface AgentProvenance {
-  txHash: string
-  network: string
-  ownerAddress: string
-  registeredAt: string
-  explorerUrl: string
+  agentId: string
+  owner: {
+    nickname: string
+    walletAddress: string
+  }
+  blockchain: {
+    network: string
+    chainId: number
+    contractAddress: string
+    transactionHash: string
+    transactionStatus: 'PENDING' | 'CONFIRMED'
+    blockNumber: number | null
+    registeredAt: string
+    explorerUrl: string
+  }
+  /** 등록한 에이전트는 수정할 수 없으므로 정상이면 늘 일치한다. 불일치는 데이터가 손상된 것이다. */
+  verification: {
+    offChainOwnerAddress: string
+    onChainOwnerAddress: string
+    offChainMetadataHash: string
+    onChainMetadataHash: string
+    ownerMatched: boolean
+    metadataMatched: boolean
+    verified: boolean
+  }
 }
 
 export interface AgentReview {

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { josa, priceLabel, ratingLabel, successLabel, timeLabel } from '@/lib/format'
+import {
+  blockLabel,
+  dateTimeLabel,
+  josa,
+  priceLabel,
+  ratingLabel,
+  successLabel,
+  timeLabel,
+} from '@/lib/format'
 
 /** 돈과 콜드스타트 경로. 손으로 쓴 자릿수 정규식과 null 분기는 검사가 있어야 한다. */
 
@@ -60,6 +68,16 @@ describe('successLabel', () => {
   })
 })
 
+describe('blockLabel', () => {
+  it('블록 번호에 천 단위 구분을 넣는다', () => {
+    expect(blockLabel(15230491)).toBe('#15,230,491')
+  })
+
+  it('아직 블록에 안 들어간 트랜잭션은 —', () => {
+    expect(blockLabel(null)).toBe('—')
+  })
+})
+
 describe('timeLabel', () => {
   it('서울 시각으로 MM.DD HH:mm 을 만든다', () => {
     // 명세 예시가 Z 표기다. 14:22Z 는 서울에서 다음 날 23:22 이다.
@@ -76,6 +94,17 @@ describe('timeLabel', () => {
     // 그대로 그리면 'Invalid Date' 가 카드에 박힌다.
     expect(timeLabel(null)).toBe('—')
     expect(timeLabel('언젠가')).toBe('—')
+  })
+})
+
+describe('dateTimeLabel', () => {
+  it('해를 떼지 않는다', () => {
+    expect(dateTimeLabel('2026-09-01T09:00:00+09:00')).toBe('2026.09.01 09:00')
+  })
+
+  it('값이 없거나 깨졌으면 —', () => {
+    expect(dateTimeLabel(null)).toBe('—')
+    expect(dateTimeLabel('언젠가')).toBe('—')
   })
 })
 

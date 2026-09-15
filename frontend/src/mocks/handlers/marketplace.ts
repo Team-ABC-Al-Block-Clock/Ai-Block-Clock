@@ -3,7 +3,7 @@ import { http } from 'msw'
 import type { AgentProvenance, AgentReview } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
-import { AGENTS, byNewest, setFavorite, toSummary } from '@/mocks/fixtures/agents'
+import { AGENTS, byNewest, provenanceOf, setFavorite, toSummary } from '@/mocks/fixtures/agents'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -14,6 +14,10 @@ import { scene } from '@/mocks/scenario'
 
 /** 못 찾았을 때의 코드는 MARKET_001 하나다. */
 const notFound = () => fail(404, 'MARKET_001', '에이전트를 찾을 수 없습니다.')
+
+/** 에이전트는 있는데 온체인 기록이 없을 때. */
+const noProvenance = () =>
+  fail(404, 'BLOCKCHAIN_003', '에이전트의 원본 증명 기록을 찾을 수 없습니다.')
 
 const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
 
@@ -68,14 +72,8 @@ export const marketplaceHandlers = [
     const agent = find(params.agentId)
     if (!agent) return notFound()
 
-    const txHash = `0x${agent.agentId.replace(/\D/g, '').padStart(6, '0').repeat(10).slice(0, 64)}`
-    return ok<AgentProvenance>({
-      txHash,
-      network: 'Polygon Amoy',
-      ownerAddress: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
-      registeredAt: agent.createdAt,
-      explorerUrl: `https://amoy.polygonscan.com/tx/${txHash}`,
-    })
+    const provenance = provenanceOf(agent)
+    return provenance ? ok<AgentProvenance>(provenance) : noProvenance()
   }),
   http.get(`${API_BASE_URL}/marketplace/agents/:agentId/reviews`, async ({ request, params }) => {
     const forced = await scene()
