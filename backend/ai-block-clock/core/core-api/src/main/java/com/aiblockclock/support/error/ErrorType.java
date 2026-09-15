@@ -60,6 +60,9 @@ public enum ErrorType {
     CHARGE_TRANSACTION_ALREADY_USED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_003,
             "이미 다른 사용자의 충전에 사용된 트랜잭션입니다.", LogLevel.WARN),
 
+    CHARGE_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, ErrorCode.PAYMENT_003,
+            "같은 거래의 충전 요청이 이미 존재합니다.", LogLevel.WARN),
+
     CHARGE_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.PAYMENT_004,
             "현재 상태에서는 충전 요청을 처리할 수 없습니다.", LogLevel.WARN),
 

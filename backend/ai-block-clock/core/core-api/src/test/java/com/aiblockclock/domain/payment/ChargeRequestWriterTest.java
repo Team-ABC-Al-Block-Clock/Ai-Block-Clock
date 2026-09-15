@@ -1,85 +1,83 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.times;
 
 class ChargeRequestWriterTest {
 
     private final ChargeRequestRepository repository = mock(ChargeRequestRepository.class);
-    private final ChargeRequestReader reader = mock(ChargeRequestReader.class);
-    private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
-    private final ChargeRequestWriter writer = new ChargeRequestWriter(repository, reader, transactionManager);
+    private final ChargeRequestWriter writer = new ChargeRequestWriter(repository);
 
     @Test
-    void 삽입_롤백_후_독립된_읽기_트랜잭션에서_기존_요청을_반환한다() {
-        DataIntegrityViolationException failure = new DataIntegrityViolationException("duplicate",
-                new ConstraintViolationException("duplicate", new SQLException(), "uq_charge_request_chain_hash"));
-        TransactionStatus insertStatus = mock(TransactionStatus.class);
-        TransactionStatus readStatus = mock(TransactionStatus.class);
-        ChargeRequest existingRequest = request();
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
-                .thenReturn(insertStatus, readStatus);
+    void 저장된_요청을_도메인_객체로_반환한다() {
+        when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChargeRequest savedRequest = writer.saveNewRequest(request());
+
+        assertThat(savedRequest.getUserReferenceId()).isEqualTo("test-user");
+        assertThat(savedRequest.getTransactionHash()).isEqualTo("test-hash");
+        assertThat(savedRequest.getRequestedUsdcAmount()).isEqualByComparingTo("1.000001");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "uq_charge_request_chain_hash",
+            "UQ_CHARGE_REQUEST_CHAIN_HASH_INDEX_1",
+            "charge_request.uq_charge_request_chain_hash"
+    })
+    void 같은_거래의_중복_저장은_도메인_오류로_변환한다(String constraintName) {
+        DataIntegrityViolationException failure = constraintFailure(constraintName);
         when(repository.saveAndFlush(any())).thenThrow(failure);
-        when(reader.findByChainAndTransactionHash(12345L, "test-hash"))
-                .thenReturn(Optional.of(existingRequest));
 
-        assertThat(writer.appendOrGetExisting(request())).isSameAs(existingRequest);
-
-        InOrder recoveryOrder = inOrder(transactionManager, reader);
-        recoveryOrder.verify(transactionManager).rollback(insertStatus);
-        recoveryOrder.verify(reader).findByChainAndTransactionHash(12345L, "test-hash");
-        recoveryOrder.verify(transactionManager).commit(readStatus);
-        ArgumentCaptor<TransactionDefinition> definitions = ArgumentCaptor.forClass(TransactionDefinition.class);
-        verify(transactionManager, times(2)).getTransaction(definitions.capture());
-        assertThat(definitions.getAllValues()).allSatisfy(definition -> assertThat(definition.getPropagationBehavior())
-                .isEqualTo(TransactionDefinition.PROPAGATION_REQUIRES_NEW));
-        assertThat(definitions.getAllValues().get(0).isReadOnly()).isFalse();
-        assertThat(definitions.getAllValues().get(1).isReadOnly()).isTrue();
+        assertThatThrownBy(() -> writer.saveNewRequest(request()))
+                .isInstanceOfSatisfying(CoreException.class, exception -> {
+                    assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_REQUEST_ALREADY_EXISTS);
+                    assertThat(exception.getCause()).isSameAs(failure);
+                });
     }
 
     @Test
-    void 다른_무결성_오류는_중복_요청으로_숨기지_않는다() {
-        DataIntegrityViolationException failure = new DataIntegrityViolationException("other constraint",
-                new ConstraintViolationException("other constraint", new SQLException(), "other_constraint"));
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
-                .thenReturn(mock(TransactionStatus.class));
+    void 다른_제약의_무결성_오류는_중복_요청으로_숨기지_않는다() {
+        DataIntegrityViolationException failure = constraintFailure("other_constraint");
         when(repository.saveAndFlush(any())).thenThrow(failure);
 
-        assertThatThrownBy(() -> writer.appendOrGetExisting(request())).isSameAs(failure);
-        verify(reader, never()).findByChainAndTransactionHash(any(), any());
+        assertThatThrownBy(() -> writer.saveNewRequest(request())).isSameAs(failure);
     }
 
     @Test
-    void 중복_오류여도_기존_요청을_찾지_못하면_원래_오류를_유지한다() {
-        DataIntegrityViolationException failure = new DataIntegrityViolationException("duplicate",
-                new ConstraintViolationException("duplicate", new SQLException(), "uq_charge_request_chain_hash"));
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
-                .thenReturn(mock(TransactionStatus.class));
+    void 제약_이름이_없으면_중복_요청으로_숨기지_않는다() {
+        DataIntegrityViolationException failure = constraintFailure(null);
         when(repository.saveAndFlush(any())).thenThrow(failure);
-        when(reader.findByChainAndTransactionHash(12345L, "test-hash")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> writer.appendOrGetExisting(request())).isSameAs(failure);
+        assertThatThrownBy(() -> writer.saveNewRequest(request())).isSameAs(failure);
+    }
+
+    @Test
+    void 제약_위반이_아닌_무결성_오류는_그대로_전달한다() {
+        DataIntegrityViolationException failure = new DataIntegrityViolationException("unknown");
+        when(repository.saveAndFlush(any())).thenThrow(failure);
+
+        assertThatThrownBy(() -> writer.saveNewRequest(request())).isSameAs(failure);
+    }
+
+    private DataIntegrityViolationException constraintFailure(String constraintName) {
+        return new DataIntegrityViolationException("constraint failure",
+                new ConstraintViolationException("constraint failure", new SQLException(), constraintName));
     }
 
     private ChargeRequest request() {

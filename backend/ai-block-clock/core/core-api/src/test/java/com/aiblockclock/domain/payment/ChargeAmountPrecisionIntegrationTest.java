@@ -71,7 +71,7 @@ class ChargeAmountPrecisionIntegrationTest {
                 "0x3333333333333333333333333333333333333333",
                 5L
         );
-        ChargeRequest request = chargeRequestService.createPending(
+        ChargeRequest request = chargeRequestService.createChargeRequest(
                 USER_REFERENCE_ID,
                 SENDER_ADDRESS,
                 networkPolicy,

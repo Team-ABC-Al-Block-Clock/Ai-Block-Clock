@@ -43,7 +43,7 @@ class ChargeRequestServiceIntegrationTest {
     @Test
     void 새로운_충전_요청을_PENDING_상태로_저장한다() {
         ChargeRequest result =
-                chargeRequestService.createPending(
+                chargeRequestService.createChargeRequest(
                         "user-request-100",
                         "0x1111111111111111111111111111111111111111",
                         NETWORK_POLICY,
@@ -72,7 +72,7 @@ class ChargeRequestServiceIntegrationTest {
                 "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
         ChargeRequest first =
-                chargeRequestService.createPending(
+                chargeRequestService.createChargeRequest(
                         "user-request-200",
                         "0x4444444444444444444444444444444444444444",
                         NETWORK_POLICY,
@@ -81,7 +81,7 @@ class ChargeRequestServiceIntegrationTest {
                 );
 
         ChargeRequest second =
-                chargeRequestService.createPending(
+                chargeRequestService.createChargeRequest(
                         "user-request-200",
                         "0x4444444444444444444444444444444444444444",
                         NETWORK_POLICY,
@@ -98,7 +98,7 @@ class ChargeRequestServiceIntegrationTest {
         String transactionHash =
                 "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
-        chargeRequestService.createPending(
+        chargeRequestService.createChargeRequest(
                 "user-request-300",
                 "0x5555555555555555555555555555555555555555",
                 NETWORK_POLICY,
@@ -107,7 +107,7 @@ class ChargeRequestServiceIntegrationTest {
         );
 
         assertThatThrownBy(
-                () -> chargeRequestService.createPending(
+                () -> chargeRequestService.createChargeRequest(
                         "user-request-400",
                         "0x6666666666666666666666666666666666666666",
                         NETWORK_POLICY,
@@ -127,7 +127,7 @@ class ChargeRequestServiceIntegrationTest {
     @Test
     void 본인의_충전_요청만_조회할_수_있다() {
         ChargeRequest saved =
-                chargeRequestService.createPending(
+                chargeRequestService.createChargeRequest(
                         "user-request-500",
                         "0x7777777777777777777777777777777777777777",
                         NETWORK_POLICY,

@@ -9,10 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.Locale;
@@ -24,48 +22,33 @@ public class ChargeRequestWriter {
     private static final String CHAIN_HASH_UNIQUE_CONSTRAINT = "uq_charge_request_chain_hash";
 
     private final ChargeRequestRepository chargeRequestRepository;
-    private final ChargeRequestReader chargeRequestReader;
-    private final PlatformTransactionManager transactionManager;
 
-    public ChargeRequest appendOrGetExisting(
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ChargeRequest saveNewRequest(
             ChargeRequest chargeRequest
     ) {
         try {
-            return newTransaction(false).execute(status -> insert(chargeRequest));
+            ChargeRequestEntity entity =
+                    ChargeRequestEntityConverter.toNewEntity(chargeRequest);
+
+            ChargeRequestEntity savedEntity =
+                    chargeRequestRepository.saveAndFlush(entity);
+
+            return ChargeRequestEntityConverter.toDomain(savedEntity);
         } catch (DataIntegrityViolationException exception) {
-            if (!isChainHashDuplicate(exception)) {
+            if (!isDuplicateTransaction(exception)) {
                 throw exception;
             }
 
-            return newTransaction(true).execute(status -> chargeRequestReader
-                    .findByChainAndTransactionHash(
-                            chargeRequest.getChainId(),
-                            chargeRequest.getTransactionHash()
-                    )
-                    .orElseThrow(() -> exception));
+            CoreException duplicateRequestException = new CoreException(
+                    ErrorType.CHARGE_REQUEST_ALREADY_EXISTS
+            );
+            duplicateRequestException.initCause(exception);
+            throw duplicateRequestException;
         }
     }
 
-    private ChargeRequest insert(ChargeRequest chargeRequest) {
-        ChargeRequestEntity entity =
-                ChargeRequestEntityConverter.toNewEntity(
-                        chargeRequest
-                );
-
-        ChargeRequestEntity savedEntity =
-                chargeRequestRepository.saveAndFlush(entity);
-
-        return ChargeRequestEntityConverter.toDomain(savedEntity);
-    }
-
-    private TransactionTemplate newTransaction(boolean readOnly) {
-        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        transaction.setReadOnly(readOnly);
-        return transaction;
-    }
-
-    private boolean isChainHashDuplicate(DataIntegrityViolationException exception) {
+    private boolean isDuplicateTransaction(DataIntegrityViolationException exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof ConstraintViolationException violation) {
                 String constraintName = violation.getConstraintName();

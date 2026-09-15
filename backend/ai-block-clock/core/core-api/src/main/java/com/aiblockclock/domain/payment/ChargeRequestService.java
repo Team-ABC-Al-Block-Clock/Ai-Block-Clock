@@ -17,7 +17,7 @@ public class ChargeRequestService {
     private final ChargeRequestReader chargeRequestReader;
     private final ChargeRequestWriter chargeRequestWriter;
 
-    public ChargeRequest createPending(
+    public ChargeRequest createChargeRequest(
             String userReferenceId,
             String senderWalletAddress,
             ChargeNetworkPolicy networkPolicy,
@@ -30,20 +30,20 @@ public class ChargeRequestService {
         BigDecimal normalizedUsdcAmount =
                 normalizeUsdcAmount(requestedUsdcAmount);
 
-        Optional<ChargeRequest> existingChargeRequest =
+        Optional<ChargeRequest> existingRequest =
                 chargeRequestReader.findByChainAndTransactionHash(
                         networkPolicy.chainId(),
                         normalizedTransactionHash
                 );
 
-        if (existingChargeRequest.isPresent()) {
-            return ensureReusableByUser(
-                    existingChargeRequest.get(),
+        if (existingRequest.isPresent()) {
+            return ensureTransactionOwnedBy(
+                    existingRequest.get(),
                     userReferenceId
             );
         }
 
-        ChargeRequest newChargeRequest = ChargeRequest.pending(
+        ChargeRequest newRequest = ChargeRequest.pending(
                 userReferenceId,
                 senderWalletAddress,
                 networkPolicy.chainId(),
@@ -51,10 +51,22 @@ public class ChargeRequestService {
                 normalizedUsdcAmount
         );
 
-        ChargeRequest savedOrExistingRequest =
-                chargeRequestWriter.appendOrGetExisting(newChargeRequest);
+        try {
+            return chargeRequestWriter.saveNewRequest(newRequest);
+        } catch (CoreException exception) {
+            if (exception.getErrorType() != ErrorType.CHARGE_REQUEST_ALREADY_EXISTS) {
+                throw exception;
+            }
 
-        return ensureReusableByUser(savedOrExistingRequest, userReferenceId);
+            ChargeRequest savedRequest = chargeRequestReader
+                    .findByChainAndTransactionHash(
+                            networkPolicy.chainId(),
+                            normalizedTransactionHash
+                    )
+                    .orElseThrow(() -> exception);
+
+            return ensureTransactionOwnedBy(savedRequest, userReferenceId);
+        }
     }
 
     public ChargeRequest getOwnedCharge(
@@ -69,17 +81,17 @@ public class ChargeRequestService {
         return chargeRequest;
     }
 
-    private ChargeRequest ensureReusableByUser(
-            ChargeRequest existingChargeRequest,
+    private ChargeRequest ensureTransactionOwnedBy(
+            ChargeRequest existingRequest,
             String userReferenceId
     ) {
-        if (!existingChargeRequest.isOwnedBy(userReferenceId)) {
+        if (!existingRequest.isOwnedBy(userReferenceId)) {
             throw new CoreException(
                     ErrorType.CHARGE_TRANSACTION_ALREADY_USED
             );
         }
 
-        return existingChargeRequest;
+        return existingRequest;
     }
 
     private String normalizeTransactionHash(
