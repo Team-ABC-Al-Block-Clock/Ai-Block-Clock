@@ -67,7 +67,10 @@ public enum ErrorType {
             "충전 수량이 올바르지 않습니다.", LogLevel.WARN),
 
     LEDGER_INVALID_TRANSACTION(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_006,
-            "원장 거래 구성이 올바르지 않습니다.", LogLevel.ERROR);
+            "원장 거래 구성이 올바르지 않습니다.", LogLevel.ERROR),
+
+    CHARGE_REQUEST_CONCURRENTLY_MODIFIED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_007,
+            "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

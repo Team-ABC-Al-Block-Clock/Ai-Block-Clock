@@ -63,7 +63,7 @@ public class ChargeProcessingService {
             ChargeStatusReason failureReason
     ) {
         chargeRequest.fail(failureReason);
-        return chargeRequestWriter.update(chargeRequest);
+        return chargeRequestWriter.updateFromPending(chargeRequest);
     }
 
     private ChargeRequest confirmCharge(

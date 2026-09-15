@@ -37,15 +37,4 @@ final class ChargeRequestEntityConverter {
         );
     }
 
-    static void applyToEntity(
-            ChargeRequest chargeRequest,
-            ChargeRequestEntity entity
-    ) {
-        entity.applyState(
-                chargeRequest.getCreditedAbcAmount(),
-                chargeRequest.getStatus(),
-                chargeRequest.getStatusReason(),
-                chargeRequest.getConfirmedAt()
-        );
-    }
 }

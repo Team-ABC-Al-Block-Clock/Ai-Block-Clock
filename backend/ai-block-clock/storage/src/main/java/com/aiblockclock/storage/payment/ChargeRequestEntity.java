@@ -83,15 +83,4 @@ public class ChargeRequestEntity extends BaseTimeEntity {
         return entity;
     }
 
-    public void applyState(
-            BigDecimal creditedAbcAmount,
-            ChargeStatus status,
-            ChargeStatusReason statusReason,
-            Instant confirmedAt
-    ) {
-        this.creditedAbcAmount = creditedAbcAmount;
-        this.status = status;
-        this.statusReason = statusReason;
-        this.confirmedAt = confirmedAt;
-    }
 }

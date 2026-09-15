@@ -38,8 +38,13 @@ public class ChargeConfirmationManager {
                         creditedAbcAmount
                 );
 
+        ChargeRequest confirmedChargeRequest =
+                chargeRequestWriter.updateFromPending(
+                        chargeRequest
+                );
+
         ledgerTransactionWriter.append(ledgerTransaction);
 
-        return chargeRequestWriter.update(chargeRequest);
+        return confirmedChargeRequest;
     }
 }
