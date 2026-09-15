@@ -131,10 +131,12 @@ backend:test:mysql:
       docker run --rm
       -u "$(id -u):$(id -g)"
       --group-add "$(stat -c '%g' /var/run/docker.sock)"
+      --network=host
       -v /var/run/docker.sock:/var/run/docker.sock
       -v "$CI_PROJECT_DIR":"$CI_PROJECT_DIR"
       -w "$CI_PROJECT_DIR/$BE_DIR"
       -e GRADLE_USER_HOME="$CI_PROJECT_DIR/$GRADLE_USER_HOME"
+      -e TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1
       "$BE_JDK_IMAGE"
       ./gradlew containerTest --no-daemon --console=plain --rerun-tasks
   artifacts:
