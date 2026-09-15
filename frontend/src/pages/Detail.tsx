@@ -9,6 +9,7 @@ import {
   removeAgentFavorite,
   type AgentDetail,
   type AgentImage,
+  type AgentProvenance,
 } from '@/api/agents'
 import { ApiError, AUTH_ERROR } from '@/api/errors'
 import {
@@ -44,6 +45,15 @@ const ERROR_ACTIONS = JSON.stringify([
 
 /** 즐겨찾기 실패 중 로그인 문제. 401 안에서도 문구가 갈린다(`api/errors.ts`). */
 const AUTH_CODES: string[] = [AUTH_ERROR.MISSING, AUTH_ERROR.INVALID, AUTH_ERROR.EXPIRED]
+
+/** 아직 블록에 안 들어간 트랜잭션은 되돌려질 수 있다 — 검증됐다고 말하지 않는다. */
+function proofBadgeOf(proof: AgentProvenance) {
+  if (proof.blockchain.transactionStatus === 'PENDING')
+    return { text: '블록 확정 대기 중', color: 'var(--color-muted)' }
+  if (!proof.verification.verified)
+    return { text: '✗ 원본 검증 불일치', color: 'rgba(255,196,214,.9)' }
+  return { text: '✓ 원본 검증됨', color: 'var(--color-accent-bright)' }
+}
 
 type ShotTab = AgentImage['type']
 
@@ -196,6 +206,7 @@ export default function Detail() {
   // 실행 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
   const proofTop = agent.usageExample ? 1440 : 1268
   const proof = provenance.data
+  const proofBadge = proof && proofBadgeOf(proof)
   // 대조해 보라고 두는 값이라 주소는 줄이지 않는다.
   const onChainOwner = proof?.verification.onChainOwnerAddress ?? ''
   const onChainHash = proof ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…` : ''
@@ -219,8 +230,8 @@ export default function Detail() {
           height: '1024px',
         }}
       >
-        {/* 470 = 증명 카드 높이 + 아래 여백 */}
-        <div className="relative" style={{ width: '1440px', height: `${proofTop + 470}px` }}>
+        {/* 426 = 증명 카드 높이 + 아래 여백 */}
+        <div className="relative" style={{ width: '1440px', height: `${proofTop + 426}px` }}>
           <a
             className="absolute flex items-center text-[14px] tracking-[-.01em]"
             href={paths.search}
@@ -267,15 +278,34 @@ export default function Detail() {
           </div>
 
           <div
-            className="absolute text-[32px] font-bold tracking-[-.02em] text-white"
+            className="absolute flex items-center"
             style={{
               left: '424px',
               top: '180px',
-              textShadow: '0 2px 20px rgba(35,8,45,.6)',
+              gap: '12px',
               animation: 'rise .7s .08s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            {agent.name}
+            <div
+              className="text-[32px] font-bold tracking-[-.02em] text-white"
+              style={{ textShadow: '0 2px 20px rgba(35,8,45,.6)' }}
+            >
+              {agent.name}
+            </div>
+            {proofBadge && (
+              <div
+                className="flex flex-none items-center text-[12.5px] font-semibold tracking-[-.01em]"
+                style={{
+                  height: '26px',
+                  padding: '0 12px',
+                  borderRadius: '13px',
+                  background: 'var(--color-surface-quiet)',
+                  color: proofBadge.color,
+                }}
+              >
+                {proofBadge.text}
+              </div>
+            )}
           </div>
           <div
             className="absolute text-[15px] tracking-[-.01em]"
@@ -745,28 +775,7 @@ export default function Detail() {
 
             {proof && (
               <>
-                <div
-                  className="inline-flex items-center text-[12.5px] font-semibold"
-                  style={{
-                    height: '26px',
-                    padding: '0 12px',
-                    borderRadius: '13px',
-                    background: 'var(--color-surface-quiet)',
-                    color: proof.verification.verified
-                      ? 'var(--color-accent-bright)'
-                      : 'rgba(255,196,214,.9)',
-                  }}
-                >
-                  {proof.verification.verified ? '✓ 원본 검증됨' : '✗ 원본 검증 불일치'}
-                </div>
-                {/* 아직 블록에 안 들어간 트랜잭션은 되돌려질 수 있다 — 블록 칸의 '—' 만으로는 안 보인다. */}
-                {proof.blockchain.transactionStatus === 'PENDING' && (
-                  <span className="text-muted" style={{ marginLeft: '10px' }}>
-                    블록 확정 대기 중
-                  </span>
-                )}
-
-                <div style={{ marginTop: '18px' }}>
+                <div>
                   {(
                     [
                       [
