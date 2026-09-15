@@ -10,6 +10,8 @@ import java.math.RoundingMode;
 @Component
 public final class AbcConversionPolicy {
 
+    private static final int ABC_DECIMAL_PLACES = 6;
+
     public BigDecimal convert(BigDecimal usdcAmount) {
         if (usdcAmount == null
                 || usdcAmount.signum() <= 0) {
@@ -20,7 +22,7 @@ public final class AbcConversionPolicy {
 
         try {
             return usdcAmount.setScale(
-                    3,
+                    ABC_DECIMAL_PLACES,
                     RoundingMode.UNNECESSARY
             );
         } catch (ArithmeticException exception) {

@@ -1,0 +1,116 @@
+package com.aiblockclock.domain.payment;
+
+import com.aiblockclock.enums.payment.ChargeStatus;
+import com.aiblockclock.enums.payment.LedgerAccountType;
+import com.aiblockclock.storage.payment.ChargeRequestEntity;
+import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import com.aiblockclock.storage.payment.LedgerAccountRepository;
+import com.aiblockclock.storage.payment.LedgerEntryEntity;
+import com.aiblockclock.storage.payment.LedgerEntryRepository;
+import com.aiblockclock.storage.payment.LedgerTransactionEntity;
+import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Tag("integration")
+@SpringBootTest
+@Transactional
+class ChargeAmountPrecisionIntegrationTest {
+
+    private static final String USER_REFERENCE_ID = "user-amount-precision";
+    private static final String SENDER_ADDRESS = "0x1111111111111111111111111111111111111111";
+    private static final String TRANSACTION_HASH =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    @Autowired
+    private ChargeRequestService chargeRequestService;
+
+    @Autowired
+    private ChargeProcessingService chargeProcessingService;
+
+    @Autowired
+    private ChargeRequestRepository chargeRequestRepository;
+
+    @Autowired
+    private LedgerTransactionRepository ledgerTransactionRepository;
+
+    @Autowired
+    private LedgerEntryRepository ledgerEntryRepository;
+
+    @Autowired
+    private LedgerAccountRepository ledgerAccountRepository;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.000001", "1.000001", "10.123456"})
+    void 소수_6자리_충전이_등록부터_원장과_잔액까지_손실_없이_저장된다(String amount) {
+        BigDecimal requestedAmount = new BigDecimal(amount);
+        ChargeNetworkPolicy networkPolicy = new ChargeNetworkPolicy(
+                12345L,
+                "0x2222222222222222222222222222222222222222",
+                "0x3333333333333333333333333333333333333333",
+                5L
+        );
+        ChargeRequest request = chargeRequestService.createPending(
+                USER_REFERENCE_ID,
+                SENDER_ADDRESS,
+                networkPolicy,
+                TRANSACTION_HASH,
+                requestedAmount
+        );
+        OnChainUsdcTransfer transfer = new OnChainUsdcTransfer(
+                OnChainTransactionStatus.SUCCESS,
+                networkPolicy.chainId(),
+                TRANSACTION_HASH,
+                SENDER_ADDRESS,
+                networkPolicy.custodyAddress(),
+                networkPolicy.usdcContractAddress(),
+                requestedAmount,
+                networkPolicy.requiredConfirmations()
+        );
+
+        ChargeRequest result = chargeProcessingService.process(request.getId(), transfer, networkPolicy);
+        entityManager.flush();
+        entityManager.clear();
+
+        ChargeRequestEntity savedRequest = chargeRequestRepository.findById(request.getId()).orElseThrow();
+        assertThat(result.getStatus()).isEqualTo(ChargeStatus.CONFIRMED);
+        assertThat(savedRequest.getStatus()).isEqualTo(ChargeStatus.CONFIRMED);
+        assertExactAmount(savedRequest.getRequestedUsdcAmount(), requestedAmount);
+        assertExactAmount(savedRequest.getCreditedAbcAmount(), requestedAmount);
+
+        LedgerTransactionEntity transaction = ledgerTransactionRepository
+                .findByChainIdAndTransactionHash(networkPolicy.chainId(), TRANSACTION_HASH).orElseThrow();
+        List<LedgerEntryEntity> entries = ledgerEntryRepository
+                .findAllByTransactionIdOrderByIdAsc(transaction.getId());
+        assertThat(entries).hasSize(2);
+        for (LedgerEntryEntity entry : entries) {
+            BigDecimal expectedDelta = entry.getAccount().getAccountType() == LedgerAccountType.ABC_BALANCE
+                    ? requestedAmount : requestedAmount.negate();
+            assertExactAmount(entry.getAmountDelta(), expectedDelta);
+        }
+        assertExactAmount(ledgerAccountRepository.findByAccountTypeAndReferenceId(
+                LedgerAccountType.ABC_BALANCE, USER_REFERENCE_ID).orElseThrow().getBalance(), requestedAmount);
+        assertExactAmount(ledgerAccountRepository.findByAccountTypeAndReferenceId(
+                LedgerAccountType.ABC_ISSUANCE, "SYSTEM").orElseThrow().getBalance(), requestedAmount.negate());
+        assertThat(entries.stream().map(LedgerEntryEntity::getAmountDelta)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    private void assertExactAmount(BigDecimal actual, BigDecimal expected) {
+        assertThat(actual).isEqualByComparingTo(expected);
+        assertThat(actual.scale()).isEqualTo(6);
+    }
+}

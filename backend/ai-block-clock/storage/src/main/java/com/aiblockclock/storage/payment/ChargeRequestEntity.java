@@ -49,7 +49,7 @@ public class ChargeRequestEntity extends BaseTimeEntity {
     )
     private BigDecimal requestedUsdcAmount;
 
-    @Column(precision = 38, scale = 3)
+    @Column(precision = 41, scale = 6)
     private BigDecimal creditedAbcAmount;
 
     @Enumerated(EnumType.STRING)

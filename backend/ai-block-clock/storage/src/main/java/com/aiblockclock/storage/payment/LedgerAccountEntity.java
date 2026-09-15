@@ -34,8 +34,8 @@ public class LedgerAccountEntity extends BaseTimeEntity {
     @Column(nullable = false, length = 100, updatable = false)
     private String referenceId;
 
-    @Column(nullable = false, precision = 38, scale = 3)
-    private BigDecimal balance = BigDecimal.ZERO.setScale(3);
+    @Column(nullable = false, precision = 41, scale = 6)
+    private BigDecimal balance = new BigDecimal("0.000000");
 
     @Version
     @Column(nullable = false)
