@@ -45,7 +45,7 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) {
     // MR 마다 도는 태스크이므로 외부 의존(DB, 컨테이너, 네트워크)이 없어야 한다.
     tasks.named('test') {
         useJUnitPlatform {
-            excludeTags 'integration'
+            excludeTags 'integration', 'container'
         }
     }
 
@@ -61,8 +61,20 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) {
 
         useJUnitPlatform {
             includeTags 'integration'
+            excludeTags 'container'
         }
 
         shouldRunAfter tasks.named('test')
+    }
+
+    tasks.register('containerTest', Test) {
+        group = 'verification'
+        description = '@Tag("container") 테스트를 실제 MySQL 컨테이너에서 실행한다.'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'container'
+        }
+        shouldRunAfter tasks.named('integrationTest')
     }
 }

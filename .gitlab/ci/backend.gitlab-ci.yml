@@ -118,6 +118,41 @@ backend:test:integration:
       when: manual
       allow_failure: true
 
+backend:test:mysql:
+  extends: .backend-gradle
+  stage: test
+  needs:
+    - job: backend:build
+      artifacts: false
+  resource_group: backend-mysql-tests
+  script:
+    - test -S /var/run/docker.sock
+    - >
+      docker run --rm
+      -u "$(id -u):$(id -g)"
+      --group-add "$(stat -c '%g' /var/run/docker.sock)"
+      -v /var/run/docker.sock:/var/run/docker.sock
+      -v "$CI_PROJECT_DIR":"$CI_PROJECT_DIR"
+      -w "$CI_PROJECT_DIR/$BE_DIR"
+      -e GRADLE_USER_HOME="$CI_PROJECT_DIR/$GRADLE_USER_HOME"
+      "$BE_JDK_IMAGE"
+      ./gradlew containerTest --no-daemon --console=plain --rerun-tasks
+  artifacts:
+    reports:
+      junit:
+        - backend/ai-block-clock/**/build/test-results/containerTest/TEST-*.xml
+    expire_in: 1 week
+    when: always
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *backend-changes
+      when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "develop-BE" || $CI_COMMIT_BRANCH == "master"'
+      <<: *backend-changes
+      when: manual
+      allow_failure: true
+
 backend:deploy:
   stage: deploy
   tags:
