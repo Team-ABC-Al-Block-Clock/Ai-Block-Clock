@@ -1,13 +1,14 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.ChargeStatus;
+import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -16,7 +17,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("integration")
 @SpringBootTest
-@Transactional
 class ChargeRequestServiceIntegrationTest {
 
     private static final ChargeNetworkPolicy NETWORK_POLICY =
@@ -29,6 +29,16 @@ class ChargeRequestServiceIntegrationTest {
 
     @Autowired
     private ChargeRequestService chargeRequestService;
+
+    @Autowired
+    private ChargeRequestRepository chargeRequestRepository;
+
+    @AfterEach
+    void cleanUp() {
+        chargeRequestRepository.findAll().stream()
+                .filter(request -> request.getUserReferenceId().startsWith("user-request-"))
+                .forEach(chargeRequestRepository::delete);
+    }
 
     @Test
     void 새로운_충전_요청을_PENDING_상태로_저장한다() {

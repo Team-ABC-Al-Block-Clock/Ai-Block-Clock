@@ -1,0 +1,151 @@
+package com.aiblockclock.domain.payment;
+
+import com.aiblockclock.storage.payment.ChargeRequestRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+
+@Tag("integration")
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:charge_creation_concurrency;MODE=MySQL;DB_CLOSE_DELAY=-1")
+class ChargeRequestCreationConcurrencyIntegrationTest {
+
+    private static final ChargeNetworkPolicy NETWORK_POLICY = new ChargeNetworkPolicy(
+            12345L,
+            "0x2222222222222222222222222222222222222222",
+            "0x3333333333333333333333333333333333333333",
+            5L
+    );
+    private static final String TRANSACTION_HASH = "0x" + "a".repeat(64);
+    private static final String OTHER_TRANSACTION_HASH = "0x" + "b".repeat(64);
+    private static final String SENDER_ADDRESS = "0x1111111111111111111111111111111111111111";
+
+    @Autowired
+    private ChargeRequestService chargeRequestService;
+
+    @Autowired
+    private ChargeRequestRepository chargeRequestRepository;
+
+    @MockitoSpyBean
+    private ChargeRequestReader chargeRequestReader;
+
+    @AfterEach
+    void cleanUp() {
+        // This class uses its own in-memory database, not the shared payment-test database.
+        chargeRequestRepository.deleteAllInBatch();
+    }
+
+    @Test
+    void 같은_사용자의_동시_요청은_한_건만_저장하고_같은_ID를_반환한다() throws Exception {
+        synchronizeInitialLookups();
+
+        List<CreationOutcome> outcomes = runConcurrently(
+                () -> create("same-user", TRANSACTION_HASH),
+                () -> create("same-user", TRANSACTION_HASH)
+        );
+
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(outcome.errorType()).isNull();
+            assertThat(outcome.request()).isNotNull();
+        });
+        assertThat(outcomes.get(0).request().getId()).isEqualTo(outcomes.get(1).request().getId());
+        assertThat(chargeRequestRepository.count()).isEqualTo(1);
+        assertThat(outcomes.get(0).request().getRequestedUsdcAmount()).isEqualByComparingTo("1.000001");
+    }
+
+    @Test
+    void 다른_사용자의_동시_요청은_저장된_요청의_소유자를_확인하고_재사용을_차단한다() throws Exception {
+        synchronizeInitialLookups();
+
+        List<CreationOutcome> outcomes = runConcurrently(
+                () -> create("first-user", TRANSACTION_HASH),
+                () -> create("second-user", TRANSACTION_HASH)
+        );
+
+        assertThat(outcomes.stream().filter(outcome -> outcome.request() != null).count()).isEqualTo(1);
+        assertThat(outcomes.stream().filter(outcome -> outcome.errorType() != null)
+                .map(CreationOutcome::errorType).toList())
+                .containsExactly(ErrorType.CHARGE_TRANSACTION_ALREADY_USED);
+        assertThat(chargeRequestRepository.count()).isEqualTo(1);
+        ChargeRequest winner = outcomes.stream().map(CreationOutcome::request)
+                .filter(request -> request != null).findFirst().orElseThrow();
+        assertThat(chargeRequestRepository.findById(winner.getId()).orElseThrow().getUserReferenceId())
+                .isEqualTo(winner.getUserReferenceId());
+    }
+
+    @Test
+    void 서로_다른_거래의_동시_요청은_각각_정상_저장한다() throws Exception {
+        synchronizeInitialLookups();
+
+        List<CreationOutcome> outcomes = runConcurrently(
+                () -> create("first-user", TRANSACTION_HASH),
+                () -> create("second-user", OTHER_TRANSACTION_HASH)
+        );
+
+        assertThat(outcomes).allSatisfy(outcome -> assertThat(outcome.errorType()).isNull());
+        assertThat(outcomes.get(0).request().getId()).isNotEqualTo(outcomes.get(1).request().getId());
+        assertThat(chargeRequestRepository.count()).isEqualTo(2);
+    }
+
+    private void synchronizeInitialLookups() {
+        CyclicBarrier bothRequestsFoundNothing = new CyclicBarrier(2);
+        AtomicInteger lookupCount = new AtomicInteger();
+        doAnswer(invocation -> {
+            Object result = invocation.callRealMethod();
+            if (lookupCount.incrementAndGet() <= 2) {
+                assertThat(result).isEqualTo(Optional.empty());
+                bothRequestsFoundNothing.await(10, TimeUnit.SECONDS);
+            }
+            return result;
+        }).when(chargeRequestReader).findByChainAndTransactionHash(anyLong(), anyString());
+    }
+
+    private CreationOutcome create(String userReferenceId, String transactionHash) {
+        try {
+            ChargeRequest request = chargeRequestService.createPending(
+                    userReferenceId, SENDER_ADDRESS, NETWORK_POLICY, transactionHash, new BigDecimal("1.000001")
+            );
+            return new CreationOutcome(request, null);
+        } catch (CoreException exception) {
+            return new CreationOutcome(null, exception.getErrorType());
+        }
+    }
+
+    private List<CreationOutcome> runConcurrently(
+            Callable<CreationOutcome> first,
+            Callable<CreationOutcome> second
+    ) throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<CreationOutcome> firstResult = executor.submit(first);
+            Future<CreationOutcome> secondResult = executor.submit(second);
+            return List.of(firstResult.get(20, TimeUnit.SECONDS), secondResult.get(20, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private record CreationOutcome(ChargeRequest request, ErrorType errorType) {
+    }
+}

@@ -51,7 +51,10 @@ public class ChargeRequestService {
                 normalizedUsdcAmount
         );
 
-        return chargeRequestWriter.append(newChargeRequest);
+        ChargeRequest savedOrExistingRequest =
+                chargeRequestWriter.appendOrGetExisting(newChargeRequest);
+
+        return ensureReusableByUser(savedOrExistingRequest, userReferenceId);
     }
 
     public ChargeRequest getOwnedCharge(

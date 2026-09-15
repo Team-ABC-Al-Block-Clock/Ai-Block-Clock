@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.transaction.AfterTransaction;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -52,6 +53,13 @@ class ChargeAmountPrecisionIntegrationTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @AfterTransaction
+    void cleanUpCommittedRequest() {
+        chargeRequestRepository.findByChainIdAndTransactionHash(12345L, TRANSACTION_HASH)
+                .filter(request -> USER_REFERENCE_ID.equals(request.getUserReferenceId()))
+                .ifPresent(chargeRequestRepository::delete);
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"0.000001", "1.000001", "10.123456"})
