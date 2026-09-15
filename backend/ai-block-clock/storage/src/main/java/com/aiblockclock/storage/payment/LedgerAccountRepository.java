@@ -30,7 +30,6 @@ public interface LedgerAccountRepository
             @Param("createdAt") Instant createdAt
     );
 
-    // A locking read sees the current row even under MySQL's REPEATABLE READ snapshot.
     @Query(value = """
             SELECT id FROM ledger_account
              WHERE account_type = :accountType AND reference_id = :referenceId

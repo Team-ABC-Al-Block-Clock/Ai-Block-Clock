@@ -27,7 +27,6 @@ public class ChargeRequestWriter {
     private final ChargeRequestReader chargeRequestReader;
     private final PlatformTransactionManager transactionManager;
 
-    // Registration commits independently; confirmation and ledger writes keep their own shared transaction.
     public ChargeRequest appendOrGetExisting(
             ChargeRequest chargeRequest
     ) {
@@ -38,7 +37,6 @@ public class ChargeRequestWriter {
                 throw exception;
             }
 
-            // The insert transaction has already rolled back. Read from a fresh snapshot.
             return newTransaction(true).execute(status -> chargeRequestReader
                     .findByChainAndTransactionHash(
                             chargeRequest.getChainId(),

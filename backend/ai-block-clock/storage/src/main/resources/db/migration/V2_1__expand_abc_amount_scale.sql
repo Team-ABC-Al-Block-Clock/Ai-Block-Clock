@@ -1,4 +1,3 @@
--- Preserve the existing 35 integer digits while expanding ABC to six decimal places.
 ALTER TABLE ledger_account
     MODIFY COLUMN balance DECIMAL(41, 6) NOT NULL DEFAULT 0.000000;
 

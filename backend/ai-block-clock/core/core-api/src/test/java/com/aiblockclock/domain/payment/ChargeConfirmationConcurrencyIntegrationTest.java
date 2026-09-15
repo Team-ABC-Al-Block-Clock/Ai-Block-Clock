@@ -71,7 +71,6 @@ class ChargeConfirmationConcurrencyIntegrationTest {
 
     @AfterEach
     void cleanUp() {
-        // All rows belong to this class's separate in-memory test database.
         ledgerEntryRepository.deleteAllInBatch();
         ledgerTransactionRepository.deleteAllInBatch();
         ledgerAccountRepository.deleteAllInBatch();

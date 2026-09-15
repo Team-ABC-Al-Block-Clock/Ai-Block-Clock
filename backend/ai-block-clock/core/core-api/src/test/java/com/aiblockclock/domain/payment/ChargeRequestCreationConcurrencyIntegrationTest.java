@@ -51,7 +51,6 @@ class ChargeRequestCreationConcurrencyIntegrationTest {
 
     @AfterEach
     void cleanUp() {
-        // This class uses its own in-memory database, not the shared payment-test database.
         chargeRequestRepository.deleteAllInBatch();
     }
 
