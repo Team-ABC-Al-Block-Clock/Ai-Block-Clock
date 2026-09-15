@@ -57,6 +57,45 @@ function sourceFiles(dir: string): string[] {
   })
 }
 
+/**
+ * 네임스페이스마다 Tailwind 가 만들어내는 유틸리티 접두사.
+ * `--color-accent` 는 `bg-accent` 로도 쓰이므로 `var()` 참조만 세면 살아 있는 토큰을 죽었다고 본다.
+ */
+const UTILITY_PREFIXES: Record<string, string[]> = {
+  color: [
+    'bg',
+    'text',
+    'border',
+    'outline',
+    'ring',
+    'fill',
+    'stroke',
+    'decoration',
+    'accent',
+    'caret',
+    'divide',
+    'from',
+    'via',
+    'to',
+    'placeholder',
+    'shadow',
+  ],
+  shadow: ['shadow', 'inset-shadow'],
+  radius: ['rounded', 'rounded-t', 'rounded-r', 'rounded-b', 'rounded-l'],
+  font: ['font'],
+  animate: ['animate'],
+}
+
+/** `--color-surface-card` → `bg-surface-card` · `hover:bg-surface-card` · `bg-surface-card/50` 을 찾는 정규식 */
+function utilityPattern(token: string): RegExp | null {
+  const [, namespace, rest] = /^--([a-z]+)-(.+)$/.exec(token) ?? []
+  const prefixes = namespace ? UTILITY_PREFIXES[namespace] : undefined
+  if (!prefixes || !rest) return null
+
+  // 뒤에 글자나 하이픈이 더 붙으면 다른 토큰이다 — `-accent` 가 `bg-accent-ink` 를 먹지 않게 한다
+  return new RegExp(`(?:^|[^a-zA-Z0-9-])(?:${prefixes.join('|')})-${rest}(?![a-zA-Z0-9-])`)
+}
+
 type Ref = { name: string; hasFallback: boolean; where: string }
 
 function varRefs(): Ref[] {
@@ -75,6 +114,9 @@ function varRefs(): Ref[] {
 describe('스타일 토큰', () => {
   const defined = themeTokens(readFileSync(join(SRC, 'index.css'), 'utf8'))
   const refs = varRefs()
+  const allSource = sourceFiles(SRC)
+    .map((path) => readFileSync(path, 'utf8'))
+    .join('\n')
 
   it('검사할 토큰과 참조가 실제로 모인다', () => {
     // 수집이 조용히 0건이 되면 아래 두 검사가 통과해도 아무것도 지키지 못한다
@@ -98,5 +140,18 @@ describe('스타일 토큰', () => {
       .map((r) => `${r.where} ${r.name}`)
 
     expect(withFallback).toEqual([])
+  })
+
+  it('정의한 토큰이 모두 쓰이고 있다', () => {
+    // 반대 방향. 쓰지 않는 토큰은 `@theme static` 때문에 번들에 실려 나가고,
+    // 다음 사람에게는 "있으니 쓰라고 둔 것" 으로 보인다.
+    const used = new Set(refs.map((r) => r.name))
+    const dead = [...defined].filter((token) => {
+      if (used.has(token)) return false
+      const pattern = utilityPattern(token)
+      return pattern ? !pattern.test(allSource) : true
+    })
+
+    expect(dead).toEqual([])
   })
 })
