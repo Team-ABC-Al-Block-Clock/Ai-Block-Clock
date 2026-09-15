@@ -51,7 +51,4 @@ public class LedgerAccountEntity extends BaseTimeEntity {
         return entity;
     }
 
-    public void applyBalanceDelta(BigDecimal amountDelta) {
-        balance = balance.add(amountDelta);
-    }
 }

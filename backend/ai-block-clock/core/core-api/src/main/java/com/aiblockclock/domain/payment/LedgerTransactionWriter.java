@@ -1,17 +1,20 @@
 package com.aiblockclock.domain.payment;
 
-import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.storage.payment.LedgerAccountEntity;
 import com.aiblockclock.storage.payment.LedgerAccountRepository;
 import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Comparator;
+import java.time.Instant;
 
 @Component
 @RequiredArgsConstructor
@@ -45,6 +48,8 @@ public class LedgerTransactionWriter {
 
         List<LedgerEntryEntity> ledgerEntryEntities =
                 ledgerTransaction.entries().stream()
+                        .sorted(Comparator.comparing((LedgerEntry entry) -> entry.accountType().name())
+                                .thenComparing(LedgerEntry::accountReferenceId))
                         .map(ledgerEntry -> createLedgerEntryEntity(
                                 ledgerTransactionEntity,
                                 ledgerEntry
@@ -59,14 +64,7 @@ public class LedgerTransactionWriter {
             LedgerEntry ledgerEntry
     ) {
         LedgerAccountEntity ledgerAccountEntity =
-                findOrCreateLedgerAccount(
-                        ledgerEntry.accountType(),
-                        ledgerEntry.accountReferenceId()
-                );
-
-        ledgerAccountEntity.applyBalanceDelta(
-                ledgerEntry.amountDelta()
-        );
+                updateLedgerAccountBalance(ledgerEntry);
 
         return LedgerEntryEntity.of(
                 ledgerTransactionEntity,
@@ -75,22 +73,21 @@ public class LedgerTransactionWriter {
         );
     }
 
-    private LedgerAccountEntity findOrCreateLedgerAccount(
-            LedgerAccountType accountType,
-            String accountReferenceId
-    ) {
-        return ledgerAccountRepository
-                .findByAccountTypeAndReferenceId(
-                        accountType,
-                        accountReferenceId
-                )
-                .orElseGet(
-                        () -> ledgerAccountRepository.save(
-                                LedgerAccountEntity.of(
-                                        accountType,
-                                        accountReferenceId
-                                )
-                        )
-                );
+    private LedgerAccountEntity updateLedgerAccountBalance(LedgerEntry ledgerEntry) {
+        ledgerAccountRepository.insertIfAbsent(
+                ledgerEntry.accountType().name(), ledgerEntry.accountReferenceId(), Instant.now()
+        );
+        Long accountId = ledgerAccountRepository.findIdForBalanceUpdate(
+                ledgerEntry.accountType().name(), ledgerEntry.accountReferenceId()
+        ).orElseThrow(() -> new CoreException(ErrorType.LEDGER_INVALID_TRANSACTION));
+
+        int updatedRowCount = ledgerAccountRepository.addBalanceDelta(
+                accountId, ledgerEntry.amountDelta(), Instant.now()
+        );
+        if (updatedRowCount != 1) {
+            throw new CoreException(ErrorType.LEDGER_INVALID_TRANSACTION);
+        }
+
+        return ledgerAccountRepository.getReferenceById(accountId);
     }
 }
