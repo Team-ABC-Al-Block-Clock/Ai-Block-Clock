@@ -1,8 +1,17 @@
-import { Fragment, useState } from 'react'
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
+import { Fragment, useEffect, useRef, useState } from 'react'
 
-import { priceLabel } from '@/lib/format'
+import type { NodeType } from '@/api/workflows'
+import { getNodePalette } from '@/api/workflows'
+import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
+
+/** 한 번에 불러오는 개수. 명세 기본값이다. */
+const PAGE_SIZE = 10
+/** 입력이 멈춘 뒤에만 검색한다. 없으면 타자 한 번에 요청 한 번이다. */
+const DEBOUNCE_MS = 300
 
 /** 노드 편집 화면. 판매자 흐름(/edit/nodes-seller)은 문구와 하단 버튼만 다릅니다. */
 interface EditNodesProps {
@@ -14,31 +23,69 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
   const [sel, setSel] = useState(1)
   const [hov, setHov] = useState(-1)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [infoAt, setInfoAt] = useState<number | null>(seller ? null : 1)
+  // 카드 index 로 잡으면 다음 장이 붙을 때 엉뚱한 카드가 열린다.
+  const [infoAt, setInfoAt] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [keyword, setKeyword] = useState('')
 
-  const nodes = [
-    { name: '파일 수집', kind: '트리거', x: 38, y: 400 },
-    { name: '내용 분석', kind: 'LLM', x: 246, y: 320 },
-    { name: '분류 및 태깅', kind: '도구', x: 454, y: 440 },
-    { name: '요약 생성', kind: 'LLM', x: 662, y: 330 },
-    { name: '결과 전달', kind: '출력', x: 870, y: 430 },
+  const nodes: { name: string; nodeType: NodeType; x: number; y: number }[] = [
+    { name: '파일 수집', nodeType: 'TRIGGER', x: 38, y: 400 },
+    { name: '내용 분석', nodeType: 'LLM', x: 246, y: 320 },
+    { name: '분류 및 태깅', nodeType: 'TOOL', x: 454, y: 440 },
+    { name: '요약 생성', nodeType: 'LLM', x: 662, y: 330 },
+    { name: '결과 전달', nodeType: 'TOOL', x: 870, y: 430 },
   ]
   const pick = (i: number) => () => setSel(sel === i ? -1 : i)
   const hover = (i: number) => () => setHov(i)
   const handleHovOut = () => setHov(-1)
   const handleTogglePanel = () => setPanelOpen((v) => !v)
-  const names = [
-    '문서 정리',
-    '일정 요약',
-    '메일 초안',
-    '코드 리뷰',
-    '회의록 요약',
-    '데이터 정제',
-    '번역 도우미',
-    'CS 응답',
-    '리서치 수집',
-    '리포트 작성',
-  ]
+  const handleSearch = (ev: React.ChangeEvent<HTMLInputElement>) => setQ(ev.target.value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(q.trim()), DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [q])
+
+  /** 판매자 모드는 내 것만 놓을 수 있다 — 남의 에이전트가 섞이면 등록할 수 없다. */
+  const scope = seller ? 'MINE' : 'ALL'
+
+  const {
+    data,
+    isPending,
+    isError,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: queryKeys.workflows.nodePalette.list({ scope, keyword, size: PAGE_SIZE }),
+    queryFn: ({ pageParam }) =>
+      getNodePalette({ scope, keyword: keyword || undefined, cursor: pageParam, size: PAGE_SIZE }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    // 검색어가 바뀌는 동안 목록이 비었다가 차오르지 않게 이전 결과를 남긴다.
+    placeholderData: keepPreviousData,
+  })
+
+  const items = data?.pages.flatMap((page) => page.content) ?? []
+  // 불러오는 중을 빈 목록으로 보면 타자 한 글자마다 '없음' 이 깜빡인다.
+  const isEmpty = !isPending && !isError && items.length === 0
+
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const node = sentinelRef.current
+    // 실패한 커서로는 다시 시도하지 않는다 — 교차할 때마다 같은 요청이 반복된다.
+    if (!node || !hasNextPage || isFetchNextPageError) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isFetchingNextPage) void fetchNextPage()
+      },
+      { root: document.getElementById('paletteScroll'), rootMargin: '160px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
+
   const n = nodes[sel]
   const g = nodes[hov] || n // 빛은 호버 중인 노드를 따라간다
   const selRing = g
@@ -52,22 +99,20 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
       (hov >= 0 ? -5 : 0) +
       'px);background:radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%);transition:left .34s cubic-bezier(.2,.8,.25,1),top .34s cubic-bezier(.2,.8,.25,1),transform .2s,opacity .25s ease'
     : 'display:none'
-  const results = names.map((name, i) => ({
-    name,
-    i,
-    initial: name.trim().charAt(0),
-    uses: (820 + i * 143).toLocaleString() + '회',
-    price: priceLabel(40 + (i % 5) * 25),
-    kind: ['LLM', '도구', '출력'][i % 3],
-    infoOpen: infoAt === i,
-    infoBg: infoAt === i ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
+  const cards = items.map((item) => ({
+    ...item,
+    initial: item.name.trim().charAt(0),
+    uses: runLabel(item.executionCount),
+    unit: priceLabel(item.price),
+    typeLabel: nodeTypeLabel(item.nodeType),
+    infoOpen: infoAt === item.itemId,
+    infoBg: infoAt === item.itemId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
     info: (ev: React.MouseEvent) => {
       ev.preventDefault()
       ev.stopPropagation()
-      setInfoAt((v) => (v === i ? null : i))
+      setInfoAt((v) => (v === item.itemId ? null : item.itemId))
     },
   }))
-  const nodeList = nodes.map((d, i) => ({ name: d.name, i }))
   const handleSel1 = pick(0)
   const handleSel2 = pick(1)
   const handleSel3 = pick(2)
@@ -79,10 +124,9 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
   const handleHov4 = hover(3)
   const handleHov5 = hover(4)
   const hasSelection = !!n
-  const noSelection = !n
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
-  const selKind = n ? n.kind : ''
+  const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
 
   return (
     <>
@@ -241,12 +285,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             1
           </div>
-          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">파일 수집</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">
+            {nodes[0].name}
+          </div>
           <div
             className="text-[12.5px]"
             style={{ color: 'rgba(228,190,172,.82)', letterSpacing: '.06em' }}
           >
-            트리거
+            {nodeTypeLabel(nodes[0].nodeType)}
           </div>
         </div>
 
@@ -273,12 +319,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             2
           </div>
-          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">내용 분석</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">
+            {nodes[1].name}
+          </div>
           <div
             className="text-[12.5px]"
             style={{ color: 'rgba(230,196,212,.85)', letterSpacing: '.06em' }}
           >
-            LLM
+            {nodeTypeLabel(nodes[1].nodeType)}
           </div>
         </div>
 
@@ -305,12 +353,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             3
           </div>
-          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">분류 및 태깅</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">
+            {nodes[2].name}
+          </div>
           <div
             className="text-[12.5px]"
             style={{ color: 'rgba(226,211,180,.8)', letterSpacing: '.06em' }}
           >
-            도구
+            {nodeTypeLabel(nodes[2].nodeType)}
           </div>
         </div>
 
@@ -337,12 +387,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             4
           </div>
-          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">요약 생성</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">
+            {nodes[3].name}
+          </div>
           <div
             className="text-[12.5px]"
             style={{ color: 'rgba(230,196,212,.82)', letterSpacing: '.06em' }}
           >
-            LLM
+            {nodeTypeLabel(nodes[3].nodeType)}
           </div>
         </div>
 
@@ -369,12 +421,14 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           >
             5
           </div>
-          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">결과 전달</div>
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">
+            {nodes[4].name}
+          </div>
           <div
             className="text-[12.5px]"
             style={{ color: 'rgba(190,183,222,.82)', letterSpacing: '.06em' }}
           >
-            출력
+            {nodeTypeLabel(nodes[4].nodeType)}
           </div>
         </div>
 
@@ -416,7 +470,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
             className="flex cursor-pointer items-center text-[14px] font-semibold text-white hover:bg-[rgba(255,255,255,.12)]"
           >
             <span>+</span>
-            <span>에이전트 추가</span>
+            <span>노드 추가</span>
           </div>
         </div>
 
@@ -444,7 +498,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 style={{ marginBottom: '16px' }}
               >
                 <div className="text-[20px] font-semibold tracking-[-.01em] text-white">
-                  에이전트 추가
+                  노드 추가
                 </div>
                 <div
                   onClick={handleTogglePanel}
@@ -475,7 +529,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                   className="text-[17px]"
                   style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
                 >
-                  에이전트 이름
+                  노드 이름
                 </div>
                 <div
                   className="bg-surface-card flex items-center"
@@ -489,7 +543,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                   <input
                     className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
                     type="text"
-                    placeholder="예: 문서 정리 봇"
+                    placeholder="예: 내용 분석"
                     style={{ width: '100%' }}
                   />
                 </div>
@@ -532,7 +586,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                   AI 모델
                 </div>
                 <div
-                  className="bg-surface-card flex items-center justify-between"
+                  className="bg-surface-card flex items-center"
                   style={{
                     height: '44px',
                     borderRadius: '11px',
@@ -541,15 +595,6 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                   }}
                 >
                   <div className="text-[17px] text-white">기본 모델</div>
-                  <div
-                    style={{
-                      width: '0',
-                      height: '0',
-                      borderLeft: '4px solid transparent',
-                      borderRight: '4px solid transparent',
-                      borderTop: '5px solid rgba(255,255,255,.6)',
-                    }}
-                  ></div>
                 </div>
 
                 <div
@@ -569,7 +614,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 >
                   <textarea
                     className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
-                    placeholder="에이전트에게 전달할 프롬프트를 입력하세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
+                    placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
                     style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
                   ></textarea>
                 </div>
@@ -688,50 +733,11 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
           animation: 'sideIn 1s .1s cubic-bezier(.18,.86,.24,1) both',
         }}
       >
-        <div
-          className="absolute bg-[rgba(255,255,255,.10)]"
-          style={{
-            left: '30px',
-            top: '30px',
-            width: '340px',
-            height: '40px',
-            borderRadius: '10px',
-          }}
-        >
-          <div
-            className="absolute rounded-full"
-            style={{
-              left: '14px',
-              top: '13px',
-              width: '14px',
-              height: '14px',
-              boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.7)',
-            }}
-          ></div>
-          <div
-            className="absolute"
-            style={{
-              left: '25px',
-              top: '25px',
-              width: '7px',
-              height: '2px',
-              borderRadius: '1px',
-              background: 'rgba(255,255,255,.7)',
-              transform: 'rotate(45deg)',
-            }}
-          ></div>
-          <input
-            className="absolute border-0 bg-transparent font-[inherit] text-[14px] text-white outline-0"
-            type="text"
-            placeholder="에이전트 검색"
-            style={{ left: '38px', top: '9px', width: '250px', height: '22px' }}
-          />
-        </div>
-        {hasSelection && (
+        {hasSelection ? (
           <>
             <div
               className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-              style={{ left: '30px', top: '90px' }}
+              style={{ left: '30px', top: '30px' }}
             >
               선택한 노드
             </div>
@@ -739,7 +745,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
               className="absolute"
               style={{
                 left: '30px',
-                top: '118px',
+                top: '58px',
                 width: '340px',
                 height: '92px',
                 borderRadius: '12px',
@@ -773,24 +779,23 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
                 className="absolute text-[13px]"
                 style={{ left: '76px', top: '52px', color: 'rgba(255,214,232,.8)' }}
               >
-                {selKind} 노드
+                {selTypeLabel} 노드
               </div>
             </div>
 
             <div
               className="absolute text-[14px] font-semibold"
-              style={{ left: '30px', top: '234px', color: 'rgba(255,255,255,.82)' }}
+              style={{ left: '30px', top: '172px', color: 'rgba(255,255,255,.82)' }}
             >
               노드 개요
-              <br />
             </div>
             <div
               className="absolute"
               style={{
                 left: '30px',
-                top: '258px',
+                top: '196px',
                 width: '340px',
-                height: '120px',
+                height: '108px',
                 borderRadius: '10px',
                 background: 'var(--color-surface-inset)',
               }}
@@ -842,262 +847,238 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
 
             <div
               className="absolute text-[14px] font-semibold"
-              style={{ left: '30px', top: '398px', color: 'rgba(255,255,255,.82)' }}
+              style={{ left: '30px', top: '326px', color: 'rgba(255,255,255,.82)' }}
             >
               모델
             </div>
             <div
-              className="absolute"
+              className="absolute flex items-center"
               style={{
                 left: '30px',
-                top: '422px',
+                top: '350px',
                 width: '340px',
                 height: '44px',
                 borderRadius: '10px',
+                padding: '0 14px',
                 background: 'var(--color-surface-inset)',
               }}
             >
-              <div
-                className="absolute text-[14px]"
-                style={{ left: '14px', top: '14px', color: 'rgba(255,255,255,.8)' }}
-              >
+              <div className="text-[14px]" style={{ color: 'rgba(255,255,255,.8)' }}>
                 기본 모델
               </div>
-              <div
-                className="absolute"
-                style={{
-                  left: '310px',
-                  top: '20px',
-                  width: '0',
-                  height: '0',
-                  borderLeft: '5px solid transparent',
-                  borderRight: '5px solid transparent',
-                  borderTop: '6px solid rgba(255,255,255,.6)',
-                }}
-              ></div>
-            </div>
-
-            <div
-              className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-              style={{ left: '30px', top: '496px' }}
-            >
-              노드 목록
-            </div>
-            <div
-              className="absolute flex flex-col"
-              style={{ left: '30px', top: '524px', width: '340px', gap: '10px' }}
-            >
-              {nodeList.map((row, i) => (
-                <Fragment key={i}>
-                  <div
-                    style={{
-                      width: '340px',
-                      height: '56px',
-                      borderRadius: '10px',
-                      background: 'var(--color-surface-inset)',
-                    }}
-                    className="relative cursor-pointer transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.15)]"
-                  >
-                    <div
-                      className="absolute bg-[rgba(255,255,255,.10)]"
-                      style={{
-                        left: '14px',
-                        top: '14px',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '8px',
-                      }}
-                    ></div>
-                    <div
-                      className="absolute text-[14px] font-semibold"
-                      style={{ left: '54px', top: '19px', color: 'rgba(255,255,255,.92)' }}
-                    >
-                      {row.name}
-                    </div>
-                    <div
-                      className="absolute"
-                      style={{
-                        left: '310px',
-                        top: '27px',
-                        width: '14px',
-                        height: '2px',
-                        borderRadius: '1px',
-                        background: 'rgba(255,255,255,.42)',
-                      }}
-                    ></div>
-                  </div>
-                </Fragment>
-              ))}
-            </div>
-
-            <div
-              style={{
-                left: '30px',
-                top: '870px',
-                width: '340px',
-                height: '48px',
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,.06)',
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16)',
-                color: 'rgba(255,255,255,.85)',
-              }}
-              className="absolute flex cursor-pointer items-center justify-center text-[15px] font-semibold hover:bg-[rgba(255,255,255,.14)]"
-            >
-              + 노드 추가
             </div>
           </>
+        ) : (
+          <div
+            className="absolute text-[14px]"
+            style={{ left: '30px', top: '30px', width: '340px', color: 'var(--color-faint)' }}
+          >
+            캔버스에서 노드를 고르면 여기서 살펴봅니다
+          </div>
         )}
 
-        {noSelection && (
-          <>
-            <div
-              className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-              style={{ left: '30px', top: '88px' }}
-            >
-              검색 결과
+        <div
+          className="absolute"
+          style={{
+            left: '30px',
+            top: '424px',
+            width: '340px',
+            height: '1px',
+            background: 'rgba(255,255,255,.14)',
+          }}
+        ></div>
+
+        <div
+          className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
+          style={{ left: '30px', top: '448px' }}
+        >
+          {seller ? '내 노드 · 에이전트' : '노드 · 마켓 에이전트'}
+        </div>
+
+        <div
+          className="absolute bg-[rgba(255,255,255,.10)]"
+          style={{
+            left: '30px',
+            top: '476px',
+            width: '340px',
+            height: '40px',
+            borderRadius: '10px',
+          }}
+        >
+          <div
+            className="absolute rounded-full"
+            style={{
+              left: '14px',
+              top: '13px',
+              width: '14px',
+              height: '14px',
+              boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.7)',
+            }}
+          ></div>
+          <div
+            className="absolute"
+            style={{
+              left: '25px',
+              top: '25px',
+              width: '7px',
+              height: '2px',
+              borderRadius: '1px',
+              background: 'rgba(255,255,255,.7)',
+              transform: 'rotate(45deg)',
+            }}
+          ></div>
+          <input
+            className="absolute border-0 bg-transparent font-[inherit] text-[14px] text-white outline-0"
+            type="text"
+            value={q}
+            onChange={handleSearch}
+            placeholder={seller ? '내 노드 · 에이전트 검색' : '노드 · 마켓 에이전트 검색'}
+            style={{ left: '38px', top: '9px', width: '250px', height: '22px' }}
+          />
+        </div>
+
+        <div
+          id="paletteScroll"
+          className="absolute flex flex-wrap"
+          style={{
+            left: '30px',
+            top: '530px',
+            width: '348px',
+            height: '470px',
+            gap: '14px',
+            alignContent: 'flex-start',
+            overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,.26) transparent',
+          }}
+        >
+          {isError && (
+            <div className="text-[13px]" style={{ width: '340px', color: 'var(--color-muted)' }}>
+              목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.
             </div>
-            <div
-              className="absolute text-right text-[13px]"
-              style={{ left: '266px', top: '90px', width: '68px', color: 'rgba(255,236,246,.6)' }}
-            >
-              10개
+          )}
+          {isEmpty && (
+            <div className="text-[13px]" style={{ width: '340px', color: 'var(--color-faint)' }}>
+              검색 결과가 없습니다.
             </div>
-            <div
-              className="absolute flex flex-wrap"
-              style={{
-                left: '30px',
-                top: '116px',
-                width: '340px',
-                height: '876px',
-                gap: '14px',
-                alignContent: 'flex-start',
-              }}
-            >
-              {results.map((item, i) => (
-                <Fragment key={i}>
-                  <div
-                    style={{
-                      width: '145px',
-                      height: '160px',
-                      borderRadius: '12px',
-                      transition: 'background .18s,transform .18s',
-                    }}
-                    className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
-                  >
+          )}
+          {cards.map((item) => (
+            <Fragment key={item.itemId}>
+              <div
+                style={{
+                  width: '163px',
+                  height: '160px',
+                  borderRadius: '12px',
+                  transition: 'background .18s,transform .18s',
+                  // 남의 에이전트를 놓으면 그 워크플로우는 등록할 수 없다 — 테두리로 갈라 둔다.
+                  boxShadow: item.mine ? 'inset 0 0 0 1px rgba(255,214,232,.45)' : 'none',
+                }}
+                className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
+              >
+                <div
+                  className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
+                  style={{
+                    left: '16px',
+                    top: '16px',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                  }}
+                >
+                  {item.iconUrl ? (
+                    <img
+                      src={item.iconUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
                     <div
-                      className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
-                      style={{
-                        left: '16px',
-                        top: '16px',
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '10px',
-                      }}
+                      className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
+                      style={{ color: 'rgba(255,226,238,.65)' }}
                     >
-                      <div
-                        className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
-                        style={{ color: 'rgba(255,226,238,.65)' }}
-                      >
-                        {item.initial}
-                      </div>
+                      {item.initial}
                     </div>
-                    <div
-                      className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
-                      style={{ left: '16px', top: '76px' }}
-                    >
+                  )}
+                </div>
+                <div
+                  className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
+                  style={{ left: '16px', top: '76px', width: '131px' }}
+                >
+                  {item.name}
+                </div>
+                <div
+                  className="absolute text-[12px]"
+                  style={{ left: '16px', top: '100px', color: 'rgba(255,214,232,.72)' }}
+                >
+                  {item.typeLabel}
+                </div>
+                <div
+                  className="absolute text-[12px]"
+                  style={{ left: '16px', top: '122px', color: 'var(--color-faint)' }}
+                >
+                  {item.unit}
+                </div>
+                <div
+                  onClick={item.info}
+                  title="항목 정보"
+                  style={{
+                    left: '123px',
+                    top: '12px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '12px',
+                    background: `${item.infoBg}`,
+                    zIndex: '2',
+                  }}
+                  className="absolute flex cursor-pointer items-center justify-center text-[13px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
+                >
+                  i
+                </div>
+                {item.infoOpen && (
+                  <div
+                    className="absolute top-0 left-0 box-border flex cursor-pointer flex-col"
+                    onClick={item.info}
+                    style={{
+                      width: '163px',
+                      height: '160px',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      background: 'rgba(20,11,36,.94)',
+                      backdropFilter: 'blur(20px) saturate(120%)',
+                      WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+                      gap: '6px',
+                      animation: 'fadeIn .16s ease both',
+                      zIndex: '3',
+                    }}
+                  >
+                    <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
                       {item.name}
                     </div>
-                    <div
-                      className="absolute"
-                      style={{
-                        left: '16px',
-                        top: '100px',
-                        width: '113px',
-                        height: '10px',
-                        borderRadius: '3px',
-                        background: 'rgba(255,255,255,.14)',
-                      }}
-                    ></div>
-                    <div
-                      className="absolute bg-[rgba(255,255,255,.10)]"
-                      style={{
-                        left: '16px',
-                        top: '116px',
-                        width: '84px',
-                        height: '10px',
-                        borderRadius: '3px',
-                      }}
-                    ></div>
-                    <div
-                      onClick={item.info}
-                      title="에이전트 정보"
-                      style={{
-                        left: '105px',
-                        top: '12px',
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '12px',
-                        background: `${item.infoBg}`,
-                        zIndex: '2',
-                      }}
-                      className="absolute flex cursor-pointer items-center justify-center text-[13px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
-                    >
-                      i
+                    <div className="flex justify-between text-[12px]">
+                      <span style={{ color: 'rgba(255,236,246,.58)' }}>사용</span>
+                      <span className="font-semibold text-white">{item.uses}</span>
                     </div>
-                    {item.infoOpen && (
-                      <>
-                        <div
-                          className="absolute top-0 left-0 box-border flex cursor-pointer flex-col"
-                          onClick={item.info}
-                          style={{
-                            width: '145px',
-                            height: '160px',
-                            padding: '14px',
-                            borderRadius: '12px',
-                            background: 'rgba(20,11,36,.94)',
-                            backdropFilter: 'blur(20px) saturate(120%)',
-                            WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-                            gap: '7px',
-                            animation: 'fadeIn .16s ease both',
-                            zIndex: '3',
-                          }}
-                        >
-                          <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
-                            {item.name}
-                          </div>
-                          <div className="flex justify-between text-[12px]">
-                            <span style={{ color: 'rgba(255,236,246,.58)' }}>사용</span>
-                            <span className="font-semibold text-white">{item.uses}</span>
-                          </div>
-                          <div className="flex justify-between text-[12px]">
-                            <span style={{ color: 'rgba(255,236,246,.58)' }}>실행 단가</span>
-                            <span className="font-semibold text-white">{item.price}</span>
-                          </div>
-                          <div className="flex justify-between text-[12px]">
-                            <span style={{ color: 'rgba(255,236,246,.58)' }}>유형</span>
-                            <span className="font-semibold text-white">{item.kind}</span>
-                          </div>
-                          <div
-                            className="text-center text-[11.5px] tracking-[-.01em]"
-                            style={{
-                              marginTop: 'auto',
-                              lineHeight: '1.4',
-                              color: 'var(--color-faint)',
-                            }}
-                          >
-                            다시 누르면
-                            <br />
-                            카드로 돌아갑니다
-                          </div>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex justify-between text-[12px]">
+                      <span style={{ color: 'rgba(255,236,246,.58)' }}>실행 단가</span>
+                      <span className="font-semibold text-white">{item.unit}</span>
+                    </div>
+                    <div className="flex justify-between text-[12px]">
+                      <span style={{ color: 'rgba(255,236,246,.58)' }}>만든 사람</span>
+                      <span className="font-semibold text-white">{item.owner.nickname}</span>
+                    </div>
+                    <div
+                      className="text-[11.5px]"
+                      style={{ marginTop: '2px', lineHeight: '1.4', color: 'var(--color-muted)' }}
+                    >
+                      {item.summary ?? '설명이 없습니다'}
+                    </div>
                   </div>
-                </Fragment>
-              ))}
-            </div>
-          </>
-        )}
+                )}
+              </div>
+            </Fragment>
+          ))}
+          <div ref={sentinelRef} style={{ width: '100%', height: '1px' }}></div>
+        </div>
       </div>
 
       <div
@@ -1115,7 +1096,7 @@ export default function EditNodes({ seller = false }: EditNodesProps = {}) {
         <input
           className="absolute rounded-md border-0 bg-transparent font-[inherit] text-[15px] font-semibold tracking-[-.01em] text-white outline-0 transition-colors duration-[160ms] hover:bg-white/8 focus:bg-white/12"
           defaultValue="문서 정리"
-          aria-label="에이전트 이름"
+          aria-label="워크플로우 이름"
           style={{ left: '10px', top: '8px', width: '234px', height: '24px', padding: '0 4px' }}
         />
         <svg
