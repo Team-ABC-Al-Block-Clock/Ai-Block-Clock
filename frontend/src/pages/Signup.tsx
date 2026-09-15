@@ -116,7 +116,7 @@ export default function Signup() {
           height: '17px',
           marginTop: '1px',
           borderRadius: '5px',
-          background: on ? '#e9b7d2' : 'rgba(255,255,255,.12)',
+          background: on ? 'var(--color-accent-bright)' : 'rgba(255,255,255,.12)',
           color: '#2f1527',
         }}
       >

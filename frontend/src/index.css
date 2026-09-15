@@ -21,6 +21,8 @@
   /* 강조 — 핑크와 보라의 중간 */
   --color-accent: #b98da9;
   --color-accent-ink: #2f1527;
+  /* 한 단계 밝은 분홍 — 빛나는 것(지갑 스피너·켜진 토글)에만 */
+  --color-accent-bright: #e9b7d2;
   --color-lilac: #c9a9dd;
   --color-positive: #7ce9b6;
   --color-star: #e3c8a3;

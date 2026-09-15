@@ -57,7 +57,7 @@ export class WalletDialog extends BaseElement {
         '.wd-halo{inset:-9px;background:radial-gradient(circle,rgba(233,183,210,.3),rgba(233,183,210,0) 66%);animation:wd-halo 2.4s ease-in-out infinite}' +
         '.wd-track{inset:0;background:rgba(255,255,255,.07)}' +
         '.wd-arc{inset:0;background:conic-gradient(from 0deg,rgba(233,183,210,0) 0deg,' +
-        'var(--color-accent,#e9b7d2) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
+        'var(--color-accent-bright,#e9b7d2) 176deg,#fff5fa 296deg,rgba(233,183,210,0) 342deg);' +
         'mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
         '-webkit-mask:radial-gradient(farthest-side,transparent 70%,#000 72%);' +
         'animation:wd-orbit 1.5s cubic-bezier(.55,.12,.45,.88) infinite}' +
