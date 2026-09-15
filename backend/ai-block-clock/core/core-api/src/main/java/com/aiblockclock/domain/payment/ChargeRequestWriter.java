@@ -23,6 +23,7 @@ public class ChargeRequestWriter {
 
     private final ChargeRequestRepository chargeRequestRepository;
 
+    // 중복 저장 실패의 롤백이 끝난 뒤 Service가 재조회하도록 저장을 독립된 트랜잭션으로 실행한다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ChargeRequest saveNewRequest(
             ChargeRequest chargeRequest
@@ -31,6 +32,8 @@ public class ChargeRequestWriter {
             ChargeRequestEntity entity =
                     ChargeRequestEntityConverter.toNewEntity(chargeRequest);
 
+            // 중복 제약 오류를 여기서 감지해 도메인 오류로 바꾸도록 SQL을 즉시 실행한다.
+            // SQL 실행은 최종 저장 확정이 아니며, 트랜잭션이 실패하면 롤백된다.
             ChargeRequestEntity savedEntity =
                     chargeRequestRepository.saveAndFlush(entity);
 

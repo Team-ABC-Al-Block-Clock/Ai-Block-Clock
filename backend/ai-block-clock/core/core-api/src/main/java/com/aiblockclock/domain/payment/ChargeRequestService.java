@@ -17,6 +17,7 @@ public class ChargeRequestService {
     private final ChargeRequestReader chargeRequestReader;
     private final ChargeRequestWriter chargeRequestWriter;
 
+    // 중복 저장 실패 후 재조회가 이전 트랜잭션에 합류하지 않도록 외부 트랜잭션 없이 호출한다.
     public ChargeRequest createChargeRequest(
             String userReferenceId,
             String senderWalletAddress,
@@ -58,6 +59,8 @@ public class ChargeRequestService {
                 throw exception;
             }
 
+            // 저장 롤백이 끝난 뒤 Reader가 새 조회 트랜잭션을 시작한다.
+            // MySQL에서 이전 조회의 스냅샷을 재사용하지 않고 다른 요청이 저장한 거래를 확인하기 위함이다.
             ChargeRequest savedRequest = chargeRequestReader
                     .findByChainAndTransactionHash(
                             networkPolicy.chainId(),
