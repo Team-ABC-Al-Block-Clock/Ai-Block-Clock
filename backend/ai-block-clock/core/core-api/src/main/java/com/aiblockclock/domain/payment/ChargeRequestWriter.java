@@ -55,6 +55,7 @@ public class ChargeRequestWriter {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof ConstraintViolationException violation) {
                 String constraintName = violation.getConstraintName();
+                // DB가 제약 이름에 접두·접미 표현을 붙일 수 있어 대소문자를 통일한 뒤 포함 여부로 비교한다.
                 return constraintName != null && constraintName.toLowerCase(Locale.ROOT)
                         .contains(CHAIN_HASH_UNIQUE_CONSTRAINT);
             }
