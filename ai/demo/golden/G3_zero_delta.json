@@ -1,0 +1,268 @@
+{
+  "schema_id": "edu.roster@1",
+  "period": {
+    "current": "2026-08",
+    "previous": "2026-07"
+  },
+  "subjects": [
+    "국어",
+    "영어",
+    "수학",
+    "과학"
+  ],
+  "students": [
+    {
+      "name": "가학생1",
+      "scores": {
+        "국어": {
+          "current": 72,
+          "previous": 70
+        },
+        "영어": {
+          "current": 72,
+          "previous": 70
+        },
+        "수학": {
+          "current": 72,
+          "previous": 70
+        },
+        "과학": {
+          "current": 72,
+          "previous": 70
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "가학생2",
+      "scores": {
+        "국어": {
+          "current": 73,
+          "previous": 71
+        },
+        "영어": {
+          "current": 73,
+          "previous": 71
+        },
+        "수학": {
+          "current": 73,
+          "previous": 71
+        },
+        "과학": {
+          "current": 73,
+          "previous": 71
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "가학생3",
+      "scores": {
+        "국어": {
+          "current": 74,
+          "previous": 72
+        },
+        "영어": {
+          "current": 74,
+          "previous": 72
+        },
+        "수학": {
+          "current": 74,
+          "previous": 72
+        },
+        "과학": {
+          "current": 74,
+          "previous": 72
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "가학생4",
+      "scores": {
+        "국어": {
+          "current": 75,
+          "previous": 73
+        },
+        "영어": {
+          "current": 75,
+          "previous": 73
+        },
+        "수학": {
+          "current": 75,
+          "previous": 73
+        },
+        "과학": {
+          "current": 75,
+          "previous": 73
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "가학생5",
+      "scores": {
+        "국어": {
+          "current": 76,
+          "previous": 74
+        },
+        "영어": {
+          "current": 76,
+          "previous": 74
+        },
+        "수학": {
+          "current": 76,
+          "previous": 74
+        },
+        "과학": {
+          "current": 76,
+          "previous": 74
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "나학생1",
+      "scores": {
+        "국어": {
+          "current": 73,
+          "previous": 75
+        },
+        "영어": {
+          "current": 73,
+          "previous": 75
+        },
+        "수학": {
+          "current": 73,
+          "previous": 75
+        },
+        "과학": {
+          "current": 73,
+          "previous": 75
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "나학생2",
+      "scores": {
+        "국어": {
+          "current": 74,
+          "previous": 76
+        },
+        "영어": {
+          "current": 74,
+          "previous": 76
+        },
+        "수학": {
+          "current": 74,
+          "previous": 76
+        },
+        "과학": {
+          "current": 74,
+          "previous": 76
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "나학생3",
+      "scores": {
+        "국어": {
+          "current": 75,
+          "previous": 77
+        },
+        "영어": {
+          "current": 75,
+          "previous": 77
+        },
+        "수학": {
+          "current": 75,
+          "previous": 77
+        },
+        "과학": {
+          "current": 75,
+          "previous": 77
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "나학생4",
+      "scores": {
+        "국어": {
+          "current": 76,
+          "previous": 78
+        },
+        "영어": {
+          "current": 76,
+          "previous": 78
+        },
+        "수학": {
+          "current": 76,
+          "previous": 78
+        },
+        "과학": {
+          "current": 76,
+          "previous": 78
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "나학생5",
+      "scores": {
+        "국어": {
+          "current": 77,
+          "previous": 79
+        },
+        "영어": {
+          "current": 77,
+          "previous": 79
+        },
+        "수학": {
+          "current": 77,
+          "previous": 79
+        },
+        "과학": {
+          "current": 77,
+          "previous": 79
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    }
+  ],
+  "context": {
+    "comment": "이번 달은 전체적으로 지난달과 비슷했습니다. 무난하게 써주세요."
+  }
+}
