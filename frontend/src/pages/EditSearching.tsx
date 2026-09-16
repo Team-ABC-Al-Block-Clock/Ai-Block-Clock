@@ -1,6 +1,7 @@
 import { Fragment, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
+import SidePanel from '@/components/SidePanel'
 
 export default function EditSearching() {
   const navigate = useNavigate()
@@ -33,10 +34,11 @@ export default function EditSearching() {
       <div
         className="absolute top-0 left-0"
         style={{
-          width: '1076px',
+          width: '980px',
           height: '1024px',
           animation: 'paneInDeep 1.15s cubic-bezier(.18,.86,.24,1) both',
-          transformOrigin: '44% 46%',
+          // 줌의 기준점을 내용 한가운데에 둔다 — 어긋나면 들어오는 동안 원형이 옆으로 쓸린다
+          transformOrigin: '50% 46%',
         }}
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -55,7 +57,7 @@ export default function EditSearching() {
 
         <div
           className="pointer-events-none absolute"
-          style={{ left: '398px', top: '392px', width: '280px', height: '192px' }}
+          style={{ left: '350px', top: '392px', width: '280px', height: '192px' }}
         >
           <div
             className="absolute rounded-full"
@@ -108,7 +110,7 @@ export default function EditSearching() {
           className="absolute left-0 text-center text-[24px] font-semibold tracking-[-.01em] text-white"
           style={{
             top: '560px',
-            width: '1076px',
+            width: '980px',
             textShadow: '0 2px 20px rgba(35,8,45,.8)',
             animation: 'uiInPop .8s .5s cubic-bezier(.2,.8,.25,1) both',
           }}
@@ -119,7 +121,7 @@ export default function EditSearching() {
           className="absolute left-0 text-center text-[15px]"
           style={{
             top: '598px',
-            width: '1076px',
+            width: '980px',
             color: 'rgba(255,236,246,.8)',
             textShadow: '0 1px 10px rgba(35,8,45,.7)',
             animation: 'uiInPop .8s .58s cubic-bezier(.2,.8,.25,1) both',
@@ -129,22 +131,13 @@ export default function EditSearching() {
         </div>
       </div>
 
-      <div
-        className="absolute top-0"
-        style={{
-          right: 'calc(-1 * var(--edge, 0px))',
-          width: '400px',
-          height: '1024px',
-          boxShadow: 'inset 1px 0 0 rgba(255,255,255,.14),-30px 0 60px rgba(10,4,20,.35)',
-          animation: 'sideInDeep 1.05s .12s cubic-bezier(.18,.86,.24,1) both',
-        }}
-      >
+      <SidePanel animation="sideInDeep 1.05s .12s cubic-bezier(.18,.86,.24,1) both">
         <div
           className="absolute bg-[rgba(255,255,255,.10)]"
           style={{
             left: '30px',
             top: '30px',
-            width: '340px',
+            width: '400px',
             height: '40px',
             borderRadius: '10px',
           }}
@@ -176,7 +169,7 @@ export default function EditSearching() {
             id="searchSide"
             type="text"
             placeholder="에이전트 검색"
-            style={{ left: '38px', top: '9px', width: '250px', height: '22px' }}
+            style={{ left: '38px', top: '9px', width: '310px', height: '22px' }}
           />
         </div>
 
@@ -188,27 +181,29 @@ export default function EditSearching() {
         </div>
         <div
           className="absolute text-right text-[13px]"
-          style={{ left: '266px', top: '90px', width: '68px', color: 'rgba(255,236,246,.6)' }}
+          style={{ right: '30px', top: '90px', color: 'rgba(255,236,246,.6)' }}
         >
           10개
         </div>
 
         <div
-          className="absolute flex flex-wrap"
+          className="scroll-thin absolute grid"
           style={{
             left: '30px',
             top: '116px',
-            width: '340px',
+            width: '408px',
             height: '876px',
+            // 한 줄에 두 장. 남는 폭을 열이 나눠 갖게 한다.
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             gap: '14px',
-            alignContent: 'flex-start',
+            alignContent: 'start',
           }}
         >
           {results.map((item, i) => (
             <Fragment key={i}>
               <div
                 style={{
-                  width: '163px',
+                  // 폭은 주지 않고 그리드 열을 그대로 채운다.
                   height: '160px',
                   borderRadius: '12px',
                   transition: 'background .18s,transform .18s',
@@ -233,8 +228,8 @@ export default function EditSearching() {
                   </div>
                 </div>
                 <div
-                  className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
-                  style={{ left: '16px', top: '76px' }}
+                  className="absolute truncate text-[14px] font-semibold tracking-[-.01em] text-white"
+                  style={{ left: '16px', right: '16px', top: '76px' }}
                 >
                   {item.name}
                 </div>
@@ -263,7 +258,7 @@ export default function EditSearching() {
             </Fragment>
           ))}
         </div>
-      </div>
+      </SidePanel>
     </>
   )
 }
