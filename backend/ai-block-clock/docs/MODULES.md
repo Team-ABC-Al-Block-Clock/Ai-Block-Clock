@@ -71,12 +71,14 @@ graph TD
     storage[":storage"]
     logging[":support:logging"]
     monitoring[":support:monitoring"]
+    jpa["spring-boot-starter-data-jpa"]
 
     api -->|implementation| storage
     api -->|implementation| enums
     api -.->|runtimeOnly| logging
     api -.->|runtimeOnly| monitoring
     storage -->|implementation| enums
+    storage ==>|api| jpa
 ```
 
 의존은 **항상 한 방향**이다. `core-api` 는 모든 모듈을 알고, `core-enum` 은 아무도 모른다.
@@ -86,10 +88,12 @@ graph TD
 | 모듈 | 의존 대상 | configuration | 이유 |
 | --- | --- | --- | --- |
 | `:core:core-api` | `:storage` | `implementation` | 영속성 계층을 호출한다 |
+| `:core:core-api` | `spring-tx` | `implementation` | implementation 계층이 트랜잭션 경계를 잡는다 |
 | `:core:core-api` | `:core:core-enum` | `implementation` | 공통 enum 을 참조한다 |
 | `:core:core-api` | `:support:logging` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:core:core-api` | `:support:monitoring` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:storage` | `:core:core-enum` | `implementation` | 엔티티에서 공통 enum 을 쓴다 |
+| `:storage` | `spring-boot-starter-data-jpa` | `api` | implementation 계층이 `JpaRepository` 와 `Pageable` 을 직접 다룬다 (3.3 참고) |
 | `:core:core-enum` | 없음 | - | 외부 라이브러리도 추가하지 않는다 |
 | `:support:logging` | 없음 | - | 리소스만 갖는다 |
 | `:support:monitoring` | 없음 (프로젝트 기준) | - | 액추에이터 라이브러리만 갖는다 |
@@ -150,7 +154,14 @@ storage/src/main/resources/
 ```
 
 - JPA 엔티티, 리포지토리, 마이그레이션 스크립트를 둔다
+- **JPA 를 `api` 로 노출한다.** implementation 계층(`Reader`/`Writer`)이 `JpaRepository` 를 직접 주입받고
+  `Pageable` 을 직접 조립한다. 엔티티도 이미 `storage` 밖으로 나가고 있으므로, Spring Data 타입만 가리는
+  래퍼 클래스를 두는 것은 값을 못 한다 — 감추려면 엔티티까지 감춰야 하고, 그것은 `domain` 모듈이 생길 때 한다
+  (ARCHITECTURE.md 5장 미해결 항목)
 - 의존성: `spring-boot-starter-data-jpa`, `spring-boot-starter-flyway`, `flyway-mysql`, 드라이버(`mysql-connector-j`, `h2`)
+- 시각 컬럼은 **`Instant`** 로 매핑한다. 생성·수정 시각은 `audit/BaseCreatedAtEntity`,
+  `audit/BaseTimeEntity` 를 상속해 JPA Auditing 이 채우고, 엔티티가 직접 필드를 갖지 않는다.
+  `LocalDateTime` 은 오프셋이 없어 API 응답과 DB 사이에서 타임존이 유실되므로 쓰지 않는다
 - `ddl-auto` 는 전 프로파일 `validate` 다. 스키마 변경은 마이그레이션 스크립트로만 한다
 - `open-in-view` 는 끈다. 영속성 컨텍스트가 웹 계층까지 열려 있으면 모듈 경계가 무너진다
 

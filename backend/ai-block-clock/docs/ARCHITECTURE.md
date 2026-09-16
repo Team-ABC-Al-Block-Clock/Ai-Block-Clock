@@ -307,12 +307,32 @@ public class MemberWithdrawManager {
 | --- | --- | --- | --- |
 | `api` | `com.aiblockclock.api` | `:core:core-api` | 생성됨 |
 | `domain` | `com.aiblockclock.domain` | 미정 | **미생성** |
-| `implementation` | `com.aiblockclock.implementation` | 미정 | **미생성** |
+| `implementation` | `com.aiblockclock.domain.{도메인}` | `:core:core-api` | 생성됨 — **도메인 패키지 안에 함께 둔다** |
 | `storage` | `com.aiblockclock.storage` | `:storage` | 생성됨 |
+| (계층 아님) | `com.aiblockclock.support` | `:core:core-api` | 생성됨 — 계층을 가로지르는 공통 코드 |
 
 `domain` 과 `implementation` 계층을 담을 모듈은 아직 정하지 않았다. 결정 전까지 이 문서의 규칙은 패키지 단위로 적용한다.
 
+**공통 헬퍼는 `com.aiblockclock.support` 에 둔다.** 특정 도메인에 속하지 않고 계층을 가로지르는 코드
+(`ApiResult`, `ErrorType`, `CursorPage`, `OffsetCursor`) 의 자리다. `api` 패키지에 두면 api 계층 전용처럼
+보여서 implementation 계층이 쓰기를 망설이게 되고, 도메인 패키지에 두면 `WorkflowPage` · `AgentPage` 처럼
+같은 모양이 도메인마다 복제된다. 도메인 이름이 붙지 않는 헬퍼라면 `support` 다.
+
+`storage` 안에서만 쓰는 영속성 헬퍼(`OffsetPageable`)는 예외로 `com.aiblockclock.storage.support` 에 둔다.
+`storage` 는 `core-api` 를 의존할 수 없어서(MODULES.md 2.3 역방향 금지) 위쪽 `support` 를 쓸 수 없다.
+
+**`implementation` 은 자기 패키지를 갖지 않는다.** 계층은 개념이므로 패키지와 1:1 일 필요가 없고,
+`WorkflowReader` 는 워크플로우를 읽는 코드이므로 `Workflow` 옆에 있는 것이 찾기 쉽다.
+계층은 패키지가 아니라 **접미사로 판별한다** (NAMING.md 2.3). 그래서 리뷰 항목도
+"`domain` 패키지가 엔티티를 참조하는가" 가 아니라 "`Service` 가 엔티티를 참조하는가" 다 (6장).
+
 > **미해결**: 현재 `:core:core-api` 가 `:storage` 를 직접 의존하고 있다. 규칙 3(인접 계층만) 위반이므로, `domain` · `implementation` 모듈이 생기면 이 의존을 끊고 `api → domain → implementation → storage` 로 연결해야 한다.
+>
+> 같은 이유로 **엔티티와 `JpaRepository` 가 `storage` 밖으로 나가 있다.** `WorkflowReader` · `WorkflowWriter` 가
+> `WorkflowRepository` 를 직접 주입받고 `WorkflowEntity` 를 다룬다. `storage` 는 이를 위해 JPA 를 `api` 로 노출한다
+> (MODULES.md 2.2). 도메인 모델이 별도 모듈로 나가면 리포지토리 인터페이스를 그쪽에 두고 `storage` 가 구현하도록 바꾼다.
+> 그 전까지 6장의 "엔티티가 `storage` 밖으로 나가지 않는가" 는 implementation 계층에 한해 유예한다 —
+> **`Service` 와 `Controller` 에는 그대로 적용된다.**
 
 ---
 
