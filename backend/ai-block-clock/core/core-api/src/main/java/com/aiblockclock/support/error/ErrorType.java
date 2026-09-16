@@ -76,7 +76,31 @@ public enum ErrorType {
             "에이전트에 대한 권한이 없습니다.", LogLevel.WARN),
 
     AGENT_VERSION_ALREADY_PUBLISHED(HttpStatus.CONFLICT, ErrorCode.AGENT_007,
-            "이미 공개된 버전은 변경할 수 없습니다.", LogLevel.WARN);
+            "이미 공개된 버전은 변경할 수 없습니다.", LogLevel.WARN),
+
+    CHARGE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_001,
+            "충전 요청을 찾을 수 없습니다.", LogLevel.WARN),
+
+    CHARGE_REQUEST_FORBIDDEN(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_002,
+            "다른 사용자의 충전 요청에는 접근할 수 없습니다.", LogLevel.WARN),
+
+    CHARGE_TRANSACTION_ALREADY_USED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_003,
+            "이미 다른 사용자의 충전에 사용된 트랜잭션입니다.", LogLevel.WARN),
+
+    CHARGE_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, ErrorCode.PAYMENT_003,
+            "같은 거래의 충전 요청이 이미 존재합니다.", LogLevel.WARN),
+
+    CHARGE_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.PAYMENT_004,
+            "현재 상태에서는 충전 요청을 처리할 수 없습니다.", LogLevel.WARN),
+
+    CHARGE_INVALID_AMOUNT(HttpStatus.BAD_REQUEST, ErrorCode.PAYMENT_005,
+            "충전 수량이 올바르지 않습니다.", LogLevel.WARN),
+
+    LEDGER_INVALID_TRANSACTION(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_006,
+            "원장 거래 구성이 올바르지 않습니다.", LogLevel.ERROR),
+
+    CHARGE_REQUEST_CONCURRENTLY_MODIFIED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_007,
+            "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;
