@@ -41,7 +41,9 @@ ai:build:
     - cd "$AI_DIR"
     # 커밋 태그와 latest 를 함께 붙인다. deploy 가 latest 를 쓴다.
     - docker build -t "$AI_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$AI_IMAGE:latest" .
-    - docker image inspect "$AI_IMAGE:$CI_COMMIT_SHORT_SHA" --format 'image size: {{.Size}} bytes'
+    # 블록 스칼라로 감싼다. 'image size: {{…}}' 의 "콜론+공백"을 YAML 이 키로 읽어 파싱이 깨지기 때문이다.
+    - |
+      docker image inspect "$AI_IMAGE:$CI_COMMIT_SHORT_SHA" --format 'image size: {{.Size}} bytes'
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *ai-changes
