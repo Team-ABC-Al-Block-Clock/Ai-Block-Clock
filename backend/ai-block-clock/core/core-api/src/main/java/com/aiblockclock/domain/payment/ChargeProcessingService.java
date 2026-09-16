@@ -4,8 +4,6 @@ import com.aiblockclock.enums.payment.ChargeStatusReason;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-
 @Service
 @RequiredArgsConstructor
 public class ChargeProcessingService {
@@ -69,9 +67,9 @@ public class ChargeProcessingService {
     private ChargeRequest confirmCharge(
             ChargeRequest chargeRequest
     ) {
-        BigDecimal creditedAbcAmount =
+        AbcAmount creditedAbcAmount =
                 abcConversionPolicy.convert(
-                        chargeRequest.getRequestedUsdcAmount()
+                        chargeRequest.getRequestedDepositAmount()
                 );
 
         return chargeConfirmationManager.confirm(

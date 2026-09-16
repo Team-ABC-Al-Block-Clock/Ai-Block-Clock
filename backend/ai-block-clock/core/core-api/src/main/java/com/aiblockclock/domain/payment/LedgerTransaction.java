@@ -50,16 +50,17 @@ public record LedgerTransaction(
 
     public static LedgerTransaction forCharge(
             ChargeRequest chargeRequest,
-            BigDecimal creditedAbcAmount
+            AbcAmount creditedAbcAmount
     ) {
         if (chargeRequest == null
                 || chargeRequest.getId() == null
-                || creditedAbcAmount == null
-                || creditedAbcAmount.signum() <= 0) {
+                || creditedAbcAmount == null) {
             throw new CoreException(
                     ErrorType.LEDGER_INVALID_TRANSACTION
             );
         }
+
+        BigDecimal creditedAmountValue = creditedAbcAmount.value();
 
         return new LedgerTransaction(
                 LedgerEventType.CHARGE,
@@ -73,12 +74,12 @@ public record LedgerTransaction(
                         new LedgerEntry(
                                 LedgerAccountType.ABC_ISSUANCE,
                                 SYSTEM_ACCOUNT_REFERENCE_ID,
-                                creditedAbcAmount.negate()
+                                creditedAmountValue.negate()
                         ),
                         new LedgerEntry(
                                 LedgerAccountType.ABC_BALANCE,
                                 chargeRequest.getUserReferenceId(),
-                                creditedAbcAmount
+                                creditedAmountValue
                         )
                 )
         );

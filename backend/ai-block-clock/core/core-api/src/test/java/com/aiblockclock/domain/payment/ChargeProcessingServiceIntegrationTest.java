@@ -74,7 +74,7 @@ class ChargeProcessingServiceIntegrationTest {
         assertThat(result.getStatus())
                 .isEqualTo(ChargeStatus.CONFIRMED);
 
-        assertThat(result.getCreditedAbcAmount())
+        assertThat(result.getCreditedAbcAmount().value())
                 .isEqualByComparingTo("10.000");
 
         assertThat(result.getConfirmedAt())

@@ -63,10 +63,10 @@ public record OnChainUsdcTransfer(
         );
     }
 
-    public boolean matchesAmount(BigDecimal expectedAmount) {
+    public boolean matchesAmount(DepositAmount expectedAmount) {
         return amount != null
                 && expectedAmount != null
-                && amount.compareTo(expectedAmount) == 0;
+                && amount.compareTo(expectedAmount.value()) == 0;
     }
 
     public boolean hasRequiredConfirmations(

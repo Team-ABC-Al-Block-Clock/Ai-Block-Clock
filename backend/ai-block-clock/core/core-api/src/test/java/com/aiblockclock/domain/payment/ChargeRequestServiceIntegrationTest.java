@@ -62,7 +62,7 @@ class ChargeRequestServiceIntegrationTest {
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 );
 
-        assertThat(result.getRequestedUsdcAmount())
+        assertThat(result.getRequestedDepositAmount().value())
                 .isEqualByComparingTo("10.000000");
     }
 

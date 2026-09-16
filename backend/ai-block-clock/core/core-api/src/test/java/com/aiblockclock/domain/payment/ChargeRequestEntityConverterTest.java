@@ -25,7 +25,7 @@ class ChargeRequestEntityConverterTest {
                 .isEqualTo(chargeRequest.getTransactionHash());
         assertThat(entity.getRequestedUsdcAmount())
                 .isEqualByComparingTo(
-                        chargeRequest.getRequestedUsdcAmount()
+                        chargeRequest.getRequestedDepositAmount().value()
                 );
         assertThat(entity.getStatus())
                 .isEqualTo(ChargeStatus.PENDING);
@@ -61,7 +61,9 @@ class ChargeRequestEntityConverterTest {
                 "0x1111111111111111111111111111111111111111",
                 12345L,
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                new BigDecimal("10.000000")
+                DepositAmount.of(
+                        new BigDecimal("10.000000")
+                )
         );
     }
 }

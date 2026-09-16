@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 @Component
@@ -17,7 +16,7 @@ public class ChargeConfirmationManager {
     @Transactional
     public ChargeRequest confirm(
             ChargeRequest chargeRequest,
-            BigDecimal creditedAbcAmount
+            AbcAmount creditedAbcAmount
     ) {
         if (!chargeRequest.isPending()) {
             return chargeRequest;

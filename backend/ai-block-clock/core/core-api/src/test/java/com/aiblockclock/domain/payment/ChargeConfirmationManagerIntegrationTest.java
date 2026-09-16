@@ -42,14 +42,14 @@ class ChargeConfirmationManagerIntegrationTest {
         ChargeRequest confirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         chargeRequest,
-                        new BigDecimal("10.000")
+                        AbcAmount.of(new BigDecimal("10.000"))
                 );
 
         ledgerTransactionRepository.flush();
 
         assertThat(confirmedChargeRequest.getStatus())
                 .isEqualTo(ChargeStatus.CONFIRMED);
-        assertThat(confirmedChargeRequest.getCreditedAbcAmount())
+        assertThat(confirmedChargeRequest.getCreditedAbcAmount().value())
                 .isEqualByComparingTo("10.000");
         assertThat(confirmedChargeRequest.getConfirmedAt())
                 .isNotNull();
@@ -68,20 +68,20 @@ class ChargeConfirmationManagerIntegrationTest {
         ChargeRequest firstConfirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         chargeRequest,
-                        new BigDecimal("10.000")
+                        AbcAmount.of(new BigDecimal("10.000"))
                 );
 
         ChargeRequest secondConfirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         firstConfirmedChargeRequest,
-                        new BigDecimal("10.000")
+                        AbcAmount.of(new BigDecimal("10.000"))
                 );
 
         ledgerTransactionRepository.flush();
 
         assertThat(secondConfirmedChargeRequest.getStatus())
                 .isEqualTo(ChargeStatus.CONFIRMED);
-        assertThat(secondConfirmedChargeRequest.getCreditedAbcAmount())
+        assertThat(secondConfirmedChargeRequest.getCreditedAbcAmount().value())
                 .isEqualByComparingTo("10.000");
         assertThat(secondConfirmedChargeRequest.getConfirmedAt())
                 .isEqualTo(

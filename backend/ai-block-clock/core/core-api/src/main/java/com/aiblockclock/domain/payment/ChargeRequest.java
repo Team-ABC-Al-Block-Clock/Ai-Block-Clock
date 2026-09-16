@@ -8,7 +8,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 @Getter
@@ -20,9 +19,9 @@ public final class ChargeRequest {
     private final String senderWalletAddress;
     private final Long chainId;
     private final String transactionHash;
-    private final BigDecimal requestedUsdcAmount;
+    private final DepositAmount requestedDepositAmount;
 
-    private BigDecimal creditedAbcAmount;
+    private AbcAmount creditedAbcAmount;
     private ChargeStatus status;
     private ChargeStatusReason statusReason;
     private Instant confirmedAt;
@@ -34,7 +33,7 @@ public final class ChargeRequest {
             String senderWalletAddress,
             Long chainId,
             String transactionHash,
-            BigDecimal requestedUsdcAmount
+            DepositAmount requestedDepositAmount
     ) {
         return new ChargeRequest(
                 null,
@@ -42,7 +41,7 @@ public final class ChargeRequest {
                 senderWalletAddress,
                 chainId,
                 transactionHash,
-                requestedUsdcAmount,
+                requestedDepositAmount,
                 null,
                 ChargeStatus.PENDING,
                 null,
@@ -57,8 +56,8 @@ public final class ChargeRequest {
             String senderWalletAddress,
             Long chainId,
             String transactionHash,
-            BigDecimal requestedUsdcAmount,
-            BigDecimal creditedAbcAmount,
+            DepositAmount requestedDepositAmount,
+            AbcAmount creditedAbcAmount,
             ChargeStatus status,
             ChargeStatusReason statusReason,
             Instant confirmedAt,
@@ -70,7 +69,7 @@ public final class ChargeRequest {
                 senderWalletAddress,
                 chainId,
                 transactionHash,
-                requestedUsdcAmount,
+                requestedDepositAmount,
                 creditedAbcAmount,
                 status,
                 statusReason,
@@ -96,13 +95,12 @@ public final class ChargeRequest {
     }
 
     public void confirm(
-            BigDecimal creditedAbcAmount,
+            AbcAmount creditedAbcAmount,
             Instant confirmedAt
     ) {
         ensurePending();
 
-        if (creditedAbcAmount == null
-                || creditedAbcAmount.signum() <= 0) {
+        if (creditedAbcAmount == null) {
             throw new CoreException(
                     ErrorType.CHARGE_INVALID_AMOUNT
             );

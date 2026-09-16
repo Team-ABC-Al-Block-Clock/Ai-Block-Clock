@@ -79,7 +79,7 @@ class ChargeRequestStateConcurrencyIntegrationTest {
         ChargeRequest confirmedChargeRequest =
                 chargeConfirmationManager.confirm(
                         confirmationCandidate,
-                        new BigDecimal("10.000")
+                        AbcAmount.of(new BigDecimal("10.000"))
                 );
 
         staleChargeRequest.fail(
@@ -146,7 +146,7 @@ class ChargeRequestStateConcurrencyIntegrationTest {
         assertThatThrownBy(
                 () -> chargeConfirmationManager.confirm(
                         staleConfirmationCandidate,
-                        new BigDecimal("10.000")
+                        AbcAmount.of(new BigDecimal("10.000"))
                 )
         )
                 .isInstanceOfSatisfying(

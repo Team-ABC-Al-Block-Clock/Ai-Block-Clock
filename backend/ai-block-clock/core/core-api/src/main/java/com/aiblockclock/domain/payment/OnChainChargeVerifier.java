@@ -68,7 +68,7 @@ public final class OnChainChargeVerifier {
         }
 
         if (!onChainTransfer.matchesAmount(
-                criteria.expectedUsdcAmount()
+                criteria.expectedDepositAmount()
         )) {
             return ChargeVerificationResult.rejected(
                     ChargeStatusReason.AMOUNT_MISMATCH

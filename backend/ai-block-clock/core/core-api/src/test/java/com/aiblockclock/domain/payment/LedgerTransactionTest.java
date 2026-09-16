@@ -22,7 +22,7 @@ class LedgerTransactionTest {
         LedgerTransaction ledgerTransaction =
                 LedgerTransaction.forCharge(
                         chargeRequest,
-                        new BigDecimal("10.000")
+                        AbcAmount.of(new BigDecimal("10.000"))
                 );
 
         assertThat(ledgerTransaction.eventType())
@@ -70,7 +70,7 @@ class LedgerTransactionTest {
                 "0x1111111111111111111111111111111111111111",
                 12345L,
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                new BigDecimal("10.000000"),
+                DepositAmount.of(new BigDecimal("10.000000")),
                 null,
                 ChargeStatus.PENDING,
                 null,

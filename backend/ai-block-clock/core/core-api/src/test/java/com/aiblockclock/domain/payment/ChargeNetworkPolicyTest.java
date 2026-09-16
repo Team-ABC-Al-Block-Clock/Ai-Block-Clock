@@ -43,7 +43,9 @@ class ChargeNetworkPolicyTest {
                         "0x1111111111111111111111111111111111111111",
                         CHAIN_ID,
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                        new BigDecimal("10.000000")
+                        DepositAmount.of(
+                                new BigDecimal("10.000000")
+                        )
                 );
 
         ChargeVerificationCriteria criteria =
@@ -55,10 +57,8 @@ class ChargeNetworkPolicyTest {
                 .isEqualTo(chargeRequest.getTransactionHash());
         assertThat(criteria.expectedSenderWalletAddress())
                 .isEqualTo(chargeRequest.getSenderWalletAddress());
-        assertThat(criteria.expectedUsdcAmount())
-                .isEqualByComparingTo(
-                        chargeRequest.getRequestedUsdcAmount()
-                );
+        assertThat(criteria.expectedDepositAmount())
+                .isEqualTo(chargeRequest.getRequestedDepositAmount());
         assertThat(criteria.expectedCustodyAddress())
                 .isEqualTo(CUSTODY_ADDRESS);
         assertThat(criteria.expectedUsdcContractAddress())

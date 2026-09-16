@@ -36,7 +36,8 @@ class ChargeRequestStateMySqlTest extends ChargeRequestStateConcurrencyIntegrati
     void 확정과_실패가_동시에_저장되어도_하나만_상태를_변경한다() throws Exception {
         ChargeRequest saved = writer.saveNewRequest(ChargeRequest.pending(
                 "state-race-user", "0x" + "1".repeat(40), 12345L,
-                "0x" + "c".repeat(64), new BigDecimal("1.000001")));
+                "0x" + "c".repeat(64),
+                DepositAmount.of(new BigDecimal("1.000001"))));
         ChargeRequest confirmation = reader.read(saved.getId());
         ChargeRequest failure = reader.read(saved.getId());
         failure.fail(ChargeStatusReason.ONCHAIN_TRANSACTION_FAILED);
@@ -45,7 +46,10 @@ class ChargeRequestStateMySqlTest extends ChargeRequestStateConcurrencyIntegrati
         var executor = Executors.newFixedThreadPool(2);
         try {
             var confirmed = executor.submit(() -> attempt(startTogether,
-                    () -> confirmationManager.confirm(confirmation, new BigDecimal("1.000001"))));
+                    () -> confirmationManager.confirm(
+                            confirmation,
+                            AbcAmount.of(new BigDecimal("1.000001"))
+                    )));
             var failed = executor.submit(() -> attempt(startTogether, () -> writer.updateFromPending(failure)));
             assertThat(List.of(confirmed.get(30, TimeUnit.SECONDS), failed.get(30, TimeUnit.SECONDS)))
                     .containsExactlyInAnyOrder("saved", ErrorType.CHARGE_REQUEST_CONCURRENTLY_MODIFIED.name());

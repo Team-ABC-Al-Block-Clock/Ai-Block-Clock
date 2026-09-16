@@ -75,7 +75,9 @@ public class ChargeRequestWriter {
                         ChargeStatus.PENDING,
                         chargeRequest.getStatus(),
                         chargeRequest.getStatusReason(),
-                        chargeRequest.getCreditedAbcAmount(),
+                        ChargeRequestEntityConverter.toStorageValue(
+                                chargeRequest.getCreditedAbcAmount()
+                        ),
                         chargeRequest.getConfirmedAt(),
                         Instant.now()
                 );

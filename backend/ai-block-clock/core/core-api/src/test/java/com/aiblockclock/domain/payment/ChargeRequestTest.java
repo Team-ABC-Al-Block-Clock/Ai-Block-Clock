@@ -33,13 +33,13 @@ class ChargeRequestTest {
         ChargeRequest chargeRequest = createPendingChargeRequest();
 
         chargeRequest.confirm(
-                new BigDecimal("10.000"),
+                AbcAmount.of(new BigDecimal("10.000")),
                 CONFIRMED_AT
         );
 
         assertThat(chargeRequest.getStatus())
                 .isEqualTo(ChargeStatus.CONFIRMED);
-        assertThat(chargeRequest.getCreditedAbcAmount())
+        assertThat(chargeRequest.getCreditedAbcAmount().value())
                 .isEqualByComparingTo("10.000");
         assertThat(chargeRequest.getConfirmedAt())
                 .isEqualTo(CONFIRMED_AT);
@@ -51,7 +51,7 @@ class ChargeRequestTest {
 
         assertThatThrownBy(
                 () -> chargeRequest.confirm(
-                        BigDecimal.ZERO,
+                        null,
                         CONFIRMED_AT
                 )
         ).isInstanceOfSatisfying(
@@ -96,7 +96,7 @@ class ChargeRequestTest {
 
         assertThatThrownBy(
                 () -> chargeRequest.confirm(
-                        new BigDecimal("10.000"),
+                        AbcAmount.of(new BigDecimal("10.000")),
                         CONFIRMED_AT
                 )
         ).isInstanceOfSatisfying(
@@ -125,7 +125,9 @@ class ChargeRequestTest {
                 "0x1111111111111111111111111111111111111111",
                 12345L,
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                new BigDecimal("10.000000")
+                DepositAmount.of(
+                        new BigDecimal("10.000000")
+                )
         );
     }
 }

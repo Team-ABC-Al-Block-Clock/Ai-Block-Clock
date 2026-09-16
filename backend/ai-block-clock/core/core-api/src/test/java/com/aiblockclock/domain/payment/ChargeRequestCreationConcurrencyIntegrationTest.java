@@ -76,7 +76,8 @@ class ChargeRequestCreationConcurrencyIntegrationTest {
         });
         assertThat(outcomes.get(0).request().getId()).isEqualTo(outcomes.get(1).request().getId());
         assertThat(chargeRequestRepository.count()).isEqualTo(1);
-        assertThat(outcomes.get(0).request().getRequestedUsdcAmount()).isEqualByComparingTo("1.000001");
+        assertThat(outcomes.get(0).request().getRequestedDepositAmount().value())
+                .isEqualByComparingTo("1.000001");
     }
 
     @Test
@@ -117,7 +118,8 @@ class ChargeRequestCreationConcurrencyIntegrationTest {
     void 중복_삽입의_롤백이_끝난_후_새_조회_트랜잭션에서_기존_요청을_반환한다() {
         ChargeRequest existingRequest = chargeRequestWriter.saveNewRequest(
                 ChargeRequest.pending("same-user", SENDER_ADDRESS, NETWORK_POLICY.chainId(),
-                        TRANSACTION_HASH, new BigDecimal("1.000001"))
+                        TRANSACTION_HASH,
+                        DepositAmount.of(new BigDecimal("1.000001")))
         );
         AtomicBoolean insertRolledBack = new AtomicBoolean();
         AtomicInteger lookupCount = new AtomicInteger();

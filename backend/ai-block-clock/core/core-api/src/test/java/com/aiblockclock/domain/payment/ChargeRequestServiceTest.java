@@ -129,9 +129,9 @@ class ChargeRequestServiceTest {
 
         ChargeRequest createdRequest = create(new BigDecimal("1.1"));
 
-        assertThat(createdRequest.getRequestedUsdcAmount())
+        assertThat(createdRequest.getRequestedDepositAmount().value())
                 .isEqualByComparingTo("1.100000");
-        assertThat(createdRequest.getRequestedUsdcAmount().scale())
+        assertThat(createdRequest.getRequestedDepositAmount().value().scale())
                 .isEqualTo(6);
     }
 
@@ -166,6 +166,12 @@ class ChargeRequestServiceTest {
     }
 
     private ChargeRequest request(String userId) {
-        return ChargeRequest.pending(userId, "test-wallet", 12345L, TRANSACTION_HASH, new BigDecimal("1.000001"));
+        return ChargeRequest.pending(
+                userId,
+                "test-wallet",
+                12345L,
+                TRANSACTION_HASH,
+                DepositAmount.of(new BigDecimal("1.000001"))
+        );
     }
 }

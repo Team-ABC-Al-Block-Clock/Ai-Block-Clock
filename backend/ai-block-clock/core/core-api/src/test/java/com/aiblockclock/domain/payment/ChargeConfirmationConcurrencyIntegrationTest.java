@@ -43,6 +43,8 @@ import static org.mockito.Mockito.doThrow;
 class ChargeConfirmationConcurrencyIntegrationTest {
 
     private static final BigDecimal CHARGE_AMOUNT = new BigDecimal("1.000001");
+    private static final AbcAmount CREDITED_ABC_AMOUNT =
+            AbcAmount.of(CHARGE_AMOUNT);
     private static final String SYSTEM_REFERENCE_ID = "SYSTEM";
 
     @Autowired
@@ -120,7 +122,10 @@ class ChargeConfirmationConcurrencyIntegrationTest {
         DataIntegrityViolationException failure = new DataIntegrityViolationException("test ledger failure");
         doThrow(failure).when(ledgerEntryRepository).saveAll(any());
 
-        assertThatThrownBy(() -> chargeConfirmationManager.confirm(request, CHARGE_AMOUNT)).isSameAs(failure);
+        assertThatThrownBy(() -> chargeConfirmationManager.confirm(
+                request,
+                CREDITED_ABC_AMOUNT
+        )).isSameAs(failure);
 
         ChargeRequestEntity savedRequest = chargeRequestRepository.findById(request.getId()).orElseThrow();
         assertThat(savedRequest.getStatus()).isEqualTo(ChargeStatus.PENDING);
@@ -192,7 +197,10 @@ class ChargeConfirmationConcurrencyIntegrationTest {
             for (ChargeRequest request : requests) {
                 results.add(executor.submit(() -> {
                     startTogether.await(10, TimeUnit.SECONDS);
-                    return chargeConfirmationManager.confirm(request, CHARGE_AMOUNT);
+                    return chargeConfirmationManager.confirm(
+                            request,
+                            CREDITED_ABC_AMOUNT
+                    );
                 }));
             }
             for (Future<ChargeRequest> result : results) {

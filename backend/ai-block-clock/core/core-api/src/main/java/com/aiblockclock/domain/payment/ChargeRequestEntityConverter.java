@@ -2,6 +2,8 @@ package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 
+import java.math.BigDecimal;
+
 final class ChargeRequestEntityConverter {
 
     private ChargeRequestEntityConverter() {
@@ -16,8 +18,8 @@ final class ChargeRequestEntityConverter {
                 entity.getSenderWalletAddress(),
                 entity.getChainId(),
                 entity.getTransactionHash(),
-                entity.getRequestedUsdcAmount(),
-                entity.getCreditedAbcAmount(),
+                DepositAmount.of(entity.getRequestedUsdcAmount()),
+                toAbcAmount(entity.getCreditedAbcAmount()),
                 entity.getStatus(),
                 entity.getStatusReason(),
                 entity.getConfirmedAt(),
@@ -33,8 +35,15 @@ final class ChargeRequestEntityConverter {
                 chargeRequest.getSenderWalletAddress(),
                 chargeRequest.getChainId(),
                 chargeRequest.getTransactionHash(),
-                chargeRequest.getRequestedUsdcAmount()
+                chargeRequest.getRequestedDepositAmount().value()
         );
     }
 
+    static BigDecimal toStorageValue(AbcAmount abcAmount) {
+        return abcAmount == null ? null : abcAmount.value();
+    }
+
+    private static AbcAmount toAbcAmount(BigDecimal value) {
+        return value == null ? null : AbcAmount.of(value);
+    }
 }

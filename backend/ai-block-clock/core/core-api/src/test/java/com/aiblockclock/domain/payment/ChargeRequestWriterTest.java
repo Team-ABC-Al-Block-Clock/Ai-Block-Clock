@@ -59,7 +59,8 @@ class ChargeRequestWriterTest {
 
         assertThat(savedRequest.getUserReferenceId()).isEqualTo("test-user");
         assertThat(savedRequest.getTransactionHash()).isEqualTo("test-hash");
-        assertThat(savedRequest.getRequestedUsdcAmount()).isEqualByComparingTo("1.000001");
+        assertThat(savedRequest.getRequestedDepositAmount().value())
+                .isEqualByComparingTo("1.000001");
     }
 
     @ParameterizedTest
@@ -109,6 +110,12 @@ class ChargeRequestWriterTest {
     }
 
     private ChargeRequest request() {
-        return ChargeRequest.pending("test-user", "test-wallet", 12345L, "test-hash", new BigDecimal("1.000001"));
+        return ChargeRequest.pending(
+                "test-user",
+                "test-wallet",
+                12345L,
+                "test-hash",
+                DepositAmount.of(new BigDecimal("1.000001"))
+        );
     }
 }

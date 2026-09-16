@@ -19,7 +19,7 @@ public record ChargeNetworkPolicy(
                 chainId,
                 chargeRequest.getTransactionHash(),
                 chargeRequest.getSenderWalletAddress(),
-                chargeRequest.getRequestedUsdcAmount(),
+                chargeRequest.getRequestedDepositAmount(),
                 custodyAddress,
                 usdcContractAddress,
                 requiredConfirmations

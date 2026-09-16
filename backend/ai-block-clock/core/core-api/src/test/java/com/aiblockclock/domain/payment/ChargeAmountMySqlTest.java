@@ -34,8 +34,6 @@ class ChargeAmountMySqlTest {
     @Autowired
     private ChargeProcessingService processingService;
     @Autowired
-    private AbcConversionPolicy conversionPolicy;
-    @Autowired
     private ChargeRequestRepository requests;
     @Autowired
     private LedgerTransactionRepository transactions;
@@ -94,7 +92,7 @@ class ChargeAmountMySqlTest {
 
     @Test
     void 소수_7자리_수량은_변환_정책에서_반올림하지_않고_거부한다() {
-        assertThatThrownBy(() -> conversionPolicy.convert(new BigDecimal("1.0000005")))
+        assertThatThrownBy(() -> DepositAmount.of(new BigDecimal("1.0000005")))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_INVALID_AMOUNT));
         assertThat(requests.count()).isZero();

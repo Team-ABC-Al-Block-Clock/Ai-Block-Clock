@@ -29,7 +29,7 @@ class OnChainUsdcTransferTest {
                 "0x3333333333333333333333333333333333333333"
         )).isTrue();
         assertThat(transfer.matchesAmount(
-                new BigDecimal("10.0")
+                DepositAmount.of(new BigDecimal("10.0"))
         )).isTrue();
         assertThat(transfer.hasRequiredConfirmations(5L)).isTrue();
     }
@@ -43,7 +43,9 @@ class OnChainUsdcTransferTest {
 
         assertThat(transfer.matchesChainId(99999L)).isFalse();
         assertThat(transfer.matchesTransactionHash("0xdifferent")).isFalse();
-        assertThat(transfer.matchesAmount(new BigDecimal("9.000000")))
+        assertThat(transfer.matchesAmount(
+                DepositAmount.of(new BigDecimal("9.000000"))
+        ))
                 .isFalse();
         assertThat(transfer.hasRequiredConfirmations(5L)).isFalse();
     }
