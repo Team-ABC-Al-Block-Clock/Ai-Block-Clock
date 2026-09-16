@@ -9,6 +9,7 @@ spring:
     import:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
+      - classpath:wallet-auth.yml  # :core:core-api
 
 server:
   port: ${SERVER_PORT:8080}
