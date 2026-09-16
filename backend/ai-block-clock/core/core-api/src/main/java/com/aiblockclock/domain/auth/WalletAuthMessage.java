@@ -7,6 +7,7 @@ public record WalletAuthMessage(
         String nonce,
         String message,
         Instant issuedAt,
-        Instant expiresAt
+        Instant expiresAt,
+        Instant usedAt
 ) {
 }

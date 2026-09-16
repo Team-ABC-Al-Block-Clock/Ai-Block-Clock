@@ -49,6 +49,6 @@ public class WalletAuthMessageGenerator {
                 expiresAt
         );
 
-        return new WalletAuthMessage(normalizedWalletAddress, nonce, message, issuedAt, expiresAt);
+        return new WalletAuthMessage(normalizedWalletAddress, nonce, message, issuedAt, expiresAt, null);
     }
 }

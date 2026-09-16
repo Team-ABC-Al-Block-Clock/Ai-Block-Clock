@@ -39,6 +39,7 @@ class WalletAuthMessageGeneratorTest {
         WalletAuthMessage result = generator.generate("0xfb6916095ca1df60bb79ce92ce3ea74c37c5d359");
 
         assertThat(result.nonce()).isEqualTo(NONCE);
+        assertThat(result.usedAt()).isNull();
         assertThat(result.issuedAt()).isEqualTo(Instant.parse("2026-09-16T12:00:00.123456Z"));
         assertThat(result.expiresAt()).isEqualTo(Instant.parse("2026-09-16T12:05:00.123456Z"));
         assertThat(result.message()).isEqualTo(String.join("\n",
