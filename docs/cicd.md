@@ -745,6 +745,10 @@ Vite는 **빌드 시점에** `VITE_*` 값을 번들에 박아 넣는다. 런타�
 | `ABC_SERVICE_TOKEN` | 백엔드 → AI Runtime 서비스 간 인증 | 백엔드도 같은 값을 갖고 `X-ABC-Service-Token` 헤더로 보낸다 |
 | `BACKEND_NETWORK` | (선택) 백엔드 Docker 네트워크 이름 | 비우면 `ai:deploy` 가 `docker network ls` 에서 찾는다 |
 
+**배포 트리거.** `ai:deploy` 는 수동 잡이다. `develop-AI` 와 `master` 파이프라인에서 실행 버튼으로 올린다.
+MVP 기간에는 백엔드·프론트 연동을 위해 `develop-AI` 배포를 허용하며, 두 브랜치 배포는 같은 컨테이너를
+덮어쓴다. 코드 프리즈(09-18) 후에는 `master` 만 남긴다.
+
 **AI Runtime 은 Nginx 설정이 필요 없다.** 브라우저가 직접 부르지 않고 백엔드만
 호출하기 때문이다. 백엔드 compose 가 만든 네트워크에 참여해 컨테이너 이름으로 통신한다.
 
