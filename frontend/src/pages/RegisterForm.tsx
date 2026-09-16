@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 
 import { createAgent } from '@/api/agents'
 import { ApiError } from '@/api/errors'
@@ -7,7 +7,6 @@ import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
 /** 입력이 제어 컴포넌트가 아니라 제출할 때 한 번 읽는다.
- *  값이 화면 로직에 쓰이지 않아 타자마다 리렌더할 이유가 없다 — MyAgents 의 검색 칸과 같은 방식.
  *
  *  JSX 도 이 맵으로 id 를 붙인다. 리터럴로 적어 두면 한쪽만 고쳐졌을 때 read() 가
  *  빈 문자열을 돌려주고, 설명은 조용히 사라지고 이름은 원인 모를 COMMON_001 이 된다. */
@@ -62,6 +61,38 @@ export default function RegisterForm() {
 
   const shots = [0, 1, 2, 3, 4].map((i) => ({ i }))
 
+  // 고른 이미지는 미리보기 URL 로만 들고 있다.
+  const [inShots, setInShots] = useState<string[]>([])
+  const [outShots, setOutShots] = useState<string[]>([])
+  const [iconUrl, setIconUrl] = useState<string | null>(null)
+  const iconFileRef = useRef<HTMLInputElement>(null)
+  const inFileRef = useRef<HTMLInputElement>(null)
+  const outFileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    return () => {
+      ;[...inShots, ...outShots, iconUrl].forEach((url) => url && URL.revokeObjectURL(url))
+    }
+  }, [inShots, outShots, iconUrl])
+
+  const addShots =
+    (setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+    (ev: React.ChangeEvent<HTMLInputElement>) => {
+      const picked = Array.from(ev.target.files ?? []).map((file) => URL.createObjectURL(file))
+      setter((prev) => [...prev, ...picked].slice(0, shots.length))
+      ev.target.value = ''
+    }
+  const handleAddInShots = addShots(setInShots)
+  const handleAddOutShots = addShots(setOutShots)
+  const openIconFile = () => iconFileRef.current?.click()
+  const handlePickIcon = (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0]
+    if (file) setIconUrl((prev) => (prev && URL.revokeObjectURL(prev), URL.createObjectURL(file)))
+    ev.target.value = ''
+  }
+  const openInFiles = () => inFileRef.current?.click()
+  const openOutFiles = () => outFileRef.current?.click()
+
   return (
     <>
       <div
@@ -74,14 +105,14 @@ export default function RegisterForm() {
           height: 'calc(1024px + 2 * var(--edge-y, 0px))',
         }}
       >
-        <div className="relative" style={{ width: '1440px', height: '1690px' }}>
+        <div className="relative" style={{ width: '1440px', height: '1738px' }}>
           <div
             className="absolute"
             style={{
               left: '236px',
               top: '56px',
               width: '968px',
-              height: '1594px',
+              height: '1642px',
               borderRadius: '24px',
               background: 'rgba(18,9,32,.44)',
               backdropFilter: 'blur(24px) saturate(118%)',
@@ -100,7 +131,7 @@ export default function RegisterForm() {
               transition: 'color .16s',
               animation: 'rise .7s .04s cubic-bezier(.2,.8,.25,1) both',
             }}
-            className="absolute text-[13px] tracking-[-.01em] hover:text-[#fff]"
+            className="absolute text-[14.5px] tracking-[-.005em] hover:text-[#fff]"
           >
             ← 돌아가기
           </a>
@@ -117,7 +148,7 @@ export default function RegisterForm() {
             에이전트 정보 입력
           </div>
           <div
-            className="absolute text-[14px] tracking-[-.01em]"
+            className="absolute text-[15.5px] tracking-[-.005em]"
             style={{
               left: '272px',
               top: '182px',
@@ -135,10 +166,10 @@ export default function RegisterForm() {
           ></div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
             style={{
               left: '272px',
-              top: '262px',
+              top: '254px',
               color: 'rgba(255,255,255,.86)',
               animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
             }}
@@ -155,27 +186,39 @@ export default function RegisterForm() {
               background: 'var(--color-surface-inset)',
               animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
             }}
-            className="absolute flex cursor-pointer items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.13)]"
+            onClick={openIconFile}
+            className="absolute flex cursor-pointer items-center justify-center overflow-hidden transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.13)]"
           >
-            <div
-              className="text-[26px]"
-              style={{ fontWeight: '300', color: 'rgba(255,255,255,.62)', lineHeight: '1' }}
-            >
-              +
-            </div>
+            <input
+              ref={iconFileRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              hidden
+              onChange={handlePickIcon}
+            />
+            {iconUrl ? (
+              <img src={iconUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div
+                className="text-[26px]"
+                style={{ fontWeight: '300', color: 'rgba(255,255,255,.62)', lineHeight: '1' }}
+              >
+                +
+              </div>
+            )}
           </div>
           <div
-            className="absolute text-[11.5px] tracking-[-.01em]"
-            style={{ left: '272px', top: '400px', color: 'rgba(255,236,246,.5)' }}
+            className="absolute text-[13px] tracking-[-.005em]"
+            style={{ left: '272px', top: '400px', color: 'rgba(255,236,246,.68)' }}
           >
             권장 크기: 256×256px
           </div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
-            style={{ left: '272px', top: '436px', color: 'rgba(255,255,255,.86)' }}
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
+            style={{ left: '272px', top: '428px', color: 'rgba(255,255,255,.86)' }}
           >
-            온보딩 웰컴 메시지
+            웰컴 메시지
           </div>
           <div
             className="bg-surface-card absolute"
@@ -188,19 +231,19 @@ export default function RegisterForm() {
             }}
           >
             <input
-              className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               type="text"
               id={FIELD.onboardingMessage}
-              placeholder="에이전트에 어떤 프롬프트를 입력해야할지 사용자에게 알려주세요"
+              placeholder="웰컴 메시지를 입력해주세요"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
           </div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
             style={{
               left: '272px',
-              top: '530px',
+              top: '542px',
               color: 'rgba(255,255,255,.86)',
               animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
             }}
@@ -208,28 +251,72 @@ export default function RegisterForm() {
             에이전트 이름
           </div>
           <div
-            className="bg-surface-card absolute"
+            className="absolute text-[13.5px] tracking-[-.005em]"
             style={{
               left: '272px',
-              top: '560px',
+              top: '576px',
+              color: 'rgba(255,236,246,.6)',
+              animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            편집 화면에서 정한 워크플로우 이름을 그대로 씁니다
+          </div>
+          <div
+            className="absolute"
+            style={{
+              left: '272px',
+              top: '608px',
               width: '896px',
               height: '52px',
               borderRadius: '12px',
+              background: 'rgba(8,3,16,.70)',
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.07)',
               animation: 'rise .7s .16s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
             <input
-              className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] outline-0"
               type="text"
               id={FIELD.name}
               defaultValue="문서 정리"
-              style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
+              readOnly
+              style={{
+                left: '18px',
+                top: '15px',
+                width: '820px',
+                height: '22px',
+                color: 'rgba(255,255,255,.38)',
+                cursor: 'not-allowed',
+              }}
             />
+            {/* 자물쇠 아이콘 — 수정 불가 표시 */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                position: 'absolute',
+                right: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '16px',
+                height: '16px',
+                color: 'rgba(255,255,255,.28)',
+                pointerEvents: 'none',
+              }}
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
           </div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
-            style={{ left: '272px', top: '644px', color: 'rgba(255,255,255,.86)' }}
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
+            style={{ left: '272px', top: '684px', color: 'rgba(255,255,255,.86)' }}
           >
             한 줄 설명
           </div>
@@ -237,24 +324,24 @@ export default function RegisterForm() {
             className="bg-surface-card absolute"
             style={{
               left: '272px',
-              top: '674px',
+              top: '722px',
               width: '896px',
               height: '52px',
               borderRadius: '12px',
             }}
           >
             <input
-              className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               type="text"
               id={FIELD.summary}
-              placeholder="지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다"
+              placeholder="예: 지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
           </div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
-            style={{ left: '272px', top: '758px', color: 'rgba(255,255,255,.86)' }}
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
+            style={{ left: '272px', top: '798px', color: 'rgba(255,255,255,.86)' }}
           >
             상세 설명
           </div>
@@ -262,14 +349,14 @@ export default function RegisterForm() {
             className="bg-surface-card absolute"
             style={{
               left: '272px',
-              top: '788px',
+              top: '836px',
               width: '896px',
               height: '124px',
               borderRadius: '12px',
             }}
           >
             <textarea
-              className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               id={FIELD.description}
               placeholder="에이전트의 기능을 자세히 설명해주세요"
               style={{
@@ -284,21 +371,21 @@ export default function RegisterForm() {
           </div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
-            style={{ left: '272px', top: '944px', color: 'rgba(255,255,255,.86)' }}
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
+            style={{ left: '272px', top: '984px', color: 'rgba(255,255,255,.86)' }}
           >
             스크린샷
           </div>
 
           <div
-            className="absolute text-[12px] tracking-[-.01em]"
-            style={{ left: '272px', top: '976px', color: 'rgba(255,236,246,.6)' }}
+            className="absolute text-[13.5px] tracking-[-.005em]"
+            style={{ left: '272px', top: '1018px', color: 'rgba(255,236,246,.74)' }}
           >
             입력 · 에이전트 실행 전 화면
           </div>
           <div
             className="absolute flex items-start"
-            style={{ left: '272px', top: '1002px', width: '896px', gap: '12px' }}
+            style={{ left: '272px', top: '1050px', width: '896px', gap: '12px' }}
           >
             {shots.map((_s, i) => (
               <Fragment key={i}>
@@ -307,37 +394,47 @@ export default function RegisterForm() {
                     style={{ width: '128px', height: '84px', borderRadius: '10px' }}
                     className="relative flex-none cursor-pointer overflow-hidden bg-[rgba(255,255,255,.09)] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
                   >
-                    <div
-                      className="absolute"
-                      style={{
-                        left: '-20px',
-                        top: '41px',
-                        width: '168px',
-                        height: '1px',
-                        background: 'rgba(255,255,255,.16)',
-                        transform: 'rotate(33deg)',
-                      }}
-                    ></div>
-                    <div
-                      className="absolute"
-                      style={{
-                        left: '-20px',
-                        top: '41px',
-                        width: '168px',
-                        height: '1px',
-                        background: 'rgba(255,255,255,.16)',
-                        transform: 'rotate(-33deg)',
-                      }}
-                    ></div>
+                    {inShots[i] ? (
+                      <img
+                        src={inShots[i]}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className="absolute"
+                          style={{
+                            left: '-20px',
+                            top: '41px',
+                            width: '168px',
+                            height: '1px',
+                            background: 'rgba(255,255,255,.16)',
+                            transform: 'rotate(33deg)',
+                          }}
+                        ></div>
+                        <div
+                          className="absolute"
+                          style={{
+                            left: '-20px',
+                            top: '41px',
+                            width: '168px',
+                            height: '1px',
+                            background: 'rgba(255,255,255,.16)',
+                            transform: 'rotate(-33deg)',
+                          }}
+                        ></div>
+                      </>
+                    )}
                   </div>
                   <input
-                    className="box-border border-0 font-[inherit] text-[11.5px] tracking-[-.01em] text-white outline-0"
+                    className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
                     type="text"
-                    placeholder="예: 실행 전 폴더 상태"
+                    placeholder="입력 예시 사진 설명"
                     style={{
                       width: '128px',
                       height: '32px',
-                      padding: '0 10px',
+                      padding: '0 8px',
                       borderRadius: '9px',
                       background: 'rgba(255,255,255,.06)',
                     }}
@@ -345,7 +442,16 @@ export default function RegisterForm() {
                 </div>
               </Fragment>
             ))}
+            <input
+              ref={inFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={handleAddInShots}
+            />
             <div
+              onClick={openInFiles}
               style={{
                 width: '128px',
                 height: '123px',
@@ -356,26 +462,26 @@ export default function RegisterForm() {
               className="flex flex-none cursor-pointer flex-col items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
             >
               <div
-                className="text-[17px] font-semibold"
+                className="text-[18px] font-semibold"
                 style={{ color: 'rgba(255,255,255,.72)', lineHeight: '1' }}
               >
                 +
               </div>
-              <div className="text-[11px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+              <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.76)' }}>
                 사진 추가
               </div>
             </div>
           </div>
 
           <div
-            className="absolute text-[12px] tracking-[-.01em]"
-            style={{ left: '272px', top: '1157px', color: 'rgba(255,236,246,.6)' }}
+            className="absolute text-[13.5px] tracking-[-.005em]"
+            style={{ left: '272px', top: '1199px', color: 'rgba(255,236,246,.74)' }}
           >
             출력 · 에이전트 실행 후 화면
           </div>
           <div
             className="absolute flex items-start"
-            style={{ left: '272px', top: '1183px', width: '896px', gap: '12px' }}
+            style={{ left: '272px', top: '1231px', width: '896px', gap: '12px' }}
           >
             {shots.map((_s, i) => (
               <Fragment key={i}>
@@ -384,37 +490,47 @@ export default function RegisterForm() {
                     style={{ width: '128px', height: '84px', borderRadius: '10px' }}
                     className="relative flex-none cursor-pointer overflow-hidden bg-[rgba(255,255,255,.09)] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
                   >
-                    <div
-                      className="absolute"
-                      style={{
-                        left: '-20px',
-                        top: '41px',
-                        width: '168px',
-                        height: '1px',
-                        background: 'rgba(255,255,255,.16)',
-                        transform: 'rotate(33deg)',
-                      }}
-                    ></div>
-                    <div
-                      className="absolute"
-                      style={{
-                        left: '-20px',
-                        top: '41px',
-                        width: '168px',
-                        height: '1px',
-                        background: 'rgba(255,255,255,.16)',
-                        transform: 'rotate(-33deg)',
-                      }}
-                    ></div>
+                    {outShots[i] ? (
+                      <img
+                        src={outShots[i]}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className="absolute"
+                          style={{
+                            left: '-20px',
+                            top: '41px',
+                            width: '168px',
+                            height: '1px',
+                            background: 'rgba(255,255,255,.16)',
+                            transform: 'rotate(33deg)',
+                          }}
+                        ></div>
+                        <div
+                          className="absolute"
+                          style={{
+                            left: '-20px',
+                            top: '41px',
+                            width: '168px',
+                            height: '1px',
+                            background: 'rgba(255,255,255,.16)',
+                            transform: 'rotate(-33deg)',
+                          }}
+                        ></div>
+                      </>
+                    )}
                   </div>
                   <input
-                    className="box-border border-0 font-[inherit] text-[11.5px] tracking-[-.01em] text-white outline-0"
+                    className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
                     type="text"
-                    placeholder="예: 분류 완료된 결과"
+                    placeholder="출력 예시 사진 설명"
                     style={{
                       width: '128px',
                       height: '32px',
-                      padding: '0 10px',
+                      padding: '0 8px',
                       borderRadius: '9px',
                       background: 'rgba(255,255,255,.06)',
                     }}
@@ -422,7 +538,16 @@ export default function RegisterForm() {
                 </div>
               </Fragment>
             ))}
+            <input
+              ref={outFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={handleAddOutShots}
+            />
             <div
+              onClick={openOutFiles}
               style={{
                 width: '128px',
                 height: '123px',
@@ -433,37 +558,37 @@ export default function RegisterForm() {
               className="flex flex-none cursor-pointer flex-col items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
             >
               <div
-                className="text-[17px] font-semibold"
+                className="text-[18px] font-semibold"
                 style={{ color: 'rgba(255,255,255,.72)', lineHeight: '1' }}
               >
                 +
               </div>
-              <div className="text-[11px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+              <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.76)' }}>
                 사진 추가
               </div>
             </div>
           </div>
 
           <div
-            className="absolute text-[14px] font-semibold tracking-[-.01em]"
-            style={{ left: '272px', top: '1350px', color: 'rgba(255,255,255,.86)' }}
+            className="absolute text-[18px] font-semibold tracking-[-.01em]"
+            style={{ left: '272px', top: '1390px', color: 'rgba(255,255,255,.86)' }}
           >
-            실행 예시
+            입력 예시
           </div>
           <div
             className="bg-surface-card absolute"
             style={{
               left: '272px',
-              top: '1380px',
+              top: '1428px',
               width: '896px',
               height: '124px',
               borderRadius: '12px',
             }}
           >
             <textarea
-              className="absolute border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+              className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               id={FIELD.usageExample}
-              placeholder="에이전트 실행 결과 예시를 입력해주세요"
+              placeholder="입력 프롬프트 예시를 입력해주세요"
               style={{
                 left: '18px',
                 top: '16px',
@@ -477,20 +602,20 @@ export default function RegisterForm() {
 
           <div
             className="absolute bg-[rgba(255,255,255,.12)]"
-            style={{ left: '272px', top: '1540px', width: '896px', height: '1px' }}
+            style={{ left: '272px', top: '1588px', width: '896px', height: '1px' }}
           ></div>
 
           <a
             href={`${paths.run.running.withoutId}?done=1`}
             style={{
               left: '832px',
-              top: '1580px',
+              top: '1628px',
               width: '160px',
               height: '52px',
               borderRadius: '26px',
               color: 'rgba(255,255,255,.9)',
             }}
-            className="absolute flex items-center justify-center bg-[rgba(255,255,255,.10)] text-[15px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
+            className="absolute flex items-center justify-center bg-[rgba(255,255,255,.10)] text-[16.5px] font-semibold tracking-[-.005em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
           >
             취소하기
           </a>
@@ -498,7 +623,7 @@ export default function RegisterForm() {
             onClick={handleSubmit}
             style={{
               left: '1008px',
-              top: '1580px',
+              top: '1628px',
               width: '160px',
               height: '52px',
               borderRadius: '26px',
@@ -507,7 +632,7 @@ export default function RegisterForm() {
               color: 'var(--color-accent-ink)',
               transition: 'transform .18s',
             }}
-            className="absolute flex cursor-pointer items-center justify-center text-[15px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
+            className="absolute flex cursor-pointer items-center justify-center text-[16.5px] font-bold tracking-[-.005em] hover:-translate-y-[2px]"
           >
             {register.isPending ? '등록 중…' : '등록 완료'}
           </div>
@@ -515,10 +640,10 @@ export default function RegisterForm() {
           {/* 실패를 조용히 넘기지 않는다. 토스트가 없어 버튼 위에 한 줄로 둔다. */}
           {errorMessage && (
             <div
-              className="absolute text-right text-[12.5px] tracking-[-.01em]"
+              className="absolute text-right text-[14px] tracking-[-.005em]"
               style={{
                 left: '672px',
-                top: '1552px',
+                top: '1600px',
                 width: '496px',
                 color: 'rgba(255,196,214,.9)',
                 animation: 'fadeIn .2s ease both',
@@ -572,11 +697,11 @@ export default function RegisterForm() {
             >
               ✓
             </div>
-            <div className="text-[19px] font-semibold tracking-[-.01em] text-white">
+            <div className="text-[21px] font-semibold tracking-[-.005em] text-white">
               등록이 완료되었습니다
             </div>
             <div
-              className="text-[13px]"
+              className="text-[14.5px]"
               style={{ marginTop: '10px', lineHeight: '1.6', color: 'rgba(255,236,246,.68)' }}
             >
               에이전트 올려줘서 ㄱㅅㄱㅅ!!
@@ -586,12 +711,12 @@ export default function RegisterForm() {
               <a
                 href={paths.my.agents}
                 style={{ height: '50px', borderRadius: '25px', color: 'rgba(255,255,255,.9)' }}
-                className="flex flex-1 items-center justify-center bg-[rgba(255,255,255,.09)] text-[14px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.18)] hover:text-[#fff]"
+                className="flex flex-1 items-center justify-center bg-[rgba(255,255,255,.09)] text-[15.5px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.18)] hover:text-[#fff]"
               >
                 마이페이지 가기
               </a>
               <a
-                className="flex flex-1 items-center justify-center text-[14px] font-bold"
+                className="flex flex-1 items-center justify-center text-[15.5px] font-bold"
                 href={paths.agentDetail(agentId)}
                 style={{
                   height: '50px',
