@@ -25,18 +25,19 @@ Python 3.11과 [uv](https://docs.astral.sh/uv/)가 필요하다.
 ```bash
 cd ai/spike/linear-mvp
 uv sync
-cp .env.example .env      # GEMINI_API_KEY 를 채운다
+cp .env.example .env      # LLM_API_KEY(GMS 팀 키)를 채운다
 ```
 
 `.env`
 
 ```
-GEMINI_API_KEY=발급받은키
-GEMINI_MODEL=gemini-2.5-flash
+LLM_API_KEY=GMS 팀 키
+LLM_BASE_URL=https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com   # 비우면 Google 직접 호출
+LLM_MODEL=gemini-2.5-flash
 ABC_SERVICE_TOKEN=          # 비우면 API 인증 검사를 건너뛴다
 ```
 
-키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 발급한다. 무료 등급이라 분당 · 일일 요청 상한이 있으니 반복 실행은 `--mock`으로 한다.
+LLM 호출은 SSAFY **GMS**(Gen AI Management System)를 경유한다. GMS는 Gemini 원본 API를 그대로 프록시하므로 SDK에 base URL만 바꿔 끼운 것이다. 팀 키와 크레딧을 쓰니 반복 실행은 `--mock`으로 한다. 구 변수명 `GEMINI_API_KEY` · `GEMINI_MODEL`도 당분간 읽힌다.
 
 ### PyCharm에서 열 때
 
