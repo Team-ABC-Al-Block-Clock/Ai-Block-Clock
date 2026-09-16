@@ -2,12 +2,12 @@ import { matchPath } from 'react-router-dom'
 
 import { routePatterns, type ScreenKey } from '@/routes/paths'
 
-/** 라우트별 화면 껍데기 설정 — 배경·로고·프로필 메뉴.
+/**
+ * 라우트별 화면 껍데기 설정 — 배경·로고·프로필 메뉴.
  *
- *  배경은 라우트 밖(App)에 한 번만 만들어 두고 값만 바꿉니다.
- *  화면마다 <ocean-bg>를 새로 만들면 라우트가 바뀔 때 셰이더를 다시 컴파일하면서
- *  캔버스가 잠깐 비어 화면이 까맣게 보입니다.
- *  로고·프로필 메뉴도 여기 둡니다 — 화면 내용과 같이 올라오면 안 되니까요.
+ * 배경은 라우트 밖에 한 번만 만들어 두고 값만 바꾼다. 화면마다 <ocean-bg> 를 새로
+ * 만들면 라우트가 바뀔 때 셰이더를 다시 컴파일해 캔버스가 잠깐 까맣게 보이기 때문이다.
+ * 로고·프로필 메뉴도 화면 내용과 같이 올라오지 않도록 포함한다.
  */
 export interface Shell {
   waveIntensity: number
@@ -19,12 +19,11 @@ export interface Shell {
   header: boolean
   /** 우상단 프로필 메뉴 */
   menu: boolean
-  /** 우상단 My Agent Studio 버튼 — 메뉴 없는 등록 화면에도 뜹니다 */
+  /** 우상단 My Agent Studio 버튼 */
   studio: boolean
-  /** 화면별 어둡기(CSS background). App 이 창 전체에 깐다 — 캔버스 안에 깔면 경계에
-   *  이음선이 보인다. 좌표에 묶인 것은 화면에 그대로 둔다(3절) */
+  /** 화면별 어둡기(CSS background). 캔버스 안에 깔면 경계에 이음선이 보이므로 이 창 전체에 깔아준다. */
   vignette: string
-  /** 프레임이 자르지 않고 `--edge` 를 내려준다 — 사이드바를 창 끝까지 미는 화면(3절) */
+  /** 프레임이 자르지 않고 `--edge` 를 내려주어 사이드바를 창 끝까지 밀어준다. */
   bleed: boolean
 }
 
@@ -42,7 +41,7 @@ const BASE: Shell = {
 }
 
 /** BASE 위에 덮어쓰는 화면별 설정.
- *  Record<ScreenKey, …> 라서 화면을 추가하면 여기를 채울 때까지 컴파일이 실패합니다. */
+ *  Record<ScreenKey, …> 라서 화면을 추가하면 여기를 채울 때까지 컴파일이 실패한다. */
 const BY_SCREEN: Record<ScreenKey, Partial<Shell>> = {
   home: {
     sunHeight: 0.45,
@@ -50,7 +49,7 @@ const BY_SCREEN: Record<ScreenKey, Partial<Shell>> = {
     studio: true,
     vignette: 'radial-gradient(120% 80% at 50% 42%, rgba(0,0,0,0) 35%, rgba(26,12,40,.34) 100%)',
   },
-  // 로그인은 로고를 가운데에 직접 그린다(시안 5) — 좌상단 로고와 겹치지 않게 끈다
+  // 로그인은 로고를 가운데에 직접 그린다. 이때, 좌상단 로고는 보이지 않게 숨긴다.
   login: {
     sunHeight: 0.5,
     dim: 0.1,
@@ -92,7 +91,6 @@ const BY_SCREEN: Record<ScreenKey, Partial<Shell>> = {
   },
   editSearching: { dim: 0.34, blur: 8, vignette: 'rgba(15,8,30,.48)', bleed: true },
   editNodes: { dim: 0.48, blur: 10, vignette: 'rgba(13,8,28,.58)', bleed: true },
-  editNodesSeller: { dim: 0.48, blur: 10, vignette: 'rgba(13,8,28,.58)', bleed: true },
   runWaiting: {
     dim: 0.52,
     blur: 11,
@@ -147,10 +145,9 @@ const BY_SCREEN: Record<ScreenKey, Partial<Shell>> = {
   },
 }
 
-/** 편집·실행 화면: 작업면 채움을 `vignette` 로 올리고 판의 `backdrop-filter` 만큼 `blur` 를
- *  더했다. 판에만 두면 캔버스 경계에 세로선이 생긴다(3절). */
+/** 편집·실행 화면: 작업면 채움을 `vignette` 로 올리고 판의 `backdrop-filter` 만큼 `blur` 를 더해 캔버스 경계에 세로선이 보이지 않게 한다. */
 
-/** 404 — 배경을 눌러 카드가 읽히게 합니다. */
+/** 404 — 배경을 눌러 카드가 읽히게 한다. */
 const FALLBACK: Partial<Shell> = { dim: 0.4, blur: 4 }
 
 const SCREEN_KEYS = Object.keys(routePatterns) as ScreenKey[]

@@ -89,7 +89,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href={paths.edit.nodesSeller.withoutId}
+            href={paths.run.waiting.withoutId}
             style={{
               left: '272px',
               top: '94px',
@@ -478,7 +478,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href={paths.edit.nodesSeller.withoutId}
+            href={`${paths.run.running.withoutId}?done=1`}
             style={{
               left: '832px',
               top: '1580px',
