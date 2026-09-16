@@ -25,7 +25,7 @@ Python 3.11과 [uv](https://docs.astral.sh/uv/)가 필요하다.
 ```bash
 cd ai/spike/linear-mvp
 uv sync
-cp .env.example .env      # GEMINI_API_KEY 를 채운다
+cp .env.example .env      # LLM_API_KEY(GMS 팀 키)를 채운다
 ```
 
 `.env`
