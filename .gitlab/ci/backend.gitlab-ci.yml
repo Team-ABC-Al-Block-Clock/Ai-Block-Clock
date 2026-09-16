@@ -4,10 +4,11 @@
 #
 # 테스트는 두 갈래로 나눈다.
 #   backend:build            gradlew build       — 단위 테스트. MR 마다 돈다
-#   backend:test:integration gradlew integrationTest — @Tag("integration"). master 게이트
+#   backend:test:integration gradlew integrationTest — @Tag("integration")
 #
-# 통합 테스트를 master push 가 아니라 "master 로 들어가는 MR" 에서 돌린다.
-# push 에서 돌리면 실패해도 이미 머지된 뒤라 master 가 깨진 채 남는다.
+# 통합 테스트는 모든 MR 과 develop-BE·master push 에서 자동으로 돈다. 실패하면
+# 파이프라인이 실패한다 (예전에는 MR·develop-BE 에서 when: manual + allow_failure 였다).
+# master 로 들어가는 MR 이 최종 게이트다 — 거기서 실패하면 머지 자체가 막힌다.
 #
 # 배포는 Dockerfile 의 prod target 으로 그 jar 를 그대로 이미지에 넣는다
 # (테스트를 통과한 산출물이 그대로 배포된다).
@@ -102,21 +103,16 @@ backend:test:integration:
     expire_in: 1 week
     when: always
   rules:
-    # master 로 들어가는 MR — 여기가 게이트다. 실패하면 머지가 막힌다.
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+    # 모든 MR 에서 자동 실행. master 로 들어가는 MR 이 최종 게이트다 —
+    # 실패하면 파이프라인이 실패하고 머지가 막힌다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *backend-changes
+    # develop-BE push — 통합 브랜치가 깨진 채로 남지 않게 자동 실행
+    - if: '$CI_COMMIT_BRANCH == "develop-BE"'
       <<: *backend-changes
     # master push — 안전망 (핫픽스 직접 푸시 등)
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
-    # 그 밖에는 수동으로 돌릴 수 있게 남긴다
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      <<: *backend-changes
-      when: manual
-      allow_failure: true
-    - if: '$CI_COMMIT_BRANCH == "develop-BE"'
-      <<: *backend-changes
-      when: manual
-      allow_failure: true
 
 backend:deploy:
   stage: deploy
@@ -177,6 +173,10 @@ backend:deploy:
     name: production/backend
     url: https://j15a403.p.ssafy.io/api
   rules:
+    # 자동 배포. needs 에 backend:build·backend:test:integration 이 걸려 있어
+    # 둘 다 통과해야 시작된다.
+    #
+    # 자격 증명이 비어 있으면 위 script 의 검사에서 먼저 죽으므로,
+    # compose 기본값(local_password)으로 조용히 뜨는 일은 없다.
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
-      when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다

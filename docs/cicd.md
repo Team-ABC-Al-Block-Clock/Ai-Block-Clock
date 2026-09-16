@@ -41,10 +41,10 @@ GitLab Push / MR
 
 | 브랜치 | 동작 |
 | --- | --- |
-| `feat/*`, `hotfix/*` | 변경된 쪽 build 만 수행 (MR 열기 전 사전 검증) |
-| `develop-FE` (MR 포함) | frontend build 만 수행 (빌드 깨짐 검증) |
-| `develop-BE` (MR 포함) | backend build + test 만 수행 |
-| `master` | build → deploy (실서버 반영) |
+| `feat/*`, `hotfix/*` | 변경된 쪽 build (+ 프론트는 test) 수행 — 백엔드 통합 테스트는 생성되지 않는다 |
+| `develop-FE` (MR 포함) | frontend build + test (vitest) |
+| `develop-BE` (MR 포함) | backend build(단위 테스트) + 통합 테스트 — 둘 다 자동 |
+| `master` | build → test → deploy (실서버 자동 반영) |
 ---
 
 ## 2. 사전 준비 (서버, 최초 1회)
@@ -76,7 +76,8 @@ sudo gitlab-runner register \
 
 | 잡 | 빌드 이미지 |
 | --- | --- |
-| `frontend:build` | `node:22` |
+| `frontend:build` | `node:24` |
+| `frontend:test` | `node:24` |
 | `backend:build` | `eclipse-temurin:25-jdk` |
 
 ```bash
@@ -156,6 +157,7 @@ DB 자격 증명은 서버 파일이 아니라 **GitLab 변수**로 관리한다
 ```yaml
 stages:
   - build
+  - test
   - deploy
 
 variables:
@@ -181,7 +183,7 @@ workflow:
 variables:
   FE_DIR: frontend
   FE_DEPLOY_PATH: /var/www/j15a403/frontend
-  FE_NODE_IMAGE: node:22
+  FE_NODE_IMAGE: node:24
 
 # frontend 폴더 또는 이 CI 파일이 바뀌었을 때만 잡을 만든다.
 # exists 로 한 번 더 거른다 — 브랜치에 frontend/ 자체가 없으면(예: develop-BE 계열)
@@ -234,6 +236,38 @@ frontend:build:
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *frontend-changes
 
+frontend:test:
+  stage: test
+  tags:
+    - deploy
+    - shell
+  needs:
+    # 소스만 있으면 되므로 dist/ artifacts 는 받지 않는다.
+    - job: frontend:build
+      artifacts: false
+  script:
+    # vitest 는 jsdom 환경에서 돈다. 빌드와 같은 이미지·같은 캐시를 쓴다.
+    - >
+      docker run --rm
+      ... (frontend:build 와 동일한 docker run 옵션)
+      "$FE_NODE_IMAGE"
+      sh -c "npm ci && npm run test -- --reporter=default --reporter=junit --outputFile.junit=test-results/junit.xml"
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - .npm-cache/
+      - frontend/node_modules/
+    policy: pull # 캐시는 frontend:build 가 만든다. 여기서는 읽기만 한다.
+  artifacts:
+    reports:
+      junit:
+        - frontend/test-results/junit.xml
+    expire_in: 1 week
+    when: always # 테스트가 깨져도 리포트는 올린다
+  rules: # frontend:build 와 동일
+
 frontend:deploy:
   stage: deploy
   tags:
@@ -241,6 +275,10 @@ frontend:deploy:
     - shell
   needs:
     - frontend:build
+    # needs 는 stage 순서를 덮어쓴다. 여기에 안 적으면 테스트가 끝나기 전에
+    # 배포가 시작될 수 있다.
+    - job: frontend:test
+      artifacts: false
   script:
     - mkdir -p "$FE_DEPLOY_PATH"
     # --delete: Vite 는 assets/index-<hash>.js 로 파일명이 매번 바뀌므로
@@ -257,13 +295,13 @@ frontend:deploy:
 
 ### 3-3. `.gitlab/ci/backend.gitlab-ci.yml`
 
-세 단계로 나뉜다.
+배포를 막는 잡은 다음과 같다. (테스트 잡은 Gradle 태스크별로 더 늘어날 수 있다.)
 
 | 잡 | 스테이지 | 하는 일 | 언제 |
 | --- | --- | --- | --- |
 | `backend:build` | build | `gradlew build` — 컴파일 + **단위 테스트** + bootJar | MR·`feat/*`·`develop-BE`·`master` |
-| `backend:test:integration` | test | `gradlew integrationTest` — **통합 테스트** | master 로 들어가는 MR, `master` push |
-| `backend:deploy` | deploy | `docker compose up -d --build` + 헬스체크 | `master` (현재 수동) |
+| `backend:test:integration` | test | `gradlew integrationTest` — **통합 테스트** | 모든 MR·`develop-BE`·`master` push (자동) |
+| `backend:deploy` | deploy | `docker compose up -d --build` + 헬스체크 | `master` (자동) |
 
 ```yaml
 variables:
@@ -353,21 +391,16 @@ backend:test:integration:
     expire_in: 1 week
     when: always
   rules:
-    # master 로 들어가는 MR — 여기가 게이트다. 실패하면 머지가 막힌다.
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+    # 모든 MR 에서 자동 실행. master 로 들어가는 MR 이 최종 게이트다 —
+    # 실패하면 파이프라인이 실패하고 머지가 막힌다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *backend-changes
+    # develop-BE push — 통합 브랜치가 깨진 채로 남지 않게 자동 실행
+    - if: '$CI_COMMIT_BRANCH == "develop-BE"'
       <<: *backend-changes
     # master push — 안전망 (핫픽스 직접 푸시 등)
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
-    # 그 밖에는 수동으로 돌릴 수 있게 남긴다
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      <<: *backend-changes
-      when: manual
-      allow_failure: true
-    - if: '$CI_COMMIT_BRANCH == "develop-BE"'
-      <<: *backend-changes
-      when: manual
-      allow_failure: true
 
 backend:deploy:
   stage: deploy
@@ -428,9 +461,13 @@ backend:deploy:
     name: production/backend
     url: https://j15a403.p.ssafy.io/api
   rules:
+    # 자동 배포. needs 에 backend:build·backend:test:integration 이 걸려 있어
+    # 둘 다 통과해야 시작된다.
+    #
+    # 자격 증명이 비어 있으면 위 script 의 검사에서 먼저 죽으므로,
+    # compose 기본값(local_password)으로 조용히 뜨는 일은 없다.
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
-      when: manual # DB 자격 증명 준비 전까지 수동. 준비되면 이 줄을 지운다
 ```
 
 #### 단위 / 통합 테스트를 나눴다
@@ -439,19 +476,21 @@ backend:deploy:
 
 ```
 feat/* push            : 단위만              (통합 잡은 생성되지 않는다)
-feat/* → develop-BE MR : 단위 + 통합(수동)
-develop-BE push        : 단위 + 통합(수동)
+feat/* → develop-BE MR : 단위 + 통합         (자동)
+develop-BE push        : 단위 + 통합         (자동)
 develop-BE → master MR : 단위 + 통합         ← 게이트
 master push            : 단위 + 통합         (안전망)
 ```
 
-**통합 테스트를 `master` push 가 아니라 "master 로 들어가는 MR" 에서 돌린다.** push 에서
-돌리면 실패해도 이미 머지된 뒤라 master 가 깨진 채로 남는다. MR 에서 돌려야 실패가
-머지 자체를 막는다.
+**통합 테스트에는 수동 실행 단계가 없다.** 예전에는 MR·`develop-BE` 에서
+`when: manual` + `allow_failure: true` 였는데, 아무도 누르지 않으면 통합 테스트가
+한 번도 돌지 않은 채 머지되고 `allow_failure` 때문에 깨져도 초록불이었다. 지금은
+잡이 생성되는 모든 곳에서 자동으로 돌고, 실패하면 파이프라인이 실패한다.
 
 ```yaml
-- if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'   # 게이트
-- if: '$CI_COMMIT_BRANCH == "master"'                      # 안전망
+- if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # 모든 MR — master 행 MR 이 게이트
+- if: '$CI_COMMIT_BRANCH == "develop-BE"'              # 통합 브랜치
+- if: '$CI_COMMIT_BRANCH == "master"'                  # 안전망
 ```
 
 `feat/*` push 에는 해당하는 규칙이 없어 **통합 테스트 잡이 생성되지 않는다.** 수동으로도
@@ -632,13 +671,16 @@ docker compose -f compose.yaml -f compose.prod.yaml config | grep -E "SPRING_PRO
 | `artifacts` | build/deploy 잡을 분리해도 `dist/` 가 전달된다. 실패 시 산출물 확인·롤백에도 사용 |
 | `rsync --delete` | Vite는 `assets/index-<hash>.js` 로 파일명이 매번 바뀐다. 단순 `cp` 만 하면 옛 파일이 계속 쌓임 |
 | `test -f dist/index.html` | 빌드가 조용히 빈 결과를 내는 경우를 배포 전에 잡는다 |
+| `frontend:test` 를 별도 잡으로 | 빌드가 깨진 건지 테스트가 깨진 건지 파이프라인 화면에서 바로 구분된다. JUnit 리포트도 MR 위젯에 따로 뜬다 |
+| `cache: policy: pull` (test) | 캐시는 `frontend:build` 만 만든다. 두 잡이 같은 키로 동시에 쓰면 서로 덮어쓴다 |
+| vitest `--reporter=junit` | 별도 패키지 없이 vitest 내장 리포터로 JUnit XML 을 낸다. `--reporter=default` 를 같이 줘서 로그에도 결과가 남는다 |
 
 ### 3-5. 브랜치별 동작 요약
 
 | 변경 폴더 | `feat/*` | `develop-*` MR | → `master` MR | `master` push |
 | --- | --- | --- | --- | --- |
-| `frontend/**` | build | build | build | build → deploy |
-| `backend/**` | build (단위만) | build + 통합(수동) | build + **통합** | build + 통합 → deploy(수동) |
+| `frontend/**` | build + test | build + test | build + test | build + test → deploy |
+| `backend/**` | build (단위만) | build + **통합** | build + **통합** | build + 통합 → deploy |
 
 > `develop-FE`/`develop-BE` 열의 `–` 는 `exists:` 규칙 때문이다. 해당 브랜치에는
 > 상대편 소스 폴더가 존재하지 않으므로 잡 자체가 생성되지 않는다.
@@ -773,16 +815,19 @@ ls -al /var/www/j15a403/frontend/
 
 ## 7. 남은 작업
 
-- [x] `frontend:build` — Node 컨테이너에서 vite 빌드, `dist/` artifacts
+- [x] `frontend:build` — Node 24 컨테이너에서 lint + vite 빌드, `dist/` artifacts
+- [x] `frontend:test` — Node 24 컨테이너에서 vitest 실행 (JUnit 리포트)
 - [x] `backend:build` — JDK 컨테이너에서 Gradle 빌드 + 단위 테스트 (JUnit 리포트)
-- [x] `backend:test:integration` — `@Tag("integration")` 통합 테스트, master 게이트
-- [x] `backend:deploy` — `docker compose up -d --build` + 헬스체크 (현재 `when: manual`)
+- [x] `backend:test:integration` — `@Tag("integration")` 통합 테스트, 모든 MR·`develop-BE`·`master` 자동
+- [x] `backend:deploy` — `docker compose up -d --build` + 헬스체크 (`master` 자동)
 - [x] Dockerfile target 분리(local/prod) — 컴파일 중복 제거, 테스트 통과한 jar 를 배포
 - [ ] 서버 준비: [2-3](#2-3-프론트-배포-디렉터리-권한) 프론트 경로 권한
 - [ ] GitLab CI/CD Variables 4개 등록 + `master` 보호 브랜치 확인 ([2-4](#2-4-백엔드-자격-증명-gitlab-cicd-variables))
 - [ ] `compose.prod.yaml`·`Dockerfile` 변경 백엔드 담당자 리뷰
-- [ ] 검증 후 `backend:deploy` 의 `when: manual` 제거
+- [x] 검증 후 `backend:deploy` 의 `when: manual` 제거
+- [x] 프론트 테스트 잡 추가 (`package.json` 의 `test: vitest run`)
 - [ ] `frontend:deploy` 실동작 검증 (CI 파일이 `develop-FE` 로 머지될 때)
+- [ ] `frontend:test` 실동작 검증 — `develop-BE` 에는 `frontend/` 가 없어 잡이 생성되지 않는다
+- [ ] `frontend/.gitignore` 에 `test-results/` 추가 (JUnit 리포트 출력 경로)
 - [ ] Nginx `/api/` 프록시 블록 활성화
-- [ ] 프론트 테스트 도입 시 `frontend:build` 에 추가 (현재 `package.json` 에 test 스크립트 없음)
 - [ ] 무중단 배포 필요 여부 판단 (현재는 컨테이너 교체 중 수 초 다운타임)
