@@ -4,10 +4,9 @@ import iconUrl from '@/assets/logo.png'
 /**
  * 캔버스에 놓을 수 있는 항목. 내가 만든 노드와 마켓 에이전트가 한 목록에 섞여 있다.
  *
- * 내 것이 11건이다 — 기본 `size` 가 10 이라 그보다 적으면 `scope=MINE` 에서 `hasNext` 가
- * 늘 false 여서 무한 스크롤을 확인할 방법이 없다.
+ * 무한 스크롤을 확인하기 위해 내 에이전트를 11개로 설정한다.
  */
-type Seed = Omit<PlaceableItem, 'currency' | 'owner'> & { owner: string }
+type Seed = Omit<PlaceableItem, 'owner'> & { owner: string }
 
 const ME = '이싸피'
 
@@ -27,7 +26,7 @@ const SEEDS: Seed[] = [
   { itemId: 'agt_002',  itemType: 'AGENT', nodeType: 'AGENT',   name: '계약서 검토',  mine: true,  owner: ME,          iconUrl: null,    executionCount: 88,  price: '220', summary: '조항을 뽑아 위험한 곳을 표시한다' },
   { itemId: 'agt_003',  itemType: 'AGENT', nodeType: 'AGENT',   name: 'CS 답변 초안', mine: true,  owner: ME,          iconUrl,          executionCount: 46,  price: '90',  summary: '문의를 분류해 답변 초안을 만든다' },
   { itemId: 'agt_004',  itemType: 'AGENT', nodeType: 'AGENT',   name: '회의록 정리',  mine: true,  owner: ME,          iconUrl: null,    executionCount: 0,   price: '70',  summary: null },
-  // 남의 에이전트. scope=ALL 에서만 나온다.
+  // 다른 사람의 에이전트. scope=ALL 에서만 나온다.
   { itemId: 'agt_101',  itemType: 'AGENT', nodeType: 'AGENT',   name: '통계 분석',    mine: false, owner: 'stat-lab',  iconUrl,          executionCount: 820, price: '180', summary: '평균과 분포를 계산합니다' },
   { itemId: 'agt_102',  itemType: 'AGENT', nodeType: 'AGENT',   name: '문서 자동 분류', mine: false, owner: '김싸피',  iconUrl,          executionCount: 640, price: '120', summary: '폴더를 훑어 주제별로 옮긴다' },
   { itemId: 'agt_103',  itemType: 'AGENT', nodeType: 'AGENT',   name: '코드 리뷰',    mine: false, owner: '박싸피',    iconUrl: null,    executionCount: 455, price: '260', summary: '변경 diff 를 받아 문제를 지적한다' },
@@ -41,7 +40,6 @@ const SEEDS: Seed[] = [
 
 export const PLACEABLE_ITEMS: PlaceableItem[] = SEEDS.map((seed) => ({
   ...seed,
-  currency: 'ABC',
   owner: { nickname: seed.owner },
 }))
 

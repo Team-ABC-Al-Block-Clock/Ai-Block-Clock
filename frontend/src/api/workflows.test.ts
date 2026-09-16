@@ -158,7 +158,7 @@ describe('getNodePalette', () => {
     expect(page).not.toHaveProperty('status')
   })
 
-  it('MINE 은 내 것만 주고, ALL 은 남의 에이전트까지 준다', async () => {
+  it('MINE 은 내 것만 주고, ALL 은 다른 사람의 에이전트까지 준다', async () => {
     const mine = await getNodePalette({ scope: 'MINE', size: 30 })
     const all = await getNodePalette({ scope: 'ALL', size: 30 })
 
@@ -192,7 +192,6 @@ describe('getNodePalette', () => {
     // i 버튼이 뒤집어 보여주는 넷(사용 횟수·단가·유형·설명)이 여기 다 있어야
     // 카드마다 상세를 다시 부르지 않는다.
     expect(Object.keys(first).sort()).toEqual([
-      'currency',
       'executionCount',
       'iconUrl',
       'itemId',
@@ -206,7 +205,7 @@ describe('getNodePalette', () => {
     ])
   })
 
-  it('남의 에이전트는 내부 구성을 공개하지 않는다', async () => {
+  it('다른 사람의 에이전트는 내부 구성을 공개하지 않는다', async () => {
     const { content } = await getNodePalette({ scope: 'ALL', size: 30 })
     const theirs = content.filter((item) => !item.mine)
 
