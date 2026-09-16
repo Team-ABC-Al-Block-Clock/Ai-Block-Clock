@@ -171,7 +171,7 @@ workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never          # MR이 열린 브랜치는 MR 파이프라인만 (중복 방지)
+      when: never
     - if: '$CI_COMMIT_BRANCH'
 ```
 
@@ -185,9 +185,6 @@ variables:
   FE_DEPLOY_PATH: /var/www/j15a403/frontend
   FE_NODE_IMAGE: node:24
 
-# frontend 폴더 또는 이 CI 파일이 바뀌었을 때만 잡을 만든다.
-# exists 로 한 번 더 거른다 — 브랜치에 frontend/ 자체가 없으면(예: develop-BE 계열)
-# CI 파일만 바뀌어도 잡을 만들지 않는다.
 .frontend-changes: &frontend-changes
   changes:
     - frontend/**/*
@@ -202,7 +199,6 @@ frontend:build:
     - deploy
     - shell
   script:
-    # -u 로 현재 사용자 권한을 유지해야 dist/ 가 root 소유로 남지 않는다
     - >
       docker run --rm
       -u "$(id -u):$(id -g)"
@@ -212,7 +208,7 @@ frontend:build:
       -e npm_config_cache=/workspace/.npm-cache
       "$FE_NODE_IMAGE"
       sh -c "npm ci && npm run lint && npm run build"
-    - test -f "$FE_DIR/dist/index.html" # 산출물 검증
+    - test -f "$FE_DIR/dist/index.html"
     - ls -al "$FE_DIR/dist/"
   cache:
     key:
@@ -242,14 +238,16 @@ frontend:test:
     - deploy
     - shell
   needs:
-    # 소스만 있으면 되므로 dist/ artifacts 는 받지 않는다.
     - job: frontend:build
       artifacts: false
   script:
-    # vitest 는 jsdom 환경에서 돈다. 빌드와 같은 이미지·같은 캐시를 쓴다.
     - >
       docker run --rm
-      ... (frontend:build 와 동일한 docker run 옵션)
+      -u "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR":/workspace
+      -w "/workspace/$FE_DIR"
+      -e HOME=/workspace/.npm-home
+      -e npm_config_cache=/workspace/.npm-cache
       "$FE_NODE_IMAGE"
       sh -c "npm ci && npm run test -- --reporter=default --reporter=junit --outputFile.junit=test-results/junit.xml"
   cache:
@@ -259,14 +257,22 @@ frontend:test:
     paths:
       - .npm-cache/
       - frontend/node_modules/
-    policy: pull # 캐시는 frontend:build 가 만든다. 여기서는 읽기만 한다.
+    policy: pull
   artifacts:
     reports:
       junit:
         - frontend/test-results/junit.xml
     expire_in: 1 week
-    when: always # 테스트가 깨져도 리포트는 올린다
-  rules: # frontend:build 와 동일
+    when: always
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH =~ /^(feat|hotfix)\//'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH == "develop-FE"'
+      <<: *frontend-changes
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      <<: *frontend-changes
 
 frontend:deploy:
   stage: deploy
@@ -275,14 +281,10 @@ frontend:deploy:
     - shell
   needs:
     - frontend:build
-    # needs 는 stage 순서를 덮어쓴다. 여기에 안 적으면 테스트가 끝나기 전에
-    # 배포가 시작될 수 있다.
     - job: frontend:test
       artifacts: false
   script:
     - mkdir -p "$FE_DEPLOY_PATH"
-    # --delete: Vite 는 assets/index-<hash>.js 로 파일명이 매번 바뀌므로
-    #           옛 번들을 지우지 않으면 계속 쌓인다
     - rsync -av --delete "$FE_DIR/dist/" "$FE_DEPLOY_PATH/"
     - ls -al "$FE_DEPLOY_PATH/index.html"
   environment:
@@ -306,9 +308,8 @@ frontend:deploy:
 ```yaml
 variables:
   BE_DIR: backend/ai-block-clock
-  BE_APP_MODULE: core/core-api # 실행 가능한 모듈은 core-api 하나뿐
+  BE_APP_MODULE: core/core-api
   BE_JDK_IMAGE: eclipse-temurin:25-jdk
-  # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
   GRADLE_USER_HOME: .gradle-home
 
 .backend-gradle:
@@ -338,8 +339,6 @@ backend:build:
   extends: .backend-gradle
   stage: build
   script:
-    # 호스트 JDK 대신 컨테이너의 JDK 25 를 쓴다.
-    # -u 로 현재 사용자 권한을 유지해야 산출물이 root 소유로 남지 않는다.
     - >
       docker run --rm
       -u "$(id -u):$(id -g)"
@@ -357,7 +356,7 @@ backend:build:
       junit:
         - backend/ai-block-clock/**/build/test-results/test/TEST-*.xml
     expire_in: 1 week
-    when: always # 테스트가 깨져도 리포트는 올린다
+    when: always
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *backend-changes
@@ -372,7 +371,6 @@ backend:test:integration:
   extends: .backend-gradle
   stage: test
   needs:
-    # 컴파일 결과를 재활용하지 않고 컨테이너에서 다시 돌린다. jar 는 필요 없다.
     - job: backend:build
       artifacts: false
   script:
@@ -391,14 +389,10 @@ backend:test:integration:
     expire_in: 1 week
     when: always
   rules:
-    # 모든 MR 에서 자동 실행. master 로 들어가는 MR 이 최종 게이트다 —
-    # 실패하면 파이프라인이 실패하고 머지가 막힌다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *backend-changes
-    # develop-BE push — 통합 브랜치가 깨진 채로 남지 않게 자동 실행
     - if: '$CI_COMMIT_BRANCH == "develop-BE"'
       <<: *backend-changes
-    # master push — 안전망 (핫픽스 직접 푸시 등)
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
 
@@ -408,28 +402,18 @@ backend:deploy:
     - deploy
     - shell
   needs:
-    # Dockerfile 이 이 jar 를 COPY 하므로 artifacts 를 받아야 한다.
     - job: backend:build
       artifacts: true
-    # needs 는 stage 순서를 덮어쓴다. 여기에 안 적으면 통합 테스트가 끝나기 전에
-    # 배포가 시작될 수 있다.
     - job: backend:test:integration
       artifacts: false
   script:
     - cd "$BE_DIR"
-    # prod target 은 jar 를 COPY 만 한다. jar 가 없으면
-    # "lstat ...: no such file or directory" 로만 죽어서 원인을 알기 어렵다.
     - |
       if ! ls "$BE_APP_MODULE"/build/libs/*.jar >/dev/null 2>&1; then
         echo "$BE_APP_MODULE/build/libs/ 에 jar 가 없습니다."
         echo "backend:build 의 artifacts 가 내려왔는지 확인하세요 (needs.artifacts: true)."
         exit 1
       fi
-    # 자격 증명은 GitLab CI/CD Variables 에서 온다. compose 가 프로세스 환경변수로
-    # ${...} 를 보간하므로 --env-file 없이 그대로 쓰인다.
-    #
-    # compose.yaml 에 ${MYSQL_PASSWORD:-local_password} 같은 기본값이 있어서, 변수가
-    # 비어 있으면 조용히 로컬 비밀번호로 뜬다. 그 전에 잡는다.
     - |
       for v in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
         eval "val=\$$v"
@@ -444,7 +428,6 @@ backend:deploy:
       -f compose.yaml -f compose.prod.yaml
       up -d --build --remove-orphans
     - docker compose -f compose.yaml -f compose.prod.yaml ps
-    # compose 의 healthcheck 가 UP 이 될 때까지 기다린다
     - |
       for i in $(seq 1 40); do
         if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
@@ -461,11 +444,6 @@ backend:deploy:
     name: production/backend
     url: https://j15a403.p.ssafy.io/api
   rules:
-    # 자동 배포. needs 에 backend:build·backend:test:integration 이 걸려 있어
-    # 둘 다 통과해야 시작된다.
-    #
-    # 자격 증명이 비어 있으면 위 script 의 검사에서 먼저 죽으므로,
-    # compose 기본값(local_password)으로 조용히 뜨는 일은 없다.
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
 ```
@@ -488,10 +466,13 @@ master push            : 단위 + 통합         (안전망)
 잡이 생성되는 모든 곳에서 자동으로 돌고, 실패하면 파이프라인이 실패한다.
 
 ```yaml
-- if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # 모든 MR — master 행 MR 이 게이트
-- if: '$CI_COMMIT_BRANCH == "develop-BE"'              # 통합 브랜치
-- if: '$CI_COMMIT_BRANCH == "master"'                  # 안전망
+- if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+- if: '$CI_COMMIT_BRANCH == "develop-BE"'
+- if: '$CI_COMMIT_BRANCH == "master"'
 ```
+
+위에서부터 순서대로 모든 MR(`master` 로 들어가는 MR 이 최종 게이트), 통합 브랜치
+`develop-BE`, 그리고 `master` push 안전망이다.
 
 `feat/*` push 에는 해당하는 규칙이 없어 **통합 테스트 잡이 생성되지 않는다.** 수동으로도
 돌릴 수 없다. `feat/*` 에서 확인하려면 MR 을 열어야 한다.

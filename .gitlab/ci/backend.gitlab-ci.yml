@@ -1,26 +1,7 @@
-# 백엔드 파이프라인 (Gradle 테스트 + Docker Compose 배포)
-#
-# 트리거: backend/** 가 변경된 경우에만
-#
-# 테스트는 두 갈래로 나눈다.
-#   backend:build            gradlew build       — 단위 테스트. MR 마다 돈다
-#   backend:test:integration gradlew integrationTest — @Tag("integration")
-#
-# 통합 테스트는 모든 MR 과 develop-BE·master push 에서 자동으로 돈다. 실패하면
-# 파이프라인이 실패한다 (예전에는 MR·develop-BE 에서 when: manual + allow_failure 였다).
-# master 로 들어가는 MR 이 최종 게이트다 — 거기서 실패하면 머지 자체가 막힌다.
-#
-# 배포는 Dockerfile 의 prod target 으로 그 jar 를 그대로 이미지에 넣는다
-# (테스트를 통과한 산출물이 그대로 배포된다).
-# 호스트에 필요한 것은 Docker 뿐이다 (JDK·JRE 모두 불필요).
-#
-# Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
-
 variables:
   BE_DIR: backend/ai-block-clock
-  BE_APP_MODULE: core/core-api # 실행 가능한 모듈은 core-api 하나뿐
+  BE_APP_MODULE: core/core-api
   BE_JDK_IMAGE: eclipse-temurin:25-jdk
-  # 컨테이너 안에서 쓸 Gradle 홈. 워크스페이스 안에 두고 GitLab cache 로 재사용한다.
   GRADLE_USER_HOME: .gradle-home
 
 .backend-gradle:
@@ -50,8 +31,6 @@ backend:build:
   extends: .backend-gradle
   stage: build
   script:
-    # 호스트 JDK 대신 컨테이너의 JDK 25 를 쓴다.
-    # -u 로 현재 사용자 권한을 유지해야 산출물이 root 소유로 남지 않는다.
     - >
       docker run --rm
       -u "$(id -u):$(id -g)"
@@ -69,7 +48,7 @@ backend:build:
       junit:
         - backend/ai-block-clock/**/build/test-results/test/TEST-*.xml
     expire_in: 1 week
-    when: always # 테스트가 깨져도 리포트는 올린다
+    when: always
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *backend-changes
@@ -84,7 +63,6 @@ backend:test:integration:
   extends: .backend-gradle
   stage: test
   needs:
-    # 컴파일 결과를 재활용하지 않고 컨테이너에서 다시 돌린다. jar 는 필요 없다.
     - job: backend:build
       artifacts: false
   script:
@@ -103,14 +81,10 @@ backend:test:integration:
     expire_in: 1 week
     when: always
   rules:
-    # 모든 MR 에서 자동 실행. master 로 들어가는 MR 이 최종 게이트다 —
-    # 실패하면 파이프라인이 실패하고 머지가 막힌다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *backend-changes
-    # develop-BE push — 통합 브랜치가 깨진 채로 남지 않게 자동 실행
     - if: '$CI_COMMIT_BRANCH == "develop-BE"'
       <<: *backend-changes
-    # master push — 안전망 (핫픽스 직접 푸시 등)
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes
 
@@ -120,28 +94,18 @@ backend:deploy:
     - deploy
     - shell
   needs:
-    # Dockerfile 이 이 jar 를 COPY 하므로 artifacts 를 받아야 한다.
     - job: backend:build
       artifacts: true
-    # needs 는 stage 순서를 덮어쓴다. 여기에 안 적으면 통합 테스트가 끝나기 전에
-    # 배포가 시작될 수 있다.
     - job: backend:test:integration
       artifacts: false
   script:
     - cd "$BE_DIR"
-    # prod target 은 jar 를 COPY 만 한다. jar 가 없으면
-    # "lstat ...: no such file or directory" 로만 죽어서 원인을 알기 어렵다.
     - |
       if ! ls "$BE_APP_MODULE"/build/libs/*.jar >/dev/null 2>&1; then
         echo "$BE_APP_MODULE/build/libs/ 에 jar 가 없습니다."
         echo "backend:build 의 artifacts 가 내려왔는지 확인하세요 (needs.artifacts: true)."
         exit 1
       fi
-    # 자격 증명은 GitLab CI/CD Variables 에서 온다. compose 가 프로세스 환경변수로
-    # ${...} 를 보간하므로 --env-file 없이 그대로 쓰인다.
-    #
-    # compose.yaml 에 ${MYSQL_PASSWORD:-local_password} 같은 기본값이 있어서, 변수가
-    # 비어 있으면 조용히 로컬 비밀번호로 뜬다. 그 전에 잡는다.
     - |
       for v in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
         eval "val=\$$v"
@@ -156,7 +120,6 @@ backend:deploy:
       -f compose.yaml -f compose.prod.yaml
       up -d --build --remove-orphans
     - docker compose -f compose.yaml -f compose.prod.yaml ps
-    # compose 의 healthcheck 가 UP 이 될 때까지 기다린다
     - |
       for i in $(seq 1 40); do
         if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
@@ -173,10 +136,5 @@ backend:deploy:
     name: production/backend
     url: https://j15a403.p.ssafy.io/api
   rules:
-    # 자동 배포. needs 에 backend:build·backend:test:integration 이 걸려 있어
-    # 둘 다 통과해야 시작된다.
-    #
-    # 자격 증명이 비어 있으면 위 script 의 검사에서 먼저 죽으므로,
-    # compose 기본값(local_password)으로 조용히 뜨는 일은 없다.
     - if: '$CI_COMMIT_BRANCH == "master"'
       <<: *backend-changes

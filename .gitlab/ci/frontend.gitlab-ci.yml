@@ -1,21 +1,8 @@
-# 프론트엔드 파이프라인 (Vite 빌드 -> vitest -> 정적 파일 배포)
-#
-# 트리거: frontend/** 가 변경된 경우에만
-# 테스트: frontend:test 가 vitest 를 돌린다. 실패하면 파이프라인이 실패하고 배포도 막힌다.
-# 배포:   master 브랜치에서만, /var/www/j15a403/frontend 로 rsync
-#
-# 빌드는 Node 컨테이너 안에서 돌린다. 호스트에는 Node/nvm 이 필요 없고 Docker 만 있으면 된다.
-#
-# Runner: 배포 서버(EC2)에 등록된 shell executor (tags: deploy, shell)
-
 variables:
   FE_DIR: frontend
   FE_DEPLOY_PATH: /var/www/j15a403/frontend
   FE_NODE_IMAGE: node:24
 
-# frontend 폴더 또는 이 CI 파일이 바뀌었을 때만 잡을 만든다.
-# exists 로 한 번 더 거른다 — 브랜치에 frontend/ 자체가 없으면(예: develop-BE 계열)
-# CI 파일만 바뀌어도 잡을 만들지 않는다.
 .frontend-changes: &frontend-changes
   changes:
     - frontend/**/*
@@ -30,7 +17,6 @@ frontend:build:
     - deploy
     - shell
   script:
-    # -u 로 현재 사용자 권한을 유지해야 dist/ 가 root 소유로 남지 않는다
     - >
       docker run --rm
       -u "$(id -u):$(id -g)"
@@ -40,7 +26,7 @@ frontend:build:
       -e npm_config_cache=/workspace/.npm-cache
       "$FE_NODE_IMAGE"
       sh -c "npm ci && npm run lint && npm run build"
-    - test -f "$FE_DIR/dist/index.html" # 산출물 검증
+    - test -f "$FE_DIR/dist/index.html"
     - ls -al "$FE_DIR/dist/"
   cache:
     key:
@@ -70,11 +56,9 @@ frontend:test:
     - deploy
     - shell
   needs:
-    # 소스만 있으면 되므로 dist/ artifacts 는 받지 않는다.
     - job: frontend:build
       artifacts: false
   script:
-    # vitest 는 jsdom 환경에서 돈다. 빌드와 같은 이미지·같은 캐시를 쓴다.
     - >
       docker run --rm
       -u "$(id -u):$(id -g)"
@@ -91,13 +75,13 @@ frontend:test:
     paths:
       - .npm-cache/
       - frontend/node_modules/
-    policy: pull # 캐시는 frontend:build 가 만든다. 여기서는 읽기만 한다.
+    policy: pull
   artifacts:
     reports:
       junit:
         - frontend/test-results/junit.xml
     expire_in: 1 week
-    when: always # 테스트가 깨져도 리포트는 올린다
+    when: always
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       <<: *frontend-changes
@@ -115,14 +99,10 @@ frontend:deploy:
     - shell
   needs:
     - frontend:build
-    # needs 는 stage 순서를 덮어쓴다. 여기에 안 적으면 테스트가 끝나기 전에
-    # 배포가 시작될 수 있다.
     - job: frontend:test
       artifacts: false
   script:
     - mkdir -p "$FE_DEPLOY_PATH"
-    # --delete: Vite 는 assets/index-<hash>.js 로 파일명이 매번 바뀌므로
-    #           옛 번들을 지우지 않으면 계속 쌓인다
     - rsync -av --delete "$FE_DIR/dist/" "$FE_DEPLOY_PATH/"
     - ls -al "$FE_DEPLOY_PATH/index.html"
   environment:
