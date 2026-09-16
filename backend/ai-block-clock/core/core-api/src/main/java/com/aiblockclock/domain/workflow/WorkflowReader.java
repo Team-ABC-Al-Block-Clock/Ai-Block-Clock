@@ -3,7 +3,9 @@ package com.aiblockclock.domain.workflow;
 import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.storage.support.OffsetPageable;
+import com.aiblockclock.storage.workflow.WorkflowEdgeRepository;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
+import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -24,17 +26,19 @@ import java.util.List;
 
 public class WorkflowReader {
     private final WorkflowRepository workflowRepository;
+    private final WorkflowNodeRepository workflowNodeRepository;
+    private final WorkflowEdgeRepository workflowEdgeRepository;
 
     public Workflow read(WorkflowId id) {
         WorkflowEntity entity = workflowRepository.findById(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
-        return WorkflowEntityConverter.toDomain(entity);
+        return withGraph(entity);
     }
 
     public Workflow readForUpdate(WorkflowId id) {
         WorkflowEntity entity = workflowRepository.findByIdForUpdate(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
-        return WorkflowEntityConverter.toDomain(entity);
+        return withGraph(entity);
     }
 
     public CursorPage<WorkflowSummary> readMine(
@@ -55,5 +59,12 @@ public class WorkflowReader {
                 .map(WorkflowEntityConverter::toSummary)
                 .toList();
         return new CursorPage<>(content, hasNext ? OffsetCursor.encode(offset + size) : null, hasNext);
+    }
+
+    private Workflow withGraph(WorkflowEntity entity) {
+        return WorkflowEntityConverter.toDomain(
+                entity,
+                workflowNodeRepository.findByWorkflowIdOrderByIdAsc(entity.getId()),
+                workflowEdgeRepository.findByWorkflowIdOrderByIdAsc(entity.getId()));
     }
 }

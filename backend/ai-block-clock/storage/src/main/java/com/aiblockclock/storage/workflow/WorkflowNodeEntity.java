@@ -30,6 +30,10 @@ public class WorkflowNodeEntity {
     @Column(name = "id", nullable = false)
     private Long id;
 
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "workflow_id", length = 36, nullable = false, updatable = false)
+    private UUID workflowId;
+
     @Column(name = "node_key", length = 64, nullable = false)
     private String nodeKey;
 
@@ -45,14 +49,16 @@ public class WorkflowNodeEntity {
     @Column(name = "version_id", length = 36)
     private UUID versionId;
 
-    public WorkflowNodeEntity(String nodeKey, SourceType sourceType, UUID referenceId, UUID versionId) {
+    public WorkflowNodeEntity(UUID workflowId, String nodeKey, SourceType sourceType,
+                              UUID referenceId, UUID versionId) {
+        this.workflowId = workflowId;
         this.nodeKey = nodeKey;
         this.sourceType = sourceType;
         this.referenceId = referenceId;
         this.versionId = versionId;
     }
 
-    void refer(SourceType sourceType, UUID referenceId, UUID versionId) {
+    public void refer(SourceType sourceType, UUID referenceId, UUID versionId) {
         this.sourceType = sourceType;
         this.referenceId = referenceId;
         this.versionId = versionId;

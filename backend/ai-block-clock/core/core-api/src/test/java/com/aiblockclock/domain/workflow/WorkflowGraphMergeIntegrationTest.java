@@ -4,7 +4,8 @@ import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
 import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
-import com.aiblockclock.storage.workflow.WorkflowRepository;
+import com.aiblockclock.storage.workflow.WorkflowEdgeRepository;
+import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,8 +14,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.UUID;
@@ -34,17 +33,18 @@ class WorkflowGraphMergeIntegrationTest {
     private WorkflowService workflowService;
 
     @Autowired
-    private WorkflowRepository workflowRepository;
+    private WorkflowNodeRepository workflowNodeRepository;
 
     @Autowired
-    private PlatformTransactionManager transactionManager;
+    private WorkflowEdgeRepository workflowEdgeRepository;
 
-    private TransactionTemplate transaction;
+    @Autowired
+    private WorkflowWriter workflowWriter;
+
     private WorkflowId workflowId;
 
     @BeforeEach
     void setUp() {
-        transaction = new TransactionTemplate(transactionManager);
         workflowId = workflowService.save(
                 OWNER,
                 "그래프 병합",
@@ -55,7 +55,7 @@ class WorkflowGraphMergeIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        workflowRepository.deleteById(workflowId.value());
+        workflowWriter.remove(workflowId);
     }
 
     @Test
@@ -106,13 +106,11 @@ class WorkflowGraphMergeIntegrationTest {
     }
 
     private List<WorkflowNodeEntity> nodeRows() {
-        return transaction.execute(status -> List.copyOf(
-                workflowRepository.findById(workflowId.value()).orElseThrow().getNodes()));
+        return workflowNodeRepository.findByWorkflowIdOrderByIdAsc(workflowId.value());
     }
 
     private List<WorkflowEdgeEntity> edgeRows() {
-        return transaction.execute(status -> List.copyOf(
-                workflowRepository.findById(workflowId.value()).orElseThrow().getEdges()));
+        return workflowEdgeRepository.findByWorkflowIdOrderByIdAsc(workflowId.value());
     }
 
     private static Long rowIdOf(List<WorkflowNodeEntity> nodes, String nodeKey) {

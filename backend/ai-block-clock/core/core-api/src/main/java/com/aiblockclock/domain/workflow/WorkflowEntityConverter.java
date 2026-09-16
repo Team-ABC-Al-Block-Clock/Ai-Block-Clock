@@ -9,16 +9,19 @@ import com.aiblockclock.support.error.ErrorType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 final class WorkflowEntityConverter {
     private WorkflowEntityConverter() {
     }
 
-    static Workflow toDomain(WorkflowEntity entity) {
-        List<GraphNode> nodes = entity.getNodes().stream()
+    static Workflow toDomain(WorkflowEntity entity,
+                             List<WorkflowNodeEntity> nodeRows,
+                             List<WorkflowEdgeEntity> edgeRows) {
+        List<GraphNode> nodes = nodeRows.stream()
                 .map(WorkflowEntityConverter::toDomain)
                 .toList();
-        List<GraphEdge> edges = entity.getEdges().stream()
+        List<GraphEdge> edges = edgeRows.stream()
                 .map(WorkflowEntityConverter::toDomain)
                 .toList();
 
@@ -45,24 +48,19 @@ final class WorkflowEntityConverter {
     }
 
     static WorkflowEntity toEntity(Workflow workflow) {
-        WorkflowEntity entity = new WorkflowEntity(
+        return new WorkflowEntity(
                 workflow.getId().value(),
                 workflow.getOwner().value(),
                 workflow.getName(),
                 workflow.getDescription(),
                 workflow.getValidationStatus(),
                 workflow.getRevision().value());
-        entity.applyGraph(
-                toNodeEntities(workflow.getGraph()),
-                toEdgeEntities(workflow.getGraph()),
-                workflow.getValidationStatus(),
-                workflow.getRevision().value());
-        return entity;
     }
 
-    static List<WorkflowNodeEntity> toNodeEntities(WorkflowGraph graph) {
+    static List<WorkflowNodeEntity> toNodeEntities(UUID workflowId, WorkflowGraph graph) {
         return graph.getNodes().stream()
                 .map(node -> new WorkflowNodeEntity(
+                        workflowId,
                         node.key().value(),
                         node.sourceType(),
                         node.reference().referenceId(),
@@ -70,9 +68,10 @@ final class WorkflowEntityConverter {
                 .toList();
     }
 
-    static List<WorkflowEdgeEntity> toEdgeEntities(WorkflowGraph graph) {
+    static List<WorkflowEdgeEntity> toEdgeEntities(UUID workflowId, WorkflowGraph graph) {
         return graph.getEdges().stream()
                 .map(edge -> new WorkflowEdgeEntity(
+                        workflowId,
                         edge.key().value(),
                         edge.sourceNodeKey().value(),
                         edge.targetNodeKey().value()))

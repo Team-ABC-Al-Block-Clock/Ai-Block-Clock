@@ -16,12 +16,14 @@ import java.util.List;
 import java.util.UUID;
 
 class WorkflowEntityConverterTest {
+    private static final UUID WORKFLOW_ID = UUID.randomUUID();
+
     @Test
     @DisplayName("판별자가 NODE 인 행은 기본 노드로 복원된다")
     void restoresBaseNode() {
         UUID sourceId = UUID.randomUUID();
 
-        WorkflowGraph graph = toDomain(new WorkflowNodeEntity("n1", SourceType.NODE, sourceId, null));
+        WorkflowGraph graph = toDomain(new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.NODE, sourceId, null));
 
         assertThat(graph.getNodes()).containsExactly(new BaseNode(NodeKey.of("n1"), sourceId));
     }
@@ -32,7 +34,7 @@ class WorkflowEntityConverterTest {
         UUID agentId = UUID.randomUUID();
         UUID versionId = UUID.randomUUID();
 
-        WorkflowGraph graph = toDomain(new WorkflowNodeEntity("n1", SourceType.AGENT, agentId, versionId));
+        WorkflowGraph graph = toDomain(new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.AGENT, agentId, versionId));
 
         assertThat(graph.getNodes()).containsExactly(new AgentNode(NodeKey.of("n1"), agentId, versionId));
     }
@@ -41,7 +43,7 @@ class WorkflowEntityConverterTest {
     @DisplayName("기본 노드 행에 버전이 차 있으면 복원하지 않는다")
     void rejectsVersionedBaseNodeRow() {
         WorkflowNodeEntity corrupt =
-                new WorkflowNodeEntity("n1", SourceType.NODE, UUID.randomUUID(), UUID.randomUUID());
+                new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.NODE, UUID.randomUUID(), UUID.randomUUID());
 
         assertThatThrownBy(() -> toDomain(corrupt))
                 .isInstanceOf(CoreException.class)
@@ -53,7 +55,7 @@ class WorkflowEntityConverterTest {
     @DisplayName("에이전트 행에 버전이 비어 있으면 복원하지 않는다")
     void rejectsUnversionedAgentRow() {
         WorkflowNodeEntity corrupt =
-                new WorkflowNodeEntity("n1", SourceType.AGENT, UUID.randomUUID(), null);
+                new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.AGENT, UUID.randomUUID(), null);
 
         assertThatThrownBy(() -> toDomain(corrupt))
                 .isInstanceOf(CoreException.class)
@@ -63,8 +65,7 @@ class WorkflowEntityConverterTest {
 
     private static WorkflowGraph toDomain(WorkflowNodeEntity node) {
         WorkflowEntity entity = new WorkflowEntity(
-                UUID.randomUUID(), 1L, "워크플로우", null, ValidationStatus.NOT_VALIDATED, 1L);
-        entity.applyGraph(List.of(node), List.of(), ValidationStatus.NOT_VALIDATED, 1L);
-        return WorkflowEntityConverter.toDomain(entity).getGraph();
+                WORKFLOW_ID, 1L, "워크플로우", null, ValidationStatus.NOT_VALIDATED, 1L);
+        return WorkflowEntityConverter.toDomain(entity, List.of(node), List.of()).getGraph();
     }
 }
