@@ -8,7 +8,7 @@ public final class OnChainChargeVerifier {
 
     public ChargeVerificationResult verify(
             ChargeVerificationCriteria criteria,
-            OnChainUsdcTransfer onChainTransfer
+            OnChainTokenTransfer onChainTransfer
     ) {
         if (onChainTransfer.isWaitingForConfirmation()) {
             return ChargeVerificationResult.waiting();
@@ -25,7 +25,7 @@ public final class OnChainChargeVerifier {
 
     private ChargeVerificationResult verifySuccessful(
             ChargeVerificationCriteria criteria,
-            OnChainUsdcTransfer onChainTransfer
+            OnChainTokenTransfer onChainTransfer
     ) {
         if (!onChainTransfer.matchesChainId(
                 criteria.expectedChainId()
@@ -60,10 +60,10 @@ public final class OnChainChargeVerifier {
         }
 
         if (!onChainTransfer.matchesTokenContractAddress(
-                criteria.expectedUsdcContractAddress()
+                criteria.expectedDepositTokenContractAddress()
         )) {
             return ChargeVerificationResult.rejected(
-                    ChargeStatusReason.USDC_CONTRACT_MISMATCH
+                    ChargeStatusReason.DEPOSIT_TOKEN_CONTRACT_MISMATCH
             );
         }
 

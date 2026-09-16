@@ -30,7 +30,7 @@ class ChargeProcessingServiceIntegrationTest {
     private LedgerTransactionRepository ledgerTransactionRepository;
 
     @Test
-    void 정상적인_온체인_USDC_거래를_검증하고_ABC_충전을_확정한다() {
+    void 정상적인_온체인_입금_토큰_거래를_검증하고_ABC_충전을_확정한다() {
         ChargeRequestEntity chargeRequest =
                 chargeRequestRepository.saveAndFlush(
                         ChargeRequestEntity.pending(
@@ -50,8 +50,8 @@ class ChargeProcessingServiceIntegrationTest {
                         5L
                 );
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -105,8 +105,8 @@ class ChargeProcessingServiceIntegrationTest {
                         5L
                 );
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -152,22 +152,22 @@ class ChargeProcessingServiceIntegrationTest {
         ChargeNetworkPolicy chargeNetworkPolicy =
                 createChargeNetworkPolicy();
 
-        OnChainUsdcTransfer onChainUsdcTransfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer onChainTokenTransfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.PENDING,
                         12345L,
                         chargeRequest.getTransactionHash(),
                         chargeRequest.getSenderWalletAddress(),
                         chargeNetworkPolicy.custodyAddress(),
-                        chargeNetworkPolicy.usdcContractAddress(),
-                        chargeRequest.getRequestedUsdcAmount(),
+                        chargeNetworkPolicy.depositTokenContractAddress(),
+                        chargeRequest.getRequestedDepositAmount(),
                         chargeNetworkPolicy.requiredConfirmations()
                 );
 
         ChargeRequest result =
                 processingService.process(
                         chargeRequest.getId(),
-                        onChainUsdcTransfer,
+                        onChainTokenTransfer,
                         chargeNetworkPolicy
                 );
 
@@ -195,22 +195,22 @@ class ChargeProcessingServiceIntegrationTest {
         ChargeNetworkPolicy chargeNetworkPolicy =
                 createChargeNetworkPolicy();
 
-        OnChainUsdcTransfer onChainUsdcTransfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer onChainTokenTransfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.FAILED,
                         12345L,
                         chargeRequest.getTransactionHash(),
                         chargeRequest.getSenderWalletAddress(),
                         chargeNetworkPolicy.custodyAddress(),
-                        chargeNetworkPolicy.usdcContractAddress(),
-                        chargeRequest.getRequestedUsdcAmount(),
+                        chargeNetworkPolicy.depositTokenContractAddress(),
+                        chargeRequest.getRequestedDepositAmount(),
                         chargeNetworkPolicy.requiredConfirmations()
                 );
 
         ChargeRequest result =
                 processingService.process(
                         chargeRequest.getId(),
-                        onChainUsdcTransfer,
+                        onChainTokenTransfer,
                         chargeNetworkPolicy
                 );
 

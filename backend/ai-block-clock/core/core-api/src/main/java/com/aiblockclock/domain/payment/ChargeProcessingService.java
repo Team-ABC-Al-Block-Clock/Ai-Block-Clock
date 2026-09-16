@@ -16,7 +16,7 @@ public class ChargeProcessingService {
 
     public ChargeRequest process(
             Long chargeRequestId,
-            OnChainUsdcTransfer onChainUsdcTransfer,
+            OnChainTokenTransfer onChainTokenTransfer,
             ChargeNetworkPolicy chargeNetworkPolicy
     ) {
         ChargeRequest chargeRequest =
@@ -43,7 +43,7 @@ public class ChargeProcessingService {
         ChargeVerificationResult verificationResult =
                 onChainChargeVerifier.verify(
                         verificationCriteria,
-                        onChainUsdcTransfer
+                        onChainTokenTransfer
                 );
 
         return switch (verificationResult.outcome()) {

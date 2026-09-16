@@ -11,7 +11,7 @@ class AbcConversionPolicyTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"0.000001", "1.000001", "10.123456", "10.000000", "1.1234560"})
-    void USDC를_반올림_없이_소수_6자리_ABC로_일대일_변환한다(String amount) {
+    void 입금액을_반올림_없이_소수_6자리_ABC로_일대일_변환한다(String amount) {
         AbcConversionPolicy policy =
                 new AbcConversionPolicy();
 

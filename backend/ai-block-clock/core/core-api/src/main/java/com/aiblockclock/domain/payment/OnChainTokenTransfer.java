@@ -3,7 +3,7 @@ package com.aiblockclock.domain.payment;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-public record OnChainUsdcTransfer(
+public record OnChainTokenTransfer(
         OnChainTransactionStatus status,
         Long chainId,
         String transactionHash,

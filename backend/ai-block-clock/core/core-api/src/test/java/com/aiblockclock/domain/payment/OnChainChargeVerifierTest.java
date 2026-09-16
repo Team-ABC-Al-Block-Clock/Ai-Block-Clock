@@ -15,8 +15,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.NOT_FOUND,
                         12345L,
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -41,8 +41,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.PENDING,
                         12345L,
                         "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -67,8 +67,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.FAILED,
                         12345L,
                         "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -96,8 +96,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
@@ -123,8 +123,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         99999L,
                         "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
@@ -150,8 +150,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -179,8 +179,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0x4444444444444444444444444444444444444444444444444444444444444444");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0x4444444444444444444444444444444444444444444444444444444444444444",
@@ -204,12 +204,12 @@ class OnChainChargeVerifierTest {
     }
 
     @Test
-    void USDC_수신_주소가_커스터디_주소와_다르면_REJECTED를_반환한다() {
+    void 입금_토큰_수신_주소가_커스터디_주소와_다르면_REJECTED를_반환한다() {
         ChargeVerificationCriteria criteria =
                 criteria("0x5555555555555555555555555555555555555555555555555555555555555555");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0x5555555555555555555555555555555555555555555555555555555555555555",
@@ -233,12 +233,12 @@ class OnChainChargeVerifierTest {
     }
 
     @Test
-    void USDC_컨트랙트_주소가_다르면_REJECTED를_반환한다() {
+    void 입금_토큰_컨트랙트_주소가_다르면_REJECTED를_반환한다() {
         ChargeVerificationCriteria criteria =
                 criteria("0x6666666666666666666666666666666666666666666666666666666666666666");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0x6666666666666666666666666666666666666666666666666666666666666666",
@@ -257,17 +257,17 @@ class OnChainChargeVerifierTest {
 
         assertThat(result.reason())
                 .isEqualTo(
-                        ChargeStatusReason.USDC_CONTRACT_MISMATCH
+                        ChargeStatusReason.DEPOSIT_TOKEN_CONTRACT_MISMATCH
                 );
     }
 
     @Test
-    void 실제_USDC_전송_금액이_다르면_REJECTED를_반환한다() {
+    void 실제_입금_토큰_전송_금액이_다르면_REJECTED를_반환한다() {
         ChargeVerificationCriteria criteria =
                 criteria("0x7777777777777777777777777777777777777777777777777777777777777777");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0x7777777777777777777777777777777777777777777777777777777777777777",
@@ -293,8 +293,8 @@ class OnChainChargeVerifierTest {
         ChargeVerificationCriteria criteria =
                 criteria("0x8888888888888888888888888888888888888888888888888888888888888888");
 
-        OnChainUsdcTransfer transfer =
-                new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer =
+                new OnChainTokenTransfer(
                         OnChainTransactionStatus.SUCCESS,
                         12345L,
                         "0x8888888888888888888888888888888888888888888888888888888888888888",

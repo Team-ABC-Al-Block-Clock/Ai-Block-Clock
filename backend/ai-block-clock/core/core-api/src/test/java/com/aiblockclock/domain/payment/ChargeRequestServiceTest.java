@@ -146,18 +146,18 @@ class ChargeRequestServiceTest {
         return create(new BigDecimal("1.000001"));
     }
 
-    private ChargeRequest create(BigDecimal requestedUsdcAmount) {
+    private ChargeRequest create(BigDecimal requestedDepositAmount) {
         return service.createChargeRequest(
                 USER_ID,
                 "test-wallet",
                 NETWORK_POLICY,
                 TRANSACTION_HASH,
-                requestedUsdcAmount
+                requestedDepositAmount
         );
     }
 
-    private void assertInvalidAmount(BigDecimal requestedUsdcAmount) {
-        assertThatThrownBy(() -> create(requestedUsdcAmount))
+    private void assertInvalidAmount(BigDecimal requestedDepositAmount) {
+        assertThatThrownBy(() -> create(requestedDepositAmount))
                 .isInstanceOfSatisfying(
                         CoreException.class,
                         exception -> assertThat(exception.getErrorType())

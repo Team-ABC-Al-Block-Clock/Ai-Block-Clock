@@ -6,11 +6,11 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class OnChainUsdcTransferTest {
+class OnChainTokenTransferTest {
 
     @Test
     void 온체인_전송값을_검증_기준과_비교한다() {
-        OnChainUsdcTransfer transfer = successfulTransfer(
+        OnChainTokenTransfer transfer = successfulTransfer(
                 new BigDecimal("10.000000"),
                 5L
         );
@@ -36,7 +36,7 @@ class OnChainUsdcTransferTest {
 
     @Test
     void 온체인_전송값이_검증_기준과_다르면_일치하지_않는다() {
-        OnChainUsdcTransfer transfer = successfulTransfer(
+        OnChainTokenTransfer transfer = successfulTransfer(
                 new BigDecimal("10.000000"),
                 4L
         );
@@ -52,10 +52,10 @@ class OnChainUsdcTransferTest {
 
     @Test
     void 조회되지_않았거나_처리_중인_거래는_확정을_기다린다() {
-        OnChainUsdcTransfer notFound = transferWithStatus(
+        OnChainTokenTransfer notFound = transferWithStatus(
                 OnChainTransactionStatus.NOT_FOUND
         );
-        OnChainUsdcTransfer pending = transferWithStatus(
+        OnChainTokenTransfer pending = transferWithStatus(
                 OnChainTransactionStatus.PENDING
         );
 
@@ -65,18 +65,18 @@ class OnChainUsdcTransferTest {
 
     @Test
     void 실패한_온체인_거래를_판단한다() {
-        OnChainUsdcTransfer failed = transferWithStatus(
+        OnChainTokenTransfer failed = transferWithStatus(
                 OnChainTransactionStatus.FAILED
         );
 
         assertThat(failed.isFailed()).isTrue();
     }
 
-    private OnChainUsdcTransfer successfulTransfer(
+    private OnChainTokenTransfer successfulTransfer(
             BigDecimal amount,
             long confirmations
     ) {
-        return new OnChainUsdcTransfer(
+        return new OnChainTokenTransfer(
                 OnChainTransactionStatus.SUCCESS,
                 12345L,
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -88,10 +88,10 @@ class OnChainUsdcTransferTest {
         );
     }
 
-    private OnChainUsdcTransfer transferWithStatus(
+    private OnChainTokenTransfer transferWithStatus(
             OnChainTransactionStatus status
     ) {
-        return new OnChainUsdcTransfer(
+        return new OnChainTokenTransfer(
                 status,
                 null,
                 null,

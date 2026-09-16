@@ -6,7 +6,7 @@ public record ChargeVerificationCriteria(
         String expectedSenderWalletAddress,
         DepositAmount expectedDepositAmount,
         String expectedCustodyAddress,
-        String expectedUsdcContractAddress,
+        String expectedDepositTokenContractAddress,
         long requiredConfirmations
 ) {
 }

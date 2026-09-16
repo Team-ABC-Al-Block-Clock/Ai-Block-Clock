@@ -47,7 +47,7 @@ public class ChargeRequestEntity extends BaseTimeEntity {
             scale = 6,
             updatable = false
     )
-    private BigDecimal requestedUsdcAmount;
+    private BigDecimal requestedDepositAmount;
 
     @Column(precision = 41, scale = 6)
     private BigDecimal creditedAbcAmount;
@@ -71,14 +71,14 @@ public class ChargeRequestEntity extends BaseTimeEntity {
             String senderWalletAddress,
             Long chainId,
             String transactionHash,
-            BigDecimal requestedUsdcAmount
+            BigDecimal requestedDepositAmount
     ) {
         ChargeRequestEntity entity = new ChargeRequestEntity();
         entity.userReferenceId = userReferenceId;
         entity.senderWalletAddress = senderWalletAddress;
         entity.chainId = chainId;
         entity.transactionHash = transactionHash;
-        entity.requestedUsdcAmount = requestedUsdcAmount;
+        entity.requestedDepositAmount = requestedDepositAmount;
         entity.status = ChargeStatus.PENDING;
         return entity;
     }

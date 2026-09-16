@@ -69,14 +69,14 @@ class ChargeAmountMySqlTest {
         BigDecimal expected = new BigDecimal(amount);
         ChargeRequest request = requestService.createChargeRequest(
                 "precision-user", WALLET, NETWORK, HASH, expected);
-        OnChainUsdcTransfer transfer = new OnChainUsdcTransfer(OnChainTransactionStatus.SUCCESS,
+        OnChainTokenTransfer transfer = new OnChainTokenTransfer(OnChainTransactionStatus.SUCCESS,
                 NETWORK.chainId(), HASH, WALLET, NETWORK.custodyAddress(),
-                NETWORK.usdcContractAddress(), expected, NETWORK.requiredConfirmations());
+                NETWORK.depositTokenContractAddress(), expected, NETWORK.requiredConfirmations());
 
         assertThat(processingService.process(request.getId(), transfer, NETWORK).getStatus())
                 .isEqualTo(ChargeStatus.CONFIRMED);
         var savedRequest = requests.findById(request.getId()).orElseThrow();
-        assertAmount(savedRequest.getRequestedUsdcAmount(), expected);
+        assertAmount(savedRequest.getRequestedDepositAmount(), expected);
         assertAmount(savedRequest.getCreditedAbcAmount(), expected);
         var transaction = transactions.findByChainIdAndTransactionHash(NETWORK.chainId(), HASH).orElseThrow();
         var savedEntries = entries.findAllByTransactionIdOrderByIdAsc(transaction.getId());

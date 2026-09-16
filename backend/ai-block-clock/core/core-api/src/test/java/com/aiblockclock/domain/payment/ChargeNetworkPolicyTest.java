@@ -11,7 +11,7 @@ class ChargeNetworkPolicyTest {
     private static final Long CHAIN_ID = 12345L;
     private static final String CUSTODY_ADDRESS =
             "0x2222222222222222222222222222222222222222";
-    private static final String USDC_CONTRACT_ADDRESS =
+    private static final String DEPOSIT_TOKEN_CONTRACT_ADDRESS =
             "0x3333333333333333333333333333333333333333";
     private static final long REQUIRED_CONFIRMATIONS = 5L;
 
@@ -19,7 +19,7 @@ class ChargeNetworkPolicyTest {
             new ChargeNetworkPolicy(
                     CHAIN_ID,
                     CUSTODY_ADDRESS,
-                    USDC_CONTRACT_ADDRESS,
+                    DEPOSIT_TOKEN_CONTRACT_ADDRESS,
                     REQUIRED_CONFIRMATIONS
             );
 
@@ -61,8 +61,8 @@ class ChargeNetworkPolicyTest {
                 .isEqualTo(chargeRequest.getRequestedDepositAmount());
         assertThat(criteria.expectedCustodyAddress())
                 .isEqualTo(CUSTODY_ADDRESS);
-        assertThat(criteria.expectedUsdcContractAddress())
-                .isEqualTo(USDC_CONTRACT_ADDRESS);
+        assertThat(criteria.expectedDepositTokenContractAddress())
+                .isEqualTo(DEPOSIT_TOKEN_CONTRACT_ADDRESS);
         assertThat(criteria.requiredConfirmations())
                 .isEqualTo(REQUIRED_CONFIRMATIONS);
     }

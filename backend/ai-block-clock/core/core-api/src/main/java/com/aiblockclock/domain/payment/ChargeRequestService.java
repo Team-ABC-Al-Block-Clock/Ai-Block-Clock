@@ -22,13 +22,13 @@ public class ChargeRequestService {
             String senderWalletAddress,
             ChargeNetworkPolicy networkPolicy,
             String transactionHash,
-            BigDecimal requestedUsdcAmount
+            BigDecimal requestedDepositAmountValue
     ) {
         String normalizedTransactionHash =
                 normalizeTransactionHash(transactionHash);
 
         DepositAmount requestedDepositAmount =
-                DepositAmount.of(requestedUsdcAmount);
+                DepositAmount.of(requestedDepositAmountValue);
 
         Optional<ChargeRequest> existingRequest =
                 chargeRequestReader.findByChainAndTransactionHash(

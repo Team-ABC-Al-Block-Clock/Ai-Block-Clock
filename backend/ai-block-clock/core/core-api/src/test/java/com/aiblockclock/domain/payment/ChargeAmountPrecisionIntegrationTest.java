@@ -78,13 +78,13 @@ class ChargeAmountPrecisionIntegrationTest {
                 TRANSACTION_HASH,
                 requestedAmount
         );
-        OnChainUsdcTransfer transfer = new OnChainUsdcTransfer(
+        OnChainTokenTransfer transfer = new OnChainTokenTransfer(
                 OnChainTransactionStatus.SUCCESS,
                 networkPolicy.chainId(),
                 TRANSACTION_HASH,
                 SENDER_ADDRESS,
                 networkPolicy.custodyAddress(),
-                networkPolicy.usdcContractAddress(),
+                networkPolicy.depositTokenContractAddress(),
                 requestedAmount,
                 networkPolicy.requiredConfirmations()
         );
@@ -96,7 +96,7 @@ class ChargeAmountPrecisionIntegrationTest {
         ChargeRequestEntity savedRequest = chargeRequestRepository.findById(request.getId()).orElseThrow();
         assertThat(result.getStatus()).isEqualTo(ChargeStatus.CONFIRMED);
         assertThat(savedRequest.getStatus()).isEqualTo(ChargeStatus.CONFIRMED);
-        assertExactAmount(savedRequest.getRequestedUsdcAmount(), requestedAmount);
+        assertExactAmount(savedRequest.getRequestedDepositAmount(), requestedAmount);
         assertExactAmount(savedRequest.getCreditedAbcAmount(), requestedAmount);
 
         LedgerTransactionEntity transaction = ledgerTransactionRepository

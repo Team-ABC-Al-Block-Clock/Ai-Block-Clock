@@ -49,7 +49,7 @@ class ChargeRequestIntegrationTest {
                 .isEqualTo(
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 );
-        assertThat(found.getRequestedUsdcAmount())
+        assertThat(found.getRequestedDepositAmount())
                 .isEqualByComparingTo("10.000000");
 
         assertThat(found.getStatus())
@@ -106,7 +106,7 @@ class ChargeRequestIntegrationTest {
     }
 
     @Test
-    void 충전_요청_USDC_수량은_0보다_커야_한다() {
+    void 충전_요청_입금_수량은_0보다_커야_한다() {
         ChargeRequestEntity invalidRequest =
                 ChargeRequestEntity.pending(
                         "user-300",

@@ -23,7 +23,7 @@ class ChargeRequestEntityConverterTest {
                 .isEqualTo(chargeRequest.getUserReferenceId());
         assertThat(entity.getTransactionHash())
                 .isEqualTo(chargeRequest.getTransactionHash());
-        assertThat(entity.getRequestedUsdcAmount())
+        assertThat(entity.getRequestedDepositAmount())
                 .isEqualByComparingTo(
                         chargeRequest.getRequestedDepositAmount().value()
                 );

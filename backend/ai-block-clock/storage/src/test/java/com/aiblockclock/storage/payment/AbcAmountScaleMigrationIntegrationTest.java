@@ -31,7 +31,7 @@ class AbcAmountScaleMigrationIntegrationTest {
             jdbc.update("INSERT INTO ledger_transaction (id, event_type, idempotency_key, reference_type, reference_id) VALUES (1, 'CHARGE', 'migration-charge', 'CHARGE_REQUEST', '1')");
             jdbc.update("INSERT INTO ledger_entry (ledger_transaction_id, ledger_account_id, amount_delta) VALUES (1, 1, ?)",
                     existingAmount);
-            jdbc.update("INSERT INTO charge_request (id, user_reference_id, sender_wallet_address, chain_id, transaction_hash, requested_usdc_amount, credited_abc_amount, status) VALUES (1, 'existing-user', '0x1111111111111111111111111111111111111111', 12345, 'existing-hash', ?, ?, 'CONFIRMED')",
+            jdbc.update("INSERT INTO charge_request (id, user_reference_id, sender_wallet_address, chain_id, transaction_hash, requested_deposit_amount, credited_abc_amount, status) VALUES (1, 'existing-user', '0x1111111111111111111111111111111111111111', 12345, 'existing-hash', ?, ?, 'CONFIRMED')",
                     existingAmount, existingAmount);
 
             Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();

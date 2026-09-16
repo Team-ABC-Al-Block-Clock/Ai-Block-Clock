@@ -32,7 +32,7 @@ class PaymentMigrationMySqlTest {
             jdbc.update("INSERT INTO ledger_account (account_type, reference_id, balance) VALUES ('ABC_BALANCE', 'existing-user', ?)",
                     largestBalance);
             jdbc.update("INSERT INTO charge_request (user_reference_id, sender_wallet_address, chain_id, "
-                    + "transaction_hash, requested_usdc_amount, credited_abc_amount, status) "
+                    + "transaction_hash, requested_deposit_amount, credited_abc_amount, status) "
                     + "VALUES ('existing-user', 'existing-wallet', 12345, 'existing-hash', 10.123, 10.123, 'CONFIRMED')");
             jdbc.update("INSERT INTO ledger_transaction (event_type, idempotency_key, reference_type, reference_id) "
                     + "VALUES ('CHARGE', 'migration-key', 'CHARGE_REQUEST', '1')");
@@ -57,8 +57,8 @@ class PaymentMigrationMySqlTest {
                     .hasSize(3).containsOnly(41);
 
             for (String invalidAmount : List.of("0", "-0.000001")) {
-                assertCheckViolation(() -> jdbc.update("UPDATE charge_request SET requested_usdc_amount = ? WHERE id = 1",
-                        new BigDecimal(invalidAmount)), "ck_charge_request_usdc_amount_positive");
+                assertCheckViolation(() -> jdbc.update("UPDATE charge_request SET requested_deposit_amount = ? WHERE id = 1",
+                        new BigDecimal(invalidAmount)), "ck_charge_request_deposit_amount_positive");
                 assertCheckViolation(() -> jdbc.update("UPDATE charge_request SET credited_abc_amount = ? WHERE id = 1",
                         new BigDecimal(invalidAmount)), "ck_charge_request_abc_amount_positive");
             }

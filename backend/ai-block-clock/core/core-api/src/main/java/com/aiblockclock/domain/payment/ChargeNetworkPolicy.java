@@ -3,7 +3,7 @@ package com.aiblockclock.domain.payment;
 public record ChargeNetworkPolicy(
         Long chainId,
         String custodyAddress,
-        String usdcContractAddress,
+        String depositTokenContractAddress,
         long requiredConfirmations
 ) {
 
@@ -21,7 +21,7 @@ public record ChargeNetworkPolicy(
                 chargeRequest.getSenderWalletAddress(),
                 chargeRequest.getRequestedDepositAmount(),
                 custodyAddress,
-                usdcContractAddress,
+                depositTokenContractAddress,
                 requiredConfirmations
         );
     }
