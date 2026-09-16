@@ -1,4 +1,12 @@
-"""LLM 어댑터 — Gemini API(무료 등급) 호출 · 429 백오프 · 토큰 기록 · mock 모드.
+"""LLM 어댑터 — Gemini API 호출 · 429 백오프 · 토큰 기록 · mock 모드.
+
+호출 경로는 환경변수로 정한다. 기본은 SSAFY GMS(Gen AI Management System)를 경유한다.
+GMS는 Gemini 원본 API를 그대로 프록시하므로(헤더 x-goog-api-key 동일) google-genai SDK에
+base_url 만 바꿔 끼운다. Google 직접 호출로 돌리려면 LLM_BASE_URL 을 비우면 된다.
+
+    LLM_API_KEY    GMS 팀 키 (구 GEMINI_API_KEY 도 읽는다)
+    LLM_BASE_URL   기본 https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com
+    LLM_MODEL      기본 gemini-2.5-flash (구 GEMINI_MODEL 도 읽는다)
 
 이 파일은 이후 ai/runtime/app/nodes/ 의 모델 어댑터 골격으로 재사용할 수 있게
 외부 의존을 이 안에만 가둔다.
@@ -10,6 +18,7 @@ import time
 from dataclasses import dataclass
 
 DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_BASE_URL = "https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com"
 TIMEOUT_MS = 60_000
 RETRY_STATUS = {429, 503}
 RETRY_WAIT_SEC = 10
@@ -30,18 +39,24 @@ class LLMResult:
 class LLM:
     def __init__(self, mock: bool = False, model: str | None = None, temperature: float = 0.2):
         self.mock = mock
-        self.model = model or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
+        self.model = model or os.getenv("LLM_MODEL") or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
         self.temperature = temperature
         self._client = None
         if not mock:
-            api_key = os.getenv("GEMINI_API_KEY")
+            api_key = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")
             if not api_key:
-                raise RuntimeError("GEMINI_API_KEY 가 없습니다. .env 를 만들거나 --mock 으로 실행하세요.")
+                raise RuntimeError("LLM_API_KEY 가 없습니다. .env 를 만들거나 --mock 으로 실행하세요.")
+            # 빈 문자열이면 Google 직접 호출(SDK 기본 주소). 미설정이면 GMS.
+            base_url = os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).strip() or None
             from google import genai
             from google.genai import types
 
             self._types = types
-            self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=TIMEOUT_MS))
+            self.base_url = base_url
+            self._client = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(base_url=base_url, timeout=TIMEOUT_MS),
+            )
 
     def generate(self, system: str, user: str, label: str = "") -> LLMResult:
         if self.mock:

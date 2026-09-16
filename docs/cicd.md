@@ -741,7 +741,8 @@ Vite는 **빌드 시점에** `VITE_*` 값을 번들에 박아 넣는다. 런타�
 
 | 변수 | 용도 | 비고 |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | LLM 호출 | 없으면 `ai:deploy` 가 실패한다 |
+| `LLM_API_KEY` | LLM 호출. **SSAFY GMS 팀 키** (Gemini 원본 API 프록시) | 없으면 `ai:deploy` 가 실패한다 |
+| `LLM_BASE_URL` | (선택) LLM 엔드포인트 | 비우면 compose 기본값 `https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com` |
 | `ABC_SERVICE_TOKEN` | 백엔드 → AI Runtime 서비스 간 인증 | 백엔드도 같은 값을 갖고 `X-ABC-Service-Token` 헤더로 보낸다 |
 | `BACKEND_NETWORK` | (선택) 백엔드 Docker 네트워크 이름 | 비우면 `ai:deploy` 가 `docker network ls` 에서 찾는다 |
 
