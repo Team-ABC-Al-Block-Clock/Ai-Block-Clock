@@ -11,16 +11,12 @@ import type {
 import iconUrl from '@/assets/logo.png'
 
 /**
- * 에이전트 픽스처 30건.
- *
- * 단가·성공률·즐겨찾기 수는 서버가 기록해서 주는 값이라 여기서도 그대로 적는다 —
- * mock 이 정책을 재구현하면 계약 밖을 흉내 내는 것이 된다.
- * 평가 0건인 콜드스타트와 아이콘이 없는 건(`iconUrl: null`)을 섞었다.
- * 화면이 NaN·빈칸·깨진 이미지를 내는지는 그때만 드러난다.
+ * 에이전트 픽스처 30건. 단가·성공률·즐겨찾기 수는 서버가 기록해 주는 값이라 그대로 적는다.
+ * 평가 0건인 콜드스타트와 아이콘이 없는 건을 섞었다 — 화면이 NaN·빈칸·깨진 이미지를
+ * 내는지는 그때만 드러난다.
  */
 
-/** 만든 사람 5명. `Seed.owner` 가 `keyof typeof OWNERS` 라서 오타는 컴파일에서 걸린다.
- *  프로필 이미지가 없는 사람을 섞었다 — 화면의 아바타 폴백을 확인해야 한다. */
+/** 프로필 이미지가 없는 사람을 섞었다 — 화면의 아바타 폴백을 확인해야 한다. */
 const OWNERS = {
   이싸피: { userId: 'usr_01', profileImageUrl: iconUrl },
   김싸피: { userId: 'usr_02', profileImageUrl: null },
@@ -29,21 +25,18 @@ const OWNERS = {
   정싸피: { userId: 'usr_05', profileImageUrl: null },
 } satisfies Record<string, { userId: string; profileImageUrl: string | null }>
 
-/** 로그인한 사용자 자리. 인증 연동(S15P21A403-180) 전까지 이 닉네임이 '나' 다.
- *
- *  ME 가 12건을 갖는다. 마이페이지 기본 `size` 가 10 이라 11건 미만이면 「판매 중」 탭에
- *  두 번째 장이 생기지 않아 무한 스크롤과 개수의 '+' 를 확인할 방법이 없다. */
+/** 인증 연동 전까지 이 닉네임이 '나' 다. 12건을 갖는다 — 11건 미만이면
+ *  「판매 중」 탭에 두 번째 장이 없어 무한 스크롤을 확인할 수 없다. */
 const ME = '이싸피' satisfies keyof typeof OWNERS
 
 interface Seed {
   name: string
   summary: string
-  /** 실행 1회당 판매 가격. 서버가 계산해서 문자열로 준다 — 여기서 만들지 않는다. */
+  /** 서버가 계산해 문자열로 준다 — 여기서 만들지 않는다 */
   price: string
-  /** 누적 수익. 단가와 같이 서버가 기록해 주는 값이라 계산하지 않고 그대로 적는다.
-   *  실적이 없는 콜드스타트는 '0'. */
+  /** 누적 수익. 서버가 기록해 주는 값이라 계산하지 않는다 */
   revenue: string
-  /** 실행 성공률 0~1. 실행이 0회면 서버도 비율을 만들 수 없어 0 이다 */
+  /** 0~1. 실행이 0회면 서버도 비율을 만들 수 없어 0 이다 */
   successRate: number
   /** 평가 0건이면 null */
   averageRating: number | null
@@ -99,16 +92,13 @@ const SEEDS: Seed[] = [
 ]
 
 /**
- * 처음부터 즐겨찾기된 건들(SEEDS 인덱스). 즐겨찾기 목록(MYP-003)은 이 상태에서 만든다 —
- * 별도 배열을 두면 목록과 `favorited` 플래그가 조용히 갈라져, 별은 켜졌는데 탭에는 안 나온다.
- *
- * 콜드스타트(index 28)와 평점 0건(29)을 포함한다. `agt_20`(index 19)은 즐겨찾기 등록·해제
- * 테스트가 전용으로 쓰므로 비워 둔다.
+ * 처음부터 즐겨찾기된 건들(SEEDS 인덱스). 즐겨찾기 목록을 이 상태에서 만든다 — 별도 배열을
+ * 두면 목록과 `favorited` 가 갈라져 별은 켜졌는데 탭에는 안 나온다. `agt_20`(19)은
+ * 등록·해제 테스트가 전용으로 쓴다.
  */
 const FAVORED = new Set([2, 5, 6, 8, 10, 12, 13, 15, 16, 18, 21, 23, 28, 29])
 
-/** 상세 설명의 뒷문장. 두 개를 번갈아 써서 길이가 갈리게 한다 — 줄바꿈이 한 줄일 때만
- *  잘 보이는 레이아웃 사고가 있다. */
+/** 두 개를 번갈아 써서 길이가 갈리게 한다 — 한 줄일 때만 멀쩡한 레이아웃 사고가 있다. */
 const DESCRIPTION_TAILS = [
   '실행하면 대상 목록을 먼저 보여주고, 확인한 뒤에 처리합니다. 처리 내역은 실행이 끝난 뒤 목록으로 확인할 수 있습니다.',
   '입력 형식을 강제하지 않으므로 가진 자료를 그대로 넣으면 됩니다. 중간에 멈춰도 그때까지 처리한 것은 그대로 남습니다.',
@@ -116,8 +106,7 @@ const DESCRIPTION_TAILS = [
 
 const IMAGE_LABEL = { INPUT: '입력', OUTPUT: '출력' } as const
 
-/** 스크린샷 자산이 없어서 라벨이 박힌 SVG 를 data URI 로 만든다.
- *  같은 그림을 5장 돌려 쓰면 이전/다음·썸네일 전환이 동작하는지 화면으로 확인할 수 없다. */
+/** 자산이 없어 라벨이 박힌 SVG 를 만든다. 같은 그림 5장으로는 전환을 확인할 수 없다. */
 function shot(name: string, label: string, index: number, total: number) {
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="896" height="480">' +
@@ -129,7 +118,7 @@ function shot(name: string, label: string, index: number, total: number) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-/** 유형별 0~5장(명세상 최대 5장). 0장인 건이 있어야 화면의 '스크린샷 없음' 자리를 볼 수 있다. */
+/** 유형별 0~5장. 0장인 건이 있어야 '스크린샷 없음' 자리를 볼 수 있다. */
 function buildImages(agentId: string, name: string, index: number): AgentImage[] {
   const counts = { INPUT: index % 6, OUTPUT: (index + 3) % 6 }
   return (['INPUT', 'OUTPUT'] as const).flatMap((type) =>
@@ -142,8 +131,7 @@ function buildImages(agentId: string, name: string, index: number): AgentImage[]
   )
 }
 
-/** 등록 시각은 건당 하루씩 벌린다. 겹치면 등록 시각 역순 정렬이 흔들려
- *  커서 페이지네이션에서 중복·누락이 생긴다. */
+/** 건당 하루씩 벌린다. 겹치면 역순 정렬이 흔들려 커서에서 중복·누락이 생긴다. */
 function build(seed: Seed, index: number): AgentDetail {
   const day = String(index + 1).padStart(2, '0')
   const agentId = `agt_${day}`
@@ -152,10 +140,7 @@ function build(seed: Seed, index: number): AgentDetail {
     agentId,
     name: seed.name,
     summary: seed.summary,
-    // ponytail: 설명·실행 예시는 summary 기반 템플릿이다. 30건 문장을 손으로 적을 값어치가
-    // 없고, 단가처럼 서버가 계산하는 정책값이 아니라 텍스트다. 화면이 1440×1520 고정
-    // 좌표라 설명이 3줄을 넘기면 '스크린샷' 섹션과 겹치므로 짧게 유지한다 —
-    // 흐름 레이아웃으로 바꾸면 이 제약이 없어진다.
+    // 설명은 1440×1520 고정 좌표라 3줄을 넘기면 '스크린샷' 섹션과 겹친다.
     description: `${seed.summary}. ${DESCRIPTION_TAILS[index % DESCRIPTION_TAILS.length]}`,
     // 일부는 null — 만든 사람이 안 적은 경우다. 화면의 null 분기가 여기서만 드러난다.
     usageExample: index % 7 === 3 ? null : `${seed.summary}해 줘`,
@@ -175,26 +160,20 @@ function build(seed: Seed, index: number): AgentDetail {
 
 export const AGENTS: AgentDetail[] = SEEDS.map(build)
 
-// 눈으로 세면 어긋난다 — 실제로 한 번 29건이 됐다.
-// 31건을 넘기면 build() 의 day 가 8월 범위를 벗어나 createdAt 이 Invalid Date 가 되는데,
-// 정렬은 문자열 비교라 계속 동작하는 것처럼 보인다. warn 으로는 아무도 못 잡는다.
+// 31건을 넘기면 build() 의 day 가 8월을 벗어나 createdAt 이 Invalid Date 가 되는데,
+// 정렬은 계속 동작하는 것처럼 보인다.
 if (AGENTS.length !== 30) {
   throw new Error(`[mock] 에이전트 픽스처가 ${AGENTS.length}건이다. 30건이어야 한다.`)
 }
 
 /**
- * 등록 시각 역순. 목록과 마이페이지가 같은 비교기를 써야 순서가 갈리지 않는다.
- *
- * 문자열 비교로는 안 된다 — 픽스처는 `+09:00`, `addAgent` 는 `Z` 로 적어서
- * 날짜 부분이 같으면 나중에 등록한 것이 뒤로 밀린다.
+ * 등록 시각 역순. 문자열 비교로는 안 된다 — 픽스처는 `+09:00`, `addAgent` 는 `Z` 라
+ * 날짜가 같으면 나중에 등록한 것이 뒤로 밀린다.
  */
 export const byNewest = (a: { createdAt: string }, b: { createdAt: string }) =>
   Date.parse(b.createdAt) - Date.parse(a.createdAt)
 
-/**
- * 상세 픽스처를 목록 항목으로 줄인다. 상세 필드(설명·스크린샷·성공률)를 흘려보내면
- * 실서버에 없는 필드를 화면이 몰래 쓰게 되고, 백엔드를 붙이는 날 조용히 `undefined` 가 된다.
- */
+/** 상세 필드를 흘려보내면 화면이 실서버에 없는 필드를 몰래 쓰게 된다. */
 export function toSummary(agent: AgentDetail): AgentSummary {
   return {
     agentId: agent.agentId,
@@ -212,13 +191,8 @@ export function toSummary(agent: AgentDetail): AgentSummary {
 }
 
 /**
- * 카드 스파크라인용 최근 7일. 실행 횟수에서 **결정적으로** 만든다.
- *
- * `Math.random` 을 쓰면 refetch 마다 꺾은선이 흔들려 데이터가 바뀐 것처럼 보인다.
- * 실행이 0회면 7일 모두 0 — 화면이 평평한 선을 내는지는 그 상태에서만 드러난다.
- *
- * ponytail: 표시값이라 형태만 그럴듯하면 된다. 실제 일별 집계는 서버가 준다 —
- * 명세가 `trend` 를 주는 이유가 화면이 통계 API 를 따로 부르지 않게 하는 것이다.
+ * 카드 스파크라인용 최근 7일. 실행 횟수에서 결정적으로 만든다 — `Math.random` 을 쓰면
+ * refetch 마다 꺾은선이 흔들려 데이터가 바뀐 것처럼 보인다.
  */
 const TREND_SHAPE = [0.6, 0.9, 0.75, 1.1, 0.95, 1.3, 1.55]
 
@@ -229,11 +203,8 @@ function buildTrend(executionCount: number, index: number) {
 }
 
 /**
- * 목록 응답에는 있지만 `AgentDetail` 에는 없는 값들 — MYP-001 의 `revenue`·`trend` 다.
- *
- * `AgentDetail` 에 넣지 않는다. 상세는 확정 명세라 키 집합이 정해져 있고, 거기에 목록 전용
- * 필드가 섞이면 상세 화면이 그것을 쓰기 시작한다. `AGENTS` 와 `SEEDS` 는 인덱스가 1:1 이므로
- * 여기서 한 번만 짝지어 둔다.
+ * 목록에만 있는 값(`revenue`·`trend`). `AgentDetail` 에 넣으면 상세 화면이 그것을
+ * 쓰기 시작한다. `AGENTS` 와 `SEEDS` 는 인덱스가 1:1 이다.
  */
 const LIST_ONLY = new Map(
   AGENTS.map((agent, index) => [
@@ -244,8 +215,7 @@ const LIST_ONLY = new Map(
 
 const DAY_MS = 86_400_000
 
-/** 즐겨찾기한 시각. 건당 하루씩 벌린다 — 겹치면 즐겨찾기 목록의 커서가 흔들린다
- *  (`createdAt` 을 하루씩 벌리는 것과 같은 이유). */
+/** 건당 하루씩 벌린다 — 겹치면 즐겨찾기 목록의 커서가 흔들린다. */
 const FAVORITED_BASE = Date.parse('2026-09-08T11:20:00+09:00')
 
 const favoritedTimes = new Map<string, string>(
@@ -256,14 +226,9 @@ const favoritedTimes = new Map<string, string>(
 )
 
 /**
- * 즐겨찾기 등록·해제. 픽스처의 상태를 실제로 바꾼다 — 안 바꾸면 토글한 뒤 다시 조회하면
- * 원래대로 돌아가고, 멱등 처리도 확인할 수 없다.
- *
- * 핸들러가 아니라 여기 있는 이유: 즐겨찾기 목록(MYP-003)이 `favoritedAt` 을 필요로 하고,
- * 그 시각은 `favorited` 를 바꾸는 순간에만 알 수 있다. 두 곳에 나눠 두면 별은 켜졌는데
- * 즐겨찾기 탭에는 안 나타난다.
- *
- * 멱등 — 이미 같은 상태면 횟수도 시각도 건드리지 않고 현재 상태를 준다(명세 참고사항).
+ * 즐겨찾기 등록·해제. 픽스처를 실제로 바꾼다. 핸들러가 아니라 여기 있는 것은
+ * `favoritedAt` 이 `favorited` 를 바꾸는 순간에만 정해지기 때문이다 — 두 곳에 나누면
+ * 별은 켜졌는데 탭에는 안 나온다. 멱등이라 같은 상태면 아무것도 건드리지 않는다.
  */
 export function setFavorite(agentId: unknown, next: boolean): AgentFavorite | null {
   const agent = AGENTS.find((a) => a.agentId === agentId)
@@ -279,12 +244,8 @@ export function setFavorite(agentId: unknown, next: boolean): AgentFavorite | nu
 }
 
 /**
- * 마이페이지 「판매 중」. GET /agents (MYP-001)
- *
- * 상수가 아니라 함수다 — `addAgent` 로 새로 등록한 것이 여기에도 보여야 하는데,
- * 모듈 로드 시점에 한 번 계산해 두면 등록해도 목록이 그대로다.
- *
- * 정렬하지 않는다. `sort` 를 명세가 셋(LATEST·EXECUTIONS·REVENUE) 주므로 핸들러가 정한다.
+ * 마이페이지 「판매 중」. 상수가 아니라 함수다 — 모듈 로드 시점에 계산해 두면
+ * 새로 등록한 것이 목록에 안 나온다. 정렬은 `sort` 를 받는 핸들러가 한다.
  */
 export function myAgents(): MyAgent[] {
   return AGENTS.filter((agent) => agent.owner.nickname === ME).map((agent) => {
@@ -306,12 +267,8 @@ export function myAgents(): MyAgent[] {
 }
 
 /**
- * 마이페이지 「즐겨찾기」. GET /users/me/favorites (MYP-003)
- *
- * `favorited` 플래그가 곧 이 목록이다. 원본 에이전트가 사라진 건은 애초에 `AGENTS` 에 없으므로
- * 「삭제된 에이전트는 제외한다」가 자동으로 지켜진다.
- *
- * 수익은 주지 않는다 — 내가 만들지 않은 에이전트가 섞여 있다(명세 참고사항).
+ * 마이페이지 「즐겨찾기」. `favorited` 플래그가 곧 이 목록이다.
+ * 수익은 주지 않는다 — 내가 만들지 않은 에이전트가 섞여 있다.
  */
 export function favoriteAgents(): FavoriteAgent[] {
   return AGENTS.filter((agent) => agent.favorited).map((agent) => ({
@@ -341,10 +298,7 @@ const USED = [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 29]
 const USED_BASE = Date.parse('2026-09-07T14:22:00+09:00')
 
 /**
- * 마이페이지 「사용한 에이전트」. GET /users/me/used-agents (MYP-004)
- *
- * 같은 에이전트를 여러 번 실행했어도 한 건으로 묶고 `myExecutionCount` 로 횟수를 표시한다.
- * `currency` 는 주지 않는다 — 단위가 ABC 하나뿐이라 화면이 붙인다.
+ * 같은 에이전트를 여러 번 실행했어도 한 건으로 묶고 `myExecutionCount` 로 횟수를 낸다.
  */
 export function usedAgents(): UsedAgent[] {
   return USED.map((index, i) => {
@@ -370,11 +324,8 @@ export function usedAgents(): UsedAgent[] {
 }
 
 /**
- * 등록 화면이 만든 에이전트. **명세 미확정** — 화면이 넘기는 텍스트만 받고
- * 나머지는 서버가 채울 기본값을 흉내 낸다.
- *
- * `onboardingMessage` 는 받아서 버린다. 등록 화면은 입력받지만 상세 응답에는 없다 —
- * 실행 대기 화면이 쓸 필드라 그 작업에서 저장 위치가 정해진다.
+ * 화면이 넘기는 텍스트만 받고 나머지는 서버가 채울 기본값을 흉내 낸다.
+ * `onboardingMessage` 는 받아서 버린다 — 상세 응답에 없는 필드다.
  */
 export function addAgent(input: CreateAgentRequest): AgentDetail {
   const owner = OWNERS[ME]
@@ -389,7 +340,7 @@ export function addAgent(input: CreateAgentRequest): AgentDetail {
     // 아이콘·스크린샷 업로드는 등록 화면에서 아직 연결되지 않았다.
     iconUrl: null,
     images: [],
-    // ponytail: 단가는 서버가 워크플로우에서 계산한다. 등록 화면에 입력 칸이 없어
+    // 단가는 서버가 워크플로우에서 계산한다. 등록 화면에 입력 칸이 없어
     // 고정값을 둔다 — 산정 명세가 오면 그대로 받는다.
     price: '540',
     // 갓 등록한 것이라 실적이 없다. 상세 화면이 '—' 를 내야 한다.

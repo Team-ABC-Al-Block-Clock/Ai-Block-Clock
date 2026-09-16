@@ -1,12 +1,11 @@
 import { BaseElement, define } from './base'
 
-/** 고정 설계 캔버스(기본 1440×1024)를 뷰포트에 맞춰 확대/축소.
- *  자식은 항상 설계 좌표계 그대로 두면 됩니다.
+/**
+ * 고정 설계 캔버스를 뷰포트에 맞춰 확대/축소한다. 자식은 설계 좌표계 그대로 둔다.
  *
- *    <screen-frame width="1440" height="1584" fit="width"> … </screen-frame>
+ *   <screen-frame width="1440" height="1584" fit="width"> … </screen-frame>
  *
- *  호스트 자신이 무대라서 자식을 다른 요소로 옮기지 않습니다.
- *  (옮기면 React 등 가상 DOM이 노드 추적을 잃고 removeChild 에서 터집니다.)
+ * 호스트 자신이 무대라 자식을 옮기지 않는다 — 옮기면 React 가 노드 추적을 잃는다.
  */
 export class ScreenFrame extends BaseElement {
   static observedAttributes = ['width', 'height', 'fit']

@@ -17,7 +17,7 @@ const TITLE: Record<Exclude<WalletPhase, 'idle'>, string> = {
 
 export class WalletDialog extends BaseElement {
   /** 이름에 접미사를 붙인다 — 표준 프로퍼티(`HTMLElement.nonce` 등)와 겹치면
-   *  React 가 속성 대신 프로퍼티에 넣어 조용히 기본값이 그려진다(10절). */
+   *  React 가 속성 대신 프로퍼티에 넣어 조용히 기본값이 그려진다. */
   static observedAttributes = ['phase', 'address', 'message-text', 'error-code']
 
   protected override usesShadow = true
@@ -34,7 +34,7 @@ export class WalletDialog extends BaseElement {
     if (e.key === 'Escape') this.emit('cancel')
   }
 
-  /** 속성과 같은 이름의 프로퍼티를 두면 React 19 가 거기 대입하려다 터진다(10절). */
+  /** 속성과 같은 이름의 프로퍼티를 두면 React 19 가 거기 대입하려다 터진다. */
   private readPhase(): WalletPhase {
     return this.str('phase', 'idle') as WalletPhase
   }

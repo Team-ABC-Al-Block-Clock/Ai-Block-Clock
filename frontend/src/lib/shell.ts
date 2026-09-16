@@ -145,7 +145,7 @@ const BY_SCREEN: Record<ScreenKey, Partial<Shell>> = {
   },
 }
 
-/** 편집·실행 화면: 작업면 채움을 `vignette` 로 올리고 판의 `backdrop-filter` 만큼 `blur` 를 더해 캔버스 경계에 세로선이 보이지 않게 한다. */
+/** 편집·실행 화면: 작업면 채움을 `vignette` 로 올리고 패널의 `backdrop-filter` 만큼 `blur` 를 더해 캔버스 경계에 세로선이 보이지 않게 한다. */
 
 /** 404 — 배경을 눌러 카드가 읽히게 한다. */
 const FALLBACK: Partial<Shell> = { dim: 0.4, blur: 4 }

@@ -4,10 +4,7 @@ import { paths } from '@/routes/paths'
 
 interface ErrorBoundaryProps {
   children: ReactNode
-  /**
-   * 값이 바뀌면 에러 상태를 초기화한다.
-   * 라우트 경로를 넘기면 다른 화면으로 이동했을 때 자동으로 복구된다.
-   */
+  /** 값이 바뀌면 에러 상태를 초기화한다. 라우트 경로를 넘기면 이동할 때 복구된다 */
   resetKey?: unknown
   /** 폴백을 직접 지정하고 싶을 때. 없으면 기본 화면을 쓴다. */
   fallback?: (error: Error, reset: () => void) => ReactNode
@@ -18,11 +15,8 @@ interface ErrorBoundaryState {
 }
 
 /**
- * 렌더링 중 던져진 예외를 잡아 화면 전체가 하얘지는 것을 막는다.
- *
- * React 에는 훅 버전이 없어 클래스 컴포넌트로만 만들 수 있다.
- * 이벤트 핸들러·비동기 콜백에서 난 예외는 잡지 못한다 — 그쪽은
- * TanStack Query 의 에러 상태나 try/catch 로 다룬다.
+ * 렌더링 중 던져진 예외를 잡아 화면이 하얘지는 것을 막는다. 이벤트 핸들러·비동기
+ * 콜백의 예외는 잡지 못한다 — 그쪽은 TanStack Query 의 에러 상태로 다룬다.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null }

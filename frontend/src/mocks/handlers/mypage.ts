@@ -10,18 +10,16 @@ import { WORKFLOWS, toWorkflowSummary } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
-/** 마이페이지 mock. 도메인이 셋이지만 화면 하나가 같이 쓰므로 묶어 둔다. */
+/** 도메인이 셋이지만 화면 하나가 같이 쓰므로 묶어 둔다. */
 
-/** 마이페이지 목록의 명세 기본값. 마켓 목록(9)과 다르다. */
+/** 마켓 목록(9)과 다르다. */
 const PAGE_SIZE = 10
 
 const invalidQuery = () => fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
 /**
- * `sort` 를 명세의 값으로만 받는다.
- *
- * 조용히 기본값으로 떨어뜨리면 화면이 잘못된 값을 보내도 mock 은 통과해, 실서버에 붙이는
- * 날에만 400 이 난다. 없으면 기본값, 있으면 유효해야 한다.
+ * 없으면 기본값, 있으면 유효해야 한다. 조용히 기본값으로 떨어뜨리면 화면이 잘못된 값을
+ * 보내도 mock 은 통과해 실서버에 붙이는 날에만 400 이 난다.
  */
 function readSort<T extends string>(url: URL, allowed: readonly T[], fallback: T): T | null {
   const raw = url.searchParams.get('sort')
@@ -32,10 +30,8 @@ function readSort<T extends string>(url: URL, allowed: readonly T[], fallback: T
 const keywordOf = (url: URL) => url.searchParams.get('keyword') ?? ''
 
 /**
- * 마지막 실행 시각 내림차순. 아직 실행하지 않은 것(`null`)은 언제나 뒤로 밀린다(명세 참고사항).
- *
- * 문자열 비교로는 안 된다 — 픽스처는 `+09:00`, 새로 만든 것은 `Z` 로 적어서 날짜 부분이
- * 같으면 순서가 뒤집힌다.
+ * 마지막 실행 역순. 아직 실행하지 않은 것은 뒤로 밀린다. 문자열 비교로는 안 된다 —
+ * 픽스처는 `+09:00`, 새로 만든 것은 `Z` 라 날짜가 같으면 순서가 뒤집힌다.
  */
 function byLastExecuted(
   a: { lastExecutedAt: string | null },
@@ -51,7 +47,7 @@ const WORKFLOW_SORTS: readonly WorkflowSort[] = ['LAST_EXECUTED', 'LATEST']
 const USED_AGENT_SORTS: readonly UsedAgentSort[] = ['LAST_EXECUTED', 'MOST_EXECUTED']
 
 export const mypageHandlers = [
-  /** MYP-001 · 내 에이전트 목록 조회 (판매 중) */
+  /** 내 에이전트 목록 (판매 중) */
   http.get(`${API_BASE_URL}/agents`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
@@ -62,7 +58,7 @@ export const mypageHandlers = [
 
     const keyword = keywordOf(url)
     const list = myAgents().filter((a) => matchKeyword(keyword, a.name, a.summary))
-    // 수익은 문자열이다(소수점 오차 방지). 정렬만 하므로 여기서만 숫자로 읽는다.
+    // 수익은 문자열이다. 정렬만 하므로 여기서만 숫자로 읽는다.
     if (sort === 'EXECUTIONS') list.sort((a, b) => b.executionCount - a.executionCount)
     else if (sort === 'REVENUE') list.sort((a, b) => Number(b.revenue) - Number(a.revenue))
     else list.sort(byNewest)
@@ -70,18 +66,15 @@ export const mypageHandlers = [
     return cursorOk(url, list, (a) => a.agentId, { defaultSize: PAGE_SIZE })
   }),
   /**
-   * 에이전트 등록. **명세 미확정** — 등록 화면이 넘기는 텍스트만 받는다.
-   *
-   * 즐겨찾기처럼 픽스처를 실제로 바꾼다. 안 바꾸면 등록 완료 화면의 「상세 페이지 보기」가
-   * 존재하지 않는 ID 로 가고, 목록·마이페이지에도 안 나와 흐름을 확인할 수 없다.
+   * 픽스처를 실제로 바꾼다 — 안 바꾸면 등록 완료 화면의 「상세 페이지 보기」가
+   * 없는 ID 로 가고 목록에도 안 나와 흐름을 확인할 수 없다.
    */
   http.post(`${API_BASE_URL}/agents`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
 
     const body = (await request.json()) as Partial<CreateAgentRequest>
-    // 이름과 한 줄 설명은 목록 카드가 반드시 그리는 값이다. 빈 값을 통과시키면
-    // 목록에 이름 없는 카드가 생기고 검색에도 걸리지 않는다.
+    // 빈 값을 통과시키면 목록에 이름 없는 카드가 생기고 검색에도 안 걸린다.
     if (!body.name?.trim() || !body.summary?.trim())
       return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
 
@@ -94,7 +87,7 @@ export const mypageHandlers = [
     })
     return ok<CreatedAgent>({ agentId: agent.agentId }, { status: 201 })
   }),
-  /** MYP-003 · 즐겨찾기 목록 조회 — 검색어도 정렬도 없다. 즐겨찾기한 시각 역순 고정. */
+  /** 검색어도 정렬도 없다. 즐겨찾기한 시각 역순 고정. */
   http.get(`${API_BASE_URL}/users/me/favorites`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
@@ -109,7 +102,7 @@ export const mypageHandlers = [
       cursorCode: 'MARKET_003',
     })
   }),
-  /** MYP-004 · 사용한 에이전트 목록 조회 */
+  /** 사용한 에이전트 목록 */
   http.get(`${API_BASE_URL}/users/me/used-agents`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
@@ -128,7 +121,7 @@ export const mypageHandlers = [
       cursorCode: 'MARKET_003',
     })
   }),
-  /** MYP-002 · 내 워크플로우 목록 조회 */
+  /** 내 워크플로우 목록 */
   http.get(`${API_BASE_URL}/workflows`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
@@ -137,7 +130,7 @@ export const mypageHandlers = [
     const sort = readSort(url, WORKFLOW_SORTS, 'LAST_EXECUTED')
     if (sort === null) return invalidQuery()
 
-    // 명세상 워크플로우는 이름만 검색한다(에이전트 목록과 다르다).
+    // 워크플로우는 이름만 검색한다 — 에이전트 목록과 다르다.
     const keyword = keywordOf(url)
     const list = WORKFLOWS.filter((w) => matchKeyword(keyword, w.name))
     if (sort === 'LATEST') list.sort(byNewest)
@@ -148,11 +141,8 @@ export const mypageHandlers = [
     })
   }),
   /**
-   * MYP-005 · 워크플로우 삭제. 픽스처에서 실제로 지운다 —
-   * 안 지우면 모달을 닫아도 목록이 그대로여서 흐름을 확인할 수 없다.
-   *
-   * 소유자 아님(WORKFLOW_003)은 만들지 않는다. 인증 연동 전이라 「남의 것」을 흉내 낼 근거가
-   * 없고, 지어내면 화면이 없는 조건으로 분기하게 된다.
+   * 픽스처에서 실제로 지운다 — 안 지우면 모달을 닫아도 목록이 그대로다.
+   * 소유자 아님(WORKFLOW_003)은 만들지 않는다. 인증 연동 전이라 흉내 낼 근거가 없다.
    */
   http.delete(`${API_BASE_URL}/workflows/:workflowId`, async ({ params }) => {
     const forced = await scene()
@@ -162,7 +152,7 @@ export const mypageHandlers = [
     if (at < 0) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
 
     const workflow = WORKFLOWS[at]
-    // 거절되는 두 건은 지우지 않는다. 화면이 코드별로 다른 문구를 내는지가 여기서만 드러난다.
+    // 거절되는 두 건은 지우지 않는다 — 화면의 코드별 문구가 여기서만 드러난다.
     if (workflow.registeredAsAgent)
       return fail(409, 'WORKFLOW_009', '에이전트로 등록된 워크플로우는 삭제할 수 없습니다.')
     if (workflow.running)

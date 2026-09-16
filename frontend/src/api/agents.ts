@@ -1,13 +1,7 @@
 import { api } from '@/api/client'
 import type { CursorPage, CursorParams } from '@/api/page'
 
-/** 에이전트 · 마켓플레이스 API. */
-
-/**
- * 마켓 목록 항목. **확정** — GET /marketplace/agents 명세와 1:1 이다.
- *
- * 내부 구조(노드 구성·연결 관계·프롬프트)와 등급은 내려오지 않는다.
- */
+/** 마켓 목록 항목. 내부 구조와 등급은 내려오지 않는다. */
 export interface AgentSummary {
   agentId: string
   name: string
@@ -27,7 +21,7 @@ export interface AgentSummary {
   createdAt: string
 }
 
-/** 상세 화면의 스크린샷. 입력·출력 구분이 필요해 `type` 을 같이 준다. 유형별 최대 5장. */
+/** 상세 화면의 스크린샷. 유형별 최대 5장 */
 export interface AgentImage {
   imageId: string
   type: 'INPUT' | 'OUTPUT'
@@ -37,13 +31,8 @@ export interface AgentImage {
 }
 
 /**
- * 마켓 상세. **확정** — GET /marketplace/agents/{agentId} 명세와 1:1 이다.
- *
- * 노드 개수·이름·연결 관계·프롬프트·AI 모델과 등급·티어는 내려오지 않는다.
- * 평균 실행 시간도 집계하지 않고, 등록이 곧 공개라 visibility 도 없다.
- *
- * `AgentSummary` 를 확장하지 않는다 — `owner` 모양이 다르고(userId·profileImageUrl),
- * 상속으로 필드가 섞이면 목록 응답이 무엇을 걸러야 하는지 흐려진다.
+ * 마켓 상세. `AgentSummary` 를 확장하지 않는다 — `owner` 모양이 다르고,
+ * 상속으로 필드가 섞이면 목록이 무엇을 걸러야 하는지 흐려진다.
  */
 export interface AgentDetail {
   agentId: string
@@ -56,8 +45,7 @@ export interface AgentDetail {
   usageExample: string | null
   iconUrl: string | null
   images: AgentImage[]
-  /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다.
-   *  통화 필드는 두지 않는다 — 단위가 ABC 하나뿐이라 항상 같은 값이다. */
+  /** 실행 1회당 판매 가격. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다 */
   price: string
   executionCount: number
   /** 실행 성공률 0~1. 실행이 0회면 0 이므로 화면은 executionCount 로 가른다 */
@@ -71,12 +59,7 @@ export interface AgentDetail {
   createdAt: string
 }
 
-/**
- * 즐겨찾기 등록·해제 응답. **확정** — 두 응답이 같은 모양이다.
- *
- * 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 —
- * 상세를 refetch 하지 않고 이 값으로 캐시를 덮는다.
- */
+/** 등록·해제가 같은 모양이다. 상세를 refetch 하지 않고 이 값으로 캐시를 덮는다. */
 export interface AgentFavorite {
   agentId: string
   favorited: boolean
@@ -84,12 +67,8 @@ export interface AgentFavorite {
 }
 
 /**
- * 에이전트 등록 요청. **추정** — POST /agents 명세가 아직 없다.
- *
  * 등록 화면이 모으는 텍스트만 담았다. 아이콘·스크린샷 업로드와 워크플로우 연결,
- * 가격 산정은 명세가 오면 붙인다 — 지금 필드를 지어내면 화면이 그것을 물게 된다.
- *
- * `onboardingMessage` 는 등록 화면이 입력받지만 상세 응답에는 없다(상세 화면이 읽지 않는다).
+ * 가격 산정은 명세가 오면 붙인다.
  */
 export interface CreateAgentRequest {
   name: string
@@ -99,7 +78,7 @@ export interface CreateAgentRequest {
   onboardingMessage: string
 }
 
-/** 등록 응답. 화면이 상세로 이동하는 데 필요한 것은 ID 뿐이다. */
+/** 화면이 상세로 이동하는 데 필요한 것은 ID 뿐이다. */
 export interface CreatedAgent {
   agentId: string
 }
@@ -107,11 +86,8 @@ export interface CreatedAgent {
 export const createAgent = (body: CreateAgentRequest) => api.post<CreatedAgent>('/agents', body)
 
 /**
- * 내 에이전트(판매 중). **확정** — MYP-001 명세와 1:1 이다.
- *
- * `AgentSummary` 를 확장하지 않는다 — 명세에 없는 평점·리뷰 수·만든 사람이 딸려 들어오면
- * 화면이 그것을 몰래 쓰게 되고, 백엔드를 붙이는 날 조용히 `undefined` 가 된다.
- * 등급과 보정 평점은 내려오지 않고, 등록이 곧 공개라 visibility 도 없다.
+ * 판매 중인 내 에이전트. `AgentSummary` 를 확장하지 않는다 — 명세에 없는 평점·리뷰 수가
+ * 딸려 들어오면 화면이 그것을 몰래 쓰고, 백엔드를 붙이는 날 `undefined` 가 된다.
  */
 export interface MyAgent {
   agentId: string
@@ -127,13 +103,12 @@ export interface MyAgent {
   executionCount: number
   /** 내가 즐겨찾기했는지 여부 */
   favorited: boolean
-  /** 카드 스파크라인에 쓸 일별 실행 횟수. 최근 7일 —
-   *  에이전트마다 통계 API 를 따로 부르지 않게 목록이 함께 준다(명세 참고사항). */
+  /** 카드 스파크라인에 쓸 최근 7일 실행 횟수. 통계 API 를 따로 부르지 않게 함께 온다 */
   trend: number[]
   createdAt: string
 }
 
-/** 판매 중 탭의 정렬 기준. 화면의 정렬 옵션은 이 유니온에서 파생한다. */
+/** 화면의 정렬 옵션은 이 유니온에서 파생한다. */
 export type MyAgentSort = 'LATEST' | 'EXECUTIONS' | 'REVENUE'
 
 export interface MyAgentsQuery extends CursorParams {
@@ -143,12 +118,7 @@ export interface MyAgentsQuery extends CursorParams {
   sort?: MyAgentSort
 }
 
-/**
- * 즐겨찾기한 에이전트. **확정** — MYP-003 명세와 1:1 이다.
- *
- * 남이 만든 것이 섞여 있어 수익은 오지 않는다. `favorited` 도 없다 —
- * 이 목록에 있다는 것이 곧 즐겨찾기했다는 뜻이다.
- */
+/** 이 목록에 있다는 것이 곧 즐겨찾기했다는 뜻이라 `favorited` 가 없다. */
 export interface FavoriteAgent {
   agentId: string
   name: string
@@ -164,12 +134,6 @@ export interface FavoriteAgent {
   favoritedAt: string
 }
 
-/**
- * 사용한 에이전트. **확정** — MYP-004 명세와 1:1 이다.
- *
- * `currency` 는 받지 않는다 — 단위가 ABC 하나뿐이라 항상 같은 값이고 `priceLabel` 이 붙인다.
- * 두 번째 단위가 생기면 그때 되살린다.
- */
 export interface UsedAgent {
   agentId: string
   name: string
@@ -191,7 +155,6 @@ export interface UsedAgent {
   favorited: boolean
 }
 
-/** 사용한 에이전트 탭의 정렬 기준 */
 export type UsedAgentSort = 'LAST_EXECUTED' | 'MOST_EXECUTED'
 
 export interface UsedAgentsQuery extends CursorParams {
@@ -217,12 +180,7 @@ export interface AgentReview {
   createdAt: string
 }
 
-/**
- * 목록 조회 조건. 검색어뿐이다.
- *
- * 카테고리·등급·공개 범위 필터는 명세에 없고(화면에 표시할 자리가 없고, 등급은 내부 자료,
- * 등록 여부가 곧 공개 여부다), 정렬도 두지 않는다 — 등록 시각 역순 하나로 고정이다.
- */
+/** 검색어뿐이다. 필터는 없고 순서는 등록 시각 역순 하나로 고정이다. */
 export interface MarketplaceQuery extends CursorParams {
   /** 이름 또는 한 줄 설명 검색어 */
   keyword?: string
@@ -248,14 +206,14 @@ export const getAgentProvenance = (agentId: string) =>
 export const getAgentReviews = (agentId: string, params: CursorParams = {}) =>
   api.get<CursorPage<AgentReview>>(`/marketplace/agents/${agentId}/reviews`, { params })
 
-/** 내가 등록해 판매 중인 에이전트. MYP-001 */
+/** 내가 등록해 판매 중인 에이전트 */
 export const getMyAgents = (params: MyAgentsQuery = {}) =>
   api.get<CursorPage<MyAgent>>('/agents', { params })
 
-/** 내가 즐겨찾기한 에이전트. MYP-003 — 검색어도 정렬도 받지 않는다(즐겨찾기한 시각 역순 고정). */
+/** 검색어도 정렬도 받지 않는다 — 즐겨찾기한 시각 역순 고정이다. */
 export const getMyFavorites = (params: CursorParams = {}) =>
   api.get<CursorPage<FavoriteAgent>>('/users/me/favorites', { params })
 
-/** 내가 한 번이라도 실행한 에이전트. MYP-004 */
+/** 내가 한 번이라도 실행한 에이전트 */
 export const getUsedAgents = (params: UsedAgentsQuery = {}) =>
   api.get<CursorPage<UsedAgent>>('/users/me/used-agents', { params })

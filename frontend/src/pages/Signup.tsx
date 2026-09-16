@@ -23,8 +23,8 @@ export default function Signup() {
   const [nickname, setNickname] = useState('')
   const [introduction, setIntroduction] = useState('')
   const [agreed, setAgreed] = useState(false)
-  /** ACC-005 확인. 약관과 한 줄로 묶지 않는다 — 한 번에 넘어가면 계정을
-   *  복구할 수 없다는 고지를 읽지 않고 지나친다. */
+  /** 약관과 한 줄로 묶지 않는다 — 한 번에 넘어가면 계정을 복구할 수 없다는
+   *  고지를 읽지 않고 지나친다. */
   const [lossAck, setLossAck] = useState(false)
 
   const trimmedNickname = nickname.trim()

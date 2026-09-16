@@ -40,12 +40,13 @@ function autoArc(): number {
   return h >= 6 && h < 19 ? (h - 6) / 13 : (h >= 19 ? h - 19 : h + 5) / 11
 }
 
-/** 사실적인 바다·하늘 배경.
+/**
+ * 사실적인 바다·하늘 배경.
  *
- *    <ocean-bg sun-height="0.45" dim="0.4" blur-px="5"></ocean-bg>
+ *   <ocean-bg sun-height="0.45" dim="0.4" blur-px="5"></ocean-bg>
  *
- *  부모를 가득 채우므로 부모에 position이 있어야 합니다.
- *  theme을 주지 않으면 OceanTheme 전역 상태를 따르고, 전환은 보간됩니다.
+ * 부모를 가득 채우므로 부모에 position 이 있어야 한다.
+ * theme 을 주지 않으면 OceanTheme 전역 상태를 따르고 전환은 보간된다.
  */
 export class OceanBg extends BaseElement {
   static observedAttributes = [
@@ -68,9 +69,8 @@ export class OceanBg extends BaseElement {
   private resume?: () => void
   private clock = 0
   private onThemeChange = () => this.syncOverlay()
-  // initGL()은 캔버스가 다시 부팔될 때마다 다시 돌기 때롖에,
-  // 이 리스너를 그 안에 듐면 오래된 clock을 부들고 있는 클로저가 쌓여
-  // 파도 위상 이어받기를 오혀 겁질러 만든다. 필드에서 한 번만 든다.
+  // initGL() 은 캔버스가 다시 붙을 때마다 다시 돈다. 이 리스너를 그 안에 두면
+  // 오래된 clock 을 붙들고 있는 클로저가 쌓여 파도 위상 이어받기가 어긋난다.
   private onPageHide = () => {
     try {
       sessionStorage.setItem('oceanClock', String(this.clock))
@@ -113,8 +113,8 @@ export class OceanBg extends BaseElement {
 
   override connectedCallback(): void {
     super.connectedCallback()
-    // 리스너는 연결될 때마다 — build()는 1회만 돌아서 재마운트 후 다시 붙지 않는다.
-    // 같은 함수 참조는 중복 등록되지 않는다.
+    // build() 는 1회만 돌아서 재마운트 후 다시 붙지 않는다. 같은 함수 참조라 중복
+    // 등록되지도 않는다.
     window.addEventListener('oceantheme', this.onThemeChange)
     window.addEventListener('pagehide', this.onPageHide)
     this.resume?.()

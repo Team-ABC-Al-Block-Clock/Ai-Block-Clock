@@ -3,7 +3,7 @@
 /* sample/export/assets/tokens.css 의 값을 Tailwind 테마로 옮긴 것.
  * 값은 그대로 — 이제 bg-surface-card, text-muted 처럼 클래스로 씁니다. */
 @theme static {
-  /* 배경 — 바다 위에 얹히는 어두운 유리판 */
+  /* 배경 — 바다 위에 얹히는 어두운 유리 패널 */
   --color-abyss: #1d1430;
   --color-surface-deep: rgb(13 7 26 / 0.72);
   --color-surface-card: rgb(255 255 255 / 0.08);
@@ -493,7 +493,7 @@ input::placeholder {
  * 안쪽 유리 패널들이 바깥의 <ocean-bg> 를 샘플링하지 못해 모션이 도는 동안 검게 보인다.
  * top 은 backdrop 루트를 만들지 않는다.
  *
- * ponytail: top 애니메이션은 매 프레임 레이아웃을 다시 잡는다. 요소 하나 · 0.42초라
+ * top 애니메이션은 매 프레임 레이아웃을 다시 잡는다. 요소 하나 · 0.42초라
  * 문제되지 않지만, 전환이 무거워지면 배경을 래퍼 안으로 넣는 구조를 다시 보세요.
  */
 @keyframes screenIn {

@@ -21,7 +21,7 @@ export const workflowsHandlers = [
 
     const url = new URL(request.url)
     const scope = url.searchParams.get('scope')
-    // 필수값이다. 없을 때 ALL 로 떨어뜨리면 판매자 모드에 남의 에이전트가 섞인다.
+    // 필수값이다. 없을 때 ALL 로 떨어뜨리면 MINE 으로 물어도 다른 사람의 에이전트가 섞인다.
     if (!isScope(scope)) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
     const keyword = url.searchParams.get('keyword') ?? ''

@@ -1,50 +1,32 @@
 import { BaseElement, define } from './base'
 import type { EmptyAction } from './types'
 
-/** 목록이 비었을 때 그 자리에 놓는 카드.
- *  검색 결과 없음 · 사용 내역 없음 · 내 에이전트 없음 · 리뷰 없음에 모두 씁니다.
+/**
+ * 목록이 비었을 때 그 자리에 놓는 카드.
  *
- *    <empty-state
- *      heading="'zzzz' 에 맞는 에이전트가 없습니다"
- *      body="찾는 일을 다르게 적어보거나, 프롬프트로 직접 만들어 보세요."
- *      actions='[{"label":"직접 만들어보기","href":"/","primary":true},
- *                {"label":"검색어 지우기","event":"clear"}]'>
- *    </empty-state>
+ *   <empty-state heading="…" body="…"
+ *     actions='[{"label":"직접 만들어보기","href":"/","primary":true}]'></empty-state>
  *
- *  글씨만 띄우면 바다 배경 위에서 읽히지 않으므로, 카드들과 같은 유리 표면 위에 올립니다.
- *  호스트 자신이 그 카드입니다 — 배치(position·left·top·width)와 등장 애니메이션만
- *  쓰는 쪽에서 style 로 주세요. `host()` 가 작성자 스타일을 덮지 않습니다.
- *
- *  버튼은 href가 있으면 링크, 없으면 event 이름으로 이벤트를 올립니다.
- *  빈 상태는 실패가 아니라 다음 행동을 고르는 자리이므로, 행동을 최소 하나 주세요.
- *  href 는 `routes/paths.ts` 가 만든 내부 경로를 넘깁니다 — App.tsx 의 전역 클릭
- *  인터셉터가 `composedPath()` 로 shadow 경계를 넘어 이 <a> 를 찾아 라우팅합니다.
+ * 호스트 자신이 카드다 — 배치와 등장 애니메이션만 쓰는 쪽에서 style 로 준다.
+ * 버튼은 href 가 있으면 링크, 없으면 event 이름으로 이벤트를 올린다.
  */
 export class EmptyState extends BaseElement {
   static observedAttributes = ['heading', 'body', 'actions', 'body-width']
 
   protected override usesTheme = true
 
-  /** React 아래에서 쓰므로 shadow 에 그린다. light DOM 에 직접 쓰면
-   *  React 가 모르는 자식이 생겨 리렌더 때 removeChild 에서 터진다. */
+  /** light DOM 에 직접 쓰면 React 리렌더 때 removeChild 에서 터진다 */
   protected override usesShadow = true
 
-  /** 배열이면 직렬화하고, 이미 JSON 문자열이면 그대로 둔다.
-   *  React 19 는 프로퍼티가 있으면 속성이 아니라 프로퍼티로 넣기 때문에 JSX 에서 넘긴
-   *  JSON 문자열이 여기로 들어온다 — 무조건 stringify 하면 이중 인코딩된다. */
+  /** React 19 는 JSX 에서 넘긴 JSON 문자열을 프로퍼티로 넣는다 —
+   *  무조건 stringify 하면 이중 인코딩된다. */
   set actions(v: EmptyAction[] | string) {
     this.setAttribute('actions', typeof v === 'string' ? v : JSON.stringify(v))
   }
 
   protected build(): void {
-    // 호스트가 카드다. 배치는 작성자 몫이라 여기서 정하지 않는다.
-    //
-    // 표면 값은 index.css 의 @theme 토큰에서 가져온다. shadow DOM 도 custom property 는
-    // 상속받으므로 var() 가 닿는다.
-    //
-    // --shadow-menu 는 쓰지 않는다. 거기 든 `inset 0 1px 0` 상단 하이라이트가 큰 패널에서는
-    // 테두리 선으로 읽힌다. 이 프로젝트의 그림자 원칙은 "경계가 생기지 않게 넓고 옅게"
-    // (index.css 주석)이므로 --shadow-hover 처럼 외곽만 옅게 깔린 것을 쓴다.
+    // --shadow-menu 는 쓰지 않는다 — 거기 든 상단 하이라이트가 큰 패널에서는
+    // 테두리 선으로 읽힌다.
     this.host(
       'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
         'box-sizing:border-box;padding:38px 36px;' +
@@ -59,20 +41,14 @@ export class EmptyState extends BaseElement {
     const actions = this.json<EmptyAction[]>('actions', [])
     const body = this.str('body')
 
-    // 밝은 배경(낮·노을)에서는 표면을 어둡게 해 글자 대비를 지킨다.
-    // 알파는 카드(--color-surface-card)보다 더 낮춘다 — 같은 알파여도 면적이 커지면
-    // 훨씬 무겁게 보여서 배경 바다가 죽는다.
+    // 밝은 배경에서는 표면을 어둡게 해 대비를 지킨다. 알파는 카드보다 낮춘다 —
+    // 같은 알파여도 면적이 커지면 배경 바다가 죽는다.
     if (!this.authorSet('background') && !this.authorSet('background-color')) {
       this.style.backgroundColor = this.bright ? 'rgb(24 13 40 / .26)' : 'rgb(255 255 255 / .07)'
     }
 
-    // 아이콘은 돋보기 하나. 장식을 늘리지 않는다.
-    // ponytail: 검색 화면 전용 도형이다. "사용 내역 없음" 처럼 다른 그림이 필요해지면
-    // 그때 icon 속성을 받는다 — 지금 아이콘 체계를 만들 이유가 없다.
-    //
-    // 정적 마크업이라 innerHTML 로 둔다. 아래 heading·body·라벨은 절대 이 경로로 넣지
-    // 않는다 — 호출부가 검색어를 그대로 넘기므로(Search·MyAgents) `?keyword=` 에 태그를
-    // 실은 링크 하나로 shadow DOM 안에 <img onerror> 가 만들어진다.
+    // 정적 마크업이라 innerHTML 로 둔다. heading·body·라벨은 절대 이 경로로 넣지
+    // 않는다 — 호출부가 검색어를 그대로 넘겨 `?keyword=` 에 실은 태그가 그대로 산다.
     this.root.innerHTML =
       '<div style="width:60px;height:60px;border-radius:18px;position:relative;' +
       'background:var(--color-surface-quiet)">' +

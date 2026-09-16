@@ -8,26 +8,18 @@ import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
 /**
- * 마켓플레이스 mock.
- *
- * 검색과 커서 페이지네이션을 핸들러 안에서 실제로 계산한다. 전체를 한 번에 돌려주면
- * 화면의 검색어·무한 스크롤이 아무 효과가 없어 검증이 안 된다.
- *
- * 필터와 정렬은 없다 — 카테고리·등급·공개 범위 필터는 명세에 두지 않고, 순서는
- * 등록 시각 역순 하나로 고정이다.
+ * 검색과 커서를 핸들러 안에서 실제로 계산한다 — 전체를 한 번에 돌려주면 화면의
+ * 검색어·무한 스크롤이 아무 효과가 없어 검증이 안 된다. 필터와 정렬은 없다.
  */
 
-/** 에이전트를 못 찾았을 때. 명세가 확정한 코드는 MARKET_001 하나다. */
+/** 못 찾았을 때의 코드는 MARKET_001 하나다. */
 const notFound = () => fail(404, 'MARKET_001', '에이전트를 찾을 수 없습니다.')
 
 const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
 
 /**
- * 등록 시각 역순. 공개 범위 필터는 없다 — 등록 여부가 곧 공개 여부다(명세 참고사항).
- *
- * 상수가 아니라 함수다 — 등록(POST /agents)이 픽스처에 항목을 더하는데, 모듈 로드
- * 시점에 한 번 정렬해 두면 등록해도 목록에 안 나온다. 커서는 이 순서를 전제하지만
- * 정렬 기준(등록 시각)이 고정이라 요청마다 다시 계산해도 순서는 같다.
+ * 등록 시각 역순. 상수가 아니라 함수다 — 모듈 로드 시점에 정렬해 두면 새로 등록한
+ * 것이 목록에 안 나온다. 기준이 고정이라 요청마다 계산해도 순서는 같다.
  */
 const published = () => [...AGENTS].sort(byNewest)
 
@@ -38,8 +30,8 @@ export const marketplaceHandlers = [
 
     const url = new URL(request.url)
     const keyword = url.searchParams.get('keyword') ?? ''
-    // 투영을 페이지 계산 앞에 둔다 — cursorOk 는 이미 걸러진 배열을 받아 페이지만 만든다.
-    // 상세 필드(설명·스크린샷·성공률)를 흘려보내면 실서버에 없는 필드를 화면이 몰래 쓴다.
+    // 투영을 페이지 계산 앞에 둔다. 상세 필드를 흘려보내면 실서버에 없는 필드를
+    // 화면이 몰래 쓴다.
     const filtered = published()
       .filter((a) => matchKeyword(keyword, a.name, a.summary))
       .map(toSummary)
@@ -53,7 +45,7 @@ export const marketplaceHandlers = [
     const agent = find(params.agentId)
     return agent ? ok(agent) : notFound()
   }),
-  /** 즐겨찾기 등록. 명세상 201 이다. */
+  /** 명세상 201 이다 */
   http.post(`${API_BASE_URL}/marketplace/agents/:agentId/favorites`, async ({ params }) => {
     const forced = await scene()
     if (forced) return forced

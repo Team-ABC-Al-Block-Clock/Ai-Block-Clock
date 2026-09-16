@@ -24,9 +24,9 @@ import { sparkPath } from '@/lib/spark'
 import { paths } from '@/routes/paths'
 import Sidebar from '../components/Sidebar'
 
-/** 명세 기본값. 마켓 목록(9)과 다르다. */
+/** 마켓 목록(9)과 다르다. */
 const PAGE_SIZE = 10
-/** 입력이 멈춘 뒤에만 검색한다. 없으면 타자 한 번에 요청 한 번이다. */
+/** 입력이 멈춘 뒤에만 검색한다. */
 const DEBOUNCE_MS = 300
 
 type Tab = 'selling' | 'favorites' | 'used' | 'flows'
@@ -39,10 +39,8 @@ const TABS = [
 ] as const satisfies readonly { key: Tab; label: string }[]
 
 /**
- * 탭마다 정렬 옵션이 다르다. 즐겨찾기는 명세에 `sort` 가 없어 빈 배열 — 필을 감춘다.
- *
- * 값은 `api/` 의 유니온에서 온다. 화면에 문자열을 새로 적으면 서버가 안 받는 값을 보내고도
- * mock 은 통과해, 실서버에 붙이는 날에만 400 이 난다.
+ * 탭마다 정렬 옵션이 다르다. 즐겨찾기는 `sort` 가 없어 빈 배열이고 필을 감춘다.
+ * 값은 `api/` 의 유니온에서 온다 — 화면에 새로 적으면 서버가 안 받는 값이 나간다.
  */
 const SORTS = {
   selling: ['LATEST', 'EXECUTIONS', 'REVENUE'],
@@ -59,8 +57,7 @@ const SORT_LABEL = {
   MOST_EXECUTED: '많이 쓴 순',
 } as const satisfies Record<MyAgentSort | UsedAgentSort | WorkflowSort, string>
 
-/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다.
- *  `<empty-state>` 가 JSON 으로 받는다(`components/types.ts` 의 EmptyAction). */
+/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다. */
 const EMPTY = {
   selling: {
     heading: '판매 중인 에이전트가 없습니다',
@@ -104,17 +101,15 @@ const SORT_W = 148
 /** 즐겨찾기 토글 필이 없으므로 검색바가 그 자리까지 넓어진다. 896 - 148 - 12 */
 const SEARCH_W = 736
 
-/** 빈 상태·안내 카드. 그리드 안쪽(896)에서 가운데 — 442 + (896 - 620) / 2 = 580.
- *  translateX 로 중앙 정렬하지 않는다: transform 이 걸리면 backdrop 루트가 되어
- *  카드의 backdrop-filter 가 바깥 배경을 못 가져온다(컨벤션 10절). */
+/** 442 + (896 - 620) / 2 = 580. translateX 로 중앙 정렬하지 않는다 — transform 이
+ *  걸리면 backdrop 루트가 되어 카드가 바깥 배경을 못 가져온다. */
 const NOTICE_BOX = { left: '580px', top: '430px', width: '620px' } as const
 
 const CHIP = 'flex cursor-pointer items-center transition-colors duration-[160ms]'
 const ROW =
   'bg-surface-card box-border flex flex-none items-center transition-colors duration-200 hover:bg-[rgba(255,255,255,.14)]'
 
-/** 목록 행이 그리는 것. 탭마다 라벨과 값만 다르고 폭은 같다 —
- *  폭이 흔들리면 탭을 옮길 때 행이 출썩인다. */
+/** 탭마다 라벨과 값만 다르고 폭은 같다 — 흔들리면 탭을 옮길 때 행이 들썩인다. */
 interface Row {
   agentId: string
   name: string
@@ -135,20 +130,18 @@ export default function MyAgents() {
   const [tab, setTab] = useState<Tab>('selling')
   const [q, setQ] = useState('')
   const [keyword, setKeyword] = useState('')
-  /** 탭마다 자기 정렬을 기억한다. 하나로 두면 탭을 옮길 때마다 남의 정렬로 조회한다. */
+  /** 탭마다 자기 정렬을 기억한다. 하나로 두면 탭을 옮길 때마다 다른 탭의 정렬로 조회한다. */
   const [sortAt, setSortAt] = useState<Record<Tab, number>>({
     selling: 0,
     favorites: 0,
     used: 0,
     flows: 0,
   })
-  /** 삭제 대상. 이름을 함께 붙들어 둔다 — WORKFLOW_002 로 목록을 무효화하면 그 행이
-   *  사라져서, 목록에서 찾아 쓰면 모달 제목이 '‘’를 삭제할까요?' 가 된다. */
+  /** 이름을 함께 붙들어 둔다 — 목록을 무효화하면 그 행이 사라져 제목이 비어 버린다 */
   const [deleteAt, setDeleteAt] = useState<{ workflowId: string; name: string } | null>(null)
 
-  /** 요청은 타자가 멎은 뒤에 갱신한다. 없으면 타자 한 번에 요청 한 번이다.
-   *  주소를 되읽어 value 로 쓰지 않는다 — 리렌더가 조합 중인 input 을 덮으면 한글이
-   *  낱자로 떨어진다(컨벤션 10절). 입력값의 주인은 `q` 하나다. */
+  /** 주소를 되읽어 value 로 쓰지 않는다 — 리렌더가 조합 중인 input 을 덮으면 한글이
+   *  낱자로 떨어진다. 입력값의 주인은 `q` 하나다. */
   useEffect(() => {
     const timer = setTimeout(() => setKeyword(q.trim()), DEBOUNCE_MS)
     return () => clearTimeout(timer)
@@ -219,7 +212,7 @@ export default function MyAgents() {
   const favorite = useMutation({
     mutationFn: ({ agentId, next }: { agentId: string; next: boolean }) =>
       next ? addAgentFavorite(agentId) : removeAgentFavorite(agentId),
-    /** 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 — 상세는 덮고, 목록은 무효화한다.
+    /** 갱신된 횟수가 함께 오므로 상세는 덮고 목록은 무효화한다 —
      *  즐겨찾기 탭에서 해제하면 그 행이 사라지는 것이 맞다. */
     onSuccess: (res) => {
       queryClient.setQueryData(
@@ -314,14 +307,13 @@ export default function MyAgents() {
   const flowRows = tab === 'flows' ? (flows.data?.pages.flatMap((page) => page.content) ?? []) : []
   const count = tab === 'flows' ? flowRows.length : rows.length
 
-  // 무한 스크롤. 목록이 #myRows 안에서 스크롤되므로 그것을 root 로 삼는다 —
-  // 뷰포트를 root 로 두면 컨테이너를 끝까지 내려도 sentinel 이 교차하지 않는다.
+  // 목록이 #myRows 안에서 스크롤되므로 그것을 root 로 삼는다 — 뷰포트를 root 로 두면
+  // 컨테이너를 끝까지 내려도 sentinel 이 교차하지 않는다.
   const sentinelRef = useRef<HTMLDivElement>(null)
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError } = active
 
-  /** 활성 탭의 콜백은 렌더마다 새 함수다. 그대로 deps 에 넣으면 아래 observer 가 매 렌더
-   *  다시 만들어지고, `observe()` 가 이미 교차 중인 sentinel 에 콜백을 또 발사해 다음 장이
-   *  줄줄이 딸려 온다. 최신 함수만 참조로 들고 간다. */
+  /** 활성 탭의 콜백은 렌더마다 새 함수다. deps 에 넣으면 observer 가 매 렌더 다시
+   *  만들어지고 다음 장이 줄줄이 딸려 온다 — 최신 함수만 참조로 들고 간다. */
   const latest = useRef({ fetchNextPage: active.fetchNextPage, refetch: active.refetch })
   useEffect(() => {
     latest.current = { fetchNextPage: active.fetchNextPage, refetch: active.refetch }
@@ -340,30 +332,24 @@ export default function MyAgents() {
     )
     observer.observe(node)
     return () => observer.disconnect()
-    // isFetchingNextPage 를 deps 에 두는 것은 낭비가 아니다. 이 값이 바뀔 때 observer 가
-    // 다시 만들어지고, observe() 가 이미 교차 중인 sentinel 에 콜백을 다시 발사해 다음
-    // 장을 잇는다. 교차 '변화' 만 기다리면 행이 컨테이너를 채운 상태에서 이어지지 않는다.
+    // isFetchingNextPage 가 deps 에 있어야 한다. 이 값이 바뀔 때 observer 가 다시
+    // 만들어져 이미 교차 중인 sentinel 에서 다음 장을 잇는다.
   }, [tab, hasNextPage, isFetchNextPageError, isFetchingNextPage])
 
-  /** 위 observer 는 실패한 커서를 다시 밟지 않으려고 스스로를 끈다. 그것을 되살릴 유일한
-   *  수단이 그 observer 라 사람이 눌러서 나갈 길이 없으면 무한 스크롤이 영구히 멈춘다. */
+  /** observer 는 실패한 커서를 다시 밟지 않으려고 스스로를 끈다. */
   const handleRetryNextPage = () => {
     if (!isFetchingNextPage) void latest.current.fetchNextPage()
   }
 
   // 이전 검색어의 결과를 보여주는 동안(placeholder)은 아직 '이번 결과' 가 아니다.
   const isSettled = !active.isPending && !active.isPlaceholderData
-  // 불러오는 중에는 '없음' 을 띄우지 않는다 — 요청마다 한 번씩 깜빡인다(컨벤션 6절).
+  // 불러오는 중에는 '없음' 을 띄우지 않는다 — 요청마다 한 번씩 깜빡인다.
   const notice = isSettled && count === 0
   const countLabel = isSettled ? `${count}개${hasNextPage ? '+' : ''}` : '…'
 
-  /** <empty-state> 의 '검색어 지우기'·'다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지
-   *  않아 직접 붙인다. emit 이 호스트에서 bubbles 로 올리므로 호스트에서 받으면 된다.
-   *
-   *  effect + deps 로 붙이면 세 분기 사이의 이동을 deps 가 못 따라간다 — 검색어 없이 0개인
-   *  분기(ref 가 없어 노드를 못 잡는다)에서 백그라운드 refetch 가 실패해 isError 분기로
-   *  넘어갈 때 tab·notice 가 그대로라 effect 가 돌지 않고 '다시 시도' 가 죽는다.
-   *  노드가 붙는 시점에 직접 매달아 분기와 무관하게 만든다. */
+  /** React 는 커스텀 이벤트를 on* 으로 받지 않아 직접 붙인다. effect + deps 로 붙이면
+   *  빈 상태와 실패 분기 사이를 오갈 때 deps 가 안 바뀌어 '다시 시도' 가 죽는다 —
+   *  노드가 붙는 시점에 매달아 분기와 무관하게 만든다. */
   const bindNotice = useCallback((node: HTMLElement | null) => {
     if (!node) return
     const onClear = () => setQ('')
@@ -659,8 +645,7 @@ export default function MyAgents() {
       {/* 삭제 확인 — 되돌릴 수 없으므로 한 번 묻는다 */}
       {deleteAt !== null && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 70 }}>
-          {/* 이 판에 opacity·transform 을 걸지 않는다 — backdrop 루트가 되어 blur 가 죽는다
-              (컨벤션 10절). 등장 모션은 위의 패널에만 준다. */}
+          {/* 이 패널에 opacity·transform 을 걸지 않는다. backdrop 루트가 되어 blur 가 죽기 때문. 등장 모션은 위의 패널에만 준다. */}
           <div
             onClick={handleCloseDelete}
             className="absolute inset-0"
@@ -733,10 +718,7 @@ export default function MyAgents() {
   )
 }
 
-/**
- * 에이전트 한 줄. 탭마다 라벨과 값만 달라지므로 지표 문자열을 밖에서 받는다 —
- * 탭 이름을 넘겨 안에서 갈라 쓰면 같은 숫자에 다른 이름이 붙는 실수가 생긴다.
- */
+/** 지표 문자열을 밖에서 받는다 — 안에서 탭으로 가르면 같은 숫자에 다른 이름이 붙는다. */
 function AgentRow({
   row,
   delay,
@@ -894,10 +876,8 @@ function AgentRow({
 }
 
 /**
- * 워크플로우 한 장. 행을 누르면 캔버스를 복원한다(명세 「열어서 수정」).
- *
- * ponytail: 「실행하기」도 지금은 캔버스로 보낸다. 실행 생성 API(EXE) 명세가 오면
- * 그 요청에 `workflowId` 를 넘기는 것으로 바꾼다 — 새 화면은 필요하지 않다.
+ * 워크플로우 한 장. 행을 누르면 캔버스를 복원한다.
+ * 「실행하기」도 지금은 캔버스로 보낸다 — 실행 생성 API 가 오면 그 요청으로 바꾼다.
  */
 function WorkflowCard({
   name,

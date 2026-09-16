@@ -8,10 +8,7 @@ const MESSAGE: Record<Exclude<SwitchPhase, 'idle'>, string> = {
 }
 
 /**
- * 네트워크가 다를 때 화면 맨 위에 뜨는 띠.
- *
- * 캡슐이 아니라 띠인 이유는 하늘 한가운데를 뚫지 않기 위해서다 — 배경이
- * 주인공인 화면에서 경고가 배경을 가리면 안 된다. 모달로 막지도 않는다.
+ * 네트워크가 다를 때 화면 맨 위에 뜨는 띠. 모달로 막지 않는다 —
  * 검색·상세는 체인과 무관하게 볼 수 있어야 한다.
  */
 export default function ChainBanner({

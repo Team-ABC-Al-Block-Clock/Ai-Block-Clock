@@ -41,7 +41,7 @@ export function successLabel(successRate: number, executionCount: number) {
   return (Math.floor(successRate * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%'
 }
 
-/** '0x1f9c4b2e…5b8072a' → '0x1f9c…072a' — 지갑 주소는 전체가 화면에 들어가지 않는다 */
+/** '0x1f9c4b2e…5b8072a' → '0x1f9c…072a' — 지갑 주소는 일부만 화면에 넣는다. */
 export function shortAddress(address: string) {
   if (address.length <= 13) return address
   return `${address.slice(0, 6)}…${address.slice(-4)}`
@@ -50,8 +50,7 @@ export function shortAddress(address: string) {
 /**
  * '2026-09-07T14:22:00Z' → '09.07 14:22', null → '—'
  *
- * 표준시를 서울로 고정한다 — 안 그러면 테스트가 CI 의 TZ 설정에 따라 갈린다.
- * 상대 시각('3일 전')은 만들지 않는다. 목록을 열어 둔 채 자정을 넘기면 값이 어긋난다.
+ * 표준시를 서울로 고정한다. 상대 시각('3일 전')은 만들지 않는다. 목록을 열어 둔 채 자정을 넘기면 값이 어긋나기 때문이다.
  */
 const DATE_TIME = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
@@ -82,7 +81,7 @@ export function josa(name: string) {
   return isHangul && (code - 0xac00) % 28 !== 0 ? '을' : '를'
 }
 
-/** `Record<ItemNodeType, string>` 이라 유형이 늘면 채울 때까지 컴파일이 실패한다. */
+/** `Record<ItemNodeType, string>` 이라 유형이 늘어나면 채울 때까지 컴파일이 실패한다. */
 const NODE_TYPE_LABELS: Record<ItemNodeType, string> = {
   TRIGGER: '트리거',
   LLM: 'LLM',
