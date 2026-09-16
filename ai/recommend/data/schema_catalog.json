@@ -1,0 +1,29 @@
+{
+  "description": "공용 스키마 카탈로그 6종의 사람이 읽는 설명. 가이드 §9.3 기준. 임베딩 텍스트 조립과 토큰 길이 측정에 쓴다. 정식 JSON Schema 파일은 트랙 A가 ai/schemas/catalog/ 에 배포한다.",
+  "schemas": {
+    "common.table@1": {
+      "summary": "행과 열로 이루어진 표 데이터",
+      "fields": "columns(열 이름과 자료형), rows(각 행의 값)"
+    },
+    "common.text@1": {
+      "summary": "형식이 없는 단순 텍스트",
+      "fields": "text(본문 문자열)"
+    },
+    "common.document@1": {
+      "summary": "제목과 여러 섹션으로 나뉜 문서 초안",
+      "fields": "title(제목), sections(각 섹션의 heading 소제목과 body 본문)"
+    },
+    "edu.roster@1": {
+      "summary": "학생 명단과 과목별 점수, 출결",
+      "fields": "period(이번·지난 기간), subjects(과목 목록), students(학생별 이름·과목 점수·출석 일수), context(사용자가 남긴 코멘트)"
+    },
+    "edu.analysis@1": {
+      "summary": "성적 통계 요약",
+      "fields": "summary(학생 수·평균·전기간 평균·증감), students(학생별 평균과 증감·취약 과목·상승 하락 추세), subjects(과목별 평균과 증감)"
+    },
+    "edu.letter@1": {
+      "summary": "학생별 가정통신문 본문",
+      "fields": "overall_comment(반 전체 총평), letters(학생별 이름·격려형 또는 경고형 어조·본문)"
+    }
+  }
+}

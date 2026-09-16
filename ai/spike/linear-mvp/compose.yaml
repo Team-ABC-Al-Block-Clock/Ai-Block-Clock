@@ -1,0 +1,47 @@
+# AI Runtime compose.
+#
+# 백엔드(backend/ai-block-clock/compose.yaml)가 만든 네트워크에 외부 네트워크로
+# 참여한다. 그래야 백엔드가 컨테이너 이름으로 우리를 부를 수 있다.
+#
+#   백엔드에서 본 우리 주소 :  http://ai-block-clock-ai-runtime:8000
+#
+# 백엔드 compose 는 네트워크에 name 을 주지 않아서 실제 이름에 프로젝트명 접두어가
+# 붙는다(`ai-block-clock_ai-block-clock-network`). 환경이 다를 수 있으므로
+# BACKEND_NETWORK 로 덮어쓸 수 있게 해 두고, CI 배포 잡이 실제 이름을 찾아 넣는다.
+#
+# 운영과 로컬의 차이는 환경변수 두 개뿐이라 compose.prod.yaml 을 따로 두지 않는다.
+#   AI_RUNTIME_BIND  운영은 127.0.0.1 (외부는 Nginx 를 거친다). 로컬 기본값은 0.0.0.0
+#   ABC_SERVICE_TOKEN 운영은 반드시 채운다. 비면 인증 검사를 건너뛴다
+#
+# 로컬에서 처음 띄울 때는 네트워크를 한 번 만들어 둔다.
+#   docker network create ai-block-clock_ai-block-clock-network
+
+services:
+  ai-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-block-clock-ai-runtime:${IMAGE_TAG:-local}
+    container_name: ai-block-clock-ai-runtime
+    environment:
+      # LLM 은 SSAFY GMS 를 경유한다. 키는 GitLab CI/CD Variables 의 LLM_API_KEY(GMS 팀 키)에서 온다.
+      LLM_API_KEY: ${LLM_API_KEY:?LLM_API_KEY 가 필요하다}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      ABC_SERVICE_TOKEN: ${ABC_SERVICE_TOKEN:-}
+    ports:
+      - "${AI_RUNTIME_BIND:-0.0.0.0}:${AI_RUNTIME_PORT:-8000}:8000"
+    networks:
+      - ai-block-clock-network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+networks:
+  ai-block-clock-network:
+    external: true
+    name: ${BACKEND_NETWORK:-ai-block-clock_ai-block-clock-network}

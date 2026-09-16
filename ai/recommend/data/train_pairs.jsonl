@@ -1,0 +1,340 @@
+{"query": "학급 단위로 점수 집계해 주세요", "positive_agent_id": "ag_seed_03"}
+{"query": "우선순위 정해 줄 수 있나요", "positive_agent_id": "ag_seed_13"}
+{"query": "상담 후 기록 작성", "positive_agent_id": "ag_seed_05"}
+{"query": "미팅 기록 정리해 주세요", "positive_agent_id": "ag_seed_06"}
+{"query": "길게 적힌 논의 내용 줄이기", "positive_agent_id": "ag_seed_06"}
+{"query": "실행 항목 정리해 주세요", "positive_agent_id": "ag_seed_11"}
+{"query": "메모에서 액션 아이템만 골라 줄 수 있나요", "positive_agent_id": "ag_seed_11"}
+{"query": "공지용 문장 다듬기", "positive_agent_id": "ag_seed_15"}
+{"query": "업무 목록 추출", "positive_agent_id": "ag_seed_11"}
+{"query": "뭐가 중요한 얘기인지 짚어줘", "positive_agent_id": "ag_seed_09"}
+{"query": "뭘 했고 어떻게 됐는지 문서로 남겨야 하는데", "positive_agent_id": "ag_seed_08"}
+{"query": "표준편차까지 뽑아줄 수 있어?", "positive_agent_id": "ag_seed_03"}
+{"query": "중복된 로직 찾아 주실 수 있나요", "positive_agent_id": "ag_seed_18"}
+{"query": "문서 뼈대 정리", "positive_agent_id": "ag_seed_07"}
+{"query": "성적 엑셀 파일 분석해 주세요", "positive_agent_id": "ag_seed_01"}
+{"query": "상담하면서 적은 메모 정리해줘", "positive_agent_id": "ag_seed_05"}
+{"query": "대상자 전체한테 보낼 글 좀", "positive_agent_id": "ag_seed_15"}
+{"query": "배포 공지용 글", "positive_agent_id": "ag_seed_20"}
+{"query": "출석부 정리", "positive_agent_id": "ag_seed_04"}
+{"query": "면담 기록 양식에 맞춰 정리", "positive_agent_id": "ag_seed_05"}
+{"query": "누가 요즘 학원 잘 안 오는지 알 수 있나요", "positive_agent_id": "ag_seed_04"}
+{"query": "아이별로 다르게 안내문 만들어 줄 수 있나요", "positive_agent_id": "ag_seed_02"}
+{"query": "비즈니스 문서 톤으로", "positive_agent_id": "ag_seed_14"}
+{"query": "학부모 전달용 글 만들어 주세요", "positive_agent_id": "ag_seed_02"}
+{"query": "분량 많은 글 줄이기", "positive_agent_id": "ag_seed_09"}
+{"query": "부드럽게 고쳐줘", "positive_agent_id": "ag_seed_17"}
+{"query": "학생 개개인 성적 변화 추적하고 싶은데", "positive_agent_id": "ag_seed_01"}
+{"query": "사과 문장 다듬기", "positive_agent_id": "ag_seed_16"}
+{"query": "이미 쓴 글 어색한 부분만 고쳐줘", "positive_agent_id": "ag_seed_17"}
+{"query": "잘못한 일 사과하는 메일", "positive_agent_id": "ag_seed_16"}
+{"query": "짧게 요약해서 커밋용으로", "positive_agent_id": "ag_seed_19"}
+{"query": "불편 드려 죄송하다는 내용으로 써줘", "positive_agent_id": "ag_seed_16"}
+{"query": "해야 할 것 목록으로 만들어 주세요", "positive_agent_id": "ag_seed_11"}
+{"query": "회의에서 나온 할 일만 따로 빼줘", "positive_agent_id": "ag_seed_11"}
+{"query": "써놓은 답장 말투 봐줘", "positive_agent_id": "ag_seed_17"}
+{"query": "문단 나눠 주세요", "positive_agent_id": "ag_seed_07"}
+{"query": "논의된 것만 정리해줘", "positive_agent_id": "ag_seed_06"}
+{"query": "회신 메일 초안", "positive_agent_id": "ag_seed_14"}
+{"query": "문서 초안 작성해 주세요", "positive_agent_id": "ag_seed_08"}
+{"query": "업데이트 요약 만들기", "positive_agent_id": "ag_seed_20"}
+{"query": "컨벤션대로 메시지 만들어줘", "positive_agent_id": "ag_seed_19"}
+{"query": "하기로 약속한 것들 목록화", "positive_agent_id": "ag_seed_11"}
+{"query": "단체 안내문", "positive_agent_id": "ag_seed_15"}
+{"query": "우리 반 애들 어떤 과목에서 많이 틀렸는지 알 수 있을까", "positive_agent_id": "ag_seed_01"}
+{"query": "회의 시간 배분해줘", "positive_agent_id": "ag_seed_12"}
+{"query": "다음 주 뭐 있나 미리 보고 싶은데", "positive_agent_id": "ag_seed_10"}
+{"query": "학부모님께 성적 결과 어떻게 전달하지", "positive_agent_id": "ag_seed_02"}
+{"query": "잘못 인정하는 문장 어떻게 쓰지", "positive_agent_id": "ag_seed_16"}
+{"query": "집계 결과 표로 만들어 주세요", "positive_agent_id": "ag_seed_03"}
+{"query": "너무 가벼운 것 같은데 봐줘", "positive_agent_id": "ag_seed_17"}
+{"query": "기한 임박한 것만 뽑아줘", "positive_agent_id": "ag_seed_13"}
+{"query": "업무용 문장 만들기", "positive_agent_id": "ag_seed_14"}
+{"query": "면담 내용 문서로 만들어 주세요", "positive_agent_id": "ag_seed_05"}
+{"query": "학생이랑 나눈 얘기 기록으로 남기고 싶은데", "positive_agent_id": "ag_seed_05"}
+{"query": "리포트 뼈대", "positive_agent_id": "ag_seed_08"}
+{"query": "중요한 것만 남겨줘", "positive_agent_id": "ag_seed_09"}
+{"query": "담당자랑 기한 붙여서 목록 만들어줘", "positive_agent_id": "ag_seed_11"}
+{"query": "시험 점수 넣으면 누가 관리 필요한지 알려주나요", "positive_agent_id": "ag_seed_01"}
+{"query": "기한 관리 좀 도와줘", "positive_agent_id": "ag_seed_13"}
+{"query": "하기로 한 것들 정리", "positive_agent_id": "ag_seed_11"}
+{"query": "클레임 대응 문구", "positive_agent_id": "ag_seed_16"}
+{"query": "할 일 자동으로 정리해 줄 수 있어?", "positive_agent_id": "ag_seed_11"}
+{"query": "핵심 문단만 골라줘", "positive_agent_id": "ag_seed_09"}
+{"query": "반 평균이랑 편차 알려줘", "positive_agent_id": "ag_seed_03"}
+{"query": "미결 사항이랑 새 안건 나눠줘", "positive_agent_id": "ag_seed_12"}
+{"query": "긴 문서 압축", "positive_agent_id": "ag_seed_09"}
+{"query": "업무 메일 문구", "positive_agent_id": "ag_seed_14"}
+{"query": "리뷰 코멘트 만들어줘", "positive_agent_id": "ag_seed_18"}
+{"query": "달라진 점 안내 문구", "positive_agent_id": "ag_seed_20"}
+{"query": "글 정리해서 체계 잡아줘", "positive_agent_id": "ag_seed_07"}
+{"query": "집에 보낼 알림장 내용 만들어 주세요", "positive_agent_id": "ag_seed_02"}
+{"query": "사과 초안 만들어 주세요", "positive_agent_id": "ag_seed_16"}
+{"query": "회의에서 나온 결정사항 목록", "positive_agent_id": "ag_seed_06"}
+{"query": "애 성적 얘기 부담스럽지 않게 쓰는 법", "positive_agent_id": "ag_seed_02"}
+{"query": "미팅 아젠다 작성", "positive_agent_id": "ag_seed_12"}
+{"query": "섹션 구분", "positive_agent_id": "ag_seed_07"}
+{"query": "업데이트 내역 정리", "positive_agent_id": "ag_seed_20"}
+{"query": "아이들 시험 결과 넣으면 분석해 주는 거 있나요", "positive_agent_id": "ag_seed_01"}
+{"query": "대충 적은 거 다듬어 주세요", "positive_agent_id": "ag_seed_14"}
+{"query": "평균이랑 중간값 같이 나오나", "positive_agent_id": "ag_seed_03"}
+{"query": "누가 뭘 하기로 했는지 뽑아 주세요", "positive_agent_id": "ag_seed_06"}
+{"query": "공손한 문장으로 바꿔줘", "positive_agent_id": "ag_seed_14"}
+{"query": "우리 학원 애들 성적 추이 좀 봐줘", "positive_agent_id": "ag_seed_01"}
+{"query": "스케줄 정리", "positive_agent_id": "ag_seed_10"}
+{"query": "줄글로 쓴 거 읽기 좋게 나눠 주실 수 있나요", "positive_agent_id": "ag_seed_07"}
+{"query": "학부모한테 보낼 문자 내용 좀", "positive_agent_id": "ag_seed_02"}
+{"query": "결석 사유별로 나눠서 정리해줘", "positive_agent_id": "ag_seed_04"}
+{"query": "이대로 보내도 되나 확인해줘", "positive_agent_id": "ag_seed_17"}
+{"query": "회의록 다듬기", "positive_agent_id": "ag_seed_06"}
+{"query": "보고용 글 뼈대 잡아줘", "positive_agent_id": "ag_seed_08"}
+{"query": "팀 미팅 기록 요약해 줄 수 있어?", "positive_agent_id": "ag_seed_06"}
+{"query": "결석 잦은 학생 명단 뽑아줘", "positive_agent_id": "ag_seed_04"}
+{"query": "팀 회의 준비하려는데 목록 만들어 줄 수 있어?", "positive_agent_id": "ag_seed_12"}
+{"query": "반 단위 결과 요약 좀", "positive_agent_id": "ag_seed_03"}
+{"query": "반 전체 결과를 숫자로 정리해 주세요", "positive_agent_id": "ag_seed_03"}
+{"query": "성적 결과 전달 문구 초안 좀", "positive_agent_id": "ag_seed_02"}
+{"query": "회사 메일 작성 도와줘", "positive_agent_id": "ag_seed_14"}
+{"query": "커밋 로그 문구", "positive_agent_id": "ag_seed_19"}
+{"query": "문제 상황 설명하는 글 좀 써 주세요", "positive_agent_id": "ag_seed_16"}
+{"query": "조심스럽게 성적 얘기 꺼내는 문장 좀 써줘", "positive_agent_id": "ag_seed_02"}
+{"query": "긴 글 짧게", "positive_agent_id": "ag_seed_09"}
+{"query": "대화 메모를 보고서 형태로 바꿔줘", "positive_agent_id": "ag_seed_05"}
+{"query": "반 아이들 지난번이랑 비교해서 어떻게 달라졌는지 보고 싶어요", "positive_agent_id": "ag_seed_01"}
+{"query": "회의 계획 세우기", "positive_agent_id": "ag_seed_12"}
+{"query": "자료 읽기 전에 뭔 내용인지 알고 싶어요", "positive_agent_id": "ag_seed_09"}
+{"query": "바뀐 내용 알리는 글 만들어줘", "positive_agent_id": "ag_seed_15"}
+{"query": "상담 때 약속한 것들만 뽑아줘", "positive_agent_id": "ag_seed_05"}
+{"query": "메일 문구 다듬기", "positive_agent_id": "ag_seed_14"}
+{"query": "진행 상황 정리 문서 만들어줘", "positive_agent_id": "ag_seed_08"}
+{"query": "상담 일지 작성", "positive_agent_id": "ag_seed_05"}
+{"query": "여러 명한테 보낼 공지 써줘", "positive_agent_id": "ag_seed_15"}
+{"query": "늦은 것부터 알려 주세요", "positive_agent_id": "ag_seed_13"}
+{"query": "사죄 글 작성해 주세요", "positive_agent_id": "ag_seed_16"}
+{"query": "개발 모르는 사람도 알아보게 써줘", "positive_agent_id": "ag_seed_20"}
+{"query": "전사 공지 작성", "positive_agent_id": "ag_seed_15"}
+{"query": "미팅 내용 핵심만 남겨 주세요", "positive_agent_id": "ag_seed_06"}
+{"query": "빠진 날짜 정리해서 상담 때 쓰려고", "positive_agent_id": "ag_seed_04"}
+{"query": "급한 것부터 순서 매겨줘", "positive_agent_id": "ag_seed_13"}
+{"query": "회의 기록 간추리기", "positive_agent_id": "ag_seed_06"}
+{"query": "시간 겹치는 거 확인해 주세요", "positive_agent_id": "ag_seed_10"}
+{"query": "모두에게 알릴 내용 정리해줘", "positive_agent_id": "ag_seed_15"}
+{"query": "오늘까지 해야 할 게 뭐야", "positive_agent_id": "ag_seed_13"}
+{"query": "학생들 결과 정리해서 상담 자료로 쓰려는데", "positive_agent_id": "ag_seed_01"}
+{"query": "실수 인정하고 수습 방안까지 담아줘", "positive_agent_id": "ag_seed_16"}
+{"query": "개선할 점 짚어 주세요", "positive_agent_id": "ag_seed_18"}
+{"query": "회의 전에 뭘 준비할지 목록으로", "positive_agent_id": "ag_seed_12"}
+{"query": "학부모 대상 성적 안내", "positive_agent_id": "ag_seed_02"}
+{"query": "일정 요약", "positive_agent_id": "ag_seed_10"}
+{"query": "논의할 주제 순서대로 세워줘", "positive_agent_id": "ag_seed_12"}
+{"query": "기한 지난 거 있는지 확인해 주세요", "positive_agent_id": "ag_seed_13"}
+{"query": "핵심 주장만 뽑아줘", "positive_agent_id": "ag_seed_09"}
+{"query": "면담 노트 다듬기", "positive_agent_id": "ag_seed_05"}
+{"query": "릴리즈 노트 작성해 주세요", "positive_agent_id": "ag_seed_20"}
+{"query": "알림 메일 초안", "positive_agent_id": "ag_seed_15"}
+{"query": "결과 정리해서 윗선에 올릴 문서 필요해", "positive_agent_id": "ag_seed_08"}
+{"query": "코드 품질 확인", "positive_agent_id": "ag_seed_18"}
+{"query": "애들 성적 오르내린 거 한번에 보고 싶어", "positive_agent_id": "ag_seed_01"}
+{"query": "두 시간짜리 회의 내용 짧게 만들어 주실 수 있나요", "positive_agent_id": "ag_seed_06"}
+{"query": "메일 톤 확인", "positive_agent_id": "ag_seed_17"}
+{"query": "출결 자료 문서화", "positive_agent_id": "ag_seed_04"}
+{"query": "학생별로 어느 과목이 약한지 찾아줘", "positive_agent_id": "ag_seed_01"}
+{"query": "무엇을 왜 바꿨는지 짧게 적어 주세요", "positive_agent_id": "ag_seed_19"}
+{"query": "프로젝트 정리 문서 초안 좀", "positive_agent_id": "ag_seed_08"}
+{"query": "개발 코드 검토 요청", "positive_agent_id": "ag_seed_18"}
+{"query": "상담 내용 요약 문서", "positive_agent_id": "ag_seed_05"}
+{"query": "문단 정리하고 소제목 붙이기", "positive_agent_id": "ag_seed_07"}
+{"query": "며칠 안 남은 업무 알려줘", "positive_agent_id": "ag_seed_13"}
+{"query": "누가 성적이 떨어졌는지 빠르게 확인하고 싶어요", "positive_agent_id": "ag_seed_01"}
+{"query": "소식 전하는 글 써줘", "positive_agent_id": "ag_seed_15"}
+{"query": "우리 반이 다른 반보다 어떤지 수치로 보고 싶은데", "positive_agent_id": "ag_seed_03"}
+{"query": "이번 버전에서 뭐 달라졌는지 정리해줘", "positive_agent_id": "ag_seed_20"}
+{"query": "코드 피드백 남겨 주세요", "positive_agent_id": "ag_seed_18"}
+{"query": "점수 분포 내주는 기능 있나요", "positive_agent_id": "ag_seed_03"}
+{"query": "답변 문장 손봐줘", "positive_agent_id": "ag_seed_17"}
+{"query": "학부모 소통용 문서 만들어줘", "positive_agent_id": "ag_seed_02"}
+{"query": "읽을 시간이 없는데 요점만", "positive_agent_id": "ag_seed_09"}
+{"query": "처리할 것들만 골라 주세요", "positive_agent_id": "ag_seed_11"}
+{"query": "상대가 기분 나쁘지 않게 부탁하는 글 써줄 수 있어?", "positive_agent_id": "ag_seed_14"}
+{"query": "무슨 얘기 했고 뭘 하기로 했는지 나눠서 정리해 주세요", "positive_agent_id": "ag_seed_05"}
+{"query": "업무 메일 좀 써줘", "positive_agent_id": "ag_seed_14"}
+{"query": "메모한 거 깔끔하게 정리해 주실 수 있나요", "positive_agent_id": "ag_seed_05"}
+{"query": "문제될 만한 부분 짚어줘", "positive_agent_id": "ag_seed_18"}
+{"query": "어디서 주제 바뀌는지 찾아서 나눠줘", "positive_agent_id": "ag_seed_07"}
+{"query": "전달 사항 정리해서 메일로", "positive_agent_id": "ag_seed_15"}
+{"query": "안 나온 날 세어서 알려줘", "positive_agent_id": "ag_seed_04"}
+{"query": "이 문장 너무 딱딱한가요", "positive_agent_id": "ag_seed_17"}
+{"query": "정리 문서 초안", "positive_agent_id": "ag_seed_08"}
+{"query": "변수명 이상한 거 있나 확인해줘", "positive_agent_id": "ag_seed_18"}
+{"query": "학부모 면담 정리해서 남겨야 하는데", "positive_agent_id": "ag_seed_05"}
+{"query": "흩어진 일정 하나로 모아 주세요", "positive_agent_id": "ag_seed_10"}
+{"query": "회의 진행 순서 잡아줘", "positive_agent_id": "ag_seed_12"}
+{"query": "결석 추이 확인", "positive_agent_id": "ag_seed_04"}
+{"query": "제목 체계 잡아 주세요", "positive_agent_id": "ag_seed_07"}
+{"query": "이 코드 어떻게 고치면 좋을지 알려줘", "positive_agent_id": "ag_seed_18"}
+{"query": "우리 반 전체가 어느 과목에서 부족한지 보고 싶어요", "positive_agent_id": "ag_seed_03"}
+{"query": "작업 내용 짧게 적어줘", "positive_agent_id": "ag_seed_19"}
+{"query": "주요 내용 추출", "positive_agent_id": "ag_seed_09"}
+{"query": "내용은 그대로 두고 순서만 바꿔 주세요", "positive_agent_id": "ag_seed_07"}
+{"query": "업무 결과 문서화", "positive_agent_id": "ag_seed_08"}
+{"query": "메일 초안 작성", "positive_agent_id": "ag_seed_14"}
+{"query": "공지 초안 만들어 주세요", "positive_agent_id": "ag_seed_15"}
+{"query": "비개발자용 설명으로 바꿔줘", "positive_agent_id": "ag_seed_20"}
+{"query": "곁가지 빼고 본론만 알려줘", "positive_agent_id": "ag_seed_09"}
+{"query": "요약해 주세요", "positive_agent_id": "ag_seed_09"}
+{"query": "놓친 부분 있는지 확인해 주세요", "positive_agent_id": "ag_seed_18"}
+{"query": "배포 안내 문구", "positive_agent_id": "ag_seed_20"}
+{"query": "다음 회의 때 뭐 얘기할지 정리해줘", "positive_agent_id": "ag_seed_12"}
+{"query": "몇 점대에 몇 명 있는지 구간별로 나눠줘", "positive_agent_id": "ag_seed_03"}
+{"query": "상대 기분 풀리게 쓰는 사과글", "positive_agent_id": "ag_seed_16"}
+{"query": "보호자께 드릴 안내 편지", "positive_agent_id": "ag_seed_02"}
+{"query": "보내기 전 문구 점검", "positive_agent_id": "ag_seed_17"}
+{"query": "작업 내용 한 줄로 정리해 주실 수 있나요", "positive_agent_id": "ag_seed_19"}
+{"query": "한 줄 요약 작성", "positive_agent_id": "ag_seed_19"}
+{"query": "글 구조 정리", "positive_agent_id": "ag_seed_07"}
+{"query": "자료 모아놨는데 보고서로 만들어줘", "positive_agent_id": "ag_seed_08"}
+{"query": "개발 내용 쉽게 풀어서 써줘", "positive_agent_id": "ag_seed_20"}
+{"query": "점수 통계 수치 뽑기", "positive_agent_id": "ag_seed_03"}
+{"query": "자주 빠지는 학생 파악하고 싶은데", "positive_agent_id": "ag_seed_04"}
+{"query": "글 흐름 정리해줘", "positive_agent_id": "ag_seed_07"}
+{"query": "회의 순서표", "positive_agent_id": "ag_seed_12"}
+{"query": "성적 통계 가지고 학부모용 리포트 문구 만들어줘", "positive_agent_id": "ag_seed_02"}
+{"query": "예외 처리 빠진 데 있나 봐줘", "positive_agent_id": "ag_seed_18"}
+{"query": "사무적인 말투로 정리해 주세요", "positive_agent_id": "ag_seed_14"}
+{"query": "학생마다 잘하는 과목 못하는 과목 뽑아줄 수 있어?", "positive_agent_id": "ag_seed_01"}
+{"query": "작성한 코드 점검", "positive_agent_id": "ag_seed_18"}
+{"query": "문장 교정", "positive_agent_id": "ag_seed_17"}
+{"query": "사과 표현 작성", "positive_agent_id": "ag_seed_16"}
+{"query": "쓴 글 자연스럽게 만들어줘", "positive_agent_id": "ag_seed_17"}
+{"query": "변경 내역 문서화", "positive_agent_id": "ag_seed_20"}
+{"query": "배경부터 결론까지 틀 잡아 주실 수 있나요", "positive_agent_id": "ag_seed_08"}
+{"query": "유감 표명 문구", "positive_agent_id": "ag_seed_16"}
+{"query": "해야 할 일 표로", "positive_agent_id": "ag_seed_11"}
+{"query": "얘기 나온 것 중에 실행할 것만", "positive_agent_id": "ag_seed_11"}
+{"query": "학년 전체 통계 산출", "positive_agent_id": "ag_seed_03"}
+{"query": "자료 간추리기", "positive_agent_id": "ag_seed_09"}
+{"query": "스케줄 브리핑 자료", "positive_agent_id": "ag_seed_10"}
+{"query": "쭉 이어진 글에 제목 좀 붙여줘", "positive_agent_id": "ag_seed_07"}
+{"query": "규칙 지킨 커밋 문구 만들어 주세요", "positive_agent_id": "ag_seed_19"}
+{"query": "격려하는 톤으로 보호자한테 전달할 글", "positive_agent_id": "ag_seed_02"}
+{"query": "논의 주제 정리", "positive_agent_id": "ag_seed_12"}
+{"query": "급한 순서대로 나열", "positive_agent_id": "ag_seed_13"}
+{"query": "커밋 규칙에 맞춰서", "positive_agent_id": "ag_seed_19"}
+{"query": "안내 메일 문구 만들어 주세요", "positive_agent_id": "ag_seed_15"}
+{"query": "출석 현황 문서 만들기", "positive_agent_id": "ag_seed_04"}
+{"query": "점수 데이터에서 하락한 학생만 골라낼 수 있나요", "positive_agent_id": "ag_seed_01"}
+{"query": "개인별 성적 증감 계산", "positive_agent_id": "ag_seed_01"}
+{"query": "학급 단위 분석 자료 필요해", "positive_agent_id": "ag_seed_03"}
+{"query": "과목별 평균 계산", "positive_agent_id": "ag_seed_03"}
+{"query": "사과 메시지 초안", "positive_agent_id": "ag_seed_16"}
+{"query": "최근에 빠지는 횟수 늘어난 애 있나 확인", "positive_agent_id": "ag_seed_04"}
+{"query": "상담 기록 정리 도와줄 수 있나", "positive_agent_id": "ag_seed_05"}
+{"query": "공지 문구 작성해 주세요", "positive_agent_id": "ag_seed_15"}
+{"query": "출석 데이터로 보고서 만들어 주세요", "positive_agent_id": "ag_seed_04"}
+{"query": "안건 목록 만들어 주세요", "positive_agent_id": "ag_seed_12"}
+{"query": "답장 보내기 전에 검토해 주세요", "positive_agent_id": "ag_seed_17"}
+{"query": "집으로 보낼 편지 써줘", "positive_agent_id": "ag_seed_02"}
+{"query": "논의랑 결정 나눠서 정리해 주세요", "positive_agent_id": "ag_seed_06"}
+{"query": "git 메시지 만들어줘", "positive_agent_id": "ag_seed_19"}
+{"query": "이번 주 준비할 거 뭔지 알려줘", "positive_agent_id": "ag_seed_10"}
+{"query": "말투 다듬기", "positive_agent_id": "ag_seed_17"}
+{"query": "결과 문서 작성", "positive_agent_id": "ag_seed_08"}
+{"query": "상담 메모 문서화해 주세요", "positive_agent_id": "ag_seed_05"}
+{"query": "성적 올라간 아이한테 칭찬하는 내용으로 써줘", "positive_agent_id": "ag_seed_02"}
+{"query": "작업 요약 한 줄 작성", "positive_agent_id": "ag_seed_19"}
+{"query": "학급 성적 집계표 만들어줘", "positive_agent_id": "ag_seed_03"}
+{"query": "회의 준비 자료", "positive_agent_id": "ag_seed_12"}
+{"query": "일정 변경 알림 문구", "positive_agent_id": "ag_seed_15"}
+{"query": "전체 안내 메일", "positive_agent_id": "ag_seed_15"}
+{"query": "처음 연락하는 분한테 보낼 메일이라 조심스러운데", "positive_agent_id": "ag_seed_14"}
+{"query": "미팅 준비 목록 만들어 주세요", "positive_agent_id": "ag_seed_12"}
+{"query": "새로 생긴 기능이랑 고쳐진 것 나눠 주실 수 있나요", "positive_agent_id": "ag_seed_20"}
+{"query": "소스 개선점 찾기", "positive_agent_id": "ag_seed_18"}
+{"query": "학생별 출결 현황 정리", "positive_agent_id": "ag_seed_04"}
+{"query": "채팅 내용에서 할 일 찾아 주세요", "positive_agent_id": "ag_seed_11"}
+{"query": "업데이트 소식 작성", "positive_agent_id": "ag_seed_20"}
+{"query": "업무 연락 문장 작성해 주세요", "positive_agent_id": "ag_seed_14"}
+{"query": "사내 공지 쓸 건데 도와 주실 수 있나요", "positive_agent_id": "ag_seed_15"}
+{"query": "주간 계획 정리해 주세요", "positive_agent_id": "ag_seed_10"}
+{"query": "오해 살 만한 표현 있는지 봐 주실 수 있나요", "positive_agent_id": "ag_seed_17"}
+{"query": "정리 안 된 문서 다듬기", "positive_agent_id": "ag_seed_07"}
+{"query": "요점 정리해 주실 수 있나요", "positive_agent_id": "ag_seed_09"}
+{"query": "이번 주 뭐 있는지 정리해줘", "positive_agent_id": "ag_seed_10"}
+{"query": "이 표현 괜찮은지 봐줄 수 있어?", "positive_agent_id": "ag_seed_17"}
+{"query": "밀린 업무 확인", "positive_agent_id": "ag_seed_13"}
+{"query": "약속이랑 마감 한 장으로 만들어 줄 수 있나요", "positive_agent_id": "ag_seed_10"}
+{"query": "회의 정리 문서 만들어 주세요", "positive_agent_id": "ag_seed_06"}
+{"query": "다음 미팅 아젠다 좀", "positive_agent_id": "ag_seed_12"}
+{"query": "어떤 일이 제일 급한지 보고 싶은데", "positive_agent_id": "ag_seed_13"}
+{"query": "커밋 문구 만들어줘", "positive_agent_id": "ag_seed_19"}
+{"query": "아이들 출석 상황 한눈에 보고 싶어요", "positive_agent_id": "ag_seed_04"}
+{"query": "이 자료 너무 길어서 핵심만 알고 싶어", "positive_agent_id": "ag_seed_09"}
+{"query": "마감일 기준으로 정리해 주세요", "positive_agent_id": "ag_seed_13"}
+{"query": "무슨 약속 있는지 쭉 뽑아 주세요", "positive_agent_id": "ag_seed_10"}
+{"query": "지금 당장 처리할 게 뭔지 알려줘", "positive_agent_id": "ag_seed_13"}
+{"query": "달력에 있는 거 정리해서 보여줘", "positive_agent_id": "ag_seed_10"}
+{"query": "문제 생겨서 해명해야 하는데", "positive_agent_id": "ag_seed_16"}
+{"query": "이번 주 요약해서 알려줄 수 있어?", "positive_agent_id": "ag_seed_10"}
+{"query": "안 오는 날이 늘어난 학생 찾아줘", "positive_agent_id": "ag_seed_04"}
+{"query": "코드 봐주기", "positive_agent_id": "ag_seed_18"}
+{"query": "기능 추가인지 버그 수정인지 분류해줘", "positive_agent_id": "ag_seed_19"}
+{"query": "커밋할 때 뭐라고 적지", "positive_agent_id": "ag_seed_19"}
+{"query": "시간 없는 것부터 알려줘", "positive_agent_id": "ag_seed_13"}
+{"query": "대화에서 할 일만 뽑아줘", "positive_agent_id": "ag_seed_11"}
+{"query": "회의 전문 요약", "positive_agent_id": "ag_seed_06"}
+{"query": "메일 어투 조정", "positive_agent_id": "ag_seed_17"}
+{"query": "늦어진 거 양해 구하는 글", "positive_agent_id": "ag_seed_16"}
+{"query": "아이별 취약 과목 파악", "positive_agent_id": "ag_seed_01"}
+{"query": "코드에서 위험한 부분 찾아줘", "positive_agent_id": "ag_seed_18"}
+{"query": "아이마다 상황 다른데 각각 맞춰서 글 써줄 수 있어?", "positive_agent_id": "ag_seed_02"}
+{"query": "조사 결과를 문서로 옮기고 싶어요", "positive_agent_id": "ag_seed_08"}
+{"query": "오늘 회의 정리", "positive_agent_id": "ag_seed_06"}
+{"query": "다룰 주제 뽑아 주세요", "positive_agent_id": "ag_seed_12"}
+{"query": "개발 리뷰 도와줘", "positive_agent_id": "ag_seed_18"}
+{"query": "사과 편지 작성", "positive_agent_id": "ag_seed_16"}
+{"query": "이 내용으로 메일 하나 써줘", "positive_agent_id": "ag_seed_14"}
+{"query": "일정 모아서 보여 주세요", "positive_agent_id": "ag_seed_10"}
+{"query": "투두 뽑기", "positive_agent_id": "ag_seed_11"}
+{"query": "정중한 표현으로 고쳐 주세요", "positive_agent_id": "ag_seed_14"}
+{"query": "기능 변경 사항 정리해 주세요", "positive_agent_id": "ag_seed_20"}
+{"query": "뭐가 추가되고 뭐가 없어졌는지 정리해 주세요", "positive_agent_id": "ag_seed_20"}
+{"query": "결과 보고 양식 채워줘", "positive_agent_id": "ag_seed_08"}
+{"query": "고칠 부분 알려 주세요", "positive_agent_id": "ag_seed_18"}
+{"query": "이번 배포 내용 정리해 주세요", "positive_agent_id": "ag_seed_20"}
+{"query": "제출용 문서 초안 작성해 주세요", "positive_agent_id": "ag_seed_08"}
+{"query": "결석 패턴 분석해 주세요", "positive_agent_id": "ag_seed_04"}
+{"query": "학생들 점수 엑셀 정리해서 누가 떨어졌는지 알려줘", "positive_agent_id": "ag_seed_01"}
+{"query": "한 주 계획 브리핑", "positive_agent_id": "ag_seed_10"}
+{"query": "표현 순화", "positive_agent_id": "ag_seed_17"}
+{"query": "커밋 컨벤션 맞춰서 써줘", "positive_agent_id": "ag_seed_19"}
+{"query": "변명처럼 안 들리게 쓰고 싶어요", "positive_agent_id": "ag_seed_16"}
+{"query": "형식에 맞게 한 줄 써 주세요", "positive_agent_id": "ag_seed_19"}
+{"query": "커밋 문구 컨벤션 확인해 주세요", "positive_agent_id": "ag_seed_19"}
+{"query": "반 전체 평균 내주는 거 있어?", "positive_agent_id": "ag_seed_03"}
+{"query": "긴 텍스트 요점만 추리기", "positive_agent_id": "ag_seed_09"}
+{"query": "일정 한 페이지로 정리", "positive_agent_id": "ag_seed_10"}
+{"query": "우선순위 목록 만들어줘", "positive_agent_id": "ag_seed_13"}
+{"query": "미팅 노트 요약", "positive_agent_id": "ag_seed_06"}
+{"query": "새 버전 소개 글 써줘", "positive_agent_id": "ag_seed_20"}
+{"query": "목차 만들어줘", "positive_agent_id": "ag_seed_07"}
+{"query": "소제목 달아줘", "positive_agent_id": "ag_seed_07"}
+{"query": "겹치는 일정 있는지 봐줘", "positive_agent_id": "ag_seed_10"}
+{"query": "누가 뭘 언제까지 하기로 했는지 정리해줘", "positive_agent_id": "ag_seed_11"}
+{"query": "격식 있게 바꿔 주세요", "positive_agent_id": "ag_seed_14"}
+{"query": "두서없이 쓴 글 구조화해 줄 수 있어?", "positive_agent_id": "ag_seed_07"}
+{"query": "긴 글을 챕터로 나누고 싶은데", "positive_agent_id": "ag_seed_07"}
+{"query": "받는 사람이 뭘 해야 하는지 빠뜨리지 않게 써줘", "positive_agent_id": "ag_seed_15"}
+{"query": "아이 성적 떨어졌다고 어떻게 말씀드려야 할까요", "positive_agent_id": "ag_seed_02"}
+{"query": "다룰 내용 정리해 주세요", "positive_agent_id": "ag_seed_12"}
+{"query": "출석 기록 파일 정리해 주세요", "positive_agent_id": "ag_seed_04"}
+{"query": "상담 결과 기록화", "positive_agent_id": "ag_seed_05"}
+{"query": "근거랑 결론만 남겨 주세요", "positive_agent_id": "ag_seed_09"}
+{"query": "보고 문서 만들기", "positive_agent_id": "ag_seed_08"}
+{"query": "놓친 마감 있나 봐 주세요", "positive_agent_id": "ag_seed_13"}
+{"query": "할 일 목록 만들기", "positive_agent_id": "ag_seed_11"}
+{"query": "회의 받아쓴 거 읽기 좋게 바꿔줘", "positive_agent_id": "ag_seed_06"}
+{"query": "이번 시험 결과 지난 시험이랑 비교 좀", "positive_agent_id": "ag_seed_01"}
+{"query": "마감 임박 알림", "positive_agent_id": "ag_seed_13"}
+{"query": "회의 기록에서 결론만", "positive_agent_id": "ag_seed_06"}
+{"query": "면담 일지 만들어줘", "positive_agent_id": "ag_seed_05"}
+{"query": "자료 주면 문서 형태로 써주나요", "positive_agent_id": "ag_seed_08"}
