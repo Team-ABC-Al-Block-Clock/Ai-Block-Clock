@@ -14,6 +14,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ChargeRequestService {
 
+    // 현재 입금 토큰인 USDC는 소수점 이하 6자리까지 지원한다.
+    private static final int DEPOSIT_TOKEN_DECIMAL_PLACES = 6;
+
     private final ChargeRequestReader chargeRequestReader;
     private final ChargeRequestWriter chargeRequestWriter;
 
@@ -106,9 +109,21 @@ public class ChargeRequestService {
     private BigDecimal normalizeUsdcAmount(
             BigDecimal requestedUsdcAmount
     ) {
-        return requestedUsdcAmount.setScale(
-                6,
-                RoundingMode.UNNECESSARY
-        );
+        if (requestedUsdcAmount == null) {
+            throw new CoreException(
+                    ErrorType.CHARGE_INVALID_AMOUNT
+            );
+        }
+
+        try {
+            return requestedUsdcAmount.setScale(
+                    DEPOSIT_TOKEN_DECIMAL_PLACES,
+                    RoundingMode.UNNECESSARY
+            );
+        } catch (ArithmeticException exception) {
+            throw new CoreException(
+                    ErrorType.CHARGE_INVALID_AMOUNT
+            );
+        }
     }
 }

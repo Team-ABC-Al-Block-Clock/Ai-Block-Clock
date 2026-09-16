@@ -17,6 +17,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class ChargeRequestServiceTest {
@@ -108,6 +109,33 @@ class ChargeRequestServiceTest {
     }
 
     @Test
+    void 금액이_null이면_잘못된_충전_수량_오류로_변환한다() {
+        assertInvalidAmount(null);
+        verifyNoInteractions(reader, writer);
+    }
+
+    @Test
+    void 소수_7자리_금액은_잘못된_충전_수량_오류로_변환한다() {
+        assertInvalidAmount(new BigDecimal("1.0000001"));
+        verifyNoInteractions(reader, writer);
+    }
+
+    @Test
+    void 소수_6자리_이하_금액은_6자리로_정규화한다() {
+        when(reader.findByChainAndTransactionHash(12345L, TRANSACTION_HASH))
+                .thenReturn(Optional.empty());
+        when(writer.saveNewRequest(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChargeRequest createdRequest = create(new BigDecimal("1.1"));
+
+        assertThat(createdRequest.getRequestedUsdcAmount())
+                .isEqualByComparingTo("1.100000");
+        assertThat(createdRequest.getRequestedUsdcAmount().scale())
+                .isEqualTo(6);
+    }
+
+    @Test
     void Service에는_트랜잭션_경계를_선언하지_않는다() {
         assertThat(AnnotatedElementUtils.hasAnnotation(ChargeRequestService.class, Transactional.class)).isFalse();
         Arrays.stream(ChargeRequestService.class.getDeclaredMethods()).forEach(method ->
@@ -115,8 +143,26 @@ class ChargeRequestServiceTest {
     }
 
     private ChargeRequest create() {
-        return service.createChargeRequest(USER_ID, "test-wallet", NETWORK_POLICY,
-                TRANSACTION_HASH, new BigDecimal("1.000001"));
+        return create(new BigDecimal("1.000001"));
+    }
+
+    private ChargeRequest create(BigDecimal requestedUsdcAmount) {
+        return service.createChargeRequest(
+                USER_ID,
+                "test-wallet",
+                NETWORK_POLICY,
+                TRANSACTION_HASH,
+                requestedUsdcAmount
+        );
+    }
+
+    private void assertInvalidAmount(BigDecimal requestedUsdcAmount) {
+        assertThatThrownBy(() -> create(requestedUsdcAmount))
+                .isInstanceOfSatisfying(
+                        CoreException.class,
+                        exception -> assertThat(exception.getErrorType())
+                                .isEqualTo(ErrorType.CHARGE_INVALID_AMOUNT)
+                );
     }
 
     private ChargeRequest request(String userId) {
