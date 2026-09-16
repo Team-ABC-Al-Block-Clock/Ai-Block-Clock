@@ -44,11 +44,9 @@ public class ChargeRequestWriter {
                 throw exception;
             }
 
-            CoreException duplicateRequestException = new CoreException(
+            throw new CoreException(
                     ErrorType.CHARGE_REQUEST_ALREADY_EXISTS
             );
-            duplicateRequestException.initCause(exception);
-            throw duplicateRequestException;
         }
     }
 

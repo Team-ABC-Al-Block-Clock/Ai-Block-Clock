@@ -76,7 +76,6 @@ class ChargeRequestWriterTest {
         assertThatThrownBy(() -> writer.saveNewRequest(request()))
                 .isInstanceOfSatisfying(CoreException.class, exception -> {
                     assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_REQUEST_ALREADY_EXISTS);
-                    assertThat(exception.getCause()).isSameAs(failure);
                 });
     }
 
