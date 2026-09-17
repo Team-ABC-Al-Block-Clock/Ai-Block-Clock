@@ -215,14 +215,20 @@ export class OceanBg extends BaseElement {
     const uD = gl.getUniformLocation(prog, 'DAY')
     const uTH = gl.getUniformLocation(prog, 'TH')
 
+    /** 크기가 바뀐 직후 한 장 다시 그린다. `draw` 가 아래에서 정의돼 변수로 받아 둔다. */
+    let redraw: (() => void) | null = null
+
     const resize = (): void => {
       const w = Math.max(2, Math.round((cv.clientWidth || 1440) * RENDER_SCALE))
       const h = Math.max(2, Math.round((cv.clientHeight || 1024) * RENDER_SCALE))
       if (w !== cv.width || h !== cv.height) {
+        // width·height 를 넣는 순간 캔버스가 비워진다. 루프는 40fps 라 다음 그림까지
+        // 최대 25ms 가 비고, 그동안 뒤의 어두운 바탕이 비쳐 검게 깜빡인다.
         cv.width = w
         cv.height = h
         gl.viewport(0, 0, w, h)
         gl.uniform2f(uR, w, h)
+        redraw?.()
       }
     }
     resize()
@@ -290,6 +296,7 @@ export class OceanBg extends BaseElement {
 
     win.__oceanClock = clock
     this.tone = toneTarget()
+    redraw = draw // 이제부터 크기가 바뀌면 그 자리에서 다시 그린다
     draw() // 첫 프레임 즉시 — rAF가 멈춘 탭에서도 검은 화면이 남지 않게
     this.raf = requestAnimationFrame(loop)
     this.resume = () => {
