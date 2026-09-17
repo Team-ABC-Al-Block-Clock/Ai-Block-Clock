@@ -22,4 +22,19 @@ public interface LoginSessionRepository extends JpaRepository<LoginSessionEntity
             @Param("sessionId") Long sessionId,
             @Param("revokedAt") Instant revokedAt
     );
+
+    // 새 세션을 만들기 전에 해당 사용자의 미종료 세션들을 종료한다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE LoginSessionEntity session
+               SET session.revokedAt = :revokedAt,
+                   session.updatedAt = :revokedAt,
+                   session.version = session.version + 1
+             WHERE session.userId = :userId
+               AND session.revokedAt IS NULL
+            """)
+    int updateRevokedAtByUserIdIfNotRevoked(
+            @Param("userId") Long userId,
+            @Param("revokedAt") Instant revokedAt
+    );
 }

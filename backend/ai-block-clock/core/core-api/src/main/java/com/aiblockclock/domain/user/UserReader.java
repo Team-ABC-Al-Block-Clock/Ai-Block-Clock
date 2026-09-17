@@ -19,4 +19,11 @@ public class UserReader {
         return userRepository.findByWalletAddressIgnoreCase(walletAddress)
                 .map(UserEntityConverter::toDomain);
     }
+
+    // 세션 변경 Manager의 쓰기 트랜잭션에 참여하여 사용자별 처리를 직렬화한다.
+    @Transactional
+    public Optional<User> findByIdForUpdate(UserId userId) {
+        return userRepository.findByIdForUpdate(userId.value())
+                .map(UserEntityConverter::toDomain);
+    }
 }

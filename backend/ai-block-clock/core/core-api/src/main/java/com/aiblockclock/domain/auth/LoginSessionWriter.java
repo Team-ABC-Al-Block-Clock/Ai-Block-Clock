@@ -34,4 +34,11 @@ public class LoginSessionWriter {
 
         loginSessionRepository.updateRevokedAtIfNotRevoked(sessionId.value(), revokedAt);
     }
+
+    @Transactional
+    public void modifyAllAsRevoked(UserId userId) {
+        Instant revokedAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
+
+        loginSessionRepository.updateRevokedAtByUserIdIfNotRevoked(userId.value(), revokedAt);
+    }
 }
