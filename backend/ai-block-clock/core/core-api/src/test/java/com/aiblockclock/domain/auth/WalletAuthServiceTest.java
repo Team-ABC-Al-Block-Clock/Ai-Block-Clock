@@ -14,6 +14,7 @@ import org.web3j.crypto.Sign;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
@@ -21,6 +22,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -34,6 +37,11 @@ class WalletAuthServiceTest {
     private static final String ADDRESS = "0x" + Keys.getAddress(TEST_KEY_PAIR.getPublicKey());
     private static final WalletAuthMessage MESSAGE = new WalletAuthMessage(ADDRESS, "a".repeat(64),
             "Hello World", NOW.minusSeconds(60), NOW.plusSeconds(240), null);
+    private static final Duration SESSION_TTL = Duration.ofDays(7);
+    private static final Instant SESSION_EXPIRES_AT = NOW.plus(SESSION_TTL);
+    private static final String RAW_REFRESH_TOKEN = "b".repeat(64);
+    private static final String REFRESH_TOKEN_HASH = "c".repeat(64);
+    private static final AccessToken ACCESS_TOKEN = new AccessToken("issued-jwt", NOW.plusSeconds(900));
 
     private final WalletAuthMessageGenerator generator = mock(WalletAuthMessageGenerator.class);
     private final WalletAuthMessageReader reader = mock(WalletAuthMessageReader.class);
@@ -41,10 +49,15 @@ class WalletAuthServiceTest {
     private final WalletSignatureValidator validator = spy(new WalletSignatureValidator());
     private final UserReader userReader = mock(UserReader.class);
     private final WalletLoginManager loginManager = mock(WalletLoginManager.class);
+    private final RefreshTokenGenerator refreshTokenGenerator = mock(RefreshTokenGenerator.class);
+    private final RefreshTokenHasher refreshTokenHasher = mock(RefreshTokenHasher.class);
     private final AccessTokenValidator accessTokenValidator = mock(AccessTokenValidator.class);
     private final LoginSessionReader loginSessionReader = mock(LoginSessionReader.class);
+    private final AuthTokenProperties properties = new AuthTokenProperties(
+            "ai-block-clock", Duration.ofMinutes(15), SESSION_TTL, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
     private final WalletAuthService service = new WalletAuthService(generator, reader, writer, validator,
-            userReader, loginManager, accessTokenValidator, loginSessionReader, Clock.fixed(NOW, ZoneOffset.UTC));
+            userReader, loginManager, refreshTokenGenerator, refreshTokenHasher,
+            accessTokenValidator, loginSessionReader, properties, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void 메시지_발급은_생성한_메시지를_저장하고_저장_결과를_반환한다() {
@@ -93,35 +106,63 @@ class WalletAuthServiceTest {
     }
 
     @Test
-    void 기존_사용자는_메시지를_사용_처리한_뒤_반환한다() {
+    void 기존_사용자는_Manager로_세션을_만들고_토큰_두_개를_함께_반환한다() {
         User existing = user();
-        when(reader.findByWalletAddress(ADDRESS)).thenReturn(Optional.of(MESSAGE));
+        LoginSession session = session();
+        givenIssuedRefreshToken();
         when(userReader.findByWalletAddress(ADDRESS)).thenReturn(Optional.of(existing));
+        when(loginManager.login(MESSAGE, existing, REFRESH_TOKEN_HASH, SESSION_EXPIRES_AT))
+                .thenReturn(new WalletLoginSession(existing, session, ACCESS_TOKEN));
 
-        assertThat(service.login(ADDRESS, signature())).isSameAs(existing);
-        verify(writer).modifyAsUsed(MESSAGE);
-        verifyNoInteractions(loginManager);
-    }
+        WalletLogin login = service.login(ADDRESS, signature());
 
-    @Test
-    void 신규_사용자의_메시지_사용_처리는_Manager_트랜잭션에_맡긴다() {
-        User registered = user();
-        when(reader.findByWalletAddress(ADDRESS)).thenReturn(Optional.of(MESSAGE));
-        when(userReader.findByWalletAddress(ADDRESS)).thenReturn(Optional.empty());
-        when(loginManager.register(MESSAGE)).thenReturn(registered);
-
-        assertThat(service.login(ADDRESS, signature())).isSameAs(registered);
+        assertThat(login.user()).isSameAs(existing);
+        assertThat(login.accessToken()).isSameAs(ACCESS_TOKEN);
+        assertThat(login.refreshToken()).isEqualTo(new IssuedRefreshToken(RAW_REFRESH_TOKEN, SESSION_EXPIRES_AT));
+        verify(loginManager).login(MESSAGE, existing, REFRESH_TOKEN_HASH, SESSION_EXPIRES_AT);
         verifyNoInteractions(writer);
-        verify(loginManager).register(MESSAGE);
     }
 
     @Test
-    void 기존_사용자여도_메시지_사용_처리에_실패하면_로그인_결과를_반환하지_않는다() {
-        when(reader.findByWalletAddress(ADDRESS)).thenReturn(Optional.of(MESSAGE));
+    void 신규_사용자는_Manager의_가입_트랜잭션에서_세션까지_만든다() {
+        User registered = user();
+        LoginSession session = session();
+        givenIssuedRefreshToken();
+        when(userReader.findByWalletAddress(ADDRESS)).thenReturn(Optional.empty());
+        when(loginManager.register(MESSAGE, REFRESH_TOKEN_HASH, SESSION_EXPIRES_AT))
+                .thenReturn(new WalletLoginSession(registered, session, ACCESS_TOKEN));
+
+        WalletLogin login = service.login(ADDRESS, signature());
+
+        assertThat(login.user()).isSameAs(registered);
+        assertThat(login.accessToken()).isSameAs(ACCESS_TOKEN);
+        verify(loginManager).register(MESSAGE, REFRESH_TOKEN_HASH, SESSION_EXPIRES_AT);
+        verifyNoInteractions(writer);
+    }
+
+    @Test
+    void 저장에_넘기는_값은_Refresh_Token_원문이_아니라_해시다() {
+        givenIssuedRefreshToken();
+        when(userReader.findByWalletAddress(ADDRESS)).thenReturn(Optional.empty());
+        when(loginManager.register(MESSAGE, REFRESH_TOKEN_HASH, SESSION_EXPIRES_AT))
+                .thenReturn(new WalletLoginSession(user(), session(), ACCESS_TOKEN));
+
+        WalletLogin login = service.login(ADDRESS, signature());
+
+        assertThat(login.refreshToken().value()).isEqualTo(RAW_REFRESH_TOKEN);
+        verify(refreshTokenHasher).hash(RAW_REFRESH_TOKEN);
+        verify(loginManager).register(eq(MESSAGE), eq(REFRESH_TOKEN_HASH), any(Instant.class));
+    }
+
+    @Test
+    void Manager의_저장이_실패하면_로그인_결과를_반환하지_않는다() {
+        givenIssuedRefreshToken();
         when(userReader.findByWalletAddress(ADDRESS)).thenReturn(Optional.of(user()));
-        doThrow(new CoreException(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE)).when(writer).modifyAsUsed(MESSAGE);
+        doThrow(new CoreException(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE))
+                .when(loginManager).login(eq(MESSAGE), any(User.class), eq(REFRESH_TOKEN_HASH), any(Instant.class));
 
         assertError(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE, signature());
+        verifyNoInteractions(writer);
     }
 
     @Test
@@ -174,6 +215,16 @@ class WalletAuthServiceTest {
         assertThatThrownBy(() -> service.login(ADDRESS, signature))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(expected));
+    }
+
+    private void givenIssuedRefreshToken() {
+        when(reader.findByWalletAddress(ADDRESS)).thenReturn(Optional.of(MESSAGE));
+        when(refreshTokenGenerator.generate()).thenReturn(RAW_REFRESH_TOKEN);
+        when(refreshTokenHasher.hash(RAW_REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_HASH);
+    }
+
+    private LoginSession session() {
+        return new LoginSession(LoginSessionId.of(100L), UserId.of(123L), SESSION_EXPIRES_AT, null);
     }
 
     private User user() {

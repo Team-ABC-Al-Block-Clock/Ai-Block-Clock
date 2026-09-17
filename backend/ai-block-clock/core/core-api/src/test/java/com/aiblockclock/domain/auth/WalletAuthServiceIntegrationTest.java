@@ -12,6 +12,8 @@ import com.aiblockclock.storage.user.UserRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
+import jakarta.persistence.EntityManager;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -30,6 +32,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -71,7 +74,25 @@ class WalletAuthServiceIntegrationTest {
     private WalletAuthMessageRepository messageRepository;
 
     @Autowired
+    private LoginSessionReader loginSessionReader;
+
+    @Autowired
+    private RefreshTokenReader refreshTokenReader;
+
+    @Autowired
+    private RefreshTokenHasher refreshTokenHasher;
+
+    @Autowired
+    private AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    private AuthTokenProperties authTokenProperties;
+
+    @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @MockitoBean
     private Clock clock;
@@ -81,6 +102,12 @@ class WalletAuthServiceIntegrationTest {
 
     @MockitoSpyBean
     private WalletSignatureValidator signatureValidator;
+
+    @MockitoSpyBean
+    private RefreshTokenWriter refreshTokenWriter;
+
+    @MockitoSpyBean
+    private AccessTokenGenerator accessTokenGenerator;
 
     private final List<String> walletAddresses = new ArrayList<>();
 
@@ -94,6 +121,7 @@ class WalletAuthServiceIntegrationTest {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             for (String address : walletAddresses) {
                 userRepository.findByWalletAddressIgnoreCase(address).ifPresent(user -> {
+                    deleteLoginSessions(user.getId());
                     accountRepository.findByAccountTypeAndReferenceId(
                             LedgerAccountType.ABC_BALANCE, Long.toString(user.getId())
                     ).ifPresent(accountRepository::delete);
@@ -122,10 +150,12 @@ class WalletAuthServiceIntegrationTest {
         WalletAuthMessage issued = service.issueMessage(address(wallet));
         when(clock.instant()).thenReturn(NOW.plusSeconds(60));
 
-        User loggedIn = service.login(address(wallet).toUpperCase(Locale.ROOT), sign(issued, wallet));
+        WalletLogin login = service.login(address(wallet).toUpperCase(Locale.ROOT), sign(issued, wallet));
+        User loggedIn = login.user();
 
         assertThat(loggedIn.walletAddress()).isEqualTo(address(wallet));
         assertThat(userReader.findByWalletAddress(address(wallet)).orElseThrow().id()).isEqualTo(loggedIn.id());
+        assertSessionAndRefreshToken(login, loggedIn, NOW.plusSeconds(60));
         LedgerAccountEntity account = account(loggedIn.id());
         assertThat(account.getBalance()).isEqualByComparingTo("0.000000");
         assertThat(account.getReferenceId()).isEqualTo(Long.toString(loggedIn.id().value()));
@@ -137,15 +167,20 @@ class WalletAuthServiceIntegrationTest {
     void 기존_사용자의_다음_로그인은_사용자와_ABC_계정을_다시_만들지_않는다() {
         ECKeyPair wallet = newWallet();
         WalletAuthMessage first = service.issueMessage(address(wallet));
-        User original = service.login(address(wallet), sign(first, wallet));
+        WalletLogin firstLogin = service.login(address(wallet), sign(first, wallet));
+        User original = firstLogin.user();
         Long accountId = account(original.id()).getId();
         WalletAuthMessage next = service.issueMessage(address(wallet));
 
-        User loggedInAgain = service.login(address(wallet), sign(next, wallet));
+        WalletLogin secondLogin = service.login(address(wallet), sign(next, wallet));
 
-        assertThat(loggedInAgain.id()).isEqualTo(original.id());
-        assertThat(account(loggedInAgain.id()).getId()).isEqualTo(accountId);
+        assertThat(secondLogin.user().id()).isEqualTo(original.id());
+        assertThat(account(secondLogin.user().id()).getId()).isEqualTo(accountId);
         assertThat(messageReader.findByWalletAddress(address(wallet)).orElseThrow().usedAt()).isEqualTo(NOW);
+        assertSessionAndRefreshToken(secondLogin, original, NOW);
+        assertThat(secondLogin.refreshToken().value()).isNotEqualTo(firstLogin.refreshToken().value());
+        assertThat(session(firstLogin).revokedAt()).isEqualTo(NOW);
+        assertThat(session(secondLogin).revokedAt()).isNull();
     }
 
     @Test
@@ -176,7 +211,7 @@ class WalletAuthServiceIntegrationTest {
         ECKeyPair wallet = newWallet();
         WalletAuthMessage issued = service.issueMessage(address(wallet));
         String signature = sign(issued, wallet);
-        User original = service.login(address(wallet), signature);
+        User original = service.login(address(wallet), signature).user();
         Long accountId = account(original.id()).getId();
 
         assertError(ErrorType.WALLET_AUTH_MESSAGE_ALREADY_USED, address(wallet), signature);
@@ -254,6 +289,66 @@ class WalletAuthServiceIntegrationTest {
     }
 
     @Test
+    void Refresh_Token_저장이_실패하면_가입과_메시지_사용_처리를_모두_취소한다() {
+        ECKeyPair wallet = newWallet();
+        WalletAuthMessage issued = service.issueMessage(address(wallet));
+        failOnRefreshTokenAppend();
+
+        assertError(ErrorType.INTERNAL_ERROR, address(wallet), sign(issued, wallet));
+
+        assertUnusedAndUnregistered(issued);
+        assertThat(messageRepository.findByWalletAddress(address(wallet)).orElseThrow().getVersion()).isZero();
+    }
+
+    @Test
+    void 재로그인의_Refresh_Token_저장이_실패하면_이전_세션도_종료되지_않는다() {
+        ECKeyPair wallet = newWallet();
+        WalletAuthMessage first = service.issueMessage(address(wallet));
+        WalletLogin firstLogin = service.login(address(wallet), sign(first, wallet));
+        WalletAuthMessage next = service.issueMessage(address(wallet));
+        String nextSignature = sign(next, wallet);
+        failOnRefreshTokenAppend();
+
+        assertError(ErrorType.INTERNAL_ERROR, address(wallet), nextSignature);
+
+        assertThat(session(firstLogin).revokedAt()).isNull();
+        assertThat(messageReader.findByWalletAddress(address(wallet)).orElseThrow().usedAt()).isNull();
+    }
+
+    @Test
+    void Access_Token_생성이_실패하면_신규_가입과_로그인_저장을_모두_취소한다() {
+        ECKeyPair wallet = newWallet();
+        WalletAuthMessage issued = service.issueMessage(address(wallet));
+        AtomicReference<LoginSession> attemptedSession = failOnAccessTokenGeneration();
+
+        assertError(ErrorType.INTERNAL_ERROR, address(wallet), sign(issued, wallet));
+
+        assertUnusedAndUnregistered(issued);
+        LoginSession failedSession = attemptedSession.get();
+        assertNoSessionOrRefreshToken(failedSession);
+        assertThat(accountRepository.findByAccountTypeAndReferenceId(
+                LedgerAccountType.ABC_BALANCE, Long.toString(failedSession.userId().value()))).isEmpty();
+    }
+
+    @Test
+    void Access_Token_생성이_실패한_재로그인은_이전_세션을_유지한다() {
+        ECKeyPair wallet = newWallet();
+        WalletAuthMessage first = service.issueMessage(address(wallet));
+        WalletLogin firstLogin = service.login(address(wallet), sign(first, wallet));
+        Long accountId = account(firstLogin.user().id()).getId();
+        WalletAuthMessage next = service.issueMessage(address(wallet));
+        AtomicReference<LoginSession> attemptedSession = failOnAccessTokenGeneration();
+
+        assertError(ErrorType.INTERNAL_ERROR, address(wallet), sign(next, wallet));
+
+        assertThat(session(firstLogin).revokedAt()).isNull();
+        assertThat(service.authenticate(firstLogin.accessToken().value()).id()).isEqualTo(session(firstLogin).id());
+        assertThat(messageReader.findByWalletAddress(address(wallet))).contains(next);
+        assertThat(account(firstLogin.user().id()).getId()).isEqualTo(accountId);
+        assertNoSessionOrRefreshToken(attemptedSession.get());
+    }
+
+    @Test
     void 같은_서명의_동시_신규_로그인은_하나만_가입을_완료한다() throws Exception {
         ECKeyPair wallet = newWallet();
         WalletAuthMessage issued = service.issueMessage(address(wallet));
@@ -271,13 +366,14 @@ class WalletAuthServiceIntegrationTest {
             var first = executor.submit(() -> loginOrConflict(address(wallet), signature));
             var second = executor.submit(() -> loginOrConflict(address(wallet), signature));
             List<Object> results = List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
-            List<User> successes = results.stream().filter(User.class::isInstance).map(User.class::cast).toList();
+            List<WalletLogin> successes = results.stream().filter(WalletLogin.class::isInstance)
+                    .map(WalletLogin.class::cast).toList();
             List<CoreException> failures = results.stream().filter(CoreException.class::isInstance)
                     .map(CoreException.class::cast).toList();
             assertThat(successes).hasSize(1);
             assertThat(failures).hasSize(1);
             assertThat(failures.getFirst().getErrorType()).isEqualTo(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE);
-            successful = successes.getFirst();
+            successful = successes.getFirst().user();
         }
 
         assertThat(userReader.findByWalletAddress(address(wallet)).orElseThrow().id()).isEqualTo(successful.id());
@@ -292,6 +388,85 @@ class WalletAuthServiceIntegrationTest {
         } catch (CoreException exception) {
             return exception;
         }
+    }
+
+    // 로그인 트랜잭션의 마지막 저장만 실패시켜 앞선 변경이 함께 취소되는지 확인한다.
+    private void failOnRefreshTokenAppend() {
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+
+            throw new CoreException(ErrorType.INTERNAL_ERROR);
+        }).when(refreshTokenWriter).append(any(LoginSessionId.class), any(String.class), any(Instant.class));
+    }
+
+    private AtomicReference<LoginSession> failOnAccessTokenGeneration() {
+        AtomicReference<LoginSession> attemptedSession = new AtomicReference<>();
+        doAnswer(invocation -> {
+            attemptedSession.set(invocation.getArgument(0));
+
+            throw new CoreException(ErrorType.INTERNAL_ERROR);
+        }).when(accessTokenGenerator).generate(any(LoginSession.class));
+
+        return attemptedSession;
+    }
+
+    private void assertNoSessionOrRefreshToken(LoginSession failedSession) {
+        assertThat(failedSession).isNotNull();
+        assertThat(loginSessionReader.findById(failedSession.id())).isEmpty();
+        Long refreshTokenCount = new TransactionTemplate(transactionManager).execute(status ->
+                entityManager.createQuery("""
+                                select count(token) from RefreshTokenEntity token
+                                where token.sessionId = :sessionId
+                                """, Long.class)
+                        .setParameter("sessionId", failedSession.id().value())
+                        .getSingleResult());
+
+        assertThat(refreshTokenCount).isZero();
+    }
+
+    private void deleteLoginSessions(Long userId) {
+        entityManager.createQuery("""
+                        delete from RefreshTokenEntity token
+                        where token.sessionId in (
+                            select session.id from LoginSessionEntity session where session.userId = :userId
+                        )
+                        """)
+                .setParameter("userId", userId)
+                .executeUpdate();
+
+        entityManager.createQuery("delete from LoginSessionEntity session where session.userId = :userId")
+                .setParameter("userId", userId)
+                .executeUpdate();
+    }
+
+    private LoginSession session(WalletLogin login) {
+        return loginSessionReader.findById(claims(login).sessionId()).orElseThrow();
+    }
+
+    private AccessTokenClaims claims(WalletLogin login) {
+        return accessTokenValidator.readClaims(login.accessToken().value());
+    }
+
+    private void assertSessionAndRefreshToken(WalletLogin login, User user, Instant loggedInAt) {
+        Instant sessionExpiresAt = loggedInAt.plus(authTokenProperties.sessionTtl());
+        AccessTokenClaims claims = claims(login);
+        LoginSession session = loginSessionReader.findById(claims.sessionId()).orElseThrow();
+
+        assertThat(claims.userId()).isEqualTo(user.id());
+        assertThat(session.userId()).isEqualTo(user.id());
+        assertThat(session.expiresAt()).isEqualTo(sessionExpiresAt);
+        assertThat(session.revokedAt()).isNull();
+
+        assertThat(login.accessToken().expiresAt()).isEqualTo(
+                loggedInAt.truncatedTo(ChronoUnit.SECONDS).plus(authTokenProperties.accessTokenTtl()));
+        assertThat(login.refreshToken().expiresAt()).isEqualTo(sessionExpiresAt);
+
+        RefreshToken storedToken = refreshTokenReader
+                .findByRefreshTokenHash(refreshTokenHasher.hash(login.refreshToken().value())).orElseThrow();
+
+        assertThat(storedToken.sessionId()).isEqualTo(session.id());
+        assertThat(storedToken.expiresAt()).isEqualTo(sessionExpiresAt);
+        assertThat(storedToken.usedAt()).isNull();
     }
 
     private void assertError(ErrorType expected, String address, String signature) {

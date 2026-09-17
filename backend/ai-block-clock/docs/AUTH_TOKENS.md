@@ -8,8 +8,10 @@
 - `AccessTokenValidator.readClaims`: 서명·발급자·만료 시각을 검증하고 사용자·세션 번호 반환.
 - `AccessTokenClaims`: 검증된 토큰의 `UserId`, `LoginSessionId`를 담는 순수 객체.
 - `WalletAuthService.authenticate`: 토큰 검증과 DB 세션 확인을 묶어 요청자를 식별한다.
+- `WalletAuthService.login`: 지갑 서명 검증 뒤 세션·Refresh Token 저장과 Access Token 발급까지 잇는다.
+- `WalletLoginManager`: 메시지 사용 처리·가입·세션·Refresh Token 저장과 Access Token 생성을 한 트랜잭션으로 묶는다.
 - `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
-- 로그인 서비스 호출, 토큰 재발급·로그아웃 API는 이후 연결한다.
+- 토큰 재발급·로그아웃과 인증 Controller는 이후 연결한다.
 
 JWT의 `sub`는 사용자 번호 문자열, `sid`는 세션 번호 문자열이다.
 `iss`, `iat`, `exp`는 발급자, 발급 시각, 만료 시각이다.
@@ -19,7 +21,7 @@ Access Token 만료는 발급 시각 + 설정된 유효 시간과 기존 세션 
 JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT와 일치한다.
 세션의 남은 시간이 초 단위로 유효한 JWT를 만들기에 부족하면 `AUTH_018`로 거절한다.
 세션·Refresh Token의 종료 시각은 최초 로그인부터 7일이며 재발급으로 연장하지 않는 정책이다.
-현재 생성기는 기존 세션 만료를 읽기만 한다. 최초 만료 계산과 Refresh Token 재발급은 이후 연결한다.
+현재 생성기는 기존 세션 만료를 읽기만 한다. 최초 만료 계산은 로그인에 연결했으며 Refresh Token 재발급은 이후 연결한다.
 
 ## Access Token 검증
 
@@ -49,6 +51,42 @@ JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT�
 확인한 사용자 번호는 그대로 `OwnerId` 로 전달한다. 기존 `X-Owner-Id` 헤더는 더 이상 읽지 않는다.
 현재는 `@CurrentOwner` 가 붙은 핸들러만 인증한다. 새 API에는 인증 적용 여부를 명시해야 한다.
 로그인·메시지 발급처럼 토큰 없이 호출하는 API를 추가할 때는 Swagger의 전역 Bearer 요구사항도 해당 경로에서 제외한다.
+
+## 로그인 토큰 발급 연결
+
+`WalletAuthService.login` 은 지갑 서명을 검증한 뒤 다음 순서로 로그인을 완성한다.
+
+1. `RefreshTokenGenerator` 로 Refresh Token 원문을 만들고 `RefreshTokenHasher` 로 해시를 계산한다.
+2. 로그인 시각 + `AUTH_SESSION_TTL` 을 세션 만료 시각으로 정하고 마이크로초로 자른다.
+3. 기존 사용자면 `WalletLoginManager.login`, 처음 온 지갑이면 `WalletLoginManager.register` 를 호출한다.
+4. Manager 안에서 저장된 세션으로 `AccessTokenGenerator` 가 Access Token 을 만든다. 생성까지 성공하면 트랜잭션을 커밋한다.
+5. `WalletLogin` 에 사용자·Access Token·Refresh Token 원문을 담아 반환한다.
+
+Refresh Token 은 원문을 저장하지 않는다. DB 에는 해시만 넣고 원문은 응답으로만 내보낸다.
+`IssuedRefreshToken` 과 `AccessToken` 은 `toString` 에서 값을 가려 로그로 새지 않게 한다.
+Refresh Token 의 만료 시각은 그 세션의 만료 시각과 같다. Access Token 만료는 최대 `AUTH_ACCESS_TOKEN_TTL` 이다.
+
+### 한 트랜잭션으로 묶는 범위
+
+`WalletLoginManager` 의 두 메서드는 아래 순서로 처리하고, Access Token 생성까지 성공해야 DB 변경을 커밋한다.
+
+```
+인증 메시지 사용 처리
+  → (처음 온 지갑이면) 사용자와 ABC 잔액 계정 생성
+  → 그 사용자의 미종료 세션 일괄 종료
+  → 새 로그인 세션 저장
+  → Refresh Token 해시 저장
+  → Access Token 생성
+  → DB 변경 커밋
+```
+
+저장 또는 Access Token 생성이 실패하면 앞의 DB 변경도 되돌린다. 신규 가입이면 사용자와 ABC 계정도
+함께 취소하고, 재로그인이면 이전 세션을 유지한다. 인증 메시지도 다시 미사용 상태로 돌아간다.
+Access Token 생성은 서버 안에서 수행하는 JWT 서명 작업이며, 생성한 토큰 자체를 DB에 저장하지 않는다.
+
+기존·신규 사용자 분기는 Service 가 정하고, Manager 는 각 분기의 DB 변경과 커밋 전 Access Token 생성을 담당한다.
+같은 지갑으로 동시에 로그인해도 인증 메시지의 조건부 UPDATE 가 하나만 통과시키므로 중복 가입은 생기지 않는다.
+다시 로그인하면 새 세션을 만들고 이전 세션을 종료한다. 재발급으로 최초 만료 시각을 연장하지 않는 정책은 이후 재발급 작업에서 연결한다.
 
 ## 실행 환경 설정
 
@@ -97,6 +135,10 @@ Add-Content -LiteralPath .env -Value ('AUTH_JWT_SECRET_BASE64=' + $env:AUTH_JWT_
 키는 실행마다 새로 만들지 않고 해당 환경에서 계속 보관·사용한다.
 
 ## 테스트
+
+로그인 통합 테스트는 실제 Manager 트랜잭션의 커밋·롤백을 확인한다. Refresh Token 저장 실패와
+Access Token 생성 실패 모두에서 신규 가입 취소·메시지 미사용 복구·기존 세션 유지를 검사한다.
+테스트가 만든 지갑의 데이터만 별도 트랜잭션으로 정리한다.
 
 요청 인증·워크플로우의 MockMvc 통합 테스트는 테스트 트랜잭션 안에서 동기 요청을 실행한다.
 사용자·세션·워크플로우 변경은 테스트 종료 시 롤백되며 다른 테스트의 데이터를 일괄 삭제하지 않는다.

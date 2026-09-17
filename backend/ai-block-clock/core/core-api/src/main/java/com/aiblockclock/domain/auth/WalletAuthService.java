@@ -1,6 +1,5 @@
 package com.aiblockclock.domain.auth;
 
-import com.aiblockclock.domain.user.User;
 import com.aiblockclock.domain.user.UserReader;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -10,7 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.util.Optional;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -21,8 +21,11 @@ public class WalletAuthService {
     private final WalletSignatureValidator walletSignatureValidator;
     private final UserReader userReader;
     private final WalletLoginManager walletLoginManager;
+    private final RefreshTokenGenerator refreshTokenGenerator;
+    private final RefreshTokenHasher refreshTokenHasher;
     private final AccessTokenValidator accessTokenValidator;
     private final LoginSessionReader loginSessionReader;
+    private final AuthTokenProperties authTokenProperties;
     private final Clock clock;
 
     public WalletAuthMessage issueMessage(String walletAddress) {
@@ -31,20 +34,27 @@ public class WalletAuthService {
         return walletAuthMessageWriter.append(issuedMessage);
     }
 
-    public User login(String walletAddress, String signature) {
+    public WalletLogin login(String walletAddress, String signature) {
         WalletAuthMessage authMessage = walletAuthMessageReader.findByWalletAddress(walletAddress)
                 .orElseThrow(() -> new CoreException(ErrorType.WALLET_AUTH_MESSAGE_NOT_FOUND));
-        authMessage.checkUsable(clock.instant());
+        Instant now = clock.instant();
+        authMessage.checkUsable(now);
         walletSignatureValidator.check(authMessage, signature);
-        Optional<User> existingUser = userReader.findByWalletAddress(authMessage.walletAddress());
 
-        if (existingUser.isPresent()) {
-            walletAuthMessageWriter.modifyAsUsed(authMessage);
+        // 원문은 응답으로만 내보내고 DB에는 해시만 저장한다.
+        String rawRefreshToken = refreshTokenGenerator.generate();
+        String refreshTokenHash = refreshTokenHasher.hash(rawRefreshToken);
+        Instant sessionExpiresAt = now.plus(authTokenProperties.sessionTtl()).truncatedTo(ChronoUnit.MICROS);
 
-            return existingUser.get();
-        }
+        WalletLoginSession loginSession = userReader.findByWalletAddress(authMessage.walletAddress())
+                .map(user -> walletLoginManager.login(authMessage, user, refreshTokenHash, sessionExpiresAt))
+                .orElseGet(() -> walletLoginManager.register(authMessage, refreshTokenHash, sessionExpiresAt));
 
-        return walletLoginManager.register(authMessage);
+        return new WalletLogin(
+                loginSession.user(),
+                loginSession.accessToken(),
+                new IssuedRefreshToken(rawRefreshToken, loginSession.session().expiresAt())
+        );
     }
 
     public LoginSession authenticate(String rawAccessToken) {
