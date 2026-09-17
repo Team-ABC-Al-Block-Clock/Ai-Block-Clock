@@ -19,4 +19,11 @@ public class LoginSessionReader {
         return loginSessionRepository.findById(id.value())
                 .map(LoginSessionEntityConverter::toDomain);
     }
+
+    // 재발급 Manager의 쓰기 트랜잭션에서 종료 처리와 겹치지 않도록 세션을 잠근다.
+    @Transactional
+    public Optional<LoginSession> findByIdForUpdate(LoginSessionId id) {
+        return loginSessionRepository.findByIdForUpdate(id.value())
+                .map(LoginSessionEntityConverter::toDomain);
+    }
 }

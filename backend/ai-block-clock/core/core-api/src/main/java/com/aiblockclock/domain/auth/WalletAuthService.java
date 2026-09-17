@@ -23,6 +23,8 @@ public class WalletAuthService {
     private final WalletLoginManager walletLoginManager;
     private final RefreshTokenGenerator refreshTokenGenerator;
     private final RefreshTokenHasher refreshTokenHasher;
+    private final RefreshTokenReader refreshTokenReader;
+    private final TokenReissueManager tokenReissueManager;
     private final AccessTokenValidator accessTokenValidator;
     private final LoginSessionReader loginSessionReader;
     private final AuthTokenProperties authTokenProperties;
@@ -54,6 +56,27 @@ public class WalletAuthService {
                 loginSession.user(),
                 loginSession.accessToken(),
                 new IssuedRefreshToken(rawRefreshToken, loginSession.session().expiresAt())
+        );
+    }
+
+    public AuthTokens reissue(String rawRefreshToken) {
+        String refreshTokenHash = refreshTokenHasher.hash(rawRefreshToken);
+        RefreshToken refreshToken = refreshTokenReader.findByRefreshTokenHash(refreshTokenHash)
+                .orElseThrow(() -> new CoreException(ErrorType.REFRESH_TOKEN_NOT_USABLE));
+        Instant now = clock.instant();
+        refreshToken.checkUsable(now);
+
+        LoginSession session = loginSessionReader.findById(refreshToken.sessionId())
+                .orElseThrow(() -> new CoreException(ErrorType.LOGIN_SESSION_NOT_USABLE));
+        session.checkUsable(now);
+
+        String newRawRefreshToken = refreshTokenGenerator.generate();
+        String newRefreshTokenHash = refreshTokenHasher.hash(newRawRefreshToken);
+        AccessToken accessToken = tokenReissueManager.reissue(refreshToken, newRefreshTokenHash);
+
+        return new AuthTokens(
+                accessToken,
+                new IssuedRefreshToken(newRawRefreshToken, session.expiresAt())
         );
     }
 

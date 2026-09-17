@@ -51,12 +51,14 @@ class WalletAuthServiceTest {
     private final WalletLoginManager loginManager = mock(WalletLoginManager.class);
     private final RefreshTokenGenerator refreshTokenGenerator = mock(RefreshTokenGenerator.class);
     private final RefreshTokenHasher refreshTokenHasher = mock(RefreshTokenHasher.class);
+    private final RefreshTokenReader refreshTokenReader = mock(RefreshTokenReader.class);
+    private final TokenReissueManager tokenReissueManager = mock(TokenReissueManager.class);
     private final AccessTokenValidator accessTokenValidator = mock(AccessTokenValidator.class);
     private final LoginSessionReader loginSessionReader = mock(LoginSessionReader.class);
     private final AuthTokenProperties properties = new AuthTokenProperties(
             "ai-block-clock", Duration.ofMinutes(15), SESSION_TTL, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
     private final WalletAuthService service = new WalletAuthService(generator, reader, writer, validator,
-            userReader, loginManager, refreshTokenGenerator, refreshTokenHasher,
+            userReader, loginManager, refreshTokenGenerator, refreshTokenHasher, refreshTokenReader, tokenReissueManager,
             accessTokenValidator, loginSessionReader, properties, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -209,6 +211,77 @@ class WalletAuthServiceTest {
         assertThatThrownBy(() -> service.authenticate("test-token"))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.ACCESS_TOKEN_INVALID));
+    }
+
+    @Test
+    void 재발급은_기존_토큰을_해시로_찾고_새_원문과_Access_Token을_반환한다() {
+        RefreshToken stored = givenRefreshToken();
+        when(refreshTokenGenerator.generate()).thenReturn("new-refresh-token");
+        when(refreshTokenHasher.hash("new-refresh-token")).thenReturn("new-refresh-token-hash");
+        when(tokenReissueManager.reissue(stored, "new-refresh-token-hash")).thenReturn(ACCESS_TOKEN);
+
+        AuthTokens tokens = service.reissue(RAW_REFRESH_TOKEN);
+
+        assertThat(tokens.accessToken()).isSameAs(ACCESS_TOKEN);
+        assertThat(tokens.refreshToken()).isEqualTo(new IssuedRefreshToken("new-refresh-token", SESSION_EXPIRES_AT));
+        verify(tokenReissueManager).reissue(stored, "new-refresh-token-hash");
+        verifyNoInteractions(userReader, loginManager, writer, accessTokenValidator);
+    }
+
+    @Test
+    void 저장되지_않은_Refresh_Token은_재발급하지_않는다() {
+        when(refreshTokenHasher.hash(RAW_REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_HASH);
+        when(refreshTokenReader.findByRefreshTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.empty());
+
+        assertReissueError(ErrorType.REFRESH_TOKEN_NOT_USABLE);
+        verifyNoInteractions(loginSessionReader, refreshTokenGenerator, tokenReissueManager);
+    }
+
+    @Test
+    void 사용한_Refresh_Token은_세션_조회_전에_재발급을_거절한다() {
+        givenRefreshToken();
+        RefreshToken used = new RefreshToken(RefreshTokenId.of(500L), session().id(), REFRESH_TOKEN_HASH,
+                SESSION_EXPIRES_AT, NOW.minusSeconds(1));
+        when(refreshTokenReader.findByRefreshTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.of(used));
+
+        assertReissueError(ErrorType.REFRESH_TOKEN_ALREADY_USED);
+        verifyNoInteractions(loginSessionReader, refreshTokenGenerator, tokenReissueManager);
+    }
+
+    @Test
+    void 연결된_세션이_없으면_새_토큰을_만들지_않는다() {
+        givenRefreshToken();
+        when(loginSessionReader.findById(session().id())).thenReturn(Optional.empty());
+
+        assertReissueError(ErrorType.LOGIN_SESSION_NOT_USABLE);
+        verifyNoInteractions(refreshTokenGenerator, tokenReissueManager);
+    }
+
+    @Test
+    void 재발급_Manager가_실패하면_새_토큰을_반환하지_않는다() {
+        RefreshToken stored = givenRefreshToken();
+        when(refreshTokenGenerator.generate()).thenReturn("new-refresh-token");
+        when(refreshTokenHasher.hash("new-refresh-token")).thenReturn("new-refresh-token-hash");
+        when(tokenReissueManager.reissue(stored, "new-refresh-token-hash"))
+                .thenThrow(new CoreException(ErrorType.REFRESH_TOKEN_NOT_USABLE));
+
+        assertReissueError(ErrorType.REFRESH_TOKEN_NOT_USABLE);
+    }
+
+    private RefreshToken givenRefreshToken() {
+        RefreshToken stored = new RefreshToken(RefreshTokenId.of(500L), session().id(), REFRESH_TOKEN_HASH,
+                SESSION_EXPIRES_AT, null);
+        when(refreshTokenHasher.hash(RAW_REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_HASH);
+        when(refreshTokenReader.findByRefreshTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.of(stored));
+        when(loginSessionReader.findById(stored.sessionId())).thenReturn(Optional.of(session()));
+
+        return stored;
+    }
+
+    private void assertReissueError(ErrorType expected) {
+        assertThatThrownBy(() -> service.reissue(RAW_REFRESH_TOKEN))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(expected));
     }
 
     private void assertError(ErrorType expected, String signature) {

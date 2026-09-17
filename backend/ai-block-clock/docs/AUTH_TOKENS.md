@@ -10,8 +10,11 @@
 - `WalletAuthService.authenticate`: 토큰 검증과 DB 세션 확인을 묶어 요청자를 식별한다.
 - `WalletAuthService.login`: 지갑 서명 검증 뒤 세션·Refresh Token 저장과 Access Token 발급까지 잇는다.
 - `WalletLoginManager`: 메시지 사용 처리·가입·세션·Refresh Token 저장과 Access Token 생성을 한 트랜잭션으로 묶는다.
+- `WalletAuthService.reissue`: Refresh Token 원문으로 기존 토큰·세션을 확인하고 새 토큰 두 개를 반환한다.
+- `TokenReissueManager`: 기존 토큰 사용 처리·새 해시 저장·Access Token 생성을 한 트랜잭션으로 묶는다.
+- `AuthTokens`: 재발급 결과인 Access Token·Refresh Token 원문과 각각의 만료 시각을 담는다.
 - `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
-- 토큰 재발급·로그아웃과 인증 Controller는 이후 연결한다.
+- 로그아웃과 인증 Controller·Refresh Token 쿠키는 이후 연결한다.
 
 JWT의 `sub`는 사용자 번호 문자열, `sid`는 세션 번호 문자열이다.
 `iss`, `iat`, `exp`는 발급자, 발급 시각, 만료 시각이다.
@@ -21,7 +24,7 @@ Access Token 만료는 발급 시각 + 설정된 유효 시간과 기존 세션 
 JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT와 일치한다.
 세션의 남은 시간이 초 단위로 유효한 JWT를 만들기에 부족하면 `AUTH_018`로 거절한다.
 세션·Refresh Token의 종료 시각은 최초 로그인부터 7일이며 재발급으로 연장하지 않는 정책이다.
-현재 생성기는 기존 세션 만료를 읽기만 한다. 최초 만료 계산은 로그인에 연결했으며 Refresh Token 재발급은 이후 연결한다.
+현재 생성기는 기존 세션 만료를 읽기만 한다. 최초 만료 계산은 로그인에서 수행하고 재발급에서는 기존 종료 시각을 유지한다.
 
 ## Access Token 검증
 
@@ -86,7 +89,27 @@ Access Token 생성은 서버 안에서 수행하는 JWT 서명 작업이며, �
 
 기존·신규 사용자 분기는 Service 가 정하고, Manager 는 각 분기의 DB 변경과 커밋 전 Access Token 생성을 담당한다.
 같은 지갑으로 동시에 로그인해도 인증 메시지의 조건부 UPDATE 가 하나만 통과시키므로 중복 가입은 생기지 않는다.
-다시 로그인하면 새 세션을 만들고 이전 세션을 종료한다. 재발급으로 최초 만료 시각을 연장하지 않는 정책은 이후 재발급 작업에서 연결한다.
+다시 로그인하면 새 세션을 만들고 이전 세션을 종료한다. 토큰 재발급은 기존 세션과 최초 종료 시각을 유지한다.
+
+## Refresh Token 기반 재발급
+
+`WalletAuthService.reissue`는 Access Token 없이 Refresh Token 원문으로 재발급한다.
+
+1. 받은 원문의 해시로 기존 Refresh Token 기록을 조회한다. 기록이 없으면 `AUTH_017`로 거절한다.
+2. 토큰의 만료(`AUTH_015`)·사용 여부(`AUTH_016`)와 연결된 세션의 만료(`AUTH_013`)·종료(`AUTH_014`)를 확인한다.
+3. 새 Refresh Token 원문을 만들고 새 해시만 `TokenReissueManager`에 전달한다.
+4. Manager는 세션을 잠금 조회하고 현재 시각으로 다시 확인한 뒤 기존 토큰을 조건부 사용 처리한다.
+5. 같은 세션 번호와 기존 세션 만료 시각으로 새 해시를 저장하고 Access Token을 생성한다.
+6. 모두 성공하면 DB 변경을 커밋하고 새 토큰 두 개를 반환한다. 사용자·ABC 계정·새 세션을 생성하지 않는다.
+
+세션의 잠금은 Manager 트랜잭션 종료까지 유지한다. 세션 종료가 먼저 완료됐다면 재발급을 거절하고,
+재발급이 먼저 세션을 잠갔다면 종료 처리는 재발급 트랜잭션 이후에 반영된다.
+토큰은 미사용·미만료 조건에 맞는 행 하나만 사용 처리한다. 동시 요청에서 조건이 달라지면 `AUTH_017`로 거절한다.
+사용된 토큰 기록은 남겨 재사용을 구분하며, 재사용 요청을 거절해도 이미 발급한 새 토큰의 세션을 추가로 종료하지 않는다.
+
+새 Refresh Token 저장 또는 Access Token 생성이 실패하면 새 기록과 기존 토큰 사용 처리를 함께 롤백한다.
+재발급으로 최초 7일 종료 시각을 늘리지 않는다. Access Token도 그 세션의 종료 시각을 넘지 않는다.
+현재는 내부 Service 연결까지 구현했고 HTTP 응답·쿠키·FE 재발급 연결은 인증 API 단계에서 추가한다.
 
 ## 실행 환경 설정
 
@@ -139,6 +162,10 @@ Add-Content -LiteralPath .env -Value ('AUTH_JWT_SECRET_BASE64=' + $env:AUTH_JWT_
 로그인 통합 테스트는 실제 Manager 트랜잭션의 커밋·롤백을 확인한다. Refresh Token 저장 실패와
 Access Token 생성 실패 모두에서 신규 가입 취소·메시지 미사용 복구·기존 세션 유지를 검사한다.
 테스트가 만든 지갑의 데이터만 별도 트랜잭션으로 정리한다.
+
+재발급 통합 테스트는 실제 Manager 트랜잭션으로 토큰 교체·최초 종료 시각 유지·기존 세션 유지,
+만료·종료·재사용 거절, 처리 중 만료·세션 종료, 동시 재발급과 저장·생성 실패 시 롤백을 확인한다.
+테스트가 생성한 사용자 번호에 연결된 토큰·세션·사용자만 정리한다. 일반 통합 테스트의 H2 결과는 MySQL 검증과 구분한다.
 
 요청 인증·워크플로우의 MockMvc 통합 테스트는 테스트 트랜잭션 안에서 동기 요청을 실행한다.
 사용자·세션·워크플로우 변경은 테스트 종료 시 롤백되며 다른 테스트의 데이터를 일괄 삭제하지 않는다.
