@@ -454,7 +454,7 @@ public final class UsageTypePolicy {           // 판정은 도메인에 남는�
 | 목록 커서 | 오프셋을 Base64 로 감싼 것. `size + 1` 을 읽어 다음 페이지 유무를 판정한다 | 정렬 키 기반 커서. 지금은 페이지를 넘기다 행이 끼면 밀린다 |
 | 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `AGENT_006`, `AGENT_007` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| `ownerId` 출처 | 회원 도메인·인증이 없어 `X-Owner-Id` 헤더를 그대로 믿는다 (`CurrentOwnerArgumentResolver`). 클라이언트가 남을 가장할 수 있다 | 인증 붙은 뒤 현재 사용자 조회 방식 |
+| `ownerId` 타입 | 인증한 로그인 사용자 번호를 그대로 `OwnerId` 로 전달한다 (`CurrentOwnerArgumentResolver`). 사용자 도메인이 생겨 두 이름이 같은 값을 가리킨다 | `OwnerId` 를 `UserId` 로 합칠지 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |
 
 ### `domain` 이 Spring 을 참조하는 문제

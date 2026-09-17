@@ -7,7 +7,9 @@
 - `AccessToken`: JWT 문자열과 실제 JWT 만료 시각 반환. DB에 저장하지 않는다.
 - `AccessTokenValidator.readClaims`: 서명·발급자·만료 시각을 검증하고 사용자·세션 번호 반환.
 - `AccessTokenClaims`: 검증된 토큰의 `UserId`, `LoginSessionId`를 담는 순수 객체.
-- 로그인 서비스 호출, 토큰 재발급·로그아웃 API, 요청 인증은 이후 연결한다.
+- `RequestAuthService`: 토큰 검증과 DB 세션 확인을 묶어 요청자를 식별한다.
+- `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
+- 로그인 서비스 호출, 토큰 재발급·로그아웃 API는 이후 연결한다.
 
 JWT의 `sub`는 사용자 번호 문자열, `sid`는 세션 번호 문자열이다.
 `iss`, `iat`, `exp`는 발급자, 발급 시각, 만료 시각이다.
@@ -27,9 +29,24 @@ JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT�
 `sub`, `sid`는 양수 `long` 범위의 십진수 문자열이어야 한다. 선행 0·부호·공백은 허용하지 않는다.
 잘못된 서명·발급자·형식·필수값은 `AUTH_019`로 거절하며 토큰 원문이나 JWT 예외를 응답에 담지 않는다.
 
-이 단계는 DB를 조회하지 않는다. 반환된 번호로 세션을 조회해 사용자 번호 일치와
-세션 만료·종료 상태를 확인하는 요청 인증 연결은 후속 작업이다.
-토큰 검증만 통과했다고 로그아웃·다른 위치 로그인으로 종료된 세션의 요청을 허용하면 안 된다.
+이 단계는 DB를 조회하지 않는다. 반환된 번호로 세션을 조회하는 것은 아래 요청 인증 연결이 담당한다.
+
+## 요청 인증 연결
+
+`RequestAuthService.authenticate` 가 토큰 원문 하나로 요청자를 식별한다. 순서는 다음과 같다.
+
+1. `AccessTokenValidator.readClaims` 로 서명·발급자·만료를 검증하고 사용자·세션 번호를 얻는다.
+2. `LoginSessionReader.findById` 로 세션을 조회한다. 없으면 `AUTH_018` 로 거절한다.
+3. `LoginSession.checkUsable` 로 세션 만료(`AUTH_013`)와 종료(`AUTH_014`)를 확인한다.
+4. 토큰의 사용자 번호와 세션에 저장된 사용자 번호가 다르면 `AUTH_019` 로 거절한다.
+
+세션 조회를 거치므로 로그아웃·다른 위치 로그인으로 종료된 세션은 Access Token 이 남아 있어도 즉시 거절된다.
+요청마다 세션 조회가 한 번 발생하며, 이는 종료를 즉시 반영하기 위한 비용이다.
+
+`CurrentOwnerArgumentResolver` 는 `@CurrentOwner` 가 붙은 핸들러 파라미터를 만들 때 이 검증을 실행한다.
+`Authorization` 헤더가 없거나 비어 있으면 `AUTH_005`, `Bearer ` 접두어가 아니거나 뒤가 비어 있으면 `AUTH_019` 다.
+확인한 사용자 번호는 그대로 `OwnerId` 로 전달한다. 기존 `X-Owner-Id` 헤더는 더 이상 읽지 않는다.
+공개 경로를 따로 두지 않고 `@CurrentOwner` 가 붙은 핸들러만 인증하므로, 컨트롤러가 늘면 Interceptor 로 옮긴다.
 
 ## 실행 환경 설정
 
