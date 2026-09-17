@@ -1,0 +1,218 @@
+{
+  "schema_id": "edu.roster@1",
+  "period": {
+    "current": "2026-08",
+    "previous": "2026-07"
+  },
+  "subjects": [
+    "국어",
+    "영어",
+    "수학",
+    "과학"
+  ],
+  "students": [
+    {
+      "name": "경계상승",
+      "scores": {
+        "국어": {
+          "current": 71,
+          "previous": 70
+        },
+        "영어": {
+          "current": 71,
+          "previous": 70
+        },
+        "수학": {
+          "current": 71,
+          "previous": 70
+        },
+        "과학": {
+          "current": 71,
+          "previous": 70
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "경계하락",
+      "scores": {
+        "국어": {
+          "current": 69,
+          "previous": 70
+        },
+        "영어": {
+          "current": 69,
+          "previous": 70
+        },
+        "수학": {
+          "current": 69,
+          "previous": 70
+        },
+        "과학": {
+          "current": 69,
+          "previous": 70
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "보합상",
+      "scores": {
+        "국어": {
+          "current": 71,
+          "previous": 70
+        },
+        "영어": {
+          "current": 71,
+          "previous": 70
+        },
+        "수학": {
+          "current": 71,
+          "previous": 70
+        },
+        "과학": {
+          "current": 70,
+          "previous": 70
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "보합하",
+      "scores": {
+        "국어": {
+          "current": 69,
+          "previous": 70
+        },
+        "영어": {
+          "current": 69,
+          "previous": 70
+        },
+        "수학": {
+          "current": 69,
+          "previous": 70
+        },
+        "과학": {
+          "current": 70,
+          "previous": 70
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "무변화",
+      "scores": {
+        "국어": {
+          "current": 80,
+          "previous": 80
+        },
+        "영어": {
+          "current": 80,
+          "previous": 80
+        },
+        "수학": {
+          "current": 80,
+          "previous": 80
+        },
+        "과학": {
+          "current": 80,
+          "previous": 80
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "동점최저",
+      "scores": {
+        "국어": {
+          "current": 55,
+          "previous": 60
+        },
+        "영어": {
+          "current": 55,
+          "previous": 60
+        },
+        "수학": {
+          "current": 85,
+          "previous": 90
+        },
+        "과학": {
+          "current": 85,
+          "previous": 90
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "만점자",
+      "scores": {
+        "국어": {
+          "current": 100,
+          "previous": 95
+        },
+        "영어": {
+          "current": 100,
+          "previous": 95
+        },
+        "수학": {
+          "current": 100,
+          "previous": 95
+        },
+        "과학": {
+          "current": 100,
+          "previous": 95
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "영점자",
+      "scores": {
+        "국어": {
+          "current": 0,
+          "previous": 10
+        },
+        "영어": {
+          "current": 10,
+          "previous": 20
+        },
+        "수학": {
+          "current": 20,
+          "previous": 30
+        },
+        "과학": {
+          "current": 30,
+          "previous": 40
+        }
+      },
+      "attendance": {
+        "present": 12,
+        "absent": 8
+      }
+    }
+  ],
+  "context": {
+    "comment": "몇몇 학생이 크게 흔들렸습니다. 개별 상황을 반영해 주세요."
+  }
+}

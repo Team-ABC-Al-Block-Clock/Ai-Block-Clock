@@ -1,0 +1,518 @@
+{
+  "schema_id": "edu.roster@1",
+  "period": {
+    "current": "2026-08",
+    "previous": "2026-07"
+  },
+  "subjects": [
+    "국어",
+    "영어",
+    "수학",
+    "과학"
+  ],
+  "students": [
+    {
+      "name": "강윤슬",
+      "scores": {
+        "국어": {
+          "current": 66,
+          "previous": 57
+        },
+        "영어": {
+          "current": 69,
+          "previous": 65
+        },
+        "수학": {
+          "current": 89,
+          "previous": 78
+        },
+        "과학": {
+          "current": 82,
+          "previous": 70
+        }
+      },
+      "attendance": {
+        "present": 19,
+        "absent": 2
+      }
+    },
+    {
+      "name": "고은채",
+      "scores": {
+        "국어": {
+          "current": 80,
+          "previous": 91
+        },
+        "영어": {
+          "current": 74,
+          "previous": 87
+        },
+        "수학": {
+          "current": 79,
+          "previous": 90
+        },
+        "과학": {
+          "current": 84,
+          "previous": 89
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "권도하",
+      "scores": {
+        "국어": {
+          "current": 76,
+          "previous": 82
+        },
+        "영어": {
+          "current": 77,
+          "previous": 89
+        },
+        "수학": {
+          "current": 70,
+          "previous": 84
+        },
+        "과학": {
+          "current": 69,
+          "previous": 81
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 1
+      }
+    },
+    {
+      "name": "김서린",
+      "scores": {
+        "국어": {
+          "current": 76,
+          "previous": 80
+        },
+        "영어": {
+          "current": 84,
+          "previous": 86
+        },
+        "수학": {
+          "current": 51,
+          "previous": 66
+        },
+        "과학": {
+          "current": 74,
+          "previous": 85
+        }
+      },
+      "attendance": {
+        "present": 19,
+        "absent": 2
+      }
+    },
+    {
+      "name": "남주하",
+      "scores": {
+        "국어": {
+          "current": 75,
+          "previous": 88
+        },
+        "영어": {
+          "current": 80,
+          "previous": 85
+        },
+        "수학": {
+          "current": 41,
+          "previous": 56
+        },
+        "과학": {
+          "current": 57,
+          "previous": 59
+        }
+      },
+      "attendance": {
+        "present": 21,
+        "absent": 0
+      }
+    },
+    {
+      "name": "노하람",
+      "scores": {
+        "국어": {
+          "current": 85,
+          "previous": 75
+        },
+        "영어": {
+          "current": 80,
+          "previous": 71
+        },
+        "수학": {
+          "current": 96,
+          "previous": 93
+        },
+        "과학": {
+          "current": 94,
+          "previous": 83
+        }
+      },
+      "attendance": {
+        "present": 22,
+        "absent": 0
+      }
+    },
+    {
+      "name": "류시온",
+      "scores": {
+        "국어": {
+          "current": 51,
+          "previous": 62
+        },
+        "영어": {
+          "current": 60,
+          "previous": 62
+        },
+        "수학": {
+          "current": 80,
+          "previous": 91
+        },
+        "과학": {
+          "current": 62,
+          "previous": 68
+        }
+      },
+      "attendance": {
+        "present": 21,
+        "absent": 1
+      }
+    },
+    {
+      "name": "문가온",
+      "scores": {
+        "국어": {
+          "current": 61,
+          "previous": 63
+        },
+        "영어": {
+          "current": 87,
+          "previous": 90
+        },
+        "수학": {
+          "current": 52,
+          "previous": 59
+        },
+        "과학": {
+          "current": 57,
+          "previous": 69
+        }
+      },
+      "attendance": {
+        "present": 18,
+        "absent": 2
+      }
+    },
+    {
+      "name": "박새힘",
+      "scores": {
+        "국어": {
+          "current": 56,
+          "previous": 65
+        },
+        "영어": {
+          "current": 50,
+          "previous": 65
+        },
+        "수학": {
+          "current": 53,
+          "previous": 55
+        },
+        "과학": {
+          "current": 69,
+          "previous": 77
+        }
+      },
+      "attendance": {
+        "present": 21,
+        "absent": 0
+      }
+    },
+    {
+      "name": "배온유",
+      "scores": {
+        "국어": {
+          "current": 76,
+          "previous": 89
+        },
+        "영어": {
+          "current": 75,
+          "previous": 83
+        },
+        "수학": {
+          "current": 58,
+          "previous": 67
+        },
+        "과학": {
+          "current": 75,
+          "previous": 79
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 2
+      }
+    },
+    {
+      "name": "서루나",
+      "scores": {
+        "국어": {
+          "current": 100,
+          "previous": 95
+        },
+        "영어": {
+          "current": 94,
+          "previous": 85
+        },
+        "수학": {
+          "current": 73,
+          "previous": 66
+        },
+        "과학": {
+          "current": 66,
+          "previous": 61
+        }
+      },
+      "attendance": {
+        "present": 22,
+        "absent": 0
+      }
+    },
+    {
+      "name": "손나린",
+      "scores": {
+        "국어": {
+          "current": 52,
+          "previous": 62
+        },
+        "영어": {
+          "current": 81,
+          "previous": 86
+        },
+        "수학": {
+          "current": 58,
+          "previous": 71
+        },
+        "과학": {
+          "current": 60,
+          "previous": 67
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 2
+      }
+    },
+    {
+      "name": "안슬아",
+      "scores": {
+        "국어": {
+          "current": 63,
+          "previous": 66
+        },
+        "영어": {
+          "current": 54,
+          "previous": 62
+        },
+        "수학": {
+          "current": 87,
+          "previous": 91
+        },
+        "과학": {
+          "current": 63,
+          "previous": 72
+        }
+      },
+      "attendance": {
+        "present": 19,
+        "absent": 1
+      }
+    },
+    {
+      "name": "오도윤",
+      "scores": {
+        "국어": {
+          "current": 62,
+          "previous": 74
+        },
+        "영어": {
+          "current": 71,
+          "previous": 80
+        },
+        "수학": {
+          "current": 79,
+          "previous": 88
+        },
+        "과학": {
+          "current": 52,
+          "previous": 60
+        }
+      },
+      "attendance": {
+        "present": 19,
+        "absent": 2
+      }
+    },
+    {
+      "name": "유하진",
+      "scores": {
+        "국어": {
+          "current": 72,
+          "previous": 85
+        },
+        "영어": {
+          "current": 40,
+          "previous": 55
+        },
+        "수학": {
+          "current": 74,
+          "previous": 87
+        },
+        "과학": {
+          "current": 56,
+          "previous": 60
+        }
+      },
+      "attendance": {
+        "present": 18,
+        "absent": 2
+      }
+    },
+    {
+      "name": "윤재이",
+      "scores": {
+        "국어": {
+          "current": 88,
+          "previous": 77
+        },
+        "영어": {
+          "current": 88,
+          "previous": 83
+        },
+        "수학": {
+          "current": 76,
+          "previous": 70
+        },
+        "과학": {
+          "current": 88,
+          "previous": 85
+        }
+      },
+      "attendance": {
+        "present": 18,
+        "absent": 2
+      }
+    },
+    {
+      "name": "임소울",
+      "scores": {
+        "국어": {
+          "current": 66,
+          "previous": 69
+        },
+        "영어": {
+          "current": 57,
+          "previous": 61
+        },
+        "수학": {
+          "current": 51,
+          "previous": 61
+        },
+        "과학": {
+          "current": 56,
+          "previous": 64
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 2
+      }
+    },
+    {
+      "name": "정라온",
+      "scores": {
+        "국어": {
+          "current": 50,
+          "previous": 57
+        },
+        "영어": {
+          "current": 46,
+          "previous": 60
+        },
+        "수학": {
+          "current": 61,
+          "previous": 73
+        },
+        "과학": {
+          "current": 64,
+          "previous": 78
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 0
+      }
+    },
+    {
+      "name": "차예린",
+      "scores": {
+        "국어": {
+          "current": 52,
+          "previous": 55
+        },
+        "영어": {
+          "current": 50,
+          "previous": 61
+        },
+        "수학": {
+          "current": 83,
+          "previous": 95
+        },
+        "과학": {
+          "current": 70,
+          "previous": 84
+        }
+      },
+      "attendance": {
+        "present": 20,
+        "absent": 1
+      }
+    },
+    {
+      "name": "한별하",
+      "scores": {
+        "국어": {
+          "current": 88,
+          "previous": 94
+        },
+        "영어": {
+          "current": 46,
+          "previous": 55
+        },
+        "수학": {
+          "current": 65,
+          "previous": 70
+        },
+        "과학": {
+          "current": 77,
+          "previous": 82
+        }
+      },
+      "attendance": {
+        "present": 22,
+        "absent": 0
+      }
+    }
+  ],
+  "context": {
+    "comment": "이번 달 전체적으로 성적이 좀 떨어졌어요. 학부모님들께 보낼 안내문에 너무 겁주지는 말고, 그래도 지금 잡아야 한다는 건 분명히 전해주세요."
+  }
+}
