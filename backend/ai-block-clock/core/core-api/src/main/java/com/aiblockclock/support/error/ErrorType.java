@@ -33,6 +33,9 @@ public enum ErrorType {
     WALLET_AUTH_MESSAGE_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_011,
             "지갑 인증 메시지를 사용할 수 없습니다. 새 메시지를 발급받아 주세요.", LogLevel.WARN),
 
+    WALLET_AUTH_MESSAGE_NOT_FOUND(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_012,
+            "지갑 인증 메시지가 없습니다. 먼저 메시지를 발급받아 주세요.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
