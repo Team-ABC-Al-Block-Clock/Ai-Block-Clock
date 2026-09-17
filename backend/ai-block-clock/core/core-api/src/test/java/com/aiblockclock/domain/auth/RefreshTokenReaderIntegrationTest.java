@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +40,12 @@ class RefreshTokenReaderIntegrationTest {
 
     @Autowired
     private RefreshTokenReader refreshTokenReader;
+
+    @Autowired
+    private RefreshTokenGenerator refreshTokenGenerator;
+
+    @Autowired
+    private RefreshTokenHasher refreshTokenHasher;
 
     @Autowired
     private EntityManager entityManager;
@@ -108,14 +115,37 @@ class RefreshTokenReaderIntegrationTest {
     }
 
     @Test
-    void 해시값은_대소문자가_다르면_다른_토큰으로_구분한다() {
+    void 생성한_원문의_해시를_저장하면_같은_원문으로_다시_조회할_수_있다() {
         LoginSessionEntity session = saveSession();
-        String storedHash = "f".repeat(64);
+        String rawRefreshToken = refreshTokenGenerator.generate();
+        String storedHash = refreshTokenHasher.hash(rawRefreshToken);
+        RefreshTokenEntity saved = refreshTokenRepository.saveAndFlush(
+                RefreshTokenEntity.of(session.getId(), storedHash, EXPIRES_AT)
+        );
+        entityManager.clear();
+
+        String receivedHash = refreshTokenHasher.hash(rawRefreshToken);
+        RefreshToken found = refreshTokenReader.findByRefreshTokenHash(receivedHash).orElseThrow();
+
+        assertThat(receivedHash).isEqualTo(storedHash).matches("[0-9a-f]{64}");
+        assertThat(found.id()).isEqualTo(RefreshTokenId.of(saved.getId()));
+        assertThat(found.sessionId()).isEqualTo(LoginSessionId.of(session.getId()));
+        assertThat(found.refreshTokenHash()).isEqualTo(storedHash);
+    }
+
+    @Test
+    void 원문의_대소문자를_바꾸면_다른_해시로_조회하여_기록을_찾지_못한다() {
+        LoginSessionEntity session = saveSession();
+        String rawRefreshToken = "a1".repeat(32);
+        String storedHash = refreshTokenHasher.hash(rawRefreshToken);
         refreshTokenRepository.saveAndFlush(RefreshTokenEntity.of(session.getId(), storedHash, EXPIRES_AT));
         entityManager.clear();
 
+        String modifiedHash = refreshTokenHasher.hash(rawRefreshToken.toUpperCase(Locale.ROOT));
+
+        assertThat(modifiedHash).isNotEqualTo(storedHash).matches("[0-9a-f]{64}");
         assertThat(refreshTokenReader.findByRefreshTokenHash(storedHash)).isPresent();
-        assertThat(refreshTokenReader.findByRefreshTokenHash("F".repeat(64))).isEmpty();
+        assertThat(refreshTokenReader.findByRefreshTokenHash(modifiedHash)).isEmpty();
     }
 
     private LoginSessionEntity saveSession() {
