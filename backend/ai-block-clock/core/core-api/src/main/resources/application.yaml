@@ -11,6 +11,7 @@ spring:
       - classpath:monitoring.yml   # :support:monitoring
       - classpath:wallet-auth.yml  # :core:core-api
       - classpath:auth-token.yml   # :core:core-api
+      - classpath:auth-web.yml     # :core:core-api
 
 server:
   port: ${SERVER_PORT:8080}

@@ -32,7 +32,7 @@ public class OpenApiConfig {
         SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentOwner.class);
     }
 
-    /** 요청자 식별은 로그인으로 발급한 Access Token 으로 한다. 모든 엔드포인트가 같은 방식이다. */
+    /** 일반 API는 Access Token, 토큰 재발급과 로그아웃은 Refresh Token 쿠키를 사용한다. */
     @Bean
     public OpenAPI openAPI() {
         SecurityScheme accessToken = new SecurityScheme()
@@ -46,11 +46,15 @@ public class OpenApiConfig {
                         .title("AI Block Clock API")
                         .description("AI Block Clock 백엔드 API 문서")
                         .version("v1"))
-                .components(new Components().addSecuritySchemes(BEARER_SCHEME, accessToken))
+                .components(new Components().addSecuritySchemes(BEARER_SCHEME, accessToken)
+                        .addSecuritySchemes("refreshToken", new SecurityScheme()
+                                .type(SecurityScheme.Type.APIKEY)
+                                .in(SecurityScheme.In.COOKIE)
+                                .name("refreshToken")))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
     }
 
-    /** 401 은 모든 엔드포인트가 같은 모양으로 내므로 여기서 한 번만 붙인다. */
+    /** 로그인 사용자가 필요한 API에 공통 Access Token 오류를 붙인다. */
     @Bean
     public OperationCustomizer unauthorizedResponse() {
         Example example = new Example().value(UNAUTHORIZED_EXAMPLE);
@@ -64,7 +68,12 @@ public class OpenApiConfig {
                 .content(new Content().addMediaType(APPLICATION_JSON, mediaType));
 
         return (operation, handlerMethod) -> {
-            operation.getResponses().addApiResponse("401", unauthorized);
+            for (var parameter : handlerMethod.getMethodParameters()) {
+                if (parameter.hasParameterAnnotation(CurrentOwner.class)) {
+                    operation.getResponses().addApiResponse("401", unauthorized);
+                    break;
+                }
+            }
             return operation;
         };
     }

@@ -1,0 +1,8 @@
+auth-web:
+  secure-cookie: ${AUTH_COOKIE_SECURE:true}
+  allowed-origins: ${AUTH_ALLOWED_ORIGINS:https://j15a403.p.ssafy.io}
+---
+spring.config.activate.on-profile: local
+auth-web:
+  secure-cookie: ${AUTH_COOKIE_SECURE:false}
+  allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}

@@ -21,6 +21,10 @@ services:
     image: ai-block-clock-backend:${IMAGE_TAG:-latest}
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      WALLET_AUTH_DOMAIN: ${WALLET_AUTH_DOMAIN:-j15a403.p.ssafy.io}
+      WALLET_AUTH_URI: ${WALLET_AUTH_URI:-https://j15a403.p.ssafy.io/}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-https://j15a403.p.ssafy.io}
     # 8080 을 0.0.0.0 이 아니라 루프백에만 바인딩한다. 외부는 Nginx 를 거친다.
     ports: !override
       - "127.0.0.1:8080:8080"

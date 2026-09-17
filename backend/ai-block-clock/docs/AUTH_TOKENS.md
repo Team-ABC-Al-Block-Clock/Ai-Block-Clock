@@ -15,7 +15,11 @@
 - `AuthTokens`: 재발급 결과인 Access Token·Refresh Token 원문과 각각의 만료 시각을 담는다.
 - `WalletAuthService.logout`: 유효한 Refresh Token으로 식별한 로그인 세션 하나를 종료한다.
 - `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
-- 인증 Controller·Refresh Token 쿠키는 이후 연결한다.
+- `AuthController`: 메시지·로그인·재발급·로그아웃 HTTP API를 기존 Service에 연결한다.
+- `RefreshTokenCookie`: Refresh Token을 HttpOnly 쿠키로 발급·교체·삭제한다.
+- `AuthOriginInterceptor`: 인증 POST의 허용된 Origin 또는 Referer를 확인한다.
+
+요청·응답과 배포 설정은 [인증 API 문서](wallet-auth-api.md)를 참고한다.
 
 JWT의 `sub`는 사용자 번호 문자열, `sid`는 세션 번호 문자열이다.
 `iss`, `iat`, `exp`는 발급자, 발급 시각, 만료 시각이다.
@@ -110,7 +114,8 @@ Access Token 생성은 서버 안에서 수행하는 JWT 서명 작업이며, �
 
 새 Refresh Token 저장 또는 Access Token 생성이 실패하면 새 기록과 기존 토큰 사용 처리를 함께 롤백한다.
 재발급으로 최초 7일 종료 시각을 늘리지 않는다. Access Token도 그 세션의 종료 시각을 넘지 않는다.
-현재는 내부 Service 연결까지 구현했고 HTTP 응답·쿠키·FE 재발급 연결은 인증 API 단계에서 추가한다.
+HTTP 응답과 쿠키 교체는 인증 Controller에 연결되어 있다.
+FE의 오류 봉투 해석과 만료 코드 분기는 인증 API 문서의 FE 연결 사항대로 맞춰야 한다.
 
 ## 로그아웃
 
@@ -129,7 +134,7 @@ Access Token이 만료돼도 Refresh Token이 유효하면 해당 세션을 종�
 
 DB 변경은 세션 하나의 종료이므로 별도 Manager를 만들지 않고 기존 Writer의 트랜잭션을 재사용한다.
 재발급이 세션을 잠근 경우 로그아웃 UPDATE는 재발급 커밋 후 실행되고, 발급된 토큰도 세션 종료로 차단된다.
-브라우저의 Refresh Token 쿠키 만료와 FE의 Access Token 제거는 인증 API·FE 연결 단계에서 처리한다.
+Controller가 성공 응답에서 Refresh Token 쿠키를 삭제한다. FE는 성공 후 메모리의 Access Token을 제거한다.
 
 ## 실행 환경 설정
 
