@@ -5,6 +5,7 @@ import { CANVAS_NODES } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel from '@/components/SidePanel'
+import StatusDot from '@/components/StatusDot'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
@@ -321,16 +322,11 @@ export default function RunWaiting() {
                 >
                   {row.meta}
                 </div>
-                <div
-                  className="absolute rounded-full"
-                  style={{
-                    right: '16px',
-                    top: '27px',
-                    width: '6px',
-                    height: '6px',
-                    background: 'rgba(125,227,176,.7)',
-                  }}
-                ></div>
+                <StatusDot
+                  size={6}
+                  color="rgba(125,227,176,.7)"
+                  style={{ position: 'absolute', right: '16px', top: '27px' }}
+                />
               </div>
             </Fragment>
           ))}

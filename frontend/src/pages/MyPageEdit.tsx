@@ -8,6 +8,7 @@ import { shortAddress } from '@/lib/format'
 import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
+import StatusDot from '@/components/StatusDot'
 
 export default function MyPageEdit() {
   const navigate = useNavigate()
@@ -401,14 +402,7 @@ export default function MyPageEdit() {
                 gap: '10px',
               }}
             >
-              <div
-                className="rounded-full"
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  background: toast.ok ? '#84bf9f' : '#f0b6c8',
-                }}
-              ></div>
+              <StatusDot color={toast.ok ? '#84bf9f' : '#f0b6c8'} />
               <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
                 {toast.text}
               </div>

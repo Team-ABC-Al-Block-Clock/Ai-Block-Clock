@@ -2,6 +2,7 @@ import { Fragment, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel from '@/components/SidePanel'
+import SearchIcon from '@/components/SearchIcon'
 
 export default function EditSearching() {
   const navigate = useNavigate()
@@ -142,28 +143,7 @@ export default function EditSearching() {
             borderRadius: '10px',
           }}
         >
-          <div
-            className="absolute rounded-full"
-            style={{
-              left: '14px',
-              top: '13px',
-              width: '14px',
-              height: '14px',
-              border: '2px solid rgba(255,255,255,.7)',
-            }}
-          ></div>
-          <div
-            className="absolute"
-            style={{
-              left: '25px',
-              top: '25px',
-              width: '7px',
-              height: '2px',
-              borderRadius: '1px',
-              background: 'rgba(255,255,255,.7)',
-              transform: 'rotate(45deg)',
-            }}
-          ></div>
+          <SearchIcon left={14} top={13} color="rgba(255,255,255,.7)" />
           <input
             className="absolute border-0 bg-transparent font-[inherit] text-[14px] text-white outline-0"
             id="searchSide"

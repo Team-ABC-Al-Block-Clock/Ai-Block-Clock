@@ -7,6 +7,7 @@ import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 import { OceanTheme } from '../components/theme-store'
+import SearchIcon from '@/components/SearchIcon'
 
 const FULL_TITLE = '어떤 일을 맡겨볼까요?'
 /** 명세 기본값 */
@@ -250,28 +251,7 @@ export default function Search() {
           animation: 'srchUp .7s cubic-bezier(.22,.8,.24,1) both',
         }}
       >
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: '28px',
-            top: '24px',
-            width: '20px',
-            height: '20px',
-            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.85)',
-          }}
-        ></div>
-        <div
-          className="absolute"
-          style={{
-            left: '44px',
-            top: '41px',
-            width: '9px',
-            height: '2px',
-            borderRadius: '1px',
-            background: 'rgba(255,255,255,.85)',
-            transform: 'rotate(45deg)',
-          }}
-        ></div>
+        <SearchIcon left={28} top={24} size={20} color="rgba(255,255,255,.85)" handleLength={9} />
         <input
           className="absolute border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
           id="searchQ"

@@ -6,6 +6,7 @@ import { CANVAS_NODES, canSellWorkflow } from '@/lib/canvasWorkflow'
 import { cssToStyle } from '../lib/css'
 import { paths } from '@/routes/paths'
 import SidePanel from '@/components/SidePanel'
+import StatusDot from '@/components/StatusDot'
 
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
@@ -357,10 +358,7 @@ export default function RunRunning() {
                     className="flex items-center"
                     style={{ gap: '8px', animation: 'lineIn .34s ease both' }}
                   >
-                    <div
-                      className="flex-none rounded-full"
-                      style={{ width: '6px', height: '6px', background: `${l.dot}` }}
-                    ></div>
+                    <StatusDot size={6} color={l.dot} />
                     <div
                       className="overflow-hidden text-[18px] tracking-[-.005em] whitespace-nowrap"
                       style={{ color: `${l.color}`, textOverflow: 'ellipsis' }}

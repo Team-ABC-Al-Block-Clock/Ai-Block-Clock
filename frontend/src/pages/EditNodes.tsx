@@ -9,6 +9,8 @@ import { CANVAS_NODES, canSellWorkflow } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
 import SidePanel from '@/components/SidePanel'
+import SearchIcon from '@/components/SearchIcon'
+import StatusDot from '@/components/StatusDot'
 
 /** 한 번에 불러오는 개수. */
 const PAGE_SIZE = 10
@@ -710,28 +712,7 @@ export default function EditNodes() {
             borderRadius: '10px',
           }}
         >
-          <div
-            className="pointer-events-none absolute rounded-full"
-            style={{
-              left: '14px',
-              top: '13px',
-              width: '14px',
-              height: '14px',
-              boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.7)',
-            }}
-          ></div>
-          <div
-            className="pointer-events-none absolute"
-            style={{
-              left: '25px',
-              top: '25px',
-              width: '7px',
-              height: '2px',
-              borderRadius: '1px',
-              background: 'rgba(255,255,255,.7)',
-              transform: 'rotate(45deg)',
-            }}
-          ></div>
+          <SearchIcon left={14} top={13} color="rgba(255,255,255,.7)" />
           <input
             className="absolute inset-y-0 border-0 bg-transparent font-[inherit] text-[15.5px] text-white outline-0"
             type="text"
@@ -976,14 +957,7 @@ export default function EditNodes() {
           }}
           className="flex flex-none items-center whitespace-nowrap"
         >
-          <div
-            style={{
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              background: canSell ? '#a8ddc0' : '#e79a9a',
-            }}
-          ></div>
+          <StatusDot color={canSell ? '#a8ddc0' : '#e79a9a'} />
           <div
             className="text-[14.5px] font-bold tracking-[-.005em]"
             style={{ color: 'rgba(255,255,255,.9)' }}

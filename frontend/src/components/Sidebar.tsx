@@ -2,6 +2,7 @@ import { shortAddress } from '@/lib/format'
 import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
+import StatusDot from '@/components/StatusDot'
 
 const TABS = [
   { key: 'agents', label: '내 에이전트', href: paths.my.agents },
@@ -198,10 +199,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           {profile ? chainNameOf(profile.wallet.chainId) : chainLabel}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
-          <div
-            className="rounded-full"
-            style={{ width: '8px', height: '8px', background: '#84bf9f' }}
-          ></div>
+          <StatusDot size={8} color="#84bf9f" />
           <div className="text-[12px] font-semibold" style={{ color: '#9ad0b4' }}>
             정상 연결
           </div>

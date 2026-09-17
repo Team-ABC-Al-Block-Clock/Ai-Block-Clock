@@ -23,6 +23,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { sparkPath } from '@/lib/spark'
 import { paths } from '@/routes/paths'
 import Sidebar from '../components/Sidebar'
+import SearchIcon from '@/components/SearchIcon'
 
 /** 마켓 목록(9)과 다르다. */
 const PAGE_SIZE = 10
@@ -466,28 +467,7 @@ export default function MyAgents() {
           animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: '18px',
-            top: '15px',
-            width: '14px',
-            height: '14px',
-            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.62)',
-          }}
-        ></div>
-        <div
-          className="absolute"
-          style={{
-            left: '29px',
-            top: '27px',
-            width: '8px',
-            height: '2px',
-            borderRadius: '1px',
-            background: 'rgba(255,255,255,.62)',
-            transform: 'rotate(45deg)',
-          }}
-        ></div>
+        <SearchIcon left={18} top={15} color="rgba(255,255,255,.62)" handleLength={8} />
         <input
           className="absolute border-0 bg-transparent font-[inherit] text-[13px] tracking-[-.01em] text-white outline-0 placeholder:text-white/50 disabled:cursor-not-allowed"
           type="text"

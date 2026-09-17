@@ -1,5 +1,6 @@
 import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { BANNER_HEIGHT, type ChainBannerState, type SwitchPhase } from '@/hooks/useChainBanner'
+import StatusDot from '@/components/StatusDot'
 
 const MESSAGE: Record<Exclude<SwitchPhase, 'idle'>, string> = {
   pending: '지갑에서 네트워크 전환을 승인해 주세요',
@@ -41,14 +42,10 @@ export default function ChainBanner({
         animation: 'dropInDown .34s cubic-bezier(.2,.8,.25,1) both',
       }}
     >
-      <div
-        className="flex-none rounded-full"
-        style={{
-          width: '5px',
-          height: '5px',
-          background: '#ffd0e0',
-          animation: phase === 'pending' ? 'pulseDot 1.4s ease-in-out infinite' : undefined,
-        }}
+      <StatusDot
+        size={5}
+        color="#ffd0e0"
+        animation={phase === 'pending' ? 'pulseDot 1.4s ease-in-out infinite' : undefined}
       />
 
       <div className="truncate text-[12.5px] font-medium tracking-[-.01em] text-white">
