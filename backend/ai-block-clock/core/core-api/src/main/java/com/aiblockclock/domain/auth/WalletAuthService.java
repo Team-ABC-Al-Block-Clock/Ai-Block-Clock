@@ -27,6 +27,7 @@ public class WalletAuthService {
     private final TokenReissueManager tokenReissueManager;
     private final AccessTokenValidator accessTokenValidator;
     private final LoginSessionReader loginSessionReader;
+    private final LoginSessionWriter loginSessionWriter;
     private final AuthTokenProperties authTokenProperties;
     private final Clock clock;
 
@@ -78,6 +79,15 @@ public class WalletAuthService {
                 accessToken,
                 new IssuedRefreshToken(newRawRefreshToken, session.expiresAt())
         );
+    }
+
+    public void logout(String rawRefreshToken) {
+        String refreshTokenHash = refreshTokenHasher.hash(rawRefreshToken);
+        RefreshToken refreshToken = refreshTokenReader.findByRefreshTokenHash(refreshTokenHash)
+                .orElseThrow(() -> new CoreException(ErrorType.REFRESH_TOKEN_NOT_USABLE));
+        refreshToken.checkUsable(clock.instant());
+
+        loginSessionWriter.modifyAsRevoked(refreshToken.sessionId());
     }
 
     public LoginSession authenticate(String rawAccessToken) {

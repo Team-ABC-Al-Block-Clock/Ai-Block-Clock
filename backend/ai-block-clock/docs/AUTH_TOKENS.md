@@ -13,8 +13,9 @@
 - `WalletAuthService.reissue`: Refresh Token 원문으로 기존 토큰·세션을 확인하고 새 토큰 두 개를 반환한다.
 - `TokenReissueManager`: 기존 토큰 사용 처리·새 해시 저장·Access Token 생성을 한 트랜잭션으로 묶는다.
 - `AuthTokens`: 재발급 결과인 Access Token·Refresh Token 원문과 각각의 만료 시각을 담는다.
+- `WalletAuthService.logout`: 유효한 Refresh Token으로 식별한 로그인 세션 하나를 종료한다.
 - `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
-- 로그아웃과 인증 Controller·Refresh Token 쿠키는 이후 연결한다.
+- 인증 Controller·Refresh Token 쿠키는 이후 연결한다.
 
 JWT의 `sub`는 사용자 번호 문자열, `sid`는 세션 번호 문자열이다.
 `iss`, `iat`, `exp`는 발급자, 발급 시각, 만료 시각이다.
@@ -111,6 +112,25 @@ Access Token 생성은 서버 안에서 수행하는 JWT 서명 작업이며, �
 재발급으로 최초 7일 종료 시각을 늘리지 않는다. Access Token도 그 세션의 종료 시각을 넘지 않는다.
 현재는 내부 Service 연결까지 구현했고 HTTP 응답·쿠키·FE 재발급 연결은 인증 API 단계에서 추가한다.
 
+## 로그아웃
+
+`WalletAuthService.logout`은 Access Token 없이 현재 Refresh Token 원문으로 로그아웃한다.
+Access Token이 만료돼도 Refresh Token이 유효하면 해당 세션을 종료할 수 있다.
+
+1. 원문의 해시로 Refresh Token 기록을 조회한다. 기록이 없으면 `AUTH_017`로 거절한다.
+2. 토큰 만료(`AUTH_015`)·사용 여부(`AUTH_016`)를 검사한다. 교체 전 토큰은 사용할 수 없다.
+3. `LoginSessionWriter.modifyAsRevoked`로 그 기록의 세션 번호 하나에만 종료 시각을 기록한다.
+
+사용자 번호를 FE에서 받지 않고, 사용자의 모든 세션을 일괄 종료하지 않는다.
+이전 로그인에 연결된 토큰으로 로그아웃해도 새 로그인 세션을 종료하지 않는다.
+이미 종료된 세션에는 최초 종료 시각을 유지하므로 같은 유효한 토큰으로 재요청해도 성공한다.
+로그아웃은 Refresh Token을 재발급에 사용 처리하지 않고 세션을 종료한다. 그 세션의 토큰은
+세션 검사에서 차단되며 사용자·ABC 계정·Refresh Token 기록은 삭제하지 않는다.
+
+DB 변경은 세션 하나의 종료이므로 별도 Manager를 만들지 않고 기존 Writer의 트랜잭션을 재사용한다.
+재발급이 세션을 잠근 경우 로그아웃 UPDATE는 재발급 커밋 후 실행되고, 발급된 토큰도 세션 종료로 차단된다.
+브라우저의 Refresh Token 쿠키 만료와 FE의 Access Token 제거는 인증 API·FE 연결 단계에서 처리한다.
+
 ## 실행 환경 설정
 
 | 환경변수 | 기본값 | 의미 |
@@ -166,6 +186,11 @@ Access Token 생성 실패 모두에서 신규 가입 취소·메시지 미사�
 재발급 통합 테스트는 실제 Manager 트랜잭션으로 토큰 교체·최초 종료 시각 유지·기존 세션 유지,
 만료·종료·재사용 거절, 처리 중 만료·세션 종료, 동시 재발급과 저장·생성 실패 시 롤백을 확인한다.
 테스트가 생성한 사용자 번호에 연결된 토큰·세션·사용자만 정리한다. 일반 통합 테스트의 H2 결과는 MySQL 검증과 구분한다.
+
+로그아웃 통합 테스트는 실제 지갑 로그인 결과로 세션 종료·요청 인증 차단·재발급 차단,
+Access Token 만료 후 종료, 재요청의 최초 종료 시각 유지, 사용자·ABC 계정 유지,
+다른 사용자·새 로그인 세션 보호와 DB 오류 시 종료 롤백을 확인한다.
+재발급과 로그아웃이 겹치는 테스트는 실제 `WalletAuthService.logout`을 호출한다.
 
 요청 인증·워크플로우의 MockMvc 통합 테스트는 테스트 트랜잭션 안에서 동기 요청을 실행한다.
 사용자·세션·워크플로우 변경은 테스트 종료 시 롤백되며 다른 테스트의 데이터를 일괄 삭제하지 않는다.

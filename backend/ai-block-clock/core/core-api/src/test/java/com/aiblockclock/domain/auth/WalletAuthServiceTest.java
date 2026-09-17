@@ -55,11 +55,12 @@ class WalletAuthServiceTest {
     private final TokenReissueManager tokenReissueManager = mock(TokenReissueManager.class);
     private final AccessTokenValidator accessTokenValidator = mock(AccessTokenValidator.class);
     private final LoginSessionReader loginSessionReader = mock(LoginSessionReader.class);
+    private final LoginSessionWriter loginSessionWriter = mock(LoginSessionWriter.class);
     private final AuthTokenProperties properties = new AuthTokenProperties(
             "ai-block-clock", Duration.ofMinutes(15), SESSION_TTL, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
     private final WalletAuthService service = new WalletAuthService(generator, reader, writer, validator,
             userReader, loginManager, refreshTokenGenerator, refreshTokenHasher, refreshTokenReader, tokenReissueManager,
-            accessTokenValidator, loginSessionReader, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+            accessTokenValidator, loginSessionReader, loginSessionWriter, properties, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void 메시지_발급은_생성한_메시지를_저장하고_저장_결과를_반환한다() {
@@ -266,6 +267,63 @@ class WalletAuthServiceTest {
                 .thenThrow(new CoreException(ErrorType.REFRESH_TOKEN_NOT_USABLE));
 
         assertReissueError(ErrorType.REFRESH_TOKEN_NOT_USABLE);
+    }
+
+    @Test
+    void 로그아웃은_Refresh_Token으로_찾은_세션만_종료한다() {
+        RefreshToken stored = givenRefreshToken();
+
+        service.logout(RAW_REFRESH_TOKEN);
+
+        verify(loginSessionWriter).modifyAsRevoked(stored.sessionId());
+        verifyNoInteractions(accessTokenValidator, loginSessionReader, refreshTokenGenerator,
+                tokenReissueManager, userReader, loginManager, writer);
+    }
+
+    @Test
+    void 저장되지_않은_Refresh_Token으로는_세션을_종료하지_않는다() {
+        when(refreshTokenHasher.hash(RAW_REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_HASH);
+        when(refreshTokenReader.findByRefreshTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.empty());
+
+        assertLogoutError(ErrorType.REFRESH_TOKEN_NOT_USABLE);
+        verifyNoInteractions(loginSessionWriter);
+    }
+
+    @Test
+    void 사용한_Refresh_Token으로는_로그아웃하지_않는다() {
+        givenRefreshToken();
+        RefreshToken used = new RefreshToken(RefreshTokenId.of(500L), session().id(), REFRESH_TOKEN_HASH,
+                SESSION_EXPIRES_AT, NOW.minusSeconds(1));
+        when(refreshTokenReader.findByRefreshTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.of(used));
+
+        assertLogoutError(ErrorType.REFRESH_TOKEN_ALREADY_USED);
+        verifyNoInteractions(loginSessionWriter);
+    }
+
+    @Test
+    void 만료된_Refresh_Token으로는_로그아웃하지_않는다() {
+        givenRefreshToken();
+        RefreshToken expired = new RefreshToken(RefreshTokenId.of(500L), session().id(), REFRESH_TOKEN_HASH,
+                NOW, null);
+        when(refreshTokenReader.findByRefreshTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.of(expired));
+
+        assertLogoutError(ErrorType.REFRESH_TOKEN_EXPIRED);
+        verifyNoInteractions(loginSessionWriter);
+    }
+
+    @Test
+    void 세션_종료가_실패하면_로그아웃_오류를_그대로_전달한다() {
+        RefreshToken stored = givenRefreshToken();
+        doThrow(new CoreException(ErrorType.INTERNAL_ERROR))
+                .when(loginSessionWriter).modifyAsRevoked(stored.sessionId());
+
+        assertLogoutError(ErrorType.INTERNAL_ERROR);
+    }
+
+    private void assertLogoutError(ErrorType expected) {
+        assertThatThrownBy(() -> service.logout(RAW_REFRESH_TOKEN))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(expected));
     }
 
     private RefreshToken givenRefreshToken() {

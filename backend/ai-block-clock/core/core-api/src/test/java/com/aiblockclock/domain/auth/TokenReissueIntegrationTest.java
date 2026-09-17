@@ -308,7 +308,7 @@ class TokenReissueIntegrationTest {
                 assertThat(tokenGenerated.await(10, TimeUnit.SECONDS)).isTrue();
                 var revoking = executor.submit(() -> {
                     revokeStarted.countDown();
-                    sessionWriter.modifyAsRevoked(login.session().id());
+                    service.logout(login.rawRefreshToken());
                 });
                 assertThat(revokeStarted.await(10, TimeUnit.SECONDS)).isTrue();
                 assertThatThrownBy(() -> revoking.get(250, TimeUnit.MILLISECONDS))
