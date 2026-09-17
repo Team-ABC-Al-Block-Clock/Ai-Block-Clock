@@ -36,6 +36,21 @@ public enum ErrorType {
     WALLET_AUTH_MESSAGE_NOT_FOUND(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_012,
             "지갑 인증 메시지가 없습니다. 먼저 메시지를 발급받아 주세요.", LogLevel.WARN),
 
+    LOGIN_SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_013,
+            "로그인 세션이 만료되었습니다. 다시 로그인해 주세요.", LogLevel.WARN),
+
+    LOGIN_SESSION_REVOKED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_014,
+            "종료된 로그인 세션입니다. 다시 로그인해 주세요.", LogLevel.WARN),
+
+    REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_015,
+            "Refresh Token이 만료되었습니다. 다시 로그인해 주세요.", LogLevel.WARN),
+
+    REFRESH_TOKEN_ALREADY_USED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_016,
+            "이미 사용한 Refresh Token입니다.", LogLevel.WARN),
+
+    REFRESH_TOKEN_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_017,
+            "Refresh Token을 사용할 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 

@@ -9,12 +9,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Component
 @RequiredArgsConstructor
 public class LoginSessionWriter {
     private final LoginSessionRepository loginSessionRepository;
+    private final Clock clock;
 
     @Transactional
     public LoginSession append(UserId userId, Instant expiresAt) {
@@ -23,5 +26,12 @@ public class LoginSessionWriter {
         );
 
         return LoginSessionEntityConverter.toDomain(saved);
+    }
+
+    @Transactional
+    public void modifyAsRevoked(LoginSessionId sessionId) {
+        Instant revokedAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
+
+        loginSessionRepository.updateRevokedAtIfNotRevoked(sessionId.value(), revokedAt);
     }
 }
