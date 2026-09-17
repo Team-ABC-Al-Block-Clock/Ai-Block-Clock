@@ -136,7 +136,7 @@ export default function RunWaiting() {
           className="absolute text-[20px] font-bold tracking-[-.02em] text-white"
           style={{ left: '30px', top: '38px' }}
         >
-          에이전트 실행
+          워크플로우 실행
         </div>
 
         {/* 이전 단계로 돌아가 워크플로우를 수정할 수 있다. */}

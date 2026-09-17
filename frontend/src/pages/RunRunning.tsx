@@ -274,7 +274,7 @@ export default function RunRunning() {
           className="absolute text-[23px] font-bold tracking-[-.02em] text-white"
           style={{ left: '30px', top: '36px' }}
         >
-          에이전트 실행
+          워크플로우 실행
         </div>
 
         {/* 이전 단계로 돌아가 프롬프트를 수정하여 재실행할 수 있다. */}

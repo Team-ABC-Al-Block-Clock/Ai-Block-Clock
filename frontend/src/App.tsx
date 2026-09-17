@@ -327,13 +327,7 @@ export default function App() {
                 }}
               >
                 <div className="text-[13px] leading-[1.4] font-semibold tracking-[-.01em] text-white">
-                  나만의 에이전트를 만들어 팔아보세요
-                </div>
-                <div
-                  className="text-[12px] leading-[18px]"
-                  style={{ color: 'rgba(255,236,246,.6)' }}
-                >
-                  내 것만으로 구성하면 그대로 마켓에 등록할 수 있어요
+                  나만의 에이전트를 만들고, 판매해보세요
                 </div>
               </div>
             </a>
