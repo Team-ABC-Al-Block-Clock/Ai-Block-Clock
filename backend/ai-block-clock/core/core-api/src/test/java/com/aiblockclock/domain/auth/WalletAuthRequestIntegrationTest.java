@@ -37,9 +37,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("integration")
 @SpringBootTest
 @Transactional
-class RequestAuthServiceIntegrationTest {
+class WalletAuthRequestIntegrationTest {
     @Autowired
-    private RequestAuthService requestAuthService;
+    private WalletAuthService walletAuthService;
 
     @Autowired
     private AccessTokenGenerator accessTokenGenerator;
@@ -66,7 +66,7 @@ class RequestAuthServiceIntegrationTest {
         String rawAccessToken = issueToken(session);
         entityManager.clear();
 
-        LoginSession authenticated = requestAuthService.authenticate(rawAccessToken);
+        LoginSession authenticated = walletAuthService.authenticate(rawAccessToken);
 
         assertThat(authenticated.id()).isEqualTo(LoginSessionId.of(session.getId()));
         assertThat(authenticated.userId()).isEqualTo(UserId.of(user.getId()));
@@ -81,7 +81,7 @@ class RequestAuthServiceIntegrationTest {
         revokeSession(session.getId());
         entityManager.clear();
 
-        assertThatThrownBy(() -> requestAuthService.authenticate(rawAccessToken))
+        assertThatThrownBy(() -> walletAuthService.authenticate(rawAccessToken))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.LOGIN_SESSION_REVOKED));
     }
@@ -94,7 +94,7 @@ class RequestAuthServiceIntegrationTest {
         expireSession(session.getId(), clock.instant().minusSeconds(1));
         entityManager.clear();
 
-        assertThatThrownBy(() -> requestAuthService.authenticate(rawAccessToken))
+        assertThatThrownBy(() -> walletAuthService.authenticate(rawAccessToken))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.LOGIN_SESSION_EXPIRED));
     }
@@ -104,7 +104,7 @@ class RequestAuthServiceIntegrationTest {
         UserEntity user = saveUser();
         String rawAccessToken = signToken(user.getId(), Long.MAX_VALUE);
 
-        assertThatThrownBy(() -> requestAuthService.authenticate(rawAccessToken))
+        assertThatThrownBy(() -> walletAuthService.authenticate(rawAccessToken))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.LOGIN_SESSION_NOT_USABLE));
     }
@@ -117,7 +117,7 @@ class RequestAuthServiceIntegrationTest {
         String rawAccessToken = signToken(other.getId(), session.getId());
         entityManager.clear();
 
-        assertThatThrownBy(() -> requestAuthService.authenticate(rawAccessToken))
+        assertThatThrownBy(() -> walletAuthService.authenticate(rawAccessToken))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.ACCESS_TOKEN_INVALID));
     }
@@ -125,7 +125,7 @@ class RequestAuthServiceIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "  ", "not-a-token", "a.b.c"})
     void 토큰_원문이_올바르지_않으면_세션을_조회하지_않고_거절한다(String rawAccessToken) {
-        assertThatThrownBy(() -> requestAuthService.authenticate(rawAccessToken))
+        assertThatThrownBy(() -> walletAuthService.authenticate(rawAccessToken))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.ACCESS_TOKEN_INVALID));
     }

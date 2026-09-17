@@ -41,8 +41,10 @@ class WalletAuthServiceTest {
     private final WalletSignatureValidator validator = spy(new WalletSignatureValidator());
     private final UserReader userReader = mock(UserReader.class);
     private final WalletLoginManager loginManager = mock(WalletLoginManager.class);
+    private final AccessTokenValidator accessTokenValidator = mock(AccessTokenValidator.class);
+    private final LoginSessionReader loginSessionReader = mock(LoginSessionReader.class);
     private final WalletAuthService service = new WalletAuthService(generator, reader, writer, validator,
-            userReader, loginManager, Clock.fixed(NOW, ZoneOffset.UTC));
+            userReader, loginManager, accessTokenValidator, loginSessionReader, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void 메시지_발급은_생성한_메시지를_저장하고_저장_결과를_반환한다() {
@@ -120,6 +122,52 @@ class WalletAuthServiceTest {
         doThrow(new CoreException(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE)).when(writer).modifyAsUsed(MESSAGE);
 
         assertError(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE, signature());
+    }
+
+    @Test
+    void 요청_인증은_토큰과_일치하는_유효한_세션을_반환한다() {
+        AccessTokenClaims claims = new AccessTokenClaims(UserId.of(123L), LoginSessionId.of(100L));
+        LoginSession session = new LoginSession(claims.sessionId(), claims.userId(), NOW.plusSeconds(60), null);
+        when(accessTokenValidator.readClaims("test-token")).thenReturn(claims);
+        when(loginSessionReader.findById(claims.sessionId())).thenReturn(Optional.of(session));
+
+        assertThat(service.authenticate("test-token")).isSameAs(session);
+        verify(loginSessionReader).findById(claims.sessionId());
+        verifyNoInteractions(generator, reader, writer, validator, userReader, loginManager);
+    }
+
+    @Test
+    void 토큰_검증에_실패하면_DB_세션을_조회하지_않는다() {
+        when(accessTokenValidator.readClaims("invalid-token"))
+                .thenThrow(new CoreException(ErrorType.ACCESS_TOKEN_INVALID));
+
+        assertThatThrownBy(() -> service.authenticate("invalid-token"))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.ACCESS_TOKEN_INVALID));
+        verifyNoInteractions(loginSessionReader);
+    }
+
+    @Test
+    void 토큰의_세션이_DB에_없으면_요청_인증을_거절한다() {
+        AccessTokenClaims claims = new AccessTokenClaims(UserId.of(123L), LoginSessionId.of(100L));
+        when(accessTokenValidator.readClaims("test-token")).thenReturn(claims);
+        when(loginSessionReader.findById(claims.sessionId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.authenticate("test-token"))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.LOGIN_SESSION_NOT_USABLE));
+    }
+
+    @Test
+    void 토큰의_사용자와_DB_세션의_사용자가_다르면_거절한다() {
+        AccessTokenClaims claims = new AccessTokenClaims(UserId.of(123L), LoginSessionId.of(100L));
+        LoginSession session = new LoginSession(claims.sessionId(), UserId.of(456L), NOW.plusSeconds(60), null);
+        when(accessTokenValidator.readClaims("test-token")).thenReturn(claims);
+        when(loginSessionReader.findById(claims.sessionId())).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> service.authenticate("test-token"))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.ACCESS_TOKEN_INVALID));
     }
 
     private void assertError(ErrorType expected, String signature) {

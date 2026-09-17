@@ -7,7 +7,7 @@
 - `AccessToken`: JWT 문자열과 실제 JWT 만료 시각 반환. DB에 저장하지 않는다.
 - `AccessTokenValidator.readClaims`: 서명·발급자·만료 시각을 검증하고 사용자·세션 번호 반환.
 - `AccessTokenClaims`: 검증된 토큰의 `UserId`, `LoginSessionId`를 담는 순수 객체.
-- `RequestAuthService`: 토큰 검증과 DB 세션 확인을 묶어 요청자를 식별한다.
+- `WalletAuthService.authenticate`: 토큰 검증과 DB 세션 확인을 묶어 요청자를 식별한다.
 - `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
 - 로그인 서비스 호출, 토큰 재발급·로그아웃 API는 이후 연결한다.
 
@@ -33,7 +33,7 @@ JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT�
 
 ## 요청 인증 연결
 
-`RequestAuthService.authenticate` 가 토큰 원문 하나로 요청자를 식별한다. 순서는 다음과 같다.
+`WalletAuthService.authenticate` 가 토큰 원문 하나로 요청자를 식별한다. 인증 도메인의 흐름은 기존 Service 하나에 모은다. 순서는 다음과 같다.
 
 1. `AccessTokenValidator.readClaims` 로 서명·발급자·만료를 검증하고 사용자·세션 번호를 얻는다.
 2. `LoginSessionReader.findById` 로 세션을 조회한다. 없으면 `AUTH_018` 로 거절한다.
@@ -45,8 +45,10 @@ JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT�
 
 `CurrentOwnerArgumentResolver` 는 `@CurrentOwner` 가 붙은 핸들러 파라미터를 만들 때 이 검증을 실행한다.
 `Authorization` 헤더가 없거나 비어 있으면 `AUTH_005`, `Bearer ` 접두어가 아니거나 뒤가 비어 있으면 `AUTH_019` 다.
+인증 방식 이름은 대소문자를 구분하지 않으므로 `Bearer`, `bearer`, `BEARER` 등을 허용한다. JWT 원문은 대소문자를 변경하지 않는다.
 확인한 사용자 번호는 그대로 `OwnerId` 로 전달한다. 기존 `X-Owner-Id` 헤더는 더 이상 읽지 않는다.
-공개 경로를 따로 두지 않고 `@CurrentOwner` 가 붙은 핸들러만 인증하므로, 컨트롤러가 늘면 Interceptor 로 옮긴다.
+현재는 `@CurrentOwner` 가 붙은 핸들러만 인증한다. 새 API에는 인증 적용 여부를 명시해야 한다.
+로그인·메시지 발급처럼 토큰 없이 호출하는 API를 추가할 때는 Swagger의 전역 Bearer 요구사항도 해당 경로에서 제외한다.
 
 ## 실행 환경 설정
 
@@ -95,6 +97,9 @@ Add-Content -LiteralPath .env -Value ('AUTH_JWT_SECRET_BASE64=' + $env:AUTH_JWT_
 키는 실행마다 새로 만들지 않고 해당 환경에서 계속 보관·사용한다.
 
 ## 테스트
+
+요청 인증·워크플로우의 MockMvc 통합 테스트는 테스트 트랜잭션 안에서 동기 요청을 실행한다.
+사용자·세션·워크플로우 변경은 테스트 종료 시 롤백되며 다른 테스트의 데이터를 일괄 삭제하지 않는다.
 
 `src/test/resources/application.properties`의 키는 테스트 전용이다.
 이 파일은 운영 `bootJar`에 들어가지 않고 실제 실행의 기본 비밀키로 사용하지 않는다.

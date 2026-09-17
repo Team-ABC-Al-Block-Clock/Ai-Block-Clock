@@ -21,6 +21,8 @@ public class WalletAuthService {
     private final WalletSignatureValidator walletSignatureValidator;
     private final UserReader userReader;
     private final WalletLoginManager walletLoginManager;
+    private final AccessTokenValidator accessTokenValidator;
+    private final LoginSessionReader loginSessionReader;
     private final Clock clock;
 
     public WalletAuthMessage issueMessage(String walletAddress) {
@@ -43,5 +45,19 @@ public class WalletAuthService {
         }
 
         return walletLoginManager.register(authMessage);
+    }
+
+    public LoginSession authenticate(String rawAccessToken) {
+        AccessTokenClaims claims = accessTokenValidator.readClaims(rawAccessToken);
+        LoginSession session = loginSessionReader.findById(claims.sessionId())
+                .orElseThrow(() -> new CoreException(ErrorType.LOGIN_SESSION_NOT_USABLE));
+
+        session.checkUsable(clock.instant());
+
+        if (!session.userId().equals(claims.userId())) {
+            throw new CoreException(ErrorType.ACCESS_TOKEN_INVALID);
+        }
+
+        return session;
     }
 }

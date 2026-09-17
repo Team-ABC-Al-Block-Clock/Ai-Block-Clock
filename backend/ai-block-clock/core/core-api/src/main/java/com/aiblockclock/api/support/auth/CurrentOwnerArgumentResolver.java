@@ -2,7 +2,7 @@ package com.aiblockclock.api.support.auth;
 
 import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.auth.LoginSession;
-import com.aiblockclock.domain.auth.RequestAuthService;
+import com.aiblockclock.domain.auth.WalletAuthService;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -21,7 +21,7 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 public class CurrentOwnerArgumentResolver implements HandlerMethodArgumentResolver {
     private static final String BEARER_PREFIX = "Bearer ";
 
-    private final RequestAuthService requestAuthService;
+    private final WalletAuthService walletAuthService;
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -36,7 +36,7 @@ public class CurrentOwnerArgumentResolver implements HandlerMethodArgumentResolv
             NativeWebRequest request,
             WebDataBinderFactory binderFactory
     ) {
-        LoginSession session = requestAuthService.authenticate(readBearerToken(request));
+        LoginSession session = walletAuthService.authenticate(readBearerToken(request));
 
         return OwnerId.of(session.userId().value());
     }
@@ -48,7 +48,7 @@ public class CurrentOwnerArgumentResolver implements HandlerMethodArgumentResolv
             throw new CoreException(ErrorType.REQUESTER_NOT_IDENTIFIED);
         }
 
-        if (!header.startsWith(BEARER_PREFIX)) {
+        if (!header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
             throw new CoreException(ErrorType.ACCESS_TOKEN_INVALID);
         }
 

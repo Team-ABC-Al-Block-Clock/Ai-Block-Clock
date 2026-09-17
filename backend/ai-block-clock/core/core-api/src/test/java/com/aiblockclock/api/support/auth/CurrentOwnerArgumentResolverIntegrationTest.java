@@ -20,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
@@ -32,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Tag("integration")
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 class CurrentOwnerArgumentResolverIntegrationTest {
     private static final String WORKFLOWS = "/api/v1/workflows";
 
@@ -53,11 +55,13 @@ class CurrentOwnerArgumentResolverIntegrationTest {
     @Autowired
     private Clock clock;
 
-    @Test
-    void 유효한_Access_Token이_있으면_요청자를_식별하고_처리한다() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"Bearer", "bearer", "BEARER", "bEaReR"})
+    void 인증_방식의_대소문자와_관계없이_유효한_토큰을_처리한다(String scheme) throws Exception {
         LoginSessionEntity session = saveSession();
+        String header = scheme + bearerToken(session).substring("Bearer".length());
 
-        mockMvc.perform(get(WORKFLOWS).header(HttpHeaders.AUTHORIZATION, bearerToken(session)))
+        mockMvc.perform(get(WORKFLOWS).header(HttpHeaders.AUTHORIZATION, header))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
     }
@@ -70,7 +74,7 @@ class CurrentOwnerArgumentResolverIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Bearer", "Basic dXNlcjpwYXNz", "bearer lower-case-prefix", "Bearer   "})
+    @ValueSource(strings = {"Bearer", "Basic dXNlcjpwYXNz", "Bearer\tinvalid", "Bearer   "})
     void Bearer_형식이_아니거나_토큰이_비어_있으면_거절한다(String header) throws Exception {
         mockMvc.perform(get(WORKFLOWS).header(HttpHeaders.AUTHORIZATION, header))
                 .andExpect(status().isUnauthorized())
