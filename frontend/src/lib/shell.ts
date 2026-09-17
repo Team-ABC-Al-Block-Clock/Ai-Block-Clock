@@ -70,6 +70,8 @@ const BY_SCREEN: Record<ScreenKey, Partial<Shell>> = {
     blur: 6,
     header: false,
     studio: true,
+    // 폼이 길어 굴림 창을 창 끝까지 늘린다 — 프레임이 자르면 1024 에서 잘린다.
+    bleed: true,
     vignette:
       'linear-gradient(180deg, rgba(18,8,32,.44) 0%, rgba(18,8,32,.22) 30%, rgba(18,8,32,.26) 100%)',
   },

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 
 /** 패널 자체의 가로 폭. 작업면은 캔버스에서 패널을 제외한 나머지 부분이다. */
 export const PANEL_WIDTH = 460
@@ -11,6 +11,8 @@ type Props = {
   children: ReactNode
   /** 진입 모션 */
   animation?: string
+  /** 패널이 실제로 어디서 시작하는지 재야 하는 화면이 있다 — `--edge` 만큼 밀려 있다. */
+  ref?: Ref<HTMLDivElement>
 }
 
 /**
@@ -20,14 +22,18 @@ type Props = {
 export default function SidePanel({
   children,
   animation = 'sideIn 1s .1s cubic-bezier(.18,.86,.24,1) both',
+  ref,
 }: Props) {
   return (
     <div
-      className="absolute top-0"
+      ref={ref}
+      className="absolute"
       style={{
         right: 'calc(-1 * var(--edge, 0px))',
+        // 창 위아래 끝까지 늘리고, 내용물을 늘어난 화면에 맞춰 붙인다.
+        top: 'calc(-1 * var(--edge-y, 0px))',
+        bottom: 'calc(-1 * var(--edge-y, 0px))',
         width: `${PANEL_WIDTH}px`,
-        height: '1024px',
         boxShadow: 'inset 1px 0 0 rgba(255,255,255,.14),-30px 0 60px rgba(10,4,20,.35)',
         animation,
       }}

@@ -172,7 +172,7 @@ export default function EditSearching() {
             left: '30px',
             top: '116px',
             width: '408px',
-            height: '876px',
+            height: 'calc(876px + 2 * var(--edge-y, 0px))',
             // 한 줄에 두 장. 남는 폭을 열이 나눠 갖게 한다.
             gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             gap: '14px',

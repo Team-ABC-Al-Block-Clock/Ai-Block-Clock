@@ -216,6 +216,7 @@ export default function App() {
           {
             overflow: shell.bleed ? 'visible' : 'hidden',
             '--edge': `${Math.max(0, (shellBox.width - 1440) / 2)}px`,
+            '--edge-y': `${Math.max(0, (shellBox.height - 1024) / 2)}px`,
           } as CSSProperties
         }
       >

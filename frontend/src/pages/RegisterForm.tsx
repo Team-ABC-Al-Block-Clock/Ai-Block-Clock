@@ -65,11 +65,13 @@ export default function RegisterForm() {
   return (
     <>
       <div
-        className="scroll-quiet absolute top-0 left-0 overflow-x-hidden"
+        className="scroll-quiet absolute left-0 overflow-x-hidden"
         id="formScroll"
         style={{
           width: '1440px',
-          height: '1024px',
+          // 폼이 가로로 잘려 보이지 않도록 굴림 창을 창 위아래 끝까지 늘린다.
+          top: 'calc(-1 * var(--edge-y, 0px))',
+          height: 'calc(1024px + 2 * var(--edge-y, 0px))',
         }}
       >
         <div className="relative" style={{ width: '1440px', height: '1690px' }}>

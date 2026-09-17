@@ -192,8 +192,8 @@ export default function RunRunning() {
           style={{
             left: 'calc(-1 * var(--edge, 0px))',
             right: 'calc(96px - var(--edge, 0px))',
-            top: 0,
-            bottom: 0,
+            top: 'calc(-1 * var(--edge-y, 0px))',
+            bottom: 'calc(-1 * var(--edge-y, 0px))',
             backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
             backgroundPosition: '13px 13px',
@@ -205,8 +205,8 @@ export default function RunRunning() {
           style={{
             left: 'calc(-1 * var(--edge, 0px))',
             right: 'calc(96px - var(--edge, 0px))',
-            top: 0,
-            bottom: 0,
+            top: 'calc(-1 * var(--edge-y, 0px))',
+            bottom: 'calc(-1 * var(--edge-y, 0px))',
             background:
               'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
           }}
@@ -349,8 +349,15 @@ export default function RunRunning() {
               실시간 출력
             </div>
             <div
-              className="absolute flex flex-col"
-              style={{ left: '30px', top: '452px', width: '400px', gap: '15px' }}
+              className="scroll-thin absolute flex flex-col"
+              style={{
+                left: '30px',
+                top: '452px',
+                width: '400px',
+                // 패널이 길어진 아래까지 쓴다.
+                height: 'calc(558px + 2 * var(--edge-y, 0px))',
+                gap: '15px',
+              }}
             >
               {logs.map((l, i) => (
                 <Fragment key={i}>
@@ -557,7 +564,7 @@ export default function RunRunning() {
                 left: '30px',
                 top: '692px',
                 width: '400px',
-                height: '318px',
+                height: 'calc(318px + 2 * var(--edge-y, 0px))',
                 padding: '16px',
                 borderRadius: '12px',
                 background: 'var(--color-surface-quiet)',

@@ -57,8 +57,8 @@ export default function RunWaiting() {
           style={{
             left: 'calc(-1 * var(--edge, 0px))',
             right: 'calc(96px - var(--edge, 0px))',
-            top: 0,
-            bottom: 0,
+            top: 'calc(-1 * var(--edge-y, 0px))',
+            bottom: 'calc(-1 * var(--edge-y, 0px))',
             backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
             backgroundPosition: '13px 13px',
@@ -70,8 +70,8 @@ export default function RunWaiting() {
           style={{
             left: 'calc(-1 * var(--edge, 0px))',
             right: 'calc(96px - var(--edge, 0px))',
-            top: 0,
-            bottom: 0,
+            top: 'calc(-1 * var(--edge-y, 0px))',
+            bottom: 'calc(-1 * var(--edge-y, 0px))',
             background:
               'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
           }}

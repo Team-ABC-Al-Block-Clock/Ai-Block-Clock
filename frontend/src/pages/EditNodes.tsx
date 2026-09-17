@@ -309,8 +309,8 @@ export default function EditNodes() {
           style={{
             left: 'calc(-1 * var(--edge, 0px))',
             right: 'calc(96px - var(--edge, 0px))',
-            top: 0,
-            bottom: 0,
+            top: 'calc(-1 * var(--edge-y, 0px))',
+            bottom: 'calc(-1 * var(--edge-y, 0px))',
             backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
             backgroundPosition: '13px 13px',
@@ -322,8 +322,8 @@ export default function EditNodes() {
           style={{
             left: 'calc(-1 * var(--edge, 0px))',
             right: 'calc(96px - var(--edge, 0px))',
-            top: 0,
-            bottom: 0,
+            top: 'calc(-1 * var(--edge-y, 0px))',
+            bottom: 'calc(-1 * var(--edge-y, 0px))',
             background:
               'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
           }}
@@ -332,7 +332,7 @@ export default function EditNodes() {
         <div
           className="absolute left-0 text-center text-[16px] tracking-[-.005em]"
           style={{
-            top: '74px',
+            top: 'calc(74px - var(--edge-y, 0px))',
             width: '980px',
             color: 'rgba(255,240,248,.78)',
             animation: 'uiIn .8s .5s cubic-bezier(.2,.8,.25,1) both',
@@ -454,7 +454,7 @@ export default function EditNodes() {
           className="absolute flex items-center overflow-hidden"
           style={{
             left: 'calc(32px - var(--edge, 0px))',
-            top: '952px',
+            top: 'calc(952px + var(--edge-y, 0px))',
             height: '36px',
             borderRadius: '18px',
             background: 'rgba(14,7,28,.55)',
@@ -705,7 +705,7 @@ export default function EditNodes() {
           href={paths.run.waiting.withoutId}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
-            top: '943px',
+            top: 'calc(943px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',
@@ -901,7 +901,7 @@ export default function EditNodes() {
             left: '30px',
             top: '502px',
             width: '408px',
-            height: '498px',
+            height: 'calc(498px + 2 * var(--edge-y, 0px))',
             // 한 줄에 두 장. 남는 폭을 열이 나눠 갖게 한다.
             gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             gap: '14px',
@@ -1072,7 +1072,12 @@ export default function EditNodes() {
           각각 left 를 주면 알약 글자 수에 따라 묶음이 좌우로 흔들린다. */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ left: '0px', top: '18px', width: '980px', gap: '12px' }}
+        style={{
+          left: '0px',
+          top: 'calc(18px - var(--edge-y, 0px))',
+          width: '980px',
+          gap: '12px',
+        }}
       >
         <div
           className="relative flex-none"
