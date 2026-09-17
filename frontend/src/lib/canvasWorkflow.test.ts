@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  CANVAS_BOTTOM,
   CANVAS_NODES,
-  CANVAS_TOP,
-  CANVAS_WIDTH,
   NODE_GAP,
   NODE_SIZE,
   PLACED_ANIMATION,
   canSellWorkflow,
-  clampToCanvas,
   moveNode,
   overlaps,
   placeNode,
@@ -30,24 +26,6 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   animation: '',
 })
 
-describe('clampToCanvas', () => {
-  it('작업면 안이면 그대로 둔다', () => {
-    expect(clampToCanvas(300, 400)).toEqual({ x: 300, y: 400 })
-  })
-
-  it('왼쪽·위로 넘치면 경계로 당긴다', () => {
-    expect(clampToCanvas(-50, -50)).toEqual({ x: 0, y: CANVAS_TOP })
-  })
-
-  it('오른쪽 패널 아래로 숨지 않게 카드 한 장만큼 남긴다', () => {
-    expect(clampToCanvas(9999, 400).x).toBe(CANVAS_WIDTH - NODE_SIZE)
-  })
-
-  it('아래 툴바에 가리지 않게 자른다', () => {
-    expect(clampToCanvas(300, 9999).y).toBe(CANVAS_BOTTOM - NODE_SIZE)
-  })
-})
-
 describe('placeNode', () => {
   it('목록 끝에 붙이고 원래 목록은 건드리지 않는다', () => {
     const before: CanvasNodeData[] = [nodeAt('a', 0, 200)]
@@ -58,9 +36,9 @@ describe('placeNode', () => {
     expect(after[1]).toMatchObject({ id: 'p1', name: '번역', x: 300, y: 400 })
   })
 
-  it('놓은 자리가 작업면 밖이면 잘라서 넣는다', () => {
+  it('작업면 밖이어도 놓은 자리를 그대로 지킨다 — 가두지 않는다', () => {
     const [placed] = placeNode([], seed, -80, 9999)
-    expect(placed).toMatchObject({ x: 0, y: CANVAS_BOTTOM - NODE_SIZE })
+    expect(placed).toMatchObject({ x: -80, y: 9999 })
   })
 
   it('등장 모션 없이 떠 있는 모션만 준다 — 이미 놓인 자리에서 튀지 않게', () => {
@@ -82,9 +60,9 @@ describe('moveNode', () => {
     expect(moved[1]).toMatchObject({ x: 500, y: 350 })
   })
 
-  it('옮길 때도 작업면 밖으로 나가지 않는다', () => {
+  it('작업면 밖으로도 옮길 수 있다 — 벽이 없다', () => {
     const [moved] = moveNode([nodeAt('a', 300, 400)], 'a', 9999, -80)
-    expect(moved).toMatchObject({ x: CANVAS_WIDTH - NODE_SIZE, y: CANVAS_TOP })
+    expect(moved).toMatchObject({ x: 9999, y: -80 })
   })
 
   it('없는 id 면 목록이 그대로다', () => {
@@ -119,9 +97,9 @@ describe('CANVAS_NODES', () => {
     expect(new Set(CANVAS_NODES.map((n) => n.id)).size).toBe(CANVAS_NODES.length)
   })
 
-  it('자리표시자가 전부 작업면 안에 있다', () => {
+  it('자리표시자가 서로 겹치지 않는다', () => {
     for (const node of CANVAS_NODES) {
-      expect(clampToCanvas(node.x, node.y)).toEqual({ x: node.x, y: node.y })
+      expect(overlaps(CANVAS_NODES, node.id, node.x, node.y)).toBe(false)
     }
   })
 })
@@ -155,10 +133,11 @@ describe('resolveOverlap', () => {
     expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
   })
 
-  it('밀어낸 자리도 작업면 안이다', () => {
-    const nodes = [nodeAt('a', 800, 760)]
-    const moved = resolveOverlap(nodes, 'x', 805, 765)
-    expect(clampToCanvas(moved.x, moved.y)).toEqual(moved)
+  it('벽이 없어도 되풀이가 끝난다 — 겹침만 풀고 멈춘다', () => {
+    const nodes = [nodeAt('a', 0, 0), nodeAt('b', 100, 0), nodeAt('c', 50, 100)]
+    const moved = resolveOverlap(nodes, 'x', 50, 40)
+    expect(Number.isFinite(moved.x) && Number.isFinite(moved.y)).toBe(true)
+    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
   })
 
   it('맞닿지 않게 간격을 남긴다', () => {
@@ -182,11 +161,5 @@ describe('겹침은 놓을 때도 옮길 때도 막는다', () => {
     const after = moveNode(base, 'b', 302, 402)
     const b = after.find((n) => n.id === 'b')!
     expect(overlaps(after, 'b', b.x, b.y)).toBe(false)
-  })
-
-  it('자리표시자 다섯 개가 서로 겹치지 않는다', () => {
-    for (const node of CANVAS_NODES) {
-      expect(overlaps(CANVAS_NODES, node.id, node.x, node.y)).toBe(false)
-    }
   })
 })
