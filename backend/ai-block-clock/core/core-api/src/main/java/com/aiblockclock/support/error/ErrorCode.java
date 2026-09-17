@@ -6,6 +6,8 @@ public enum ErrorCode {
 
     AUTH_005,
     AUTH_006,
+    AUTH_007,
+    AUTH_008,
 
     WORKFLOW_002,
     WORKFLOW_003,

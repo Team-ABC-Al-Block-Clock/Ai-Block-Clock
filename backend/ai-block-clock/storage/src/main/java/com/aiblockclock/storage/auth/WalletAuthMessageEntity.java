@@ -62,4 +62,12 @@ public class WalletAuthMessageEntity extends BaseTimeEntity {
         entity.expiresAt = expiresAt;
         return entity;
     }
+
+    public void reissue(String nonce, String message, Instant issuedAt, Instant expiresAt) {
+        this.nonce = nonce;
+        this.message = message;
+        this.issuedAt = issuedAt;
+        this.expiresAt = expiresAt;
+        this.usedAt = null;
+    }
 }

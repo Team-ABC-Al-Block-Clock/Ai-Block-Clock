@@ -18,6 +18,12 @@ public enum ErrorType {
     REQUESTER_NOT_IDENTIFIABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_006,
             "요청자 정보가 올바르지 않습니다.", LogLevel.WARN),
 
+    WALLET_AUTH_MESSAGE_CONCURRENTLY_MODIFIED(HttpStatus.CONFLICT, ErrorCode.AUTH_007,
+            "인증 메시지가 다른 요청에 의해 변경되었습니다. 다시 발급받아 주세요.", LogLevel.WARN),
+
+    WALLET_SIGNATURE_INVALID(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_008,
+            "지갑 서명이 올바르지 않습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
