@@ -8,12 +8,22 @@ import {
   canSellWorkflow,
   moveNode,
   overlaps,
+  type CanvasBounds,
   placeNode,
   resolveOverlap,
   type CanvasNodeData,
 } from './canvasWorkflow'
 
 const seed = { id: 'p1', name: '번역', nodeType: 'LLM', mine: true } as const
+
+/** 화면에서 잰 범위를 흉내 낸다. 네 방향 모두 카드 절반까지만 넘어간다. */
+const HALF = NODE_SIZE / 2
+const BOUNDS: CanvasBounds = {
+  minX: -HALF,
+  maxX: 1062 - HALF,
+  minY: -HALF,
+  maxY: 900 - HALF,
+}
 
 /** 좌표만 보면 되는 검사에서 쓰는 최소 노드. */
 const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
@@ -36,9 +46,24 @@ describe('placeNode', () => {
     expect(after[1]).toMatchObject({ id: 'p1', name: '번역', x: 300, y: 400 })
   })
 
-  it('작업면 밖이어도 놓은 자리를 그대로 지킨다 — 가두지 않는다', () => {
-    const [placed] = placeNode([], seed, -80, 9999)
-    expect(placed).toMatchObject({ x: -80, y: 9999 })
+  it('화면 밖으로는 카드 절반까지만 나간다', () => {
+    const [placed] = placeNode([], seed, -9999, -9999, BOUNDS)
+    expect(placed).toMatchObject({ x: -HALF, y: -HALF })
+  })
+
+  it('아래로도 절반까지만 나간다', () => {
+    const [placed] = placeNode([], seed, 300, 9999, BOUNDS)
+    expect(placed.y).toBe(BOUNDS.maxY)
+  })
+
+  it('패널 뒤로도 절반까지만 놓인다', () => {
+    const [placed] = placeNode([], seed, 9999, 400, BOUNDS)
+    expect(placed.x).toBe(BOUNDS.maxX)
+  })
+
+  it('범위를 주지 않으면 아무 데나 놓인다 — 화면을 못 잴 때', () => {
+    const [placed] = placeNode([], seed, 9999, 9999)
+    expect(placed).toMatchObject({ x: 9999, y: 9999 })
   })
 
   it('등장 모션 없이 떠 있는 모션만 준다 — 이미 놓인 자리에서 튀지 않게', () => {
@@ -60,9 +85,14 @@ describe('moveNode', () => {
     expect(moved[1]).toMatchObject({ x: 500, y: 350 })
   })
 
-  it('작업면 밖으로도 옮길 수 있다 — 벽이 없다', () => {
-    const [moved] = moveNode([nodeAt('a', 300, 400)], 'a', 9999, -80)
-    expect(moved).toMatchObject({ x: 9999, y: -80 })
+  it('화면 왼쪽·위로 옮겨도 절반은 남는다', () => {
+    const [moved] = moveNode([nodeAt('a', 300, 400)], 'a', -900, -900, BOUNDS)
+    expect(moved).toMatchObject({ x: -HALF, y: -HALF })
+  })
+
+  it('패널을 넘어가도 절반은 남는다', () => {
+    const [moved] = moveNode([nodeAt('a', 300, 400)], 'a', 9999, 400, BOUNDS)
+    expect(moved).toMatchObject({ x: BOUNDS.maxX, y: 400 })
   })
 
   it('없는 id 면 목록이 그대로다', () => {
@@ -161,5 +191,30 @@ describe('겹침은 놓을 때도 옮길 때도 막는다', () => {
     const after = moveNode(base, 'b', 302, 402)
     const b = after.find((n) => n.id === 'b')!
     expect(overlaps(after, 'b', b.x, b.y)).toBe(false)
+  })
+})
+
+describe('패널 경계와 겹침이 함께 걸릴 때', () => {
+  it('패널 앞에서 밀려도 다른 카드와 겹치지 않는다', () => {
+    const nodes = [nodeAt('a', BOUNDS.maxX, 400)]
+    const moved = resolveOverlap(nodes, 'x', 9999, 420, BOUNDS)
+    expect(moved.x).toBeLessThanOrEqual(BOUNDS.maxX)
+    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
+  })
+
+  it('패널 앞에 두 장이 있어도 서로 비킨다', () => {
+    const nodes = [nodeAt('a', BOUNDS.maxX, 300), nodeAt('b', BOUNDS.maxX, 500)]
+    const moved = resolveOverlap(nodes, 'x', 9999, 400, BOUNDS)
+    expect(moved.x).toBeLessThanOrEqual(BOUNDS.maxX)
+    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
+  })
+
+  it('네 방향이 다 막혀도 범위 안에서 답을 낸다', () => {
+    const nodes = [nodeAt('a', 300, 300), nodeAt('b', 480, 300), nodeAt('c', 390, 460)]
+    const moved = resolveOverlap(nodes, 'x', 390, 340, BOUNDS)
+    expect(moved.x).toBeGreaterThanOrEqual(BOUNDS.minX)
+    expect(moved.x).toBeLessThanOrEqual(BOUNDS.maxX)
+    expect(moved.y).toBeGreaterThanOrEqual(BOUNDS.minY)
+    expect(moved.y).toBeLessThanOrEqual(BOUNDS.maxY)
   })
 })

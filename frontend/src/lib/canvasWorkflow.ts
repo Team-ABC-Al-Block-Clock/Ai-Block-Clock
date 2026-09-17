@@ -4,6 +4,33 @@ import type { ItemNodeType } from '@/api/workflows'
 export const NODE_SIZE = 168
 /** 카드 사이에 남기는 최소 간격(px). 맞닿으면 두 개가 한 덩어리로 보인다. */
 export const NODE_GAP = 10
+/**
+ * 카드 왼쪽 위 좌표가 들어갈 수 있는 범위.
+ *
+ * 설계 좌표에 박아 둘 수 없다 — 패널은 `--edge` 만큼 오른쪽으로 밀려 있고 그 값이 창 크기에
+ * 따라 달라진다. 화면에서 잰 값을 화면 쪽에서 넘겨준다.
+ */
+export interface CanvasBounds {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
+/** 어디에도 걸리지 않는 범위. 화면을 잴 수 없을 때와 검사에서 쓴다. */
+export const NO_BOUNDS: CanvasBounds = {
+  minX: -Infinity,
+  maxX: Infinity,
+  minY: -Infinity,
+  maxY: Infinity,
+}
+
+function clampTo(x: number, y: number, bounds: CanvasBounds): { x: number; y: number } {
+  return {
+    x: Math.min(Math.max(x, bounds.minX), bounds.maxX),
+    y: Math.min(Math.max(y, bounds.minY), bounds.maxY),
+  }
+}
 
 /**
  * 편집·대기·실행 화면이 함께 그리는 워크플로우.
@@ -31,7 +58,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'TRIGGER',
     x: 12,
     y: 400,
-    mine: false,
+    mine: true,
     animation: 'floaty 6.4s ease-in-out infinite, uiIn .7s .18s cubic-bezier(.2,.8,.25,1) both',
   },
   {
@@ -77,24 +104,59 @@ export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
   return nodes.length > 0 && nodes.every((node) => node.mine)
 }
 
+/** 겹치는 카드가 하나라도 있는지. */
+export function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
+  return nodes.some(
+    (node) => node.id !== id && Math.hypot(x - node.x, y - node.y) < NODE_SIZE + NODE_GAP,
+  )
+}
+
+/**
+ * 원하는 자리 둘레를 돌며 가장 가까운 빈자리를 찾는다.
+ *
+ * 카드 두 장 사이에 정확히 끼면 밀어내는 방향이 서로 상쇄돼 되풀이해도 빠져나가지 못한다.
+ * 그때 쓰는 마지막 수단이라 가운데부터 한 겹씩 넓혀 가며 본다.
+ */
+function findFreeSpot(
+  nodes: CanvasNodeData[],
+  id: string,
+  x: number,
+  y: number,
+  bounds: CanvasBounds,
+): { x: number; y: number } | null {
+  const step = (NODE_SIZE + NODE_GAP) / 4
+  for (let ring = 1; ring <= 24; ring++) {
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2
+      const spot = clampTo(
+        x + Math.cos(angle) * ring * step,
+        y + Math.sin(angle) * ring * step,
+        bounds,
+      )
+      if (!overlaps(nodes, id, spot.x, spot.y)) return spot
+    }
+  }
+  return null
+}
+
 /**
  * 다른 카드와 겹치지 않는 자리로 민다.
  *
  * 카드가 원이라 모서리가 아니라 중심 거리로 본다. 가장 깊이 겹친 것부터 중심선 바깥으로
  * 밀어내고, 밀린 자리가 또 겹치면 되풀이한다 — 한 번에 밀면 옆 카드 위로 올라간다.
  *
- * 작업면 경계는 두지 않는다. 캔버스를 끌어 옮기고 배율을 바꾸는 작업이 붙으면 경계라는
- * 것이 없어진다 — 지금 가둬 두면 그때 다시 걷어내야 한다.
+ * 갈 수 있는 자리는 `bounds` 가 정한다 — 패널 뒤로는 못 가고, 화면 밖으로는 절반까지다.
  */
 export function resolveOverlap(
   nodes: CanvasNodeData[],
   id: string,
   x: number,
   y: number,
+  bounds: CanvasBounds = NO_BOUNDS,
 ): { x: number; y: number } {
   const others = nodes.filter((node) => node.id !== id)
   const apart = NODE_SIZE + NODE_GAP
-  let point = { x, y }
+  let point = clampTo(x, y, bounds)
 
   // 밀린 자리가 또 다른 카드와 겹칠 수 있다. 되풀이 횟수는 막아 둔다.
   for (let step = 0; step < 12; step++) {
@@ -113,16 +175,10 @@ export function resolveOverlap(
     const uy = deepest.gap === 0 ? 0 : deepest.dy / deepest.gap
     // 딱 맞닿는 거리까지만 밀면 부동소수 오차로 다시 겹침으로 읽힌다.
     const push = deepest.depth + 0.01
-    point = { x: point.x + ux * push, y: point.y + uy * push }
+    point = clampTo(point.x + ux * push, point.y + uy * push, bounds)
   }
-  return point
-}
-
-/** 겹치는 카드가 하나라도 있는지. */
-export function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
-  return nodes.some(
-    (node) => node.id !== id && Math.hypot(x - node.x, y - node.y) < NODE_SIZE + NODE_GAP,
-  )
+  // 밀어내기로 못 풀었으면 둘레에서 빈자리를 찾는다.
+  return findFreeSpot(nodes, id, point.x, point.y, bounds) ?? point
 }
 
 /** 팔레트에서 끌어온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
@@ -131,10 +187,11 @@ export function placeNode(
   seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'mine'>,
   x: number,
   y: number,
+  bounds: CanvasBounds = NO_BOUNDS,
 ): CanvasNodeData[] {
   return [
     ...nodes,
-    { ...seed, ...resolveOverlap(nodes, seed.id, x, y), animation: PLACED_ANIMATION },
+    { ...seed, ...resolveOverlap(nodes, seed.id, x, y, bounds), animation: PLACED_ANIMATION },
   ]
 }
 
@@ -144,8 +201,9 @@ export function moveNode(
   id: string,
   x: number,
   y: number,
+  bounds: CanvasBounds = NO_BOUNDS,
 ): CanvasNodeData[] {
   return nodes.map((node) =>
-    node.id === id ? { ...node, ...resolveOverlap(nodes, id, x, y) } : node,
+    node.id === id ? { ...node, ...resolveOverlap(nodes, id, x, y, bounds) } : node,
   )
 }

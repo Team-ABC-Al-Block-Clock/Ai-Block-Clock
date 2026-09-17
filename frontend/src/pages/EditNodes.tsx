@@ -12,6 +12,8 @@ import {
   moveNode,
   placeNode,
   resolveOverlap,
+  NO_BOUNDS,
+  type CanvasBounds,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
@@ -50,6 +52,7 @@ export default function EditNodes() {
   const [dragId, setDragId] = useState<string | null>(null)
   /** 끄는 동안의 값은 리렌더가 필요 없다 — 상태로 두면 포인터가 움직일 때마다 두 번 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const grab = useRef<{
     id: string
     /** 잡은 지점과 카드 왼쪽 위의 차이 */
@@ -61,6 +64,7 @@ export default function EditNodes() {
     el: HTMLDivElement
     baseX: number
     baseY: number
+    bounds: CanvasBounds
     /** 선택 빛이 지금 이 카드를 따라다니는가 */
     glow: boolean
   } | null>(null)
@@ -75,6 +79,31 @@ export default function EditNodes() {
     if (!rect || rect.width === 0) return null
     const scale = rect.width / PANE_WIDTH
     return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale }
+  }
+
+  /**
+   * 카드가 갈 수 있는 범위를 화면에서 잰다.
+   *
+   * 설계 좌표로 박아 두면 안 된다 — 패널은 `--edge` 만큼 오른쪽으로 밀려 있고, 그 값은 창
+   * 너비에 따라 달라진다. 980 으로 고정하면 창이 넓을수록 패널보다 한참 앞에서 막힌다.
+   *
+   * 네 방향 모두 카드의 절반까지만 내보낸다 — 절반이 남아 있으면 다시 집어서 꺼낼 수 있다.
+   * 패널도 같다. 가려지는 것은 절반뿐이라 남은 절반을 잡으면 된다.
+   */
+  const canvasBounds = (): CanvasBounds | null => {
+    const pane = paneRef.current?.getBoundingClientRect()
+    const panel = panelRef.current?.getBoundingClientRect()
+    if (!pane || !panel || pane.width === 0) return null
+    const scale = pane.width / PANE_WIDTH
+    const toX = (clientX: number) => (clientX - pane.left) / scale
+    const toY = (clientY: number) => (clientY - pane.top) / scale
+    const half = NODE_SIZE / 2
+    return {
+      minX: toX(0) - half,
+      maxX: toX(panel.left) - half,
+      minY: toY(0) - half,
+      maxY: toY(window.innerHeight) - half,
+    }
   }
 
   // 옮기고 손을 뗀 직후에 click 이 한 번 더 온다. 그때 선택이 뒤집히지 않게 막는다.
@@ -104,6 +133,7 @@ export default function EditNodes() {
       el: ev.currentTarget,
       baseX: node.x,
       baseY: node.y,
+      bounds: canvasBounds() ?? NO_BOUNDS,
       glow: (nodes[hov] ?? nodes[sel])?.id === id,
     }
     landing.current = { x: node.x, y: node.y }
@@ -132,7 +162,7 @@ export default function EditNodes() {
     const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
     if (slid > DRAG_SLOP) moved.current = true
 
-    const next = resolveOverlap(nodes, held.id, point.x - held.dx, point.y - held.dy)
+    const next = resolveOverlap(nodes, held.id, point.x - held.dx, point.y - held.dy, held.bounds)
     landing.current = next
     held.el.style.transform = `translate3d(${next.x - held.baseX}px, ${next.y - held.baseY}px, 0)`
     // 빛은 left·top 으로 민다 — transform 은 React 가 들고 있지 않아 지우면 되살아나지 않는다.
@@ -150,7 +180,7 @@ export default function EditNodes() {
       held.el.style.left = `${next.x}px`
       held.el.style.top = `${next.y}px`
       held.el.style.transform = ''
-      setNodes((prev) => moveNode(prev, held.id, next.x, next.y))
+      setNodes((prev) => moveNode(prev, held.id, next.x, next.y, held.bounds))
     }
     grab.current = null
     landing.current = null
@@ -184,6 +214,7 @@ export default function EditNodes() {
         },
         point.x - NODE_SIZE / 2,
         point.y - NODE_SIZE / 2,
+        canvasBounds() ?? NO_BOUNDS,
       ),
     )
   }
@@ -423,32 +454,38 @@ export default function EditNodes() {
           />
         </svg>
 
-        <div ref={glowRef} style={cssToStyle(selRing)}></div>
+        {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 왼쪽 끝에서 잘라 넘어간 만큼만 가린다. */}
+        <div
+          className="absolute inset-0"
+          style={{ clipPath: 'inset(-200% calc(96px - var(--edge, 0px)) -200% -200%)' }}
+        >
+          <div ref={glowRef} style={cssToStyle(selRing)}></div>
 
-        {nodes.map((node, i) => (
-          <CanvasNode
-            key={node.id}
-            index={i}
-            name={node.name}
-            sublabel={nodeTypeLabel(node.nodeType)}
-            x={node.x}
-            y={node.y}
-            mine={node.mine}
-            animation={node.animation}
-            background={i === sel ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
-            sublabelColor="rgba(230,196,212,.85)"
-            title={
-              node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
-            }
-            dragging={dragId === node.id}
-            onSelect={handleSelect}
-            onPointerDown={handleNodePointerDown(node.id)}
-            onPointerMove={handleNodePointerMove}
-            onPointerUp={handleNodePointerUp}
-            onHover={setHov}
-            onHoverOut={handleHovOut}
-          />
-        ))}
+          {nodes.map((node, i) => (
+            <CanvasNode
+              key={node.id}
+              index={i}
+              name={node.name}
+              sublabel={nodeTypeLabel(node.nodeType)}
+              x={node.x}
+              y={node.y}
+              mine={node.mine}
+              animation={node.animation}
+              background={i === sel ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
+              sublabelColor="rgba(230,196,212,.85)"
+              title={
+                node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+              }
+              dragging={dragId === node.id}
+              onSelect={handleSelect}
+              onPointerDown={handleNodePointerDown(node.id)}
+              onPointerMove={handleNodePointerMove}
+              onPointerUp={handleNodePointerUp}
+              onHover={setHov}
+              onHoverOut={handleHovOut}
+            />
+          ))}
+        </div>
 
         <div
           className="absolute flex items-center overflow-hidden"
@@ -721,7 +758,7 @@ export default function EditNodes() {
         </a>
       </div>
 
-      <SidePanel>
+      <SidePanel ref={panelRef}>
         <div
           className="absolute text-[17px] font-semibold tracking-[-.005em] text-white"
           style={{ left: '30px', top: '30px' }}
@@ -888,8 +925,8 @@ export default function EditNodes() {
             type="text"
             value={q}
             onChange={handleSearch}
-            placeholder="노드 · 마켓 에이전트 검색"
-            aria-label="노드 · 마켓 에이전트 검색"
+            placeholder="마켓 에이전트 검색"
+            aria-label="마켓 에이전트 검색"
             style={{ left: '42px', right: '16px', width: 'auto' }}
           />
         </div>
