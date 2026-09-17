@@ -18,13 +18,14 @@
   # ⓐ 이미 받아둔 출력 파일을 검사한다 (API 키 불필요)
   python check_compliance.py --file outputs/letter_run1.json
 
-  # ⓑ 직접 10회 호출해서 준수율을 낸다 (API 키 필요)
-  export ABC_LLM_API_KEY=...
-  export ABC_LLM_BASE_URL=https://api.openai.com/v1      # 프로바이더에 맞게
-  export ABC_LLM_MODEL=gpt-4o-mini
+  # ⓑ 직접 10회 호출해서 준수율을 낸다 (.env 필요)
+  #   변수 이름은 ai/spike/linear-mvp/.env.example 과 같다
+  export LLM_API_KEY=...
+  export LLM_BASE_URL=...        # ★ GMS 주소. Google 직접 주소로는 키가 안 먹는다
+  export LLM_MODEL=...
   python check_compliance.py --runs 10 --branch down
 
-  ★ 키는 트랙 A가 관리한다 (AI-07-3). 코드·커밋에 넣지 않는다.
+  ★ 키는 트랙 A가 관리한다. 코드·커밋·채팅에 넣지 않는다. .env 는 각자 로컬.
 """
 
 import argparse
@@ -169,13 +170,23 @@ def call_llm(messages: list[dict]) -> dict:
     except ImportError:
         raise SystemExit("python -m pip install openai")
 
-    key = os.environ.get("ABC_LLM_API_KEY")
-    if not key:
-        raise SystemExit("ABC_LLM_API_KEY 가 없습니다. 트랙 A에게 키를 받으세요 (AI-07-3).")
+    key = os.environ.get("LLM_API_KEY")
+    base_url = os.environ.get("LLM_BASE_URL")
+    model = os.environ.get("LLM_MODEL")
 
-    client = OpenAI(api_key=key, base_url=os.environ.get("ABC_LLM_BASE_URL") or None)
+    missing = [n for n, v in (("LLM_API_KEY", key), ("LLM_BASE_URL", base_url),
+                              ("LLM_MODEL", model)) if not v]
+    if missing:
+        raise SystemExit(
+            f"{' · '.join(missing)} 가 설정되지 않았습니다.\n"
+            f"ai/spike/linear-mvp/.env.example 의 변수 이름을 그대로 쓴다. 키 값은 트랙 A에게 받는다."
+        )
+
+    # ★ base_url 을 비워두면 라이브러리가 Google 직접 주소로 붙는데, 우리 키는 GMS 경유라
+    #   거기서는 먹지 않는다. 그래서 기본값을 두지 않고 반드시 받도록 했다.
+    client = OpenAI(api_key=key, base_url=base_url)
     resp = client.chat.completions.create(
-        model=os.environ.get("ABC_LLM_MODEL", "gpt-4o-mini"),
+        model=model,
         messages=messages,
         temperature=0.3,
         response_format={"type": "json_object"},
