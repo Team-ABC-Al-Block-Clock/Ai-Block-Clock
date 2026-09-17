@@ -18,7 +18,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +32,8 @@ import static org.mockito.Mockito.when;
 
 class WalletAuthMessageWriterTest {
     private final WalletAuthMessageRepository repository = mock(WalletAuthMessageRepository.class);
-    private final WalletAuthMessageWriter writer = new WalletAuthMessageWriter(repository);
+    private final WalletAuthMessageWriter writer = new WalletAuthMessageWriter(repository,
+            Clock.fixed(Instant.parse("2026-09-17T00:00:30Z"), ZoneOffset.UTC));
 
     @Test
     void V5의_지갑_중복_제약만_동시_발급_충돌로_처리한다() throws IOException {

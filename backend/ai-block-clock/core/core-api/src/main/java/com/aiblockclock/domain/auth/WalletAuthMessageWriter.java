@@ -13,6 +13,9 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -24,6 +27,7 @@ public class WalletAuthMessageWriter {
     private static final String WALLET_ADDRESS_UNIQUE_CONSTRAINT = "uq_wallet_auth_message_wallet_address";
 
     private final WalletAuthMessageRepository walletAuthMessageRepository;
+    private final Clock clock;
 
     @Transactional
     public WalletAuthMessage append(WalletAuthMessage issuedMessage) {
@@ -54,6 +58,21 @@ public class WalletAuthMessageWriter {
             }
 
             throw new CoreException(ErrorType.WALLET_AUTH_MESSAGE_CONCURRENTLY_MODIFIED);
+        }
+    }
+
+    @Transactional
+    public void modifyAsUsed(WalletAuthMessage authMessage) {
+        Instant usedAt = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        authMessage.checkUsable(usedAt);
+        String normalizedWalletAddress = authMessage.walletAddress().toLowerCase(Locale.ROOT);
+
+        int updatedCount = walletAuthMessageRepository.updateUsedAtIfUsable(
+                normalizedWalletAddress, authMessage.nonce(), usedAt
+        );
+
+        if (updatedCount != 1) {
+            throw new CoreException(ErrorType.WALLET_AUTH_MESSAGE_NOT_USABLE);
         }
     }
 

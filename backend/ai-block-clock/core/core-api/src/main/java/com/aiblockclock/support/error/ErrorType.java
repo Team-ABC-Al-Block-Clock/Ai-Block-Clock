@@ -24,6 +24,15 @@ public enum ErrorType {
     WALLET_SIGNATURE_INVALID(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_008,
             "지갑 서명이 올바르지 않습니다.", LogLevel.WARN),
 
+    WALLET_AUTH_MESSAGE_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_009,
+            "지갑 인증 메시지가 만료되었습니다. 새 메시지를 발급받아 주세요.", LogLevel.WARN),
+
+    WALLET_AUTH_MESSAGE_ALREADY_USED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_010,
+            "이미 사용한 지갑 인증 메시지입니다. 새 메시지를 발급받아 주세요.", LogLevel.WARN),
+
+    WALLET_AUTH_MESSAGE_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_011,
+            "지갑 인증 메시지를 사용할 수 없습니다. 새 메시지를 발급받아 주세요.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
