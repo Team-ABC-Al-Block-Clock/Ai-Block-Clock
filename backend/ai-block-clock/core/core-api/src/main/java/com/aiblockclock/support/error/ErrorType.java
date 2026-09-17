@@ -42,6 +42,9 @@ public enum ErrorType {
     LOGIN_SESSION_REVOKED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_014,
             "종료된 로그인 세션입니다. 다시 로그인해 주세요.", LogLevel.WARN),
 
+    LOGIN_SESSION_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_018,
+            "로그인 세션을 사용할 수 없습니다. 다시 로그인해 주세요.", LogLevel.WARN),
+
     REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_015,
             "Refresh Token이 만료되었습니다. 다시 로그인해 주세요.", LogLevel.WARN),
 

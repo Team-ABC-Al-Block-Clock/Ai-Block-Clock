@@ -36,6 +36,7 @@ services:
       DB_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-ai_block_clock}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul"
       DB_USERNAME: ${MYSQL_USER:-ai_block_clock}
       DB_PASSWORD: ${MYSQL_PASSWORD:-local_password}
+      AUTH_JWT_SECRET_BASE64: ${AUTH_JWT_SECRET_BASE64:-}
     ports:
       - "8080:8080"
     depends_on:

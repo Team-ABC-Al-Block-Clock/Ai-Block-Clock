@@ -17,6 +17,7 @@ public enum ErrorCode {
     AUTH_015,
     AUTH_016,
     AUTH_017,
+    AUTH_018,
 
     WORKFLOW_002,
     WORKFLOW_003,
