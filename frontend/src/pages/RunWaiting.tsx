@@ -117,7 +117,7 @@ export default function RunWaiting() {
 
         {CANVAS_NODES.map((node, i) => (
           <CanvasNode
-            key={node.name}
+            key={node.id}
             index={i}
             name={node.name}
             sublabel="대기"

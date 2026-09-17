@@ -5,7 +5,7 @@ import { getNodePalette } from '@/api/workflows'
 import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import CanvasNode from '@/components/CanvasNode'
-import { CANVAS_NODES, canSellWorkflow } from '@/lib/canvasWorkflow'
+import { CANVAS_NODES, NODE_SIZE, canSellWorkflow, moveNode, placeNode } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
 import SidePanel from '@/components/SidePanel'
@@ -18,6 +18,12 @@ const PAGE_SIZE = 10
 const DEBOUNCE_MS = 300
 /** 내 노드와 마켓 에이전트를 한 목록으로 본다. 등록 가능 여부는 조회가 아니라 놓인 구성(`canSell`)이 정한다. */
 const SCOPE = 'ALL' as const
+/** 작업면 div 의 설계 폭. 창 좌표를 설계 좌표로 되돌릴 때 배율의 기준이 된다. */
+const PANE_WIDTH = 1076
+/** 끌어 놓기로 주고받는 것은 팔레트 항목 id 하나뿐이다. 브라우저가 소문자로만 받는다. */
+const DND_TYPE = 'application/x-placeable-item'
+/** 이 거리보다 움직였으면 고른 것이 아니라 옮긴 것으로 본다. */
+const DRAG_SLOP = 4
 
 /** 노드 편집 화면 */
 export default function EditNodes() {
@@ -29,10 +35,105 @@ export default function EditNodes() {
   const [q, setQ] = useState('')
   const [keyword, setKeyword] = useState('')
 
-  const nodes = CANVAS_NODES
+  // 자리표시자를 첫 값으로만 쓴다 — 여기서 옮겨도 대기·실행 화면은 원본을 그대로 읽는다.
+  const [nodes, setNodes] = useState(CANVAS_NODES)
   const canSell = canSellWorkflow(nodes)
 
-  const handleSelect = (i: number) => setSel(sel === i ? -1 : i)
+  const paneRef = useRef<HTMLDivElement>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  /** 끄는 동안의 값은 리렌더가 필요 없다 — 상태로 두면 포인터가 움직일 때마다 두 번 그린다. */
+  const grab = useRef<{ id: string; dx: number; dy: number; ox: number; oy: number } | null>(null)
+  const moved = useRef(false)
+  const placedCount = useRef(0)
+
+  /** 창 좌표 → 설계 좌표. 프레임이 화면 크기에 맞춰 배율을 걸어 둬서 그대로 쓰면 어긋난다. */
+  const toCanvasPoint = (clientX: number, clientY: number) => {
+    const rect = paneRef.current?.getBoundingClientRect()
+    if (!rect || rect.width === 0) return null
+    const scale = rect.width / PANE_WIDTH
+    return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale }
+  }
+
+  // 옮기고 손을 뗀 직후에 click 이 한 번 더 온다. 그때 선택이 뒤집히지 않게 막는다.
+  const handleSelect = (i: number) => {
+    if (moved.current) {
+      moved.current = false
+      return
+    }
+    setSel(sel === i ? -1 : i)
+  }
+
+  /**
+   * 포인터를 카드에 묶어 둔다 — 창 리스너를 상태로 붙이면 이펙트가 붙기 전에 지나간
+   * 움직임을 놓친다. 캡처해 두면 카드 밖으로 나가도 move·up 이 카드로 온다.
+   */
+  const handleNodePointerDown = (id: string) => (ev: React.PointerEvent<HTMLDivElement>) => {
+    if (ev.button !== 0) return
+    const node = nodes.find((n) => n.id === id)
+    const point = node && toCanvasPoint(ev.clientX, ev.clientY)
+    if (!node || !point) return
+    grab.current = {
+      id,
+      dx: point.x - node.x,
+      dy: point.y - node.y,
+      ox: ev.clientX,
+      oy: ev.clientY,
+    }
+    moved.current = false
+    setDragId(id)
+    // 캡처가 막히는 환경이 있어도 끌기 자체는 살려 둔다 — 카드 위에서는 그대로 따라온다.
+    try {
+      ev.currentTarget.setPointerCapture(ev.pointerId)
+    } catch {
+      /* 이미 놓인 포인터 */
+    }
+  }
+
+  const handleNodePointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
+    const held = grab.current
+    const point = held && toCanvasPoint(ev.clientX, ev.clientY)
+    if (!held || !point) return
+    // 손이 떨린 정도로는 선택을 막지 않는다.
+    const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
+    if (slid > DRAG_SLOP) moved.current = true
+    setNodes((prev) => moveNode(prev, held.id, point.x - held.dx, point.y - held.dy))
+  }
+
+  const handleNodePointerUp = () => {
+    grab.current = null
+    setDragId(null)
+  }
+
+  const handleDragOver = (ev: React.DragEvent<HTMLDivElement>) => {
+    if (!ev.dataTransfer.types.includes(DND_TYPE)) return
+    // 막지 않으면 브라우저가 drop 을 내지 않는다.
+    ev.preventDefault()
+    ev.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleDrop = (ev: React.DragEvent<HTMLDivElement>) => {
+    const itemId = ev.dataTransfer.getData(DND_TYPE)
+    if (!itemId) return
+    ev.preventDefault()
+    const item = items.find((it) => it.itemId === itemId)
+    const point = item && toCanvasPoint(ev.clientX, ev.clientY)
+    if (!item || !point) return
+    placedCount.current += 1
+    // 커서가 카드 한가운데를 잡고 있는 것처럼 놓는다.
+    setNodes((prev) =>
+      placeNode(
+        prev,
+        {
+          id: `placed-${placedCount.current}`,
+          name: item.name,
+          nodeType: item.nodeType,
+          mine: item.mine,
+        },
+        point.x - NODE_SIZE / 2,
+        point.y - NODE_SIZE / 2,
+      ),
+    )
+  }
   const handleHovOut = () => setHov(-1)
   const handleTogglePanel = () => setPanelOpen((v) => !v)
   const handleSearch = (ev: React.ChangeEvent<HTMLInputElement>) => setQ(ev.target.value)
@@ -105,8 +206,12 @@ export default function EditNodes() {
       'px;width:200px;height:200px;border-radius:50%;pointer-events:none;opacity:' +
       (hov >= 0 && hov !== sel ? '.6' : '1') +
       ';transform:translateY(' +
-      (hov >= 0 ? -5 : 0) +
-      'px);background:radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%);transition:left .34s cubic-bezier(.2,.8,.25,1),top .34s cubic-bezier(.2,.8,.25,1),transform .2s,opacity .25s ease'
+      (hov >= 0 && !dragId ? -5 : 0) +
+      'px);background:radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%)' +
+      // 끄는 동안 빛이 전환으로 따라오면 손끝보다 늦어 어긋나 보인다.
+      (dragId
+        ? ''
+        : ';transition:left .34s cubic-bezier(.2,.8,.25,1),top .34s cubic-bezier(.2,.8,.25,1),transform .2s,opacity .25s ease')
     : 'display:none'
   const cards = items.map((item) => ({
     ...item,
@@ -116,6 +221,11 @@ export default function EditNodes() {
     typeLabel: nodeTypeLabel(item.nodeType),
     infoOpen: infoAt === item.itemId,
     infoBg: infoAt === item.itemId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
+    drag: (ev: React.DragEvent<HTMLDivElement>) => {
+      // 항목 id 만 넘긴다. 놓는 쪽이 같은 목록에서 다시 찾는다.
+      ev.dataTransfer.setData(DND_TYPE, item.itemId)
+      ev.dataTransfer.effectAllowed = 'copy'
+    },
     info: (ev: React.MouseEvent) => {
       ev.preventDefault()
       ev.stopPropagation()
@@ -130,9 +240,12 @@ export default function EditNodes() {
   return (
     <>
       <div
+        ref={paneRef}
         className="absolute top-0 left-0"
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         style={{
-          width: '1076px',
+          width: `${PANE_WIDTH}px`,
           height: '1024px',
           animation: 'paneIn 1.1s cubic-bezier(.18,.86,.24,1) both',
           transformOrigin: '44% 46%',
@@ -172,7 +285,7 @@ export default function EditNodes() {
             animation: 'uiIn .8s .5s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          노드를 끌어 연결하고, 선택한 노드를 오른쪽에서 편집합니다
+          오른쪽에서 끌어다 놓고, 놓인 노드를 끌어 옮깁니다
         </div>
 
         <svg
@@ -261,7 +374,7 @@ export default function EditNodes() {
 
         {nodes.map((node, i) => (
           <CanvasNode
-            key={node.name}
+            key={node.id}
             index={i}
             name={node.name}
             sublabel={nodeTypeLabel(node.nodeType)}
@@ -274,7 +387,11 @@ export default function EditNodes() {
             title={
               node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
             }
+            dragging={dragId === node.id}
             onSelect={handleSelect}
+            onPointerDown={handleNodePointerDown(node.id)}
+            onPointerMove={handleNodePointerMove}
+            onPointerUp={handleNodePointerUp}
             onHover={setHov}
             onHoverOut={handleHovOut}
           />
@@ -757,6 +874,9 @@ export default function EditNodes() {
           {cards.map((item) => (
             <Fragment key={item.itemId}>
               <div
+                draggable
+                onDragStart={item.drag}
+                title="캔버스로 끌어다 놓으세요"
                 style={{
                   // 폭은 주지 않고 그리드 열을 그대로 채운다.
                   height: '160px',
@@ -767,7 +887,7 @@ export default function EditNodes() {
                     ? 'inset 0 0 0 1.5px rgba(255,190,220,.8)'
                     : 'inset 0 0 0 1px rgba(255,255,255,.10)',
                 }}
-                className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
+                className="relative cursor-grab bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)] active:cursor-grabbing"
               >
                 <div
                   className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"

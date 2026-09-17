@@ -40,7 +40,12 @@ export interface CanvasNodeProps {
   /** 실행 화면의 유리 재질 */
   glass?: boolean
   title?: string
+  /** 끌어서 옮기는 중. 떠 있는 모션과 호버를 멈춰 손끝을 따라오게 한다. */
+  dragging?: boolean
   onSelect?: (index: number) => void
+  onPointerDown?: (ev: React.PointerEvent<HTMLDivElement>) => void
+  onPointerMove?: (ev: React.PointerEvent<HTMLDivElement>) => void
+  onPointerUp?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onHover?: (index: number) => void
   onHoverOut?: () => void
 }
@@ -59,11 +64,16 @@ export default function CanvasNode({
   sublabelColor = 'rgba(255,236,246,.66)',
   glass = false,
   title,
+  dragging = false,
   onSelect,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
   onHover,
   onHoverOut,
 }: CanvasNodeProps) {
   const clickable = !!onSelect
+  const draggable = !!onPointerDown
 
   return (
     <div
@@ -71,6 +81,9 @@ export default function CanvasNode({
       onClick={clickable ? () => onSelect(index) : undefined}
       onMouseEnter={onHover ? () => onHover(index) : undefined}
       onMouseLeave={onHoverOut}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
       style={{
         left: `${x}px`,
         top: `${y}px`,
@@ -79,7 +92,9 @@ export default function CanvasNode({
         background,
         gap: '5px',
         boxShadow: mine ? MINE_RING : PLAIN_RING,
-        animation,
+        // 끄는 동안 floaty 가 돌면 카드가 손끝에서 위아래로 흔들린다.
+        animation: dragging ? undefined : animation,
+        zIndex: dragging ? 5 : undefined,
         ...(glass
           ? {
               backdropFilter: 'blur(18px)',
@@ -89,9 +104,13 @@ export default function CanvasNode({
           : { transition: 'transform .2s,box-shadow .2s' }),
       }}
       className={
-        clickable
-          ? 'absolute flex cursor-pointer flex-col items-center justify-center rounded-full hover:-translate-y-[5px]'
-          : 'absolute flex flex-col items-center justify-center rounded-full'
+        dragging
+          ? 'absolute flex cursor-grabbing flex-col items-center justify-center rounded-full select-none'
+          : draggable
+            ? 'absolute flex cursor-grab flex-col items-center justify-center rounded-full select-none hover:-translate-y-[5px]'
+            : clickable
+              ? 'absolute flex cursor-pointer flex-col items-center justify-center rounded-full hover:-translate-y-[5px]'
+              : 'absolute flex flex-col items-center justify-center rounded-full'
       }
     >
       {mine && <div style={MY_CHIP}>MY</div>}

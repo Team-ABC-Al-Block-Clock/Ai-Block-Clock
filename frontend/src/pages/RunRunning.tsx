@@ -252,7 +252,7 @@ export default function RunRunning() {
 
         {nodes.map((n, i) => (
           <CanvasNode
-            key={n.name}
+            key={n.id}
             index={i}
             name={n.name}
             sublabel={n.stateLabel}
