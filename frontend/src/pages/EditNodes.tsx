@@ -5,7 +5,14 @@ import { getNodePalette } from '@/api/workflows'
 import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import CanvasNode from '@/components/CanvasNode'
-import { CANVAS_NODES, NODE_SIZE, canSellWorkflow, moveNode, placeNode } from '@/lib/canvasWorkflow'
+import {
+  CANVAS_NODES,
+  NODE_SIZE,
+  canSellWorkflow,
+  moveNode,
+  placeNode,
+  resolveOverlap,
+} from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
 import SidePanel from '@/components/SidePanel'
@@ -35,14 +42,30 @@ export default function EditNodes() {
   const [q, setQ] = useState('')
   const [keyword, setKeyword] = useState('')
 
-  // 자리표시자를 첫 값으로만 쓴다 — 여기서 옮겨도 대기·실행 화면은 원본을 그대로 읽는다.
+  // 자리표시자를 첫 값으로만 쓴다.
   const [nodes, setNodes] = useState(CANVAS_NODES)
   const canSell = canSellWorkflow(nodes)
 
   const paneRef = useRef<HTMLDivElement>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   /** 끄는 동안의 값은 리렌더가 필요 없다 — 상태로 두면 포인터가 움직일 때마다 두 번 그린다. */
-  const grab = useRef<{ id: string; dx: number; dy: number; ox: number; oy: number } | null>(null)
+  const glowRef = useRef<HTMLDivElement>(null)
+  const grab = useRef<{
+    id: string
+    /** 잡은 지점과 카드 왼쪽 위의 차이 */
+    dx: number
+    dy: number
+    /** 누른 창 좌표 — 고르기와 옮기기를 가르는 기준 */
+    ox: number
+    oy: number
+    el: HTMLDivElement
+    baseX: number
+    baseY: number
+    /** 선택 빛이 지금 이 카드를 따라다니는가 */
+    glow: boolean
+  } | null>(null)
+  /** 끄는 동안의 마지막 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
+  const landing = useRef<{ x: number; y: number } | null>(null)
   const moved = useRef(false)
   const placedCount = useRef(0)
 
@@ -78,7 +101,12 @@ export default function EditNodes() {
       dy: point.y - node.y,
       ox: ev.clientX,
       oy: ev.clientY,
+      el: ev.currentTarget,
+      baseX: node.x,
+      baseY: node.y,
+      glow: (nodes[hov] ?? nodes[sel])?.id === id,
     }
+    landing.current = { x: node.x, y: node.y }
     moved.current = false
     setDragId(id)
     // 캡처가 막히는 환경이 있어도 끌기 자체는 살려 둔다 — 카드 위에서는 그대로 따라온다.
@@ -89,6 +117,13 @@ export default function EditNodes() {
     }
   }
 
+  /**
+   * 끄는 동안에는 상태를 고치지 않는다.
+   *
+   * 포인터가 움직일 때마다 `setNodes` 를 하면 팔레트 카드와 연결선까지 한 화면을 통째로
+   * 다시 그린다 — 카드가 손끝을 늦게 따라오는 이유가 그것이다. 여기서는 옮길 카드의
+   * `transform` 만 직접 건드리고, 상태는 손을 뗄 때 한 번만 맞춘다.
+   */
   const handleNodePointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
     const held = grab.current
     const point = held && toCanvasPoint(ev.clientX, ev.clientY)
@@ -96,11 +131,29 @@ export default function EditNodes() {
     // 손이 떨린 정도로는 선택을 막지 않는다.
     const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
     if (slid > DRAG_SLOP) moved.current = true
-    setNodes((prev) => moveNode(prev, held.id, point.x - held.dx, point.y - held.dy))
+
+    const next = resolveOverlap(nodes, held.id, point.x - held.dx, point.y - held.dy)
+    landing.current = next
+    held.el.style.transform = `translate3d(${next.x - held.baseX}px, ${next.y - held.baseY}px, 0)`
+    // 빛은 left·top 으로 민다 — transform 은 React 가 들고 있지 않아 지우면 되살아나지 않는다.
+    if (held.glow && glowRef.current) {
+      glowRef.current.style.left = `${next.x - 16}px`
+      glowRef.current.style.top = `${next.y - 16}px`
+    }
   }
 
   const handleNodePointerUp = () => {
+    const held = grab.current
+    const next = landing.current
+    if (held && next) {
+      // 상태가 반영되기 전 한 프레임 동안 제자리로 튀지 않게 먼저 맞춰 둔다.
+      held.el.style.left = `${next.x}px`
+      held.el.style.top = `${next.y}px`
+      held.el.style.transform = ''
+      setNodes((prev) => moveNode(prev, held.id, next.x, next.y))
+    }
     grab.current = null
+    landing.current = null
     setDragId(null)
   }
 
@@ -370,7 +423,7 @@ export default function EditNodes() {
           />
         </svg>
 
-        <div style={cssToStyle(selRing)}></div>
+        <div ref={glowRef} style={cssToStyle(selRing)}></div>
 
         {nodes.map((node, i) => (
           <CanvasNode

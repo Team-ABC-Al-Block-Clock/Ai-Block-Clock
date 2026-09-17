@@ -7,6 +7,8 @@ export const CANVAS_WIDTH = 980
 /** 위는 안내 문구, 아래는 배율 툴바가 차지한다. 노드는 그 사이에만 놓인다. */
 export const CANVAS_TOP = 110
 export const CANVAS_BOTTOM = 940
+/** 카드 사이에 남기는 최소 간격(px). 맞닿으면 두 개가 한 덩어리로 보인다. */
+export const NODE_GAP = 10
 
 /**
  * 편집·대기·실행 화면이 함께 그리는 워크플로우.
@@ -34,7 +36,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'TRIGGER',
     x: 12,
     y: 400,
-    mine: true,
+    mine: false,
     animation: 'floaty 6.4s ease-in-out infinite, uiIn .7s .18s cubic-bezier(.2,.8,.25,1) both',
   },
   {
@@ -80,16 +82,57 @@ export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
   return nodes.length > 0 && nodes.every((node) => node.mine)
 }
 
-/**
- * 카드가 작업면 밖으로 나가지 않게 자른다.
- *
- * 오른쪽 패널 아래로 숨거나 툴바에 가리면 다시 집을 방법이 없다 — 놓을 때도 옮길 때도 거른다.
- */
+/** 카드가 작업면 밖으로 나가지 않게 자른다.*/
 export function clampToCanvas(x: number, y: number): { x: number; y: number } {
   return {
     x: Math.min(Math.max(x, 0), CANVAS_WIDTH - NODE_SIZE),
     y: Math.min(Math.max(y, CANVAS_TOP), CANVAS_BOTTOM - NODE_SIZE),
   }
+}
+
+/**
+ * 다른 카드와 겹치지 않는 자리로 민다.
+ *
+ * 카드가 원이라 모서리가 아니라 중심 거리로 본다. 가장 깊이 겹친 것부터 중심선 바깥으로
+ * 밀어내고, 밀린 자리가 또 겹치면 되풀이한다 — 한 번에 밀면 옆 카드 위로 올라간다.
+ */
+export function resolveOverlap(
+  nodes: CanvasNodeData[],
+  id: string,
+  x: number,
+  y: number,
+): { x: number; y: number } {
+  const others = nodes.filter((node) => node.id !== id)
+  const apart = NODE_SIZE + NODE_GAP
+  let point = clampToCanvas(x, y)
+
+  // 벽에 몰리면 밀어도 제자리라, 되풀이 횟수를 막아 둔다.
+  for (let step = 0; step < 12; step++) {
+    let deepest: { dx: number; dy: number; gap: number; depth: number } | null = null
+    for (const other of others) {
+      const dx = point.x - other.x
+      const dy = point.y - other.y
+      const gap = Math.hypot(dx, dy)
+      const depth = apart - gap
+      if (depth > (deepest?.depth ?? 0)) deepest = { dx, dy, gap, depth }
+    }
+    if (!deepest) return point
+
+    // 완전히 포개졌으면 방향이 없다 — 오른쪽으로 뗀다.
+    const ux = deepest.gap === 0 ? 1 : deepest.dx / deepest.gap
+    const uy = deepest.gap === 0 ? 0 : deepest.dy / deepest.gap
+    // 딱 맞닿는 거리까지만 밀면 부동소수 오차로 다시 겹침으로 읽힌다.
+    const push = deepest.depth + 0.01
+    point = clampToCanvas(point.x + ux * push, point.y + uy * push)
+  }
+  return point
+}
+
+/** 겹치는 카드가 하나라도 있는지. */
+export function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
+  return nodes.some(
+    (node) => node.id !== id && Math.hypot(x - node.x, y - node.y) < NODE_SIZE + NODE_GAP,
+  )
 }
 
 /** 팔레트에서 끌어온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
@@ -99,7 +142,10 @@ export function placeNode(
   x: number,
   y: number,
 ): CanvasNodeData[] {
-  return [...nodes, { ...seed, ...clampToCanvas(x, y), animation: PLACED_ANIMATION }]
+  return [
+    ...nodes,
+    { ...seed, ...resolveOverlap(nodes, seed.id, x, y), animation: PLACED_ANIMATION },
+  ]
 }
 
 /** 놓인 노드를 옮긴다. 없는 id 면 목록을 그대로 돌려준다. */
@@ -109,5 +155,7 @@ export function moveNode(
   x: number,
   y: number,
 ): CanvasNodeData[] {
-  return nodes.map((node) => (node.id === id ? { ...node, ...clampToCanvas(x, y) } : node))
+  return nodes.map((node) =>
+    node.id === id ? { ...node, ...resolveOverlap(nodes, id, x, y) } : node,
+  )
 }

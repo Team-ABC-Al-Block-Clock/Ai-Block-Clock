@@ -101,7 +101,8 @@ export default function CanvasNode({
               WebkitBackdropFilter: 'blur(18px)',
               transition: 'background .5s,box-shadow .5s',
             }
-          : { transition: 'transform .2s,box-shadow .2s' }),
+          : // 끄는 동안 transform 에 전환이 걸리면 카드가 0.2초 늦게 따라온다.
+            { transition: dragging ? 'none' : 'transform .2s,box-shadow .2s' }),
       }}
       className={
         dragging
