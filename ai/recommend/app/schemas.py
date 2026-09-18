@@ -64,6 +64,7 @@ class RecommendRequest(BaseModel):
 class ScoreBreakdown(BaseModel):
     semantic: float                    # 임베딩 코사인 유사도 (0~1)
     trust: float                       # 등급 · 성공률 (0~1)
+    lexical: float | None = None       # BM25 어휘 점수. 하이브리드가 꺼져 있으면 null
     schema_fit: float | None = None    # v2
 
 

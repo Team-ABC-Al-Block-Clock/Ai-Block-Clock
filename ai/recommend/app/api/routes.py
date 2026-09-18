@@ -87,24 +87,31 @@ def recommend(
     exclude = set(body.selected_agent_ids)
 
     ranked = []
-    for agent, semantic in hits:
-        if agent.agent_id in exclude:
+    for hit in hits:
+        if hit.agent.agent_id in exclude:
             continue
-        score, trust = final_score(semantic, agent)
-        ranked.append((score, semantic, trust, agent))
+        # ★ 정렬 기준은 relevance 다. 하이브리드가 꺼져 있으면 semantic 과 같고,
+        #   켜져 있으면 임베딩·BM25 를 합친 값이다. breakdown 의 semantic 은
+        #   진단용으로 항상 순수 코사인 유사도를 남긴다.
+        score, trust = final_score(hit.relevance, hit.agent)
+        ranked.append((score, trust, hit))
     ranked.sort(key=lambda x: -x[0])
 
     top_k = min(body.top_k or TOP_K_DEFAULT, TOP_K_MAX)
     recommendations = [
         Recommendation(
-            agent_id=a.agent_id, name=a.name, owner_id=a.owner_id,
+            agent_id=h.agent.agent_id, name=h.agent.name, owner_id=h.agent.owner_id,
             score=round(score, 4),
-            breakdown=ScoreBreakdown(semantic=round(sem, 4), trust=round(tr, 4)),
-            tier=a.tier, success_rate=a.success_rate, category=a.category,
-            input_schema_id=a.input_schema_id, output_schema_id=a.output_schema_id,
-            reason=a.description,
+            breakdown=ScoreBreakdown(
+                semantic=round(h.semantic, 4),
+                trust=round(tr, 4),
+                lexical=round(h.lexical, 4) if h.lexical is not None else None,
+            ),
+            tier=h.agent.tier, success_rate=h.agent.success_rate, category=h.agent.category,
+            input_schema_id=h.agent.input_schema_id, output_schema_id=h.agent.output_schema_id,
+            reason=h.agent.description,
         )
-        for score, sem, tr, a in ranked[:top_k]
+        for score, tr, h in ranked[:top_k]
     ]
 
     return RecommendResponse(

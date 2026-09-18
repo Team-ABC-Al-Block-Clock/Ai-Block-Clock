@@ -1,0 +1,94 @@
+{
+  "cases": [
+    {
+      "id": "G1",
+      "name": "정상 — 전체 하락, 경고형 분기",
+      "roster": "data/demo_roster_down.json",
+      "xlsx": "data/demo_roster_down.xlsx",
+      "why": "시연 본편 입력. 정상 경로가 끝까지 도는지 본다.",
+      "expect": {
+        "student_count": 20,
+        "avg_delta": -5.4,
+        "branch": "warn",
+        "trend_counts": {
+          "up": 4,
+          "down": 16
+        }
+      }
+    },
+    {
+      "id": "G2",
+      "name": "정상 — 전체 상승, 격려형 분기",
+      "roster": "data/demo_roster_up.json",
+      "xlsx": "data/demo_roster_up.xlsx",
+      "why": "반대 분기. 같은 명단·같은 과목이라 결과 차이를 분기 하나로 설명할 수 있다.",
+      "expect": {
+        "student_count": 20,
+        "avg_delta": 4.96,
+        "branch": "encourage",
+        "trend_counts": {
+          "up": 16,
+          "down": 4
+        }
+      }
+    },
+    {
+      "id": "G3",
+      "name": "경계 — 전체 평균 변화가 정확히 0",
+      "roster": "golden/G3_zero_delta.json",
+      "xlsx": "golden/G3_zero_delta.xlsx",
+      "why": "분기 조건은 avg_delta < 0 이다. 정확히 0이면 격려형이어야 한다. <= 0 으로 잘못 구현했다면 여기서만 깨진다.",
+      "expect": {
+        "student_count": 10,
+        "avg_delta": 0.0,
+        "branch": "encourage",
+        "trend_counts": {
+          "up": 5,
+          "down": 5
+        }
+      }
+    },
+    {
+      "id": "G4",
+      "name": "경계 — trend 임계값 · weak_subject 동점 · 만점/영점",
+      "roster": "golden/G4_edge_values.json",
+      "xlsx": "golden/G4_edge_values.xlsx",
+      "why": "trend 는 >= 1.0 / <= -1.0 이다. 정확히 ±1.00 인 학생으로 등호를 검사한다. 최저 점수가 두 과목에서 동점일 때 subjects 앞쪽을 고르는지도 본다.",
+      "expect": {
+        "student_count": 8,
+        "branch": "warn",
+        "students": {
+          "경계상승": {
+            "avg_delta": 1.0,
+            "trend": "up"
+          },
+          "경계하락": {
+            "avg_delta": -1.0,
+            "trend": "down"
+          },
+          "보합상": {
+            "avg_delta": 0.75,
+            "trend": "flat"
+          },
+          "보합하": {
+            "avg_delta": -0.75,
+            "trend": "flat"
+          },
+          "무변화": {
+            "avg_delta": 0.0,
+            "trend": "flat"
+          },
+          "동점최저": {
+            "weak_subject": "국어"
+          },
+          "만점자": {
+            "avg_current": 100.0
+          },
+          "영점자": {
+            "avg_current": 15.0
+          }
+        }
+      }
+    }
+  ]
+}

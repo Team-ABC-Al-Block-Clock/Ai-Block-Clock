@@ -2,13 +2,19 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | **v0.2** (선형 워크플로우 스파이크 + 정산 입력값) |
-| 작성일 | 2026-09-09 |
+| 버전 | **v0.2.1** (선형 워크플로우 스파이크 + 정산 입력값. 예시를 브랜딩 UC로 교체) |
+| 작성일 | 2026-09-09 (예시 갱신 2026-09-18) |
 | 작성 | AI 파트 (김정윤) |
 | 대상 | 백엔드(Spring), 프론트엔드(React) |
 | 구현 위치 | `ai/spike/linear-mvp/src/api.py` |
 | 대응 Jira | S15P21A403-171 |
 | 상태 | **구현 완료 · 동작 확인됨.** 실제 Gemini 호출 5회, 정산 필드는 성공 · 실패 케이스로 검증 |
+
+> **⚠️ 09-17 유즈케이스 변경 — 예시가 바뀌었다.**
+> 시연 유즈케이스가 *가정통신문 작성*에서 **브랜딩 전략**으로 바뀌었다(로드맵 v4.2 §1.1). 이 문서의 예시 JSON · 시나리오를 브랜딩 기준으로 교체했다.
+> **계약 구조(202 + 폴링 · 필드 정의 · 엔드포인트)는 그대로다.** 분할 · 병합 · 조건 분기 · 합류, 에이전트 전개, 카탈로그 스키마, 봉투는 **계약 v1.0**에서 들어간다.
+> 전체 플로우는 [`../../docs/service-flow.md`](../../docs/service-flow.md)를 본다.
+
 
 ### 개정 이력
 
@@ -85,13 +91,13 @@
 
 ```jsonc
 {
-  "id": "report",                          // 선택. 로그 식별용
-  "name": "학원 성적 리포트",                // 선택
+  "id": "brand_strategy",                          // 선택. 로그 식별용
+  "name": "브랜딩 전략 보고서",                // 선택
   "model": null,                           // 선택. null 이면 서버 기본값(gemini-2.5-flash)
   "nodes": [
-    { "id": "analyze",                     // 필수. 워크플로우 안에서 유일해야 한다
-      "name": "성적 분석",                  // 선택. 진행 화면에 표시되는 이름
-      "prompt": "당신은 학원 성적 데이터 분석가입니다. ...",   // 필수. 판매자가 작성한 프롬프트 원문
+    { "id": "market",                     // 필수. 워크플로우 안에서 유일해야 한다
+      "name": "시장 조사",                  // 선택. 진행 화면에 표시되는 이름
+      "prompt": "당신은 시장 조사 분석가입니다. ...",   // 필수. 판매자가 작성한 프롬프트 원문
       "context": "user",                   // 선택. 기본값 "prev"
 
       // ── 정산 입력값 (v0.2). 없으면 응답의 정산 필드가 null 로 채워진다 ──
@@ -99,13 +105,13 @@
       "unit_price": 3.9,                   // 백엔드가 등급을 반영해 확정한 실행 단가(ABC)
       "base_cost": 3.0,                    // 참고용
       "premium_rate": 0.30 },              // 참고용
-    { "id": "letter",
-      "name": "가정통신문 작성",
-      "prompt": "당신은 교육 심리 전문가입니다. ...",
+    { "id": "strategy",
+      "name": "브랜드 전략 보고서",
+      "prompt": "당신은 브랜드 전략가입니다. ...",
       "context": "prev",
       "owner_id": "u_3001", "unit_price": 4.0, "base_cost": 4.0, "premium_rate": 0.0 }
   ],
-  "output": { "type": "pdf", "title": "3월 성적 리포트" }   // type: "pdf" | "markdown"
+  "output": { "type": "pdf", "title": "브랜딩 전략 보고서" }   // type: "pdf" | "markdown"
 }
 ```
 
@@ -147,7 +153,7 @@
 | --- | --- | --- | --- |
 | `workflow` | string | 필수 | 3장의 워크플로우 정의를 JSON **문자열**로 |
 | `comment` | string | 선택 | 사용자가 입력한 자연어 코멘트 |
-| `file` | file | 선택 | 성적 엑셀 또는 CSV. `.xlsx` `.xls` `.csv`, 최대 10MB |
+| `file` | file | 선택 | 참고 자료 엑셀 또는 CSV (경쟁사 가격표 등). `.xlsx` `.xls` `.csv`, 최대 10MB |
 | `mock` | boolean | 선택 | `true`면 LLM을 호출하지 않고 파이프라인만 실행. 기본 `false` |
 
 **응답.** `202 Accepted`
@@ -168,7 +174,7 @@
 curl -X POST http://localhost:8000/v1/runs \
   -F "workflow=$(cat workflow.json)" \
   -F "comment=이번 달은 전반적으로 시험 난이도가 높았음" \
-  -F "file=@성적표.xlsx"
+  -F "file=@경쟁사_가격표.xlsx"
 ```
 
 > 개발 초기에는 `GET /v1/workflows/report`로 견본 워크플로우를 받아 그대로 `workflow` 필드에 넣으면 바로 테스트할 수 있다.
@@ -185,21 +191,21 @@ curl -X POST http://localhost:8000/v1/runs \
 {
   "run_id": "20260909-100451-688",
   "status": "running",                     // queued | running | succeeded | failed
-  "workflow": { "id": "report", "name": "학원 성적 리포트", "node_count": 2 },
+  "workflow": { "id": "brand_strategy", "name": "브랜딩 전략 보고서", "node_count": 2 },
   "mock": false,
   "progress": {
     "done": 1,                             // 완료된 노드 수
     "total": 2,
     "percent": 50,
     "current_index": 1,                    // 지금 도는 노드의 0-based 인덱스. 없으면 null
-    "current_node_id": "letter",
-    "current_node_name": "가정통신문 작성"    // ← 프론트 진행 화면에 그대로 표시
+    "current_node_id": "strategy",
+    "current_node_name": "브랜드 전략 보고서"    // ← 프론트 진행 화면에 그대로 표시
   },
   "nodes": [
-    { "id": "analyze", "name": "성적 분석", "status": "succeeded", "context": "user",
+    { "id": "market", "name": "시장 조사", "status": "succeeded", "context": "user",
       "duration_ms": 28900, "input_tokens": 1288, "output_tokens": 1344, "retries": 0,
       "owner_id": "u_2001", "unit_price": 3.9 },
-    { "id": "letter", "name": "가정통신문 작성", "status": "running", "context": "prev",
+    { "id": "strategy", "name": "브랜드 전략 보고서", "status": "running", "context": "prev",
       "duration_ms": null, "input_tokens": null, "output_tokens": null, "retries": 0,
       "owner_id": "u_3001", "unit_price": 4.0 }
   ],
@@ -207,7 +213,7 @@ curl -X POST http://localhost:8000/v1/runs \
   "started_at": "2026-09-09T01:04:51+00:00",
   "finished_at": null,
   "total_duration_ms": null,
-  "contribution": [ { "node_id": "analyze", "owner_id": "u_2001", "charged_abc": 3.9 } ],
+  "contribution": [ { "node_id": "market", "owner_id": "u_2001", "charged_abc": 3.9 } ],
   "not_executed": [],
   "failure": null,
   "result": null,
@@ -229,7 +235,7 @@ curl -X POST http://localhost:8000/v1/runs \
   "totals": { "input_tokens": 3632, "output_tokens": 2268 },
   "result": {
     "type": "pdf",
-    "markdown": "# 3월 학습 안내\n\n학부모님께, ...",     // 최종 산출물 원문
+    "markdown": "# 비건 스킨케어 브랜딩 전략\n\n1. 시장 개요 ...",     // 최종 산출물 원문
     "pdf_url": "/v1/runs/20260909-100451-688/pdf"
   },
   "error": null
@@ -241,22 +247,22 @@ curl -X POST http://localhost:8000/v1/runs \
 ```jsonc
 {
   "status": "failed",
-  "nodes": [ { "id": "analyze", "status": "succeeded", "...": "..." },
-             { "id": "letter",  "status": "failed",    "...": "..." } ],
-  "contribution": [ { "node_id": "analyze", "owner_id": "u_2001", "charged_abc": 3.9 } ],
+  "nodes": [ { "id": "market", "status": "succeeded", "...": "..." },
+             { "id": "strategy",  "status": "failed",    "...": "..." } ],
+  "contribution": [ { "node_id": "market", "owner_id": "u_2001", "charged_abc": 3.9 } ],
   "not_executed": [],
   "failure": {
-    "node_id": "letter",
+    "node_id": "strategy",
     "error_code": "MODEL_API_ERROR",
     "fault": "supplier",                   // supplier | consumer | platform
     "affects_success_rate": true,          // 이 노드 공급자의 성공률에 실패로 집계할지
     "refund_scope": {
-      "refund_node_ids":  ["letter"],      // 수요자에게 환원할 노드
-      "settled_node_ids": ["analyze"]      // 정산을 유지할 노드
+      "refund_node_ids":  ["strategy"],      // 수요자에게 환원할 노드
+      "settled_node_ids": ["market"]      // 정산을 유지할 노드
     }
   },
   "result": null,
-  "error": { "code": "MODEL_API_ERROR", "message": "…", "node_id": "letter" }
+  "error": { "code": "MODEL_API_ERROR", "message": "…", "node_id": "strategy" }
 }
 ```
 
@@ -374,7 +380,7 @@ MVP는 플랫폼 수수료 0%라, 차감한 ABC 전액이 그대로 각 노드 �
 
 ## 8. 실측값 (참고)
 
-학생 20명 · 3과목 · 2개월 데이터, 노드 2개, `gemini-2.5-flash`, 실호출 5회 기준.
+노드 2개, `gemini-2.5-flash`, 실호출 5회 기준. **측정은 09-09 스파이크(표 20행 · 9열 입력)에서 한 값이라 유즈케이스 변경 전 워크로드다.** 재측정은 09-22 실호출 관통에서 한다.
 
 | 항목 | 값 |
 | --- | --- |

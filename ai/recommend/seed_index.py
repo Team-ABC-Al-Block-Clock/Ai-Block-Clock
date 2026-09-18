@@ -14,6 +14,7 @@
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -37,7 +38,9 @@ def main():
         sys.exit(f"서버에 연결할 수 없습니다. 먼저 실행하세요:\n"
                  f"  cd ai/recommend && uvicorn app.main:app --port 8100")
 
-    print(f"서버 상태: {health['status']} · model_version={health['model_version']}\n")
+    print(f"서버 상태: {health['status']} · model_version={health['model_version']}")
+    print(f"하이브리드: ABC_HYBRID={os.environ.get('ABC_HYBRID', '(기본값)')}"
+          f"   — lexical 이 숫자면 켜진 것, — 이면 꺼진 것\n")
 
     # ── 인덱싱 ──
     payload = json.loads(DATA.read_text(encoding="utf-8"))
@@ -54,8 +57,10 @@ def main():
         print(f'"{q}"   ({data["latency_ms"]}ms)')
         for i, rec in enumerate(data["recommendations"], 1):
             b = rec["breakdown"]
-            print(f"  {i}. {rec['score']:.3f}  {rec['name']}"
-                  f"   (semantic {b['semantic']:.3f} · trust {b['trust']:.3f} · Tier {rec['tier']})")
+            # lexical 은 하이브리드 검색이 꺼져 있으면 null 이다 (09-17 추가)
+            lex = f" · lexical {b['lexical']:6.2f}" if b.get("lexical") is not None else " · lexical  —   "
+            print(f"  {i}. {rec['score']:.3f}  {rec['name']:<16}"
+                  f"   (semantic {b['semantic']:.3f}{lex} · trust {b['trust']:.3f} · Tier {rec['tier']})")
         print()
 
 
