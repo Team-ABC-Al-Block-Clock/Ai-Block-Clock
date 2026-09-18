@@ -57,7 +57,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           height: '230px',
           boxShadow: '0 20px 48px rgba(8,4,18,.32)',
           animation:
-            'floaty 7.4s ease-in-out infinite, rise .8s .08s cubic-bezier(.2,.8,.25,1) both',
+            'floaty 7.4s ease-in-out infinite, rise .8s .08s cubic-bezier(.2,.8,.25,1) backwards',
         }}
       >
         <div

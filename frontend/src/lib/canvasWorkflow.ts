@@ -52,7 +52,11 @@ export interface CanvasNodeData {
   mine: boolean
   /** 계속 도는 모션. 드래그가 끝나면 이것만 되돌린다. */
   floaty: string
-  /** 등장 모션. 처음 한 번만 재생한다. 되돌리면 카드가 사라졌다 다시 나타나기 때문이다. */
+  /**
+   * 등장 모션. 처음 한 번만 재생한다. 되돌리면 카드가 사라졌다 다시 나타나기 때문이다.
+   *
+   * `backwards` 로 채운다 — `both` 면 끝난 뒤에도 `transform: none` 을 붙들어 `floaty` 를 덮는다.
+   */
   enter?: string
 }
 
@@ -68,7 +72,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     y: 400,
     mine: true,
     floaty: 'floaty 6.4s ease-in-out infinite',
-    enter: 'uiIn .7s .18s cubic-bezier(.2,.8,.25,1) both',
+    enter: 'uiIn .7s .18s cubic-bezier(.2,.8,.25,1) backwards',
   },
   {
     id: 'seed-2',
@@ -78,7 +82,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     y: 320,
     mine: true,
     floaty: 'floaty 6.9s .3s ease-in-out infinite',
-    enter: 'uiIn .7s .26s cubic-bezier(.2,.8,.25,1) both',
+    enter: 'uiIn .7s .26s cubic-bezier(.2,.8,.25,1) backwards',
   },
   {
     id: 'seed-3',
@@ -88,7 +92,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     y: 440,
     mine: true,
     floaty: 'floaty 7.1s .8s ease-in-out infinite',
-    enter: 'uiIn .7s .34s cubic-bezier(.2,.8,.25,1) both',
+    enter: 'uiIn .7s .34s cubic-bezier(.2,.8,.25,1) backwards',
   },
   {
     id: 'seed-4',
@@ -98,7 +102,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     y: 330,
     mine: true,
     floaty: 'floaty 6.8s .4s ease-in-out infinite',
-    enter: 'uiIn .7s .42s cubic-bezier(.2,.8,.25,1) both',
+    enter: 'uiIn .7s .42s cubic-bezier(.2,.8,.25,1) backwards',
   },
   {
     id: 'seed-5',
@@ -108,7 +112,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     y: 430,
     mine: true,
     floaty: 'floaty 7.6s 1.2s ease-in-out infinite',
-    enter: 'uiIn .7s .5s cubic-bezier(.2,.8,.25,1) both',
+    enter: 'uiIn .7s .5s cubic-bezier(.2,.8,.25,1) backwards',
   },
 ]
 
