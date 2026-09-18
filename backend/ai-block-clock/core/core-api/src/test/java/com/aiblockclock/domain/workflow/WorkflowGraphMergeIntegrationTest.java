@@ -1,11 +1,14 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
 import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
 import com.aiblockclock.storage.workflow.WorkflowEdgeRepository;
+import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
+import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,10 +27,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 class WorkflowGraphMergeIntegrationTest {
     private static final OwnerId OWNER = OwnerId.of(9103L);
-    private static final UUID FIRST_SOURCE = UUID.randomUUID();
-    private static final UUID SECOND_SOURCE = UUID.randomUUID();
-    private static final UUID REPLACED_SOURCE = UUID.randomUUID();
-    private static final UUID ADDED_SOURCE = UUID.randomUUID();
+    private UUID firstSource;
+    private UUID secondSource;
+    private UUID replacedSource;
+    private UUID addedSource;
 
     @Autowired
     private WorkflowService workflowService;
@@ -41,15 +44,23 @@ class WorkflowGraphMergeIntegrationTest {
     @Autowired
     private WorkflowWriter workflowWriter;
 
+    @Autowired
+    private NodeDefinitionRepository nodeRepository;
+
     private WorkflowId workflowId;
 
     @BeforeEach
     void setUp() {
+        firstSource = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
+        secondSource = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
+        replacedSource = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
+        addedSource = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
+
         workflowId = workflowService.save(
                 OWNER,
                 "그래프 병합",
                 null,
-                List.of(placement("n1", FIRST_SOURCE), placement("n2", SECOND_SOURCE)),
+                List.of(placement("n1", firstSource), placement("n2", secondSource)),
                 List.of(GraphFixtures.edge("e1", "n1", "n2"))).getId();
     }
 
@@ -69,7 +80,7 @@ class WorkflowGraphMergeIntegrationTest {
                 OWNER,
                 "그래프 병합",
                 Revision.of(1L),
-                List.of(placement("n1", REPLACED_SOURCE), placement("n3", ADDED_SOURCE)),
+                List.of(placement("n1", replacedSource), placement("n3", addedSource)),
                 List.of(GraphFixtures.edge("e2", "n1", "n3")));
 
         List<WorkflowNodeEntity> after = nodeRows();
@@ -81,7 +92,7 @@ class WorkflowGraphMergeIntegrationTest {
                 .isEqualTo(keptRowId);
         assertThat(referenceOf(after, "n1"))
                 .as("같은 행 위에서 원본만 바뀐다")
-                .isEqualTo(REPLACED_SOURCE);
+                .isEqualTo(replacedSource);
     }
 
     @Test
@@ -94,7 +105,7 @@ class WorkflowGraphMergeIntegrationTest {
                 OWNER,
                 "그래프 병합",
                 Revision.of(1L),
-                List.of(placement("n2", SECOND_SOURCE), placement("n1", FIRST_SOURCE)),
+                List.of(placement("n2", secondSource), placement("n1", firstSource)),
                 List.of(GraphFixtures.edge("e1", "n2", "n1")));
 
         List<WorkflowEdgeEntity> after = edgeRows();
@@ -129,6 +140,6 @@ class WorkflowGraphMergeIntegrationTest {
     }
 
     private static NodePlacement placement(String nodeKey, UUID sourceId) {
-        return new NodePlacement(NodeKey.of(nodeKey), SourceType.NODE, sourceId);
+        return new NodePlacement(NodeKey.of(nodeKey), SourceType.NODE, sourceId, InputSource.defaultSource());
     }
 }

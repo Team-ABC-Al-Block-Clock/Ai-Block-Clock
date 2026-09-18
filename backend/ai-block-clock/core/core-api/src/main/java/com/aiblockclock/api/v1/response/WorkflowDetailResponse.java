@@ -2,6 +2,7 @@ package com.aiblockclock.api.v1.response;
 
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -60,8 +61,8 @@ public record WorkflowDetailResponse(
                 workflow.getRevision().value(),
                 nodes,
                 edges,
-                WorkflowPricing.UNPRICED,
-                WorkflowPricing.CURRENCY,
+                AbcPricing.UNPRICED,
+                AbcPricing.CURRENCY,
                 workflow.getTimestamps().lastExecutedAt(),
                 workflow.getTimestamps().updatedAt());
     }
@@ -78,14 +79,18 @@ public record WorkflowDetailResponse(
             String sourceId,
 
             @Schema(description = "에이전트 노드가 고정한 버전 ID. 기본 노드면 null", nullable = true)
-            String versionId
+            String versionId,
+
+            @Schema(description = "이 자리가 무엇을 입력으로 받나")
+            InputSource inputSource
     ) {
         static NodeResponse from(GraphNode node) {
             return new NodeResponse(
                     node.key().value(),
                     node.sourceType(),
                     node.reference().referenceId().toString(),
-                    node.reference().hasVersion() ? node.reference().versionId().toString() : null);
+                    node.reference().hasVersion() ? node.reference().versionId().toString() : null,
+                    node.inputSource());
         }
     }
 

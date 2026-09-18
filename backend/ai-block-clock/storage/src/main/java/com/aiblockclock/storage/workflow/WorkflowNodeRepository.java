@@ -11,6 +11,8 @@ import java.util.UUID;
 public interface WorkflowNodeRepository extends JpaRepository<WorkflowNodeEntity, Long> {
     List<WorkflowNodeEntity> findByWorkflowIdOrderByIdAsc(UUID workflowId);
 
+    boolean existsByReferenceId(UUID referenceId);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from WorkflowNodeEntity n where n.workflowId = :workflowId")
     int deleteAllByWorkflowId(@Param("workflowId") UUID workflowId);
