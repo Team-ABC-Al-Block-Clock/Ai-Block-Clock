@@ -61,3 +61,6 @@ demo/outputs/
 # -------------------------------------------------------------
 *.npz
 index_snapshot.npz
+
+# Claude Code 개인 설정은 커밋하지 않는다 (공용은 .claude/settings.json)
+.claude/settings.local.json
