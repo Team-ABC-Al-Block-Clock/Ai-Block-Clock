@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.domain.AbcAmount;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
