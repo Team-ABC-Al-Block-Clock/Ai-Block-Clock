@@ -4,7 +4,7 @@
 
 - 계층별 책임을 고정해 특정 계층이 비대해지는 것을 막는다
 - 의존 방향을 한 방향으로 고정해 변경의 파급 범위를 예측 가능하게 한다
-- 트랜잭션 경계를 한 계층에 몰아 비즈니스 로직과 분리한다
+- 유스케이스의 조회·검사·변경을 Service 트랜잭션으로 묶고 영속성 구현은 분리한다
 
 ---
 
@@ -17,8 +17,8 @@
 | 계층 | 통칭 | 책임 | 대표 타입 |
 | --- | --- | --- | --- |
 | `api` | presentation | HTTP 요청·응답, 입력 검증, 직렬화 | `Controller`, `Request`, `Response` |
-| `domain` | application | 유스케이스의 **흐름** 표현 | `Service`, 도메인 모델 |
-| `implementation` | - | 흐름을 이루는 **각 단계의 구현**, 트랜잭션 경계 | `Reader`, `Writer`, `Manager` 등 |
+| `domain` | application | 유스케이스의 **흐름** 표현, 트랜잭션 경계 | `Service`, 도메인 모델 |
+| `implementation` | - | 흐름을 이루는 **각 단계의 구현** | `Reader`, `Writer`, `Manager` 등 |
 | `storage` | repository | 영속성, 외부 저장소 접근 | `Entity`, `Repository` |
 
 ```mermaid
@@ -38,7 +38,7 @@ graph TD
 
 3계층에서는 `Service` 하나가 유스케이스의 흐름, 영속성 호출, 엔티티 변환, 트랜잭션 경계를 모두 떠안는다. 기능이 늘수록 흐름이 구현 세부에 묻히고, 같은 변환 코드가 여러 `Service` 에 흩어진다.
 
-implementation 계층은 이 셋을 `Service` 밖으로 꺼낸다.
+implementation 계층은 영속성 호출과 엔티티 변환을 `Service` 밖으로 꺼낸다. 유스케이스 전체의 트랜잭션 경계는 `Service` 에 남긴다.
 
 #### (1) 흐름이 읽힌다
 
@@ -88,9 +88,9 @@ public class MemberRegisterService {
 
 `Service` 만 읽어도 유스케이스를 파악할 수 있고, 세부가 궁금하면 해당 implementation 만 열어보면 된다.
 
-#### (2) 트랜잭션에 비즈니스 로직이 섞이지 않는다
+#### (2) 유스케이스의 트랜잭션 경계가 읽힌다
 
-`@Transactional` 을 implementation 계층으로 제한한다. `Service` 에는 트랜잭션 애노테이션이 붙지 않으므로, 트랜잭션 범위를 넓히려고 비즈니스 로직을 `Service` 에 끌어모으는 일이 생기지 않는다. 외부 API 호출이나 메일 발송처럼 오래 걸리는 작업이 DB 트랜잭션 안에 갇히지도 않는다.
+조회·검사·변경을 함께 처리해야 하는 유스케이스는 `Service` 메서드에 `@Transactional` 을 선언한다. 트랜잭션을 열기 위한 위임 전용 `Manager` 를 추가하지 않는다. `Reader`·`Writer` 는 영속성과 변환을 담당하고 기본 전파 설정에서는 Service의 트랜잭션에 참여한다. 외부 API 호출·메일·알림 발송은 이 트랜잭션 밖에서 수행한다.
 
 자세한 규칙은 4장에 정리한다.
 
@@ -144,14 +144,14 @@ if (member.grade() == Grade.VIP && request.amount() > THRESHOLD) {   // 규칙
 - 그 클래스 안에 흐름과 규칙이 섞여 들어간다. `Service` 를 얇게 유지하려고 만든 계층이 결국 두꺼워진다
 - `Controller` 가 이미 요청 단위의 조립 지점이다. 같은 일을 하는 자리를 둘 만들 이유가 없다
 
-여러 도메인의 **쓰기를 한 트랜잭션으로 묶어야 한다면** 그것은 조립이 아니라 하나의 유스케이스다. `Service` 하나가 양쪽 도메인의 implementation 을 호출하고, 트랜잭션은 `Manager` implementation 이 잡는다 (3.3).
+여러 도메인의 **쓰기를 한 트랜잭션으로 묶어야 한다면** 그것은 조립이 아니라 하나의 유스케이스다. `Service` 하나가 양쪽 도메인의 implementation 을 호출하고 트랜잭션 경계도 선언한다 (4장).
 
 ### 2.2 `domain` (application)
 
 | 한다 | 하지 않는다 |
 | --- | --- |
 | 유스케이스의 흐름 정의 | 영속성 API 직접 호출 |
-| implementation 호출 순서 결정 | 트랜잭션 경계 선언 |
+| implementation 호출 순서 결정, 트랜잭션 경계 선언 | HTTP·요청 컨텍스트 참조 |
 | 도메인 모델 정의 | 엔티티 참조 |
 | | 다른 `Service` 호출 |
 
@@ -165,7 +165,7 @@ if (member.grade() == Grade.VIP && request.amount() > THRESHOLD) {   // 규칙
 | 한다 | 하지 않는다 |
 | --- | --- |
 | 흐름 한 단계의 구체적 구현 | 유스케이스 전체 흐름 조립 |
-| 트랜잭션 경계 선언 | HTTP·요청 컨텍스트 참조 |
+| 재사용되는 단계의 트랜잭션 선언 | HTTP·요청 컨텍스트 참조 |
 | entity ↔ domain 변환 | 응답 DTO 생성 |
 | 저장소·외부 시스템 호출 | |
 
@@ -176,7 +176,7 @@ if (member.grade() == Grade.VIP && request.amount() > THRESHOLD) {   // 규칙
 | `Reader` | 조회 |
 | `Writer` | 저장·수정·삭제 |
 | `Validator` | 검증 |
-| `Manager` | 여러 implementation 을 묶어 하나의 트랜잭션으로 처리 |
+| `Manager` | 여러 유스케이스에서 재사용하는 복합 단계 구현 |
 | `Notifier`, `Sender` 등 | 외부 시스템 연동 |
 
 ### 2.4 `storage` (repository)
@@ -242,7 +242,7 @@ public Member get(Long id) {
 
 **재사용성** 때문이다. 이 예외는 재사용을 위한 것이지, 편의를 위한 것이 아니다.
 
-같은 조회·저장 로직이 여러 유스케이스에 필요할 때, 각 implementation 이 같은 코드를 복사하는 대신 이미 있는 implementation 을 가져다 쓴다. 특히 여러 쓰기 작업을 한 트랜잭션으로 묶어야 할 때, `Manager` 가 기존 `Writer` 들을 조합하는 방식으로 해결한다.
+같은 조회·저장 로직이 여러 유스케이스에 필요할 때, 각 implementation 이 같은 코드를 복사하는 대신 이미 있는 implementation 을 가져다 쓴다. 여러 유스케이스에서 같은 복합 단계가 필요할 때만 `Manager` 가 기존 `Writer` 들을 조합한다. 단일 유스케이스의 전체 순서는 Service에 둔다.
 
 ```java
 @Component
@@ -281,12 +281,12 @@ public class MemberWithdrawManager {
 
 ### 4.1 경계
 
-**`@Transactional` 은 implementation 계층에만 선언한다.**
+**유스케이스의 트랜잭션 경계는 `Service` 에 선언한다.** implementation은 독립적으로 사용하는 단계에 트랜잭션을 선언할 수 있으며, 기본 전파 설정에서는 Service의 트랜잭션에 참여한다.
 
 | 계층 | `@Transactional` |
 | --- | --- |
 | `api` | ❌ |
-| `domain` | ❌ |
+| `domain` | ✅ |
 | `implementation` | ✅ |
 | `storage` | ❌ |
 
@@ -294,8 +294,10 @@ public class MemberWithdrawManager {
 
 - 조회만 하는 경우 `@Transactional(readOnly = true)` 를 쓴다
 - 외부 API 호출, 메일·알림 발송은 트랜잭션 안에 넣지 않는다. 응답이 늦어지면 커넥션을 점유한 채로 대기하게 된다
-- 여러 쓰기를 한 트랜잭션으로 묶어야 하면 `Manager` implementation 을 만들어 그 안에서 처리한다 (3.3)
-- `Service` 에 트랜잭션이 필요해 보인다면, 함께 묶여야 할 작업이 implementation 으로 내려가지 않은 것이다
+- 유스케이스에서 함께 성공·실패해야 하는 조회·검사·변경은 Service 메서드 하나의 트랜잭션으로 묶는다
+- 트랜잭션을 열기 위해서만 위임하는 Manager를 만들지 않는다. 재사용되는 복합 단계만 분리한다
+- 트랜잭션만으로 동시 요청이 직렬화되지는 않는다. 필요한 행 잠금·조건부 UPDATE는 유지한다
+- 잠금 대기나 연산 중 만료될 수 있으므로 상태 검사와 쓰기 시점의 만료 조건을 구분한다
 
 ---
 
@@ -341,7 +343,9 @@ public class MemberWithdrawManager {
 - [ ] `Controller` 가 `Service` 외의 계층을 호출하지 않는가
 - [ ] `Service` 메서드가 유스케이스의 흐름으로 읽히는가
 - [ ] `Service` 가 `Repository` 나 엔티티를 참조하지 않는가
-- [ ] `@Transactional` 이 implementation 계층에만 있는가
+- [ ] 함께 성공·실패해야 하는 조회·검사·변경이 Service의 트랜잭션 안에 있는가
+- [ ] 트랜잭션 위임만 하는 Manager나 불필요한 중복 조회·검사가 없는가
+- [ ] 필요한 잠금·조건부 UPDATE·실패 시 전체 롤백을 테스트했는가
 - [ ] 트랜잭션 안에 외부 시스템 호출이 들어가 있지 않은가
 - [ ] 엔티티가 `storage` 밖으로 나가지 않는가
 - [ ] implementation 간 의존이 재사용을 위한 것인가, 순환은 없는가

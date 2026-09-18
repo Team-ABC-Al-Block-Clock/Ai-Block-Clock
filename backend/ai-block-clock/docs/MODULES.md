@@ -88,7 +88,7 @@ graph TD
 | 모듈 | 의존 대상 | configuration | 이유 |
 | --- | --- | --- | --- |
 | `:core:core-api` | `:storage` | `implementation` | 영속성 계층을 호출한다 |
-| `:core:core-api` | `spring-tx` | `implementation` | implementation 계층이 트랜잭션 경계를 잡는다 |
+| `:core:core-api` | `spring-tx` | `implementation` | Service가 유스케이스 트랜잭션 경계를 잡고 implementation은 이에 참여한다 |
 | `:core:core-api` | `:core:core-enum` | `implementation` | 공통 enum 을 참조한다 |
 | `:core:core-api` | `:support:logging` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:core:core-api` | `:support:monitoring` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |

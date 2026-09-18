@@ -180,30 +180,26 @@ FE
       ├─ issueMessage
       │   ├─ WalletAuthMessageGenerator → WalletNonceGenerator
       │   └─ WalletAuthMessageWriter → 메시지 저장
-      ├─ login
+      ├─ login: Service 트랜잭션
       │   ├─ WalletAuthMessageReader → 최신 메시지 조회
       │   ├─ WalletAuthMessage.checkUsable → 만료·사용 여부 확인
       │   ├─ WalletSignatureValidator → 서명에서 복원한 주소 비교
       │   ├─ RefreshTokenGenerator / RefreshTokenHasher → 원문·해시 생성
+      │   ├─ WalletAuthMessageWriter → 메시지 사용 처리
       │   ├─ UserReader → 기존 사용자 여부 확인
-      │   └─ WalletLoginManager → 인증 성공의 DB 변경과 토큰 생성
-      │       ├─ WalletAuthMessageWriter → 사용 처리
-      │       ├─ 신규면 UserRegistrationManager
-      │       │   ├─ UserWriter → 사용자 생성
-      │       │   └─ LedgerAccountWriter → ABC 잔액 계정 생성
-      │       ├─ LoginSessionManager
-      │       │   ├─ UserReader → 사용자 행 잠금
-      │       │   ├─ LoginSessionWriter → 이전 세션 종료·새 세션 저장
-      │       │   └─ RefreshTokenWriter → 새 세션에 토큰 해시 저장
-      │       └─ AccessTokenGenerator → Access Token 생성
-      ├─ reissue
+      │   ├─ 신규면 UserRegistrationManager
+      │   │   ├─ UserWriter → 사용자 생성
+      │   │   └─ LedgerAccountWriter → ABC 잔액 계정 생성
+      │   ├─ UserReader → 사용자 행 잠금
+      │   ├─ LoginSessionWriter → 이전 세션 종료·새 세션 저장
+      │   ├─ RefreshTokenWriter → 새 세션에 토큰 해시 저장
+      │   └─ AccessTokenGenerator → Access Token 생성
+      ├─ reissue: Service 트랜잭션
       │   ├─ RefreshTokenHasher / RefreshTokenReader → 토큰 조회·상태 확인
-      │   ├─ LoginSessionReader → 세션 조회·상태 확인
+      │   ├─ LoginSessionReader → 세션 잠금 조회·상태 확인
       │   ├─ RefreshTokenGenerator / RefreshTokenHasher → 새 원문·해시 생성
-      │   └─ TokenReissueManager
-      │       ├─ LoginSessionReader → 세션 잠금·상태 재확인
-      │       ├─ RefreshTokenWriter → 기존 토큰 사용·새 해시 저장
-      │       └─ AccessTokenGenerator → 같은 세션의 Access Token 생성
+      │   ├─ RefreshTokenWriter → 기존 토큰 사용·새 해시 저장
+      │   └─ AccessTokenGenerator → 같은 세션의 Access Token 생성
       └─ logout
           ├─ RefreshTokenHasher / RefreshTokenReader → 현재 토큰 조회·확인
           └─ LoginSessionWriter → 해당 세션 종료
@@ -220,12 +216,12 @@ Reader·Writer는 Repository를 통해 DB에 접근한다. Service는 Repository
 Controller의 Request DTO는 FE가 보낸 값, Response DTO는 FE로 보낼 값이다. DTO를 받는 것 자체는 DB 저장이 아니다.
 DB용 Entity는 Repository를 통해 저장하고, Service에는 Converter가 변환한 순수 객체를 반환한다.
 
-### Manager가 묶는 범위
+### 트랜잭션 범위
 
-- `WalletLoginManager`: 메시지 사용 처리부터 신규 가입·세션·Refresh Token 저장 및 Access Token 생성까지 하나의 트랜잭션.
-- `UserRegistrationManager`: 사용자와 ABC 잔액 계정 생성. 로그인에서는 바깥 트랜잭션에 참여.
-- `LoginSessionManager`: 사용자 잠금·기존 세션 종료·새 세션 및 Refresh Token 해시 저장. 로그인에서는 바깥 트랜잭션에 참여.
-- `TokenReissueManager`: 세션 잠금·기존 토큰 사용 처리·새 해시 저장 및 Access Token 생성까지 하나의 트랜잭션.
+- `WalletAuthService.issueMessage`, `login`, `reissue`, `logout`: 유스케이스의 조회·검사·DB 변경을 하나의 트랜잭션으로 처리.
+- `WalletAuthService.authenticate`: 읽기 전용 트랜잭션에서 토큰·세션 확인.
+- `UserRegistrationManager`: 사용자와 ABC 잔액 계정을 함께 생성하는 복합 단계. 로그인에서는 Service 트랜잭션에 참여.
+- Reader·Writer: 영속성 접근과 변환을 담당하며 Service 트랜잭션에 참여.
 
 중간에 실패하면 해당 트랜잭션의 DB 변경을 되돌린다.
 응답 쿠키는 Service의 트랜잭션이 성공한 후 Controller에서 설정한다.

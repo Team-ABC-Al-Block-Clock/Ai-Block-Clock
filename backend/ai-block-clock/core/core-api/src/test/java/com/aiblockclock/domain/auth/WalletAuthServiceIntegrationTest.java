@@ -278,7 +278,10 @@ class WalletAuthServiceIntegrationTest {
         AtomicReference<WalletAuthMessage> replacement = new AtomicReference<>();
         doAnswer(invocation -> {
             invocation.callRealMethod();
-            replacement.set(service.issueMessage(address(wallet)));
+            try (var executor = Executors.newSingleThreadExecutor()) {
+                replacement.set(executor.submit(() -> service.issueMessage(address(wallet)))
+                        .get(10, TimeUnit.SECONDS));
+            }
 
             return null;
         }).when(signatureValidator).check(any(WalletAuthMessage.class), eq(signature));

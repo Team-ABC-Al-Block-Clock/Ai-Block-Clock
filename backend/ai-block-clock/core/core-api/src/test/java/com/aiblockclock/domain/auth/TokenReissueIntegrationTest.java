@@ -15,6 +15,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -44,7 +46,7 @@ class TokenReissueIntegrationTest {
     private WalletAuthService service;
 
     @Autowired
-    private LoginSessionManager sessionManager;
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private LoginSessionReader sessionReader;
@@ -52,7 +54,7 @@ class TokenReissueIntegrationTest {
     @Autowired
     private LoginSessionWriter sessionWriter;
 
-    @Autowired
+    @MockitoSpyBean
     private RefreshTokenReader tokenReader;
 
     @Autowired
@@ -181,17 +183,21 @@ class TokenReissueIntegrationTest {
     }
 
     @Test
-    void Service_검사_후_세션이_종료돼도_Manager에서_다시_거절한다() {
+    void 토큰_조회_후_세션이_종료되면_잠금_조회에서_거절한다() {
         TestLogin login = login();
         doAnswer(invocation -> {
-            String value = (String) invocation.callRealMethod();
-            sessionWriter.modifyAsRevoked(login.session().id());
+            Object value = invocation.callRealMethod();
+            try (var executor = Executors.newSingleThreadExecutor()) {
+                executor.submit(() -> sessionWriter.modifyAsRevoked(login.session().id()))
+                        .get(10, TimeUnit.SECONDS);
+            }
 
             return value;
-        }).when(refreshTokenGenerator).generate();
+        }).when(tokenReader).findByRefreshTokenHash(hasher.hash(login.rawRefreshToken()));
 
         assertRejected(ErrorType.LOGIN_SESSION_REVOKED, login.rawRefreshToken());
 
+        org.mockito.Mockito.reset(tokenReader);
         assertUnchanged(login);
         assertThat(sessionReader.findById(login.session().id()).orElseThrow().revokedAt()).isEqualTo(NOW);
     }
@@ -258,11 +264,11 @@ class TokenReissueIntegrationTest {
         TestLogin login = login();
         CyclicBarrier barrier = new CyclicBarrier(2);
         doAnswer(invocation -> {
-            String value = (String) invocation.callRealMethod();
+            Object value = invocation.callRealMethod();
             barrier.await(10, TimeUnit.SECONDS);
 
             return value;
-        }).when(refreshTokenGenerator).generate();
+        }).when(tokenReader).findByRefreshTokenHash(hasher.hash(login.rawRefreshToken()));
 
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> reissueOrConflict(login.rawRefreshToken()));
@@ -279,6 +285,7 @@ class TokenReissueIntegrationTest {
             assertThat(token(successes.getFirst().refreshToken().value()).usedAt()).isNull();
         }
 
+        org.mockito.Mockito.reset(tokenReader);
         assertThat(token(login.rawRefreshToken()).usedAt()).isEqualTo(NOW);
         assertThat(tokenCount(login)).isEqualTo(2L);
         assertThat(sessionCount(login)).isEqualTo(1L);
@@ -335,7 +342,12 @@ class TokenReissueIntegrationTest {
         UserEntity user = userRepository.saveAndFlush(UserEntity.of(address));
         userIds.add(user.getId());
         String rawRefreshToken = refreshTokenGenerator.generate();
-        LoginSession session = sessionManager.create(UserId.of(user.getId()), hasher.hash(rawRefreshToken), EXPIRES_AT);
+        LoginSession session = new TransactionTemplate(transactionManager).execute(status -> {
+            LoginSession saved = sessionWriter.append(UserId.of(user.getId()), EXPIRES_AT);
+            refreshTokenWriter.append(saved.id(), hasher.hash(rawRefreshToken), EXPIRES_AT);
+
+            return saved;
+        });
 
         return new TestLogin(session, rawRefreshToken);
     }

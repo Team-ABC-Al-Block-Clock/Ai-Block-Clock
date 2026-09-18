@@ -9,9 +9,7 @@
 - `AccessTokenClaims`: 검증된 토큰의 `UserId`, `LoginSessionId`를 담는 순수 객체.
 - `WalletAuthService.authenticate`: 토큰 검증과 DB 세션 확인을 묶어 요청자를 식별한다.
 - `WalletAuthService.login`: 지갑 서명 검증 뒤 세션·Refresh Token 저장과 Access Token 발급까지 잇는다.
-- `WalletLoginManager`: 메시지 사용 처리·가입·세션·Refresh Token 저장과 Access Token 생성을 한 트랜잭션으로 묶는다.
 - `WalletAuthService.reissue`: Refresh Token 원문으로 기존 토큰·세션을 확인하고 새 토큰 두 개를 반환한다.
-- `TokenReissueManager`: 기존 토큰 사용 처리·새 해시 저장·Access Token 생성을 한 트랜잭션으로 묶는다.
 - `AuthTokens`: 재발급 결과인 Access Token·Refresh Token 원문과 각각의 만료 시각을 담는다.
 - `WalletAuthService.logout`: 유효한 Refresh Token으로 식별한 로그인 세션 하나를 종료한다.
 - `CurrentOwnerArgumentResolver`: `Authorization: Bearer` 헤더를 읽어 `OwnerId` 로 넘긴다.
@@ -66,8 +64,8 @@ JWT 발급·만료 시각은 초 단위이고, 반환하는 `expiresAt`도 JWT�
 
 1. `RefreshTokenGenerator` 로 Refresh Token 원문을 만들고 `RefreshTokenHasher` 로 해시를 계산한다.
 2. 로그인 시각 + `AUTH_SESSION_TTL` 을 세션 만료 시각으로 정하고 마이크로초로 자른다.
-3. 기존 사용자면 `WalletLoginManager.login`, 처음 온 지갑이면 `WalletLoginManager.register` 를 호출한다.
-4. Manager 안에서 저장된 세션으로 `AccessTokenGenerator` 가 Access Token 을 만든다. 생성까지 성공하면 트랜잭션을 커밋한다.
+3. 인증 메시지를 사용 처리하고 사용자를 조회한다. 처음 온 지갑이면 `UserRegistrationManager.register` 로 가입한다.
+4. 사용자 행을 잠그고 기존 세션을 종료한 뒤 새 세션·Refresh Token 해시를 저장한다. `AccessTokenGenerator` 로 토큰 생성까지 성공하면 Service 트랜잭션을 커밋한다.
 5. `WalletLogin` 에 사용자·Access Token·Refresh Token 원문을 담아 반환한다.
 
 Refresh Token 은 원문을 저장하지 않는다. DB 에는 해시만 넣고 원문은 응답으로만 내보낸다.
@@ -76,11 +74,12 @@ Refresh Token 의 만료 시각은 그 세션의 만료 시각과 같다. Access
 
 ### 한 트랜잭션으로 묶는 범위
 
-`WalletLoginManager` 의 두 메서드는 아래 순서로 처리하고, Access Token 생성까지 성공해야 DB 변경을 커밋한다.
+`WalletAuthService.login` 은 메시지 조회·서명 검증부터 아래 변경·토큰 생성까지 하나의 트랜잭션으로 처리한다. 모든 단계가 성공해야 DB 변경을 커밋한다.
 
 ```
 인증 메시지 사용 처리
   → (처음 온 지갑이면) 사용자와 ABC 잔액 계정 생성
+  → 사용자 행 잠금
   → 그 사용자의 미종료 세션 일괄 종료
   → 새 로그인 세션 저장
   → Refresh Token 해시 저장
@@ -92,7 +91,7 @@ Refresh Token 의 만료 시각은 그 세션의 만료 시각과 같다. Access
 함께 취소하고, 재로그인이면 이전 세션을 유지한다. 인증 메시지도 다시 미사용 상태로 돌아간다.
 Access Token 생성은 서버 안에서 수행하는 JWT 서명 작업이며, 생성한 토큰 자체를 DB에 저장하지 않는다.
 
-기존·신규 사용자 분기는 Service 가 정하고, Manager 는 각 분기의 DB 변경과 커밋 전 Access Token 생성을 담당한다.
+기존·신규 사용자 분기와 DB 변경 순서는 Service가 정한다. Reader·Writer는 기본 전파 설정에서 Service의 트랜잭션에 참여한다. 사용자와 ABC 계정 생성 단계는 `UserRegistrationManager` 를 재사용한다.
 같은 지갑으로 동시에 로그인해도 인증 메시지의 조건부 UPDATE 가 하나만 통과시키므로 중복 가입은 생기지 않는다.
 다시 로그인하면 새 세션을 만들고 이전 세션을 종료한다. 토큰 재발급은 기존 세션과 최초 종료 시각을 유지한다.
 
@@ -101,13 +100,13 @@ Access Token 생성은 서버 안에서 수행하는 JWT 서명 작업이며, �
 `WalletAuthService.reissue`는 Access Token 없이 Refresh Token 원문으로 재발급한다.
 
 1. 받은 원문의 해시로 기존 Refresh Token 기록을 조회한다. 기록이 없으면 `AUTH_017`로 거절한다.
-2. 토큰의 만료(`AUTH_015`)·사용 여부(`AUTH_016`)와 연결된 세션의 만료(`AUTH_013`)·종료(`AUTH_014`)를 확인한다.
-3. 새 Refresh Token 원문을 만들고 새 해시만 `TokenReissueManager`에 전달한다.
-4. Manager는 세션을 잠금 조회하고 현재 시각으로 다시 확인한 뒤 기존 토큰을 조건부 사용 처리한다.
+2. 토큰의 만료(`AUTH_015`)·사용 여부(`AUTH_016`)를 검사한 뒤 연결된 세션을 한 번 잠금 조회한다. 잠금을 얻은 시각으로 세션 만료(`AUTH_013`)·종료(`AUTH_014`)를 확인한다.
+3. 새 Refresh Token 원문과 해시를 만든다. 원문은 응답용이며 DB에는 해시만 전달한다.
+4. `RefreshTokenWriter` 로 기존 토큰을 조건부 사용 처리한다. 쓰기 시점에도 미사용·미만료 조건을 적용한다.
 5. 같은 세션 번호와 기존 세션 만료 시각으로 새 해시를 저장하고 Access Token을 생성한다.
 6. 모두 성공하면 DB 변경을 커밋하고 새 토큰 두 개를 반환한다. 사용자·ABC 계정·새 세션을 생성하지 않는다.
 
-세션의 잠금은 Manager 트랜잭션 종료까지 유지한다. 세션 종료가 먼저 완료됐다면 재발급을 거절하고,
+조회부터 저장·토큰 생성까지 `WalletAuthService.reissue` 의 트랜잭션으로 묶고, 세션 잠금은 이 트랜잭션 종료까지 유지한다. 세션 종료가 먼저 완료됐다면 재발급을 거절하고,
 재발급이 먼저 세션을 잠갔다면 종료 처리는 재발급 트랜잭션 이후에 반영된다.
 토큰은 미사용·미만료 조건에 맞는 행 하나만 사용 처리한다. 동시 요청에서 조건이 달라지면 `AUTH_017`로 거절한다.
 사용된 토큰 기록은 남겨 재사용을 구분하며, 재사용 요청을 거절해도 이미 발급한 새 토큰의 세션을 추가로 종료하지 않는다.
@@ -132,7 +131,7 @@ Access Token이 만료돼도 Refresh Token이 유효하면 해당 세션을 종�
 로그아웃은 Refresh Token을 재발급에 사용 처리하지 않고 세션을 종료한다. 그 세션의 토큰은
 세션 검사에서 차단되며 사용자·ABC 계정·Refresh Token 기록은 삭제하지 않는다.
 
-DB 변경은 세션 하나의 종료이므로 별도 Manager를 만들지 않고 기존 Writer의 트랜잭션을 재사용한다.
+토큰 조회·검사와 세션 종료를 `WalletAuthService.logout` 의 트랜잭션으로 묶는다. 별도 Manager를 만들지 않고 Writer가 이 트랜잭션에 참여한다.
 재발급이 세션을 잠근 경우 로그아웃 UPDATE는 재발급 커밋 후 실행되고, 발급된 토큰도 세션 종료로 차단된다.
 Controller가 성공 응답에서 Refresh Token 쿠키를 삭제한다. FE는 성공 후 메모리의 Access Token을 제거한다.
 
