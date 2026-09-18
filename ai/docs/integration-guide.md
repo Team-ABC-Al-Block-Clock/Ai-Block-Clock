@@ -2,11 +2,17 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | v1.0 |
-| 작성일 | 2026-09-16 |
+| 버전 | v1.1 (예시를 브랜딩 UC로 교체) |
+| 작성일 | 2026-09-16 (예시 갱신 2026-09-18) |
 | 작성 | AI 파트 (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
 | 상태 | **EC2 배포 완료 · 동작 확인됨.** 백엔드에서 컨테이너 이름으로 호출 성공 |
+
+> **⚠️ 09-17 유즈케이스 변경 — 예시가 바뀌었다.**
+> 시연 유즈케이스가 *가정통신문 작성*에서 **브랜딩 전략**으로 바뀌었다(로드맵 v4.2 §1.1). 이 문서의 예시 JSON · 시나리오를 브랜딩 기준으로 교체했다.
+> **계약 구조(202 + 폴링 · 필드 정의 · 엔드포인트)는 그대로다.** 분할 · 병합 · 조건 분기 · 합류, 에이전트 전개, 카탈로그 스키마, 봉투는 **계약 v1.0**에서 들어간다.
+> 전체 플로우는 [`../../docs/service-flow.md`](../../docs/service-flow.md)를 본다.
+
 
 > **이 문서 하나만 보고 연동할 수 있게 썼다.** 필드 정의부터 오류 처리, 함정까지 전부 여기 있다.
 > 더 깊은 배경이 필요하면 §13의 문서 지도를 본다.
@@ -123,7 +129,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 ### 3.2 공급자 시나리오 — 에이전트를 만들어 판다
 
-김선생이 "성적 분석기"를 만들어 마켓에 올리는 과정이다.
+판매자 A가 "시장 조사 분석기"를 만들어 마켓에 올리는 과정이다.
 
 | 단계 | 사용자가 보는 것 | 뒤에서 일어나는 일 | AI |
 | --- | --- | --- | --- |
@@ -144,8 +150,8 @@ X-ABC-Service-Token: <토큰>
 { "op": "upsert",                          // upsert | remove | rebuild
   "agents": [
     { "agent_id": "ag_31",
-      "name": "성적 데이터 분석기",
-      "description": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교합니다",
+      "name": "시장 조사 분석기",
+      "description": "경쟁사 자료를 받아 가격대·타깃·경쟁 강도를 정리합니다",
       "tags": ["교육", "통계"],
       "category": "교육",
       "owner_id": "u_2001",
@@ -171,12 +177,12 @@ X-ABC-Service-Token: <토큰>
 
 ### 3.3 수요자 시나리오 — 조합해서 실행한다
 
-박강사가 성적 리포트를 만드는 과정이다.
+사용자가 신제품 브랜딩 전략 보고서를 만드는 과정이다.
 
 | 단계 | 사용자가 보는 것 | 뒤에서 일어나는 일 | AI |
 | --- | --- | --- | --- |
 | 1 | ABC를 충전한다 | 백엔드 + 블록체인 | 없음 |
-| 2 | **랜딩에 "학원 성적을 분석해서 학부모에게 보낼 리포트를 만들고 싶어"라고 쓴다** | 백엔드가 **추천을 호출한다** ← **여기가 ②** | **있음** |
+| 2 | **랜딩에 "신제품 브랜딩 전략을 세우고 싶어"라고 쓴다** | 백엔드가 **추천을 호출한다** ← **여기가 ②** | **있음** |
 | 3 | 추천된 에이전트 목록에서 두 개를 고른다 | 프론트가 목록을 그린다 | 없음 |
 | 4 | 캔버스에 배치하고 선으로 잇는다 | 프론트가 노드 배열을 만든다. 순서가 곧 실행 순서다 | 없음 |
 | 5 | 저장한다 | 백엔드가 워크플로우 JSON을 저장한다 (§7 형식) | 없음 |
@@ -192,7 +198,7 @@ X-ABC-Service-Token: <토큰>
 POST http://ai-block-clock-recommend:8100/v1/recommend
 X-ABC-Service-Token: <토큰>
 
-{ "query": "학원 성적을 분석해서 학부모에게 보낼 리포트를 만들고 싶어",
+{ "query": "신제품 브랜딩 전략을 세우고 싶어",
   "user_id": "u_1001",
   "selected_agent_ids": [],       // 이미 캔버스에 올린 것은 추천에서 뺀다
   "top_k": 8 }
@@ -200,7 +206,7 @@ X-ABC-Service-Token: <토큰>
 
 응답의 `recommendations[]`를 그대로 목록으로 그리면 된다. `reason` 필드가 에이전트의 공개 설명문이라 목록의 설명 줄로 쓰기 좋다. `score` 순으로 이미 정렬되어 있어 프론트에서 다시 정렬할 필요가 없다. **결과가 0개일 수 있으므로** 빈 목록 화면을 준비해 둔다.
 
-키워드 검색(마켓 화면)과는 다른 기능이다. 키워드 검색은 백엔드가 DB에서 찾고, 추천은 **단어가 겹치지 않아도** 의미로 찾는다. "부모님께 보낼 안내문"으로 "가정통신문 작성기"가 나오는 식이다.
+키워드 검색(마켓 화면)과는 다른 기능이다. 키워드 검색은 백엔드가 DB에서 찾고, 추천은 **단어가 겹치지 않아도** 의미로 찾는다. "우리 브랜드 색깔을 잡고 싶어"로 "브랜드 포지셔닝 분석기"가 나오는 식이다.
 
 **7번은 §5에서 자세히 다룬다.**
 
@@ -275,7 +281,7 @@ X-ABC-Service-Token: <토큰>
 | --- | --- | --- | --- |
 | `workflow` | string | **필수** | 워크플로우 정의를 **JSON 문자열로** 넣는다 (§7 형식) |
 | `comment` | string | 선택 | 사용자가 입력한 자연어 코멘트 |
-| `file` | file | 선택 | 성적 엑셀 · CSV. `.xlsx` `.xls` `.csv`, 최대 10MB |
+| `file` | file | 선택 | 참고 자료 엑셀 · CSV (경쟁사 가격표 등). `.xlsx` `.xls` `.csv`, 최대 10MB |
 | `mock` | boolean | 선택 | `true`면 LLM을 호출하지 않는다. 기본 `false` |
 
 **응답 `202 Accepted`**
@@ -304,7 +310,7 @@ curl -X POST $BASE/v1/runs \
   -F "workflow=$WF" \
   -F "comment=이번 달은 전반적으로 시험 난이도가 높았음" \
   -F "mock=true" \
-  -F "file=@성적표.xlsx"
+  -F "file=@경쟁사_가격표.xlsx"
 ```
 
 ### 5.3 진행 조회 — `GET /v1/runs/{run_id}`
@@ -319,7 +325,7 @@ curl -X POST $BASE/v1/runs \
 {
   "run_id": "20260916-151933-543",
   "status": "running",                      // queued | running | succeeded | failed
-  "workflow": { "id": "report", "name": "학원 성적 리포트", "node_count": 2 },
+  "workflow": { "id": "brand_strategy", "name": "브랜딩 전략 보고서", "node_count": 2 },
   "mock": false,
 
   "progress": {
@@ -327,15 +333,15 @@ curl -X POST $BASE/v1/runs \
     "total": 2,                             // 전체 노드 수
     "percent": 50,
     "current_index": 1,                     // 지금 도는 노드의 0부터 시작하는 번호. 없으면 null
-    "current_node_id": "letter",
-    "current_node_name": "가정통신문 작성"     // ← 진행 화면에 그대로 표시하면 된다
+    "current_node_id": "strategy",
+    "current_node_name": "브랜드 전략 보고서"     // ← 진행 화면에 그대로 표시하면 된다
   },
 
   "nodes": [
-    { "id": "analyze", "name": "성적 분석", "status": "succeeded", "context": "user",
+    { "id": "market", "name": "시장 조사", "status": "succeeded", "context": "user",
       "duration_ms": 18100, "input_tokens": 1281, "output_tokens": 1349, "retries": 0,
       "owner_id": "u_2001", "unit_price": 3.9 },
-    { "id": "letter", "name": "가정통신문 작성", "status": "running", "context": "prev",
+    { "id": "strategy", "name": "브랜드 전략 보고서", "status": "running", "context": "prev",
       "duration_ms": null, "input_tokens": null, "output_tokens": null, "retries": 0,
       "owner_id": "u_3001", "unit_price": 4.0 }
   ],
@@ -346,7 +352,7 @@ curl -X POST $BASE/v1/runs \
   "total_duration_ms": null,
 
   "contribution": [                          // 정산 대상. 노드가 성공할 때마다 늘어난다
-    { "node_id": "analyze", "owner_id": "u_2001", "charged_abc": 3.9 }
+    { "node_id": "market", "owner_id": "u_2001", "charged_abc": 3.9 }
   ],
   "not_executed": [],                        // 실행되지 않은 노드 (환원 대상)
   "failure": null,                           // 실패 시에만 채워진다
@@ -367,7 +373,7 @@ curl -X POST $BASE/v1/runs \
   "totals": { "input_tokens": 2919, "output_tokens": 2890 },
   "result": {
     "type": "pdf",
-    "markdown": "# 3월 학습 안내\n\n학부모님께, ...",   // 최종 산출물 원문
+    "markdown": "# 비건 스킨케어 브랜딩 전략\n\n1. 시장 개요 ...",   // 최종 산출물 원문
     "pdf_url": "/v1/runs/20260916-151933-543/pdf"
   }
 }
@@ -436,15 +442,15 @@ curl -X POST $BASE/v1/runs \
 
 ```jsonc
 {
-  "id": "report",                          // 선택. 로그 식별용
-  "name": "학원 성적 리포트",                // 선택. 화면 표시용
+  "id": "brand_strategy",                          // 선택. 로그 식별용
+  "name": "브랜딩 전략 보고서",                // 선택. 화면 표시용
   "model": null,                           // 선택. null 이면 서버 기본 모델
 
   "nodes": [
     {
-      "id": "analyze",                     // 필수. 워크플로우 안에서 유일해야 한다
-      "name": "성적 분석",                  // 선택. 진행 화면에 보이는 이름
-      "prompt": "당신은 학원 성적 데이터 분석가입니다. ...",   // 필수. 판매자가 쓴 프롬프트 원문
+      "id": "market",                     // 필수. 워크플로우 안에서 유일해야 한다
+      "name": "시장 조사",                  // 선택. 진행 화면에 보이는 이름
+      "prompt": "당신은 시장 조사 분석가입니다. ...",   // 필수. 판매자가 쓴 프롬프트 원문
       "context": "user",                   // 선택. 기본값 "prev"
 
       // ── 정산 입력값. 백엔드가 채워 보낸다 ──
@@ -454,15 +460,15 @@ curl -X POST $BASE/v1/runs \
       "premium_rate": 0.30                 // 참고용
     },
     {
-      "id": "letter",
-      "name": "가정통신문 작성",
-      "prompt": "당신은 교육 심리 전문가입니다. ...",
+      "id": "strategy",
+      "name": "브랜드 전략 보고서",
+      "prompt": "당신은 브랜드 전략가입니다. ...",
       "context": "prev",
       "owner_id": "u_3001", "unit_price": 4.0, "base_cost": 4.0, "premium_rate": 0.0
     }
   ],
 
-  "output": { "type": "pdf", "title": "3월 성적 리포트" }   // type: "pdf" | "markdown"
+  "output": { "type": "pdf", "title": "브랜딩 전략 보고서" }   // type: "pdf" | "markdown"
 }
 ```
 
@@ -532,16 +538,16 @@ MVP는 플랫폼 수수료 0%다. 차감한 ABC 전액이 각 노드 원작자�
 ```jsonc
 "status": "failed",
 "failure": {
-  "node_id": "letter",
+  "node_id": "strategy",
   "error_code": "MODEL_API_ERROR",
   "fault": "supplier",                   // supplier | consumer | platform
   "affects_success_rate": true,          // 이 노드 공급자의 성공률에 실패로 집계할지
   "refund_scope": {
-    "refund_node_ids":  ["letter"],      // 수요자에게 환원할 노드
-    "settled_node_ids": ["analyze"]      // 정산을 유지할 노드
+    "refund_node_ids":  ["strategy"],      // 수요자에게 환원할 노드
+    "settled_node_ids": ["market"]      // 정산을 유지할 노드
   }
 },
-"error": { "code": "MODEL_API_ERROR", "message": "…", "node_id": "letter" }
+"error": { "code": "MODEL_API_ERROR", "message": "…", "node_id": "strategy" }
 ```
 
 **환원 범위 규칙**
@@ -627,7 +633,7 @@ MVP는 플랫폼 수수료 0%다. 차감한 ABC 전액이 각 노드 원작자�
 
 ## 12. 실측값 (참고)
 
-학생 20명 · 3과목 · 2개월 데이터, 노드 2개, `gemini-2.5-flash` 기준.
+노드 2개, `gemini-2.5-flash` 기준. **측정은 09-09 스파이크(표 20행 · 9열 입력)에서 한 값이라 유즈케이스 변경 전 워크로드다.** 브랜딩 UC도 노드당 입력 규모가 비슷해 자릿수는 같을 것으로 보지만, 재측정은 09-22 실호출 관통에서 한다.
 
 | 항목 | 값 |
 | --- | --- |
