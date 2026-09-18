@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasNode from '@/components/CanvasNode'
-import { CANVAS_NODES, canSellWorkflow } from '@/lib/canvasWorkflow'
+import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
 import { cssToStyle } from '../lib/css'
 import { paths } from '@/routes/paths'
 import SidePanel from '@/components/SidePanel'
@@ -21,12 +21,7 @@ export default function RunRunning() {
   const rafId = useRef<number>(undefined)
 
   const defs = CANVAS_NODES
-  const edgePaths = [
-    'M180 484 C 195 484, 195 404, 209 404',
-    'M377 404 C 392 404, 392 524, 406 524',
-    'M574 524 C 589 524, 589 414, 603 414',
-    'M771 414 C 786 414, 786 514, 800 514',
-  ]
+  const edgePaths = edgeGeometry(CANVAS_NODES).map((edge) => edge.d)
   const logLines = [
     '입력 파일 128개 수집 완료',
     'PDF 112개 · 이미지 16개 판별',
@@ -231,7 +226,7 @@ export default function RunRunning() {
           </defs>
           {edges.map((e, i) => (
             <Fragment key={i}>
-              <path d={e.d} fill="none" stroke={e.stroke} strokeWidth="2.2" />
+              <path d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
             </Fragment>
           ))}
           {liveEdges.map((e, i) => (
@@ -240,11 +235,10 @@ export default function RunRunning() {
                 d={e.d}
                 fill="none"
                 stroke="rgba(255,224,238,.85)"
-                strokeWidth="2.2"
+                strokeWidth="3.4"
                 strokeLinecap="round"
-                strokeDasharray="1 26"
+                strokeDasharray="3 18"
                 style={{ animation: 'dash 1.5s linear infinite' }}
-                opacity=".8"
               />
             </Fragment>
           ))}

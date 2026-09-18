@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect } from 'react'
 
 import CanvasNode from '@/components/CanvasNode'
-import { CANVAS_NODES } from '@/lib/canvasWorkflow'
+import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel from '@/components/SidePanel'
@@ -89,30 +89,15 @@ export default function RunWaiting() {
               <path d="M0 0 L9 4.5 L0 9 z" fill="rgba(255,255,255,.30)" />
             </marker>
           </defs>
-          <path
-            d="M180 484 C 195 484, 195 404, 209 404"
-            fill="none"
-            stroke="rgba(255,255,255,.26)"
-            strokeWidth="2"
-          />
-          <path
-            d="M377 404 C 392 404, 392 524, 406 524"
-            fill="none"
-            stroke="rgba(255,255,255,.26)"
-            strokeWidth="2"
-          />
-          <path
-            d="M574 524 C 589 524, 589 414, 603 414"
-            fill="none"
-            stroke="rgba(255,255,255,.26)"
-            strokeWidth="2"
-          />
-          <path
-            d="M771 414 C 786 414, 786 514, 800 514"
-            fill="none"
-            stroke="rgba(255,255,255,.26)"
-            strokeWidth="2"
-          />
+          {edgeGeometry(CANVAS_NODES).map((edge) => (
+            <path
+              key={edge.id}
+              d={edge.d}
+              fill="none"
+              stroke="rgba(255,255,255,.26)"
+              strokeWidth="3.4"
+            />
+          ))}
         </svg>
 
         {CANVAS_NODES.map((node, i) => (

@@ -6,10 +6,12 @@ import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import CanvasNode from '@/components/CanvasNode'
 import {
+  CANVAS_EDGES,
   CANVAS_NODES,
   NODE_SIZE,
   canSellWorkflow,
   clampToBounds,
+  edgeGeometry,
   moveNode,
   resolveOverlap,
   placeNode,
@@ -55,6 +57,7 @@ export default function EditNodes() {
   const [dragId, setDragId] = useState<string | null>(null)
   /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
+  const edgeRef = useRef<SVGSVGElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const grab = useRef<{
     id: string
@@ -169,6 +172,14 @@ export default function EditNodes() {
     if (held.glow && glowRef.current) {
       glowRef.current.style.left = `${next.x - 16}px`
       glowRef.current.style.top = `${next.y - 16}px`
+    }
+    // 선도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
+    const preview = nodes.map((node) => (node.id === held.id ? { ...node, ...next } : node))
+    for (const edge of edgeGeometry(preview, CANVAS_EDGES)) {
+      if (edge.from !== held.id && edge.to !== held.id) continue
+      edgeRef.current
+        ?.querySelectorAll(`[data-edge="${edge.id}"]`)
+        .forEach((path) => path.setAttribute('d', edge.d))
     }
   }
 
@@ -394,6 +405,7 @@ export default function EditNodes() {
         </div>
 
         <svg
+          ref={edgeRef}
           className="pointer-events-none absolute top-0 left-0"
           width="1076"
           height="1024"
@@ -409,70 +421,27 @@ export default function EditNodes() {
               <path d="M0 0.6 L6.4 3.5 L0 6.4 z" fill="rgba(255,190,214,.8)" />
             </marker>
           </defs>
-          <path
-            d="M180 484 C 195 484, 195 404, 209 404"
-            fill="none"
-            stroke="url(#edgeOn)"
-            strokeWidth="2.2"
-          />
-          <path
-            d="M180 484 C 195 484, 195 404, 209 404"
-            fill="none"
-            stroke="rgba(255,224,238,.85)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeDasharray="1 26"
-            style={{ animation: 'dash 1.4s linear infinite' }}
-            opacity=".8"
-          />
-          <path
-            d="M377 404 C 392 404, 392 524, 406 524"
-            fill="none"
-            stroke="url(#edgeOn)"
-            strokeWidth="2.2"
-          />
-          <path
-            d="M377 404 C 392 404, 392 524, 406 524"
-            fill="none"
-            stroke="rgba(255,224,238,.85)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeDasharray="1 26"
-            style={{ animation: 'dash 1.5s .2s linear infinite' }}
-            opacity=".8"
-          />
-          <path
-            d="M574 524 C 589 524, 589 414, 603 414"
-            fill="none"
-            stroke="url(#edgeOn)"
-            strokeWidth="2.2"
-          />
-          <path
-            d="M574 524 C 589 524, 589 414, 603 414"
-            fill="none"
-            stroke="rgba(255,224,238,.85)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeDasharray="1 26"
-            style={{ animation: 'dash 1.6s .4s linear infinite' }}
-            opacity=".8"
-          />
-          <path
-            d="M771 414 C 786 414, 786 514, 800 514"
-            fill="none"
-            stroke="url(#edgeOn)"
-            strokeWidth="2.2"
-          />
-          <path
-            d="M771 414 C 786 414, 786 514, 800 514"
-            fill="none"
-            stroke="rgba(255,224,238,.85)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeDasharray="1 26"
-            style={{ animation: 'dash 1.7s .6s linear infinite' }}
-            opacity=".8"
-          />
+          {edgeGeometry(nodes).map((edge, i) => (
+            <Fragment key={edge.id}>
+              <path
+                data-edge={edge.id}
+                d={edge.d}
+                fill="none"
+                stroke="url(#edgeOn)"
+                strokeWidth="3.4"
+              />
+              <path
+                data-edge={edge.id}
+                d={edge.d}
+                fill="none"
+                stroke="rgba(255,224,238,.85)"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                strokeDasharray="3 18"
+                style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
+              />
+            </Fragment>
+          ))}
         </svg>
 
         {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 왼쪽 끝에서 잘라 넘어간 만큼만 가린다. */}

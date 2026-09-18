@@ -116,6 +116,47 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   },
 ]
 
+/** 노드를 잇는 선. 방향이 있다 — `from` 의 출력에서 `to` 의 입력으로 간다. */
+export interface CanvasEdge {
+  id: string
+  from: string
+  to: string
+}
+
+export const CANVAS_EDGES: CanvasEdge[] = [
+  { id: 'edge-1', from: 'seed-1', to: 'seed-2' },
+  { id: 'edge-2', from: 'seed-2', to: 'seed-3' },
+  { id: 'edge-3', from: 'seed-3', to: 'seed-4' },
+  { id: 'edge-4', from: 'seed-4', to: 'seed-5' },
+]
+
+/** 선이 드나드는 자리. 입력은 왼쪽, 출력은 오른쪽, 둘 다 카드 높이의 가운데다. */
+export function portPoint(
+  node: Pick<CanvasNodeData, 'x' | 'y'>,
+  side: 'in' | 'out',
+): { x: number; y: number } {
+  return { x: side === 'out' ? node.x + NODE_SIZE : node.x, y: node.y + NODE_SIZE / 2 }
+}
+
+/** 두 점을 잇는 S 곡선. 제어점을 가운데 x 에 두어 양 끝에서 수평으로 빠져나간다. */
+export function edgePath(from: { x: number; y: number }, to: { x: number; y: number }): string {
+  const mid = Math.round((from.x + to.x) / 2)
+  return `M${from.x} ${from.y} C ${mid} ${from.y}, ${mid} ${to.y}, ${to.x} ${to.y}`
+}
+
+/** 선 목록을 그릴 좌표로 바꾼다. 양 끝 중 하나라도 없는 선은 버린다. */
+export function edgeGeometry(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[] = CANVAS_EDGES,
+): { id: string; from: string; to: string; d: string }[] {
+  return edges.flatMap((edge) => {
+    const from = nodes.find((node) => node.id === edge.from)
+    const to = nodes.find((node) => node.id === edge.to)
+    if (!from || !to) return []
+    return [{ ...edge, d: edgePath(portPoint(from, 'out'), portPoint(to, 'in')) }]
+  })
+}
+
 /** 다른 사람의 에이전트가 하나라도 섞이면 팔 수 없다. 빈 캔버스도 등록할 것이 없다. */
 export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
   return nodes.length > 0 && nodes.every((node) => node.mine)

@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CANVAS_EDGES,
   CANVAS_NODES,
   NODE_GAP,
   NODE_SIZE,
   PLACED_FLOATY,
   canSellWorkflow,
+  edgeGeometry,
+  edgePath,
   moveNode,
   overlaps,
   type CanvasBounds,
   placeNode,
   resolveOverlap,
+  portPoint,
   type CanvasNodeData,
 } from './canvasWorkflow'
 
@@ -217,5 +221,62 @@ describe('패널 경계와 겹침이 함께 걸릴 때', () => {
     expect(moved.x).toBeLessThanOrEqual(BOUNDS.maxX)
     expect(moved.y).toBeGreaterThanOrEqual(BOUNDS.minY)
     expect(moved.y).toBeLessThanOrEqual(BOUNDS.maxY)
+  })
+})
+
+describe('portPoint', () => {
+  it('출력은 오른쪽 변의 가운데다', () => {
+    expect(portPoint({ x: 12, y: 400 }, 'out')).toEqual({ x: 12 + NODE_SIZE, y: 484 })
+  })
+
+  it('입력은 왼쪽 변의 가운데다', () => {
+    expect(portPoint({ x: 209, y: 320 }, 'in')).toEqual({ x: 209, y: 404 })
+  })
+})
+
+describe('edgePath', () => {
+  it('제어점을 두 x 의 가운데에 두어 양 끝에서 수평으로 빠진다', () => {
+    expect(edgePath({ x: 180, y: 484 }, { x: 209, y: 404 })).toBe(
+      'M180 484 C 195 484, 195 404, 209 404',
+    )
+  })
+})
+
+describe('edgeGeometry', () => {
+  it('자리표시자 네 선이 손으로 적어 둔 경로와 같다', () => {
+    expect(edgeGeometry(CANVAS_NODES).map((e) => e.d)).toEqual([
+      'M180 484 C 195 484, 195 404, 209 404',
+      'M377 404 C 392 404, 392 524, 406 524',
+      'M574 524 C 589 524, 589 414, 603 414',
+      'M771 414 C 786 414, 786 514, 800 514',
+    ])
+  })
+
+  it('노드를 옮기면 선이 따라온다', () => {
+    const moved = moveNode(CANVAS_NODES, 'seed-1', 12, 700)
+    expect(edgeGeometry(moved)[0].d).toBe('M180 784 C 195 784, 195 404, 209 404')
+  })
+
+  it('한쪽 노드가 없는 선은 버린다', () => {
+    const 없앰 = CANVAS_NODES.filter((n) => n.id !== 'seed-1')
+    expect(edgeGeometry(없앰).map((e) => e.id)).toEqual(['edge-2', 'edge-3', 'edge-4'])
+  })
+})
+
+describe('CANVAS_EDGES', () => {
+  it('선의 id 가 겹치지 않는다', () => {
+    expect(new Set(CANVAS_EDGES.map((e) => e.id)).size).toBe(CANVAS_EDGES.length)
+  })
+
+  it('양 끝이 모두 실제 노드를 가리킨다', () => {
+    const ids = new Set(CANVAS_NODES.map((n) => n.id))
+    for (const edge of CANVAS_EDGES) {
+      expect(ids.has(edge.from)).toBe(true)
+      expect(ids.has(edge.to)).toBe(true)
+    }
+  })
+
+  it('자기 자신을 잇는 선은 없다', () => {
+    expect(CANVAS_EDGES.every((e) => e.from !== e.to)).toBe(true)
   })
 })
