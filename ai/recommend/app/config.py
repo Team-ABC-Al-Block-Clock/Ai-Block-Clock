@@ -30,6 +30,33 @@ SNAPSHOT_PATH = BASE_DIR / "index_snapshot.npz"     # 재기동 가속용 (git �
 W_SEMANTIC = 0.7
 W_TRUST = 0.3
 
+# ── 하이브리드 검색 (S15P21A403-280) ──────────────────────────
+#   off       임베딩 단독
+#   rrf       임베딩 · BM25 순위를 Reciprocal Rank Fusion 으로 합친다
+#   weighted  임베딩 점수에 BM25(질의별 최댓값으로 정규화)를 가중합한다
+#
+# 09-17 측정 (training/results/eval_hybrid.json, model=abc-agent-retriever-v1)
+#
+#   모드              골든 22개        holdout 80개
+#   off               100.0%           82.5%
+#   rrf                86.4%           75.0%   ← 크게 악화
+#   weighted 0.05     100.0%           86.2%   ← 채택
+#   weighted 0.10      95.5%           87.5%
+#   weighted 0.20      95.5%           83.8%
+#
+# ★ rrf 가 무너진 이유. RRF 는 점수를 버리고 순위만 쓴다. BM25 단독 성능이
+#   임베딩보다 15%p 낮은데(holdout 67.5% vs 82.5%) 두 랭킹을 동등하게 취급하니
+#   나쁜 쪽이 좋은 쪽을 끌어내린다. 성능 차가 큰 랭킹끼리는 RRF 로 합치면 안 된다.
+#
+# ★ W_LEXICAL 이 0.05 인 이유. 어휘 신호는 조금만 얹으면 이득이고 많이 얹으면
+#   손해다. 0.10 은 holdout 이 더 오르지만(+4개) 골든 쿼리를 하나 잃는다.
+#   사람이 쓴 골든 쿼리 100% 유지가 우선이라 0.05 를 골랐다.
+#
+# 시연 중 문제가 생기면 ABC_HYBRID=off 로 즉시 되돌린다.
+HYBRID_MODE = os.environ.get("ABC_HYBRID", "weighted")   # off | rrf | weighted
+RRF_K = 60              # 원 논문(Cormack 2009) 관례값
+W_LEXICAL = 0.05        # weighted 모드에서 relevance 안의 어휘 비중
+
 # ── API ──────────────────────────────────────────────────────
 TOP_K_DEFAULT = 8
 TOP_K_MAX = 20
