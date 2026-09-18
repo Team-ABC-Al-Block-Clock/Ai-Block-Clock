@@ -67,4 +67,44 @@ class SsafyStoClientTest {
         assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
         server.verify();
     }
+
+    @Test
+    void acceptsTrueWithActualServerContentType() {
+        server.expect(requestTo("https://sto.ssafy.io/health"))
+                .andRespond(withSuccess("true", MediaType.parseMediaType("text/html;charset=utf-8")));
+        assertThat(client.isHealthy()).isTrue();
+        server.verify();
+    }
+
+    @Test
+    void acceptsFalseWithActualServerContentType() {
+        server.expect(requestTo("https://sto.ssafy.io/health"))
+                .andRespond(withSuccess("false", MediaType.TEXT_HTML));
+        assertThat(client.isHealthy()).isFalse();
+        server.verify();
+    }
+
+    @Test
+    void acceptsSurroundingWhitespace() {
+        server.expect(requestTo("https://sto.ssafy.io/health"))
+                .andRespond(withSuccess(" \ntrue\r\n", MediaType.TEXT_PLAIN));
+        assertThat(client.isHealthy()).isTrue();
+        server.verify();
+    }
+
+    @Test
+    void rejectsHtmlErrorPageInsteadOfReturningFalse() {
+        server.expect(requestTo("https://sto.ssafy.io/health"))
+                .andRespond(withSuccess("<html>error</html>", MediaType.TEXT_HTML));
+        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        server.verify();
+    }
+
+    @Test
+    void rejectsWhitespaceOnlyResponse() {
+        server.expect(requestTo("https://sto.ssafy.io/health"))
+                .andRespond(withSuccess(" \n", MediaType.TEXT_PLAIN));
+        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        server.verify();
+    }
 }

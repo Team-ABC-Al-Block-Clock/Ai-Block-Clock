@@ -15,15 +15,19 @@ public class SsafyStoClient {
     }
 
     public boolean isHealthy() {
-        Boolean healthy = restClient.get()
+        String response = restClient.get()
                 .uri("/health")
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(Boolean.class);
+                .body(String.class);
 
-        if (healthy == null) {
+        if (response == null || response.isBlank()) {
             throw new RestClientException("SSAFY STO health response is empty");
         }
-        return healthy;
+        return switch (response.strip()) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> throw new RestClientException("SSAFY STO health response must be true or false");
+        };
     }
 }
