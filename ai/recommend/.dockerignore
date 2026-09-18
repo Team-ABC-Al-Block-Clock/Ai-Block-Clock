@@ -1,0 +1,18 @@
+# 이미지에 들어가면 안 되는 것 — 빌드 컨텍스트에서 미리 뺀다.
+#
+# ★ models/ 를 빼는 게 핵심이다. 423MB 짜리 가중치를 이미지에 구우면
+#   모델을 바꿀 때마다 전체를 다시 빌드하고 다시 올려야 한다.
+#   가중치는 EC2 에 파일로 두고 볼륨으로 마운트한다.
+
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+models/
+*.npz
+index_snapshot.npz
+
+training/results/checkpoints/
+training/results/*.log
