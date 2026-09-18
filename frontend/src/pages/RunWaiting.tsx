@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect } from 'react'
 
 import CanvasNode from '@/components/CanvasNode'
+import CanvasEdgeMask from '@/components/CanvasEdgeMask'
 import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
@@ -85,19 +86,19 @@ export default function RunWaiting() {
           style={{ overflow: 'visible' }}
         >
           <defs>
-            <marker id="ahW" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-              <path d="M0 0 L9 4.5 L0 9 z" fill="rgba(255,255,255,.30)" />
-            </marker>
+            <CanvasEdgeMask id="edgeMaskWait" nodes={CANVAS_NODES} />
           </defs>
-          {edgeGeometry(CANVAS_NODES).map((edge) => (
-            <path
-              key={edge.id}
-              d={edge.d}
-              fill="none"
-              stroke="rgba(255,255,255,.26)"
-              strokeWidth="3.4"
-            />
-          ))}
+          <g mask="url(#edgeMaskWait)" style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edgeGeometry(CANVAS_NODES).map((edge) => (
+              <path
+                key={edge.id}
+                d={edge.d}
+                fill="none"
+                stroke="rgba(255,255,255,.26)"
+                strokeWidth="3.4"
+              />
+            ))}
+          </g>
         </svg>
 
         {CANVAS_NODES.map((node, i) => (

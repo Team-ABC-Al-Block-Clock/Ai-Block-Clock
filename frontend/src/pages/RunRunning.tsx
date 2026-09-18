@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasNode from '@/components/CanvasNode'
+import CanvasEdgeMask from '@/components/CanvasEdgeMask'
 import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
 import { cssToStyle } from '../lib/css'
 import { paths } from '@/routes/paths'
@@ -63,14 +64,10 @@ export default function RunRunning() {
       stateLabel: running ? '진행 중' : done ? '완료' : '대기',
     }
   })
-  const edges = edgePaths.map((d, i) => {
-    const lit = i < active
-    return {
-      d,
-      stroke: lit ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
-      marker: lit ? 'url(#ahR)' : 'url(#ahRd)',
-    }
-  })
+  const edges = edgePaths.map((d, i) => ({
+    d,
+    stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
+  }))
   const liveEdges = edgePaths.slice(0, Math.max(0, active)).map((d) => ({ d }))
   const shown = Math.min(
     logLines.length,
@@ -217,21 +214,15 @@ export default function RunRunning() {
           style={{ overflow: 'visible' }}
         >
           <defs>
-            <marker id="ahR" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
-              <path d="M0 0.6 L6.4 3.5 L0 6.4 z" fill="rgba(255,190,214,.8)" />
-            </marker>
-            <marker id="ahRd" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
-              <path d="M0 0.6 L6.4 3.5 L0 6.4 z" fill="rgba(255,255,255,.38)" />
-            </marker>
+            <CanvasEdgeMask id="edgeMaskRun" nodes={CANVAS_NODES} />
           </defs>
-          {edges.map((e, i) => (
-            <Fragment key={i}>
-              <path d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
-            </Fragment>
-          ))}
-          {liveEdges.map((e, i) => (
-            <Fragment key={i}>
+          <g mask="url(#edgeMaskRun)" style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edges.map((e, i) => (
+              <path key={i} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
+            ))}
+            {liveEdges.map((e, i) => (
               <path
+                key={i}
                 d={e.d}
                 fill="none"
                 stroke="rgba(255,224,238,.85)"
@@ -240,8 +231,8 @@ export default function RunRunning() {
                 strokeDasharray="3 18"
                 style={{ animation: 'dash 1.5s linear infinite' }}
               />
-            </Fragment>
-          ))}
+            ))}
+          </g>
         </svg>
 
         {nodes.map((n, i) => (

@@ -19,6 +19,7 @@ import {
   type CanvasBounds,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
+import CanvasEdgeMask from '@/components/CanvasEdgeMask'
 import { cssToStyle } from '../lib/css'
 import SidePanel from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
@@ -173,7 +174,10 @@ export default function EditNodes() {
       glowRef.current.style.left = `${next.x - 16}px`
       glowRef.current.style.top = `${next.y - 16}px`
     }
-    // 선도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
+    // 선과 마스크 구멍도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
+    const hole = edgeRef.current?.querySelector(`[data-mask-node="${held.id}"]`)
+    hole?.setAttribute('cx', `${next.x + NODE_SIZE / 2}`)
+    hole?.setAttribute('cy', `${next.y + NODE_SIZE / 2}`)
     const preview = nodes.map((node) => (node.id === held.id ? { ...node, ...next } : node))
     for (const edge of edgeGeometry(preview, CANVAS_EDGES)) {
       if (edge.from !== held.id && edge.to !== held.id) continue
@@ -417,31 +421,32 @@ export default function EditNodes() {
               <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
               <stop offset="100%" stopColor="#dba18b" stopOpacity=".8" />
             </linearGradient>
-            <marker id="ah" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
-              <path d="M0 0.6 L6.4 3.5 L0 6.4 z" fill="rgba(255,190,214,.8)" />
-            </marker>
+            <CanvasEdgeMask id="edgeMaskEdit" nodes={nodes} />
           </defs>
-          {edgeGeometry(nodes).map((edge, i) => (
-            <Fragment key={edge.id}>
-              <path
-                data-edge={edge.id}
-                d={edge.d}
-                fill="none"
-                stroke="url(#edgeOn)"
-                strokeWidth="3.4"
-              />
-              <path
-                data-edge={edge.id}
-                d={edge.d}
-                fill="none"
-                stroke="rgba(255,224,238,.85)"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-                strokeDasharray="3 18"
-                style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
-              />
-            </Fragment>
-          ))}
+          {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
+          <g mask="url(#edgeMaskEdit)" style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edgeGeometry(nodes).map((edge, i) => (
+              <Fragment key={edge.id}>
+                <path
+                  data-edge={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke="url(#edgeOn)"
+                  strokeWidth="3.4"
+                />
+                <path
+                  data-edge={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke="rgba(255,224,238,.85)"
+                  strokeWidth="3.4"
+                  strokeLinecap="round"
+                  strokeDasharray="3 18"
+                  style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
+                />
+              </Fragment>
+            ))}
+          </g>
         </svg>
 
         {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 왼쪽 끝에서 잘라 넘어간 만큼만 가린다. */}
