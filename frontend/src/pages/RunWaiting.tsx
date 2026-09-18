@@ -124,7 +124,8 @@ export default function RunWaiting() {
             x={node.x}
             y={node.y}
             mine={node.mine}
-            animation={node.animation}
+            floaty={node.floaty}
+            enter={node.enter}
             background="rgba(255,255,255,.075)"
             numberColor="rgba(255,255,255,.9)"
           />

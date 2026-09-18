@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 /** 내 것에만 붙는 표시. 다른 사람의 것이 하나라도 섞이면 마켓에 등록할 수 없다. */
 const MY_CHIP: CSSProperties = {
@@ -31,8 +31,10 @@ export interface CanvasNodeProps {
   x: number
   y: number
   mine: boolean
-  /** floaty + uiIn 조합 */
-  animation: string
+  /** 계속 도는 모션 */
+  floaty: string
+  /** 등장 모션. 없으면 생략한다 */
+  enter?: string
   background: string
   numberColor?: string
   nameColor?: string
@@ -40,7 +42,7 @@ export interface CanvasNodeProps {
   /** 실행 화면의 유리 재질 */
   glass?: boolean
   title?: string
-  /** 끌어서 옮기는 중. 떠 있는 모션과 호버를 멈춰 손끝을 따라오게 한다. */
+  /** 드래그 중. 모션과 호버를 멈춰 손끝을 따라오게 한다. */
   dragging?: boolean
   onSelect?: (index: number) => void
   onPointerDown?: (ev: React.PointerEvent<HTMLDivElement>) => void
@@ -57,7 +59,8 @@ export default function CanvasNode({
   x,
   y,
   mine,
-  animation,
+  floaty,
+  enter,
   background,
   numberColor = '#fff',
   nameColor = 'rgba(255,255,255,.9)',
@@ -75,13 +78,27 @@ export default function CanvasNode({
   const clickable = !!onSelect
   const draggable = !!onPointerDown
 
+  // 등장 모션이 끝났는지 확인. 끝난 뒤에는 제거해야 드래그를 마치고 animation 을 되돌릴 때
+  // uiIn 이 처음부터 다시 돌아 카드가 사라졌다가 나타난다.
+  // 한 번이라도 끌었으면 등장 모션을 다시 주지 않는다. 드래그를 마치고 animation 을 되돌릴 때
+  // uiIn 이 처음부터 다시 돌아 카드가 사라졌다 나타난다.
+  const [dragged, setDragged] = useState(false)
+  const motion = dragged || !enter ? floaty : `${floaty}, ${enter}`
+
+  const handlePointerDown = onPointerDown
+    ? (ev: React.PointerEvent<HTMLDivElement>) => {
+        setDragged(true)
+        onPointerDown(ev)
+      }
+    : undefined
+
   return (
     <div
       title={title}
       onClick={clickable ? () => onSelect(index) : undefined}
       onMouseEnter={onHover ? () => onHover(index) : undefined}
       onMouseLeave={onHoverOut}
-      onPointerDown={onPointerDown}
+      onPointerDown={handlePointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{
@@ -92,8 +109,10 @@ export default function CanvasNode({
         background,
         gap: '5px',
         boxShadow: mine ? MINE_RING : PLAIN_RING,
-        // 끄는 동안 floaty 가 돌면 카드가 손끝에서 위아래로 흔들린다.
-        animation: dragging ? undefined : animation,
+        // floaty 가 인라인 transform 보다 우선 순위가 높으므로 드래그 중에는 꺼야 한다.
+        animation: dragging ? undefined : motion,
+        // floaty 를 끄면 레이어 승격도 풀려 이어받지 않으면 링과 글씨가 늦게 그려진다.
+        willChange: dragging ? 'transform' : undefined,
         zIndex: dragging ? 5 : undefined,
         ...(glass
           ? {
@@ -101,7 +120,7 @@ export default function CanvasNode({
               WebkitBackdropFilter: 'blur(18px)',
               transition: 'background .5s,box-shadow .5s',
             }
-          : // 끄는 동안 transform 에 전환이 걸리면 카드가 0.2초 늦게 따라온다.
+          : // 드래그 중 transform 에 전환이 걸리면 0.2초 늦게 따라온다.
             { transition: dragging ? 'none' : 'transform .2s,box-shadow .2s' }),
       }}
       className={

@@ -25,7 +25,12 @@ export const NO_BOUNDS: CanvasBounds = {
   maxY: Infinity,
 }
 
-function clampTo(x: number, y: number, bounds: CanvasBounds): { x: number; y: number } {
+/** 범위 안으로만 자른다. 겹침은 보지 않는다 — 드래그 중에는 커서를 그대로 따라가야 한다. */
+export function clampToBounds(
+  x: number,
+  y: number,
+  bounds: CanvasBounds,
+): { x: number; y: number } {
   return {
     x: Math.min(Math.max(x, bounds.minX), bounds.maxX),
     y: Math.min(Math.max(y, bounds.minY), bounds.maxY),
@@ -45,11 +50,14 @@ export interface CanvasNodeData {
   x: number
   y: number
   mine: boolean
-  animation: string
+  /** 계속 도는 모션. 드래그가 끝나면 이것만 되돌린다. */
+  floaty: string
+  /** 등장 모션. 처음 한 번만 재생한다. 되돌리면 카드가 사라졌다 다시 나타나기 때문이다. */
+  enter?: string
 }
 
-/** 놓인 노드에 주는 기본 모션. 자리를 잡은 뒤라 등장 모션은 주지 않는다. */
-export const PLACED_ANIMATION = 'floaty 6.6s ease-in-out infinite'
+/** 놓인 노드에 주는 모션. 자리를 잡은 뒤라 등장 모션은 주지 않는다. */
+export const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
 
 export const CANVAS_NODES: CanvasNodeData[] = [
   {
@@ -59,7 +67,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     x: 12,
     y: 400,
     mine: true,
-    animation: 'floaty 6.4s ease-in-out infinite, uiIn .7s .18s cubic-bezier(.2,.8,.25,1) both',
+    floaty: 'floaty 6.4s ease-in-out infinite',
+    enter: 'uiIn .7s .18s cubic-bezier(.2,.8,.25,1) both',
   },
   {
     id: 'seed-2',
@@ -68,7 +77,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     x: 209,
     y: 320,
     mine: true,
-    animation: 'floaty 6.9s .3s ease-in-out infinite, uiIn .7s .26s cubic-bezier(.2,.8,.25,1) both',
+    floaty: 'floaty 6.9s .3s ease-in-out infinite',
+    enter: 'uiIn .7s .26s cubic-bezier(.2,.8,.25,1) both',
   },
   {
     id: 'seed-3',
@@ -77,7 +87,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     x: 406,
     y: 440,
     mine: true,
-    animation: 'floaty 7.1s .8s ease-in-out infinite, uiIn .7s .34s cubic-bezier(.2,.8,.25,1) both',
+    floaty: 'floaty 7.1s .8s ease-in-out infinite',
+    enter: 'uiIn .7s .34s cubic-bezier(.2,.8,.25,1) both',
   },
   {
     id: 'seed-4',
@@ -86,7 +97,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     x: 603,
     y: 330,
     mine: true,
-    animation: 'floaty 6.8s .4s ease-in-out infinite, uiIn .7s .42s cubic-bezier(.2,.8,.25,1) both',
+    floaty: 'floaty 6.8s .4s ease-in-out infinite',
+    enter: 'uiIn .7s .42s cubic-bezier(.2,.8,.25,1) both',
   },
   {
     id: 'seed-5',
@@ -95,7 +107,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     x: 800,
     y: 430,
     mine: true,
-    animation: 'floaty 7.6s 1.2s ease-in-out infinite, uiIn .7s .5s cubic-bezier(.2,.8,.25,1) both',
+    floaty: 'floaty 7.6s 1.2s ease-in-out infinite',
+    enter: 'uiIn .7s .5s cubic-bezier(.2,.8,.25,1) both',
   },
 ]
 
@@ -128,7 +141,7 @@ function findFreeSpot(
   for (let ring = 1; ring <= 24; ring++) {
     for (let i = 0; i < 16; i++) {
       const angle = (i / 16) * Math.PI * 2
-      const spot = clampTo(
+      const spot = clampToBounds(
         x + Math.cos(angle) * ring * step,
         y + Math.sin(angle) * ring * step,
         bounds,
@@ -156,7 +169,7 @@ export function resolveOverlap(
 ): { x: number; y: number } {
   const others = nodes.filter((node) => node.id !== id)
   const apart = NODE_SIZE + NODE_GAP
-  let point = clampTo(x, y, bounds)
+  let point = clampToBounds(x, y, bounds)
 
   // 밀린 자리가 또 다른 카드와 겹칠 수 있다. 되풀이 횟수는 막아 둔다.
   for (let step = 0; step < 12; step++) {
@@ -175,7 +188,7 @@ export function resolveOverlap(
     const uy = deepest.gap === 0 ? 0 : deepest.dy / deepest.gap
     // 딱 맞닿는 거리까지만 밀면 부동소수 오차로 다시 겹침으로 읽힌다.
     const push = deepest.depth + 0.01
-    point = clampTo(point.x + ux * push, point.y + uy * push, bounds)
+    point = clampToBounds(point.x + ux * push, point.y + uy * push, bounds)
   }
   // 밀어내기로 못 풀었으면 둘레에서 빈자리를 찾는다.
   return findFreeSpot(nodes, id, point.x, point.y, bounds) ?? point
@@ -191,7 +204,7 @@ export function placeNode(
 ): CanvasNodeData[] {
   return [
     ...nodes,
-    { ...seed, ...resolveOverlap(nodes, seed.id, x, y, bounds), animation: PLACED_ANIMATION },
+    { ...seed, ...resolveOverlap(nodes, seed.id, x, y, bounds), floaty: PLACED_FLOATY },
   ]
 }
 

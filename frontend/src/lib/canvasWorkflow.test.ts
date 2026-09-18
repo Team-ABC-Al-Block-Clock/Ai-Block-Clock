@@ -4,7 +4,7 @@ import {
   CANVAS_NODES,
   NODE_GAP,
   NODE_SIZE,
-  PLACED_ANIMATION,
+  PLACED_FLOATY,
   canSellWorkflow,
   moveNode,
   overlaps,
@@ -33,7 +33,7 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   x,
   y,
   mine: true,
-  animation: '',
+  floaty: '',
 })
 
 describe('placeNode', () => {
@@ -68,7 +68,8 @@ describe('placeNode', () => {
 
   it('등장 모션 없이 떠 있는 모션만 준다 — 이미 놓인 자리에서 튀지 않게', () => {
     const [placed] = placeNode([], seed, 300, 400)
-    expect(placed.animation).toBe(PLACED_ANIMATION)
+    expect(placed.floaty).toBe(PLACED_FLOATY)
+    expect(placed.enter).toBeUndefined()
   })
 
   it('같은 항목을 두 번 놓아도 id 로 갈린다', () => {

@@ -259,7 +259,8 @@ export default function RunRunning() {
             x={n.x}
             y={n.y}
             mine={n.mine}
-            animation={n.animation}
+            floaty={n.floaty}
+            enter={n.enter}
             background={n.background}
             numberColor={n.numberColor}
             nameColor={n.nameColor}

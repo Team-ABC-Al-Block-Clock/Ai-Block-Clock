@@ -9,9 +9,10 @@ import {
   CANVAS_NODES,
   NODE_SIZE,
   canSellWorkflow,
+  clampToBounds,
   moveNode,
-  placeNode,
   resolveOverlap,
+  placeNode,
   NO_BOUNDS,
   type CanvasBounds,
 } from '@/lib/canvasWorkflow'
@@ -33,6 +34,8 @@ const PANE_WIDTH = 1076
 const DND_TYPE = 'application/x-placeable-item'
 /** 이 거리보다 움직였으면 고른 것이 아니라 옮긴 것으로 본다. */
 const DRAG_SLOP = 4
+/** 겹친 자리에 놓았을 때 빈자리로 미끄러지는 시간(ms). */
+const SETTLE_MS = 160
 
 /** 노드 편집 화면 */
 export default function EditNodes() {
@@ -50,7 +53,7 @@ export default function EditNodes() {
 
   const paneRef = useRef<HTMLDivElement>(null)
   const [dragId, setDragId] = useState<string | null>(null)
-  /** 끄는 동안의 값은 리렌더가 필요 없다 — 상태로 두면 포인터가 움직일 때마다 두 번 그린다. */
+  /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const grab = useRef<{
@@ -68,8 +71,10 @@ export default function EditNodes() {
     /** 선택 빛이 지금 이 카드를 따라다니는가 */
     glow: boolean
   } | null>(null)
-  /** 끄는 동안의 마지막 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
+  /** 드래그가 끝난 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
   const landing = useRef<{ x: number; y: number } | null>(null)
+  const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(settleTimer.current), [])
   const moved = useRef(false)
   const placedCount = useRef(0)
 
@@ -115,10 +120,7 @@ export default function EditNodes() {
     setSel(sel === i ? -1 : i)
   }
 
-  /**
-   * 포인터를 카드에 묶어 둔다 — 창 리스너를 상태로 붙이면 이펙트가 붙기 전에 지나간
-   * 움직임을 놓친다. 캡처해 두면 카드 밖으로 나가도 move·up 이 카드로 온다.
-   */
+  /** 포인터를 카드에 묶는다. 캡처하지 않으면 커서가 카드를 벗어날 때 움직임을 놓친다. */
   const handleNodePointerDown = (id: string) => (ev: React.PointerEvent<HTMLDivElement>) => {
     if (ev.button !== 0) return
     const node = nodes.find((n) => n.id === id)
@@ -148,11 +150,8 @@ export default function EditNodes() {
   }
 
   /**
-   * 끄는 동안에는 상태를 고치지 않는다.
-   *
-   * 포인터가 움직일 때마다 `setNodes` 를 하면 팔레트 카드와 연결선까지 한 화면을 통째로
-   * 다시 그린다 — 카드가 손끝을 늦게 따라오는 이유가 그것이다. 여기서는 옮길 카드의
-   * `transform` 만 직접 건드리고, 상태는 손을 뗄 때 한 번만 맞춘다.
+   * 드래그 중에는 상태를 고치지 않는다 — `setNodes` 는 팔레트까지 한 화면을 다시 그린다.
+   * 옮길 카드의 `transform` 만 직접 쓰고, 상태는 손을 뗄 때 한 번만 맞춘다.
    */
   const handleNodePointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
     const held = grab.current
@@ -162,7 +161,8 @@ export default function EditNodes() {
     const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
     if (slid > DRAG_SLOP) moved.current = true
 
-    const next = resolveOverlap(nodes, held.id, point.x - held.dx, point.y - held.dy, held.bounds)
+    // 겹침은 손을 뗄 때 moveNode 가 한 번만 정리한다.
+    const next = clampToBounds(point.x - held.dx, point.y - held.dy, held.bounds)
     landing.current = next
     held.el.style.transform = `translate3d(${next.x - held.baseX}px, ${next.y - held.baseY}px, 0)`
     // 빛은 left·top 으로 민다 — transform 은 React 가 들고 있지 않아 지우면 되살아나지 않는다.
@@ -174,17 +174,40 @@ export default function EditNodes() {
 
   const handleNodePointerUp = () => {
     const held = grab.current
-    const next = landing.current
-    if (held && next) {
-      // 상태가 반영되기 전 한 프레임 동안 제자리로 튀지 않게 먼저 맞춰 둔다.
-      held.el.style.left = `${next.x}px`
-      held.el.style.top = `${next.y}px`
-      held.el.style.transform = ''
-      setNodes((prev) => moveNode(prev, held.id, next.x, next.y, held.bounds))
-    }
+    const raw = landing.current
     grab.current = null
     landing.current = null
-    setDragId(null)
+    if (!held || !raw) {
+      setDragId(null)
+      return
+    }
+
+    const settled = resolveOverlap(nodes, held.id, raw.x, raw.y, held.bounds)
+    const offset = (p: { x: number; y: number }) =>
+      `translate3d(${p.x - held.baseX}px, ${p.y - held.baseY}px, 0)`
+
+    const commit = () => {
+      held.el.getAnimations().forEach((a) => a.cancel())
+      held.el.style.transform = ''
+      held.el.style.left = `${settled.x}px`
+      held.el.style.top = `${settled.y}px`
+      // 거리를 재기 전에 리렌더가 끝나면 transition 이 되살아난 뒤 transform 이 지워져, 새 자리로 미끄러진다.
+      void held.el.offsetHeight
+      setNodes((prev) => moveNode(prev, held.id, settled.x, settled.y, held.bounds))
+      setDragId(null)
+    }
+
+    if (settled.x === raw.x && settled.y === raw.y) {
+      commit()
+      return
+    }
+    // 겹친 자리에 놓으면 빈자리로 짧게 미끄러지게 한다.
+    held.el.animate([{ transform: offset(raw) }, { transform: offset(settled) }], {
+      duration: SETTLE_MS,
+      easing: 'cubic-bezier(.2,.8,.25,1)',
+      fill: 'both',
+    })
+    settleTimer.current = setTimeout(commit, SETTLE_MS)
   }
 
   const handleDragOver = (ev: React.DragEvent<HTMLDivElement>) => {
@@ -292,10 +315,8 @@ export default function EditNodes() {
       ';transform:translateY(' +
       (hov >= 0 && !dragId ? -5 : 0) +
       'px);background:radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%)' +
-      // 끄는 동안 빛이 전환으로 따라오면 손끝보다 늦어 어긋나 보인다.
-      (dragId
-        ? ''
-        : ';transition:left .34s cubic-bezier(.2,.8,.25,1),top .34s cubic-bezier(.2,.8,.25,1),transform .2s,opacity .25s ease')
+      // 자리는 전환 없이 노드에 붙인다 — 미끄러지면 손을 뗄 때 빛만 따로 날아간다.
+      ';transition:transform .2s,opacity .25s ease'
     : 'display:none'
   const cards = items.map((item) => ({
     ...item,
@@ -470,7 +491,8 @@ export default function EditNodes() {
               x={node.x}
               y={node.y}
               mine={node.mine}
-              animation={node.animation}
+              floaty={node.floaty}
+              enter={node.enter}
               background={i === sel ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
               sublabelColor="rgba(230,196,212,.85)"
               title={
