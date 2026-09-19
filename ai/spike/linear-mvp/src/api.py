@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from . import catalog, runner
+from . import catalog, graph, runner
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -149,6 +149,21 @@ def get_workflow(workflow_id: str) -> dict:
         return runner.resolve_prompts(runner.load_workflow(workflow_id))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail={"code": "WORKFLOW_NOT_FOUND", "message": workflow_id})
+
+
+@app.post("/v1/workflows/validate", summary="워크플로우 정의 검증 (실행하지 않음)",
+          dependencies=[Depends(auth)])
+def validate_workflow_definition(body: dict) -> dict:
+    """저장 버튼에서 부르면 상한 · 순환 · 스키마 호환 규칙을 백엔드가 복제하지 않아도 된다.
+
+    계약 §7.5. 실행하지 않고 판정만 돌려주므로 과금도 없다.
+    """
+    wf = body.get("workflow") if isinstance(body, dict) else None
+    if not isinstance(wf, dict):
+        raise HTTPException(status_code=400,
+                            detail={"code": "INVALID_REQUEST",
+                                    "message": "workflow 객체가 필요합니다"})
+    return graph.validate(wf)
 
 
 @app.post("/v1/runs", status_code=202, summary="워크플로우 실행 요청", dependencies=[Depends(auth)])
