@@ -16,13 +16,14 @@ import {
   disconnect,
   edgeGeometry,
   edgePath,
-  moveNode,
+  moveNodeTo,
   portPoint,
   removeNode,
   resolveOverlap,
   placeNode,
   NO_BOUNDS,
   type CanvasBounds,
+  type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
@@ -89,6 +90,14 @@ export default function EditNodes() {
   /** 드래그가 끝난 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
   const landing = useRef<{ x: number; y: number } | null>(null)
   const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  /** 미끄러짐이 끝나면 할 일. 끝나기 전에 다시 잡으면 기다리지 않고 지금 끝낸다. */
+  const settle = useRef<(() => CanvasNodeData[]) | null>(null)
+  const flushSettle = () => {
+    clearTimeout(settleTimer.current)
+    const pending = settle.current
+    settle.current = null
+    return pending?.() ?? null
+  }
   useEffect(() => () => clearTimeout(settleTimer.current), [])
   const moved = useRef(false)
   const placedCount = useRef(0)
@@ -141,7 +150,9 @@ export default function EditNodes() {
   /** 포인터를 카드에 묶는다. 캡처하지 않으면 커서가 카드를 벗어날 때 움직임을 놓친다. */
   const handleNodePointerDown = (id: string) => (ev: React.PointerEvent<HTMLDivElement>) => {
     if (ev.button !== 0) return
-    const node = nodes.find((n) => n.id === id)
+    // 미끄러지는 중에 다시 잡으면 아직 상태에 없는 좌표를 기준으로 삼는다. 먼저 끝낸다.
+    const list = flushSettle() ?? nodes
+    const node = list.find((n) => n.id === id)
     const point = node && toCanvasPoint(ev.clientX, ev.clientY)
     if (!node || !point) return
     grab.current = {
@@ -154,12 +165,12 @@ export default function EditNodes() {
       baseX: node.x,
       baseY: node.y,
       bounds: canvasBounds() ?? NO_BOUNDS,
-      glow: (nodes[hov] ?? nodes[sel])?.id === id,
+      glow: (list[hov] ?? list[sel])?.id === id,
     }
     landing.current = { x: node.x, y: node.y }
     moved.current = false
     // 누르는 즉시 고른다. 끌고 난 뒤에도 그 노드가 골라진 채로 남는다.
-    const picked = nodes.indexOf(node)
+    const picked = list.indexOf(node)
     reselect.current = sel === picked
     setSelEdge(null)
     setSel(picked)
@@ -217,14 +228,15 @@ export default function EditNodes() {
     const offset = (p: { x: number; y: number }) =>
       `translate3d(${p.x - held.baseX}px, ${p.y - held.baseY}px, 0)`
 
-    const commit = () => {
+    const commit = (): CanvasNodeData[] => {
       held.el.getAnimations().forEach((a) => a.cancel())
       held.el.style.transform = ''
       held.el.style.left = `${settled.x}px`
       held.el.style.top = `${settled.y}px`
       // 거리를 재기 전에 리렌더가 끝나면 transition 이 되살아난 뒤 transform 이 지워져, 새 자리로 미끄러진다.
       void held.el.offsetHeight
-      const after = moveNode(nodes, held.id, settled.x, settled.y, held.bounds)
+      // 자리는 위에서 이미 정했다. moveNode 로 넣으면 같은 계산을 한 번 더 한다.
+      const after = moveNodeTo(nodes, held.id, settled.x, settled.y)
       // 끄는 동안 직접 써 넣은 선은 React 가 모른다. 최종 경로도 직접 확정해야 남지 않는다.
       for (const edge of edgeGeometry(after, edges)) {
         paneRef.current
@@ -233,6 +245,7 @@ export default function EditNodes() {
       }
       setNodes(after)
       setDragId(null)
+      return after
     }
 
     if (settled.x === raw.x && settled.y === raw.y) {
@@ -245,7 +258,8 @@ export default function EditNodes() {
       easing: 'cubic-bezier(.2,.8,.25,1)',
       fill: 'both',
     })
-    settleTimer.current = setTimeout(commit, SETTLE_MS)
+    settle.current = commit
+    settleTimer.current = setTimeout(flushSettle, SETTLE_MS)
   }
 
   /** 선택한 것 삭제. 노드면 거기 붙은 선도 함께. */
