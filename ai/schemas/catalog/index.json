@@ -1,0 +1,60 @@
+{
+  "catalog_version": "1.0",
+  "schemas": [
+    {
+      "schema_id": "common.text@1",
+      "title": "단순 텍스트",
+      "category": "common"
+    },
+    {
+      "schema_id": "common.document@1",
+      "title": "문서",
+      "category": "common"
+    },
+    {
+      "schema_id": "common.table@1",
+      "title": "표",
+      "category": "common"
+    },
+    {
+      "schema_id": "biz.brand_brief@1",
+      "title": "브랜드 기획 요청서",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.market_research@1",
+      "title": "시장 조사 결과",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.product_analysis@1",
+      "title": "제품 분석 결과",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.strategy_draft@1",
+      "title": "전략 초안",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.brand_strategy@1",
+      "title": "브랜드 전략 보고서",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.campaign_plan@1",
+      "title": "SNS 캠페인 계획",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.ad_copy@1",
+      "title": "광고 카피",
+      "category": "biz"
+    },
+    {
+      "schema_id": "biz.execution_plan@1",
+      "title": "통합 실행안",
+      "category": "biz"
+    }
+  ]
+}

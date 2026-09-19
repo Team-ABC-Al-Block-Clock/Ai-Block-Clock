@@ -1,0 +1,10 @@
+[
+  {
+    "template_id": "tpl_default",
+    "name": "기본 문서형",
+    "schema_id": "biz.brand_strategy@1",
+    "owner": "platform",
+    "source": "hand-written",
+    "is_default": true
+  }
+]

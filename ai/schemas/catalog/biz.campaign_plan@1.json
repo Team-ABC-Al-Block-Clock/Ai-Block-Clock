@@ -1,0 +1,110 @@
+{
+  "schema_id": "biz.campaign_plan@1",
+  "catalog_version": "1.0",
+  "category": "biz",
+  "$defs": {
+    "Channel": {
+      "properties": {
+        "name": {
+          "title": "채널",
+          "type": "string"
+        },
+        "reason": {
+          "title": "선정 이유",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "reason"
+      ],
+      "title": "Channel",
+      "type": "object"
+    },
+    "Kpi": {
+      "properties": {
+        "name": {
+          "title": "지표",
+          "type": "string"
+        },
+        "target": {
+          "title": "목표",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "target"
+      ],
+      "title": "Kpi",
+      "type": "object"
+    },
+    "Post": {
+      "properties": {
+        "phase": {
+          "description": "예: 1주차",
+          "title": "시기",
+          "type": "string"
+        },
+        "theme": {
+          "title": "주제",
+          "type": "string"
+        },
+        "format": {
+          "description": "예: 릴스 · 카드뉴스",
+          "title": "형식",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "theme",
+        "format"
+      ],
+      "title": "Post",
+      "type": "object"
+    }
+  },
+  "description": "SNS 캠페인 계획 — 2단계 판매자 B 의 에이전트 출력.",
+  "properties": {
+    "objective": {
+      "title": "캠페인 목표",
+      "type": "string"
+    },
+    "channels": {
+      "items": {
+        "$ref": "#/$defs/Channel"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "채널",
+      "type": "array"
+    },
+    "posts": {
+      "items": {
+        "$ref": "#/$defs/Post"
+      },
+      "maxItems": 6,
+      "minItems": 3,
+      "title": "게시물 계획",
+      "type": "array"
+    },
+    "kpis": {
+      "items": {
+        "$ref": "#/$defs/Kpi"
+      },
+      "maxItems": 4,
+      "minItems": 2,
+      "title": "성과 지표",
+      "type": "array"
+    }
+  },
+  "required": [
+    "objective",
+    "channels",
+    "posts",
+    "kpis"
+  ],
+  "title": "SNS 캠페인 계획",
+  "type": "object"
+}
