@@ -9,7 +9,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(SsafyStoProperties.class)
+@EnableConfigurationProperties({SsafyStoProperties.class, SsafyTokenProperties.class})
 public class SsafyStoConfiguration {
     @Bean
     public RestClient ssafyStoQueryRestClient(SsafyStoProperties properties) {

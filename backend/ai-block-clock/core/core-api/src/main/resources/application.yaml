@@ -26,6 +26,8 @@ ssafy:
     connect-timeout: ${SSAFY_STO_CONNECT_TIMEOUT:3s}
     read-timeout: ${SSAFY_STO_READ_TIMEOUT:10s}
     transaction-timeout: ${SSAFY_STO_TRANSACTION_TIMEOUT:60s}
+    token:
+      contract-address: ${SSAFY_TOKEN_CONTRACT_ADDRESS:}
     deployment:
       owner-address: ${SSAFY_TOKEN_OWNER_ADDRESS:}
       confirmation: ${SSAFY_TOKEN_DEPLOY_CONFIRM:}
