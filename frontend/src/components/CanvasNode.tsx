@@ -163,7 +163,7 @@ export default function CanvasNode({
         (['in', 'out'] as const).map((side) => (
           <div
             key={side}
-            data-port={`${side}`}
+            data-port={side}
             style={{
               ...PORT_BASE,
               [side === 'in' ? 'left' : 'right']: `${-PORT_HIT / 2}px`,

@@ -1143,144 +1143,143 @@ export default function EditNodes() {
             </div>
           )}
           {cards.map((item) => (
-            <Fragment key={item.itemId}>
+            <div
+              key={item.itemId}
+              draggable
+              onDragStart={item.drag}
+              title="캔버스로 끌어다 놓으세요"
+              style={{
+                // 폭은 주지 않고 그리드 열을 그대로 채운다.
+                height: '160px',
+                borderRadius: '12px',
+                transition: 'background .18s,transform .18s',
+                // 자신의 에이전트와 다른 사람 에이전트를 구분할 수 있게 테두리와 칩으로 표시한다.
+                boxShadow: item.mine
+                  ? 'inset 0 0 0 1.5px rgba(255,190,220,.8)'
+                  : 'inset 0 0 0 1px rgba(255,255,255,.10)',
+              }}
+              className="relative cursor-grab bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)] active:cursor-grabbing"
+            >
               <div
-                draggable
-                onDragStart={item.drag}
-                title="캔버스로 끌어다 놓으세요"
+                className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
                 style={{
-                  // 폭은 주지 않고 그리드 열을 그대로 채운다.
-                  height: '160px',
-                  borderRadius: '12px',
-                  transition: 'background .18s,transform .18s',
-                  // 자신의 에이전트와 다른 사람 에이전트를 구분할 수 있게 테두리와 칩으로 표시한다.
-                  boxShadow: item.mine
-                    ? 'inset 0 0 0 1.5px rgba(255,190,220,.8)'
-                    : 'inset 0 0 0 1px rgba(255,255,255,.10)',
+                  left: '16px',
+                  top: '16px',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '10px',
                 }}
-                className="relative cursor-grab bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)] active:cursor-grabbing"
               >
-                <div
-                  className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
-                  style={{
-                    left: '16px',
-                    top: '16px',
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '10px',
-                  }}
-                >
-                  {item.iconUrl ? (
-                    <img
-                      src={item.iconUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
-                      style={{ color: 'rgba(255,226,238,.65)' }}
-                    >
-                      {item.initial}
-                    </div>
-                  )}
-                </div>
-                <div
-                  className="absolute truncate text-[15.5px] font-semibold tracking-[-.005em] text-white"
-                  style={{ left: '16px', right: '16px', top: '74px' }}
-                >
-                  {item.name}
-                </div>
-                <div
-                  className="absolute text-[13px] font-medium"
-                  style={{ left: '16px', top: '100px', color: 'rgba(255,224,238,.85)' }}
-                >
-                  {item.typeLabel}
-                </div>
-                <div
-                  className="absolute text-[13px]"
-                  style={{ left: '16px', top: '123px', color: 'rgba(255,236,246,.7)' }}
-                >
-                  {item.unit}
-                </div>
-                {/* 내 에이전트에만 MY 칩을 붙인다 */}
-                {item.mine && (
+                {item.iconUrl ? (
+                  <img
+                    src={item.iconUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
                   <div
-                    className="absolute text-[12px] font-bold tracking-[-.005em]"
-                    style={{
-                      right: '12px',
-                      top: '120px',
-                      height: '20px',
-                      padding: '0 8px',
-                      lineHeight: '20px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,190,220,.26)',
-                      color: 'rgba(255,240,248,.95)',
-                    }}
+                    className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
+                    style={{ color: 'rgba(255,226,238,.65)' }}
                   >
-                    MY
-                  </div>
-                )}
-                <div
-                  onClick={item.info}
-                  title="항목 정보"
-                  style={{
-                    right: '16px',
-                    top: '12px',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '12px',
-                    background: `${item.infoBg}`,
-                    zIndex: '2',
-                  }}
-                  className="absolute flex cursor-pointer items-center justify-center text-[13px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
-                >
-                  i
-                </div>
-                {item.infoOpen && (
-                  <div
-                    className="absolute inset-0 box-border flex cursor-pointer flex-col"
-                    onClick={item.info}
-                    style={{
-                      padding: '14px',
-                      borderRadius: '12px',
-                      background: 'rgba(20,11,36,.94)',
-                      backdropFilter: 'blur(20px) saturate(120%)',
-                      WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-                      gap: '6px',
-                      animation: 'fadeIn .16s ease both',
-                      zIndex: '3',
-                    }}
-                  >
-                    <div className="text-[14.5px] font-semibold tracking-[-.005em] text-white">
-                      {item.name}
-                    </div>
-                    <div className="flex justify-between text-[13px]">
-                      <span style={{ color: 'rgba(255,236,246,.72)' }}>총 실행 횟수</span>
-                      <span className="font-semibold text-white">{item.uses}</span>
-                    </div>
-                    <div className="flex justify-between text-[13px]">
-                      <span style={{ color: 'rgba(255,236,246,.72)' }}>실행 단가</span>
-                      <span className="font-semibold text-white">{item.unit}</span>
-                    </div>
-                    <div className="flex justify-between text-[13px]">
-                      <span style={{ color: 'rgba(255,236,246,.72)' }}>만든 사람</span>
-                      <span className="font-semibold text-white">{item.owner.nickname}</span>
-                    </div>
-                    <div
-                      className="text-[12.5px]"
-                      style={{
-                        marginTop: '3px',
-                        lineHeight: '1.45',
-                        color: 'rgba(255,236,246,.78)',
-                      }}
-                    >
-                      {item.summary ?? '설명이 없습니다'}
-                    </div>
+                    {item.initial}
                   </div>
                 )}
               </div>
-            </Fragment>
+              <div
+                className="absolute truncate text-[15.5px] font-semibold tracking-[-.005em] text-white"
+                style={{ left: '16px', right: '16px', top: '74px' }}
+              >
+                {item.name}
+              </div>
+              <div
+                className="absolute text-[13px] font-medium"
+                style={{ left: '16px', top: '100px', color: 'rgba(255,224,238,.85)' }}
+              >
+                {item.typeLabel}
+              </div>
+              <div
+                className="absolute text-[13px]"
+                style={{ left: '16px', top: '123px', color: 'rgba(255,236,246,.7)' }}
+              >
+                {item.unit}
+              </div>
+              {/* 내 에이전트에만 MY 칩을 붙인다 */}
+              {item.mine && (
+                <div
+                  className="absolute text-[12px] font-bold tracking-[-.005em]"
+                  style={{
+                    right: '12px',
+                    top: '120px',
+                    height: '20px',
+                    padding: '0 8px',
+                    lineHeight: '20px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,190,220,.26)',
+                    color: 'rgba(255,240,248,.95)',
+                  }}
+                >
+                  MY
+                </div>
+              )}
+              <div
+                onClick={item.info}
+                title="항목 정보"
+                style={{
+                  right: '16px',
+                  top: '12px',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '12px',
+                  background: item.infoBg,
+                  zIndex: '2',
+                }}
+                className="absolute flex cursor-pointer items-center justify-center text-[13px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
+              >
+                i
+              </div>
+              {item.infoOpen && (
+                <div
+                  className="absolute inset-0 box-border flex cursor-pointer flex-col"
+                  onClick={item.info}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '12px',
+                    background: 'rgba(20,11,36,.94)',
+                    backdropFilter: 'blur(20px) saturate(120%)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+                    gap: '6px',
+                    animation: 'fadeIn .16s ease both',
+                    zIndex: '3',
+                  }}
+                >
+                  <div className="text-[14.5px] font-semibold tracking-[-.005em] text-white">
+                    {item.name}
+                  </div>
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'rgba(255,236,246,.72)' }}>총 실행 횟수</span>
+                    <span className="font-semibold text-white">{item.uses}</span>
+                  </div>
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'rgba(255,236,246,.72)' }}>실행 단가</span>
+                    <span className="font-semibold text-white">{item.unit}</span>
+                  </div>
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'rgba(255,236,246,.72)' }}>만든 사람</span>
+                    <span className="font-semibold text-white">{item.owner.nickname}</span>
+                  </div>
+                  <div
+                    className="text-[12.5px]"
+                    style={{
+                      marginTop: '3px',
+                      lineHeight: '1.45',
+                      color: 'rgba(255,236,246,.78)',
+                    }}
+                  >
+                    {item.summary ?? '설명이 없습니다'}
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
           <div ref={sentinelRef} style={{ gridColumn: '1 / -1', height: '1px' }}></div>
         </div>
