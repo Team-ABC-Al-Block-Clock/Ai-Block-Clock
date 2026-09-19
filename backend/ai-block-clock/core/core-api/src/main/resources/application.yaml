@@ -25,3 +25,6 @@ ssafy:
     base-url: ${SSAFY_STO_BASE_URL:https://sto.ssafy.io}
     connect-timeout: 3s
     read-timeout: 10s
+    deployment:
+      owner-address: ${SSAFY_TOKEN_OWNER_ADDRESS:}
+      confirmation: ${SSAFY_TOKEN_DEPLOY_CONFIRM:}
