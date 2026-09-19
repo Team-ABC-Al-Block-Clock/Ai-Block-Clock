@@ -47,8 +47,9 @@ const SETTLE_MS = 160
 
 /** 노드 편집 화면 */
 export default function EditNodes() {
-  const [sel, setSel] = useState(-1)
-  const [hov, setHov] = useState(-1)
+  /** 고른 노드와 가리키고 있는 노드. 목록이 바뀌어도 가리키는 대상이 달라지지 않게 id 로 든다. */
+  const [selId, setSelId] = useState<string | null>(null)
+  const [hovId, setHovId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   // 카드 index 로 잡으면 다음 장이 붙을 때 엉뚱한 카드가 열린다.
   const [infoAt, setInfoAt] = useState<string | null>(null)
@@ -62,7 +63,7 @@ export default function EditNodes() {
   const paneRef = useRef<HTMLDivElement>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [edges, setEdges] = useState(CANVAS_EDGES)
-  /** 선택한 연결선. 노드 선택(`sel`)과 한 번에 하나만 살아 있다. */
+  /** 선택한 연결선. 노드 선택(`selId`)과 한 번에 하나만 살아 있다. */
   const [selEdge, setSelEdge] = useState<string | null>(null)
   /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
@@ -142,7 +143,7 @@ export default function EditNodes() {
       moved.current = false
       return
     }
-    if (reselect.current) setSel(-1)
+    if (reselect.current) setSelId(null)
   }
 
   /** 포인터를 카드에 묶는다. 캡처하지 않으면 커서가 카드를 벗어날 때 움직임을 놓친다. */
@@ -163,15 +164,14 @@ export default function EditNodes() {
       baseX: node.x,
       baseY: node.y,
       bounds: canvasBounds() ?? NO_BOUNDS,
-      glow: (list[hov] ?? list[sel])?.id === id,
+      glow: (hovId ?? selId) === id,
     }
     landing.current = { x: node.x, y: node.y }
     moved.current = false
     // 누르는 즉시 고른다. 끌고 난 뒤에도 그 노드가 골라진 채로 남는다.
-    const picked = list.indexOf(node)
-    reselect.current = sel === picked
+    reselect.current = selId === id
     setSelEdge(null)
-    setSel(picked)
+    setSelId(id)
     setDragId(id)
     // 캡처가 막히는 환경이 있어도 끌기 자체는 살려 둔다 — 카드 위에서는 그대로 따라온다.
     try {
@@ -268,26 +268,26 @@ export default function EditNodes() {
         setSelEdge(null)
         return
       }
-      const node = nodes[sel]
+      const node = nodes.find((n) => n.id === selId)
       if (!node) return
       const after = removeNode(nodes, edges, node.id)
       setNodes(after.nodes)
       setEdges(after.edges)
-      setSel(-1)
-      setHov(-1)
+      setSelId(null)
+      setHovId(null)
     }
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
       // 글자를 지우는 중일 수 있다.
       const target = ev.target as HTMLElement | null
       if (target?.closest('input, textarea, [contenteditable="true"]')) return
-      if (!selEdge && !nodes[sel]) return
+      if (!selEdge && !nodes.some((n) => n.id === selId)) return
       ev.preventDefault()
       removeSelected()
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [sel, selEdge, nodes, edges])
+  }, [selId, selEdge, nodes, edges])
 
   /** 포트를 누르면 노드가 아니라 선을 끈다. */
   const handlePortDown =
@@ -332,7 +332,7 @@ export default function EditNodes() {
   /** 빈 곳을 누르면 선택 해제. */
   const handlePaneDown = (ev: React.PointerEvent<HTMLDivElement>) => {
     if ((ev.target as HTMLElement).closest('[data-node],[data-edge]')) return
-    setSel(-1)
+    setSelId(null)
     setSelEdge(null)
   }
 
@@ -367,7 +367,7 @@ export default function EditNodes() {
       ),
     )
   }
-  const handleHovOut = () => setHov(-1)
+  const handleHovOut = () => setHovId(null)
   const handleTogglePanel = () => setPanelOpen((v) => !v)
   const handleSearch = (ev: React.ChangeEvent<HTMLInputElement>) => setQ(ev.target.value)
 
@@ -440,8 +440,8 @@ export default function EditNodes() {
   // 경로 탐색은 무겁다. 노드나 선이 바뀔 때만 다시 찾는다.
   const geometry = useMemo(() => edgeGeometry(nodes, edges), [nodes, edges])
 
-  const n = nodes[sel]
-  const g = nodes[hov] || n // 빛은 호버 중인 노드를 따라간다
+  const n = nodes.find((node) => node.id === selId)
+  const g = nodes.find((node) => node.id === hovId) ?? n // 빛은 호버 중인 노드를 따라간다
   const selRing: CSSProperties = g
     ? {
         position: 'absolute',
@@ -451,8 +451,8 @@ export default function EditNodes() {
         height: '200px',
         borderRadius: '50%',
         pointerEvents: 'none',
-        opacity: hov >= 0 && hov !== sel ? 0.6 : 1,
-        transform: `translateY(${hov >= 0 && !dragId ? -5 : 0}px)`,
+        opacity: hovId && hovId !== selId ? 0.6 : 1,
+        transform: `translateY(${hovId && !dragId ? -5 : 0}px)`,
         background:
           'radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%)',
         // 자리는 전환 없이 노드에 붙인다. 미끄러지면 손을 뗄 때 빛만 따로 날아간다.
@@ -535,7 +535,7 @@ export default function EditNodes() {
           드래그하여 노드를 배치하고, 선으로 연결합니다
         </div>
 
-        {(selEdge || nodes[sel]) && (
+        {(selEdge || n) && (
           <div
             className="absolute left-0 flex items-center justify-center text-[14px]"
             style={{
@@ -569,7 +569,7 @@ export default function EditNodes() {
               mine={node.mine}
               floaty={node.floaty}
               enter={node.enter}
-              background={i === sel ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
+              background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
               sublabelColor="rgba(230,196,212,.85)"
               title={
                 node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
@@ -589,7 +589,7 @@ export default function EditNodes() {
                 handleNodePointerUp()
                 handlePortUp(ev)
               }}
-              onHover={setHov}
+              onHover={() => setHovId(node.id)}
               onHoverOut={handleHovOut}
             />
           ))}
@@ -639,7 +639,7 @@ export default function EditNodes() {
                   style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                   onPointerDown={(ev) => {
                     ev.stopPropagation()
-                    setSel(-1)
+                    setSelId(null)
                     setSelEdge(selEdge === edge.id ? null : edge.id)
                   }}
                 />
