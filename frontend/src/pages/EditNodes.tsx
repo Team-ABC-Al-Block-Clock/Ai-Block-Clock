@@ -67,9 +67,8 @@ export default function EditNodes() {
   /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
   const tempRef = useRef<SVGPathElement>(null)
-  /** 포트에서 선을 끄는 중. 리렌더가 필요 없어 ref 로 든다. */
-  const link = useRef<{ id: string; side: 'in' | 'out' } | null>(null)
-  const [linking, setLinking] = useState(false)
+  /** 선을 끄는 중이면 그 출발점. 누를 때 한 번, 뗄 때 한 번만 바뀐다. */
+  const [linkFrom, setLinkFrom] = useState<{ id: string; side: 'in' | 'out' } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const grab = useRef<{
     id: string
@@ -296,10 +295,9 @@ export default function EditNodes() {
       if (ev.button !== 0) return
       // 막지 않으면 노드까지 같이 끌려간다.
       ev.stopPropagation()
-      link.current = { id, side }
+      setLinkFrom({ id, side })
       // 포트에서 손을 떼도 click 이 노드로 올라온다. 선택이 뒤집히지 않게 막는다.
       moved.current = true
-      setLinking(true)
       try {
         ev.currentTarget.setPointerCapture(ev.pointerId)
       } catch {
@@ -308,7 +306,7 @@ export default function EditNodes() {
     }
 
   const handlePortMove = (ev: React.PointerEvent<HTMLDivElement>) => {
-    const held = link.current
+    const held = linkFrom
     const node = held && nodes.find((n) => n.id === held.id)
     const point = node && toCanvasPoint(ev.clientX, ev.clientY)
     if (!held || !node || !point) return
@@ -318,9 +316,8 @@ export default function EditNodes() {
   }
 
   const handlePortUp = (ev: React.PointerEvent<HTMLDivElement>) => {
-    const held = link.current
-    link.current = null
-    setLinking(false)
+    const held = linkFrom
+    setLinkFrom(null)
     if (!held) return
     // 손을 뗀 자리의 포트는 화면에 물어본다.
     const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-port]')
@@ -433,7 +430,6 @@ export default function EditNodes() {
   }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   // 선을 끄는 동안 이을 수 있는 포트만 밝게.
-  const linkFrom = linking ? link.current : null
   const portOpen = (id: string, side: 'in' | 'out') => {
     if (!linkFrom) return true
     if (side === linkFrom.side) return false
@@ -650,7 +646,7 @@ export default function EditNodes() {
               </Fragment>
             ))}
             {/* 아직 연결되지 않은 선 */}
-            {linking && (
+            {linkFrom && (
               <path
                 ref={tempRef}
                 fill="none"
