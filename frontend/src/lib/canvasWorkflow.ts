@@ -4,7 +4,7 @@ import { roundedPath, routeEdge } from './edgeRoute'
 
 /** 노드 카드의 한 변(px). 좌표는 카드의 왼쪽 위 모서리이다. */
 export const NODE_SIZE = 168
-/** 카드 사이에 남기는 최소 간격(px). 선이 지나갈 자리를 남긴다. */
+/** 카드 사이에 남기는 최소 간격(px). */
 export const NODE_GAP = 24
 /**
  * 카드 왼쪽 위 좌표가 들어갈 수 있는 범위.
@@ -118,21 +118,78 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   },
 ]
 
-/** 노드를 잇는 선. 방향이 있다 — `from` 의 출력에서 `to` 의 입력으로 간다. */
+/** 노드를 잇는 선. `from` 의 출력에서 `to` 의 입력으로 간다. */
 export interface CanvasEdge {
   id: string
   from: string
   to: string
 }
 
+/** 선의 이름은 양 끝에서. */
+export function edgeId(from: string, to: string): string {
+  return `${from}__${to}`
+}
+
+const seedEdge = (from: string, to: string): CanvasEdge => ({ id: edgeId(from, to), from, to })
+
 export const CANVAS_EDGES: CanvasEdge[] = [
-  { id: 'edge-1', from: 'seed-1', to: 'seed-2' },
-  { id: 'edge-2', from: 'seed-2', to: 'seed-3' },
-  { id: 'edge-3', from: 'seed-3', to: 'seed-4' },
-  { id: 'edge-4', from: 'seed-4', to: 'seed-5' },
+  seedEdge('seed-1', 'seed-2'),
+  seedEdge('seed-2', 'seed-3'),
+  seedEdge('seed-3', 'seed-4'),
+  seedEdge('seed-4', 'seed-5'),
 ]
 
-/** 선이 드나드는 자리. 입력은 왼쪽, 출력은 오른쪽, 둘 다 카드 높이의 가운데다. */
+/** `from` 에서 선을 따라 `to` 에 닿는지. */
+function reaches(edges: CanvasEdge[], from: string, to: string): boolean {
+  const seen = new Set<string>()
+  const todo = [from]
+  while (todo.length > 0) {
+    const at = todo.pop()!
+    if (at === to) return true
+    if (seen.has(at)) continue
+    seen.add(at)
+    for (const edge of edges) if (edge.from === at) todo.push(edge.to)
+  }
+  return false
+}
+
+/**
+ * 이어도 되는 짝인지. 자기 자신·중복·고리를 막는다.
+ *
+ * 입력은 하나만. 들어오는 선이 여럿이면 어느 것을 기다릴지 알 수 없다. 출력은 여러 갈래 가능.
+ */
+export function canConnect(edges: CanvasEdge[], from: string, to: string): boolean {
+  if (from === to) return false
+  if (edges.some((edge) => edge.to === to)) return false
+  return !reaches(edges, to, from)
+}
+
+/** 선 연결. 이을 수 없는 짝이면 목록 그대로. */
+export function connect(edges: CanvasEdge[], from: string, to: string): CanvasEdge[] {
+  if (!canConnect(edges, from, to)) return edges
+  return [...edges, { id: edgeId(from, to), from, to }]
+}
+
+/** 선 하나 삭제. 없는 id 면 목록 그대로. */
+export function disconnect(edges: CanvasEdge[], id: string): CanvasEdge[] {
+  const left = edges.filter((edge) => edge.id !== id)
+  return left.length === edges.length ? edges : left
+}
+
+/** 노드 삭제. 거기 붙어 있던 선도 함께. */
+export function removeNode(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+  id: string,
+): { nodes: CanvasNodeData[]; edges: CanvasEdge[] } {
+  if (!nodes.some((node) => node.id === id)) return { nodes, edges }
+  return {
+    nodes: nodes.filter((node) => node.id !== id),
+    edges: edges.filter((edge) => edge.from !== id && edge.to !== id),
+  }
+}
+
+/** 선이 드나드는 자리. 입력은 왼쪽, 출력은 오른쪽, 둘 다 카드 높이의 가운데. */
 export function portPoint(
   node: Pick<CanvasNodeData, 'x' | 'y'>,
   side: 'in' | 'out',
@@ -153,7 +210,7 @@ export function edgePath(
   return roundedPath(routeEdge(from, to, avoid) ?? [from, to])
 }
 
-/** 선 목록을 그릴 좌표로 바꾼다. 양 끝 중 하나라도 없는 선은 버린다. */
+/** 선 목록 → 그릴 좌표. 양 끝 중 하나라도 없으면 버린다. */
 export function edgeGeometry(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[] = CANVAS_EDGES,

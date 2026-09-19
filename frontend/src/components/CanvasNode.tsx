@@ -18,6 +18,21 @@ const MY_CHIP: CSSProperties = {
   boxShadow: 'inset 0 0 0 1px #a0758f',
 }
 
+/** 선을 잇는 자리. */
+const PORT_DOT = 12
+const PORT_HIT = 24
+
+const PORT_BASE: CSSProperties = {
+  position: 'absolute',
+  width: `${PORT_HIT}px`,
+  height: `${PORT_HIT}px`,
+  top: `${168 / 2 - PORT_HIT / 2}px`,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'crosshair',
+}
+
 const MINE_RING =
   'inset 0 0 0 1.5px rgba(255,190,220,.55), 0 0 0 5px rgba(255,190,220,.07), inset 0 1px 0 rgba(255,255,255,.2)'
 const PLAIN_RING = 'inset 0 1px 0 rgba(255,255,255,.12)'
@@ -33,7 +48,7 @@ export interface CanvasNodeProps {
   mine: boolean
   /** 계속 도는 모션 */
   floaty: string
-  /** 등장 모션. 없으면 생략한다 */
+  /** 등장 모션. 없으면 생략 */
   enter?: string
   background: string
   numberColor?: string
@@ -50,6 +65,12 @@ export interface CanvasNodeProps {
   onPointerUp?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onHover?: (index: number) => void
   onHoverOut?: () => void
+  /** 주면 좌우에 연결 점이 생긴다. */
+  onPortDown?: (side: 'in' | 'out', ev: React.PointerEvent<HTMLDivElement>) => void
+  /** 선을 놓은 자리의 노드를 화면에서 되찾을 때. */
+  nodeId?: string
+  /** 참이면 그 포트를 흐리게 둔다. */
+  portDim?: (side: 'in' | 'out') => boolean
 }
 
 export default function CanvasNode({
@@ -74,14 +95,14 @@ export default function CanvasNode({
   onPointerUp,
   onHover,
   onHoverOut,
+  onPortDown,
+  nodeId,
+  portDim,
 }: CanvasNodeProps) {
   const clickable = !!onSelect
   const draggable = !!onPointerDown
 
-  // 등장 모션이 끝났는지 확인. 끝난 뒤에는 제거해야 드래그를 마치고 animation 을 되돌릴 때
-  // uiIn 이 처음부터 다시 돌아 카드가 사라졌다가 나타난다.
-  // 한 번이라도 끌었으면 등장 모션을 다시 주지 않는다. 드래그를 마치고 animation 을 되돌릴 때
-  // uiIn 이 처음부터 다시 돌아 카드가 사라졌다 나타난다.
+  // 한 번이라도 이동했으면 등장 모션 제외. 되돌릴 때 다시 재생되어 카드가 사라졌다 나타난다.
   const [dragged, setDragged] = useState(false)
   const motion = dragged || !enter ? floaty : `${floaty}, ${enter}`
 
@@ -94,6 +115,7 @@ export default function CanvasNode({
 
   return (
     <div
+      data-node={nodeId}
       title={title}
       onClick={clickable ? () => onSelect(index) : undefined}
       onMouseEnter={onHover ? () => onHover(index) : undefined}
@@ -109,9 +131,9 @@ export default function CanvasNode({
         background,
         gap: '5px',
         boxShadow: mine ? MINE_RING : PLAIN_RING,
-        // floaty 가 인라인 transform 보다 우선 순위가 높으므로 드래그 중에는 꺼야 한다.
+        // floaty 가 인라인 transform 보다 우선이라 드래그 중에는 꺼 둔다.
         animation: dragging ? undefined : motion,
-        // floaty 를 끄면 레이어 승격도 풀려 이어받지 않으면 링과 글씨가 늦게 그려진다.
+        // floaty 를 끄면 레이어 승격도 풀려 링과 글씨가 늦게 그려진다.
         willChange: dragging ? 'transform' : undefined,
         zIndex: dragging ? 5 : undefined,
         ...(glass
@@ -127,12 +149,37 @@ export default function CanvasNode({
         dragging
           ? 'absolute flex cursor-grabbing flex-col items-center justify-center rounded-full select-none'
           : draggable
-            ? 'absolute flex cursor-grab flex-col items-center justify-center rounded-full select-none hover:-translate-y-[5px]'
+            ? 'absolute flex cursor-grab flex-col items-center justify-center rounded-full select-none'
             : clickable
               ? 'absolute flex cursor-pointer flex-col items-center justify-center rounded-full hover:-translate-y-[5px]'
               : 'absolute flex flex-col items-center justify-center rounded-full'
       }
     >
+      {onPortDown &&
+        (['in', 'out'] as const).map((side) => (
+          <div
+            key={side}
+            data-port={`${side}`}
+            style={{
+              ...PORT_BASE,
+              [side === 'in' ? 'left' : 'right']: `${-PORT_HIT / 2}px`,
+            }}
+            onPointerDown={(ev) => onPortDown(side, ev)}
+          >
+            <div
+              className="rounded-full"
+              style={{
+                width: `${PORT_DOT}px`,
+                height: `${PORT_DOT}px`,
+                background: 'rgba(255,224,238,.9)',
+                boxShadow: '0 0 0 3px rgba(40,20,40,.55), 0 0 10px rgba(255,190,220,.5)',
+                pointerEvents: 'none',
+                opacity: portDim?.(side) ? 0.22 : 1,
+                transition: 'opacity .18s',
+              }}
+            />
+          </div>
+        ))}
       {mine && <div style={MY_CHIP}>MY</div>}
       <div
         className="text-[14px] font-semibold"

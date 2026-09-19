@@ -6,8 +6,12 @@ import {
   NODE_GAP,
   NODE_SIZE,
   PLACED_FLOATY,
+  canConnect,
   canSellWorkflow,
+  connect,
+  disconnect,
   edgeGeometry,
+  edgeId,
   edgePath,
   moveNode,
   overlaps,
@@ -15,6 +19,7 @@ import {
   placeNode,
   resolveOverlap,
   portPoint,
+  removeNode,
   type CanvasNodeData,
 } from './canvasWorkflow'
 
@@ -267,7 +272,11 @@ describe('edgeGeometry', () => {
 
   it('한쪽 노드가 없는 선은 버린다', () => {
     const 없앰 = CANVAS_NODES.filter((n) => n.id !== 'seed-1')
-    expect(edgeGeometry(없앰).map((e) => e.id)).toEqual(['edge-2', 'edge-3', 'edge-4'])
+    expect(edgeGeometry(없앰).map((e) => e.id)).toEqual([
+      edgeId('seed-2', 'seed-3'),
+      edgeId('seed-3', 'seed-4'),
+      edgeId('seed-4', 'seed-5'),
+    ])
   })
 })
 
@@ -286,5 +295,117 @@ describe('CANVAS_EDGES', () => {
 
   it('자기 자신을 잇는 선은 없다', () => {
     expect(CANVAS_EDGES.every((e) => e.from !== e.to)).toBe(true)
+  })
+})
+
+describe('canConnect', () => {
+  const 사슬 = [
+    { id: 'a__b', from: 'a', to: 'b' },
+    { id: 'b__c', from: 'b', to: 'c' },
+  ]
+
+  it('빈 입력이면 이을 수 있다', () => {
+    expect(canConnect(사슬, 'a', 'd')).toBe(true)
+  })
+
+  it('입력이 이미 찬 노드로는 못 잇는다 — 선은 하나만 받는다', () => {
+    expect(canConnect(사슬, 'a', 'c')).toBe(false)
+  })
+
+  it('출력은 여러 갈래로 나뉠 수 있다', () => {
+    const 갈래 = connect(사슬, 'a', 'd')
+    expect(갈래).toHaveLength(3)
+    expect(canConnect(갈래, 'a', 'e')).toBe(true)
+  })
+
+  it('자기 자신은 못 잇는다', () => {
+    expect(canConnect(사슬, 'a', 'a')).toBe(false)
+  })
+
+  it('이미 있는 선은 다시 못 잇는다', () => {
+    expect(canConnect(사슬, 'a', 'b')).toBe(false)
+  })
+
+  it('바로 되돌아가는 선은 막는다', () => {
+    expect(canConnect(사슬, 'b', 'a')).toBe(false)
+  })
+
+  it('멀리 돌아 고리가 되는 선도 막는다', () => {
+    expect(canConnect(사슬, 'c', 'a')).toBe(false)
+  })
+
+  it('고리가 아니어도 입력이 찼으면 막는다', () => {
+    expect(canConnect([...사슬, { id: 'a__d', from: 'a', to: 'd' }], 'd', 'c')).toBe(false)
+  })
+})
+
+describe('connect', () => {
+  it('이을 수 있으면 끝에 붙인다', () => {
+    const after = connect([], 'a', 'b')
+    expect(after).toHaveLength(1)
+    expect(after[0]).toMatchObject({ id: edgeId('a', 'b'), from: 'a', to: 'b' })
+  })
+
+  it('이을 수 없으면 목록이 그대로다', () => {
+    const before = [{ id: 'a__b', from: 'a', to: 'b' }]
+    expect(connect(before, 'b', 'a')).toBe(before)
+    expect(connect(before, 'a', 'a')).toBe(before)
+    expect(connect(before, 'a', 'b')).toBe(before)
+  })
+
+  it('원래 목록을 건드리지 않는다', () => {
+    const before = [{ id: 'a__b', from: 'a', to: 'b' }]
+    connect(before, 'b', 'c')
+    expect(before).toHaveLength(1)
+  })
+
+  it('자리표시자에 이어 붙여도 고리가 생기지 않는다', () => {
+    expect(canConnect(CANVAS_EDGES, 'seed-5', 'seed-1')).toBe(false)
+    // seed-5 는 이미 seed-4 에게서 받고 있다
+    expect(canConnect(CANVAS_EDGES, 'seed-1', 'seed-5')).toBe(false)
+  })
+})
+
+describe('disconnect', () => {
+  const edges = [
+    { id: 'a__b', from: 'a', to: 'b' },
+    { id: 'b__c', from: 'b', to: 'c' },
+  ]
+
+  it('고른 선만 지운다', () => {
+    expect(disconnect(edges, 'a__b').map((e) => e.id)).toEqual(['b__c'])
+  })
+
+  it('없는 id 면 목록이 그대로다', () => {
+    expect(disconnect(edges, 'zzz')).toBe(edges)
+  })
+
+  it('원래 목록을 건드리지 않는다', () => {
+    disconnect(edges, 'a__b')
+    expect(edges).toHaveLength(2)
+  })
+})
+
+describe('removeNode', () => {
+  it('노드와 거기 붙은 선을 함께 지운다', () => {
+    const after = removeNode(CANVAS_NODES, CANVAS_EDGES, 'seed-2')
+    expect(after.nodes.map((n) => n.id)).not.toContain('seed-2')
+    expect(after.edges.every((e) => e.from !== 'seed-2' && e.to !== 'seed-2')).toBe(true)
+  })
+
+  it('가운데 노드를 지우면 앞뒤 선이 모두 사라진다 — 이어 붙이지는 않는다', () => {
+    const after = removeNode(CANVAS_NODES, CANVAS_EDGES, 'seed-3')
+    expect(after.edges).toHaveLength(CANVAS_EDGES.length - 2)
+  })
+
+  it('지운 뒤 남은 노드의 입력이 비어 다시 이을 수 있다', () => {
+    const after = removeNode(CANVAS_NODES, CANVAS_EDGES, 'seed-2')
+    expect(canConnect(after.edges, 'seed-1', 'seed-3')).toBe(true)
+  })
+
+  it('없는 id 면 둘 다 그대로다', () => {
+    const after = removeNode(CANVAS_NODES, CANVAS_EDGES, 'zzz')
+    expect(after.nodes).toBe(CANVAS_NODES)
+    expect(after.edges).toBe(CANVAS_EDGES)
   })
 })

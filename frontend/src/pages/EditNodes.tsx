@@ -6,13 +6,19 @@ import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import CanvasNode from '@/components/CanvasNode'
 import {
-  CANVAS_EDGES,
   CANVAS_NODES,
   NODE_SIZE,
   canSellWorkflow,
   clampToBounds,
+  CANVAS_EDGES,
+  canConnect,
+  connect,
+  disconnect,
   edgeGeometry,
+  edgePath,
   moveNode,
+  portPoint,
+  removeNode,
   resolveOverlap,
   placeNode,
   NO_BOUNDS,
@@ -34,7 +40,7 @@ const SCOPE = 'ALL' as const
 const PANE_WIDTH = 1076
 /** 끌어 놓기로 주고받는 것은 팔레트 항목 id 하나뿐이다. 브라우저가 소문자로만 받는다. */
 const DND_TYPE = 'application/x-placeable-item'
-/** 이 거리보다 움직였으면 고른 것이 아니라 옮긴 것으로 본다. */
+/** 이 거리보다 움직였으면 선택이 아니라 이동으로 본다. */
 const DRAG_SLOP = 4
 /** 겹친 자리에 놓았을 때 빈자리로 미끄러지는 시간(ms). */
 const SETTLE_MS = 160
@@ -55,16 +61,22 @@ export default function EditNodes() {
 
   const paneRef = useRef<HTMLDivElement>(null)
   const [dragId, setDragId] = useState<string | null>(null)
+  const [edges, setEdges] = useState(CANVAS_EDGES)
+  /** 선택한 연결선. 노드 선택(`sel`)과 한 번에 하나만 살아 있다. */
+  const [selEdge, setSelEdge] = useState<string | null>(null)
   /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
-  const edgeRef = useRef<SVGSVGElement>(null)
+  const tempRef = useRef<SVGPathElement>(null)
+  /** 포트에서 선을 끄는 중. 리렌더가 필요 없어 ref 로 든다. */
+  const link = useRef<{ id: string; side: 'in' | 'out' } | null>(null)
+  const [linking, setLinking] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const grab = useRef<{
     id: string
     /** 잡은 지점과 카드 왼쪽 위의 차이 */
     dx: number
     dy: number
-    /** 누른 창 좌표 — 고르기와 옮기기를 가르는 기준 */
+    /** 누른 창 좌표 선택과 이동의 기준 */
     ox: number
     oy: number
     el: HTMLDivElement
@@ -114,13 +126,16 @@ export default function EditNodes() {
     }
   }
 
+  // 누를 때 이미 골라져 있었는지. 그때만 click 에서 선택을 푼다.
+  const reselect = useRef(false)
+
   // 옮기고 손을 뗀 직후에 click 이 한 번 더 온다. 그때 선택이 뒤집히지 않게 막는다.
-  const handleSelect = (i: number) => {
+  const handleSelect = () => {
     if (moved.current) {
       moved.current = false
       return
     }
-    setSel(sel === i ? -1 : i)
+    if (reselect.current) setSel(-1)
   }
 
   /** 포인터를 카드에 묶는다. 캡처하지 않으면 커서가 카드를 벗어날 때 움직임을 놓친다. */
@@ -143,6 +158,11 @@ export default function EditNodes() {
     }
     landing.current = { x: node.x, y: node.y }
     moved.current = false
+    // 누르는 즉시 고른다. 끌고 난 뒤에도 그 노드가 골라진 채로 남는다.
+    const picked = nodes.indexOf(node)
+    reselect.current = sel === picked
+    setSelEdge(null)
+    setSel(picked)
     setDragId(id)
     // 캡처가 막히는 환경이 있어도 끌기 자체는 살려 둔다 — 카드 위에서는 그대로 따라온다.
     try {
@@ -173,14 +193,11 @@ export default function EditNodes() {
       glowRef.current.style.left = `${next.x - 16}px`
       glowRef.current.style.top = `${next.y - 16}px`
     }
-    // 선과 마스크 구멍도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
-    const hole = edgeRef.current?.querySelector(`[data-mask-node="${held.id}"]`)
-    hole?.setAttribute('cx', `${next.x + NODE_SIZE / 2}`)
-    hole?.setAttribute('cy', `${next.y + NODE_SIZE / 2}`)
+    // 선도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
     const preview = nodes.map((node) => (node.id === held.id ? { ...node, ...next } : node))
-    for (const edge of edgeGeometry(preview, CANVAS_EDGES)) {
+    for (const edge of edgeGeometry(preview, edges)) {
       if (edge.from !== held.id && edge.to !== held.id) continue
-      edgeRef.current
+      paneRef.current
         ?.querySelectorAll(`[data-edge="${edge.id}"]`)
         .forEach((path) => path.setAttribute('d', edge.d))
     }
@@ -207,7 +224,14 @@ export default function EditNodes() {
       held.el.style.top = `${settled.y}px`
       // 거리를 재기 전에 리렌더가 끝나면 transition 이 되살아난 뒤 transform 이 지워져, 새 자리로 미끄러진다.
       void held.el.offsetHeight
-      setNodes((prev) => moveNode(prev, held.id, settled.x, settled.y, held.bounds))
+      const after = moveNode(nodes, held.id, settled.x, settled.y, held.bounds)
+      // 끄는 동안 직접 써 넣은 선은 React 가 모른다. 최종 경로도 직접 확정해야 남지 않는다.
+      for (const edge of edgeGeometry(after, edges)) {
+        paneRef.current
+          ?.querySelectorAll(`[data-edge="${edge.id}"]`)
+          .forEach((path) => path.setAttribute('d', edge.d))
+      }
+      setNodes(after)
       setDragId(null)
     }
 
@@ -222,6 +246,86 @@ export default function EditNodes() {
       fill: 'both',
     })
     settleTimer.current = setTimeout(commit, SETTLE_MS)
+  }
+
+  /** 선택한 것 삭제. 노드면 거기 붙은 선도 함께. */
+  const removeSelected = () => {
+    if (selEdge) {
+      setEdges((prev) => disconnect(prev, selEdge))
+      setSelEdge(null)
+      return
+    }
+    const node = nodes[sel]
+    if (!node) return
+    const after = removeNode(nodes, edges, node.id)
+    setNodes(after.nodes)
+    setEdges(after.edges)
+    setSel(-1)
+    setHov(-1)
+  }
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
+      // 글자를 지우는 중일 수 있다.
+      const target = ev.target as HTMLElement | null
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      if (!selEdge && !nodes[sel]) return
+      ev.preventDefault()
+      removeSelected()
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  })
+
+  /** 포트를 누르면 노드가 아니라 선을 끈다. */
+  const handlePortDown =
+    (id: string) => (side: 'in' | 'out', ev: React.PointerEvent<HTMLDivElement>) => {
+      if (ev.button !== 0) return
+      // 막지 않으면 노드까지 같이 끌려간다.
+      ev.stopPropagation()
+      link.current = { id, side }
+      // 포트에서 손을 떼도 click 이 노드로 올라온다. 선택이 뒤집히지 않게 막는다.
+      moved.current = true
+      setLinking(true)
+      try {
+        ev.currentTarget.setPointerCapture(ev.pointerId)
+      } catch {
+        /* 이미 놓인 포인터 */
+      }
+    }
+
+  const handlePortMove = (ev: React.PointerEvent<HTMLDivElement>) => {
+    const held = link.current
+    const node = held && nodes.find((n) => n.id === held.id)
+    const point = node && toCanvasPoint(ev.clientX, ev.clientY)
+    if (!held || !node || !point) return
+    const anchor = portPoint(node, held.side)
+    const d = held.side === 'out' ? edgePath(anchor, point) : edgePath(point, anchor)
+    tempRef.current?.setAttribute('d', d)
+  }
+
+  const handlePortUp = (ev: React.PointerEvent<HTMLDivElement>) => {
+    const held = link.current
+    link.current = null
+    setLinking(false)
+    if (!held) return
+    // 손을 뗀 자리의 포트는 화면에 물어본다.
+    const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-port]')
+    const side = hit?.getAttribute('data-port')
+    const target = nodes.find(
+      (n) => hit?.closest('[data-node]')?.getAttribute('data-node') === n.id,
+    )
+    if (!target || !side || side === held.side) return
+    const [from, to] = held.side === 'out' ? [held.id, target.id] : [target.id, held.id]
+    setEdges((prev) => connect(prev, from, to))
+  }
+
+  /** 빈 곳을 누르면 선택 해제. */
+  const handlePaneDown = (ev: React.PointerEvent<HTMLDivElement>) => {
+    if ((ev.target as HTMLElement).closest('[data-node],[data-edge]')) return
+    setSel(-1)
+    setSelEdge(null)
   }
 
   const handleDragOver = (ev: React.DragEvent<HTMLDivElement>) => {
@@ -317,6 +421,15 @@ export default function EditNodes() {
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
+  // 선을 끄는 동안 이을 수 있는 포트만 밝게.
+  const linkFrom = linking ? link.current : null
+  const portOpen = (id: string, side: 'in' | 'out') => {
+    if (!linkFrom) return true
+    if (side === linkFrom.side) return false
+    const [a, b] = linkFrom.side === 'out' ? [linkFrom.id, id] : [id, linkFrom.id]
+    return canConnect(edges, a, b)
+  }
+
   const n = nodes[sel]
   const g = nodes[hov] || n // 빛은 호버 중인 노드를 따라간다
   const selRing = g
@@ -361,6 +474,7 @@ export default function EditNodes() {
       <div
         ref={paneRef}
         className="absolute top-0 left-0"
+        onPointerDown={handlePaneDown}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         style={{
@@ -404,48 +518,24 @@ export default function EditNodes() {
             animation: 'uiIn .8s .5s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          오른쪽에서 끌어다 놓고, 놓인 노드를 끌어 옮깁니다
+          드래그하여 노드를 배치하고, 선으로 연결합니다
         </div>
 
-        <svg
-          ref={edgeRef}
-          className="pointer-events-none absolute top-0 left-0"
-          width="1076"
-          height="1024"
-          viewBox="0 0 1076 1024"
-          style={{ overflow: 'visible' }}
-        >
-          <defs>
-            <linearGradient id="edgeOn" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
-              <stop offset="100%" stopColor="#dba18b" stopOpacity=".8" />
-            </linearGradient>
-          </defs>
-          {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edgeGeometry(nodes).map((edge, i) => (
-              <Fragment key={edge.id}>
-                <path
-                  data-edge={edge.id}
-                  d={edge.d}
-                  fill="none"
-                  stroke="url(#edgeOn)"
-                  strokeWidth="3.4"
-                />
-                <path
-                  data-edge={edge.id}
-                  d={edge.d}
-                  fill="none"
-                  stroke="rgba(255,224,238,.85)"
-                  strokeWidth="3.4"
-                  strokeLinecap="round"
-                  strokeDasharray="3 18"
-                  style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
-                />
-              </Fragment>
-            ))}
-          </g>
-        </svg>
+        {(selEdge || nodes[sel]) && (
+          <div
+            className="absolute left-0 flex items-center justify-center text-[14px]"
+            style={{
+              top: 'calc(102px - var(--edge-y, 0px))',
+              width: '980px',
+              gap: '7px',
+              color: 'rgba(255,214,234,.82)',
+              animation: 'uiIn .3s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            <StatusDot size={6} color="rgba(255,190,220,.9)" />
+            {selEdge ? '연결선 선택됨' : '노드 선택됨'} · Delete 로 삭제
+          </div>
+        )}
 
         {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 왼쪽 끝에서 잘라 넘어간 만큼만 가린다. */}
         <div
@@ -470,16 +560,90 @@ export default function EditNodes() {
               title={
                 node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
               }
+              nodeId={node.id}
               dragging={dragId === node.id}
               onSelect={handleSelect}
               onPointerDown={handleNodePointerDown(node.id)}
-              onPointerMove={handleNodePointerMove}
-              onPointerUp={handleNodePointerUp}
+              onPortDown={handlePortDown(node.id)}
+              portDim={(side) => !portOpen(node.id, side)}
+              // 노드 이동인지 선 연결인지는 각자 ref 로 가른다.
+              onPointerMove={(ev) => {
+                handleNodePointerMove(ev)
+                handlePortMove(ev)
+              }}
+              onPointerUp={(ev) => {
+                handleNodePointerUp()
+                handlePortUp(ev)
+              }}
               onHover={setHov}
               onHoverOut={handleHovOut}
             />
           ))}
         </div>
+
+        <svg
+          className="pointer-events-none absolute top-0 left-0"
+          width="1076"
+          height="1024"
+          viewBox="0 0 1076 1024"
+          style={{ overflow: 'visible' }}
+        >
+          <defs>
+            <linearGradient id="edgeOn" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
+              <stop offset="100%" stopColor="#dba18b" stopOpacity=".8" />
+            </linearGradient>
+          </defs>
+          {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
+          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edgeGeometry(nodes, edges).map((edge, i) => (
+              <Fragment key={edge.id}>
+                <path
+                  data-edge={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke={selEdge === edge.id ? 'rgba(255,214,234,.95)' : 'url(#edgeOn)'}
+                  strokeWidth={selEdge === edge.id ? 5 : 3.4}
+                />
+                <path
+                  data-edge={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke="rgba(255,224,238,.85)"
+                  strokeWidth="3.4"
+                  strokeLinecap="round"
+                  strokeDasharray="3 18"
+                  style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
+                />
+                {/* 선이 얇아 그대로는 못 누른다. 굵은 투명선에 판정만 맡긴다. */}
+                <path
+                  data-edge={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth="18"
+                  style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                  onPointerDown={(ev) => {
+                    ev.stopPropagation()
+                    setSel(-1)
+                    setSelEdge(selEdge === edge.id ? null : edge.id)
+                  }}
+                />
+              </Fragment>
+            ))}
+            {/* 아직 연결되지 않은 선 */}
+            {linking && (
+              <path
+                ref={tempRef}
+                fill="none"
+                stroke="rgba(255,224,238,.7)"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                strokeDasharray="6 10"
+              />
+            )}
+          </g>
+        </svg>
 
         <div
           className="absolute flex items-center overflow-hidden"
