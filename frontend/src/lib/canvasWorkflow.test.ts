@@ -3,18 +3,14 @@ import { describe, expect, it } from 'vitest'
 import {
   CANVAS_EDGES,
   CANVAS_NODES,
-  NODE_GAP,
   NODE_SIZE,
-  PLACED_FLOATY,
   canConnect,
   canSellWorkflow,
   connect,
   disconnect,
   edgeGeometry,
-  edgeId,
   edgePath,
   moveNode,
-  overlaps,
   type CanvasBounds,
   placeNode,
   resolveOverlap,
@@ -33,6 +29,15 @@ const BOUNDS: CanvasBounds = {
   minY: -HALF,
   maxY: 900 - HALF,
 }
+
+// 아래 셋은 구현에서 가져오지 않는다. 빌려 쓰면 구현이 틀릴 때 단언도 나란히 틀린다.
+const NODE_GAP = 24
+const edgeId = (from: string, to: string) => `${from}__${to}`
+/** 어느 카드와도 맞닿지 않는가. */
+const apart = (nodes: CanvasNodeData[], id: string, x: number, y: number) =>
+  nodes.every(
+    (node) => node.id === id || Math.hypot(x - node.x, y - node.y) >= NODE_SIZE + NODE_GAP,
+  )
 
 /** 좌표만 보면 되는 검사에서 쓰는 최소 노드. */
 const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
@@ -77,7 +82,7 @@ describe('placeNode', () => {
 
   it('등장 모션 없이 떠 있는 모션만 준다 — 이미 놓인 자리에서 튀지 않게', () => {
     const [placed] = placeNode([], seed, 300, 400)
-    expect(placed.floaty).toBe(PLACED_FLOATY)
+    expect(placed.floaty).toMatch(/^floaty /)
     expect(placed.enter).toBeUndefined()
   })
 
@@ -139,7 +144,7 @@ describe('CANVAS_NODES', () => {
 
   it('자리표시자가 서로 겹치지 않는다', () => {
     for (const node of CANVAS_NODES) {
-      expect(overlaps(CANVAS_NODES, node.id, node.x, node.y)).toBe(false)
+      expect(apart(CANVAS_NODES, node.id, node.x, node.y)).toBe(true)
     }
   })
 })
@@ -158,26 +163,26 @@ describe('resolveOverlap', () => {
   it('겹쳐 놓으면 떨어뜨린다', () => {
     const nodes = [nodeAt('a', 300, 400)]
     const moved = resolveOverlap(nodes, 'b', 320, 410)
-    expect(overlaps(nodes, 'b', moved.x, moved.y)).toBe(false)
+    expect(apart(nodes, 'b', moved.x, moved.y)).toBe(true)
   })
 
   it('완전히 포개도 방향을 찾아 뗀다', () => {
     const nodes = [nodeAt('a', 300, 400)]
     const moved = resolveOverlap(nodes, 'b', 300, 400)
-    expect(overlaps(nodes, 'b', moved.x, moved.y)).toBe(false)
+    expect(apart(nodes, 'b', moved.x, moved.y)).toBe(true)
   })
 
   it('여러 개가 둘러싸도 빈자리를 찾는다', () => {
     const nodes = [nodeAt('a', 200, 300), nodeAt('b', 380, 300), nodeAt('c', 290, 480)]
     const moved = resolveOverlap(nodes, 'x', 295, 380)
-    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
+    expect(apart(nodes, 'x', moved.x, moved.y)).toBe(true)
   })
 
   it('벽이 없어도 되풀이가 끝난다 — 겹침만 풀고 멈춘다', () => {
     const nodes = [nodeAt('a', 0, 0), nodeAt('b', 100, 0), nodeAt('c', 50, 100)]
     const moved = resolveOverlap(nodes, 'x', 50, 40)
     expect(Number.isFinite(moved.x) && Number.isFinite(moved.y)).toBe(true)
-    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
+    expect(apart(nodes, 'x', moved.x, moved.y)).toBe(true)
   })
 
   it('맞닿지 않게 간격을 남긴다', () => {
@@ -193,14 +198,14 @@ describe('겹침은 놓을 때도 옮길 때도 막는다', () => {
   it('이미 있는 자리에 놓으면 밀려난다', () => {
     const base = [nodeAt('a', 300, 400)]
     const [, placed] = placeNode(base, seed, 305, 405)
-    expect(overlaps(base, placed.id, placed.x, placed.y)).toBe(false)
+    expect(apart(base, placed.id, placed.x, placed.y)).toBe(true)
   })
 
   it('다른 카드 위로 옮기면 밀려난다', () => {
     const base = [nodeAt('a', 300, 400), nodeAt('b', 0, 200)]
     const after = moveNode(base, 'b', 302, 402)
     const b = after.find((n) => n.id === 'b')!
-    expect(overlaps(after, 'b', b.x, b.y)).toBe(false)
+    expect(apart(after, 'b', b.x, b.y)).toBe(true)
   })
 })
 
@@ -209,14 +214,14 @@ describe('패널 경계와 겹침이 함께 걸릴 때', () => {
     const nodes = [nodeAt('a', BOUNDS.maxX, 400)]
     const moved = resolveOverlap(nodes, 'x', 9999, 420, BOUNDS)
     expect(moved.x).toBeLessThanOrEqual(BOUNDS.maxX)
-    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
+    expect(apart(nodes, 'x', moved.x, moved.y)).toBe(true)
   })
 
   it('패널 앞에 두 장이 있어도 서로 비킨다', () => {
     const nodes = [nodeAt('a', BOUNDS.maxX, 300), nodeAt('b', BOUNDS.maxX, 500)]
     const moved = resolveOverlap(nodes, 'x', 9999, 400, BOUNDS)
     expect(moved.x).toBeLessThanOrEqual(BOUNDS.maxX)
-    expect(overlaps(nodes, 'x', moved.x, moved.y)).toBe(false)
+    expect(apart(nodes, 'x', moved.x, moved.y)).toBe(true)
   })
 
   it('네 방향이 다 막혀도 범위 안에서 답을 낸다', () => {

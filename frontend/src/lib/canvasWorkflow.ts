@@ -5,7 +5,7 @@ import { roundedPath, routeEdge } from './edgeRoute'
 /** 노드 카드의 한 변(px). 좌표는 카드의 왼쪽 위 모서리이다. */
 export const NODE_SIZE = 168
 /** 카드 사이에 남기는 최소 간격(px). */
-export const NODE_GAP = 24
+const NODE_GAP = 24
 /**
  * 카드 왼쪽 위 좌표가 들어갈 수 있는 범위.
  *
@@ -63,7 +63,7 @@ export interface CanvasNodeData {
 }
 
 /** 놓인 노드에 주는 모션. 자리를 잡은 뒤라 등장 모션은 주지 않는다. */
-export const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
+const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
 
 export const CANVAS_NODES: CanvasNodeData[] = [
   {
@@ -126,7 +126,7 @@ export interface CanvasEdge {
 }
 
 /** 선의 이름은 양 끝에서. */
-export function edgeId(from: string, to: string): string {
+function edgeId(from: string, to: string): string {
   return `${from}__${to}`
 }
 
@@ -215,12 +215,12 @@ export function edgeGeometry(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[] = CANVAS_EDGES,
 ): { id: string; from: string; to: string; d: string }[] {
+  // 제 카드도 가로지르면 안 된다. 포트에서 나가는 짧은 구간만 예외.
+  const avoid = nodes.map((node) => ({ x: node.x + NODE_SIZE / 2, y: node.y + NODE_SIZE / 2 }))
   return edges.flatMap((edge) => {
     const from = nodes.find((node) => node.id === edge.from)
     const to = nodes.find((node) => node.id === edge.to)
     if (!from || !to) return []
-    // 제 카드도 가로지르면 안 된다. 포트에서 나가는 짧은 구간만 예외.
-    const avoid = nodes.map((node) => ({ x: node.x + NODE_SIZE / 2, y: node.y + NODE_SIZE / 2 }))
     return [{ ...edge, d: edgePath(portPoint(from, 'out'), portPoint(to, 'in'), avoid) }]
   })
 }
@@ -231,7 +231,7 @@ export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
 }
 
 /** 겹치는 카드가 하나라도 있는지. */
-export function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
+function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
   return nodes.some(
     (node) => node.id !== id && Math.hypot(x - node.x, y - node.y) < NODE_SIZE + NODE_GAP,
   )
