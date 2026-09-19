@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import catalog
+from . import expand as expand_mod
 
 # 계약 §5.6 — 넷 다 정의만 보면 정해지는 정적인 값이다
 LIMIT_CANVAS_NODES = 8
@@ -201,9 +202,12 @@ def skip_reason(graph: Graph, node_id: str, payloads: dict[str, Any],
 def evaluate(condition: dict, payloads: dict[str, Any]) -> bool:
     """분기 조건 평가. `left` 는 "<노드ID>.<payload 경로>" 이며 임의 상위를 가리킬 수 있다."""
     left_ref = str(condition.get("left") or "")
-    node_id, _, path = left_ref.partition(".")
-    if node_id not in payloads:
+    # 전개된 노드 id 에는 점이 들어간다(`a1.n1`). 가장 긴 노드 id 부터 맞춘다
+    node_id = next((k for k in sorted(payloads, key=len, reverse=True)
+                    if left_ref == k or left_ref.startswith(k + ".")), None)
+    if node_id is None:
         raise ConditionInvalid(f"조건이 가리키는 노드가 실행되지 않았습니다: {left_ref}")
+    path = left_ref[len(node_id):].lstrip(".")
     value = payloads[node_id]
     for key in [p for p in path.split(".") if p]:
         if isinstance(value, dict) and key in value:
@@ -260,6 +264,7 @@ def estimate(wf: dict) -> dict:
     `unpriced_nodes` 에 남겨 "견적을 믿을 수 없다"는 것을 드러낸다(계약 §8.2).
     분기 노드 자체는 과금하지 않는다(계약 §8.4).
     """
+    wf, _ = expand_mod.expand(wf)
     graph = build(wf)
     branches = [n for n in graph.order if graph.is_branch(n)]
     best_total, best_nodes = 0.0, []
@@ -297,6 +302,13 @@ def validate(wf: dict) -> dict:
                 "warnings": [], "stats": {}}
 
     try:
+        wf, expand_stats = expand_mod.expand(wf)
+    except expand_mod.ExpandError as e:
+        return {"valid": False,
+                "errors": [{"code": e.code, "node_id": e.node_id, "message": e.message}],
+                "warnings": [], "stats": {"node_count": len(nodes_list)}}
+
+    try:
         graph = build(wf)
     except GraphError as e:
         return {"valid": False,
@@ -317,9 +329,6 @@ def validate(wf: dict) -> dict:
             if sorted(whens) != [False, True]:
                 err("BRANCH_EDGES_INVALID", node_id,
                     "분기 노드는 when: true · when: false 간선이 각각 하나여야 합니다")
-            continue
-        if kind == "agent":
-            err("AGENT_NOT_SUPPORTED", node_id, "에이전트 전개는 아직 지원하지 않습니다")
             continue
         if not str(node.get("prompt", "")).strip():
             err("MISSING_PROMPT", node_id, "prompt 가 비어 있습니다")
@@ -360,6 +369,14 @@ def validate(wf: dict) -> dict:
                     f"{edges[0]['from']}의 출력({upstream_schemas[0]})이 "
                     f"{node_id}의 입력({in_schema})과 맞지 않습니다")
 
+    # 에이전트 경계 — 내부 종단이 공개한 형식과 다르면 공급자 책임이다(계약 §5.2)
+    for node_id in graph.order:
+        boundary = expand_mod.boundary_of(graph.node(node_id))
+        if boundary and graph.node(node_id).get("output_schema_id") != boundary["schema_id"]:
+            err("AGENT_BOUNDARY_VIOLATION", node_id,
+                f"에이전트가 공개한 출력({boundary['schema_id']})과 내부 종단의 출력"
+                f"({graph.node(node_id).get('output_schema_id')})이 다릅니다")
+
     # 종단 노드와 output.schema_id
     output_schema = (wf.get("output") or {}).get("schema_id")
     terminals = [n for n in graph.order if not graph.outgoing.get(n)]
@@ -372,8 +389,9 @@ def validate(wf: dict) -> dict:
 
     # 규모 상한
     path = longest_path(graph)
-    stats = {"node_count": len(nodes_list), "expanded_node_count": len(nodes_list),
-             "longest_path": path, "agent_depth": 0}
+    stats = {"node_count": expand_stats["canvas_node_count"],
+             "expanded_node_count": expand_stats["expanded_node_count"],
+             "longest_path": path, "agent_depth": expand_stats["agent_depth"]}
     if stats["node_count"] > LIMIT_CANVAS_NODES:
         err("LIMIT_EXCEEDED", None, f"캔버스 노드는 {LIMIT_CANVAS_NODES}개까지입니다")
     if stats["expanded_node_count"] > LIMIT_EXPANDED_NODES:
