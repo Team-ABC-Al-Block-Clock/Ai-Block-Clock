@@ -96,3 +96,37 @@ def test_스키마_목록과_전문을_API_로_받는다():
     one = client.get("/v1/schemas/biz.brand_brief@1")
     assert one.status_code == 200 and one.json()["title"] == "브랜드 기획 요청서"
     assert client.get("/v1/schemas/biz.없는것@1").status_code == 404
+
+
+# --- 실측 원가 (NOD-007 · EXE-013) -------------------------------------------
+
+def test_실측_원가는_토큰과_단가에서_결정적으로_나온다():
+    from src import pricing
+    # 가이드 §11.5 — Σ(입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) × ABC 환산율
+    assert pricing.cost_usd("gemini-2.5-flash", 1_000_000, 0) == 0.30
+    assert pricing.cost_usd("gemini-2.5-flash", 0, 1_000_000) == 2.50
+    assert pricing.cost_abc("gemini-2.5-flash", 1_000_000, 0) == 300.0
+    assert pricing.cost_abc("mock", 9999, 9999) == 0.0        # 모델을 부르지 않았다
+
+
+def test_봉투와_합계에_원가_자리가_채워진다():
+    run = _run()
+    assert run["totals"]["cost_abc"] == 0.0                   # mock 이라 0
+    assert all(n["cost_abc"] == 0.0 for n in run["nodes"])
+    assert run["result"]["envelope"]["meta"]["cost_abc"] == 0.0
+
+
+def test_교정_재요청분_토큰도_원가에_들어간다():
+    import json as _json
+
+    from src import catalog, nodes
+    from tests.test_nodes import FakeLLM, _market
+
+    bad = _json.dumps(_market(competition_level="medium"), ensure_ascii=False)
+    good = _json.dumps(_market(), ensure_ascii=False)
+    run = nodes.run_llm_node(FakeLLM(bad, good), run_id="r", node_id="n1",
+                             schema_id="biz.market_research@1", system="s", message="m")
+    assert run.ok and run.repair_count == 1
+    meta = run.envelope["meta"]
+    assert meta["usage"]["input_tokens"] == 20 and meta["usage"]["output_tokens"] == 40   # 2회 합산
+    assert catalog.CATALOG_VERSION

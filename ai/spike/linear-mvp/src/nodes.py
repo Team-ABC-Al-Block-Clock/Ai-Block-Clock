@@ -20,7 +20,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from . import catalog, envelope
+from . import catalog, envelope, pricing
 from .llm import LLM
 
 MAX_REPAIRS = 2                      # 계약 §6.2 — 교정은 2회까지
@@ -105,7 +105,8 @@ def run_llm_node(
             else:
                 attempts.append("")
                 meta = envelope.meta(model, input_tokens=tokens_in, output_tokens=tokens_out,
-                                     duration_ms=duration, retry_count=retries, repair_count=attempt)
+                                     duration_ms=duration, retry_count=retries, repair_count=attempt,
+                                     cost_abc=pricing.cost_abc(model, tokens_in, tokens_out))
                 return NodeRun(ok=True, payload=validated.model_dump(),
                                envelope=envelope.build(run_id, node_id, schema_id,
                                                        validated.model_dump(), meta),
@@ -115,8 +116,10 @@ def run_llm_node(
         if attempt < MAX_REPAIRS:
             user = _repair_message(message, res.text, reason)
 
+    # 실패해도 토큰은 썼다. 원가는 기록하고 정산에서 환원 여부를 가린다
     meta = envelope.meta(model, input_tokens=tokens_in, output_tokens=tokens_out,
-                         duration_ms=duration, retry_count=retries, repair_count=MAX_REPAIRS)
+                         duration_ms=duration, retry_count=retries, repair_count=MAX_REPAIRS,
+                         cost_abc=pricing.cost_abc(model, tokens_in, tokens_out))
     return NodeRun(
         ok=False,
         envelope=envelope.failed(run_id, node_id, schema_id,

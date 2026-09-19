@@ -19,7 +19,7 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
-from . import catalog, errors
+from . import catalog, errors, pricing
 from . import nodes as node_runner
 from .excel_to_text import excel_to_markdown
 from .llm import LLM
@@ -190,14 +190,14 @@ def execute(
         "nodes": [
             {"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
              "context": n.get("context", "prev"), "duration_ms": None,
-             "schema_id": n.get("output_schema_id"), "repair_count": 0,
+             "schema_id": n.get("output_schema_id"), "repair_count": 0, "cost_abc": None,
              "input_tokens": None, "output_tokens": None, "retries": 0, "output": None,
              # 정산 입력값. 백엔드가 요청에 실어 보내면 그대로 되돌려준다
              "owner_id": n.get("owner_id"), "unit_price": n.get("unit_price"),
              "base_cost": n.get("base_cost"), "premium_rate": n.get("premium_rate")}
             for n in nodes
         ],
-        "totals": {"input_tokens": 0, "output_tokens": 0},
+        "totals": {"input_tokens": 0, "output_tokens": 0, "cost_abc": 0.0},
         "contribution": [],
         "not_executed": [],
         "failure": None,
@@ -276,8 +276,10 @@ def execute(
                          repair_count=meta["repair_count"], schema_id=schema_id,
                          input_tokens=meta["usage"]["input_tokens"],
                          output_tokens=meta["usage"]["output_tokens"])
+            entry["cost_abc"] = meta["cost_abc"]
             result["totals"]["input_tokens"] += meta["usage"]["input_tokens"]
             result["totals"]["output_tokens"] += meta["usage"]["output_tokens"]
+            result["totals"]["cost_abc"] = round(result["totals"]["cost_abc"] + (meta["cost_abc"] or 0), 4)
 
             if not nr.ok:
                 err = nr.error
@@ -327,10 +329,13 @@ def execute(
             return result
 
         (out_dir / "nodes" / f"{node['id']}.md").write_text(res.text, encoding="utf-8")
+        node_cost = pricing.cost_abc(res.model, res.input_tokens, res.output_tokens)
         entry.update(status="succeeded", duration_ms=res.duration_ms, input_tokens=res.input_tokens,
-                     output_tokens=res.output_tokens, retries=res.retries, output=res.text)
+                     output_tokens=res.output_tokens, retries=res.retries, output=res.text,
+                     cost_abc=node_cost)
         result["totals"]["input_tokens"] += res.input_tokens
         result["totals"]["output_tokens"] += res.output_tokens
+        result["totals"]["cost_abc"] = round(result["totals"]["cost_abc"] + node_cost, 4)
         prev_output = res.text
         _save(out_dir, result)
         emit("node.succeeded", {"run_id": run_id, "index": i, "node_id": node.get("id"),
