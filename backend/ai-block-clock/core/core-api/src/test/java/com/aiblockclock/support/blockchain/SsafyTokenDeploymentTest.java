@@ -23,14 +23,17 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class SsafyTokenDeploymentTest {
     private static final String TEST_OWNER = "0x1111111111111111111111111111111111111111";
     private static final String TEST_CONTRACT = "0x2222222222222222222222222222222222222222";
-    private MockRestServiceServer server;
+    private MockRestServiceServer queryServer;
+    private MockRestServiceServer transactionServer;
     private SsafyStoClient client;
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = RestClient.builder().baseUrl("https://sto.ssafy.io");
-        server = MockRestServiceServer.bindTo(builder).build();
-        client = new SsafyStoClient(builder.build());
+        RestClient.Builder queryBuilder = RestClient.builder().baseUrl("https://sto.ssafy.io");
+        RestClient.Builder transactionBuilder = RestClient.builder().baseUrl("https://sto.ssafy.io");
+        queryServer = MockRestServiceServer.bindTo(queryBuilder).build();
+        transactionServer = MockRestServiceServer.bindTo(transactionBuilder).build();
+        client = new SsafyStoClient(queryBuilder.build(), transactionBuilder.build());
     }
 
     private SsafyTokenDeploymentRequest request() {
@@ -40,7 +43,7 @@ class SsafyTokenDeploymentTest {
 
     @Test
     void sendsDeploymentSettingsAndReadsReceipt() {
-        server.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
+        transactionServer.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("""
                         {
@@ -59,36 +62,40 @@ class SsafyTokenDeploymentTest {
         assertThat(receipt.status()).isTrue();
         assertThat(receipt.contractAddress()).isEqualTo(TEST_CONTRACT);
         assertThat(receipt.transactionHash()).isEqualTo("test-transaction");
-        server.verify();
+        queryServer.verify();
+        transactionServer.verify();
     }
 
     @Test
     void rejectsSuccessReceiptWithoutContractAddress() {
-        server.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
+        transactionServer.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
                 .andRespond(withSuccess("{\"status\":true,\"transactionHash\":\"test-transaction\"}", MediaType.APPLICATION_JSON));
         assertThatThrownBy(() -> client.deployToken(request())).isInstanceOf(RestClientException.class);
-        server.verify();
+        queryServer.verify();
+        transactionServer.verify();
     }
 
     @Test
     void preservesFailedTransactionReceipt() {
-        server.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
+        transactionServer.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
                 .andRespond(withSuccess("{\"status\":false,\"transactionHash\":\"test-transaction\",\"contractAddress\":null}", MediaType.APPLICATION_JSON));
         assertThat(client.deployToken(request()).status()).isFalse();
-        server.verify();
+        queryServer.verify();
+        transactionServer.verify();
     }
 
     @Test
     void propagatesApiErrorWithoutAutomaticResubmission() {
-        server.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
+        transactionServer.expect(requestTo("https://sto.ssafy.io/v1/tokens"))
                 .andRespond(withStatus(HttpStatus.BAD_REQUEST));
         assertThatThrownBy(() -> client.deployToken(request())).isInstanceOf(RestClientException.class);
-        server.verify();
+        queryServer.verify();
+        transactionServer.verify();
     }
 
     @Test
     void readsContractsPreviouslyDeployedByOwner() {
-        server.expect(requestTo("https://sto.ssafy.io/v1/tokens/" + TEST_OWNER))
+        queryServer.expect(requestTo("https://sto.ssafy.io/v1/tokens/" + TEST_OWNER))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
                         [{
@@ -105,16 +112,18 @@ class SsafyTokenDeploymentTest {
         assertThat(tokens).hasSize(1);
         assertThat(tokens.getFirst().contractAddress()).isEqualTo(TEST_CONTRACT);
         assertThat(tokens.getFirst().deployedAt()).isEqualTo(java.time.Instant.parse("2026-09-19T00:00:00Z"));
-        server.verify();
+        queryServer.verify();
+        transactionServer.verify();
     }
 
     @Test
     void rejectsEmptyDeployedTokenResponse() {
-        server.expect(requestTo("https://sto.ssafy.io/v1/tokens/" + TEST_OWNER))
+        queryServer.expect(requestTo("https://sto.ssafy.io/v1/tokens/" + TEST_OWNER))
                 .andRespond(withSuccess());
 
         assertThatThrownBy(() -> client.getDeployedTokens(TEST_OWNER))
                 .isInstanceOf(RestClientException.class);
-        server.verify();
+        queryServer.verify();
+        transactionServer.verify();
     }
 }

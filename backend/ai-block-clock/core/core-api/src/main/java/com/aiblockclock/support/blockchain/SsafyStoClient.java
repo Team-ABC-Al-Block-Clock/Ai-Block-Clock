@@ -11,14 +11,19 @@ import org.springframework.web.client.RestClientException;
 
 @Component
 public class SsafyStoClient {
-    private final RestClient restClient;
+    private final RestClient queryRestClient;
+    private final RestClient transactionRestClient;
 
-    public SsafyStoClient(@Qualifier("ssafyStoRestClient") RestClient restClient) {
-        this.restClient = restClient;
+    public SsafyStoClient(
+            @Qualifier("ssafyStoQueryRestClient") RestClient queryRestClient,
+            @Qualifier("ssafyStoTransactionRestClient") RestClient transactionRestClient
+    ) {
+        this.queryRestClient = queryRestClient;
+        this.transactionRestClient = transactionRestClient;
     }
 
     public boolean isHealthy() {
-        String response = restClient.get()
+        String response = queryRestClient.get()
                 .uri("/health")
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
@@ -35,7 +40,7 @@ public class SsafyStoClient {
     }
 
     public SsafyTokenDeploymentReceipt deployToken(SsafyTokenDeploymentRequest request) {
-        SsafyTokenDeploymentReceipt receipt = restClient.post()
+        SsafyTokenDeploymentReceipt receipt = transactionRestClient.post()
                 .uri("/v1/tokens")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
@@ -53,7 +58,7 @@ public class SsafyStoClient {
     }
 
     public List<SsafyDeployedToken> getDeployedTokens(String ownerAddress) {
-        List<SsafyDeployedToken> tokens = restClient.get()
+        List<SsafyDeployedToken> tokens = queryRestClient.get()
                 .uri("/v1/tokens/{ownerAddress}", ownerAddress)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()

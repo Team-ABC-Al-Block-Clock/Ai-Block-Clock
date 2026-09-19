@@ -9,7 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record SsafyStoProperties(
         URI baseUrl,
         Duration connectTimeout,
-        Duration readTimeout
+        Duration readTimeout,
+        Duration transactionTimeout
 ) {
     public SsafyStoProperties {
         if (baseUrl == null || baseUrl.getHost() == null
@@ -21,6 +22,7 @@ public record SsafyStoProperties(
         }
         validateTimeout(connectTimeout, "ssafy.sto.connect-timeout");
         validateTimeout(readTimeout, "ssafy.sto.read-timeout");
+        validateTimeout(transactionTimeout, "ssafy.sto.transaction-timeout");
     }
 
     private static void validateTimeout(Duration timeout, String propertyName) {
