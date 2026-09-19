@@ -18,6 +18,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from . import biz, common
+from .sample import sample_payload
 
 CATALOG_VERSION = "1.0"
 
@@ -90,6 +91,11 @@ def is_compatible(output_schema_id: str, input_schema_id: str) -> bool:
     백엔드가 같은 판정을 내리고, 판정이 어긋나 생기는 버그가 없다.
     """
     return output_schema_id == input_schema_id
+
+
+def sample(schema_id: str) -> dict[str, Any]:
+    """형식을 만족하는 샘플 payload. mock 실행 · 템플릿 등록 검증에 쓴다."""
+    return sample_payload(get(schema_id).model)
 
 
 def parse(schema_id: str, payload: dict[str, Any]) -> BaseModel:
