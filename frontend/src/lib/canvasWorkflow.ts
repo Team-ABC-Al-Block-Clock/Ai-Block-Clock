@@ -321,6 +321,16 @@ export function placeNode(
   ]
 }
 
+/** 이미 정해진 자리에 그대로 놓는다. 겹침은 부르는 쪽에서 이미 풀었다. */
+export function moveNodeTo(
+  nodes: CanvasNodeData[],
+  id: string,
+  x: number,
+  y: number,
+): CanvasNodeData[] {
+  return nodes.map((node) => (node.id === id ? { ...node, x, y } : node))
+}
+
 /** 놓인 노드를 옮긴다. 없는 id 면 목록을 그대로 돌려준다. */
 export function moveNode(
   nodes: CanvasNodeData[],

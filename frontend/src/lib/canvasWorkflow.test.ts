@@ -11,6 +11,7 @@ import {
   edgeGeometry,
   edgePath,
   moveNode,
+  moveNodeTo,
   type CanvasBounds,
   placeNode,
   resolveOverlap,
@@ -118,6 +119,24 @@ describe('moveNode', () => {
   it('원래 목록을 건드리지 않는다', () => {
     const before = [nodeAt('a', 0, 200)]
     moveNode(before, 'a', 500, 500)
+    expect(before[0]).toMatchObject({ x: 0, y: 200 })
+  })
+})
+
+describe('moveNodeTo', () => {
+  it('겹치는 자리도 그대로 놓는다 — 자리는 부르는 쪽이 이미 정했다', () => {
+    const [, moved] = moveNodeTo([nodeAt('a', 300, 400), nodeAt('b', 0, 0)], 'b', 305, 405)
+    expect(moved).toMatchObject({ x: 305, y: 405 })
+  })
+
+  it('없는 id 면 목록이 그대로다', () => {
+    const before = [nodeAt('a', 0, 200)]
+    expect(moveNodeTo(before, 'zzz', 500, 500)).toEqual(before)
+  })
+
+  it('원래 목록을 건드리지 않는다', () => {
+    const before = [nodeAt('a', 0, 200)]
+    moveNodeTo(before, 'a', 500, 500)
     expect(before[0]).toMatchObject({ x: 0, y: 200 })
   })
 })
