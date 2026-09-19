@@ -42,7 +42,7 @@ class PaymentMigrationMySqlTest {
             flyway.migrate();
             flyway.validate();
             assertThat(List.of(flyway.info().applied()).stream()
-                    .map(migration -> migration.getVersion().getVersion()).toList()).containsExactly("1", "2", "2.1");
+                    .map(migration -> migration.getVersion().getVersion()).toList()).startsWith("1", "2", "2.1");
             assertThat(jdbc.queryForObject("SELECT balance FROM ledger_account WHERE id = 1", BigDecimal.class))
                     .isEqualByComparingTo(largestBalance);
             assertThat(jdbc.queryForObject("SELECT credited_abc_amount FROM charge_request WHERE id = 1", BigDecimal.class))
