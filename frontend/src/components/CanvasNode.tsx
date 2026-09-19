@@ -1,5 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 
+import { NODE_SIZE } from '@/lib/canvasWorkflow'
+
 /** 내 것에만 붙는 표시. 다른 사람의 것이 하나라도 섞이면 마켓에 등록할 수 없다. */
 const MY_CHIP: CSSProperties = {
   position: 'absolute',
@@ -26,7 +28,7 @@ const PORT_BASE: CSSProperties = {
   position: 'absolute',
   width: `${PORT_HIT}px`,
   height: `${PORT_HIT}px`,
-  top: `${168 / 2 - PORT_HIT / 2}px`,
+  top: `${NODE_SIZE / 2 - PORT_HIT / 2}px`,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -36,6 +38,15 @@ const PORT_BASE: CSSProperties = {
 const MINE_RING =
   'inset 0 0 0 1.5px rgba(255,190,220,.55), 0 0 0 5px rgba(255,190,220,.07), inset 0 1px 0 rgba(255,255,255,.2)'
 const PLAIN_RING = 'inset 0 1px 0 rgba(255,255,255,.12)'
+
+/** 모드가 달라도 카드 모양은 같다. 커서와 눌림 표시만 다르다. */
+const CARD_BASE = 'absolute flex flex-col items-center justify-center rounded-full'
+const CARD_MODE = {
+  dragging: ' cursor-grabbing select-none',
+  draggable: ' cursor-grab select-none',
+  clickable: ' cursor-pointer hover:-translate-y-[5px]',
+  plain: '',
+} as const
 
 export interface CanvasNodeProps {
   /** 0 부터. 원 안에는 +1 로 보인다 */
@@ -101,6 +112,7 @@ export default function CanvasNode({
 }: CanvasNodeProps) {
   const clickable = !!onSelect
   const draggable = !!onPointerDown
+  const mode = dragging ? 'dragging' : draggable ? 'draggable' : clickable ? 'clickable' : 'plain'
 
   // 한 번이라도 이동했으면 등장 모션 제외. 되돌릴 때 다시 재생되어 카드가 사라졌다 나타난다.
   const [dragged, setDragged] = useState(false)
@@ -126,8 +138,8 @@ export default function CanvasNode({
       style={{
         left: `${x}px`,
         top: `${y}px`,
-        width: '168px',
-        height: '168px',
+        width: `${NODE_SIZE}px`,
+        height: `${NODE_SIZE}px`,
         background,
         gap: '5px',
         boxShadow: mine ? MINE_RING : PLAIN_RING,
@@ -145,15 +157,7 @@ export default function CanvasNode({
           : // 드래그 중 transform 에 전환이 걸리면 0.2초 늦게 따라온다.
             { transition: dragging ? 'none' : 'transform .2s,box-shadow .2s' }),
       }}
-      className={
-        dragging
-          ? 'absolute flex cursor-grabbing flex-col items-center justify-center rounded-full select-none'
-          : draggable
-            ? 'absolute flex cursor-grab flex-col items-center justify-center rounded-full select-none'
-            : clickable
-              ? 'absolute flex cursor-pointer flex-col items-center justify-center rounded-full hover:-translate-y-[5px]'
-              : 'absolute flex flex-col items-center justify-center rounded-full'
-      }
+      className={CARD_BASE + CARD_MODE[mode]}
     >
       {onPortDown &&
         (['in', 'out'] as const).map((side) => (

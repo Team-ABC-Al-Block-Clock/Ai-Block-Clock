@@ -4,7 +4,7 @@ import CanvasNode from '@/components/CanvasNode'
 import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
-import SidePanel from '@/components/SidePanel'
+import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
@@ -117,7 +117,7 @@ export default function RunWaiting() {
       <SidePanel>
         <div
           className="absolute text-[20px] font-bold tracking-[-.02em] text-white"
-          style={{ left: '30px', top: '38px' }}
+          style={{ left: `${PANEL_INSET}px`, top: '38px' }}
         >
           워크플로우 실행
         </div>
@@ -151,16 +151,16 @@ export default function RunWaiting() {
 
         <div
           className="absolute text-[20px] font-semibold tracking-[-.01em]"
-          style={{ left: '30px', top: '96px', color: 'rgba(255,255,255,.96)' }}
+          style={{ left: `${PANEL_INSET}px`, top: '96px', color: 'rgba(255,255,255,.96)' }}
         >
           {onboardingMessage || DEFAULT_ONBOARDING_MESSAGE}
         </div>
         <div
           className="absolute"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '132px',
-            width: '400px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '180px',
             borderRadius: '12px',
             background: 'var(--color-surface-inset)',
@@ -184,9 +184,9 @@ export default function RunWaiting() {
         <div
           className="absolute box-border flex flex-col"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '328px',
-            width: '400px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '176px',
             padding: '18px 20px',
             borderRadius: '14px',
@@ -255,9 +255,9 @@ export default function RunWaiting() {
           id="runBtn"
           onClick={handleRun}
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '528px',
-            width: '400px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '56px',
             borderRadius: '12px',
             background: `${btnBg}`,
@@ -274,19 +274,24 @@ export default function RunWaiting() {
 
         <div
           className="absolute text-[20px] font-semibold tracking-[-.01em]"
-          style={{ left: '30px', top: '628px', color: 'rgba(255,255,255,.96)' }}
+          style={{ left: `${PANEL_INSET}px`, top: '628px', color: 'rgba(255,255,255,.96)' }}
         >
           최근 실행
         </div>
         <div
           className="absolute flex flex-col"
-          style={{ left: '30px', top: '662px', width: '400px', gap: '10px' }}
+          style={{
+            left: `${PANEL_INSET}px`,
+            top: '662px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
+            gap: '10px',
+          }}
         >
           {recents.map((row, i) => (
             <Fragment key={i}>
               <div
                 style={{
-                  width: '400px',
+                  width: `${PANEL_CONTENT_WIDTH}px`,
                   height: '64px',
                   borderRadius: '10px',
                   background: 'rgba(255,255,255,.06)',

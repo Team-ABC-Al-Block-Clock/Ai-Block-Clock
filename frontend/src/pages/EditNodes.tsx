@@ -26,7 +26,7 @@ import {
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import { cssToStyle } from '../lib/css'
-import SidePanel from '@/components/SidePanel'
+import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
 import StatusDot from '@/components/StatusDot'
 
@@ -919,7 +919,7 @@ export default function EditNodes() {
       <SidePanel ref={panelRef}>
         <div
           className="absolute text-[17px] font-semibold tracking-[-.005em] text-white"
-          style={{ left: '30px', top: '30px' }}
+          style={{ left: `${PANEL_INSET}px`, top: `${PANEL_INSET}px` }}
         >
           노드 정보
         </div>
@@ -929,9 +929,9 @@ export default function EditNodes() {
             <div
               className="absolute box-border flex items-center"
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '58px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 height: '104px',
                 borderRadius: '12px',
                 background: 'rgba(255,255,255,.11)',
@@ -962,16 +962,16 @@ export default function EditNodes() {
 
             <div
               className="absolute text-[15.5px] font-semibold"
-              style={{ left: '30px', top: '172px', color: 'rgba(255,255,255,.92)' }}
+              style={{ left: `${PANEL_INSET}px`, top: '172px', color: 'rgba(255,255,255,.92)' }}
             >
               노드 개요
             </div>
             <div
               className="absolute"
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '196px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 height: '108px',
                 borderRadius: '10px',
                 background: 'var(--color-surface-inset)',
@@ -1024,16 +1024,16 @@ export default function EditNodes() {
 
             <div
               className="absolute text-[15.5px] font-semibold"
-              style={{ left: '30px', top: '326px', color: 'rgba(255,255,255,.92)' }}
+              style={{ left: `${PANEL_INSET}px`, top: '326px', color: 'rgba(255,255,255,.92)' }}
             >
               모델
             </div>
             <div
               className="absolute flex items-center"
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '350px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 height: '44px',
                 borderRadius: '10px',
                 padding: '0 14px',
@@ -1048,7 +1048,12 @@ export default function EditNodes() {
         ) : (
           <div
             className="absolute text-[15.5px]"
-            style={{ left: '30px', top: '64px', width: '400px', color: 'rgba(255,236,246,.66)' }}
+            style={{
+              left: `${PANEL_INSET}px`,
+              top: '64px',
+              width: `${PANEL_CONTENT_WIDTH}px`,
+              color: 'rgba(255,236,246,.66)',
+            }}
           >
             캔버스에서 노드를 고르면 여기서 살펴봅니다
           </div>
@@ -1057,9 +1062,9 @@ export default function EditNodes() {
         <div
           className="absolute"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '424px',
-            width: '400px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '1px',
             background: 'rgba(255,255,255,.14)',
           }}
@@ -1070,9 +1075,9 @@ export default function EditNodes() {
         <div
           className="absolute bg-[rgba(255,255,255,.10)]"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '448px',
-            width: '400px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '40px',
             borderRadius: '10px',
           }}
@@ -1093,7 +1098,7 @@ export default function EditNodes() {
           ref={paletteRef}
           className="scroll-thin absolute grid"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '502px',
             width: '408px',
             height: 'calc(498px + 2 * var(--edge-y, 0px))',

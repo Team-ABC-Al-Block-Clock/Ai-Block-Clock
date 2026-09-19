@@ -1,7 +1,7 @@
 import { Fragment, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
-import SidePanel from '@/components/SidePanel'
+import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
 
 export default function EditSearching() {
@@ -136,9 +136,9 @@ export default function EditSearching() {
         <div
           className="absolute bg-[rgba(255,255,255,.10)]"
           style={{
-            left: '30px',
-            top: '30px',
-            width: '400px',
+            left: `${PANEL_INSET}px`,
+            top: `${PANEL_INSET}px`,
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '40px',
             borderRadius: '10px',
           }}
@@ -155,13 +155,13 @@ export default function EditSearching() {
 
         <div
           className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-          style={{ left: '30px', top: '88px' }}
+          style={{ left: `${PANEL_INSET}px`, top: '88px' }}
         >
           검색 결과
         </div>
         <div
           className="absolute text-right text-[13px]"
-          style={{ right: '30px', top: '90px', color: 'rgba(255,236,246,.6)' }}
+          style={{ right: `${PANEL_INSET}px`, top: '90px', color: 'rgba(255,236,246,.6)' }}
         >
           10개
         </div>
@@ -169,7 +169,7 @@ export default function EditSearching() {
         <div
           className="scroll-thin absolute grid"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '116px',
             width: '408px',
             height: 'calc(876px + 2 * var(--edge-y, 0px))',
