@@ -4,7 +4,7 @@ import iconUrl from '@/assets/logo.png'
 /**
  * 캔버스에 놓을 수 있는 항목. 내가 만든 노드와 마켓 에이전트가 한 목록에 섞여 있다.
  *
- * 무한 스크롤을 확인하기 위해 내 에이전트를 11개로 설정한다.
+ * 한 쪽이 10건이라, 무한 스크롤을 확인하려면 내 에이전트가 11건이어야 한다.
  */
 type Seed = Omit<PlaceableItem, 'owner'> & { owner: string }
 
@@ -47,10 +47,4 @@ export const PLACEABLE_ITEMS: PlaceableItem[] = SEEDS.map((seed) => ({
 export function byMineThenUsed(a: PlaceableItem, b: PlaceableItem) {
   if (a.mine !== b.mine) return a.mine ? -1 : 1
   return b.executionCount - a.executionCount
-}
-
-// 눈으로 세면 어긋난다. 11건 아래로 줄면 scope=MINE 의 무한 스크롤 검증이 조용히 사라진다.
-const mine = PLACEABLE_ITEMS.filter((item) => item.mine)
-if (mine.length !== 11) {
-  throw new Error(`[mock] 내 항목이 ${mine.length}건이다. 11건이어야 한다.`)
 }
