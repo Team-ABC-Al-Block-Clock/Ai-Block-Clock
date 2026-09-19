@@ -256,6 +256,24 @@ def get_run(run_id: str, include_node_output: bool = False) -> dict:
     return _public(run, include_node_output=include_node_output)
 
 
+@app.get("/v1/runs/{run_id}/artifact", summary="결과물 조회 (봉투 JSON)",
+         dependencies=[Depends(auth)])
+def get_artifact(run_id: str) -> dict:
+    """종단 노드의 봉투를 그대로 돌려준다(계약 §6.2 · §7.5).
+
+    템플릿이 붙으면 이 payload 가 PDF 로 렌더된다. 지금은 JSON 이 원본이다.
+    """
+    run = _runs.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": run_id})
+    envelope = (run.get("result") or {}).get("envelope")
+    if run.get("status") != "succeeded" or not envelope:
+        raise HTTPException(status_code=409, detail={
+            "code": "ARTIFACT_NOT_READY",
+            "message": f"실행 상태: {run.get('status')}"})
+    return envelope
+
+
 @app.get("/v1/runs/{run_id}/pdf", summary="결과 PDF 내려받기", response_class=FileResponse,
          dependencies=[Depends(auth)])
 def get_run_pdf(run_id: str) -> FileResponse:
