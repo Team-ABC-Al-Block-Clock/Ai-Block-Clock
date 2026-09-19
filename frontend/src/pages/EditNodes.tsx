@@ -1,5 +1,5 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getNodePalette } from '@/api/workflows'
 import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
@@ -206,8 +206,8 @@ export default function EditNodes() {
     }
     // 선도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
     const preview = nodes.map((node) => (node.id === held.id ? { ...node, ...next } : node))
-    for (const edge of edgeGeometry(preview, edges)) {
-      if (edge.from !== held.id && edge.to !== held.id) continue
+    const touched = edges.filter((edge) => edge.from === held.id || edge.to === held.id)
+    for (const edge of edgeGeometry(preview, touched)) {
       paneRef.current
         ?.querySelectorAll(`[data-edge="${edge.id}"]`)
         .forEach((path) => path.setAttribute('d', edge.d))
@@ -444,6 +444,9 @@ export default function EditNodes() {
     return canConnect(edges, a, b)
   }
 
+  // 경로 탐색은 무겁다. 노드나 선이 바뀔 때만 다시 찾는다.
+  const geometry = useMemo(() => edgeGeometry(nodes, edges), [nodes, edges])
+
   const n = nodes[sel]
   const g = nodes[hov] || n // 빛은 호버 중인 노드를 따라간다
   const selRing = g
@@ -610,7 +613,7 @@ export default function EditNodes() {
           </defs>
           {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
           <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edgeGeometry(nodes, edges).map((edge, i) => (
+            {geometry.map((edge, i) => (
               <Fragment key={edge.id}>
                 <path
                   data-edge={edge.id}
