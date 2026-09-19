@@ -1,9 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasNode from '@/components/CanvasNode'
 import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
-import { cssToStyle } from '../lib/css'
 import { paths } from '@/routes/paths'
 import SidePanel from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
@@ -35,14 +34,22 @@ export default function RunRunning() {
   const per = 100 / defs.length
   const active = Math.min(defs.length - 1, Math.floor(pctR / per))
   const g = defs[active]
-  const glowStyle =
+  const glowStyle: CSSProperties =
     pctR < 100
-      ? 'position:absolute;left:' +
-        (g.x - 10) +
-        'px;top:' +
-        (g.y - 10) +
-        'px;width:188px;height:188px;border-radius:50%;pointer-events:none;background:radial-gradient(circle, rgba(255,160,200,.20) 0 48%, rgba(255,160,200,0) 66%);animation:runGlow 2.4s ease-in-out infinite;transition:left .6s cubic-bezier(.2,.8,.25,1),top .6s cubic-bezier(.2,.8,.25,1)'
-      : 'display:none'
+      ? {
+          position: 'absolute',
+          left: `${g.x - 10}px`,
+          top: `${g.y - 10}px`,
+          width: '188px',
+          height: '188px',
+          borderRadius: '50%',
+          pointerEvents: 'none',
+          background:
+            'radial-gradient(circle, rgba(255,160,200,.20) 0 48%, rgba(255,160,200,0) 66%)',
+          animation: 'runGlow 2.4s ease-in-out infinite',
+          transition: 'left .6s cubic-bezier(.2,.8,.25,1),top .6s cubic-bezier(.2,.8,.25,1)',
+        }
+      : { display: 'none' }
   const nodes = defs.map((d, i) => {
     const done = i < active || pctR >= 100
     const running = i === active && pctR < 100
@@ -78,9 +85,16 @@ export default function RunRunning() {
       text,
       dot: last ? 'rgba(255,194,216,.9)' : 'rgba(154,208,180,.7)',
       color: last ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.6)',
-      caret: last
-        ? 'width:7px;height:14px;flex:none;border-radius:2px;background:rgba(255,194,216,.9);animation:caret 1s steps(1,end) infinite'
-        : 'display:none',
+      caret: (last
+        ? {
+            width: '7px',
+            height: '14px',
+            flex: 'none',
+            borderRadius: '2px',
+            background: 'rgba(255,194,216,.9)',
+            animation: 'caret 1s steps(1,end) infinite',
+          }
+        : { display: 'none' }) satisfies CSSProperties,
     }
   })
   const resultText = [
@@ -203,7 +217,7 @@ export default function RunRunning() {
           }}
         ></div>
 
-        <div style={cssToStyle(glowStyle)}></div>
+        <div style={glowStyle}></div>
 
         {nodes.map((n, i) => (
           <CanvasNode
@@ -354,7 +368,7 @@ export default function RunRunning() {
                     >
                       {l.text}
                     </div>
-                    <div style={cssToStyle(l.caret)}></div>
+                    <div style={l.caret}></div>
                   </div>
                 </Fragment>
               ))}

@@ -1,5 +1,5 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { getNodePalette } from '@/api/workflows'
 import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
@@ -26,7 +26,6 @@ import {
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
-import { cssToStyle } from '../lib/css'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
 import StatusDot from '@/components/StatusDot'
@@ -447,19 +446,23 @@ export default function EditNodes() {
 
   const n = nodes[sel]
   const g = nodes[hov] || n // 빛은 호버 중인 노드를 따라간다
-  const selRing = g
-    ? 'position:absolute;left:' +
-      (g.x - 16) +
-      'px;top:' +
-      (g.y - 16) +
-      'px;width:200px;height:200px;border-radius:50%;pointer-events:none;opacity:' +
-      (hov >= 0 && hov !== sel ? '.6' : '1') +
-      ';transform:translateY(' +
-      (hov >= 0 && !dragId ? -5 : 0) +
-      'px);background:radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%)' +
-      // 자리는 전환 없이 노드에 붙인다 — 미끄러지면 손을 뗄 때 빛만 따로 날아간다.
-      ';transition:transform .2s,opacity .25s ease'
-    : 'display:none'
+  const selRing: CSSProperties = g
+    ? {
+        position: 'absolute',
+        left: `${g.x - 16}px`,
+        top: `${g.y - 16}px`,
+        width: '200px',
+        height: '200px',
+        borderRadius: '50%',
+        pointerEvents: 'none',
+        opacity: hov >= 0 && hov !== sel ? 0.6 : 1,
+        transform: `translateY(${hov >= 0 && !dragId ? -5 : 0}px)`,
+        background:
+          'radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%)',
+        // 자리는 전환 없이 노드에 붙인다. 미끄러지면 손을 뗄 때 빛만 따로 날아간다.
+        transition: 'transform .2s,opacity .25s ease',
+      }
+    : { display: 'none' }
   const cards = items.map((item) => ({
     ...item,
     initial: item.name.trim().charAt(0),
@@ -557,7 +560,7 @@ export default function EditNodes() {
           className="absolute inset-0"
           style={{ clipPath: 'inset(-200% calc(96px - var(--edge, 0px)) -200% -200%)' }}
         >
-          <div ref={glowRef} style={cssToStyle(selRing)}></div>
+          <div ref={glowRef} style={selRing}></div>
 
           {nodes.map((node, i) => (
             <CanvasNode
