@@ -396,7 +396,7 @@ describe('disconnect', () => {
     { id: 'b__c', from: 'b', to: 'c' },
   ]
 
-  it('고른 선만 지운다', () => {
+  it('선택한 선만 지운다', () => {
     expect(disconnect(edges, 'a__b').map((e) => e.id)).toEqual(['b__c'])
   })
 

@@ -239,9 +239,7 @@ function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): bo
 
 /**
  * 원하는 자리 둘레를 돌며 가장 가까운 빈자리를 찾는다.
- *
- * 카드 두 장 사이에 정확히 끼면 밀어내는 방향이 서로 상쇄돼 되풀이해도 빠져나가지 못한다.
- * 그때 쓰는 마지막 수단이라 가운데부터 한 겹씩 넓혀 가며 본다.
+ * 카드 두 장 사이에 끼면 밀어내는 방향이 상쇄돼 빠져나가지 못한다. 그때의 마지막 수단.
  */
 function findFreeSpot(
   nodes: CanvasNodeData[],
@@ -307,7 +305,7 @@ export function resolveOverlap(
   return findFreeSpot(nodes, id, point.x, point.y, bounds) ?? point
 }
 
-/** 팔레트에서 끌어온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
+/** 팔레트에서 드래그해 온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
 export function placeNode(
   nodes: CanvasNodeData[],
   seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'mine'>,

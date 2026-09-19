@@ -38,7 +38,7 @@ const DEBOUNCE_MS = 300
 const SCOPE = 'ALL' as const
 /** 작업면 div 의 설계 폭. 창 좌표를 설계 좌표로 되돌릴 때 배율의 기준이 된다. */
 const PANE_WIDTH = 1076
-/** 끌어 놓기로 주고받는 것은 팔레트 항목 id 하나뿐이다. 브라우저가 소문자로만 받는다. */
+/** 드래그로 주고받는 것은 팔레트 항목 id 하나뿐이다. 브라우저가 소문자로만 받는다. */
 const DND_TYPE = 'application/x-placeable-item'
 /** 이 거리보다 움직였으면 선택이 아니라 이동으로 본다. */
 const DRAG_SLOP = 4
@@ -47,7 +47,7 @@ const SETTLE_MS = 160
 
 /** 노드 편집 화면 */
 export default function EditNodes() {
-  /** 고른 노드와 가리키고 있는 노드. 목록이 바뀌어도 가리키는 대상이 달라지지 않게 id 로 든다. */
+  /** 선택·호버한 노드. 인덱스로 들면 목록이 바뀔 때 가리키는 대상이 달라진다. */
   const [selId, setSelId] = useState<string | null>(null)
   const [hovId, setHovId] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -68,7 +68,7 @@ export default function EditNodes() {
   /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
   const glowRef = useRef<HTMLDivElement>(null)
   const tempRef = useRef<SVGPathElement>(null)
-  /** 선을 끄는 중이면 그 출발점. 누를 때 한 번, 뗄 때 한 번만 바뀐다. */
+  /** 선을 드래그하는 중이면 그 출발점. 누를 때와 뗄 때만 바뀐다. */
   const [linkFrom, setLinkFrom] = useState<{ id: string; side: 'in' | 'out' } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const grab = useRef<{
@@ -89,7 +89,7 @@ export default function EditNodes() {
   /** 드래그가 끝난 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
   const landing = useRef<{ x: number; y: number } | null>(null)
   const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  /** 미끄러짐이 끝나면 할 일. 끝나기 전에 다시 잡으면 기다리지 않고 지금 끝낸다. */
+  /** 미끄러짐이 끝나면 할 일. 그 전에 다시 잡으면 기다리지 않고 지금 끝낸다. */
   const settle = useRef<(() => CanvasNodeData[]) | null>(null)
   const flushSettle = () => {
     clearTimeout(settleTimer.current)
@@ -110,13 +110,8 @@ export default function EditNodes() {
   }
 
   /**
-   * 카드가 갈 수 있는 범위를 화면에서 잰다.
-   *
-   * 설계 좌표로 박아 두면 안 된다 — 패널은 `--edge` 만큼 오른쪽으로 밀려 있고, 그 값은 창
-   * 너비에 따라 달라진다. 980 으로 고정하면 창이 넓을수록 패널보다 한참 앞에서 막힌다.
-   *
-   * 네 방향 모두 카드의 절반까지만 내보낸다 — 절반이 남아 있으면 다시 집어서 꺼낼 수 있다.
-   * 패널도 같다. 가려지는 것은 절반뿐이라 남은 절반을 잡으면 된다.
+   * 카드가 갈 수 있는 범위를 화면에서 잰다. 패널 위치가 `--edge` 만큼 창 너비를 타서
+   * 설계 좌표로 박을 수 없다. 네 방향 모두 카드 절반까지만 — 남은 절반으로 되꺼낸다.
    */
   const canvasBounds = (): CanvasBounds | null => {
     const pane = paneRef.current?.getBoundingClientRect()
@@ -134,7 +129,7 @@ export default function EditNodes() {
     }
   }
 
-  // 누를 때 이미 골라져 있었는지. 그때만 click 에서 선택을 푼다.
+  // 누를 때 이미 선택돼 있었는지. 그때만 click 에서 선택을 푼다.
   const reselect = useRef(false)
 
   // 옮기고 손을 뗀 직후에 click 이 한 번 더 온다. 그때 선택이 뒤집히지 않게 막는다.
@@ -149,7 +144,7 @@ export default function EditNodes() {
   /** 포인터를 카드에 묶는다. 캡처하지 않으면 커서가 카드를 벗어날 때 움직임을 놓친다. */
   const handleNodePointerDown = (id: string) => (ev: React.PointerEvent<HTMLDivElement>) => {
     if (ev.button !== 0) return
-    // 미끄러지는 중에 다시 잡으면 아직 상태에 없는 좌표를 기준으로 삼는다. 먼저 끝낸다.
+    // 미끄러지는 중에 다시 잡으면 상태에 없는 좌표를 기준으로 삼는다. 먼저 끝낸다.
     const list = flushSettle() ?? nodes
     const node = list.find((n) => n.id === id)
     const point = node && toCanvasPoint(ev.clientX, ev.clientY)
@@ -168,12 +163,12 @@ export default function EditNodes() {
     }
     landing.current = { x: node.x, y: node.y }
     moved.current = false
-    // 누르는 즉시 고른다. 끌고 난 뒤에도 그 노드가 골라진 채로 남는다.
+    // 누르는 즉시 선택한다. 드래그한 뒤에도 선택된 채로 남는다.
     reselect.current = selId === id
     setSelEdge(null)
     setSelId(id)
     setDragId(id)
-    // 캡처가 막히는 환경이 있어도 끌기 자체는 살려 둔다 — 카드 위에서는 그대로 따라온다.
+    // 캡처가 막혀도 카드 위에서는 따라오게 둔다.
     try {
       ev.currentTarget.setPointerCapture(ev.pointerId)
     } catch {
@@ -202,7 +197,7 @@ export default function EditNodes() {
       glowRef.current.style.left = `${next.x - 16}px`
       glowRef.current.style.top = `${next.y - 16}px`
     }
-    // 선도 상태 밖에서 다시 그린다 — 끌던 노드에 붙은 것만 고치면 된다.
+    // 선도 상태 밖에서 다시 그린다. 드래그하는 노드에 붙은 것만 고치면 된다.
     const preview = nodes.map((node) => (node.id === held.id ? { ...node, ...next } : node))
     const touched = edges.filter((edge) => edge.from === held.id || edge.to === held.id)
     for (const edge of edgeGeometry(preview, touched)) {
@@ -231,11 +226,11 @@ export default function EditNodes() {
       held.el.style.transform = ''
       held.el.style.left = `${settled.x}px`
       held.el.style.top = `${settled.y}px`
-      // 거리를 재기 전에 리렌더가 끝나면 transition 이 되살아난 뒤 transform 이 지워져, 새 자리로 미끄러진다.
+      // 재기 전에 리렌더가 끝나면 transition 이 살아난 뒤 transform 이 지워져 미끄러진다.
       void held.el.offsetHeight
-      // 자리는 위에서 이미 정했다. moveNode 로 넣으면 같은 계산을 한 번 더 한다.
+      // 자리는 위에서 정했다. moveNode 로 넣으면 같은 계산을 한 번 더 한다.
       const after = moveNodeTo(nodes, held.id, settled.x, settled.y)
-      // 끄는 동안 직접 써 넣은 선은 React 가 모른다. 최종 경로도 직접 확정해야 남지 않는다.
+      // 드래그 중 직접 써 넣은 선은 React 가 모른다. 최종 경로도 직접 확정한다.
       for (const edge of edgeGeometry(after, edges)) {
         paneRef.current
           ?.querySelectorAll(`[data-edge="${edge.id}"]`)
@@ -293,7 +288,7 @@ export default function EditNodes() {
   const handlePortDown =
     (id: string) => (side: 'in' | 'out', ev: React.PointerEvent<HTMLDivElement>) => {
       if (ev.button !== 0) return
-      // 막지 않으면 노드까지 같이 끌려간다.
+      // 막지 않으면 노드까지 같이 드래그된다.
       ev.stopPropagation()
       setLinkFrom({ id, side })
       // 포트에서 손을 떼도 click 이 노드로 올라온다. 선택이 뒤집히지 않게 막는다.
@@ -401,16 +396,14 @@ export default function EditNodes() {
   })
 
   const items = data?.pages.flatMap((page) => page.content) ?? []
-  // 이전 검색어의 결과를 보여주는 동안(placeholder)은 아직 이번 검색의 결과가 아니다.
-  // isPending 만 보면 그 사이 옛 목록을 '없음' 으로 덮어 한 글자마다 깜빡인다.
+  // placeholder 는 아직 이번 검색의 결과가 아니다. isPending 만 보면 한 글자마다 깜빡인다.
   const isSettled = !isPending && !isPlaceholderData
   const isEmpty = isSettled && !isError && items.length === 0
 
   const paletteRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  // 검색어가 바뀌면 맨 위로 스크롤을 올린다. 아래쪽에 머문 채 목록만 바뀌면 새 결과의 앞부분을
-  // 못 보고 지나쳐 검색에 실패한 것처럼 보일 수 있다.
+  // 아래쪽에 머문 채 목록만 바뀌면 새 결과의 앞부분을 지나쳐 검색에 실패한 것처럼 보인다.
   useEffect(() => {
     paletteRef.current?.scrollTo({ top: 0 })
   }, [keyword])
@@ -429,7 +422,7 @@ export default function EditNodes() {
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
-  // 선을 끄는 동안 이을 수 있는 포트만 밝게.
+  // 선을 드래그하는 동안 이을 수 있는 포트만 밝게.
   const portOpen = (id: string, side: 'in' | 'out') => {
     if (!linkFrom) return true
     if (side === linkFrom.side) return false
@@ -1069,7 +1062,7 @@ export default function EditNodes() {
               color: 'rgba(255,236,246,.66)',
             }}
           >
-            캔버스에서 노드를 고르면 여기서 살펴봅니다
+            캔버스에서 노드를 선택하면 여기서 살펴봅니다
           </div>
         )}
 
@@ -1143,7 +1136,7 @@ export default function EditNodes() {
               key={item.itemId}
               draggable
               onDragStart={item.drag}
-              title="캔버스로 끌어다 놓으세요"
+              title="캔버스로 드래그하세요"
               style={{
                 // 폭은 주지 않고 그리드 열을 그대로 채운다.
                 height: '160px',

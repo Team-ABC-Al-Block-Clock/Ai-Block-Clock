@@ -13,7 +13,7 @@ const LEADS = [30, 20]
 const RING = 60
 /** 꺾이는 자리의 둥글기(px). */
 const ROUND = 18
-/** 한 번 꺾을 때 더하는 값(px). 클수록 조금 돌더라도 덜 꺾는 길을 고른다. */
+/** 한 번 꺾을 때 더하는 값(px). 클수록 조금 돌더라도 덜 꺾는 길을 선택한다. */
 const TURN = 250
 /** 겉면에 얹힌 점이 반올림으로 안쪽에 떨어지지 않게 두는 여유(px). */
 const EPS = 0.25
@@ -114,8 +114,8 @@ function search(
 
   const W = xs.length
   const key = (xi: number, yi: number) => yi * W + xi
-  // 꺾임 비용을 쓰니 엄밀히는 "(칸, 방향)" 이 상태다. 칸만 쓰면 최소 비용이 아닐 수 있으나,
-  // TURN 이 커서 카드 몇 장 규모에서는 경로가 같다.
+  // 엄밀히는 "(칸, 방향)" 이 상태다. 칸만 쓰면 최소 비용이 아닐 수 있으나 TURN 이 커서
+  // 카드 몇 장 규모에서는 경로가 같다.
   const best = new Map<number, number>()
   const came = new Map<number, number>()
   const guess = (xi: number, yi: number) => Math.abs(xs[xi] - goal.x) + Math.abs(ys[yi] - goal.y)
