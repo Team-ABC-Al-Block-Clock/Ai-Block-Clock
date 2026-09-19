@@ -1,0 +1,152 @@
+{
+  "schema_id": "biz.brand_strategy@1",
+  "catalog_version": "1.0",
+  "category": "biz",
+  "$defs": {
+    "Item": {
+      "properties": {
+        "label": {
+          "title": "항목",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "Item",
+      "type": "object"
+    },
+    "Messages": {
+      "properties": {
+        "core": {
+          "title": "핵심 메시지",
+          "type": "string"
+        },
+        "sub": {
+          "title": "보조 메시지",
+          "type": "string"
+        },
+        "daily": {
+          "title": "일상 메시지",
+          "type": "string"
+        }
+      },
+      "required": [
+        "core",
+        "sub",
+        "daily"
+      ],
+      "title": "Messages",
+      "type": "object"
+    },
+    "Reason": {
+      "properties": {
+        "axis": {
+          "description": "예: 기능 중심 / 메시지 중심 / 제품 중심",
+          "title": "축",
+          "type": "string"
+        },
+        "detail": {
+          "title": "설명",
+          "type": "string"
+        }
+      },
+      "required": [
+        "axis",
+        "detail"
+      ],
+      "title": "Reason",
+      "type": "object"
+    }
+  },
+  "description": "브랜드 전략 보고서 — 1단계 종단 출력이자 템플릿이 값을 받아 가는 형식.\n\n배열은 전부 3개 고정이다. 템플릿 서식의 칸 수와 맞춘다.\n`issued_on` · `author_org` 는 Runtime 이 채운다(LLM 이 날짜 · 기관명을 지어내지 않게).",
+  "properties": {
+    "brand_name": {
+      "title": "브랜드명",
+      "type": "string"
+    },
+    "issued_on": {
+      "description": "Runtime 이 실행 시각으로 채운다",
+      "title": "발행일",
+      "type": "string",
+      "x-source": "runtime"
+    },
+    "author_org": {
+      "description": "Runtime 이 판매자 계정명으로 채운다",
+      "title": "작성 기관",
+      "type": "string",
+      "x-source": "runtime"
+    },
+    "headline": {
+      "description": "표지의 한 문장. 20자 내외",
+      "title": "대제목",
+      "type": "string"
+    },
+    "purpose": {
+      "items": {
+        "$ref": "#/$defs/Item"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "브랜드 목적",
+      "type": "array"
+    },
+    "positioning": {
+      "items": {
+        "$ref": "#/$defs/Item"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "브랜드 포지셔닝",
+      "type": "array"
+    },
+    "reasons": {
+      "items": {
+        "$ref": "#/$defs/Reason"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "선택의 이유",
+      "type": "array"
+    },
+    "core_strategy": {
+      "items": {
+        "$ref": "#/$defs/Item"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "핵심 전략",
+      "type": "array"
+    },
+    "messages": {
+      "$ref": "#/$defs/Messages",
+      "title": "메시지 체계"
+    },
+    "summary_md": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "마크다운 허용",
+      "title": "총평"
+    }
+  },
+  "required": [
+    "brand_name",
+    "issued_on",
+    "author_org",
+    "headline",
+    "purpose",
+    "positioning",
+    "reasons",
+    "core_strategy",
+    "messages"
+  ],
+  "title": "브랜드 전략 보고서",
+  "type": "object"
+}

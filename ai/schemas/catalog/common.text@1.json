@@ -1,0 +1,30 @@
+{
+  "schema_id": "common.text@1",
+  "catalog_version": "1.0",
+  "category": "common",
+  "description": "단순 텍스트 — 형식을 따지지 않는 자유 서술.",
+  "properties": {
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "제목"
+    },
+    "body_md": {
+      "description": "마크다운 허용",
+      "title": "본문",
+      "type": "string"
+    }
+  },
+  "required": [
+    "body_md"
+  ],
+  "title": "단순 텍스트",
+  "type": "object"
+}
