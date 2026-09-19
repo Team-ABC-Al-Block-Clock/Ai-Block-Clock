@@ -235,26 +235,34 @@ describe('portPoint', () => {
 })
 
 describe('edgePath', () => {
-  it('제어점을 두 x 의 가운데에 두어 양 끝에서 수평으로 빠진다', () => {
-    expect(edgePath({ x: 180, y: 484 }, { x: 209, y: 404 })).toBe(
-      'M180 484 C 195 484, 195 404, 209 404',
-    )
+  it('막는 카드가 없으면 꺾이지 않는다', () => {
+    expect(edgePath({ x: 180, y: 404 }, { x: 409, y: 404 })).toBe('M180 404 L409 404')
+  })
+
+  it('양 끝은 포트에 정확히 닿는다', () => {
+    const d = edgePath({ x: 180, y: 484 }, { x: 409, y: 404 }, [{ x: 300, y: 440 }])
+    expect(d.startsWith('M180 484')).toBe(true)
+    expect(d.endsWith('L409 404')).toBe(true)
   })
 })
 
 describe('edgeGeometry', () => {
-  it('자리표시자 네 선이 손으로 적어 둔 경로와 같다', () => {
-    expect(edgeGeometry(CANVAS_NODES).map((e) => e.d)).toEqual([
-      'M180 484 C 195 484, 195 404, 209 404',
-      'M377 404 C 392 404, 392 524, 406 524',
-      'M574 524 C 589 524, 589 414, 603 414',
-      'M771 414 C 786 414, 786 514, 800 514',
-    ])
+  it('선이 포트에서 포트로 이어진다', () => {
+    for (const edge of edgeGeometry(CANVAS_NODES)) {
+      const from = CANVAS_NODES.find((n) => n.id === edge.from)!
+      const to = CANVAS_NODES.find((n) => n.id === edge.to)!
+      const 시작 = portPoint(from, 'out')
+      const 끝 = portPoint(to, 'in')
+      expect(edge.d.startsWith(`M${시작.x} ${시작.y}`)).toBe(true)
+      expect(edge.d.endsWith(`${끝.x} ${끝.y}`)).toBe(true)
+    }
   })
 
   it('노드를 옮기면 선이 따라온다', () => {
-    const moved = moveNode(CANVAS_NODES, 'seed-1', 12, 700)
-    expect(edgeGeometry(moved)[0].d).toBe('M180 784 C 195 784, 195 404, 209 404')
+    const 전 = edgeGeometry(CANVAS_NODES)[0].d
+    const 후 = edgeGeometry(moveNode(CANVAS_NODES, 'seed-1', 12, 700))[0].d
+    expect(후).not.toBe(전)
+    expect(후.startsWith('M180 784')).toBe(true)
   })
 
   it('한쪽 노드가 없는 선은 버린다', () => {

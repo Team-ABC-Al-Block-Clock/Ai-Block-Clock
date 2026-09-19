@@ -2,7 +2,6 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasNode from '@/components/CanvasNode'
-import CanvasEdgeMask from '@/components/CanvasEdgeMask'
 import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
 import { cssToStyle } from '../lib/css'
 import { paths } from '@/routes/paths'
@@ -206,35 +205,6 @@ export default function RunRunning() {
 
         <div style={cssToStyle(glowStyle)}></div>
 
-        <svg
-          className="pointer-events-none absolute top-0 left-0"
-          width="1076"
-          height="1024"
-          viewBox="0 0 1076 1024"
-          style={{ overflow: 'visible' }}
-        >
-          <defs>
-            <CanvasEdgeMask id="edgeMaskRun" nodes={CANVAS_NODES} />
-          </defs>
-          <g mask="url(#edgeMaskRun)" style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edges.map((e, i) => (
-              <path key={i} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
-            ))}
-            {liveEdges.map((e, i) => (
-              <path
-                key={i}
-                d={e.d}
-                fill="none"
-                stroke="rgba(255,224,238,.85)"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-                strokeDasharray="3 18"
-                style={{ animation: 'dash 1.5s linear infinite' }}
-              />
-            ))}
-          </g>
-        </svg>
-
         {nodes.map((n, i) => (
           <CanvasNode
             key={n.id}
@@ -253,6 +223,32 @@ export default function RunRunning() {
             glass
           />
         ))}
+
+        <svg
+          className="pointer-events-none absolute top-0 left-0"
+          width="1076"
+          height="1024"
+          viewBox="0 0 1076 1024"
+          style={{ overflow: 'visible' }}
+        >
+          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edges.map((e, i) => (
+              <path key={i} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
+            ))}
+            {liveEdges.map((e, i) => (
+              <path
+                key={i}
+                d={e.d}
+                fill="none"
+                stroke="rgba(255,224,238,.85)"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                strokeDasharray="3 18"
+                style={{ animation: 'dash 1.5s linear infinite' }}
+              />
+            ))}
+          </g>
+        </svg>
       </div>
 
       <SidePanel>

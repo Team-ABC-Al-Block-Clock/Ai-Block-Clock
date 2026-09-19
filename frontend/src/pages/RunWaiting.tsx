@@ -1,7 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 
 import CanvasNode from '@/components/CanvasNode'
-import CanvasEdgeMask from '@/components/CanvasEdgeMask'
 import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
@@ -78,29 +77,6 @@ export default function RunWaiting() {
           }}
         ></div>
 
-        <svg
-          className="pointer-events-none absolute top-0 left-0"
-          width="1076"
-          height="1024"
-          viewBox="0 0 1076 1024"
-          style={{ overflow: 'visible' }}
-        >
-          <defs>
-            <CanvasEdgeMask id="edgeMaskWait" nodes={CANVAS_NODES} />
-          </defs>
-          <g mask="url(#edgeMaskWait)" style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edgeGeometry(CANVAS_NODES).map((edge) => (
-              <path
-                key={edge.id}
-                d={edge.d}
-                fill="none"
-                stroke="rgba(255,255,255,.26)"
-                strokeWidth="3.4"
-              />
-            ))}
-          </g>
-        </svg>
-
         {CANVAS_NODES.map((node, i) => (
           <CanvasNode
             key={node.id}
@@ -116,6 +92,26 @@ export default function RunWaiting() {
             numberColor="rgba(255,255,255,.9)"
           />
         ))}
+
+        <svg
+          className="pointer-events-none absolute top-0 left-0"
+          width="1076"
+          height="1024"
+          viewBox="0 0 1076 1024"
+          style={{ overflow: 'visible' }}
+        >
+          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edgeGeometry(CANVAS_NODES).map((edge) => (
+              <path
+                key={edge.id}
+                d={edge.d}
+                fill="none"
+                stroke="rgba(255,255,255,.26)"
+                strokeWidth="3.4"
+              />
+            ))}
+          </g>
+        </svg>
       </div>
 
       <SidePanel>

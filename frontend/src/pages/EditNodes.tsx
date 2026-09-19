@@ -19,7 +19,6 @@ import {
   type CanvasBounds,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
-import CanvasEdgeMask from '@/components/CanvasEdgeMask'
 import { cssToStyle } from '../lib/css'
 import SidePanel from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
@@ -421,10 +420,9 @@ export default function EditNodes() {
               <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
               <stop offset="100%" stopColor="#dba18b" stopOpacity=".8" />
             </linearGradient>
-            <CanvasEdgeMask id="edgeMaskEdit" nodes={nodes} />
           </defs>
           {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
-          <g mask="url(#edgeMaskEdit)" style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
             {edgeGeometry(nodes).map((edge, i) => (
               <Fragment key={edge.id}>
                 <path

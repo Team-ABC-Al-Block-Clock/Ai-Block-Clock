@@ -1,9 +1,11 @@
 import type { ItemNodeType } from '@/api/workflows'
 
+import { roundedPath, routeEdge } from './edgeRoute'
+
 /** 노드 카드의 한 변(px). 좌표는 카드의 왼쪽 위 모서리이다. */
 export const NODE_SIZE = 168
-/** 카드 사이에 남기는 최소 간격(px). 맞닿으면 두 개가 한 덩어리로 보인다. */
-export const NODE_GAP = 10
+/** 카드 사이에 남기는 최소 간격(px). 선이 지나갈 자리를 남긴다. */
+export const NODE_GAP = 24
 /**
  * 카드 왼쪽 위 좌표가 들어갈 수 있는 범위.
  *
@@ -138,10 +140,17 @@ export function portPoint(
   return { x: side === 'out' ? node.x + NODE_SIZE : node.x, y: node.y + NODE_SIZE / 2 }
 }
 
-/** 두 점을 잇는 S 곡선. 제어점을 가운데 x 에 두어 양 끝에서 수평으로 빠져나간다. */
-export function edgePath(from: { x: number; y: number }, to: { x: number; y: number }): string {
-  const mid = Math.round((from.x + to.x) / 2)
-  return `M${from.x} ${from.y} C ${mid} ${from.y}, ${mid} ${to.y}, ${to.x} ${to.y}`
+/**
+ * 포트에서 포트로 잇는 꺾은선. `avoid` 는 지나면 안 되는 카드의 한가운데.
+ *
+ * 길을 못 찾으면 곧은 선. 그런 배치는 거의 없다.
+ */
+export function edgePath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  avoid: { x: number; y: number }[] = [],
+): string {
+  return roundedPath(routeEdge(from, to, avoid) ?? [from, to])
 }
 
 /** 선 목록을 그릴 좌표로 바꾼다. 양 끝 중 하나라도 없는 선은 버린다. */
@@ -153,7 +162,9 @@ export function edgeGeometry(
     const from = nodes.find((node) => node.id === edge.from)
     const to = nodes.find((node) => node.id === edge.to)
     if (!from || !to) return []
-    return [{ ...edge, d: edgePath(portPoint(from, 'out'), portPoint(to, 'in')) }]
+    // 제 카드도 가로지르면 안 된다. 포트에서 나가는 짧은 구간만 예외.
+    const avoid = nodes.map((node) => ({ x: node.x + NODE_SIZE / 2, y: node.y + NODE_SIZE / 2 }))
+    return [{ ...edge, d: edgePath(portPoint(from, 'out'), portPoint(to, 'in'), avoid) }]
   })
 }
 
