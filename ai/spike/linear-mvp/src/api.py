@@ -99,13 +99,15 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     }
 
 
-def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: bool) -> None:
+def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: bool,
+             input_payload: dict | None = None) -> None:
     try:
         # state 로 같은 dict 를 넘겨 러너가 제자리에서 갱신하게 한다.
         # 그래야 폴링으로 노드별 진행 상황이 실시간으로 보인다.
         with _lock:
             state = _runs[run_id]
-        runner.execute(wf, comment=comment, file_path=file_path, mock=mock, run_id=run_id, state=state)
+        runner.execute(wf, comment=comment, file_path=file_path, mock=mock, run_id=run_id,
+                       input_payload=input_payload, state=state)
     except Exception as e:  # 러너가 삼키지 못한 예외까지 방어
         with _lock:
             _runs[run_id]["status"] = "failed"
@@ -170,6 +172,7 @@ def validate_workflow_definition(body: dict) -> dict:
 async def create_run(
     background: BackgroundTasks,
     workflow: str = Form(..., description='워크플로우 정의 JSON 문자열. {"name":..., "nodes":[...], "output":{...}}'),
+    input: str = Form("", description="첫 노드 입력 payload 를 JSON 문자열로 (폼에서 받은 값)"),
     comment: str = Form("", description="사용자가 입력한 자연어 코멘트"),
     mock: bool = Form(False, description="true 면 LLM 을 호출하지 않고 파이프라인만 실행"),
     file: UploadFile | None = File(None, description="성적 엑셀 또는 CSV (선택)"),
@@ -179,9 +182,24 @@ async def create_run(
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW_JSON", "message": str(e)})
 
-    errors = runner.validate_workflow(wf)
-    if errors:
-        raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW", "message": "워크플로우 정의 오류", "errors": errors})
+    input_payload = None
+    if input.strip():
+        try:
+            input_payload = json.loads(input)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400,
+                                detail={"code": "INVALID_INPUT_JSON", "message": str(e)})
+        if not isinstance(input_payload, dict):
+            raise HTTPException(status_code=400,
+                                detail={"code": "INVALID_INPUT_JSON",
+                                        "message": "input 은 JSON 객체여야 합니다"})
+
+    # 정의 검증은 그래프 규칙 하나로 한다(계약 §5.7). 분기 · edges 도 여기서 걸린다
+    report = graph.validate(wf)
+    if not report["valid"]:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW",
+                                                     "message": "워크플로우 정의 오류",
+                                                     "errors": report["errors"]})
 
     saved_path: str | None = None
     if file and file.filename:
@@ -219,7 +237,7 @@ async def create_run(
             "result": None, "error": None,
         }
 
-    background.add_task(_execute, run_id, wf, comment, saved_path, mock)
+    background.add_task(_execute, run_id, wf, comment, saved_path, mock, input_payload)
     return JSONResponse(status_code=202, content={
         "run_id": run_id,
         "status": "queued",
