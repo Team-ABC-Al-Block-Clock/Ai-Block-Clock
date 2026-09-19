@@ -2,12 +2,12 @@ package com.aiblockclock.domain.auth;
 
 import java.time.Instant;
 
-public record AccessToken(
+public record IssuedSessionToken(
         String value,
         Instant expiresAt
 ) {
     @Override
     public String toString() {
-        return "AccessToken[value=***, expiresAt=%s]".formatted(expiresAt);
+        return "IssuedSessionToken[value=***, expiresAt=%s]".formatted(expiresAt);
     }
 }

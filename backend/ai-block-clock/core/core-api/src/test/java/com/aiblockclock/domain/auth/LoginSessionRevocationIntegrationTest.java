@@ -114,7 +114,7 @@ class LoginSessionRevocationIntegrationTest {
     @Test
     void 지정한_세션만_종료한다() {
         LoginSession first = saveSession();
-        LoginSession second = writer.append(first.userId(), EXPIRES_AT);
+        LoginSession second = writer.append(first.userId(), "b".repeat(64), EXPIRES_AT);
 
         writer.modifyAsRevoked(first.id());
 
@@ -179,6 +179,6 @@ class LoginSessionRevocationIntegrationTest {
         UserEntity user = userRepository.saveAndFlush(UserEntity.of(walletAddress));
         userIds.add(user.getId());
 
-        return writer.append(UserId.of(user.getId()), EXPIRES_AT);
+        return writer.append(UserId.of(user.getId()), UUID.randomUUID().toString().replace("-", "").repeat(2), EXPIRES_AT);
     }
 }

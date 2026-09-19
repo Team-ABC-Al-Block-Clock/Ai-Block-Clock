@@ -45,21 +45,6 @@ public enum ErrorType {
     LOGIN_SESSION_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_018,
             "로그인 세션을 사용할 수 없습니다. 다시 로그인해 주세요.", LogLevel.WARN),
 
-    REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_015,
-            "Refresh Token이 만료되었습니다. 다시 로그인해 주세요.", LogLevel.WARN),
-
-    REFRESH_TOKEN_ALREADY_USED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_016,
-            "이미 사용한 Refresh Token입니다.", LogLevel.WARN),
-
-    REFRESH_TOKEN_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_017,
-            "Refresh Token을 사용할 수 없습니다.", LogLevel.WARN),
-
-    ACCESS_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_019,
-            "Access Token이 올바르지 않습니다.", LogLevel.WARN),
-
-    ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_020,
-            "Access Token이 만료되었습니다. 토큰을 재발급받아 주세요.", LogLevel.WARN),
-
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 

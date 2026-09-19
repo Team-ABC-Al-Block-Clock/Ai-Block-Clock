@@ -10,7 +10,7 @@ spring:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
       - classpath:wallet-auth.yml  # :core:core-api
-      - classpath:auth-token.yml   # :core:core-api
+      - classpath:login-session.yml # :core:core-api
       - classpath:auth-web.yml     # :core:core-api
 
 server:

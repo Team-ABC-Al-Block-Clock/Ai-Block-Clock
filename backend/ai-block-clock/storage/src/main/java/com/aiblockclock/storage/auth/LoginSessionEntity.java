@@ -28,6 +28,9 @@ public class LoginSessionEntity extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "session_token_hash", nullable = false, unique = true, length = 64)
+    private String sessionTokenHash;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -38,9 +41,10 @@ public class LoginSessionEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Long version;
 
-    public static LoginSessionEntity of(Long userId, Instant expiresAt) {
+    public static LoginSessionEntity of(Long userId, String sessionTokenHash, Instant expiresAt) {
         LoginSessionEntity entity = new LoginSessionEntity();
         entity.userId = userId;
+        entity.sessionTokenHash = sessionTokenHash;
         entity.expiresAt = expiresAt;
         return entity;
     }

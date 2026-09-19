@@ -20,9 +20,9 @@ public class LoginSessionWriter {
     private final Clock clock;
 
     @Transactional
-    public LoginSession append(UserId userId, Instant expiresAt) {
+    public LoginSession append(UserId userId, String sessionTokenHash, Instant expiresAt) {
         LoginSessionEntity saved = loginSessionRepository.saveAndFlush(
-                LoginSessionEntity.of(userId.value(), expiresAt)
+                LoginSessionEntity.of(userId.value(), sessionTokenHash, expiresAt)
         );
 
         return LoginSessionEntityConverter.toDomain(saved);

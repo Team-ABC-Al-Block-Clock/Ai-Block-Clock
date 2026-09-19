@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @Transactional
 class LoginSessionReaderIntegrationTest {
+    private static final String SESSION_TOKEN_HASH = "a".repeat(64);
     private static final Instant EXPIRES_AT = Instant.parse("2026-09-24T10:00:00.123456Z");
     private static final Instant REVOKED_AT = Instant.parse("2026-09-18T09:30:00.123456Z");
 
@@ -43,7 +44,7 @@ class LoginSessionReaderIntegrationTest {
     void 세션_번호로_사용자와_만료_시각을_도메인_객체로_조회한다() {
         UserEntity user = saveUser();
         LoginSessionEntity session = loginSessionRepository.saveAndFlush(
-                LoginSessionEntity.of(user.getId(), EXPIRES_AT)
+                LoginSessionEntity.of(user.getId(), SESSION_TOKEN_HASH, EXPIRES_AT)
         );
         entityManager.clear();
 
@@ -64,7 +65,7 @@ class LoginSessionReaderIntegrationTest {
     void 무효화된_세션도_무효화_시각을_포함해서_반환한다() {
         UserEntity user = saveUser();
         LoginSessionEntity session = loginSessionRepository.saveAndFlush(
-                LoginSessionEntity.of(user.getId(), EXPIRES_AT)
+                LoginSessionEntity.of(user.getId(), SESSION_TOKEN_HASH, EXPIRES_AT)
         );
         entityManager.createQuery("""
                         update LoginSessionEntity session
@@ -86,10 +87,10 @@ class LoginSessionReaderIntegrationTest {
     void 같은_사용자의_여러_세션을_각각의_번호로_구분해서_조회한다() {
         UserEntity user = saveUser();
         LoginSessionEntity previousSession = loginSessionRepository.saveAndFlush(
-                LoginSessionEntity.of(user.getId(), EXPIRES_AT)
+                LoginSessionEntity.of(user.getId(), "b".repeat(64), EXPIRES_AT)
         );
         LoginSessionEntity currentSession = loginSessionRepository.saveAndFlush(
-                LoginSessionEntity.of(user.getId(), EXPIRES_AT.plusSeconds(3600))
+                LoginSessionEntity.of(user.getId(), "c".repeat(64), EXPIRES_AT.plusSeconds(3600))
         );
         entityManager.clear();
 

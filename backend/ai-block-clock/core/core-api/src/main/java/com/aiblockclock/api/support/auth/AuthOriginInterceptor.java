@@ -19,7 +19,7 @@ public class AuthOriginInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (!"POST".equals(request.getMethod())) {
+        if (!isStateChanging(request.getMethod())) {
             return true;
         }
 
@@ -33,6 +33,11 @@ public class AuthOriginInterceptor implements HandlerInterceptor {
         }
 
         return true;
+    }
+
+    private static boolean isStateChanging(String method) {
+        return "POST".equals(method) || "PUT".equals(method)
+                || "PATCH".equals(method) || "DELETE".equals(method);
     }
 
     private static String originOf(String referer) {

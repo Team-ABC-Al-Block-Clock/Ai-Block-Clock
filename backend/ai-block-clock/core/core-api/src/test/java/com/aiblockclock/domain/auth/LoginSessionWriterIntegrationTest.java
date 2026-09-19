@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 @Transactional
 class LoginSessionWriterIntegrationTest {
+    private static final String SESSION_TOKEN_HASH = "a".repeat(64);
     private static final Instant EXPIRES_AT = Instant.parse("2026-09-24T10:00:00.123456Z");
 
     @Autowired
@@ -46,7 +47,7 @@ class LoginSessionWriterIntegrationTest {
         UserEntity user = userRepository.saveAndFlush(UserEntity.of(walletAddress));
         UserId userId = UserId.of(user.getId());
 
-        LoginSession created = loginSessionWriter.append(userId, EXPIRES_AT);
+        LoginSession created = loginSessionWriter.append(userId, SESSION_TOKEN_HASH, EXPIRES_AT);
         entityManager.clear();
 
         LoginSessionEntity persisted = loginSessionRepository.findById(created.id().value()).orElseThrow();
@@ -57,6 +58,7 @@ class LoginSessionWriterIntegrationTest {
         assertThat(created.revokedAt()).isNull();
         assertThat(persisted.getId()).isEqualTo(created.id().value());
         assertThat(persisted.getUserId()).isEqualTo(created.userId().value());
+        assertThat(persisted.getSessionTokenHash()).isEqualTo(SESSION_TOKEN_HASH);
         assertThat(persisted.getExpiresAt()).isEqualTo(created.expiresAt());
         assertThat(persisted.getRevokedAt()).isNull();
         assertThat(persisted.getVersion()).isZero();
@@ -66,7 +68,7 @@ class LoginSessionWriterIntegrationTest {
 
     @Test
     void 존재하지_않는_사용자의_세션을_저장하면_외래_키_오류가_발생한다() {
-        assertThatThrownBy(() -> loginSessionWriter.append(UserId.of(-1L), EXPIRES_AT))
+        assertThatThrownBy(() -> loginSessionWriter.append(UserId.of(-1L), SESSION_TOKEN_HASH, EXPIRES_AT))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasCauseInstanceOf(ConstraintViolationException.class)
                 .satisfies(exception -> {

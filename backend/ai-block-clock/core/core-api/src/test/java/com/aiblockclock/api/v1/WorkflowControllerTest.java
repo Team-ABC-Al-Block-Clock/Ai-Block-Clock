@@ -1,9 +1,8 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.domain.auth.AccessTokenGenerator;
-import com.aiblockclock.domain.auth.LoginSession;
-import com.aiblockclock.domain.auth.LoginSessionId;
-import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.api.support.auth.SessionTokenCookie;
+import com.aiblockclock.domain.auth.SessionTokenGenerator;
+import com.aiblockclock.domain.auth.SessionTokenHasher;
 import com.aiblockclock.storage.auth.LoginSessionEntity;
 import com.aiblockclock.storage.auth.LoginSessionRepository;
 import com.aiblockclock.storage.user.UserEntity;
@@ -16,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import jakarta.servlet.http.Cookie;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,6 +40,7 @@ import java.util.UUID;
 @AutoConfigureMockMvc
 @Transactional
 class WorkflowControllerTest {
+    private static final String ALLOWED_ORIGIN = "http://localhost:5173";
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @Autowired
@@ -51,7 +53,10 @@ class WorkflowControllerTest {
     private LoginSessionRepository loginSessionRepository;
 
     @Autowired
-    private AccessTokenGenerator accessTokenGenerator;
+    private SessionTokenGenerator sessionTokenGenerator;
+
+    @Autowired
+    private SessionTokenHasher sessionTokenHasher;
 
     @Autowired
     private Clock clock;
@@ -61,25 +66,22 @@ class WorkflowControllerTest {
     private String other;
 
     @BeforeEach
-    void 두_사용자의_Access_Token을_준비한다() {
-        owner = issueBearerToken();
-        other = issueBearerToken();
+    void 두_사용자의_세션_토큰을_준비한다() {
+        owner = issueSessionToken();
+        other = issueSessionToken();
     }
 
-    private String issueBearerToken() {
+    private String issueSessionToken() {
         String walletAddress = "0x" + UUID.randomUUID().toString().replace("-", "") + "00000000";
         UserEntity user = userRepository.saveAndFlush(UserEntity.of(walletAddress));
-        LoginSessionEntity session = loginSessionRepository.saveAndFlush(LoginSessionEntity.of(
-                user.getId(), clock.instant().plus(7, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MICROS)
+        String rawSessionToken = sessionTokenGenerator.generate();
+        loginSessionRepository.saveAndFlush(LoginSessionEntity.of(
+                user.getId(),
+                sessionTokenHasher.hash(rawSessionToken),
+                clock.instant().plus(7, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MICROS)
         ));
-        LoginSession loginSession = new LoginSession(
-                LoginSessionId.of(session.getId()),
-                UserId.of(user.getId()),
-                session.getExpiresAt(),
-                null
-        );
 
-        return "Bearer " + accessTokenGenerator.generate(loginSession).value();
+        return rawSessionToken;
     }
 
     private static String chainBody(String name) {
@@ -99,7 +101,8 @@ class WorkflowControllerTest {
 
     private String create(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(chainBody(name)))
                 .andExpect(status().isCreated())
@@ -118,7 +121,8 @@ class WorkflowControllerTest {
     void lifecycle() throws Exception {
         String workflowId = create("성적 분석 리포트");
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header(HttpHeaders.AUTHORIZATION, owner))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("성적 분석 리포트"))
                 .andExpect(jsonPath("$.data.nodes.length()").value(2))
@@ -128,7 +132,8 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.data.lastExecutedAt").doesNotExist());
 
         mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -144,17 +149,20 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.data.nodeCount").value(1));
 
         mockMvc.perform(get("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
                         .param("keyword", "고쳤다"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].workflowId").value(workflowId))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
-        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId).header(HttpHeaders.AUTHORIZATION, owner))
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.workflowId").value(workflowId));
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header(HttpHeaders.AUTHORIZATION, owner))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_002"));
     }
@@ -163,7 +171,8 @@ class WorkflowControllerTest {
     @DisplayName("뒤섞어 보낸 노드도 다시 읽으면 연결 순서대로 나온다")
     void returnsNodesInConnectedOrder() throws Exception {
         MvcResult created = mockMvc.perform(post("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -185,7 +194,8 @@ class WorkflowControllerTest {
         String workflowId = mapper.readTree(created.getResponse().getContentAsString())
                 .get("data").get("workflowId").asText();
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header(HttpHeaders.AUTHORIZATION, owner))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nodes[0].nodeKey").value("n1"))
                 .andExpect(jsonPath("$.data.nodes[1].nodeKey").value("n2"))
@@ -206,11 +216,14 @@ class WorkflowControllerTest {
     void rejectsOtherOwner() throws Exception {
         String workflowId = create("남의 것");
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header(HttpHeaders.AUTHORIZATION, other))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, other)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_003"));
 
-        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId).header(HttpHeaders.AUTHORIZATION, other))
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, other))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_003"));
     }
@@ -221,7 +234,8 @@ class WorkflowControllerTest {
         String workflowId = create("회차 충돌");
 
         mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -239,7 +253,8 @@ class WorkflowControllerTest {
     @DisplayName("순환이 있으면 저장하지 않는다")
     void rejectsCycle() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -262,7 +277,8 @@ class WorkflowControllerTest {
     @DisplayName("노드가 없으면 저장하지 않는다")
     void rejectsEmptyNodes() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "name": "빈 캔버스", "nodes": [], "edges": [] }
@@ -275,7 +291,8 @@ class WorkflowControllerTest {
     @DisplayName("에이전트 배치는 아직 열려 있지 않다")
     void rejectsAgentPlacement() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -291,7 +308,8 @@ class WorkflowControllerTest {
     @Test
     @DisplayName("워크플로우 ID 자리에 아무 문자열이나 오면 400 이다")
     void rejectsMalformedWorkflowId() throws Exception {
-        mockMvc.perform(get("/api/v1/workflows/{id}", "워크플로우아님").header(HttpHeaders.AUTHORIZATION, owner))
+        mockMvc.perform(get("/api/v1/workflows/{id}", "워크플로우아님")
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("COMMON_001"))
                 .andExpect(jsonPath("$.error.data.field").value("workflowId"));
@@ -300,7 +318,9 @@ class WorkflowControllerTest {
     @Test
     @DisplayName("목록 조회 크기가 범위를 벗어나면 400 이다")
     void rejectsSizeOutOfRange() throws Exception {
-        mockMvc.perform(get("/api/v1/workflows").header(HttpHeaders.AUTHORIZATION, owner).param("size", "101"))
+        mockMvc.perform(get("/api/v1/workflows")
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("COMMON_001"));
     }
@@ -309,7 +329,8 @@ class WorkflowControllerTest {
     @DisplayName("읽을 수 없는 본문은 400 이다")
     void rejectsUnreadableBody() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header(HttpHeaders.AUTHORIZATION, owner)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ \"name\": "))
                 .andExpect(status().isBadRequest())

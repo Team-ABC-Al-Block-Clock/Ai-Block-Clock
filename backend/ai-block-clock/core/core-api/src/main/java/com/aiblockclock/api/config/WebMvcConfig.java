@@ -23,7 +23,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authOriginInterceptor).addPathPatterns("/api/v1/auth/**");
+        registry.addInterceptor(authOriginInterceptor).addPathPatterns("/api/v1/**");
     }
 
     @Override
@@ -31,7 +31,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addMapping("/api/v1/**")
                 .allowedOrigins(authWebProperties.allowedOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("Authorization", "Content-Type")
+                .allowedHeaders("Content-Type")
                 .allowCredentials(true);
     }
 
