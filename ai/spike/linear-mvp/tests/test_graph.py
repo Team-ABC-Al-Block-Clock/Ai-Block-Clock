@@ -232,3 +232,80 @@ def test_엑셀은_common_table_payload_로_들어온다():
     assert all(c["key"].startswith("col_") for c in table["columns"])
     assert len(table["rows"]) == 20
     assert json.dumps(table, ensure_ascii=False)          # 직렬화 가능
+
+
+# --- 견적 (분기 조합 중 최댓값) ----------------------------------------------
+
+def test_견적은_가장_비싼_분기_조합의_합이다():
+    quote = graph.estimate(runner.load_workflow("brand_agent"))
+    # n1 4.2 + n2 3.8 + n3a 4.5 + n4 5.0 = 17.5 (분기 노드 br1 은 과금하지 않는다)
+    assert quote["max_charge_abc"] == 17.5
+    assert "br1" not in quote["worst_case_nodes"]
+    assert len(quote["worst_case_nodes"]) == 4
+    assert quote["unpriced_nodes"] == []
+
+
+def test_비싼_쪽_분기를_고른다():
+    wf = runner.load_workflow("brand_agent")
+    for node in wf["nodes"]:
+        if node["id"] == "n3b":
+            node["unit_price"] = 9.9          # 대중 공략 쪽이 비싸지면 견적도 그쪽
+    quote = graph.estimate(wf)
+    assert "n3b" in quote["worst_case_nodes"] and quote["max_charge_abc"] == 22.9
+
+
+def test_단가가_없으면_견적에_표시된다():
+    wf = runner.load_workflow("brand_agent")
+    for node in wf["nodes"]:
+        node.pop("unit_price", None)
+    report = graph.validate(wf)
+    assert report["estimate"]["max_charge_abc"] == 0.0
+    assert set(report["estimate"]["unpriced_nodes"]) == {"n1", "n2", "n3a", "n4"}
+    assert any(w["code"] == "UNPRICED_NODES" for w in report["warnings"])
+
+
+def test_검증_응답에_견적이_실린다():
+    client = TestClient(app)
+    body = client.post("/v1/workflows/validate",
+                       json={"workflow": runner.load_workflow("brand_agent")}).json()
+    assert body["estimate"]["max_charge_abc"] == 17.5
+
+
+# --- POST /v1/runs 가 입력 payload 를 받는다 (계약 §7.1) ----------------------
+
+def test_실행_요청에_input_payload_를_실어_보낸다():
+    client = TestClient(app)
+    wf = runner.load_workflow("brand_agent")
+    res = client.post("/v1/runs", data={"workflow": json.dumps(wf, ensure_ascii=False),
+                                        "input": json.dumps(BRIEF, ensure_ascii=False),
+                                        "comment": "API 경유", "mock": "true"})
+    assert res.status_code == 202
+    run_id = res.json()["run_id"]
+    got = client.get(f"/v1/runs/{run_id}").json()
+    assert got["status"] == "succeeded"
+    status = {n["id"]: n["status"] for n in got["nodes"]}
+    assert status["n3a"] == "succeeded" and status["n3b"] == "skipped"
+
+
+def test_input_이_없으면_수요자_책임으로_실패한다():
+    client = TestClient(app)
+    wf = runner.load_workflow("brand_agent")
+    res = client.post("/v1/runs", data={"workflow": json.dumps(wf, ensure_ascii=False), "mock": "true"})
+    assert res.status_code == 202
+    got = client.get(f"/v1/runs/{res.json()['run_id']}").json()
+    assert got["status"] == "failed" and got["error"]["fault"] == "consumer"
+
+
+def test_망가진_input_JSON_은_400_이다():
+    client = TestClient(app)
+    res = client.post("/v1/runs", data={"workflow": json.dumps(runner.load_workflow("brand_agent")),
+                                        "input": "{not json", "mock": "true"})
+    assert res.status_code == 400 and res.json()["detail"]["code"] == "INVALID_INPUT_JSON"
+
+
+def test_정의가_틀리면_요청_시점에_400_이다():
+    client = TestClient(app)
+    wf = runner.load_workflow("brand_agent")
+    wf["edges"].append({"from": "n4", "to": "n1"})       # 순환
+    res = client.post("/v1/runs", data={"workflow": json.dumps(wf), "mock": "true"})
+    assert res.status_code == 400 and res.json()["detail"]["code"] == "INVALID_WORKFLOW"
