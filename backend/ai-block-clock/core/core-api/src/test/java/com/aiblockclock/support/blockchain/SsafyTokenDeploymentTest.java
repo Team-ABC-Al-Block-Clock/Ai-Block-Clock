@@ -85,4 +85,36 @@ class SsafyTokenDeploymentTest {
         assertThatThrownBy(() -> client.deployToken(request())).isInstanceOf(RestClientException.class);
         server.verify();
     }
+
+    @Test
+    void readsContractsPreviouslyDeployedByOwner() {
+        server.expect(requestTo("https://sto.ssafy.io/v1/tokens/" + TEST_OWNER))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        [{
+                          "name": "ABC Payment Token",
+                          "symbol": "abcToken",
+                          "contractAddress": "0x2222222222222222222222222222222222222222",
+                          "txId": "test-transaction",
+                          "deployedAt": "2026-09-19T00:00:00Z"
+                        }]
+                        """, MediaType.APPLICATION_JSON));
+
+        List<SsafyDeployedToken> tokens = client.getDeployedTokens(TEST_OWNER);
+
+        assertThat(tokens).hasSize(1);
+        assertThat(tokens.getFirst().contractAddress()).isEqualTo(TEST_CONTRACT);
+        assertThat(tokens.getFirst().deployedAt()).isEqualTo(java.time.Instant.parse("2026-09-19T00:00:00Z"));
+        server.verify();
+    }
+
+    @Test
+    void rejectsEmptyDeployedTokenResponse() {
+        server.expect(requestTo("https://sto.ssafy.io/v1/tokens/" + TEST_OWNER))
+                .andRespond(withSuccess());
+
+        assertThatThrownBy(() -> client.getDeployedTokens(TEST_OWNER))
+                .isInstanceOf(RestClientException.class);
+        server.verify();
+    }
 }

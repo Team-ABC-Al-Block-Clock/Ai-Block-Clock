@@ -29,6 +29,14 @@ public class SsafyTokenDeploymentRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         String ownerAddress = properties.ownerAddress();
+        SsafyDeployedToken existingToken = ssafyStoClient.getDeployedTokens(ownerAddress).stream()
+                .filter(this::matchesAbcToken)
+                .findFirst()
+                .orElse(null);
+        if (existingToken != null) {
+            throw new IllegalStateException("ABC token is already deployed: " + existingToken.contractAddress());
+        }
+
         SsafyTokenDeploymentRequest request = new SsafyTokenDeploymentRequest(
                 ownerAddress,
                 TOKEN_NAME,
@@ -45,5 +53,10 @@ public class SsafyTokenDeploymentRunner implements ApplicationRunner {
 
         log.info("SSAFY token deployment succeeded. contractAddress={}, transactionHash={}",
                 receipt.contractAddress(), receipt.transactionHash());
+    }
+
+    private boolean matchesAbcToken(SsafyDeployedToken token) {
+        return TOKEN_NAME.equalsIgnoreCase(token.name())
+                || TOKEN_SYMBOL.equalsIgnoreCase(token.symbol());
     }
 }

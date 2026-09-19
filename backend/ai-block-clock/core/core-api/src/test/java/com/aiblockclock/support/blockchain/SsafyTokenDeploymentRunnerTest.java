@@ -1,6 +1,8 @@
 package com.aiblockclock.support.blockchain;
 
 import java.math.BigInteger;
+import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -9,6 +11,7 @@ import org.springframework.boot.DefaultApplicationArguments;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +22,7 @@ class SsafyTokenDeploymentRunnerTest {
     void createsFixedAbcTokenDeploymentRequest() throws Exception {
         SsafyStoClient client = mock(SsafyStoClient.class);
         SsafyTokenDeploymentProperties properties = properties();
+        when(client.getDeployedTokens(OWNER_ADDRESS)).thenReturn(List.of());
         when(client.deployToken(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new SsafyTokenDeploymentReceipt(true, "test-transaction", "test-contract"));
 
@@ -38,6 +42,7 @@ class SsafyTokenDeploymentRunnerTest {
     @Test
     void stopsWhenDeploymentReceiptReportsFailure() {
         SsafyStoClient client = mock(SsafyStoClient.class);
+        when(client.getDeployedTokens(OWNER_ADDRESS)).thenReturn(List.of());
         when(client.deployToken(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new SsafyTokenDeploymentReceipt(false, "failed-transaction", null));
 
@@ -46,6 +51,36 @@ class SsafyTokenDeploymentRunnerTest {
         assertThatThrownBy(() -> runner.run(new DefaultApplicationArguments()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("failed-transaction");
+    }
+
+    @Test
+    void stopsBeforeDeploymentWhenTokenNameAlreadyExists() {
+        SsafyStoClient client = mock(SsafyStoClient.class);
+        when(client.getDeployedTokens(OWNER_ADDRESS)).thenReturn(List.of(
+                deployedToken("ABC Payment Token", "OTHER", "existing-contract")
+        ));
+
+        SsafyTokenDeploymentRunner runner = new SsafyTokenDeploymentRunner(client, properties());
+
+        assertThatThrownBy(() -> runner.run(new DefaultApplicationArguments()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("existing-contract");
+        verify(client, never()).deployToken(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void stopsBeforeDeploymentWhenTokenSymbolAlreadyExistsIgnoringCase() {
+        SsafyStoClient client = mock(SsafyStoClient.class);
+        when(client.getDeployedTokens(OWNER_ADDRESS)).thenReturn(List.of(
+                deployedToken("Other Token", "ABCTOKEN", "existing-contract")
+        ));
+
+        SsafyTokenDeploymentRunner runner = new SsafyTokenDeploymentRunner(client, properties());
+
+        assertThatThrownBy(() -> runner.run(new DefaultApplicationArguments()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("existing-contract");
+        verify(client, never()).deployToken(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -65,6 +100,12 @@ class SsafyTokenDeploymentRunnerTest {
         return new SsafyTokenDeploymentProperties(
                 OWNER_ADDRESS,
                 SsafyTokenDeploymentProperties.REQUIRED_CONFIRMATION
+        );
+    }
+
+    private SsafyDeployedToken deployedToken(String name, String symbol, String contractAddress) {
+        return new SsafyDeployedToken(
+                name, symbol, contractAddress, "test-transaction", Instant.parse("2026-09-19T00:00:00Z")
         );
     }
 }

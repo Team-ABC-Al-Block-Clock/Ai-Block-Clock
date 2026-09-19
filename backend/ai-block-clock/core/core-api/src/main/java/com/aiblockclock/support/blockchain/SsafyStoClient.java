@@ -1,6 +1,9 @@
 package com.aiblockclock.support.blockchain;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -47,5 +50,19 @@ public class SsafyStoClient {
             throw new RestClientException("SSAFY STO deployment receipt is incomplete; verify chain outcome before resubmitting");
         }
         return receipt;
+    }
+
+    public List<SsafyDeployedToken> getDeployedTokens(String ownerAddress) {
+        List<SsafyDeployedToken> tokens = restClient.get()
+                .uri("/v1/tokens/{ownerAddress}", ownerAddress)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {
+                });
+
+        if (tokens == null) {
+            throw new RestClientException("SSAFY STO deployed-token response is empty");
+        }
+        return List.copyOf(tokens);
     }
 }
