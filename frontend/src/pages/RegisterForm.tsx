@@ -69,7 +69,7 @@ export default function RegisterForm() {
         id="formScroll"
         style={{
           width: '1440px',
-          // 폼이 가로로 잘려 보이지 않도록 굴림 창을 창 위아래 끝까지 늘린다.
+          // 폼이 가로로 잘리지 않게 스크롤 영역을 창 위아래 끝까지 늘린다.
           top: 'calc(-1 * var(--edge-y, 0px))',
           height: 'calc(1024px + 2 * var(--edge-y, 0px))',
         }}

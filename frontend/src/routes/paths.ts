@@ -31,15 +31,12 @@ export const routePatterns = {
 
 export type ScreenKey = keyof typeof routePatterns
 
-/**
- * ID 필수. 아직 ID가 없으면 `.withoutId` 사용.
- */
-
 /** 핸들러가 붙어 넘길 ID 가 항상 있는 화면. */
 function requiredIdPath([withId]: readonly [string]) {
   return (id: string) => withId.replace(/:[^/]+/, id)
 }
 
+/** ID 필수. 아직 ID 가 없으면 `.withoutId` 사용. */
 function idPath([plain, withId]: readonly [string, string]) {
   const build = (id: string) => withId.replace(/:[^/]+/, id)
   /** 핸들러가 붙기 전까지만 쓰는 임시 경로 */
