@@ -1,7 +1,7 @@
 # ai/ — AI 파트 에이전트 규칙
 
 `ai/` 아래에서 일하는 AI 코딩 에이전트(Claude Code)에게 주는 **변하지 않는 규칙**이다. 트랙 A · B 두 사람이 같은 규칙으로 일하게 하는 것이 목적이다.
-지금 상태 · 일정 · 오늘 할 일은 여기 없다 — 각자의 인수인계 문서에 있다. 사람이 읽는 설명은 [`README.md`](README.md), Git 규칙 원문은 [`../git-workflow.md`](../git-workflow.md), 백엔드 · 프론트와의 계약은 [`docs/ai-runtime-api.md`](docs/ai-runtime-api.md).
+지금 상태 · 일정 · 오늘 할 일은 여기 없다 — 각자의 인수인계 문서에 있다. 사람이 읽는 설명은 [`README.md`](README.md), Git 규칙 원문은 [`../git-workflow.md`](../git-workflow.md), 백엔드 · 프론트와의 계약은 [`docs/integration-guide.md`](docs/integration-guide.md).
 
 이 파일을 고칠 때: **규칙만** 넣는다. 새로 알게 된 사실 · 상태 · 마감은 인수인계로 보낸다. 규칙이 바뀌면 그 변경을 담은 MR에서 함께 고친다.
 
@@ -32,7 +32,7 @@
 | 계약 · 명세 | `docs/` | 다른 파트에 배포하는 것만. 설계 이유 · 일정은 팀 문서 폴더(레포 밖) |
 | 프롬프트 초안 | `prompts/`, `spike/linear-mvp/prompts/` | 파일로 관리. 코드에 박지 않는다 |
 
-백엔드 ↔ Runtime은 **202 + 폴링**, 에이전트 전개는 Runtime이 한다. 상세는 `docs/ai-runtime-api.md`.
+백엔드 ↔ Runtime은 **202 + 폴링**, 에이전트 전개는 Runtime이 한다. 상세는 `docs/integration-guide.md`.
 
 ## 3. 설계 원칙 — 어기면 리뷰에서 되돌린다
 
