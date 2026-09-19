@@ -1,0 +1,469 @@
+{
+  "파인튜닝 + weighted": {
+    "브랜딩": {
+      "n": 9,
+      "top1": 8,
+      "rate": 0.8888888888888888,
+      "margin": 0.18153564646786033,
+      "misses": [
+        {
+          "query": "한 줄로 각인되는 홍보 문장 만들어줘",
+          "got": "ag_seed_19",
+          "want": [
+            "ag_brand_03"
+          ],
+          "rank": 2
+        }
+      ]
+    },
+    "골든": {
+      "n": 22,
+      "top1": 21,
+      "rate": 0.9545454545454546,
+      "margin": 0.3275003554406992,
+      "misses": [
+        {
+          "query": "학부모랑 얘기한 내용 문서로 남겨야 해",
+          "got": "ag_seed_02",
+          "want": [
+            "ag_seed_05"
+          ],
+          "rank": 2
+        }
+      ]
+    },
+    "holdout": {
+      "n": 80,
+      "top1": 68,
+      "rate": 0.85,
+      "margin": 0.2772079921316213,
+      "misses": [
+        {
+          "query": "점수표 넣으면 통계 내주는 거",
+          "got": "ag_seed_03",
+          "want": [
+            "ag_seed_01"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "다음에 확인할 것까지 같이 적어줘",
+          "got": "ag_seed_09",
+          "want": [
+            "ag_seed_05"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "참석 못한 사람한테 공유할 요약본 만들어줘",
+          "got": "ag_seed_04",
+          "want": [
+            "ag_seed_06"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "문서 개요 만들기",
+          "got": "ag_seed_08",
+          "want": [
+            "ag_seed_07"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "자료 바탕으로 글 써줘",
+          "got": "ag_seed_09",
+          "want": [
+            "ag_seed_08"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "미리 챙길 것까지 같이 정리해줘",
+          "got": "ag_seed_13",
+          "want": [
+            "ag_seed_10"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "이렇게 쓰면 무례한가 봐줘",
+          "got": "ag_seed_17",
+          "want": [
+            "ag_seed_14"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "바뀐 소스 봐줄 수 있어?",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_18"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "PR 올리기 전에 한번 봐줘",
+          "got": "ag_brand_04",
+          "want": [
+            "ag_seed_18"
+          ],
+          "rank": 8
+        },
+        {
+          "query": "변경 사항 한 줄 설명",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "feat인지 fix인지 정해줘",
+          "got": "ag_brand_03",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "사용자한테 알릴 변경 내용 만들어줘",
+          "got": "ag_seed_15",
+          "want": [
+            "ag_seed_20"
+          ],
+          "rank": 2
+        }
+      ]
+    }
+  },
+  "파인튜닝 + off": {
+    "브랜딩": {
+      "n": 9,
+      "top1": 7,
+      "rate": 0.7777777777777778,
+      "margin": 0.18185440131596156,
+      "misses": [
+        {
+          "query": "신제품 내놓는데 어떤 컨셉으로 갈지 방향 좀 잡아줘",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_brand_01"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "한 줄로 각인되는 홍보 문장 만들어줘",
+          "got": "ag_seed_19",
+          "want": [
+            "ag_brand_03"
+          ],
+          "rank": 2
+        }
+      ]
+    },
+    "골든": {
+      "n": 22,
+      "top1": 22,
+      "rate": 1.0,
+      "margin": 0.2985806200991977,
+      "misses": []
+    },
+    "holdout": {
+      "n": 80,
+      "top1": 66,
+      "rate": 0.825,
+      "margin": 0.27617644292838645,
+      "misses": [
+        {
+          "query": "점수표 넣으면 통계 내주는 거",
+          "got": "ag_seed_03",
+          "want": [
+            "ag_seed_01"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "다음에 확인할 것까지 같이 적어줘",
+          "got": "ag_seed_09",
+          "want": [
+            "ag_seed_05"
+          ],
+          "rank": 6
+        },
+        {
+          "query": "참석 못한 사람한테 공유할 요약본 만들어줘",
+          "got": "ag_seed_04",
+          "want": [
+            "ag_seed_06"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "문서 개요 만들기",
+          "got": "ag_seed_08",
+          "want": [
+            "ag_seed_07"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "자료 바탕으로 글 써줘",
+          "got": "ag_seed_09",
+          "want": [
+            "ag_seed_08"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "미리 챙길 것까지 같이 정리해줘",
+          "got": "ag_seed_13",
+          "want": [
+            "ag_seed_10"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "이렇게 쓰면 무례한가 봐줘",
+          "got": "ag_seed_17",
+          "want": [
+            "ag_seed_14"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "변경 사항 공지 메일",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_15"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "무례하게 읽힐 부분 찾아 주세요",
+          "got": "ag_seed_16",
+          "want": [
+            "ag_seed_17"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "바뀐 소스 봐줄 수 있어?",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_18"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "PR 올리기 전에 한번 봐줘",
+          "got": "ag_brand_04",
+          "want": [
+            "ag_seed_18"
+          ],
+          "rank": 8
+        },
+        {
+          "query": "변경 사항 한 줄 설명",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "feat인지 fix인지 정해줘",
+          "got": "ag_brand_03",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 6
+        },
+        {
+          "query": "사용자한테 알릴 변경 내용 만들어줘",
+          "got": "ag_seed_15",
+          "want": [
+            "ag_seed_20"
+          ],
+          "rank": 2
+        }
+      ]
+    }
+  },
+  "사전학습 + weighted": {
+    "브랜딩": {
+      "n": 9,
+      "top1": 9,
+      "rate": 1.0,
+      "margin": 0.1490150401662095,
+      "misses": []
+    },
+    "골든": {
+      "n": 22,
+      "top1": 22,
+      "rate": 1.0,
+      "margin": 0.13860988706581986,
+      "misses": []
+    },
+    "holdout": {
+      "n": 80,
+      "top1": 61,
+      "rate": 0.7625,
+      "margin": 0.1093584552805145,
+      "misses": [
+        {
+          "query": "시험 결과 파일 주면 요약해 주나",
+          "got": "ag_seed_03",
+          "want": [
+            "ag_seed_01"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "우리 아이 어떤가요 물어보실 때 드릴 답변 미리 준비하고 싶어",
+          "got": "ag_seed_05",
+          "want": [
+            "ag_seed_02"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "출석 기록 요약해 주실 수 있나요",
+          "got": "ag_seed_06",
+          "want": [
+            "ag_seed_04"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "다음에 확인할 것까지 같이 적어줘",
+          "got": "ag_seed_11",
+          "want": [
+            "ag_seed_05"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "메모 흩어진 거 하나로 모아서 정리해줘",
+          "got": "ag_seed_11",
+          "want": [
+            "ag_seed_05"
+          ],
+          "rank": 8
+        },
+        {
+          "query": "무슨 결정 났는지만 뽑아줘",
+          "got": "ag_seed_11",
+          "want": [
+            "ag_seed_06"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "문서 개요 만들기",
+          "got": "ag_seed_08",
+          "want": [
+            "ag_seed_07"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "방대한 자료 요점 정리",
+          "got": "ag_seed_08",
+          "want": [
+            "ag_seed_09"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "미리 챙길 것까지 같이 정리해줘",
+          "got": "ag_seed_13",
+          "want": [
+            "ag_seed_10"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "놓친 업무 없는지 뽑아보고 싶어",
+          "got": "ag_seed_13",
+          "want": [
+            "ag_seed_11"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "태스크 정리",
+          "got": "ag_seed_08",
+          "want": [
+            "ag_seed_11"
+          ],
+          "rank": 5
+        },
+        {
+          "query": "이렇게 쓰면 무례한가 봐줘",
+          "got": "ag_seed_16",
+          "want": [
+            "ag_seed_14"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "요청하는 메일 써줘",
+          "got": "ag_seed_15",
+          "want": [
+            "ag_seed_14"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "바뀐 소스 봐줄 수 있어?",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_18"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "PR 올리기 전에 한번 봐줘",
+          "got": "ag_seed_13",
+          "want": [
+            "ag_seed_18"
+          ],
+          "rank": 16
+        },
+        {
+          "query": "변경 사항 한 줄 설명",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "변경 내용 한 문장",
+          "got": "ag_seed_20",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 2
+        },
+        {
+          "query": "feat인지 fix인지 정해줘",
+          "got": "ag_seed_11",
+          "want": [
+            "ag_seed_19"
+          ],
+          "rank": 3
+        },
+        {
+          "query": "배포 노트 초안 좀",
+          "got": "ag_seed_08",
+          "want": [
+            "ag_seed_20"
+          ],
+          "rank": 2
+        }
+      ]
+    }
+  }
+}

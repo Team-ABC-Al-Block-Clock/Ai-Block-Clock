@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from . import runner
+from . import catalog, runner
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -118,6 +118,23 @@ def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: b
 @app.get("/v1/health", summary="상태 확인")
 def health() -> dict:
     return {"status": "ok", "auth_required": bool(SERVICE_TOKEN), "runs_in_memory": len(_runs)}
+
+
+@app.get("/v1/schemas", summary="스키마 카탈로그 목록", dependencies=[Depends(auth)])
+def get_schemas() -> dict:
+    """판매자가 노드를 만들 때 고르는 입출력 형식 목록. 프론트 드롭다운이 이걸 쓴다."""
+    return {"catalog_version": catalog.CATALOG_VERSION, "schemas": catalog.list_entries()}
+
+
+@app.get("/v1/schemas/{schema_id}", summary="스키마 JSON Schema 전문",
+         dependencies=[Depends(auth)])
+def get_schema(schema_id: str) -> dict:
+    """프론트는 이 JSON Schema 로 입력 폼을 그리고 연결 가부를 판정한다."""
+    try:
+        return catalog.json_schema(schema_id)
+    except catalog.UnknownSchema:
+        raise HTTPException(status_code=404,
+                            detail={"code": "SCHEMA_NOT_FOUND", "message": schema_id})
 
 
 @app.get("/v1/workflows", summary="예시 워크플로우 목록", dependencies=[Depends(auth)])

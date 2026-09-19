@@ -13,6 +13,7 @@ base_url 만 바꿔 끼운다. Google 직접 호출로 돌리려면 LLM_BASE_URL
 """
 from __future__ import annotations
 
+import json
 import os
 import time
 from dataclasses import dataclass
@@ -34,6 +35,8 @@ class LLMResult:
     duration_ms: int
     retries: int = 0
     mock: bool = False
+    # 구조화 출력을 어떤 방식으로 받았나. response_schema | instruction | None(자유 텍스트)
+    schema_mode: str | None = None
 
 
 class LLM:
@@ -42,6 +45,7 @@ class LLM:
         self.model = model or os.getenv("LLM_MODEL") or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
         self.temperature = temperature
         self._client = None
+        self._schema_mode: str | None = None
         if not mock:
             api_key = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")
             if not api_key:
@@ -58,17 +62,24 @@ class LLM:
                 http_options=types.HttpOptions(base_url=base_url, timeout=TIMEOUT_MS),
             )
 
-    def generate(self, system: str, user: str, label: str = "") -> LLMResult:
+    def generate(self, system: str, user: str, label: str = "",
+                 response_schema: dict | None = None,
+                 mock_json: dict | None = None) -> LLMResult:
+        """한 번 호출한다.
+
+        `response_schema` 를 주면 **JSON 만** 받는다(구조화 출력). 스키마는 카탈로그가
+        만들어 준 OpenAPI 부분집합이다(`src/catalog.response_schema`).
+        프록시나 모델이 스키마를 거부하면 지시문 방식으로 한 번 더 시도한다 — 받는 쪽
+        검증은 어차피 코드가 하므로(EXE-009) 어느 방식이든 결과는 같게 취급된다.
+
+        `mock_json` 은 mock 모드에서 돌려줄 payload 다. 카탈로그 샘플을 넣으면
+        LLM 없이도 스키마를 만족하는 JSON 이 나온다.
+        """
         if self.mock:
-            return self._mock(system, user, label)
+            return self._mock(system, user, label, mock_json)
 
         types = self._types
-        config = types.GenerateContentConfig(
-            system_instruction=system,
-            temperature=self.temperature,
-            # 도구를 안 쓰는데 SDK가 자동 함수 호출 경고를 찍는다. 명시적으로 끈다.
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        )
+        config = self._config(system, response_schema)
         retries = 0
         while True:
             start = time.perf_counter()
@@ -82,9 +93,18 @@ class LLM:
                     output_tokens=getattr(usage, "candidates_token_count", 0) or 0,
                     duration_ms=int((time.perf_counter() - start) * 1000),
                     retries=retries,
+                    schema_mode=self._schema_mode,
                 )
             except Exception as e:  # google.genai.errors.APIError 등
                 code = getattr(e, "code", None) or getattr(e, "status_code", None)
+                if response_schema is not None and _rejects_schema(code, e):
+                    # 스키마를 거부하는 경로(구형 프록시 등)에서는 지시문으로 낮춰 한 번 더
+                    print(f"  ! {label} 구조화 출력 거부(HTTP {code}) — 지시문 방식으로 전환")
+                    system = system + _json_instruction(response_schema)
+                    config = self._config(system, None)
+                    response_schema = None
+                    self._schema_mode = "instruction"
+                    continue
                 if code in RETRY_STATUS and retries < MAX_RETRIES:
                     retries += 1
                     print(f"  ! {label} HTTP {code} — {RETRY_WAIT_SEC}s 대기 후 재시도 {retries}/{MAX_RETRIES}")
@@ -92,7 +112,27 @@ class LLM:
                     continue
                 raise
 
-    def _mock(self, system: str, user: str, label: str) -> LLMResult:
+    def _config(self, system: str, response_schema: dict | None):
+        types = self._types
+        kwargs = dict(
+            system_instruction=system,
+            temperature=self.temperature,
+            # 도구를 안 쓰는데 SDK가 자동 함수 호출 경고를 찍는다. 명시적으로 끈다.
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        )
+        if response_schema is not None:
+            kwargs["response_mime_type"] = "application/json"
+            kwargs["response_schema"] = response_schema
+            self._schema_mode = "response_schema"
+        return types.GenerateContentConfig(**kwargs)
+
+    def _mock(self, system: str, user: str, label: str, mock_json: dict | None = None) -> LLMResult:
+        if mock_json is not None:
+            # 구조화 출력 자리. 카탈로그 샘플을 그대로 돌려줘 검증 · 봉투 조립까지 실제 코드가 돈다
+            text = json.dumps(mock_json, ensure_ascii=False, indent=2)
+            return LLMResult(text=text, model="mock", input_tokens=len(user) // 2,
+                             output_tokens=len(text) // 2, duration_ms=1, mock=True,
+                             schema_mode="response_schema")
         head = user.strip().replace("\n", " ")[:300]
         text = (
             f"## [MOCK {label or self.model}]\n\n"
@@ -102,3 +142,22 @@ class LLM:
         )
         return LLMResult(text=text, model="mock", input_tokens=len(user) // 2,
                          output_tokens=len(text) // 2, duration_ms=1, mock=True)
+
+
+def _rejects_schema(code: object, exc: Exception) -> bool:
+    """구조화 출력 자체를 거부한 응답인가. 400 · INVALID_ARGUMENT 만 해당한다."""
+    if code == 400:
+        return True
+    text = f"{exc}".lower()
+    return "invalid_argument" in text or "response_schema" in text
+
+
+_JSON_RULE = """
+
+# 출력 형식
+아래 JSON Schema 를 만족하는 **JSON 객체 하나만** 출력한다. 설명 · 인사말 · 코드블록 표시를 붙이지 않는다.
+"""
+
+
+def _json_instruction(schema: dict) -> str:
+    return _JSON_RULE + json.dumps(schema, ensure_ascii=False)
