@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import itertools
 import operator
 from dataclasses import dataclass, field
 from typing import Any
@@ -226,6 +227,55 @@ def evaluate(condition: dict, payloads: dict[str, Any]) -> bool:
         raise ConditionInvalid(f"비교할 수 없는 값입니다: {left_ref}") from e
 
 
+def executed_nodes(graph: Graph, taken: dict[str, bool]) -> list[str]:
+    """분기 결과를 정해 두면 어느 노드가 도는지 정해진다. 실행 없이 세는 계산이다."""
+    ran: list[str] = []
+    ran_set: set[str] = set()
+    for node_id in graph.order:
+        edges = graph.incoming.get(node_id) or []
+        if edges:
+            alive = False
+            for e in edges:
+                src = e["from"]
+                if src not in ran_set:
+                    continue
+                if graph.is_branch(src) and bool(e.get("when")) != taken.get(src, True):
+                    continue
+                alive = True
+                break
+            if not alive:
+                continue
+        ran.append(node_id)
+        ran_set.add(node_id)
+    return ran
+
+
+def estimate(wf: dict) -> dict:
+    """실행 전 견적 — **가능한 분기 조합 중 가장 비싼 경우**를 잡는다.
+
+    경로 길이가 아니라 "그 경우에 실제로 도는 노드들의 합"이다. 분할 · 병합이 있으면
+    여러 노드가 함께 돌기 때문에 최장 경로로는 답이 안 나온다.
+
+    단가(`unit_price`)는 백엔드가 요청에 실어 보내는 값이다. 없는 노드는 0으로 두고
+    `unpriced_nodes` 에 남겨 "견적을 믿을 수 없다"는 것을 드러낸다(계약 §8.2).
+    분기 노드 자체는 과금하지 않는다(계약 §8.4).
+    """
+    graph = build(wf)
+    branches = [n for n in graph.order if graph.is_branch(n)]
+    best_total, best_nodes = 0.0, []
+    for combo in itertools.product([True, False], repeat=len(branches)):
+        taken = dict(zip(branches, combo))
+        ran = executed_nodes(graph, taken)
+        total = sum(float(graph.node(n).get("unit_price") or 0)
+                    for n in ran if not graph.is_branch(n))
+        if total >= best_total and (total > best_total or not best_nodes):
+            best_total, best_nodes = total, [n for n in ran if not graph.is_branch(n)]
+    unpriced = [n for n in best_nodes if graph.node(n).get("unit_price") is None]
+    return {"max_charge_abc": round(best_total, 4),
+            "worst_case_nodes": best_nodes,
+            "unpriced_nodes": unpriced}
+
+
 def validate(wf: dict) -> dict:
     """실행하지 않고 정의만 검사한다(계약 §5.7 · §7.5).
 
@@ -334,7 +384,13 @@ def validate(wf: dict) -> dict:
         warnings.append({"code": "LONG_PATH", "node_id": None,
                          "message": f"최장 경로 {path}단계. 5분을 넘길 수 있습니다"})
 
-    return {"valid": not errors, "errors": errors, "warnings": warnings, "stats": stats}
+    quote = estimate(wf)
+    if quote["unpriced_nodes"]:
+        warnings.append({"code": "UNPRICED_NODES", "node_id": None,
+                         "message": "단가가 없는 노드가 있어 견적이 실제보다 낮습니다: "
+                                    + ", ".join(quote["unpriced_nodes"])})
+    return {"valid": not errors, "errors": errors, "warnings": warnings,
+            "stats": stats, "estimate": quote}
 
 
 def _output_schema_of(graph: Graph, node_id: str) -> str | None:
