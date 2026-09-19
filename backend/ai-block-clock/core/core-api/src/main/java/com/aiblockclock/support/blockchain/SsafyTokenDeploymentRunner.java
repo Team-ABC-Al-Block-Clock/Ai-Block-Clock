@@ -1,6 +1,5 @@
 package com.aiblockclock.support.blockchain;
 
-import java.math.BigInteger;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -18,11 +17,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @EnableConfigurationProperties(SsafyTokenDeploymentProperties.class)
 public class SsafyTokenDeploymentRunner implements ApplicationRunner {
-    static final String TOKEN_NAME = "ABC Payment Token";
-    static final String TOKEN_SYMBOL = "abcToken";
-    static final String PAYMENT_PARTITION = "payment";
-    static final BigInteger TOKEN_GRANULARITY = BigInteger.ONE;
-
     private final SsafyStoClient ssafyStoClient;
     private final SsafyTokenDeploymentProperties properties;
 
@@ -39,11 +33,11 @@ public class SsafyTokenDeploymentRunner implements ApplicationRunner {
 
         SsafyTokenDeploymentRequest request = new SsafyTokenDeploymentRequest(
                 ownerAddress,
-                TOKEN_NAME,
-                TOKEN_SYMBOL,
-                TOKEN_GRANULARITY,
+                SsafyAbcTokenSpec.NAME,
+                SsafyAbcTokenSpec.SYMBOL,
+                SsafyAbcTokenSpec.GRANULARITY,
                 List.of(ownerAddress),
-                List.of(PAYMENT_PARTITION)
+                List.of(SsafyAbcTokenSpec.PAYMENT_PARTITION)
         );
 
         SsafyTokenDeploymentReceipt receipt = ssafyStoClient.deployToken(request);
@@ -56,7 +50,7 @@ public class SsafyTokenDeploymentRunner implements ApplicationRunner {
     }
 
     private boolean matchesAbcToken(SsafyDeployedToken token) {
-        return TOKEN_NAME.equalsIgnoreCase(token.name())
-                || TOKEN_SYMBOL.equalsIgnoreCase(token.symbol());
+        return SsafyAbcTokenSpec.NAME.equalsIgnoreCase(token.name())
+                || SsafyAbcTokenSpec.SYMBOL.equalsIgnoreCase(token.symbol());
     }
 }

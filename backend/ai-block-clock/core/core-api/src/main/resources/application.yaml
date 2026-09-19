@@ -28,6 +28,13 @@ ssafy:
     transaction-timeout: ${SSAFY_STO_TRANSACTION_TIMEOUT:60s}
     token:
       contract-address: ${SSAFY_TOKEN_CONTRACT_ADDRESS:}
+    mint:
+      requestor-address: ${SSAFY_TOKEN_MINT_REQUESTOR:}
+      recipient-address: ${SSAFY_TOKEN_MINT_RECIPIENT:}
+      value: ${SSAFY_TOKEN_MINT_VALUE:}
+      data: ${SSAFY_TOKEN_MINT_DATA:}
+      signature: ${SSAFY_TOKEN_MINT_SIGNATURE:}
+      confirmation: ${SSAFY_TOKEN_MINT_CONFIRM:}
     deployment:
       owner-address: ${SSAFY_TOKEN_OWNER_ADDRESS:}
       confirmation: ${SSAFY_TOKEN_DEPLOY_CONFIRM:}

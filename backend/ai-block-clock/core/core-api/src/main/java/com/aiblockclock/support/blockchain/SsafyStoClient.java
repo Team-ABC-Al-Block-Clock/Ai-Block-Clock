@@ -2,6 +2,7 @@ package com.aiblockclock.support.blockchain;
 
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
@@ -41,6 +42,27 @@ public class SsafyStoClient {
                 || Boolean.TRUE.equals(receipt.status())
                 && (receipt.contractAddress() == null || receipt.contractAddress().isBlank())) {
             throw new RestClientException("SSAFY STO deployment receipt is incomplete; verify chain outcome before resubmitting");
+        }
+        return receipt;
+    }
+
+    public SsafyTokenMintReceipt mintToken(String contractAddress, SsafyTokenMintRequest request) {
+        SsafyBlockchainAddress.requireValid(contractAddress, "contractAddress");
+        Objects.requireNonNull(request, "request must not be null");
+
+        SsafyTokenMintReceipt receipt = transactionRestClient.post()
+                .uri("/v1/tokens/{contractAddress}", contractAddress)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(SsafyTokenMintReceipt.class);
+
+        if (receipt == null || receipt.status() == null
+                || receipt.transactionHash() == null || receipt.transactionHash().isBlank()) {
+            throw new RestClientException(
+                    "SSAFY STO mint receipt is incomplete; verify chain outcome before resubmitting"
+            );
         }
         return receipt;
     }
