@@ -55,6 +55,7 @@ const lines = (values: number[]) =>
 export function routeEdge(from: Point, to: Point, centers: Point[]): Point[] | null {
   for (const clear of CLEARANCES) {
     for (const lead of [...LEADS, clear]) {
+      // 리드가 더 짧으면 포트에서 나가는 구간이 상자 안에서 끝난다. 지금 상수로는 안 걸린다.
       if (lead < clear) continue
       const found = search(from, to, centers, clear, lead)
       if (found) return found
@@ -113,6 +114,8 @@ function search(
 
   const W = xs.length
   const key = (xi: number, yi: number) => yi * W + xi
+  // 꺾임 비용을 쓰니 엄밀히는 "(칸, 방향)" 이 상태다. 칸만 쓰면 최소 비용이 아닐 수 있으나,
+  // TURN 이 커서 카드 몇 장 규모에서는 경로가 같다.
   const best = new Map<number, number>()
   const came = new Map<number, number>()
   const guess = (xi: number, yi: number) => Math.abs(xs[xi] - goal.x) + Math.abs(ys[yi] - goal.y)
@@ -196,8 +199,9 @@ function search(
       const nb = { x: want, y: b.y }
       const nc = { x: want, y: c.y }
       if (!passable(a, nb, i - 1) || !passable(nb, nc, i) || !passable(nc, d, i + 1)) continue
-      b.x = want
-      c.x = want
+      // route 는 from/to 를 그대로 품는다. 원본 대신 새 점으로 바꿔 끼운다.
+      route[i] = nb
+      route[i + 1] = nc
       break
     }
   }
