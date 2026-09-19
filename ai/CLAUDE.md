@@ -62,6 +62,7 @@
 ## 6. MR
 
 - 타이틀 `[에픽 코드] 작업 타이틀`. 본문 템플릿은 GitLab이 자동 적용한다.
+- **MR 본문을 `git push -o merge_request.description`으로 채우지 않는다.** push 옵션에는 개행이 들어가지 않아(`push options must not have new line characters`) 헤딩 · 체크박스가 전부 깨진다. 템플릿이 자동으로 붙게 두고, 본문은 GitLab 웹에서 채운다. push 옵션은 `merge_request.create` · `target` · `title`까지만 쓴다.
 - **작업 내용은 불릿 3개 이하, 각 한 줄, "무엇을"만.** 설계 이유 · 수식 · 배경은 본문에 풀지 않고 문서 링크나 리뷰 포인트로 넘긴다. 길어지면 `<details>`.
 - **본문에 전체 티켓 키를 쓰지 않는다.** Jira가 본문을 스캔해 MR을 연결하고, 병합 시 자동화가 그 티켓을 완료 처리한다. 설명에는 번호만(`235`). 전체 키는 **"관련 이슈" 섹션에만**, 그것도 이 MR이 실제로 닫을 티켓만. (`git-workflow.md` §4.3은 "포함된 커밋의 이슈 전부"라 하지만 AI 파트는 자동화 때문에 이렇게 좁힌다.)
 - `[SYNC]` · `[DEPLOY]` MR은 템플릿을 채우지 않는다. 타이틀 + 한 줄 (`git-workflow.md` §5).
