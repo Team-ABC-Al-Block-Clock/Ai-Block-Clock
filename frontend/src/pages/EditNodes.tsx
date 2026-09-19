@@ -262,23 +262,22 @@ export default function EditNodes() {
     settleTimer.current = setTimeout(flushSettle, SETTLE_MS)
   }
 
-  /** 선택한 것 삭제. 노드면 거기 붙은 선도 함께. */
-  const removeSelected = () => {
-    if (selEdge) {
-      setEdges((prev) => disconnect(prev, selEdge))
-      setSelEdge(null)
-      return
-    }
-    const node = nodes[sel]
-    if (!node) return
-    const after = removeNode(nodes, edges, node.id)
-    setNodes(after.nodes)
-    setEdges(after.edges)
-    setSel(-1)
-    setHov(-1)
-  }
-
   useEffect(() => {
+    /** 선택한 것 삭제. 노드면 거기 붙은 선도 함께. */
+    const removeSelected = () => {
+      if (selEdge) {
+        setEdges((prev) => disconnect(prev, selEdge))
+        setSelEdge(null)
+        return
+      }
+      const node = nodes[sel]
+      if (!node) return
+      const after = removeNode(nodes, edges, node.id)
+      setNodes(after.nodes)
+      setEdges(after.edges)
+      setSel(-1)
+      setHov(-1)
+    }
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
       // 글자를 지우는 중일 수 있다.
@@ -290,7 +289,7 @@ export default function EditNodes() {
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  })
+  }, [sel, selEdge, nodes, edges])
 
   /** 포트를 누르면 노드가 아니라 선을 끈다. */
   const handlePortDown =
@@ -327,9 +326,8 @@ export default function EditNodes() {
     // 손을 뗀 자리의 포트는 화면에 물어본다.
     const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-port]')
     const side = hit?.getAttribute('data-port')
-    const target = nodes.find(
-      (n) => hit?.closest('[data-node]')?.getAttribute('data-node') === n.id,
-    )
+    const hitId = hit?.closest('[data-node]')?.getAttribute('data-node')
+    const target = nodes.find((n) => n.id === hitId)
     if (!target || !side || side === held.side) return
     const [from, to] = held.side === 'out' ? [held.id, target.id] : [target.id, held.id]
     setEdges((prev) => connect(prev, from, to))
