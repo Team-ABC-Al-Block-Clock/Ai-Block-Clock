@@ -1,10 +1,12 @@
 import { Fragment, type CSSProperties } from 'react'
 
+import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
+import CanvasPane from '@/components/CanvasPane'
 import SearchIcon from '@/components/SearchIcon'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
-import { PANE_WIDTH, useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
+import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { nodeTypeLabel } from '@/lib/format'
 import { paths } from '@/routes/paths'
@@ -89,44 +91,12 @@ export default function EditNodes() {
 
   return (
     <>
-      <div
+      <CanvasPane
         ref={paneRef}
-        className="absolute top-0 left-0"
         onPointerDown={handlePaneDown}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        style={{
-          width: `${PANE_WIDTH}px`,
-          height: '1024px',
-          animation: 'paneIn 1.1s cubic-bezier(.18,.86,.24,1) both',
-          transformOrigin: '44% 46%',
-        }}
       >
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            left: 'calc(-1 * var(--edge, 0px))',
-            right: 'calc(96px - var(--edge, 0px))',
-            top: 'calc(-1 * var(--edge-y, 0px))',
-            bottom: 'calc(-1 * var(--edge-y, 0px))',
-            backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
-            backgroundSize: '26px 26px',
-            backgroundPosition: '13px 13px',
-            opacity: '.55',
-          }}
-        ></div>
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            left: 'calc(-1 * var(--edge, 0px))',
-            right: 'calc(96px - var(--edge, 0px))',
-            top: 'calc(-1 * var(--edge-y, 0px))',
-            bottom: 'calc(-1 * var(--edge-y, 0px))',
-            background:
-              'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
-          }}
-        ></div>
-
         <div
           className="absolute left-0 text-center text-[16px] tracking-[-.005em]"
           style={{
@@ -199,13 +169,7 @@ export default function EditNodes() {
           ))}
         </div>
 
-        <svg
-          className="pointer-events-none absolute top-0 left-0"
-          width="1076"
-          height="1024"
-          viewBox="0 0 1076 1024"
-          style={{ overflow: 'visible' }}
-        >
+        <CanvasEdgeLayer>
           <defs>
             <linearGradient id="edgeOn" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
@@ -260,7 +224,7 @@ export default function EditNodes() {
               />
             )}
           </g>
-        </svg>
+        </CanvasEdgeLayer>
 
         <div
           className="absolute flex items-center overflow-hidden"
@@ -531,7 +495,7 @@ export default function EditNodes() {
         >
           실행하기
         </a>
-      </div>
+      </CanvasPane>
 
       <SidePanel ref={panelRef}>
         <div

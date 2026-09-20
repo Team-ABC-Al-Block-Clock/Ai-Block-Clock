@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef } from 'react'
 
+import { PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
   initialCanvasState,
@@ -19,8 +20,6 @@ import {
   type CanvasBounds,
 } from '@/lib/canvasWorkflow'
 
-/** 작업면 div 의 설계 폭. 창 좌표를 설계 좌표로 되돌릴 때 배율의 기준이 된다. */
-export const PANE_WIDTH = 1076
 /** 이 거리보다 움직였으면 선택이 아니라 이동으로 본다. */
 const DRAG_SLOP = 4
 /** 겹친 자리에 놓았을 때 빈자리로 미끄러지는 시간(ms). */

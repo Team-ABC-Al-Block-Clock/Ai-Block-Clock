@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 
+import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
+import CanvasPane from '@/components/CanvasPane'
 import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
@@ -43,40 +45,7 @@ export default function RunWaiting() {
 
   return (
     <>
-      <div
-        className="absolute top-0 left-0"
-        style={{
-          width: '1076px',
-          height: '1024px',
-          animation: 'paneIn 1.1s cubic-bezier(.18,.86,.24,1) both',
-          transformOrigin: '44% 46%',
-        }}
-      >
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            left: 'calc(-1 * var(--edge, 0px))',
-            right: 'calc(96px - var(--edge, 0px))',
-            top: 'calc(-1 * var(--edge-y, 0px))',
-            bottom: 'calc(-1 * var(--edge-y, 0px))',
-            backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
-            backgroundSize: '26px 26px',
-            backgroundPosition: '13px 13px',
-            opacity: '.5',
-          }}
-        ></div>
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            left: 'calc(-1 * var(--edge, 0px))',
-            right: 'calc(96px - var(--edge, 0px))',
-            top: 'calc(-1 * var(--edge-y, 0px))',
-            bottom: 'calc(-1 * var(--edge-y, 0px))',
-            background:
-              'linear-gradient(90deg, rgba(10,5,22,0) 30%, rgba(10,5,22,.26) 70%, rgba(10,5,22,.32) 100%)',
-          }}
-        ></div>
-
+      <CanvasPane>
         {CANVAS_NODES.map((node, i) => (
           <CanvasNode
             key={node.id}
@@ -93,13 +62,7 @@ export default function RunWaiting() {
           />
         ))}
 
-        <svg
-          className="pointer-events-none absolute top-0 left-0"
-          width="1076"
-          height="1024"
-          viewBox="0 0 1076 1024"
-          style={{ overflow: 'visible' }}
-        >
+        <CanvasEdgeLayer>
           <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
             {edgeGeometry(CANVAS_NODES).map((edge) => (
               <path
@@ -111,8 +74,8 @@ export default function RunWaiting() {
               />
             ))}
           </g>
-        </svg>
-      </div>
+        </CanvasEdgeLayer>
+      </CanvasPane>
 
       <SidePanel>
         <div
