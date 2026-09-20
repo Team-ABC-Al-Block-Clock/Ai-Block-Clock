@@ -4,7 +4,7 @@ import CanvasNode from '@/components/CanvasNode'
 import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
-import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
@@ -300,20 +300,20 @@ export default function RunWaiting() {
             >
               <div
                 className="absolute text-[15px] font-semibold tracking-[-.005em]"
-                style={{ left: '16px', top: '13px', color: 'rgba(255,255,255,.9)' }}
+                style={{ left: `${CARD_GUTTER}px`, top: '13px', color: 'rgba(255,255,255,.9)' }}
               >
                 {row.title}
               </div>
               <div
                 className="absolute text-[13.5px]"
-                style={{ left: '16px', top: '35px', color: 'rgba(255,236,246,.5)' }}
+                style={{ left: `${CARD_GUTTER}px`, top: '35px', color: 'rgba(255,236,246,.5)' }}
               >
                 {row.meta}
               </div>
               <StatusDot
                 size={6}
                 color="rgba(125,227,176,.7)"
-                style={{ position: 'absolute', right: '16px', top: '27px' }}
+                style={{ position: 'absolute', right: `${CARD_GUTTER}px`, top: '27px' }}
               />
             </div>
           ))}

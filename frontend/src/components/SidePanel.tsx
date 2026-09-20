@@ -6,6 +6,8 @@ export const PANEL_WIDTH = 460
 export const PANEL_INSET = 30
 /** 안쪽 내용이 쓸 수 있는 가로 폭 */
 export const PANEL_CONTENT_WIDTH = PANEL_WIDTH - PANEL_INSET * 2
+/** 카드 안 요소가 카드 좌우 변에서 떨어지는 거리. 위아래 간격은 카드마다 다르다. */
+export const CARD_GUTTER = 16
 
 type Props = {
   children: ReactNode

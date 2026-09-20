@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
-import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
 
 export default function EditSearching() {
@@ -193,7 +193,7 @@ export default function EditSearching() {
               <div
                 className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
                 style={{
-                  left: '16px',
+                  left: `${CARD_GUTTER}px`,
                   top: '16px',
                   width: '44px',
                   height: '44px',
@@ -209,14 +209,14 @@ export default function EditSearching() {
               </div>
               <div
                 className="absolute truncate text-[14px] font-semibold tracking-[-.01em] text-white"
-                style={{ left: '16px', right: '16px', top: '76px' }}
+                style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '76px' }}
               >
                 {item.name}
               </div>
               <div
                 className="absolute"
                 style={{
-                  left: '16px',
+                  left: `${CARD_GUTTER}px`,
                   top: '100px',
                   width: '113px',
                   height: '10px',
@@ -227,7 +227,7 @@ export default function EditSearching() {
               <div
                 className="absolute bg-[rgba(255,255,255,.10)]"
                 style={{
-                  left: '16px',
+                  left: `${CARD_GUTTER}px`,
                   top: '116px',
                   width: '84px',
                   height: '10px',

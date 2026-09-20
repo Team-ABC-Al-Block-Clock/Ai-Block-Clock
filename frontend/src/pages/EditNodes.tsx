@@ -26,7 +26,7 @@ import {
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
-import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
 import StatusDot from '@/components/StatusDot'
 
@@ -1152,7 +1152,7 @@ export default function EditNodes() {
               <div
                 className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
                 style={{
-                  left: '16px',
+                  left: `${CARD_GUTTER}px`,
                   top: '16px',
                   width: '44px',
                   height: '44px',
@@ -1176,19 +1176,19 @@ export default function EditNodes() {
               </div>
               <div
                 className="absolute truncate text-[15.5px] font-semibold tracking-[-.005em] text-white"
-                style={{ left: '16px', right: '16px', top: '74px' }}
+                style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '74px' }}
               >
                 {item.name}
               </div>
               <div
                 className="absolute text-[13px] font-medium"
-                style={{ left: '16px', top: '100px', color: 'rgba(255,224,238,.85)' }}
+                style={{ left: `${CARD_GUTTER}px`, top: '100px', color: 'rgba(255,224,238,.85)' }}
               >
                 {item.typeLabel}
               </div>
               <div
                 className="absolute text-[13px]"
-                style={{ left: '16px', top: '123px', color: 'rgba(255,236,246,.7)' }}
+                style={{ left: `${CARD_GUTTER}px`, top: '123px', color: 'rgba(255,236,246,.7)' }}
               >
                 {item.unit}
               </div>
@@ -1214,7 +1214,7 @@ export default function EditNodes() {
                 onClick={item.info}
                 title="항목 정보"
                 style={{
-                  right: '16px',
+                  right: `${CARD_GUTTER}px`,
                   top: '12px',
                   width: '24px',
                   height: '24px',
