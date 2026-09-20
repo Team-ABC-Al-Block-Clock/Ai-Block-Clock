@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import CanvasNode from '@/components/CanvasNode'
 import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
-import SidePanel from '@/components/SidePanel'
+import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 
 export default function RunRunning() {
@@ -268,7 +268,7 @@ export default function RunRunning() {
       <SidePanel>
         <div
           className="absolute text-[23px] font-bold tracking-[-.02em] text-white"
-          style={{ left: '30px', top: '36px' }}
+          style={{ left: `${PANEL_INSET}px`, top: '36px' }}
         >
           워크플로우 실행
         </div>
@@ -325,13 +325,13 @@ export default function RunRunning() {
 
         <div
           className="absolute left-0 text-center text-[19.5px] font-semibold tracking-[-.01em]"
-          style={{ top: '330px', width: '460px', color: 'rgba(255,255,255,.9)' }}
+          style={{ top: '330px', width: `${PANEL_WIDTH}px`, color: 'rgba(255,255,255,.9)' }}
         >
           {stepTitle}
         </div>
         <div
           className="absolute left-0 text-center text-[17px]"
-          style={{ top: '356px', width: '460px', color: 'rgba(255,236,246,.72)' }}
+          style={{ top: '356px', width: `${PANEL_WIDTH}px`, color: 'rgba(255,236,246,.72)' }}
         >
           {stepMeta}
         </div>
@@ -340,16 +340,16 @@ export default function RunRunning() {
           <>
             <div
               className="absolute text-[17.5px] font-semibold tracking-[-.005em]"
-              style={{ left: '30px', top: '420px', color: 'rgba(255,255,255,.94)' }}
+              style={{ left: `${PANEL_INSET}px`, top: '420px', color: 'rgba(255,255,255,.94)' }}
             >
               실시간 출력
             </div>
             <div
               className="scroll-thin absolute flex flex-col"
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '452px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 // 패널이 길어진 아래까지 쓴다.
                 height: 'calc(558px + 2 * var(--edge-y, 0px))',
                 gap: '15px',
@@ -381,9 +381,9 @@ export default function RunRunning() {
             <div
               className="bg-surface-card absolute"
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '400px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 height: '88px',
                 borderRadius: '12px',
                 animation: 'uiIn .6s cubic-bezier(.2,.8,.25,1) both',
@@ -391,13 +391,17 @@ export default function RunRunning() {
             >
               <div
                 className="absolute left-0 text-center text-[17px] font-semibold tracking-[-.01em] text-white"
-                style={{ top: '20px', width: '400px' }}
+                style={{ top: '20px', width: `${PANEL_CONTENT_WIDTH}px` }}
               >
                 완료되었습니다.
               </div>
               <div
                 className="absolute left-0 text-center text-[17px]"
-                style={{ top: '48px', width: '400px', color: 'rgba(255,236,246,.76)' }}
+                style={{
+                  top: '48px',
+                  width: `${PANEL_CONTENT_WIDTH}px`,
+                  color: 'rgba(255,236,246,.76)',
+                }}
               >
                 결과를 텍스트 파일로 저장하세요.
               </div>
@@ -405,9 +409,9 @@ export default function RunRunning() {
 
             <div
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '508px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 height: '56px',
                 borderRadius: '12px',
                 background: 'var(--color-accent)',
@@ -438,7 +442,7 @@ export default function RunRunning() {
             <a
               href={paths.edit.nodes.withoutId}
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '576px',
                 width: '193px',
                 height: '56px',
@@ -516,7 +520,7 @@ export default function RunRunning() {
 
             <div
               className="absolute text-[17.5px] font-semibold tracking-[-.005em]"
-              style={{ left: '30px', top: '660px', color: 'rgba(255,255,255,.94)' }}
+              style={{ left: `${PANEL_INSET}px`, top: '660px', color: 'rgba(255,255,255,.94)' }}
             >
               출력 결과
             </div>
@@ -524,7 +528,7 @@ export default function RunRunning() {
               onClick={handleCopyResult}
               style={{
                 // 라벨이 '복사'/'복사됨' 으로 바뀌어 폭이 달라지므로 결과 상자의 오른쪽 끝에 맞춘다.
-                right: '30px',
+                right: `${PANEL_INSET}px`,
                 top: '655px',
                 height: '26px',
                 padding: '0 11px',
@@ -557,9 +561,9 @@ export default function RunRunning() {
               className="absolute box-border overflow-x-hidden"
               id="resultBox"
               style={{
-                left: '30px',
+                left: `${PANEL_INSET}px`,
                 top: '692px',
-                width: '400px',
+                width: `${PANEL_CONTENT_WIDTH}px`,
                 height: 'calc(318px + 2 * var(--edge-y, 0px))',
                 padding: '16px',
                 borderRadius: '12px',
