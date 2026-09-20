@@ -37,7 +37,7 @@
 
 ```
 frontend/src/
-├─ pages/          화면 단위 (라우트 하나 = 파일 하나)
+├─ pages/          화면 단위 (라우트 하나 = 파일 하나, 하위 컴포넌트가 생기면 폴더 하나)
 ├─ components/     여러 화면이 쓰는 것
 ├─ routes/         라우트 패턴 · 경로 생성기
 ├─ lib/            공용 헬퍼·설정 (env, queryClient, queryKeys, shell, format)
@@ -51,6 +51,10 @@ frontend/src/
 
 - 한 파일에 컴포넌트 하나. `export default` 로 내보낸다
 - 두 화면이 같은 것을 쓰기 시작하면 `components/` 로 올린다. **세 번째가 나오기 전에는 올리지 않는다**
+- **한 화면에서만 쓰는 하위 컴포넌트는 그 화면의 폴더에 둔다.** 라우트 하나는 파일 하나지만,
+  하위 컴포넌트가 생기면 폴더 하나가 된다 — `pages/EditNodes.tsx` → `pages/EditNodes/index.tsx`.
+  `App.tsx` 가 확장자 없이 `./pages/EditNodes` 로 부르므로 라우팅은 그대로다.
+  폴더 안에 있다는 것이 곧 "이 화면 전용" 이라는 뜻이다. 다른 화면이 쓰기 시작하면 `components/` 로 올린다
 
 ---
 
