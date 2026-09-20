@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   CANVAS_EDGES,
   CANVAS_NODES,
-  NODE_SIZE,
   canConnect,
   canSellWorkflow,
   connect,
@@ -22,6 +21,14 @@ import {
 
 const seed = { id: 'p1', name: '번역', nodeType: 'LLM', mine: true } as const
 
+// 아래 다섯은 구현에서 가져오지 않는다. 빌려 쓰면 구현이 틀릴 때 단언도 나란히 틀린다.
+const NODE_SIZE = 168
+const NODE_GAP = 24
+/** 카드 두 장의 좌표가 이만큼은 떨어져 있어야 한다. */
+const MIN_APART = NODE_SIZE + NODE_GAP
+const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
+const edgeId = (from: string, to: string) => `${from}__${to}`
+
 /** 화면에서 잰 범위를 흉내 낸다. 네 방향 모두 카드 절반까지만 넘어간다. */
 const HALF = NODE_SIZE / 2
 const BOUNDS: CanvasBounds = {
@@ -31,14 +38,9 @@ const BOUNDS: CanvasBounds = {
   maxY: 900 - HALF,
 }
 
-// 아래 셋은 구현에서 가져오지 않는다. 빌려 쓰면 구현이 틀릴 때 단언도 나란히 틀린다.
-const NODE_GAP = 24
-const edgeId = (from: string, to: string) => `${from}__${to}`
 /** 어느 카드와도 맞닿지 않는가. */
 const apart = (nodes: CanvasNodeData[], id: string, x: number, y: number) =>
-  nodes.every(
-    (node) => node.id === id || Math.hypot(x - node.x, y - node.y) >= NODE_SIZE + NODE_GAP,
-  )
+  nodes.every((node) => node.id === id || Math.hypot(x - node.x, y - node.y) >= MIN_APART)
 
 /** 좌표만 보면 되는 검사에서 쓰는 최소 노드. */
 const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
@@ -83,7 +85,7 @@ describe('placeNode', () => {
 
   it('등장 모션 없이 떠 있는 모션만 준다 — 이미 놓인 자리에서 튀지 않게', () => {
     const [placed] = placeNode([], seed, 300, 400)
-    expect(placed.floaty).toMatch(/^floaty /)
+    expect(placed.floaty).toBe(PLACED_FLOATY)
     expect(placed.enter).toBeUndefined()
   })
 
@@ -207,9 +209,7 @@ describe('resolveOverlap', () => {
   it('맞닿지 않게 간격을 남긴다', () => {
     const nodes = [nodeAt('a', 300, 400)]
     const moved = resolveOverlap(nodes, 'b', 330, 400)
-    expect(Math.hypot(moved.x - 300, moved.y - 400)).toBeGreaterThanOrEqual(
-      NODE_SIZE + NODE_GAP - 0.5,
-    )
+    expect(Math.hypot(moved.x - 300, moved.y - 400)).toBeGreaterThanOrEqual(MIN_APART - 0.5)
   })
 })
 
@@ -255,7 +255,7 @@ describe('패널 경계와 겹침이 함께 걸릴 때', () => {
 
 describe('portPoint', () => {
   it('출력은 오른쪽 변의 가운데다', () => {
-    expect(portPoint({ x: 12, y: 400 }, 'out')).toEqual({ x: 12 + NODE_SIZE, y: 484 })
+    expect(portPoint({ x: 12, y: 400 }, 'out')).toEqual({ x: 180, y: 484 })
   })
 
   it('입력은 왼쪽 변의 가운데다', () => {
