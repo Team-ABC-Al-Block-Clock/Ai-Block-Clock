@@ -232,6 +232,18 @@ export function useCanvasWorkflow() {
     settleTimer.current = setTimeout(flushSettle, SETTLE_MS)
   }
 
+  /**
+   * 브라우저가 손짓을 가져갔다 — 터치 팬이나 시스템 제스처.
+   *
+   * 손을 뗀 것으로 쳐서 카드를 지금 보이는 자리에 확정한다. 그냥 두면 `grab`
+   * 이 남아 인라인 `transform` 이 지워지지 않는데, React 는 `transform` 을 들고
+   * 있지 않아 리렌더로도 못 되돌린다 — 카드가 제자리와 어긋난 채 갇힌다.
+   */
+  const handlePointerCancel = () => {
+    handleNodePointerUp()
+    if (linkFrom) dispatch({ type: 'cancelLink' })
+  }
+
   /** 포트를 누르면 노드가 아니라 선을 끈다. */
   const handlePortDown =
     (id: string) => (side: PortSide, ev: React.PointerEvent<HTMLDivElement>) => {
@@ -335,6 +347,7 @@ export function useCanvasWorkflow() {
     handleNodePointerDown,
     handleNodePointerMove,
     handleNodePointerUp,
+    handlePointerCancel,
     handlePortDown,
     handlePortMove,
     handlePortUp,

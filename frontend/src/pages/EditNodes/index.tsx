@@ -2,7 +2,7 @@ import { Fragment, type CSSProperties } from 'react'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
-import CanvasPane from '@/components/CanvasPane'
+import CanvasPane, { PANEL_CLIP } from '@/components/CanvasPane'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
@@ -40,6 +40,7 @@ export default function EditNodes() {
     handleNodePointerDown,
     handleNodePointerMove,
     handleNodePointerUp,
+    handlePointerCancel,
     handlePortDown,
     handlePortMove,
     handlePortUp,
@@ -126,11 +127,8 @@ export default function EditNodes() {
           </div>
         )}
 
-        {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 왼쪽 끝에서 잘라 넘어간 만큼만 가린다. */}
-        <div
-          className="absolute inset-0"
-          style={{ clipPath: 'inset(-200% calc(96px - var(--edge, 0px)) -200% -200%)' }}
-        >
+        {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 앞에서 잘라 넘어간 만큼만 가린다. */}
+        <div className="absolute inset-0" style={{ clipPath: PANEL_CLIP }}>
           <div ref={glowRef} style={selRing}></div>
 
           {nodes.map((node, i) => (
@@ -164,6 +162,7 @@ export default function EditNodes() {
                 handleNodePointerUp()
                 handlePortUp(ev)
               }}
+              onPointerCancel={handlePointerCancel}
               onHover={() => onHover(node.id)}
               onHoverOut={handleHoverOut}
             />

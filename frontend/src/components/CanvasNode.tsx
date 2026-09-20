@@ -74,6 +74,8 @@ export interface CanvasNodeProps {
   onPointerDown?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp?: (ev: React.PointerEvent<HTMLDivElement>) => void
+  /** 브라우저가 손짓을 가져갔을 때. 받지 않으면 끌던 상태가 그대로 갇힌다. */
+  onPointerCancel?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onHover?: (index: number) => void
   onHoverOut?: () => void
   /** 주면 좌우에 연결 점이 생긴다. */
@@ -104,6 +106,7 @@ export default function CanvasNode({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   onHover,
   onHoverOut,
   onPortDown,
@@ -135,6 +138,7 @@ export default function CanvasNode({
       onPointerDown={handlePointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       style={{
         left: `${x}px`,
         top: `${y}px`,
@@ -143,6 +147,9 @@ export default function CanvasNode({
         background,
         gap: '5px',
         boxShadow: mine ? MINE_RING : PLAIN_RING,
+        // 끌 수 있는 카드는 터치를 브라우저에 넘기지 않는다 — 넘기면 팬으로
+        // 가로채여 pointercancel 이 나고 드래그가 중간에 끊긴다.
+        touchAction: draggable ? 'none' : undefined,
         // floaty 가 인라인 transform 보다 우선이라 드래그 중에는 꺼 둔다.
         animation: dragging ? undefined : motion,
         // floaty 를 끄면 레이어 승격도 풀려 링과 글씨가 늦게 그려진다.

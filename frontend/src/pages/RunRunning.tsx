@@ -179,9 +179,12 @@ export default function RunRunning() {
     rafId.current = requestAnimationFrame(tick)
     return () => {
       if (rafId.current) cancelAnimationFrame(rafId.current)
-      clearTimeout(copyTimer.current)
     }
   }, [startDone])
+
+  // 복사 타이머는 진행률과 무관하다. 위에 얹으면 `?done=1` 로 들어왔을 때
+  // 이펙트가 먼저 빠져나가 정리가 등록되지 않는다 — 그 경로가 실제로 쓰인다.
+  useEffect(() => () => clearTimeout(copyTimer.current), [])
 
   return (
     <>
