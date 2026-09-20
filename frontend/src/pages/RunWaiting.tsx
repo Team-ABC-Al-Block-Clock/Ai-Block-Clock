@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 import CanvasNode from '@/components/CanvasNode'
 import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
@@ -260,11 +260,11 @@ export default function RunWaiting() {
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '56px',
             borderRadius: '12px',
-            background: `${btnBg}`,
-            boxShadow: `${btnShadow}`,
+            background: btnBg,
+            boxShadow: btnShadow,
             gap: '8px',
-            color: `${btnColor}`,
-            cursor: `${btnCursor}`,
+            color: btnColor,
+            cursor: btnCursor,
             transition: 'background .25s,color .25s,box-shadow .25s,transform .18s',
           }}
           className="absolute flex items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
@@ -288,35 +288,34 @@ export default function RunWaiting() {
           }}
         >
           {recents.map((row, i) => (
-            <Fragment key={i}>
+            <div
+              key={i}
+              style={{
+                width: `${PANEL_CONTENT_WIDTH}px`,
+                height: '64px',
+                borderRadius: '10px',
+                background: 'rgba(255,255,255,.06)',
+              }}
+              className="relative cursor-pointer transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
+            >
               <div
-                style={{
-                  width: `${PANEL_CONTENT_WIDTH}px`,
-                  height: '64px',
-                  borderRadius: '10px',
-                  background: 'rgba(255,255,255,.06)',
-                }}
-                className="relative cursor-pointer transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
+                className="absolute text-[15px] font-semibold tracking-[-.005em]"
+                style={{ left: '16px', top: '13px', color: 'rgba(255,255,255,.9)' }}
               >
-                <div
-                  className="absolute text-[15px] font-semibold tracking-[-.005em]"
-                  style={{ left: '16px', top: '13px', color: 'rgba(255,255,255,.9)' }}
-                >
-                  {row.title}
-                </div>
-                <div
-                  className="absolute text-[13.5px]"
-                  style={{ left: '16px', top: '35px', color: 'rgba(255,236,246,.5)' }}
-                >
-                  {row.meta}
-                </div>
-                <StatusDot
-                  size={6}
-                  color="rgba(125,227,176,.7)"
-                  style={{ position: 'absolute', right: '16px', top: '27px' }}
-                />
+                {row.title}
               </div>
-            </Fragment>
+              <div
+                className="absolute text-[13.5px]"
+                style={{ left: '16px', top: '35px', color: 'rgba(255,236,246,.5)' }}
+              >
+                {row.meta}
+              </div>
+              <StatusDot
+                size={6}
+                color="rgba(125,227,176,.7)"
+                style={{ position: 'absolute', right: '16px', top: '27px' }}
+              />
+            </div>
           ))}
         </div>
       </SidePanel>

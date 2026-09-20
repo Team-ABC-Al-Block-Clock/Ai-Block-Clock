@@ -1,4 +1,4 @@
-import { Fragment, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
@@ -180,62 +180,61 @@ export default function EditSearching() {
           }}
         >
           {results.map((item, i) => (
-            <Fragment key={i}>
+            <div
+              key={i}
+              style={{
+                // 폭은 주지 않고 그리드 열을 그대로 채운다.
+                height: '160px',
+                borderRadius: '12px',
+                transition: 'background .18s,transform .18s',
+              }}
+              className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
+            >
               <div
+                className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
                 style={{
-                  // 폭은 주지 않고 그리드 열을 그대로 채운다.
-                  height: '160px',
-                  borderRadius: '12px',
-                  transition: 'background .18s,transform .18s',
+                  left: '16px',
+                  top: '16px',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '10px',
                 }}
-                className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
               >
                 <div
-                  className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
-                  style={{
-                    left: '16px',
-                    top: '16px',
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '10px',
-                  }}
+                  className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
+                  style={{ color: 'rgba(255,226,238,.65)' }}
                 >
-                  <div
-                    className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
-                    style={{ color: 'rgba(255,226,238,.65)' }}
-                  >
-                    {item.initial}
-                  </div>
+                  {item.initial}
                 </div>
-                <div
-                  className="absolute truncate text-[14px] font-semibold tracking-[-.01em] text-white"
-                  style={{ left: '16px', right: '16px', top: '76px' }}
-                >
-                  {item.name}
-                </div>
-                <div
-                  className="absolute"
-                  style={{
-                    left: '16px',
-                    top: '100px',
-                    width: '113px',
-                    height: '10px',
-                    borderRadius: '3px',
-                    background: 'rgba(255,255,255,.14)',
-                  }}
-                ></div>
-                <div
-                  className="absolute bg-[rgba(255,255,255,.10)]"
-                  style={{
-                    left: '16px',
-                    top: '116px',
-                    width: '84px',
-                    height: '10px',
-                    borderRadius: '3px',
-                  }}
-                ></div>
               </div>
-            </Fragment>
+              <div
+                className="absolute truncate text-[14px] font-semibold tracking-[-.01em] text-white"
+                style={{ left: '16px', right: '16px', top: '76px' }}
+              >
+                {item.name}
+              </div>
+              <div
+                className="absolute"
+                style={{
+                  left: '16px',
+                  top: '100px',
+                  width: '113px',
+                  height: '10px',
+                  borderRadius: '3px',
+                  background: 'rgba(255,255,255,.14)',
+                }}
+              ></div>
+              <div
+                className="absolute bg-[rgba(255,255,255,.10)]"
+                style={{
+                  left: '16px',
+                  top: '116px',
+                  width: '84px',
+                  height: '10px',
+                  borderRadius: '3px',
+                }}
+              ></div>
+            </div>
           ))}
         </div>
       </SidePanel>

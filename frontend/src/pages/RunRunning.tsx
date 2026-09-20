@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasNode from '@/components/CanvasNode'
@@ -313,7 +313,7 @@ export default function RunRunning() {
               animation: 'runGlow 2.6s ease-in-out infinite',
             }}
           ></div>
-          <div className="absolute inset-0 rounded-full" style={{ background: `${gaugeBg}` }}></div>
+          <div className="absolute inset-0 rounded-full" style={{ background: gaugeBg }}></div>
           <div
             className="absolute rounded-full"
             style={{ inset: '13px', background: 'rgba(14,8,26,.92)' }}
@@ -356,21 +356,20 @@ export default function RunRunning() {
               }}
             >
               {logs.map((l, i) => (
-                <Fragment key={i}>
+                <div
+                  key={i}
+                  className="flex items-center"
+                  style={{ gap: '8px', animation: 'lineIn .34s ease both' }}
+                >
+                  <StatusDot size={6} color={l.dot} />
                   <div
-                    className="flex items-center"
-                    style={{ gap: '8px', animation: 'lineIn .34s ease both' }}
+                    className="overflow-hidden text-[18px] tracking-[-.005em] whitespace-nowrap"
+                    style={{ color: l.color, textOverflow: 'ellipsis' }}
                   >
-                    <StatusDot size={6} color={l.dot} />
-                    <div
-                      className="overflow-hidden text-[18px] tracking-[-.005em] whitespace-nowrap"
-                      style={{ color: `${l.color}`, textOverflow: 'ellipsis' }}
-                    >
-                      {l.text}
-                    </div>
-                    <div style={l.caret}></div>
+                    {l.text}
                   </div>
-                </Fragment>
+                  <div style={l.caret}></div>
+                </div>
               ))}
             </div>
           </>
@@ -533,7 +532,7 @@ export default function RunRunning() {
                 height: '26px',
                 padding: '0 11px',
                 borderRadius: '8px',
-                background: `${copyBg}`,
+                background: copyBg,
                 gap: '6px',
               }}
               className="absolute flex cursor-pointer items-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.18)]"
@@ -552,7 +551,7 @@ export default function RunRunning() {
               </svg>
               <div
                 className="text-[13.5px] font-semibold tracking-[-.005em] whitespace-nowrap"
-                style={{ color: `${copyFg}` }}
+                style={{ color: copyFg }}
               >
                 {copyLabel}
               </div>
@@ -579,19 +578,18 @@ export default function RunRunning() {
             >
               <div className="flex flex-col" style={{ width: '100%', gap: '9px' }}>
                 {resultLines.map((r, i) => (
-                  <Fragment key={i}>
-                    <div
-                      className="text-[17px] tracking-[-.005em]"
-                      style={{
-                        lineHeight: '1.55',
-                        color: `${r.color}`,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {r.text}
-                    </div>
-                  </Fragment>
+                  <div
+                    key={i}
+                    className="text-[17px] tracking-[-.005em]"
+                    style={{
+                      lineHeight: '1.55',
+                      color: r.color,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {r.text}
+                  </div>
                 ))}
               </div>
             </div>
@@ -600,56 +598,54 @@ export default function RunRunning() {
       </SidePanel>
 
       {copied && (
-        <>
+        <div
+          className="pointer-events-none absolute flex items-center justify-center"
+          style={{
+            // 결과 상자 위에 겹쳐 토스트를 띄운다. 상자와 같은 기준을 써야 한다.
+            right: 'calc(44px - var(--edge, 0px))',
+            top: '706px',
+            width: '372px',
+            height: '46px',
+            justifyContent: 'flex-end',
+            zIndex: '6',
+          }}
+        >
           <div
-            className="pointer-events-none absolute flex items-center justify-center"
+            className="flex items-center"
             style={{
-              // 결과 상자 위에 겹쳐 토스트를 띄운다. 상자와 같은 기준을 써야 한다.
-              right: 'calc(44px - var(--edge, 0px))',
-              top: '706px',
-              width: '372px',
               height: '46px',
-              justifyContent: 'flex-end',
-              zIndex: '6',
+              padding: '0 22px',
+              borderRadius: '23px',
+              background: 'rgba(24,11,38,.82)',
+              backdropFilter: 'blur(20px) saturate(120%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+              boxShadow: '0 16px 44px rgba(10,4,20,.42)',
+              gap: '11px',
+              animation: 'toastIn 1.8s ease both',
             }}
           >
             <div
-              className="flex items-center"
-              style={{
-                height: '46px',
-                padding: '0 22px',
-                borderRadius: '23px',
-                background: 'rgba(24,11,38,.82)',
-                backdropFilter: 'blur(20px) saturate(120%)',
-                WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-                boxShadow: '0 16px 44px rgba(10,4,20,.42)',
-                gap: '11px',
-                animation: 'toastIn 1.8s ease both',
-              }}
+              className="flex flex-none items-center justify-center rounded-full"
+              style={{ width: '22px', height: '22px', background: 'rgba(154,208,180,.24)' }}
             >
-              <div
-                className="flex flex-none items-center justify-center rounded-full"
-                style={{ width: '22px', height: '22px', background: 'rgba(154,208,180,.24)' }}
+              <svg
+                width="12"
+                height="10"
+                viewBox="0 0 12 10"
+                fill="none"
+                stroke="#a8ddc0"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  width="12"
-                  height="10"
-                  viewBox="0 0 12 10"
-                  fill="none"
-                  stroke="#a8ddc0"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M1 5.2 4.3 8.5 11 1.5" />
-                </svg>
-              </div>
-              <div className="text-[16px] font-semibold tracking-[-.01em] whitespace-nowrap text-white">
-                복사 완료
-              </div>
+                <path d="M1 5.2 4.3 8.5 11 1.5" />
+              </svg>
+            </div>
+            <div className="text-[16px] font-semibold tracking-[-.01em] whitespace-nowrap text-white">
+              복사 완료
             </div>
           </div>
-        </>
+        </div>
       )}
     </>
   )

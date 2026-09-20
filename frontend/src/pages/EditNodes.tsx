@@ -573,7 +573,7 @@ export default function EditNodes() {
               onPointerDown={handleNodePointerDown(node.id)}
               onPortDown={handlePortDown(node.id)}
               portDim={(side) => !portOpen(node.id, side)}
-              // 노드 이동인지 선 연결인지는 각자 ref 로 가른다.
+              // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
               onPointerMove={(ev) => {
                 handleNodePointerMove(ev)
                 handlePortMove(ev)
