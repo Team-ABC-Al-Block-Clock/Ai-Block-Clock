@@ -1,335 +1,49 @@
-import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 
-import { getNodePalette } from '@/api/workflows'
-import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
-import { queryKeys } from '@/lib/queryKeys'
 import CanvasNode from '@/components/CanvasNode'
-import {
-  CANVAS_NODES,
-  NODE_SIZE,
-  canSellWorkflow,
-  clampToBounds,
-  CANVAS_EDGES,
-  canConnect,
-  connect,
-  disconnect,
-  edgeGeometry,
-  edgePath,
-  moveNodeTo,
-  portPoint,
-  removeNode,
-  resolveOverlap,
-  placeNode,
-  NO_BOUNDS,
-  type CanvasBounds,
-  type CanvasNodeData,
-} from '@/lib/canvasWorkflow'
-import { paths } from '@/routes/paths'
-import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import SearchIcon from '@/components/SearchIcon'
+import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import { PANE_WIDTH, useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
+import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
+import { nodeTypeLabel } from '@/lib/format'
+import { paths } from '@/routes/paths'
 
-/** 한 번에 불러오는 개수. */
-const PAGE_SIZE = 10
-/** 입력이 멈춘 뒤에만 검색한다. */
-const DEBOUNCE_MS = 300
-/** 내 노드와 마켓 에이전트를 한 목록으로 본다. 등록 가능 여부는 조회가 아니라 놓인 구성(`canSell`)이 정한다. */
-const SCOPE = 'ALL' as const
-/** 작업면 div 의 설계 폭. 창 좌표를 설계 좌표로 되돌릴 때 배율의 기준이 된다. */
-const PANE_WIDTH = 1076
-/** 드래그로 주고받는 것은 팔레트 항목 id 하나뿐이다. 브라우저가 소문자로만 받는다. */
-const DND_TYPE = 'application/x-placeable-item'
-/** 이 거리보다 움직였으면 선택이 아니라 이동으로 본다. */
-const DRAG_SLOP = 4
-/** 겹친 자리에 놓았을 때 빈자리로 미끄러지는 시간(ms). */
-const SETTLE_MS = 160
-
-/** 노드 편집 화면 */
+/**
+ * 노드 편집 화면.
+ *
+ * 캔버스와 팔레트는 각자 훅이 들고 있다. 여기는 그 둘을 그리고, 팔레트에서
+ * 캔버스로 건너오는 놓기만 잇는다.
+ */
 export default function EditNodes() {
-  /** 선택·호버한 노드. 인덱스로 들면 목록이 바뀔 때 가리키는 대상이 달라진다. */
-  const [selId, setSelId] = useState<string | null>(null)
-  const [hovId, setHovId] = useState<string | null>(null)
-  const [panelOpen, setPanelOpen] = useState(false)
-  // 카드 index 로 잡으면 다음 장이 붙을 때 엉뚱한 카드가 열린다.
-  const [infoAt, setInfoAt] = useState<string | null>(null)
-  const [q, setQ] = useState('')
-  const [keyword, setKeyword] = useState('')
+  const canvas = useCanvasWorkflow()
+  const palette = useNodePalette()
 
-  // 자리표시자를 첫 값으로만 쓴다.
-  const [nodes, setNodes] = useState(CANVAS_NODES)
-  const canSell = canSellWorkflow(nodes)
-
-  const paneRef = useRef<HTMLDivElement>(null)
-  const [dragId, setDragId] = useState<string | null>(null)
-  const [edges, setEdges] = useState(CANVAS_EDGES)
-  /** 선택한 연결선. 노드 선택(`selId`)과 한 번에 하나만 살아 있다. */
-  const [selEdge, setSelEdge] = useState<string | null>(null)
-  /** 드래그 중 값은 리렌더가 필요 없다. 상태로 두면 포인터가 움직일 때마다 다시 그린다. */
-  const glowRef = useRef<HTMLDivElement>(null)
-  const tempRef = useRef<SVGPathElement>(null)
-  /** 선을 드래그하는 중이면 그 출발점. 누를 때와 뗄 때만 바뀐다. */
-  const [linkFrom, setLinkFrom] = useState<{ id: string; side: 'in' | 'out' } | null>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const grab = useRef<{
-    id: string
-    /** 잡은 지점과 카드 왼쪽 위의 차이 */
-    dx: number
-    dy: number
-    /** 누른 창 좌표 선택과 이동의 기준 */
-    ox: number
-    oy: number
-    el: HTMLDivElement
-    baseX: number
-    baseY: number
-    bounds: CanvasBounds
-    /** 선택 빛이 지금 이 카드를 따라다니는가 */
-    glow: boolean
-  } | null>(null)
-  /** 드래그가 끝난 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
-  const landing = useRef<{ x: number; y: number } | null>(null)
-  const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  /** 미끄러짐이 끝나면 할 일. 그 전에 다시 잡으면 기다리지 않고 지금 끝낸다. */
-  const settle = useRef<(() => CanvasNodeData[]) | null>(null)
-  const flushSettle = () => {
-    clearTimeout(settleTimer.current)
-    const pending = settle.current
-    settle.current = null
-    return pending?.() ?? null
-  }
-  useEffect(() => () => clearTimeout(settleTimer.current), [])
-  const moved = useRef(false)
-  const placedCount = useRef(0)
-
-  /** 창 좌표 → 설계 좌표. 프레임이 화면 크기에 맞춰 배율을 걸어 둬서 그대로 쓰면 어긋난다. */
-  const toCanvasPoint = (clientX: number, clientY: number) => {
-    const rect = paneRef.current?.getBoundingClientRect()
-    if (!rect || rect.width === 0) return null
-    const scale = rect.width / PANE_WIDTH
-    return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale }
-  }
-
-  /**
-   * 카드가 갈 수 있는 범위를 화면에서 잰다. 패널 위치가 `--edge` 만큼 창 너비를 타서
-   * 설계 좌표로 박을 수 없다. 네 방향 모두 카드 절반까지만 — 남은 절반으로 되꺼낸다.
-   */
-  const canvasBounds = (): CanvasBounds | null => {
-    const pane = paneRef.current?.getBoundingClientRect()
-    const panel = panelRef.current?.getBoundingClientRect()
-    if (!pane || !panel || pane.width === 0) return null
-    const scale = pane.width / PANE_WIDTH
-    const toX = (clientX: number) => (clientX - pane.left) / scale
-    const toY = (clientY: number) => (clientY - pane.top) / scale
-    const half = NODE_SIZE / 2
-    return {
-      minX: toX(0) - half,
-      maxX: toX(panel.left) - half,
-      minY: toY(0) - half,
-      maxY: toY(window.innerHeight) - half,
-    }
-  }
-
-  // 누를 때 이미 선택돼 있었는지. 그때만 click 에서 선택을 푼다.
-  const reselect = useRef(false)
-
-  // 옮기고 손을 뗀 직후에 click 이 한 번 더 온다. 그때 선택이 뒤집히지 않게 막는다.
-  const handleSelect = () => {
-    if (moved.current) {
-      moved.current = false
-      return
-    }
-    if (reselect.current) setSelId(null)
-  }
-
-  /** 포인터를 카드에 묶는다. 캡처하지 않으면 커서가 카드를 벗어날 때 움직임을 놓친다. */
-  const handleNodePointerDown = (id: string) => (ev: React.PointerEvent<HTMLDivElement>) => {
-    if (ev.button !== 0) return
-    // 미끄러지는 중에 다시 잡으면 상태에 없는 좌표를 기준으로 삼는다. 먼저 끝낸다.
-    const list = flushSettle() ?? nodes
-    const node = list.find((n) => n.id === id)
-    const point = node && toCanvasPoint(ev.clientX, ev.clientY)
-    if (!node || !point) return
-    grab.current = {
-      id,
-      dx: point.x - node.x,
-      dy: point.y - node.y,
-      ox: ev.clientX,
-      oy: ev.clientY,
-      el: ev.currentTarget,
-      baseX: node.x,
-      baseY: node.y,
-      bounds: canvasBounds() ?? NO_BOUNDS,
-      glow: (hovId ?? selId) === id,
-    }
-    landing.current = { x: node.x, y: node.y }
-    moved.current = false
-    // 누르는 즉시 선택한다. 드래그한 뒤에도 선택된 채로 남는다.
-    reselect.current = selId === id
-    setSelEdge(null)
-    setSelId(id)
-    setDragId(id)
-    // 캡처가 막혀도 카드 위에서는 따라오게 둔다.
-    try {
-      ev.currentTarget.setPointerCapture(ev.pointerId)
-    } catch {
-      /* 이미 놓인 포인터 */
-    }
-  }
-
-  /**
-   * 드래그 중에는 상태를 고치지 않는다 — `setNodes` 는 팔레트까지 한 화면을 다시 그린다.
-   * 옮길 카드의 `transform` 만 직접 쓰고, 상태는 손을 뗄 때 한 번만 맞춘다.
-   */
-  const handleNodePointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
-    const held = grab.current
-    const point = held && toCanvasPoint(ev.clientX, ev.clientY)
-    if (!held || !point) return
-    // 손이 떨린 정도로는 선택을 막지 않는다.
-    const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
-    if (slid > DRAG_SLOP) moved.current = true
-
-    // 겹침은 손을 뗄 때 moveNode 가 한 번만 정리한다.
-    const next = clampToBounds(point.x - held.dx, point.y - held.dy, held.bounds)
-    landing.current = next
-    held.el.style.transform = `translate3d(${next.x - held.baseX}px, ${next.y - held.baseY}px, 0)`
-    // 빛은 left·top 으로 민다 — transform 은 React 가 들고 있지 않아 지우면 되살아나지 않는다.
-    if (held.glow && glowRef.current) {
-      glowRef.current.style.left = `${next.x - 16}px`
-      glowRef.current.style.top = `${next.y - 16}px`
-    }
-    // 선도 상태 밖에서 다시 그린다. 드래그하는 노드에 붙은 것만 고치면 된다.
-    const preview = nodes.map((node) => (node.id === held.id ? { ...node, ...next } : node))
-    const touched = edges.filter((edge) => edge.from === held.id || edge.to === held.id)
-    for (const edge of edgeGeometry(preview, touched)) {
-      paneRef.current
-        ?.querySelectorAll(`[data-edge="${edge.id}"]`)
-        .forEach((path) => path.setAttribute('d', edge.d))
-    }
-  }
-
-  const handleNodePointerUp = () => {
-    const held = grab.current
-    const raw = landing.current
-    grab.current = null
-    landing.current = null
-    if (!held || !raw) {
-      setDragId(null)
-      return
-    }
-
-    const settled = resolveOverlap(nodes, held.id, raw.x, raw.y, held.bounds)
-    const offset = (p: { x: number; y: number }) =>
-      `translate3d(${p.x - held.baseX}px, ${p.y - held.baseY}px, 0)`
-
-    const commit = (): CanvasNodeData[] => {
-      held.el.getAnimations().forEach((a) => a.cancel())
-      held.el.style.transform = ''
-      held.el.style.left = `${settled.x}px`
-      held.el.style.top = `${settled.y}px`
-      // 재기 전에 리렌더가 끝나면 transition 이 살아난 뒤 transform 이 지워져 미끄러진다.
-      void held.el.offsetHeight
-      // 자리는 위에서 정했다. moveNode 로 넣으면 같은 계산을 한 번 더 한다.
-      const after = moveNodeTo(nodes, held.id, settled.x, settled.y)
-      // 드래그 중 직접 써 넣은 선은 React 가 모른다. 최종 경로도 직접 확정한다.
-      for (const edge of edgeGeometry(after, edges)) {
-        paneRef.current
-          ?.querySelectorAll(`[data-edge="${edge.id}"]`)
-          .forEach((path) => path.setAttribute('d', edge.d))
-      }
-      setNodes(after)
-      setDragId(null)
-      return after
-    }
-
-    if (settled.x === raw.x && settled.y === raw.y) {
-      commit()
-      return
-    }
-    // 겹친 자리에 놓으면 빈자리로 짧게 미끄러지게 한다.
-    held.el.animate([{ transform: offset(raw) }, { transform: offset(settled) }], {
-      duration: SETTLE_MS,
-      easing: 'cubic-bezier(.2,.8,.25,1)',
-      fill: 'both',
-    })
-    settle.current = commit
-    settleTimer.current = setTimeout(flushSettle, SETTLE_MS)
-  }
-
-  useEffect(() => {
-    /** 선택한 것 삭제. 노드면 거기 붙은 선도 함께. */
-    const removeSelected = () => {
-      if (selEdge) {
-        setEdges((prev) => disconnect(prev, selEdge))
-        setSelEdge(null)
-        return
-      }
-      const node = nodes.find((n) => n.id === selId)
-      if (!node) return
-      const after = removeNode(nodes, edges, node.id)
-      setNodes(after.nodes)
-      setEdges(after.edges)
-      setSelId(null)
-      setHovId(null)
-    }
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
-      // 글자를 지우는 중일 수 있다.
-      const target = ev.target as HTMLElement | null
-      if (target?.closest('input, textarea, [contenteditable="true"]')) return
-      if (!selEdge && !nodes.some((n) => n.id === selId)) return
-      ev.preventDefault()
-      removeSelected()
-    }
-    addEventListener('keydown', onKey)
-    return () => removeEventListener('keydown', onKey)
-  }, [selId, selEdge, nodes, edges])
-
-  /** 포트를 누르면 노드가 아니라 선을 끈다. */
-  const handlePortDown =
-    (id: string) => (side: 'in' | 'out', ev: React.PointerEvent<HTMLDivElement>) => {
-      if (ev.button !== 0) return
-      // 막지 않으면 노드까지 같이 드래그된다.
-      ev.stopPropagation()
-      setLinkFrom({ id, side })
-      // 포트에서 손을 떼도 click 이 노드로 올라온다. 선택이 뒤집히지 않게 막는다.
-      moved.current = true
-      try {
-        ev.currentTarget.setPointerCapture(ev.pointerId)
-      } catch {
-        /* 이미 놓인 포인터 */
-      }
-    }
-
-  const handlePortMove = (ev: React.PointerEvent<HTMLDivElement>) => {
-    const held = linkFrom
-    const node = held && nodes.find((n) => n.id === held.id)
-    const point = node && toCanvasPoint(ev.clientX, ev.clientY)
-    if (!held || !node || !point) return
-    const anchor = portPoint(node, held.side)
-    const d = held.side === 'out' ? edgePath(anchor, point) : edgePath(point, anchor)
-    tempRef.current?.setAttribute('d', d)
-  }
-
-  const handlePortUp = (ev: React.PointerEvent<HTMLDivElement>) => {
-    const held = linkFrom
-    setLinkFrom(null)
-    if (!held) return
-    // 손을 뗀 자리의 포트는 화면에 물어본다.
-    const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-port]')
-    const side = hit?.getAttribute('data-port')
-    const hitId = hit?.closest('[data-node]')?.getAttribute('data-node')
-    const target = nodes.find((n) => n.id === hitId)
-    if (!target || !side || side === held.side) return
-    const [from, to] = held.side === 'out' ? [held.id, target.id] : [target.id, held.id]
-    setEdges((prev) => connect(prev, from, to))
-  }
-
-  /** 빈 곳을 누르면 선택 해제. */
-  const handlePaneDown = (ev: React.PointerEvent<HTMLDivElement>) => {
-    if ((ev.target as HTMLElement).closest('[data-node],[data-edge]')) return
-    setSelId(null)
-    setSelEdge(null)
-  }
+  const {
+    nodes,
+    geometry,
+    selId,
+    hovId,
+    selEdge,
+    dragId,
+    linkFrom,
+    canSell,
+    portOpen,
+    onHover,
+    onSelectEdge,
+    handleSelect,
+    handleHoverOut,
+    handleNodePointerDown,
+    handleNodePointerMove,
+    handleNodePointerUp,
+    handlePortDown,
+    handlePortMove,
+    handlePortUp,
+    handlePaneDown,
+  } = canvas
+  const { paneRef, panelRef, glowRef, tempRef } = canvas.refs
+  const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
+  const { paletteRef, sentinelRef } = palette.refs
 
   const handleDragOver = (ev: React.DragEvent<HTMLDivElement>) => {
     if (!ev.dataTransfer.types.includes(DND_TYPE)) return
@@ -338,100 +52,16 @@ export default function EditNodes() {
     ev.dataTransfer.dropEffect = 'copy'
   }
 
+  /** 팔레트에서 캔버스로 건너오는 것은 항목 id 하나뿐이다. 나머지는 여기서 되찾는다. */
   const handleDrop = (ev: React.DragEvent<HTMLDivElement>) => {
     const itemId = ev.dataTransfer.getData(DND_TYPE)
     if (!itemId) return
     ev.preventDefault()
-    const item = items.find((it) => it.itemId === itemId)
-    const point = item && toCanvasPoint(ev.clientX, ev.clientY)
+    const item = palette.findItem(itemId)
+    const point = item && canvas.toCanvasPoint(ev.clientX, ev.clientY)
     if (!item || !point) return
-    placedCount.current += 1
-    // 커서가 카드 한가운데를 잡고 있는 것처럼 놓는다.
-    setNodes((prev) =>
-      placeNode(
-        prev,
-        {
-          id: `placed-${placedCount.current}`,
-          name: item.name,
-          nodeType: item.nodeType,
-          mine: item.mine,
-        },
-        point.x - NODE_SIZE / 2,
-        point.y - NODE_SIZE / 2,
-        canvasBounds() ?? NO_BOUNDS,
-      ),
-    )
+    canvas.placeFromPalette({ name: item.name, nodeType: item.nodeType, mine: item.mine }, point)
   }
-  const handleHovOut = () => setHovId(null)
-  const handleTogglePanel = () => setPanelOpen((v) => !v)
-  const handleSearch = (ev: React.ChangeEvent<HTMLInputElement>) => setQ(ev.target.value)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setKeyword(q.trim()), DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [q])
-
-  const {
-    data,
-    isPending,
-    isPlaceholderData,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    fetchNextPage,
-  } = useInfiniteQuery({
-    queryKey: queryKeys.workflows.nodePalette.list({ scope: SCOPE, keyword, size: PAGE_SIZE }),
-    queryFn: ({ pageParam }) =>
-      getNodePalette({
-        scope: SCOPE,
-        keyword: keyword || undefined,
-        cursor: pageParam,
-        size: PAGE_SIZE,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-    // 검색어가 바뀌는 동안 목록이 비었다가 차오르지 않게 이전 결과를 남긴다.
-    placeholderData: keepPreviousData,
-  })
-
-  const items = data?.pages.flatMap((page) => page.content) ?? []
-  // placeholder 는 아직 이번 검색의 결과가 아니다. isPending 만 보면 한 글자마다 깜빡인다.
-  const isSettled = !isPending && !isPlaceholderData
-  const isEmpty = isSettled && !isError && items.length === 0
-
-  const paletteRef = useRef<HTMLDivElement>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
-
-  // 아래쪽에 머문 채 목록만 바뀌면 새 결과의 앞부분을 지나쳐 검색에 실패한 것처럼 보인다.
-  useEffect(() => {
-    paletteRef.current?.scrollTo({ top: 0 })
-  }, [keyword])
-
-  useEffect(() => {
-    const node = sentinelRef.current
-    // 실패한 커서로 다시 시도하지 않는다 — 교차할 때마다 같은 요청이 반복된다.
-    if (!node || !hasNextPage || isFetchNextPageError) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isFetchingNextPage) void fetchNextPage()
-      },
-      { root: paletteRef.current, rootMargin: '160px' },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
-
-  // 선을 드래그하는 동안 이을 수 있는 포트만 밝게.
-  const portOpen = (id: string, side: 'in' | 'out') => {
-    if (!linkFrom) return true
-    if (side === linkFrom.side) return false
-    const [a, b] = linkFrom.side === 'out' ? [linkFrom.id, id] : [id, linkFrom.id]
-    return canConnect(edges, a, b)
-  }
-
-  // 경로 탐색은 무겁다. 노드나 선이 바뀔 때만 다시 찾는다.
-  const geometry = useMemo(() => edgeGeometry(nodes, edges), [nodes, edges])
 
   const n = nodes.find((node) => node.id === selId)
   const g = nodes.find((node) => node.id === hovId) ?? n // 빛은 호버 중인 노드를 따라간다
@@ -452,25 +82,6 @@ export default function EditNodes() {
         transition: 'transform .2s,opacity .25s ease',
       }
     : { display: 'none' }
-  const cards = items.map((item) => ({
-    ...item,
-    initial: item.name.trim().charAt(0),
-    uses: runLabel(item.executionCount),
-    unit: priceLabel(item.price),
-    typeLabel: nodeTypeLabel(item.nodeType),
-    infoOpen: infoAt === item.itemId,
-    infoBg: infoAt === item.itemId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
-    drag: (ev: React.DragEvent<HTMLDivElement>) => {
-      // 항목 id 만 넘긴다. 놓는 쪽이 같은 목록에서 다시 찾는다.
-      ev.dataTransfer.setData(DND_TYPE, item.itemId)
-      ev.dataTransfer.effectAllowed = 'copy'
-    },
-    info: (ev: React.MouseEvent) => {
-      ev.preventDefault()
-      ev.stopPropagation()
-      setInfoAt((v) => (v === item.itemId ? null : item.itemId))
-    },
-  }))
   const hasSelection = !!n
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
@@ -582,8 +193,8 @@ export default function EditNodes() {
                 handleNodePointerUp()
                 handlePortUp(ev)
               }}
-              onHover={() => setHovId(node.id)}
-              onHoverOut={handleHovOut}
+              onHover={() => onHover(node.id)}
+              onHoverOut={handleHoverOut}
             />
           ))}
         </div>
@@ -632,8 +243,7 @@ export default function EditNodes() {
                   style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                   onPointerDown={(ev) => {
                     ev.stopPropagation()
-                    setSelId(null)
-                    setSelEdge(selEdge === edge.id ? null : edge.id)
+                    onSelectEdge(edge.id)
                   }}
                 />
               </Fragment>
