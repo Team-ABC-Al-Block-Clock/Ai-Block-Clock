@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest'
 import {
   CANVAS_EDGES,
   CANVAS_NODES,
+  NO_BOUNDS,
   canConnect,
+  clampToBounds,
   canSellWorkflow,
   connect,
   disconnect,
   edgeGeometry,
   edgePath,
-  moveNode,
   moveNodeTo,
   type CanvasBounds,
   placeNode,
@@ -96,32 +97,25 @@ describe('placeNode', () => {
   })
 })
 
-describe('moveNode', () => {
-  it('id 가 맞는 노드만 옮긴다', () => {
-    const moved = moveNode([nodeAt('a', 0, 200), nodeAt('b', 400, 300)], 'b', 500, 350)
-    expect(moved[0]).toMatchObject({ x: 0, y: 200 })
-    expect(moved[1]).toMatchObject({ x: 500, y: 350 })
+describe('clampToBounds', () => {
+  it('범위 안이면 그대로 둔다', () => {
+    expect(clampToBounds(300, 400, BOUNDS)).toEqual({ x: 300, y: 400 })
   })
 
-  it('화면 왼쪽·위로 옮겨도 절반은 남는다', () => {
-    const [moved] = moveNode([nodeAt('a', 300, 400)], 'a', -900, -900, BOUNDS)
-    expect(moved).toMatchObject({ x: -HALF, y: -HALF })
+  it('화면 왼쪽·위로 끌어도 절반은 남는다', () => {
+    expect(clampToBounds(-900, -900, BOUNDS)).toEqual({ x: -HALF, y: -HALF })
   })
 
   it('패널을 넘어가도 절반은 남는다', () => {
-    const [moved] = moveNode([nodeAt('a', 300, 400)], 'a', 9999, 400, BOUNDS)
-    expect(moved).toMatchObject({ x: BOUNDS.maxX, y: 400 })
+    expect(clampToBounds(9999, 400, BOUNDS)).toEqual({ x: BOUNDS.maxX, y: 400 })
   })
 
-  it('없는 id 면 목록이 그대로다', () => {
-    const before = [nodeAt('a', 0, 200)]
-    expect(moveNode(before, 'zzz', 500, 500)).toEqual(before)
+  it('아래로도 절반까지만 내려간다', () => {
+    expect(clampToBounds(300, 9999, BOUNDS)).toEqual({ x: 300, y: BOUNDS.maxY })
   })
 
-  it('원래 목록을 건드리지 않는다', () => {
-    const before = [nodeAt('a', 0, 200)]
-    moveNode(before, 'a', 500, 500)
-    expect(before[0]).toMatchObject({ x: 0, y: 200 })
+  it('겹침은 보지 않는다 — 끄는 동안에는 커서를 그대로 따라간다', () => {
+    expect(clampToBounds(305, 405, NO_BOUNDS)).toEqual({ x: 305, y: 405 })
   })
 })
 
@@ -222,7 +216,9 @@ describe('겹침은 놓을 때도 옮길 때도 막는다', () => {
 
   it('다른 카드 위로 옮기면 밀려난다', () => {
     const base = [nodeAt('a', 300, 400), nodeAt('b', 0, 200)]
-    const after = moveNode(base, 'b', 302, 402)
+    // 화면이 밟는 순서 그대로 — 자리를 먼저 풀고, 푼 자리에 그대로 넣는다.
+    const settled = resolveOverlap(base, 'b', 302, 402)
+    const after = moveNodeTo(base, 'b', settled.x, settled.y)
     const b = after.find((n) => n.id === 'b')!
     expect(apart(after, 'b', b.x, b.y)).toBe(true)
   })
@@ -289,7 +285,7 @@ describe('edgeGeometry', () => {
 
   it('노드를 옮기면 선이 따라온다', () => {
     const 전 = edgeGeometry(CANVAS_NODES)[0].d
-    const 후 = edgeGeometry(moveNode(CANVAS_NODES, 'seed-1', 12, 700))[0].d
+    const 후 = edgeGeometry(moveNodeTo(CANVAS_NODES, 'seed-1', 12, 700))[0].d
     expect(후).not.toBe(전)
     expect(후.startsWith('M180 784')).toBe(true)
   })

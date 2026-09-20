@@ -328,16 +328,3 @@ export function moveNodeTo(
 ): CanvasNodeData[] {
   return nodes.map((node) => (node.id === id ? { ...node, x, y } : node))
 }
-
-/** 놓인 노드를 옮긴다. 없는 id 면 목록을 그대로 돌려준다. */
-export function moveNode(
-  nodes: CanvasNodeData[],
-  id: string,
-  x: number,
-  y: number,
-  bounds: CanvasBounds = NO_BOUNDS,
-): CanvasNodeData[] {
-  return nodes.map((node) =>
-    node.id === id ? { ...node, ...resolveOverlap(nodes, id, x, y, bounds) } : node,
-  )
-}
