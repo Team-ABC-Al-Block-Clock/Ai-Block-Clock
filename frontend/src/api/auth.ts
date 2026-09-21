@@ -131,6 +131,8 @@ export const signup = (params: {
   body.append('nickname', params.nickname)
   // 선택 항목이라 비어 있으면 필드를 빼고 보낸다 — 명세가 보낸 것만 반영한다.
   if (params.introduction) body.append('introduction', params.introduction)
+  // 선택 항목이다. 넣는 것을 빠뜨려도 타입은 통과하므로 `auth.test.ts` 가 파트를 직접 센다.
+  if (params.profileImageFile) body.append('profileImageFile', params.profileImageFile)
   // FormData 는 값을 문자열로 만든다. 'true' / 'false' 로 나가는 것을 mock 도 같은 규칙으로 읽는다.
   body.append('termsAgreed', String(params.termsAgreed))
   body.append('recoveryNoticeConfirmed', String(params.recoveryNoticeConfirmed))

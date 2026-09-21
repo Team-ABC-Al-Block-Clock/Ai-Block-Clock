@@ -1,6 +1,7 @@
+import type { AxiosAdapter } from 'axios'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { getMyProfile, loginWithWallet, signup } from '@/api/auth'
+import { getMyProfile, loginWithWallet, signup, updateMyProfile } from '@/api/auth'
 import { API_BASE_URL, client } from '@/api/client'
 import { ApiError } from '@/api/errors'
 
@@ -44,6 +45,76 @@ async function signIn() {
 // 가입을 끝내 버려 나머지가 전부 USER_006 이 된다.
 beforeEach(() => localStorage.clear())
 afterEach(() => localStorage.clear())
+
+/**
+ * 요청을 보내지 않고 axios 가 들고 있는 본문만 가로챈다.
+ *
+ * multipart 로 직렬화까지 갈 필요가 없다 — 확인할 것은 「파트가 실렸는가」 하나다.
+ * jsdom 에서 파일 파트를 보낼 수 없다는 이유로 이 경로를 검증하지 않았더니,
+ * `signup` 이 `profileImageFile` 을 FormData 에 넣지 않은 채로 지나갔다. 선택 항목이라
+ * 타입도 통과하고 서버는 `profileImageUrl: null` 을 주므로 오류도 나지 않는다.
+ */
+async function capturePartsOf(send: () => Promise<unknown>): Promise<FormData> {
+  const previous = client.defaults.adapter
+  let captured: FormData | undefined
+
+  const capture: AxiosAdapter = (config) => {
+    captured = config.data as FormData
+    return Promise.resolve({
+      data: { status: 'success', data: {} },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    })
+  }
+
+  client.defaults.adapter = capture
+  try {
+    await send()
+  } finally {
+    client.defaults.adapter = previous
+  }
+
+  if (!captured) throw new Error('요청 본문을 가로채지 못했다')
+  return captured
+}
+
+const PNG = () => new File(['\u0089PNG'], 'me.png', { type: 'image/png' })
+
+describe('multipart 파트', () => {
+  it('가입은 고른 프로필 이미지를 파트로 싣는다', async () => {
+    const file = PNG()
+
+    const parts = await capturePartsOf(() =>
+      signup({ nickname: '김선미', profileImageFile: file, ...FORM }),
+    )
+
+    expect(parts.get('profileImageFile')).toBe(file)
+    expect(parts.get('nickname')).toBe('김선미')
+    // 동의는 문자열로 나간다 — mock 과 서버가 'true' 로 읽는다.
+    expect(parts.get('termsAgreed')).toBe('true')
+  })
+
+  it('이미지를 고르지 않으면 파트를 아예 넣지 않는다', async () => {
+    // 빈 값을 넣으면 서버가 「보냈다」로 읽는다.
+    const parts = await capturePartsOf(() => signup({ nickname: '김선미', ...FORM }))
+
+    expect(parts.has('profileImageFile')).toBe(false)
+  })
+
+  it('프로필 수정은 교체와 삭제를 따로 싣는다', async () => {
+    const file = PNG()
+
+    const replaced = await capturePartsOf(() => updateMyProfile({ profileImageFile: file }))
+    expect(replaced.get('profileImageFile')).toBe(file)
+    expect(replaced.has('removeProfileImage')).toBe(false)
+
+    const removed = await capturePartsOf(() => updateMyProfile({ removeProfileImage: true }))
+    expect(removed.get('removeProfileImage')).toBe('true')
+    expect(removed.has('profileImageFile')).toBe(false)
+  })
+})
 
 describe('signup', () => {
   it('가입에 성공하면 명세가 정한 필드만 돌려준다', async () => {
