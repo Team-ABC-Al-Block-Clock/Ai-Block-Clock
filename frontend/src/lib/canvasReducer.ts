@@ -114,7 +114,8 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       if (!state.selId) return state
       const after = removeNode(state.nodes, state.edges, state.selId)
       if (after.nodes === state.nodes) return state
-      return { ...state, ...after, selId: null, hovId: null }
+      // 끄는 중인 선의 출발점이 방금 지운 노드일 수 있다. 남겨 두면 없는 노드에서 선이 나간다.
+      return { ...state, ...after, selId: null, hovId: null, linkFrom: null }
     }
 
     case 'startLink':
@@ -126,6 +127,9 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
     case 'endLink': {
       const held = state.linkFrom
       if (!held || action.side === held.side) return { ...state, linkFrom: null }
+      // 출발점이 사라졌으면 잇지 않는다. 한쪽이 없는 선은 그려지지 않아 지울 수도 없는데,
+      // `canConnect` 의 입력 하나 규칙에는 잡혀 대상 노드가 영영 선을 못 받는다.
+      if (!state.nodes.some((node) => node.id === held.id)) return { ...state, linkFrom: null }
       const [from, to] =
         held.side === 'out' ? [held.id, action.targetId] : [action.targetId, held.id]
       return { ...state, edges: connect(state.edges, from, to), linkFrom: null }

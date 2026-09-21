@@ -199,6 +199,37 @@ describe('포트 연결', () => {
     const after = canvasReducer(stateOf(), { type: 'startLink', from: { id: 'a', side: 'out' } })
     expect(after.linkFrom).toEqual({ id: 'a', side: 'out' })
   })
+
+  it('끄는 도중 출발 노드를 지우면 끌던 선도 함께 사라진다', () => {
+    const after = run(
+      stateOf({ selId: 'a' }),
+      { type: 'startLink', from: { id: 'a', side: 'out' } },
+      { type: 'removeSelected' },
+    )
+    expect(after.linkFrom).toBeNull()
+  })
+
+  it('없는 노드에서 나가는 선은 잇지 않는다', () => {
+    // 이어 두면 화면에 그려지지 않아 지울 수 없는데, 입력 하나 규칙에는 잡혀 b 가 영영 막힌다.
+    const after = run(
+      stateOf({ selId: 'a', linkFrom: { id: 'a', side: 'out' } }),
+      { type: 'removeSelected' },
+      { type: 'endLink', targetId: 'b', side: 'in' },
+    )
+    expect(after.edges).toHaveLength(0)
+  })
+
+  it('지운 노드를 거쳐도 남은 노드는 계속 선을 받는다', () => {
+    const after = run(
+      stateOf({ nodes: [nodeAt('a', 0, 0), nodeAt('b', 400, 0), nodeAt('c', 0, 400)], selId: 'a' }),
+      { type: 'startLink', from: { id: 'a', side: 'out' } },
+      { type: 'removeSelected' },
+      { type: 'endLink', targetId: 'b', side: 'in' },
+      { type: 'startLink', from: { id: 'c', side: 'out' } },
+      { type: 'endLink', targetId: 'b', side: 'in' },
+    )
+    expect(edgeIdsOf(after)).toEqual(['c__b'])
+  })
 })
 
 describe('삭제', () => {
