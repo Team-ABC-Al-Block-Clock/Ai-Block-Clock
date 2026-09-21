@@ -285,6 +285,33 @@ describe('세션이 끝난 이유를 남긴다', () => {
     expect(h.clearCache).toHaveBeenCalledTimes(1)
   })
 
+  it('401 이 연달아 와도 처음 남긴 사유가 남는다', async () => {
+    // 한 화면이 목록 여러 개를 동시에 부르면 쿠키가 끊긴 순간 401 도 함께 온다.
+    // 두 번째부터는 이미 미인증이라 사유를 새로 적을 수 없는데, 그때 지워 버리면
+    // 아무 안내 없이 로그인 화면으로 떨어진다.
+    const useAuthStore = await authenticated()
+
+    h.onAuthFailure('AUTH_013') // expired
+    h.onAuthFailure('AUTH_005') // 뒤따라 도착한 401
+    h.onAuthFailure('AUTH_005')
+
+    expect(useAuthStore.getState().endedBy).toBe('expired')
+  })
+
+  it('로그아웃이 401 로 끝나도 밀려난 사유는 그대로 남는다', async () => {
+    // 지갑 연결이 끊겨 로그아웃하는데 서버 세션이 이미 없으면 401 이 온다.
+    // 인터셉터가 먼저 `invalid` 를 남기지만, 사용자에게 보여야 할 이유는 지갑 쪽이다.
+    const useAuthStore = await authenticated()
+    h.logout.mockImplementation(() => {
+      h.onAuthFailure('AUTH_005')
+      return Promise.reject(new Error('401'))
+    })
+
+    await expect(useAuthStore.getState().signOut('disconnected')).rejects.toThrow('401')
+
+    expect(useAuthStore.getState().endedBy).toBe('disconnected')
+  })
+
   it('다시 로그인하면 지난 사유가 지워진다', async () => {
     const useAuthStore = await authenticated()
     useAuthStore.getState().clearSession()

@@ -86,17 +86,28 @@ export const isSessionPending = (status: AuthStatus) => status === 'idle' || sta
 let epoch = 0
 
 export const useAuthStore = create<AuthState>((set, get) => {
-  /** 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다. */
-  const dropSession = (endedBy: SessionEndReason | null = null) => {
+  /**
+   * 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다.
+   *
+   * `force` 는 사용자가 스스로 끝낸 세션(`signOut`)이다 — 준 사유를 그대로 쓴다.
+   * 밀려난 경우(401)는 먼저 적힌 사유가 이긴다.
+   */
+  const dropSession = (endedBy: SessionEndReason | null = null, { force = false } = {}) => {
     // `endedBy` 는 「쓰던 중 끊겼다」는 뜻이다. 인증된 적이 없으면 알릴 이유가 없다 —
     // 첫 방문의 401 에 "세션이 만료되었습니다" 가 붙으면 사고처럼 보인다.
-    const wasAuthenticated = get().status === 'authenticated'
+    const { status, endedBy: recorded } = get()
+    const wasAuthenticated = status === 'authenticated'
     epoch += 1
     // 쿼리 캐시까지 비운다. 스토어만 비우면 staleTime(60초) 동안 마이페이지·잔액이
     // 이전 계정 값을 보여 준다 — 쿠키 세션은 7일이라 같은 브라우저에서 지갑을
     // 갈아타는 일이 흔하다. 세션을 끊는 길은 여기 하나뿐이라 호출부를 늘리지 않는다.
     queryClient.clear()
-    set({ ...SIGNED_OUT, endedBy: wasAuthenticated ? endedBy : null })
+    // 먼저 적힌 사유를 지킨다. 401 은 한 화면에서 여러 개가 동시에 오고, 두 번째부터는
+    // 이미 미인증이라 사유를 새로 적을 수 없다 — 덮어쓰게 두면 안내가 통째로 사라진다.
+    set({
+      ...SIGNED_OUT,
+      endedBy: force ? endedBy : (recorded ?? (wasAuthenticated ? endedBy : null)),
+    })
   }
 
   return {
@@ -165,7 +176,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await requestLogout()
       } finally {
         // 사용자가 누른 로그아웃은 서버 응답이 실패해도 이긴다.
-        dropSession(endedBy ?? null)
+        // 로그아웃이 401 이면 인터셉터가 먼저 남긴 사유를 여기서 덮어야 한다.
+        dropSession(endedBy ?? null, { force: true })
       }
     },
 
