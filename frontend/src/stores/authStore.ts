@@ -6,13 +6,14 @@ import {
   logout as requestLogout,
   type UserProfile,
 } from '@/api/auth'
-import { restoreSession, setOnAuthFailure } from '@/api/client'
+import { setOnAuthFailure } from '@/api/client'
 import { AUTH_ERROR } from '@/api/errors'
-import { tokenStorage } from '@/lib/tokenStorage'
 
 /**
- * 인증 세션의 단일 소스. Access Token 만 `lib/tokenStorage.ts` 에 둔다 — axios
- * 인터셉터가 React 트리 밖에서 읽어야 하고, 두 곳에 두면 조용히 갈라진다.
+ * 인증 세션의 단일 소스.
+ *
+ * 세션은 `sessionToken` HttpOnly 쿠키라 JS 가 값을 읽을 수 없다. 그래서 스토어가
+ * 들고 있는 것은 토큰이 아니라 「서버가 나를 알아보는가」의 결과뿐이다.
  */
 
 /** `idle`·`restoring` 은 "아직 모른다" 이고 미인증이 아니다. */
@@ -25,14 +26,13 @@ export type SessionEndReason = 'expired' | 'revoked' | 'invalid' | 'disconnected
 /** 시간이 지나 끊긴 것과 서버가 끊은 것은 사용자가 할 일이 달라 문구를 나눈다. */
 export function endReasonFromAuthCode(code?: string): SessionEndReason {
   switch (code) {
-    case AUTH_ERROR.REFRESH_REUSED:
+    case AUTH_ERROR.ENDED:
       return 'revoked'
-    case AUTH_ERROR.REFRESH_INVALID:
     case AUTH_ERROR.MISSING:
     case AUTH_ERROR.INVALID:
       return 'invalid'
     default:
-      // AUTH_001·003·007 과 코드를 못 읽은 경우. 만료가 압도적으로 흔하다.
+      // AUTH_013 과 코드를 못 읽은 경우. 7일 만료가 압도적으로 흔하다.
       return 'expired'
   }
 }
@@ -44,7 +44,7 @@ interface AuthState {
   /** 쓰던 중 세션이 끊긴 이유. 로그인 화면이 이 값으로 안내를 고른다 */
   endedBy: SessionEndReason | null
 
-  /** 부팅 시 한 번 — Refresh Token 쿠키로 세션을 되살린다 */
+  /** 부팅 시 한 번 — 쿠키가 살아 있는지는 프로필을 물어봐야 안다 */
   restore: () => Promise<void>
   /** 실패는 그대로 던져 화면이 안내한다. 성공해도 그 사이 세션이 갈렸으면
    *  이 로그인은 버려지고 `null` 이 온다 — 호출부가 모르고 지나가지 않도록 */
@@ -75,9 +75,11 @@ let epoch = 0
 export const useAuthStore = create<AuthState>((set, get) => {
   /** 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다. */
   const dropSession = (endedBy: SessionEndReason | null = null) => {
+    // `endedBy` 는 「쓰던 중 끊겼다」는 뜻이다. 인증된 적이 없으면 알릴 이유가 없다 —
+    // 첫 방문의 401 에 "세션이 만료되었습니다" 가 붙으면 사고처럼 보인다.
+    const wasAuthenticated = get().status === 'authenticated'
     epoch += 1
-    tokenStorage.clear()
-    set({ ...SIGNED_OUT, endedBy })
+    set({ ...SIGNED_OUT, endedBy: wasAuthenticated ? endedBy : null })
   }
 
   return {
@@ -87,16 +89,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
     endedBy: null,
 
     restore: async () => {
-      // 부팅 때 한 번만. StrictMode 의 두 번째 effect 로 재발급이 두 번 나가면
-      // 서버가 이전 Refresh Token 을 폐기해 세션이 끊긴다.
+      // 쿠키는 HttpOnly 라 있는지 없는지를 JS 가 알 수 없다. 프로필을 물어보는 것이
+      // 유일한 확인 수단이고, 401 이면 미인증이다.
+      //
+      // 부팅 때 한 번만 — StrictMode 의 두 번째 effect 로 같은 요청이 또 나갈 이유가 없다.
       if (get().status !== 'idle') return
       const mine = ++epoch
       set({ status: 'restoring' })
-
-      if (!(await restoreSession())) {
-        if (mine === epoch) dropSession()
-        return
-      }
 
       try {
         const profile = await getMyProfile()
@@ -108,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           endedBy: null,
         })
       } catch {
-        // 프로필 없이 인증된 척하는 화면이 되지 않도록 끊는다.
+        // 401 이든 서버 오류든 인증된 척하는 화면이 되지 않도록 끊는다.
         if (mine === epoch) dropSession()
       }
     },
@@ -116,10 +115,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
     signIn: async ({ walletAddress, signature }) => {
       // 사용자가 누른 로그인이 부팅 복구를 이긴다.
       const mine = ++epoch
-      const tokens = await loginWithWallet({ walletAddress, signature })
-      // 그 사이 세션이 갈렸다 — 이 토큰은 버리고, 로그인이 안 됐다고 알린다.
-      if (mine !== epoch) return null
-      tokenStorage.set(tokens.accessToken)
+      await loginWithWallet({ walletAddress, signature })
+
+      if (mine !== epoch) {
+        // 그 사이 세션이 갈렸다. 쿠키는 이미 브라우저에 저장됐고 HttpOnly 라 JS 가
+        // 지울 수 없으니 서버에 끊어 달라고 한다 — 두면 새로고침 한 번에 되살아난다.
+        void requestLogout().catch(() => undefined)
+        return null
+      }
 
       try {
         // 지갑이 준 주소가 아니라 서버 프로필의 주소를 쓴다.

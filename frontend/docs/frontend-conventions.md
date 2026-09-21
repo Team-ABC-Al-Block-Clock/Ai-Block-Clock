@@ -127,7 +127,7 @@ paths.agentDetail.withoutId // 아직 ID 가 없는 화면만
 | `unauthenticated`    | 로그인 화면으로 `replace` 이동              |
 | `authenticated`      | 화면 그대로                                 |
 
-- **확인이 끝나기 전을 미인증으로 보지 않는다.** Access Token 은 메모리에만 있어(7절) 새로고침하면 사라지고, 부팅 시 재발급으로 되살린다. 그 사이를 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다
+- **확인이 끝나기 전을 미인증으로 보지 않는다.** 쿠키가 살아 있는지는 부팅 때 `GET /users/me` 로 물어봐야 안다(7절). 그 사이를 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다
 - 막힌 경로를 history state 로 넘기고, 로그인이 끝나면 `redirectTargetFrom(state)` 으로 그 경로로 돌아간다. state 는 사용자가 만질 수 있으므로 내부 경로인지 확인한다 — `//evil.com` 과 `/\evil.com` 은 `/` 로 시작하지만 브라우저가 외부 주소로 읽는다
 - 이동은 `replace` 로 한다. 막힌 경로나 로그인 화면이 히스토리에 남으면 뒤로 가기가 다시 그 자리로 튕긴다
 
@@ -262,19 +262,24 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 - **지갑 주소는 `profile.wallet.address`.** 평평하게 읽으면 mock 은 통과하고 실서버에서만 조용히 `undefined` 가 된다
 - **프로필에 표시하는 제공자·네트워크는 서버 값을 쓴다**(`wallet.provider`·`wallet.chainId`). 배포 설정이라 화면이 정할 값이 아니다. 「정상 연결」 표시만 브라우저 지갑 상태라서 화면이 판단한다
 
-### 토큰
+### 세션 쿠키
 
-- Access Token 은 **메모리에만** 둔다(`lib/tokenStorage.ts`). localStorage 는 XSS 로 탈취된다
-- Refresh Token 은 HttpOnly 쿠키다. JS 는 값을 알 수도 없고 알 필요도 없다
-- 401 중 `AUTH_007`(Access Token 만료)만 재발급 대상이다. 나머지는 재발급해도 결과가 같다
-- 재발급은 **동시에 두 번 나가면 안 된다.** 서버가 이전 Refresh Token 을 폐기하므로 두 번째 요청은 `AUTH_004` 가 되고 세션이 끝난다. `client.ts` 가 진행 중인 재발급을 공유한다
+로그인 응답의 `Set-Cookie` 로 `sessionToken` 이 내려오고, 브라우저가 이후 요청에 자동으로 붙인다. 유효기간은 7일이고 브라우저를 다시 열어도 유지된다.
+
+- **토큰을 다루는 코드는 없다.** Access Token·Refresh Token·재발급(`POST /auth/reissue`)은 전부 사라졌다
+- **쿠키는 읽지 않는다.** HttpOnly 라 `document.cookie` 로 보이지 않는 것이 정상이다
+- **`withCredentials: true` 는 인스턴스 기본값이다**(`api/client.ts`). 이게 없으면 쿠키가 안 붙어 모든 요청이 `AUTH_005` 다
+- **401 은 전부 회복 불가다.** 자동 재발급 수단이 없으므로 지갑 서명 로그인부터 다시 한다. 코드는 문구만 가른다 — `AUTH_005`(쿠키 없음) · `AUTH_013`(7일 만료) · `AUTH_014`(로그아웃·다른 곳 재로그인) · `AUTH_018`(잘못된 토큰)
+- **세션 확인은 `GET /users/me` 뿐이다.** 쿠키가 있는지 JS 가 알 수 없어, 부팅 때 프로필을 물어보는 것이 유일한 방법이다(`hooks/useSessionRestore.ts`)
 
 ### 인증 세션은 스토어 하나가 들고 있다
 
 `stores/authStore.ts` 가 지갑 주소·프로필·연결 상태(`AuthStatus`)의 단일 소스다. 세션을 여닫는 것도 이 스토어의 액션(`signIn`·`signOut`·`restore`)으로만 한다.
 
-- **Access Token 은 스토어에 복사하지 않는다.** 인터셉터가 React 트리 밖에서 `lib/tokenStorage.ts` 를 읽어야 한다. 두 곳에 두면 한쪽만 갱신됐을 때 조용히 갈라진다
-- **늦게 도착한 응답이 지나간 세션을 되살리지 못하게 한다.** 복구·로그인은 토큰 → 프로필 두 번을 기다리고 그 사이 세션이 갈릴 수 있다. 스토어가 세션마다 올라가는 번호를 들고, 시작할 때 받은 번호가 최신일 때만 상태를 쓴다
+- **스토어가 들고 있는 것은 토큰이 아니라 「서버가 나를 알아보는가」의 결과다.** 쿠키는 JS 가 읽을 수 없다
+- **늦게 도착한 응답이 지나간 세션을 되살리지 못하게 한다.** 로그인은 로그인 → 프로필 두 번을 기다리고 그 사이 세션이 갈릴 수 있다. 스토어가 세션마다 올라가는 번호를 들고, 시작할 때 받은 번호가 최신일 때만 상태를 쓴다
+- **버려진 로그인은 서버 세션까지 끊는다.** 쿠키는 이미 저장됐고 JS 가 지울 수 없어, 그냥 두면 화면은 로그아웃인데 새로고침 한 번에 되살아난다
+- **`endedBy` 는 인증된 적이 있을 때만 남긴다.** 첫 방문의 401 에 사유가 붙으면 한 번도 로그인하지 않은 사람이 「세션이 만료되었습니다」를 본다
 - **보호 화면은 프로필을 스토어에서 읽는다.** `restore`·`signIn` 이 이미 받아 두고 보호 화면은 `authenticated` 일 때만 그려지므로, `GET /users/me` 를 쿼리로 다시 부르지 않는다(`components/Sidebar.tsx`)
 - **껍데기는 화면 구성을 세션에 따라 바꾸지 않는다.** 로그인 여부와 무관하게 같은 화면을 보여 주고 보호 라우트에서 막는다. 예외는 프로필 메뉴 안의 두 가지 — 아바타 이니셜과 로그아웃 행이다. 로그아웃한 사람에게 다른 사람의 이니셜과 로그아웃을 보여줄 수는 없다. 메뉴는 shadow DOM 안이라 스토어를 못 읽으므로 `App.tsx` 가 속성으로 넘긴다
 - **api 계층은 라우터를 알지 않는다.** 회복 불가능한 401 은 `setOnAuthFailure` 로 스토어에 알리고 스토어는 상태만 비운다. 화면 이동은 `ProtectedRoute` 의 몫이다(4절)
@@ -338,11 +343,11 @@ mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 
 | `mockProfile`       | 이름·소개 등 수정된 프로필 | 픽스처 초기값              |
 | `mockKnownWallets`  | 한 번이라도 로그인한 지갑  | 모든 주소가 온보딩 전 취급 |
 
-| 요청                 | 세션 없음      | 세션 있음          |
-| -------------------- | -------------- | ------------------ |
-| `POST /auth/reissue` | 401 `AUTH_001` | 새 Access Token    |
-| `GET /users/me`      | 401 `AUTH_005` | 세션 주소의 프로필 |
-| `POST /auth/logout`  | —              | 세션을 지운다      |
+| 요청                      | 세션 없음      | 세션 있음          |
+| ------------------------- | -------------- | ------------------ |
+| `GET /users/me`           | 401 `AUTH_005` | 세션 주소의 프로필 |
+| `POST /auth/wallet/login` | —              | `expiresAt`(7일)   |
+| `POST /auth/logout`       | —              | 세션을 지운다      |
 
 되돌리려면 `localStorage.removeItem('mockWalletSession')` · `removeItem('mockProfile')` ·
 `removeItem('mockKnownWallets')` 를 실행한다. 셋을 다 지워야 처음 보는 지갑으로 돌아가 가입 화면
@@ -361,11 +366,11 @@ mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 
 ```
 ?mockDelay=1500                        모든 응답을 늦춘다
 ?mockFail=COMMON_001                   모든 응답을 실패시킨다 (기본 400)
-?mockFail=AUTH_007&mockFailStatus=401
+?mockFail=AUTH_014&mockFailStatus=401
 ?mockDelay=0&mockFail=                 끈다
 ```
 
-`POST /auth/reissue` 만 예외로 `scene()` 을 건너뛴다. 재발급까지 같이 실패하면 실패 UI 를 보려던 화면이 로그인으로 튕긴다.
+`mockWalletSession` 을 지우면 세션 없음 상태가 된다 — 쿠키를 흉내 내는 대역이라 `?mockFail=` 과 달리 실제로 로그인 화면으로 밀려나는 경로를 볼 수 있다.
 
 ---
 
