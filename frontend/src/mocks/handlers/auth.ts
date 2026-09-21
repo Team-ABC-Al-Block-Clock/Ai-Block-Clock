@@ -3,7 +3,7 @@ import { http } from 'msw'
 import type { AuthTokens, UpdatedProfile, UserProfile, WalletMessage } from '@/api/auth'
 import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
-import { AUTH_ERROR } from '@/api/errors'
+import { AUTH_ERROR, USER_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -54,6 +54,41 @@ function writeProfile(next: UserProfile): void {
   } catch {
     /* 접근 불가 환경 — 이번 세션에서만 값이 살아 있다 */
   }
+}
+
+/**
+ * 이미지 파트 검증. 가입과 프로필 수정이 같은 규칙을 쓴다(명세 USER_004·USER_005).
+ * 파일이 아니면 검사할 것이 없다 — 안 보낸 것은 「그대로 두라」는 뜻이다.
+ */
+function rejectBadImage(image: FormDataEntryValue | null) {
+  if (!(image instanceof File)) return null
+
+  const { types, maxBytes } = PROFILE_LIMITS.image
+  if (!(types as readonly string[]).includes(image.type)) {
+    return fail(400, USER_ERROR.IMAGE_TYPE, '프로필 이미지는 PNG 또는 JPG 여야 합니다.')
+  }
+  if (image.size > maxBytes) {
+    return fail(400, USER_ERROR.IMAGE_SIZE, '프로필 이미지는 5MB 를 넘을 수 없습니다.')
+  }
+  return null
+}
+
+/**
+ * 고른 이미지를 data URL 로 바꾼다 — mock 에는 파일을 둘 CDN 이 없고, blob URL 은
+ * 새로고침하면 죽어서 「저장했는데 안 남는다」가 된다.
+ *
+ * base64 는 원본의 약 1.37배라 큰 파일은 localStorage 한도를 넘는다. 그때는 `writeProfile`
+ * 이 조용히 실패해 이번 세션에서만 보인다. mock 으로 확인할 때 쓰는 이미지는 작다.
+ */
+async function toDataUrl(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  let binary = ''
+  // 한 번에 펼치면 인자가 너무 많아 스택이 넘친다.
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return `data:${file.type};base64,${btoa(binary)}`
 }
 
 /**
@@ -168,22 +203,42 @@ export const authHandlers = [
     const form = await request.formData()
     const nickname = form.get('nickname')
     const introduction = form.get('introduction')
+    const image = form.get('profileImageFile')
+    const removeImage = form.get('removeProfileImage') === 'true'
+
+    // 교체와 삭제를 같이 보내면 어느 쪽인지 정할 수 없다.
+    if (image instanceof File && removeImage) {
+      return fail(400, USER_ERROR.IMAGE_CONFLICT, '이미지 교체와 삭제를 함께 보낼 수 없습니다.')
+    }
 
     const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
     if (
       typeof nickname === 'string' &&
       (nickname.length < nickLimit.min || nickname.length > nickLimit.max)
     ) {
-      return fail(400, 'USER_002', `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`)
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`,
+      )
     }
     if (typeof introduction === 'string' && introduction.length > introLimit.max) {
-      return fail(400, 'USER_002', `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`)
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`,
+      )
     }
+
+    const badImage = rejectBadImage(image)
+    if (badImage) return badImage
 
     // 보내지 않은 필드는 그대로 둔다
     let next = readProfile()
     if (typeof nickname === 'string') next = { ...next, nickname }
     if (typeof introduction === 'string') next = { ...next, introduction }
+    if (image instanceof File) next = { ...next, profileImageUrl: await toDataUrl(image) }
+    if (removeImage) next = { ...next, profileImageUrl: null }
     writeProfile(next)
 
     return ok<UpdatedProfile>({
@@ -195,12 +250,73 @@ export const authHandlers = [
     })
   }),
 
-  /** 계정 복구 불가 고지 확인 */
-  http.patch(`${API_BASE_URL}/users/me/onboarding`, async () => {
+  /**
+   * 회원가입 완료 — 프로필과 두 가지 동의를 한 번에 저장한다.
+   *
+   * 검사 순서가 중요하다. 중복 호출 거부가 저장보다 앞에 와야 두 번째 요청이
+   * 이름을 덮어쓰고 나서 409 를 내는 일이 없다.
+   */
+  http.post(`${API_BASE_URL}/users/me/signup`, async ({ request }) => {
     const forced = await scene()
     if (forced) return forced
 
-    writeProfile({ ...readProfile(), onboardingCompleted: true })
-    return ok(null)
+    if (!readSession()) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+
+    const current = readProfile()
+    if (current.onboardingCompleted) {
+      return fail(409, USER_ERROR.ALREADY_SIGNED_UP, '이미 가입 절차를 마친 계정입니다.')
+    }
+
+    const form = await request.formData()
+    const nickname = form.get('nickname')
+    const introduction = form.get('introduction')
+    const image = form.get('profileImageFile')
+
+    if (typeof nickname !== 'string' || nickname.trim() === '') {
+      return fail(400, 'COMMON_001', '이름이 필요합니다.')
+    }
+
+    const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
+    if (nickname.length < nickLimit.min || nickname.length > nickLimit.max) {
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `이름은 ${nickLimit.min}~${nickLimit.max}자여야 합니다.`,
+      )
+    }
+    if (typeof introduction === 'string' && introduction.length > introLimit.max) {
+      return fail(
+        400,
+        USER_ERROR.PROFILE_INVALID,
+        `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`,
+      )
+    }
+
+    // FormData 는 값을 문자열로 만든다. api/auth.ts 가 String(boolean) 으로 넣는 것과 짝이다.
+    if (form.get('termsAgreed') !== 'true' || form.get('recoveryNoticeConfirmed') !== 'true') {
+      return fail(
+        400,
+        USER_ERROR.CONSENT_REQUIRED,
+        '약관 동의와 계정 복구 불가 고지 확인이 필요합니다.',
+      )
+    }
+
+    const badImage = rejectBadImage(image)
+    if (badImage) return badImage
+
+    const next: UserProfile = {
+      ...current,
+      // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — GET /users/me 와 같은 이유다.
+      wallet: { ...current.wallet, address: readSession() ?? current.wallet.address },
+      nickname,
+      introduction: typeof introduction === 'string' && introduction ? introduction : null,
+      // 안 보내면 기본 아바타 그대로다 — 명세 「없으면 profileImageUrl 을 null 로 반환」
+      profileImageUrl: image instanceof File ? await toDataUrl(image) : current.profileImageUrl,
+      onboardingCompleted: true,
+    }
+    writeProfile(next)
+
+    // 응답이 곧 프로필이다 — 명세가 GET /users/me 와 같은 모양으로 준다.
+    return ok<UserProfile>(next)
   }),
 ]

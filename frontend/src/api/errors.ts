@@ -58,6 +58,28 @@ export const AUTH_ERROR = {
   EXPIRED: 'AUTH_007',
 } as const
 
+/**
+ * 프로필·가입 실패 코드. 회원가입 완료와 프로필 수정이 함께 쓴다.
+ *
+ * 화면이 코드로 분기하는 것은 ALREADY_SIGNED_UP 하나지만 나머지도 적어 둔다 —
+ * mock 핸들러가 여기를 보고 응답해야 지어낸 코드가 섞이지 않는다.
+ * 이름 누락은 도메인 코드가 아니라 COMMON_001 이라 여기 없다.
+ */
+export const USER_ERROR = {
+  /** 이름이 2~20자가 아니거나 한 줄 소개가 40자를 넘음 */
+  PROFILE_INVALID: 'USER_002',
+  /** 약관 동의 또는 계정 복구 불가 고지 확인이 빠짐 */
+  CONSENT_REQUIRED: 'USER_003',
+  /** 프로필 이미지가 PNG·JPG 가 아님 */
+  IMAGE_TYPE: 'USER_004',
+  /** 프로필 이미지가 5MB 를 넘음 */
+  IMAGE_SIZE: 'USER_005',
+  /** 이미 가입 절차를 마친 사용자가 다시 호출 — 409 */
+  ALREADY_SIGNED_UP: 'USER_006',
+  /** 이미지 교체와 삭제를 한 요청에 같이 보냄 */
+  IMAGE_CONFLICT: 'USER_007',
+} as const
+
 /** 응답 본문이 서버의 실패 봉투 모양인지 확인한다. */
 export function isApiErrorBody(body: unknown): body is ApiErrorBody {
   if (typeof body !== 'object' || body === null) return false
