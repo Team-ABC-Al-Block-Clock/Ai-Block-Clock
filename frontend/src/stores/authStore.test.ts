@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
   logout: vi.fn<() => Promise<unknown>>(),
   /** 인터셉터가 회복 불가능한 401 을 알려 오는 자리 — 스토어가 등록한다 */
   onAuthFailure: (() => {}) as (code?: string) => void,
+  clearCache: vi.fn(),
 }))
 
 vi.mock('@/api/client', () => ({
@@ -31,6 +32,10 @@ vi.mock('@/api/auth', () => ({
   getMyProfile: () => h.getMyProfile(),
   loginWithWallet: () => h.loginWithWallet(),
   logout: () => h.logout(),
+}))
+
+vi.mock('@/lib/queryClient', () => ({
+  queryClient: { clear: () => h.clearCache() },
 }))
 
 /** 지갑은 `wallet` 아래에 있다(7절) — 스토어가 거기서 주소를 꺼내는지도 함께 본다. */
@@ -73,6 +78,7 @@ beforeEach(() => {
   h.getMyProfile.mockReset()
   h.loginWithWallet.mockReset().mockResolvedValue(SESSION)
   h.logout.mockReset().mockResolvedValue(undefined)
+  h.clearCache.mockReset()
 })
 
 describe('늦게 도착한 응답이 지나간 세션을 되살리지 않는다', () => {
@@ -248,6 +254,16 @@ describe('세션이 끝난 이유를 남긴다', () => {
 
     expect(useAuthStore.getState().status).toBe('unauthenticated')
     expect(useAuthStore.getState().endedBy).toBeNull()
+  })
+
+  it('세션이 끊기면 쿼리 캐시도 비운다', async () => {
+    // 스토어만 비우면 staleTime 동안 마이페이지·잔액이 이전 계정 값을 보여 준다.
+    const useAuthStore = await authenticated()
+    expect(h.clearCache).not.toHaveBeenCalled()
+
+    await useAuthStore.getState().signOut()
+
+    expect(h.clearCache).toHaveBeenCalledTimes(1)
   })
 
   it('다시 로그인하면 지난 사유가 지워진다', async () => {

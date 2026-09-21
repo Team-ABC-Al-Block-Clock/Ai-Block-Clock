@@ -8,6 +8,7 @@ import {
 } from '@/api/auth'
 import { setOnAuthFailure } from '@/api/client'
 import { AUTH_ERROR } from '@/api/errors'
+import { queryClient } from '@/lib/queryClient'
 
 /**
  * 인증 세션의 단일 소스.
@@ -79,6 +80,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // 첫 방문의 401 에 "세션이 만료되었습니다" 가 붙으면 사고처럼 보인다.
     const wasAuthenticated = get().status === 'authenticated'
     epoch += 1
+    // 쿼리 캐시까지 비운다. 스토어만 비우면 staleTime(60초) 동안 마이페이지·잔액이
+    // 이전 계정 값을 보여 준다 — 쿠키 세션은 7일이라 같은 브라우저에서 지갑을
+    // 갈아타는 일이 흔하다. 세션을 끊는 길은 여기 하나뿐이라 호출부를 늘리지 않는다.
+    queryClient.clear()
     set({ ...SIGNED_OUT, endedBy: wasAuthenticated ? endedBy : null })
   }
 
