@@ -235,9 +235,8 @@ export default function Detail() {
   // 실행 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
   const proofTop = agent.usageExample ? 1440 : 1268
 
-  /* 리뷰는 페이지의 마지막 블록이다 — 개수가 변하는 영역을 맨 아래 두어야
-     위쪽 절대 좌표를 건드리지 않고 바닥만 늘릴 수 있다. 증명 카드가 끝나는
-     자리(proofTop + 426)에서 32px 띄운다. */
+  /* 리뷰는 위쪽 좌표를 건드리지 않고 바닥을 늘릴 수 있도록 페이지의 마지막 블록으로 한다.
+     증명 카드가 끝나는 자리(proofTop + 426)에서 32px 띄운다. */
   const reviewsTop = proofTop + 458
   const reviewsBody = reviewItems.length ? reviewItems.length * REVIEW_ROW : REVIEW_NOTICE
   const reviewsCard = REVIEW_PAD + reviewsBody + (reviews.hasNextPage ? REVIEW_MORE : 0)

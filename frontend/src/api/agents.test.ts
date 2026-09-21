@@ -4,6 +4,7 @@ import {
   addAgentFavorite,
   createAgent,
   getAgentProvenance,
+  getAgentReviews,
   getMarketplaceAgent,
   getMarketplaceAgents,
   getMyAgents,
@@ -295,6 +296,85 @@ describe('getAgentProvenance', () => {
     const error = await getAgentProvenance('agt_없음').catch((e: unknown) => e)
 
     expect(error).toMatchObject({ code: 'MARKET_001', status: 404 })
+  })
+})
+
+/**
+ * 리뷰 목록. 상세 화면이 커서로 이어 받는 유일한 목록이라, 이어 받기가 깨지면
+ * '더 보기' 가 같은 장을 반복하거나 멈춘다.
+ */
+describe('getAgentReviews', () => {
+  it('리뷰 응답은 명세의 필드만 담는다', async () => {
+    const [first] = (await getAgentReviews('agt_01')).content
+
+    // 없는 필드를 나열하면 그 필드가 사라진 뒤 공허한 단언이 된다 — 키 집합으로 본다.
+    expect(Object.keys(first).sort()).toEqual([
+      'authorNickname',
+      'content',
+      'createdAt',
+      'rating',
+      'reviewId',
+    ])
+  })
+
+  it('size 만큼 끊어 주고 다음 커서를 낸다', async () => {
+    const page = await getAgentReviews('agt_01', { size: 5 })
+
+    expect(page.content).toHaveLength(5)
+    expect(page.hasNext).toBe(true)
+    expect(page.nextCursor).toBeTruthy()
+  })
+
+  it('커서로 이어 받으면 앞 장과 겹치지 않는다', async () => {
+    // '더 보기' 가 같은 장을 다시 받으면 목록에 같은 리뷰가 두 번 쌓인다.
+    const first = await getAgentReviews('agt_01', { size: 5 })
+    const second = await getAgentReviews('agt_01', { cursor: first.nextCursor ?? '', size: 5 })
+
+    // arrayContaining 은 전부 겹칠 때만 걸린다 — 한 건만 겹쳐도 잡아야 한다.
+    const ids = new Set(first.content.map((r) => r.reviewId))
+    expect(second.content.filter((r) => ids.has(r.reviewId))).toEqual([])
+  })
+
+  it('끝까지 이어 받으면 중복·누락 없이 전부 모인다', async () => {
+    // 멈추지 않으면 '더 보기' 가 빈 장을 계속 붙이고, 커서가 밀리면 중간이 샌다.
+    let page = await getAgentReviews('agt_01', { size: 5 })
+    const ids = page.content.map((r) => r.reviewId)
+    let pages = 1
+    // 상한을 둔다 — 커서가 안 먹으면 hasNext 가 영영 true 라 조건만으로는 멈추지 않는다.
+    // 멈추지 않는 테스트는 실패를 알리지 못하고 CI 를 잡아 둔다.
+    while (page.hasNext && pages < 20) {
+      page = await getAgentReviews('agt_01', { cursor: page.nextCursor ?? '', size: 5 })
+      ids.push(...page.content.map((r) => r.reviewId))
+      pages += 1
+    }
+
+    expect(pages).toBeGreaterThan(1)
+    expect(page.nextCursor).toBeNull()
+    // mock 은 reviewCount 를 24 로 자른다.
+    expect(ids).toHaveLength(24)
+    expect(new Set(ids).size).toBe(24)
+  })
+
+  it('리뷰가 없으면 빈 목록이다 — 오류가 아니다', async () => {
+    // 상세가 reviewCount 를 주므로 0건은 정상이다. 화면이 실패 안내를 띄우면 안 된다.
+    const page = await getAgentReviews('agt_29')
+
+    expect(page.content).toEqual([])
+    expect(page.hasNext).toBe(false)
+  })
+
+  it('없는 에이전트는 MARKET_001 이다', async () => {
+    await expect(getAgentReviews('agt_없음')).rejects.toMatchObject({
+      code: 'MARKET_001',
+      status: 404,
+    })
+  })
+
+  it('커서가 유효하지 않으면 COMMON_001', async () => {
+    await expect(getAgentReviews('agt_01', { cursor: 'not-a-cursor' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
+    })
   })
 })
 
