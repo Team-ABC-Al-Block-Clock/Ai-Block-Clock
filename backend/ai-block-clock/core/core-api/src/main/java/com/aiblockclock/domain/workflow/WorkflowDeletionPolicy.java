@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public final class WorkflowDeletionPolicy {
     private final WorkflowUsageView usageView;
 
-    public void ensureDeletable(Workflow workflow, OwnerId requester) {
+    public void ensureDeletable(Workflow workflow, UserId requester) {
         workflow.ensureOwner(requester);
 
         if (usageView.isSourceOfAnyVersion(workflow.getId())) {

@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 class WorkflowConcurrentReplaceIntegrationTest {
-    private static final OwnerId OWNER = OwnerId.of(9102L);
+    private static final UserId OWNER = UserId.of(9102L);
     private static final Revision READ_BY_BOTH = Revision.of(1L);
 
     @Autowired

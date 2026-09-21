@@ -26,7 +26,7 @@ class SecurityIntegrationTest {
     private MockMvc mvc;
 
     @Test
-    void CurrentOwner가_없는_API도_기본적으로_인증이_필요하다() throws Exception {
+    void CurrentUser가_없는_API도_기본적으로_인증이_필요하다() throws Exception {
         mvc.perform(get("/api/v1/security-test/unannotated"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_005"));

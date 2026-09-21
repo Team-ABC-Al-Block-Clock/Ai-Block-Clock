@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public final class NodeDefinitionDeletionPolicy {
     private final NodeDefinitionUsageView usageView;
 
-    public void ensureDeletable(NodeDefinition node, OwnerId requester) {
+    public void ensureDeletable(NodeDefinition node, UserId requester) {
         node.ensureOwner(requester);
 
         if (usageView.isPlacedInAnyWorkflow(node.getId())) {

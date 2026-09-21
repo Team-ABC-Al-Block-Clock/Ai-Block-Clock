@@ -1,6 +1,6 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
 
@@ -62,7 +62,7 @@ class NodeControllerTest {
     private RequestPostProcessor as(long userId) {
         return authentication(org.springframework.security.authentication
                 .UsernamePasswordAuthenticationToken.authenticated(
-                        OwnerId.of(userId), null, java.util.List.of()
+                        UserId.of(userId), null, java.util.List.of()
                 ));
     }
 

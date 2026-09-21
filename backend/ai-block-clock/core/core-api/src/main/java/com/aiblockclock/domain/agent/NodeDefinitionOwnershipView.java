@@ -1,8 +1,8 @@
 package com.aiblockclock.domain.agent;
 
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.node.NodeDefinitionId;
+import com.aiblockclock.domain.user.UserId;
 
 public interface NodeDefinitionOwnershipView {
-    boolean isOwnedBy(NodeDefinitionId nodeId, OwnerId owner);
+    boolean isOwnedBy(NodeDefinitionId nodeId, UserId owner);
 }

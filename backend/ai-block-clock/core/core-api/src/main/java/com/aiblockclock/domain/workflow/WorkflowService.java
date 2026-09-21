@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.support.paging.CursorPage;
 
@@ -20,7 +20,7 @@ public class WorkflowService {
     private final WorkflowDeletionPolicy deletionPolicy;
 
     public Workflow save(
-            OwnerId requester,
+            UserId requester,
             String name,
             String description,
             List<NodePlacement> nodes,
@@ -31,7 +31,7 @@ public class WorkflowService {
         return workflowWriter.append(workflow);
     }
 
-    public Workflow get(WorkflowId id, OwnerId requester) {
+    public Workflow get(WorkflowId id, UserId requester) {
         Workflow workflow = workflowReader.read(id);
         workflow.ensureOwner(requester);
         return workflow;
@@ -39,7 +39,7 @@ public class WorkflowService {
 
     public Workflow replace(
             WorkflowId id,
-            OwnerId requester,
+            UserId requester,
             String name,
             Revision expectedRevision,
             List<NodePlacement> nodes,
@@ -48,14 +48,14 @@ public class WorkflowService {
         return workflowReplaceManager.replace(id, requester, name, expectedRevision, nodes, edges);
     }
 
-    public void delete(WorkflowId id, OwnerId requester) {
+    public void delete(WorkflowId id, UserId requester) {
         Workflow workflow = workflowReader.read(id);
         deletionPolicy.ensureDeletable(workflow, requester);
         workflowWriter.remove(id);
     }
 
     public CursorPage<WorkflowSummary> findMine(
-            OwnerId requester, WorkflowSort sort, String keyword, String cursor, int size) {
+            UserId requester, WorkflowSort sort, String keyword, String cursor, int size) {
         return workflowReader.readMine(requester, sort, keyword, cursor, size);
     }
 }

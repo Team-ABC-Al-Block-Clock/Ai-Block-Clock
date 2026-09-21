@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -11,8 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NodeDefinitionTest {
-    private static final OwnerId OWNER = OwnerId.of(1L);
-    private static final OwnerId OTHER = OwnerId.of(2L);
+    private static final UserId OWNER = UserId.of(1L);
+    private static final UserId OTHER = UserId.of(2L);
 
     @Test
     @DisplayName("소유자는 이름과 프롬프트와 모델을 한 번에 고친다")

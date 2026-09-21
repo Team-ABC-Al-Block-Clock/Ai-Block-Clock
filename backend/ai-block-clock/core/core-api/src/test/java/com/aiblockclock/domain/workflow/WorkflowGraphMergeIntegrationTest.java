@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 class WorkflowGraphMergeIntegrationTest {
-    private static final OwnerId OWNER = OwnerId.of(9103L);
+    private static final UserId OWNER = UserId.of(9103L);
     private UUID firstSource;
     private UUID secondSource;
     private UUID replacedSource;

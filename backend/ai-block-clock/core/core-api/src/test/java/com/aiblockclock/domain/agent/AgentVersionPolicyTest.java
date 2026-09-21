@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.agent;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
@@ -17,8 +17,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Set;
 
 class AgentVersionPolicyTest {
-    private static final OwnerId OWNER = OwnerId.of(1L);
-    private static final OwnerId OTHER = OwnerId.of(2L);
+    private static final UserId OWNER = UserId.of(1L);
+    private static final UserId OTHER = UserId.of(2L);
 
     private static AgentVersionPolicy policy(Set<AgentId> ownedAgents) {
         return new AgentVersionPolicy(

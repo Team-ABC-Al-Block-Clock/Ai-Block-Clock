@@ -1,7 +1,7 @@
 package com.aiblockclock.domain.node;
 
 import com.aiblockclock.domain.AbcAmount;
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -14,7 +14,7 @@ import lombok.Getter;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public final class NodeDefinition {
     private final NodeDefinitionId id;
-    private final OwnerId owner;
+    private final UserId owner;
 
     private String name;
     private Prompt prompt;
@@ -22,12 +22,12 @@ public final class NodeDefinition {
     private AbcAmount baseCost;
 
     public static NodeDefinition create(
-            NodeDefinitionId id, OwnerId owner, String name, Prompt prompt, AiModel model, AbcAmount baseCost) {
+            NodeDefinitionId id, UserId owner, String name, Prompt prompt, AiModel model, AbcAmount baseCost) {
         return new NodeDefinition(id, owner, name, prompt, model, baseCost);
     }
 
     public void update(
-            OwnerId requester, String name, Prompt prompt, AiModel model, AbcAmount baseCost) {
+            UserId requester, String name, Prompt prompt, AiModel model, AbcAmount baseCost) {
         ensureOwner(requester);
 
         this.name = name;
@@ -36,11 +36,11 @@ public final class NodeDefinition {
         this.baseCost = baseCost;
     }
 
-    public boolean isOwnedBy(OwnerId candidate) {
+    public boolean isOwnedBy(UserId candidate) {
         return owner.equals(candidate);
     }
 
-    public void ensureOwner(OwnerId requester) {
+    public void ensureOwner(UserId requester) {
         if (!isOwnedBy(requester)) {
             throw new CoreException(ErrorType.NODE_FORBIDDEN);
         }

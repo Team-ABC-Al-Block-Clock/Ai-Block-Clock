@@ -1,7 +1,7 @@
 package com.aiblockclock.domain.agent;
 
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.node.NodeDefinitionId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeReference;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.support.error.CoreException;
@@ -16,7 +16,7 @@ public final class AgentVersionPolicy {
     private final AgentOwnershipView agentOwnershipView;
     private final NodeDefinitionOwnershipView nodeOwnershipView;
 
-    public void ensureVersionable(Workflow workflow, OwnerId requester) {
+    public void ensureVersionable(Workflow workflow, UserId requester) {
         workflow.ensureOwner(requester);
 
         if (!workflow.isValidated()) {

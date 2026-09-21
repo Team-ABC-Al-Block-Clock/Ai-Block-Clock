@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.agent;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.error.CoreException;
 
 import org.junit.jupiter.api.DisplayName;
@@ -9,8 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AgentTest {
-    private static final OwnerId OWNER = OwnerId.of(1L);
-    private static final OwnerId OTHER = OwnerId.of(2L);
+    private static final UserId OWNER = UserId.of(1L);
+    private static final UserId OTHER = UserId.of(2L);
 
     private static Agent agent() {
         AgentProfile profile = new AgentProfile("성적 분석 에이전트", "성적을 분석한다",

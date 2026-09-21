@@ -1,6 +1,6 @@
 package com.aiblockclock.api.config;
 
-import com.aiblockclock.api.support.auth.CurrentOwner;
+import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.support.auth.SessionCookie;
 
 import io.swagger.v3.oas.models.Components;
@@ -30,7 +30,7 @@ public class OpenApiConfig {
                     + " \"error\": { \"code\": \"AUTH_005\", \"message\": \"요청자를 확인할 수 없습니다.\", \"data\": null } }";
 
     static {
-        SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentOwner.class);
+        SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentUser.class);
     }
 
     /** 보호 API는 HttpOnly Spring Session 쿠키를 사용한다. */
@@ -64,7 +64,7 @@ public class OpenApiConfig {
 
         return (operation, handlerMethod) -> {
             for (var parameter : handlerMethod.getMethodParameters()) {
-                if (parameter.hasParameterAnnotation(CurrentOwner.class)) {
+                if (parameter.hasParameterAnnotation(CurrentUser.class)) {
                     operation.getResponses().addApiResponse("401", unauthorized);
                     break;
                 }

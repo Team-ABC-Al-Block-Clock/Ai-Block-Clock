@@ -22,7 +22,7 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 5. `WalletAuthService`가 메시지 만료·재사용 여부와 지갑 서명을 확인한다.
 6. 신규 지갑이면 사용자와 ABC 잔액 계정을 만든다.
 7. `SessionAuthenticationManager`가 같은 사용자의 기존 Spring Session을 삭제한다.
-8. 사용자의 `OwnerId`로 Spring Security `Authentication`과 `SecurityContext`를 만든다.
+8. 사용자의 `UserId`로 Spring Security `Authentication`과 `SecurityContext`를 만든다.
 9. Spring Session JDBC가 SecurityContext를 MySQL에 저장한다.
 10. Spring Session이 `sessionToken` 쿠키를 응답에 추가한다.
 11. 로그인으로 세션이 교체되었으므로 FE가 CSRF 토큰을 다시 발급받는다.
@@ -31,11 +31,11 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 
 브라우저는 `/api/v1` 요청마다 `sessionToken` 쿠키를 자동으로 보낸다. Spring Session 필터가 쿠키의
 세션 ID로 MySQL을 조회하고 HttpSession을 복원한다. Spring Security는 세션에 저장된
-`SecurityContext`에서 `OwnerId`를 읽는다.
+`SecurityContext`에서 `UserId`를 읽는다.
 
 `SecurityConfig`는 지갑 인증 메시지 발급과 로그인을 제외한 API에 인증을 요구한다. Controller의
-`@CurrentOwner`는 인증을 수행하지 않고 Spring Security가 복원한 `OwnerId`만 전달한다. 새 보호 API에
-`@CurrentOwner`를 빼먹더라도 `.anyRequest().authenticated()`가 먼저 차단한다.
+`@CurrentUser`는 인증을 수행하지 않고 Spring Security가 복원한 `UserId`만 전달한다. 새 보호 API에
+`@CurrentUser`를 빼먹더라도 `.anyRequest().authenticated()`가 먼저 차단한다.
 
 세션 생성·조회·저장·삭제와 미사용 만료 판정은 직접 구현하지 않고 Spring Session JDBC에 맡긴다.
 만료된 세션은 조회되지 않으므로 인증 실패로 처리된다.

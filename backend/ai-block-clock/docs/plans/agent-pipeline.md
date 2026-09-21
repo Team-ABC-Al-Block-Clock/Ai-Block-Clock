@@ -462,7 +462,8 @@ AI 는 에이전트를 모르므로 평평한 노드 배열을 받는다. 그런
 
 ```
 domain
-├── OwnerId · Money
+├── AbcAmount
+├── user        사용자 · `UserId`
 ├── node        작업 노드 카탈로그
 ├── workflow    그래프 · 배치 · 그래프 정책
 ├── agent       에이전트 · 버전 · 가격

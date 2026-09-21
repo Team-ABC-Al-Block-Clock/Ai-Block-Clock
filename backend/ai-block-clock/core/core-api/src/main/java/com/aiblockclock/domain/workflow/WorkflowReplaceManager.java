@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,7 +19,7 @@ public class WorkflowReplaceManager {
     @Transactional
     public Workflow replace(
             WorkflowId id,
-            OwnerId requester,
+            UserId requester,
             String name,
             Revision expectedRevision,
             List<NodePlacement> nodes,

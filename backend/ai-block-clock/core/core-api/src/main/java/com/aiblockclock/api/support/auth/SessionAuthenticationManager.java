@@ -1,6 +1,6 @@
 package com.aiblockclock.api.support.auth;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,15 +28,15 @@ public class SessionAuthenticationManager {
     private final Clock clock;
 
     public Instant login(
-            OwnerId owner,
+            UserId user,
             HttpServletRequest request,
             HttpServletResponse response
     ) {
         invalidateCurrentSession(request);
-        invalidateExistingSessions(owner);
+        invalidateExistingSessions(user);
 
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(
-                owner, null, List.of()
+                user, null, List.of()
         );
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -59,8 +59,8 @@ public class SessionAuthenticationManager {
         }
     }
 
-    private void invalidateExistingSessions(OwnerId owner) {
-        sessionRepository.findByPrincipalName(owner.getName())
+    private void invalidateExistingSessions(UserId user) {
+        sessionRepository.findByPrincipalName(user.getName())
                 .keySet()
                 .forEach(sessionRepository::deleteById);
     }

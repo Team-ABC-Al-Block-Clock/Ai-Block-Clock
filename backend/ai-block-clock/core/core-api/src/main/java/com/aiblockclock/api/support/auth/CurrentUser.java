@@ -12,5 +12,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 @AuthenticationPrincipal(errorOnInvalidType = true)
-public @interface CurrentOwner {
+public @interface CurrentUser {
 }

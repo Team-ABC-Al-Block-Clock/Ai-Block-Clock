@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.ValidationStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -15,7 +15,7 @@ import java.util.Map;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Workflow {
     private final WorkflowId id;
-    private final OwnerId owner;
+    private final UserId owner;
 
     private String name;
     private String description;
@@ -26,14 +26,14 @@ public final class Workflow {
     private final WorkflowTimestamps timestamps;
 
     public static Workflow create(
-            WorkflowId id, OwnerId owner, String name, String description, WorkflowGraph graph) {
+            WorkflowId id, UserId owner, String name, String description, WorkflowGraph graph) {
         return new Workflow(id, owner, name, description, graph,
                 ValidationStatus.NOT_VALIDATED, Revision.initial(), WorkflowTimestamps.unsaved());
     }
 
     public static Workflow restore(
             WorkflowId id,
-            OwnerId owner,
+            UserId owner,
             String name,
             String description,
             WorkflowGraph graph,
@@ -44,12 +44,12 @@ public final class Workflow {
         return new Workflow(id, owner, name, description, graph, validationStatus, revision, timestamps);
     }
 
-    public void rename(OwnerId requester, String name) {
+    public void rename(UserId requester, String name) {
         ensureOwner(requester);
         this.name = name;
     }
 
-    public void replaceGraph(OwnerId requester, WorkflowGraph graph, Revision expected) {
+    public void replaceGraph(UserId requester, WorkflowGraph graph, Revision expected) {
         ensureOwner(requester);
         if (!revision.equals(expected)) {
             throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
@@ -74,11 +74,11 @@ public final class Workflow {
         return validationStatus == ValidationStatus.VALID;
     }
 
-    public boolean isOwnedBy(OwnerId candidate) {
+    public boolean isOwnedBy(UserId candidate) {
         return owner.equals(candidate);
     }
 
-    public void ensureOwner(OwnerId requester) {
+    public void ensureOwner(UserId requester) {
         if (!isOwnedBy(requester)) {
             throw new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
         }

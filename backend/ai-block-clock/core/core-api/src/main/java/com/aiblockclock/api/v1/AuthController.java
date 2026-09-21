@@ -7,7 +7,6 @@ import com.aiblockclock.api.v1.response.CsrfTokenResponse;
 import com.aiblockclock.api.v1.response.LoginSessionResponse;
 import com.aiblockclock.api.v1.response.WalletMessageResponse;
 import com.aiblockclock.domain.auth.WalletAuthService;
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.user.User;
 import com.aiblockclock.support.response.ApiResult;
 
@@ -50,9 +49,7 @@ public class AuthController implements AuthApi {
             HttpServletResponse httpResponse
     ) {
         User user = walletAuthService.login(request.walletAddress(), request.signature());
-        var expiresAt = sessionAuthenticationManager.login(
-                OwnerId.of(user.id().value()), httpRequest, httpResponse
-        );
+        var expiresAt = sessionAuthenticationManager.login(user.id(), httpRequest, httpResponse);
         httpResponse.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
 
         return ApiResult.success(LoginSessionResponse.from(expiresAt));
