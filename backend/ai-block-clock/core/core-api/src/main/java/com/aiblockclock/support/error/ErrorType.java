@@ -39,12 +39,6 @@ public enum ErrorType {
     LOGIN_SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_013,
             "로그인 세션이 만료되었습니다. 다시 로그인해 주세요.", LogLevel.WARN),
 
-    LOGIN_SESSION_REVOKED(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_014,
-            "종료된 로그인 세션입니다. 다시 로그인해 주세요.", LogLevel.WARN),
-
-    LOGIN_SESSION_NOT_USABLE(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_018,
-            "로그인 세션을 사용할 수 없습니다. 다시 로그인해 주세요.", LogLevel.WARN),
-
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 

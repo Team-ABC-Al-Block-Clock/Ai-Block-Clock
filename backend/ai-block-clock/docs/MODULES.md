@@ -72,9 +72,11 @@ graph TD
     logging[":support:logging"]
     monitoring[":support:monitoring"]
     jpa["spring-boot-starter-data-jpa"]
+    session["spring-boot-starter-session-jdbc"]
 
     api -->|implementation| storage
     api -->|implementation| enums
+    api -->|implementation| session
     api -.->|runtimeOnly| logging
     api -.->|runtimeOnly| monitoring
     storage -->|implementation| enums
@@ -89,6 +91,7 @@ graph TD
 | --- | --- | --- | --- |
 | `:core:core-api` | `:storage` | `implementation` | 영속성 계층을 호출한다 |
 | `:core:core-api` | `spring-tx` | `implementation` | Service가 유스케이스 트랜잭션 경계를 잡고 implementation은 이에 참여한다 |
+| `:core:core-api` | `spring-boot-starter-session-jdbc` | `implementation` | HttpSession을 기존 MySQL에 저장하고 여러 요청에서 인증 상태를 복원한다 |
 | `:core:core-api` | `:core:core-enum` | `implementation` | 공통 enum 을 참조한다 |
 | `:core:core-api` | `:support:logging` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:core:core-api` | `:support:monitoring` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
@@ -129,7 +132,8 @@ core/core-api/src/main/
 
 - 진입점 클래스는 베이스 패키지 `com.aiblockclock` 에 둔다. 컴포넌트 스캔이 다른 모듈의 `com.aiblockclock.*` 패키지까지 닿아야 하기 때문이다
 - `core-api` 자체 코드는 `com.aiblockclock.api` 아래에 둔다
-- 의존성: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`
+- 의존성: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`,
+  `spring-boot-starter-security`, `spring-boot-starter-session-jdbc`
 - `application.yaml` 에는 **애플리케이션 조립**(이름, 기본 프로파일, `config.import`)과 `core-api` 자신의 설정(`server.*`)만 둔다. 다른 모듈의 설정을 여기에 적지 않는다
 - `bootJar` 활성화, 일반 `jar` 비활성화
 

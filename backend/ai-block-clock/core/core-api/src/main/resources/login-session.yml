@@ -1,2 +1,8 @@
 login-session:
   ttl: ${AUTH_SESSION_TTL:7d}
+
+spring:
+  session:
+    timeout: ${AUTH_SESSION_TTL:7d}
+    jdbc:
+      initialize-schema: never

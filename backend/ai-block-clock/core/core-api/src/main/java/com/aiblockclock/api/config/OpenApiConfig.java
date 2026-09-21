@@ -1,6 +1,7 @@
 package com.aiblockclock.api.config;
 
 import com.aiblockclock.api.support.auth.CurrentOwner;
+import com.aiblockclock.api.support.auth.SessionCookie;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -22,7 +23,7 @@ public class OpenApiConfig {
 
     private static final String APPLICATION_JSON = "application/json";
 
-    private static final String SESSION_COOKIE_SCHEME = "sessionToken";
+    private static final String SESSION_COOKIE_SCHEME = SessionCookie.NAME;
 
     private static final String UNAUTHORIZED_EXAMPLE =
             "{ \"status\": \"FAIL\", \"data\": null,"
@@ -32,14 +33,14 @@ public class OpenApiConfig {
         SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentOwner.class);
     }
 
-    /** 보호 API는 HttpOnly Session Token 쿠키를 사용한다. */
+    /** 보호 API는 HttpOnly Spring Session 쿠키를 사용한다. */
     @Bean
     public OpenAPI openAPI() {
         SecurityScheme sessionToken = new SecurityScheme()
                 .type(SecurityScheme.Type.APIKEY)
                 .in(SecurityScheme.In.COOKIE)
-                .name("sessionToken")
-                .description("지갑 로그인으로 발급받은 HttpOnly Session Token 쿠키");
+                .name(SessionCookie.NAME)
+                .description("지갑 로그인으로 발급받은 HttpOnly 세션 쿠키");
 
         return new OpenAPI()
                 .info(new Info()
@@ -50,7 +51,7 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList(SESSION_COOKIE_SCHEME));
     }
 
-    /** 로그인 사용자가 필요한 API에 공통 Session Token 오류를 붙인다. */
+    /** 로그인 사용자가 필요한 API에 공통 세션 인증 오류를 붙인다. */
     @Bean
     public OperationCustomizer unauthorizedResponse() {
         Example example = new Example().value(UNAUTHORIZED_EXAMPLE);
@@ -58,8 +59,8 @@ public class OpenApiConfig {
                 .schema(new Schema<>().$ref("#/components/schemas/ApiResult"))
                 .addExamples("default", example);
         ApiResponse unauthorized = new ApiResponse()
-                .description("Session Token 쿠키가 없다 (`AUTH_005`)"
-                        + " · 로그인 세션이 만료·종료됐거나 유효하지 않다 (`AUTH_013`, `AUTH_014`, `AUTH_018`)")
+                .description("로그인 세션이 없다 (`AUTH_005`)"
+                        + " · 로그인 시점부터 7일이 지나 만료됐다 (`AUTH_013`)")
                 .content(new Content().addMediaType(APPLICATION_JSON, mediaType));
 
         return (operation, handlerMethod) -> {

@@ -1,14 +1,8 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.support.auth.SessionTokenCookie;
-import com.aiblockclock.domain.auth.SessionTokenGenerator;
-import com.aiblockclock.domain.auth.SessionTokenHasher;
-import com.aiblockclock.storage.auth.LoginSessionEntity;
-import com.aiblockclock.storage.auth.LoginSessionRepository;
+import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
-
-import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -31,9 +26,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Clock;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 
 @Tag("integration")
 @SpringBootTest
@@ -50,39 +45,27 @@ class NodeControllerTest {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private LoginSessionRepository loginSessionRepository;
+    private long owner;
 
-    @Autowired
-    private SessionTokenGenerator sessionTokenGenerator;
-
-    @Autowired
-    private SessionTokenHasher sessionTokenHasher;
-
-    @Autowired
-    private Clock clock;
-
-    private String owner;
-
-    private String other;
+    private long other;
 
     @BeforeEach
-    void 두_사용자의_세션_토큰을_준비한다() {
-        owner = issueSessionToken();
-        other = issueSessionToken();
+    void 두_사용자를_준비한다() {
+        owner = createUser();
+        other = createUser();
     }
 
-    private String issueSessionToken() {
+    private long createUser() {
         String walletAddress = "0x" + UUID.randomUUID().toString().replace("-", "") + "00000000";
         UserEntity user = userRepository.saveAndFlush(UserEntity.of(walletAddress));
-        String rawSessionToken = sessionTokenGenerator.generate();
-        loginSessionRepository.saveAndFlush(LoginSessionEntity.of(
-                user.getId(),
-                sessionTokenHasher.hash(rawSessionToken),
-                clock.instant().plus(7, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MICROS)
-        ));
+        return user.getId();
+    }
 
-        return rawSessionToken;
+    private RequestPostProcessor as(long userId) {
+        return authentication(org.springframework.security.authentication
+                .UsernamePasswordAuthenticationToken.authenticated(
+                        OwnerId.of(userId), null, java.util.List.of()
+                ));
     }
 
     private static String body(String name, String prompt) {
@@ -93,7 +76,7 @@ class NodeControllerTest {
 
     private String create(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/nodes")
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(name, "당신은 학원 성적 데이터 분석가입니다.")))
@@ -112,14 +95,14 @@ class NodeControllerTest {
         String nodeId = create("성적 분석");
 
         mockMvc.perform(get("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
+                        .with(as(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("성적 분석"))
                 .andExpect(jsonPath("$.data.prompt").value("당신은 학원 성적 데이터 분석가입니다."))
                 .andExpect(jsonPath("$.data.model").value("GEMINI_2_5_FLASH"));
 
         mockMvc.perform(put("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("가정통신문 작성", "당신은 교육 심리 전문가입니다.")))
@@ -127,19 +110,19 @@ class NodeControllerTest {
                 .andExpect(jsonPath("$.data.name").value("가정통신문 작성"));
 
         mockMvc.perform(get("/api/v1/nodes")
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].nodeId").value(nodeId))
                 .andExpect(jsonPath("$.data.content[0].prompt").doesNotExist());
 
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
+                        .with(as(owner)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NODE_001"));
     }
@@ -148,7 +131,7 @@ class NodeControllerTest {
     @DisplayName("프롬프트가 비어 있으면 만들 수 없다")
     void rejectsBlankPrompt() throws Exception {
         mockMvc.perform(post("/api/v1/nodes")
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("빈 프롬프트", "   ")))
@@ -161,19 +144,19 @@ class NodeControllerTest {
         String nodeId = create("남의 노드");
 
         mockMvc.perform(get("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, other)))
+                        .with(as(other)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("NODE_002"));
 
         mockMvc.perform(put("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, other))
+                        .with(as(other))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("탈취", "남의 것을 고친다.")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isOk());
     }
@@ -184,7 +167,7 @@ class NodeControllerTest {
         String nodeId = create("배치된 노드");
 
         MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -198,7 +181,7 @@ class NodeControllerTest {
                 .andReturn();
 
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("NODE_004"));
@@ -206,11 +189,11 @@ class NodeControllerTest {
         String workflowId = mapper.readTree(saved.getResponse().getContentAsString())
                 .get("data").get("workflowId").asText();
         mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isOk());
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
-                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .with(as(owner))
                         .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
                 .andExpect(status().isOk());
     }

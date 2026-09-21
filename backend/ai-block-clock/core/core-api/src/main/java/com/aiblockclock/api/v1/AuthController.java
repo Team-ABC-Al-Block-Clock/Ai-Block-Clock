@@ -1,20 +1,21 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.support.auth.SessionTokenCookie;
+import com.aiblockclock.api.support.auth.SessionAuthenticationManager;
 import com.aiblockclock.api.v1.request.WalletLoginRequest;
 import com.aiblockclock.api.v1.request.WalletMessageRequest;
 import com.aiblockclock.api.v1.response.LoginSessionResponse;
 import com.aiblockclock.api.v1.response.WalletMessageResponse;
 import com.aiblockclock.domain.auth.WalletAuthService;
-import com.aiblockclock.domain.auth.WalletLogin;
+import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.User;
 import com.aiblockclock.support.response.ApiResult;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController implements AuthApi {
     private final WalletAuthService walletAuthService;
-    private final SessionTokenCookie sessionTokenCookie;
+    private final SessionAuthenticationManager sessionAuthenticationManager;
 
     @Override
     @PostMapping(value = "/wallet/message", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -36,23 +37,23 @@ public class AuthController implements AuthApi {
     @Override
     @PostMapping(value = "/wallet/login", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ApiResult<LoginSessionResponse> login(
-            @RequestBody WalletLoginRequest request, HttpServletResponse response
+            @RequestBody WalletLoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse
     ) {
-        WalletLogin login = walletAuthService.login(request.walletAddress(), request.signature());
-        response.addHeader(HttpHeaders.SET_COOKIE, sessionTokenCookie.create(login.sessionToken()).toString());
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        User user = walletAuthService.login(request.walletAddress(), request.signature());
+        var expiresAt = sessionAuthenticationManager.login(
+                OwnerId.of(user.id().value()), httpRequest, httpResponse
+        );
+        httpResponse.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
 
-        return ApiResult.success(LoginSessionResponse.from(login.sessionToken()));
+        return ApiResult.success(LoginSessionResponse.from(expiresAt));
     }
 
     @Override
     @PostMapping("/logout")
-    public ApiResult<Void> logout(
-            @CookieValue(name = SessionTokenCookie.NAME, required = false) String sessionToken,
-            HttpServletResponse response
-    ) {
-        walletAuthService.logout(sessionTokenCookie.requireValue(sessionToken));
-        response.addHeader(HttpHeaders.SET_COOKIE, sessionTokenCookie.clear().toString());
+    public ApiResult<Void> logout(HttpServletRequest request) {
+        sessionAuthenticationManager.logout(request);
 
         return ApiResult.success();
     }

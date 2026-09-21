@@ -67,8 +67,8 @@ await fetch(`${API_BASE_URL}/api/v1/workflows`, {
 });
 ```
 
-세션이 없거나 잘못되면 `AUTH_005` 또는 `AUTH_018`, 만료되면 `AUTH_013`, 로그아웃·재로그인으로
-종료됐으면 `AUTH_014`와 함께 HTTP 401을 반환한다.
+세션 쿠키가 없거나 MySQL에 해당 Spring Session이 없으면 `AUTH_005`, 로그인 시점부터 7일이 지나면
+`AUTH_013`과 함께 HTTP 401을 반환한다.
 
 ## 4. 로그아웃
 
@@ -83,7 +83,8 @@ await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
 });
 ```
 
-서버는 DB 세션을 종료하고 `sessionToken` 쿠키를 삭제한다.
+서버는 HttpSession을 무효화한다. Spring Session JDBC가 DB 세션을 삭제하고 `sessionToken` 쿠키를
+만료시킨다.
 
 ## 제거된 API와 헤더
 
@@ -104,8 +105,6 @@ await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
 | `AUTH_011` | 인증 메시지를 사용할 수 없음 |
 | `AUTH_012` | 먼저 발급받은 인증 메시지가 없음 |
 | `AUTH_013` | 로그인 세션 만료 |
-| `AUTH_014` | 로그아웃·재로그인으로 세션 종료 |
-| `AUTH_018` | 세션 토큰 형식 또는 저장 기록이 유효하지 않음 |
 
 Swagger는 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 확인한다. Swagger의 보호 API에는
 `sessionToken` 쿠키 인증 방식이 표시된다.
