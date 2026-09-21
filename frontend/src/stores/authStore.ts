@@ -85,6 +85,9 @@ export const isSessionPending = (status: AuthStatus) => status === 'idle' || sta
  *  늦게 도착한 응답이 지나간 세션을 되살리지 못하게. */
 let epoch = 0
 
+/** 마지막으로 시작된 로그인의 번호. 버려진 로그인이 그 뒤 로그인의 쿠키를 끊지 못하게 한다. */
+let latestSignIn = 0
+
 export const useAuthStore = create<AuthState>((set, get) => {
   /**
    * 세션을 끊는다. 번호를 올려 진행 중인 복구·로그인이 뒤늦게 인증 상태를 쓰지 못하게 한다.
@@ -147,12 +150,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
     signIn: async ({ walletAddress, signature }) => {
       // 사용자가 누른 로그인이 부팅 복구를 이긴다.
       const mine = ++epoch
+      latestSignIn = mine
       await loginWithWallet({ walletAddress, signature })
 
       if (mine !== epoch) {
         // 그 사이 세션이 갈렸다. 쿠키는 이미 브라우저에 저장됐고 HttpOnly 라 JS 가
         // 지울 수 없으니 서버에 끊어 달라고 한다 — 두면 새로고침 한 번에 되살아난다.
-        void requestLogout().catch(() => undefined)
+        //
+        // 단, 뒤이어 시작된 로그인이 있으면 지금 쿠키는 그쪽 것이다(이름이 같아 덮어썼다).
+        // 이 요청은 "현재 쿠키" 를 끊으므로, 그대로 두면 방금 성공한 로그인을 끊는다 —
+        // 서명 중 취소하고 다시 연결을 누르면 로그인 직후 튕긴다.
+        if (mine === latestSignIn) void requestLogout().catch(() => undefined)
         return null
       }
 

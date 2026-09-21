@@ -137,6 +137,28 @@ describe('늦게 도착한 응답이 지나간 세션을 되살리지 않는다'
     expect(useAuthStore.getState().status).toBe('unauthenticated')
     expect(h.logout).toHaveBeenCalledTimes(1)
   })
+
+  it('버려진 로그인이 그 뒤에 성공한 로그인의 세션을 끊지 않는다', async () => {
+    // 서명 중 취소하고 다시 연결을 누르면 로그인이 두 번 시작된다. 로그아웃 요청은
+    // "지금 브라우저에 있는 쿠키" 를 끊으므로, 늦게 끝난 첫 번째가 이것을 보내면
+    // 두 번째 로그인이 방금 받은 쿠키가 지워져 로그인 직후 튕긴다.
+    const first = deferred<unknown>()
+    h.loginWithWallet.mockReturnValueOnce(first.promise).mockResolvedValue(SESSION)
+    h.getMyProfile.mockResolvedValue(PROFILE)
+    const useAuthStore = await freshStore()
+
+    const abandoned = useAuthStore.getState().signIn(CREDENTIALS)
+    await settle()
+    await useAuthStore.getState().signIn(CREDENTIALS) // 다시 연결 — 이쪽 쿠키가 최신이다
+    expect(useAuthStore.getState().status).toBe('authenticated')
+
+    first.resolve(SESSION) // 이제서야 버린 로그인이 끝난다
+    await expect(abandoned).resolves.toBeNull()
+    await settle()
+
+    expect(h.logout).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().status).toBe('authenticated')
+  })
 })
 
 describe('정상 경로', () => {
