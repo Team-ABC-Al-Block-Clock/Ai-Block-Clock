@@ -32,6 +32,10 @@ public class NodeDefinitionReader {
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND)));
     }
 
+    public boolean isOwnedBy(NodeDefinitionId id, OwnerId owner) {
+        return nodeRepository.existsByIdAndOwnerId(id.value(), owner.value());
+    }
+
     public CursorPage<NodeDefinitionSummary> readMine(OwnerId owner, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
         Pageable pageable = OffsetPageable.of(offset, size + 1);

@@ -11,12 +11,12 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public final class NodeDefinitionDeletionPolicy {
-    private final NodeDefinitionUsageView usageView;
+    private final NodeDefinitionUsageReader usageReader;
 
     public void ensureDeletable(NodeDefinition node, OwnerId requester) {
         node.ensureOwner(requester);
 
-        if (usageView.isPlacedInAnyWorkflow(node.getId())) {
+        if (usageReader.isPlacedInAnyWorkflow(node.getId())) {
             throw new CoreException(ErrorType.NODE_PLACED_IN_WORKFLOW);
         }
     }

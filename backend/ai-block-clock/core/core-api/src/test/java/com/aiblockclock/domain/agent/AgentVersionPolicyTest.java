@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.node.NodeDefinitionReader;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
@@ -13,6 +14,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import java.util.Set;
 
@@ -23,13 +27,18 @@ class AgentVersionPolicyTest {
     private static AgentVersionPolicy policy(Set<AgentId> ownedAgents) {
         return new AgentVersionPolicy(
                 (agentId, owner) -> OWNER.equals(owner) && ownedAgents.contains(agentId),
-                (nodeId, owner) -> OWNER.equals(owner));
+                nodeReaderAnswering(true));
     }
 
     private static AgentVersionPolicy policyWithForeignNodes() {
-        return new AgentVersionPolicy(
-                (agentId, owner) -> true,
-                (nodeId, owner) -> false);
+        return new AgentVersionPolicy((agentId, owner) -> true, nodeReaderAnswering(false));
+    }
+
+    private static NodeDefinitionReader nodeReaderAnswering(boolean owned) {
+        NodeDefinitionReader nodeReader = mock(NodeDefinitionReader.class);
+        given(nodeReader.isOwnedBy(any(), any())).willReturn(owned);
+
+        return nodeReader;
     }
 
     private static Workflow emptyWorkflow() {
