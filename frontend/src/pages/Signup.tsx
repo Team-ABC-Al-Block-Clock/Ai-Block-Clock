@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useDisconnect } from 'wagmi'
 
-import { PROFILE_LIMITS, signup } from '@/api/auth'
+import { describeImageProblem, PROFILE_LIMITS, signup } from '@/api/auth'
 import { ApiError, USER_ERROR } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
 import { paths } from '@/routes/paths'
@@ -96,17 +96,17 @@ export default function Signup() {
     e.target.value = ''
     if (!file) return
 
-    const { types, maxBytes } = PROFILE_LIMITS.image
-    if (!(types as readonly string[]).includes(file.type)) {
-      setImageError('PNG 또는 JPG 만 올릴 수 있습니다')
-      return
-    }
-    if (file.size > maxBytes) {
-      setImageError('이미지는 5MB 이하여야 합니다')
-      return
-    }
+    const problem = describeImageProblem(file)
+    // 거절하면 앞서 고른 것도 버린다. 남겨 두면 오류 문구 아래에 다른 파일의
+    // 미리보기가 떠 있고, 그대로 제출하면 그 파일이 올라간다.
+    setImageError(problem)
+    setPicked(problem ? null : { file, url: URL.createObjectURL(file) })
+  }
+
+  /** 미리보기와 오류 문구를 함께 비운다 — 문구만 남으면 지운 뒤에도 빨간 줄이 계속 보인다. */
+  const handleClearImage = () => {
     setImageError(null)
-    setPicked({ file, url: URL.createObjectURL(file) })
+    setPicked(null)
   }
 
   /** 프로필을 채우기 전에 나가면 반쯤 열린 세션이 남는다 — 로그아웃처럼 끊고 돌려보낸다.
@@ -257,7 +257,7 @@ export default function Signup() {
                 {picked && (
                   <button
                     type="button"
-                    onClick={() => setPicked(null)}
+                    onClick={handleClearImage}
                     className="cursor-pointer text-[12.5px] tracking-[-.01em] transition-colors duration-[160ms] hover:text-[#fff]"
                     style={{ color: 'rgba(255,236,246,.56)' }}
                   >

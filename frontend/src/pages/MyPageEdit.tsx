@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
-import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
+import { describeImageProblem, PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
 import { ApiError } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
 import { chainLabel, chainNameOf } from '@/lib/wagmi'
@@ -110,13 +110,11 @@ export default function MyPageEdit() {
     if (!file) return
 
     // 서버도 USER_004·USER_005 로 막지만, 여기서 걸러야 5MB 를 올렸다가 거절당하지 않는다.
-    const { types, maxBytes } = PROFILE_LIMITS.image
-    if (!(types as readonly string[]).includes(file.type)) {
-      setToast({ ok: false, text: 'PNG 또는 JPG 만 올릴 수 있습니다' })
-      return
-    }
-    if (file.size > maxBytes) {
-      setToast({ ok: false, text: '이미지는 5MB 이하여야 합니다' })
+    const problem = describeImageProblem(file)
+    if (problem) {
+      // 거절하면 앞서 고른 것도 버린다 — 토스트가 사라진 뒤 다른 파일이 저장되지 않게.
+      setPicked(null)
+      setToast({ ok: false, text: problem })
       return
     }
     setToast(null)
@@ -124,11 +122,18 @@ export default function MyPageEdit() {
     setPicked({ file, url: URL.createObjectURL(file) })
   }
 
-  const handleRemoveImage = () => {
+  /** 고른 것을 되돌리는 것과 저장된 사진을 지우는 것은 다른 일이다.
+   *
+   *  하나로 묶었더니, 실수로 고른 파일을 취소하려고 ✕ 를 누른 사람이 저장돼 있던
+   *  사진까지 지우게 됐다 — 화면 안에서는 되돌릴 방법도 없었다. */
+  const handleCancelPick = () => {
     setToast(null)
     setPicked(null)
-    // 저장된 이미지가 없으면 고른 것을 취소하는 것으로 끝난다 — 서버에 보낼 삭제가 없다.
-    setRemoveImage(profile?.profileImageUrl != null)
+  }
+
+  const handleRemoveImage = () => {
+    setToast(null)
+    setRemoveImage(true)
   }
   const payments = [
     {
@@ -220,12 +225,13 @@ export default function MyPageEdit() {
               className="hidden"
             />
 
-            {/* 지울 것이 있을 때만 낸다 — 기본 아바타에 ✕ 는 아무 일도 하지 않는다 */}
+            {/* 지울 것이 있을 때만 낸다 — 기본 아바타에 ✕ 는 아무 일도 하지 않는다.
+                고른 것이 있으면 그 선택만 되돌린다(위 `handleCancelPick`). */}
             {avatarUrl && (
               <button
                 type="button"
-                onClick={handleRemoveImage}
-                aria-label="프로필 사진 삭제"
+                onClick={picked ? handleCancelPick : handleRemoveImage}
+                aria-label={picked ? '고른 사진 취소' : '프로필 사진 삭제'}
                 style={{
                   left: '74px',
                   top: '0px',
