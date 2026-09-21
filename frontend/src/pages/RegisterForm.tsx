@@ -90,8 +90,9 @@ export default function RegisterForm() {
             }}
           ></div>
 
+          {/* 완료 화면에서 들어온다. '취소하기' 와 같은 곳으로 되돌린다. */}
           <a
-            href={paths.run.waiting.withoutId}
+            href={`${paths.run.running.withoutId}?done=1`}
             style={{
               left: '272px',
               top: '94px',
