@@ -1,5 +1,9 @@
 package com.aiblockclock.api.v1;
 
+import com.aiblockclock.storage.node.NodeDefinitionRepository;
+import com.aiblockclock.testsupport.NodeDefinitionSeeder;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -32,7 +36,17 @@ class WorkflowControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    private static String chainBody(String name) {
+    @Autowired
+    private NodeDefinitionRepository nodeRepository;
+
+    private UUID nodeId;
+
+    @BeforeEach
+    void seedNode() {
+        nodeId = NodeDefinitionSeeder.seed(nodeRepository, Long.parseLong(OWNER));
+    }
+
+    private String chainBody(String name) {
         return """
                 {
                   "name": "%s",
@@ -44,7 +58,7 @@ class WorkflowControllerTest {
                     { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
                   ]
                 }
-                """.formatted(name, UUID.randomUUID(), UUID.randomUUID());
+                """.formatted(name, nodeId, nodeId);
     }
 
     private String create(String name) throws Exception {
@@ -87,7 +101,7 @@ class WorkflowControllerTest {
                                   "nodes": [ { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" } ],
                                   "edges": []
                                 }
-                                """.formatted(UUID.randomUUID())))
+                                """.formatted(nodeId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("이름을 고쳤다"))
                 .andExpect(jsonPath("$.data.revision").value(2))
@@ -128,7 +142,7 @@ class WorkflowControllerTest {
                                     { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
                                   ]
                                 }
-                                """.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
+                                """.formatted(nodeId, nodeId, nodeId)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
@@ -166,6 +180,38 @@ class WorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("입력 출처는 배치마다 정하고, 비우면 앞 노드 결과를 받는다")
+    void inputSourceIsPerPlacement() throws Exception {
+        MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
+                        .header("X-Owner-Id", OWNER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "입력 출처",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s",
+                                      "inputSource": "USER" },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [ { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" } ]
+                                }
+                                """.formatted(nodeId, nodeId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String workflowId = mapper.readTree(saved.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes[0].inputSource").value("USER"))
+                .andExpect(jsonPath("$.data.nodes[1].inputSource").value("PREV"));
+
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("낡은 회차로 수정하면 충돌로 막는다")
     void rejectsStaleRevision() throws Exception {
         String workflowId = create("회차 충돌");
@@ -180,7 +226,7 @@ class WorkflowControllerTest {
                                   "nodes": [ { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" } ],
                                   "edges": []
                                 }
-                                """.formatted(UUID.randomUUID())))
+                                """.formatted(nodeId)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_016"));
     }
@@ -203,7 +249,7 @@ class WorkflowControllerTest {
                                     { "edgeKey": "e2", "sourceNodeKey": "n2", "targetNodeKey": "n1" }
                                   ]
                                 }
-                                """.formatted(UUID.randomUUID(), UUID.randomUUID())))
+                                """.formatted(nodeId, nodeId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_005"));
     }

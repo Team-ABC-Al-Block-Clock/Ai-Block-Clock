@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.enums.payment.ChargeStatusReason;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

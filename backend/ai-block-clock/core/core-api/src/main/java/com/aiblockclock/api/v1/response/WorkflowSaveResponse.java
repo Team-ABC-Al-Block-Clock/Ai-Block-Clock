@@ -39,8 +39,8 @@ public record WorkflowSaveResponse(
                 workflow.getRevision().value(),
                 workflow.getGraph().nodeCount(),
                 workflow.getGraph().edgeCount(),
-                WorkflowPricing.UNPRICED,
-                WorkflowPricing.CURRENCY,
+                AbcPricing.UNPRICED,
+                AbcPricing.CURRENCY,
                 workflow.getTimestamps().createdAt());
     }
 }

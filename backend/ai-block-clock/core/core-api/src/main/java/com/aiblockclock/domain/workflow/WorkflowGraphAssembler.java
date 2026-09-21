@@ -18,6 +18,7 @@ public class WorkflowGraphAssembler {
     public WorkflowGraph assemble(List<NodePlacement> nodes, List<GraphEdge> edges) {
         WorkflowGraph graph = WorkflowGraph.of(nodes.stream().map(this::resolve).toList(), edges);
         GraphLimits.defaults().ensureWithin(graph);
+
         return graph;
     }
 

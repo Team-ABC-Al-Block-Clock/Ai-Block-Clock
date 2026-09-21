@@ -74,7 +74,8 @@ public class WorkflowWriter {
                 continue;
             }
 
-            kept.refer(incoming.getSourceType(), incoming.getReferenceId(), incoming.getVersionId());
+            kept.refer(incoming.getSourceType(), incoming.getReferenceId(), incoming.getVersionId(),
+                    incoming.getInputSource());
             merged.add(kept);
         }
 

@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +15,7 @@ class BaseNodeTest {
     void flattensToReference() {
         UUID sourceId = UUID.randomUUID();
 
-        BaseNode node = new BaseNode(NodeKey.of("n1"), sourceId);
+        BaseNode node = new BaseNode(NodeKey.of("n1"), sourceId, InputSource.defaultSource());
 
         assertThat(node.sourceType()).isEqualTo(SourceType.NODE);
         assertThat(node.reference()).isEqualTo(NodeReference.of(sourceId));
