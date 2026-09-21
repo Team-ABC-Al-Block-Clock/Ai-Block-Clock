@@ -235,6 +235,7 @@ describe('세션이 끝난 이유를 남긴다', () => {
   it.each([
     ['AUTH_014', 'revoked'],
     ['AUTH_005', 'invalid'],
+    ['AUTH_006', 'invalid'],
     ['AUTH_018', 'invalid'],
     ['AUTH_013', 'expired'],
     [undefined, 'expired'],

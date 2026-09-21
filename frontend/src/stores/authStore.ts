@@ -41,10 +41,11 @@ export function endReasonFromAuthCode(code?: string): SessionEndReason {
     case AUTH_ERROR.ENDED:
       return 'revoked'
     case AUTH_ERROR.MISSING:
+    case AUTH_ERROR.UNIDENTIFIABLE:
     case AUTH_ERROR.INVALID:
       return 'invalid'
     default:
-      // AUTH_013 과 코드를 못 읽은 경우. 7일 만료가 압도적으로 흔하다.
+      // 만료와 코드를 못 읽은 경우.
       return 'expired'
   }
 }
