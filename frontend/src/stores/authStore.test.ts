@@ -312,6 +312,18 @@ describe('세션이 끝난 이유를 남긴다', () => {
     expect(useAuthStore.getState().endedBy).toBe('disconnected')
   })
 
+  it('인증된 적이 없으면 쿼리 캐시를 비우지 않는다', async () => {
+    // 비로그인 방문도 부팅 복구 401 로 같은 길을 지나간다. 여기서 비우면 로그인과
+    // 무관한 공개 화면(상세·검색)의 쿼리까지 날아가 재요청과 깜빡임이 남는다.
+    h.getMyProfile.mockRejectedValue(new Error('401'))
+    const useAuthStore = await freshStore()
+
+    await useAuthStore.getState().restore()
+
+    expect(useAuthStore.getState().status).toBe('unauthenticated')
+    expect(h.clearCache).not.toHaveBeenCalled()
+  })
+
   it('다시 로그인하면 지난 사유가 지워진다', async () => {
     const useAuthStore = await authenticated()
     useAuthStore.getState().clearSession()
