@@ -7,7 +7,7 @@ import { fail } from '@/mocks/response'
  *
  *   ?mockDelay=1500                        모든 응답을 늦춘다
  *   ?mockFail=COMMON_001                   모든 응답을 실패시킨다 (기본 400)
- *   ?mockFail=AUTH_007&mockFailStatus=401
+ *   ?mockFail=AUTH_014&mockFailStatus=401
  *   ?mockDelay=0&mockFail=                 끈다
  *
  * localStorage 에 남겨 두므로 화면을 옮겨도 유지된다.

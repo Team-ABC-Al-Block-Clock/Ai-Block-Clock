@@ -154,6 +154,17 @@ describe('describeImageProblem', () => {
   })
 })
 
+describe('지갑 로그인', () => {
+  it('응답에 토큰 없이 만료 시각만 온다', async () => {
+    // 예전 명세의 accessToken·refreshToken·tokenType·expiresIn 이 남아 있으면
+    // 화면이 다시 토큰을 꺼내 쓰려 한다. 세션은 쿠키로만 온다.
+    const session = await loginWithWallet({ walletAddress: WALLET, signature: SIGNATURE })
+
+    expect(Object.keys(session)).toEqual(['expiresAt'])
+    expect(Date.parse(session.expiresAt)).not.toBeNaN()
+  })
+})
+
 describe('signup', () => {
   it('가입에 성공하면 명세가 정한 필드만 돌려준다', async () => {
     await signIn()

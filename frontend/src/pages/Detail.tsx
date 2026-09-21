@@ -32,7 +32,13 @@ const ERROR_ACTIONS = JSON.stringify([
 ])
 
 /** 즐겨찾기 실패 중 로그인 문제. 401 안에서도 문구가 갈린다(`api/errors.ts`). */
-const AUTH_CODES: string[] = [AUTH_ERROR.MISSING, AUTH_ERROR.INVALID, AUTH_ERROR.EXPIRED]
+const AUTH_CODES: string[] = [
+  AUTH_ERROR.MISSING,
+  AUTH_ERROR.UNIDENTIFIABLE,
+  AUTH_ERROR.EXPIRED,
+  AUTH_ERROR.ENDED,
+  AUTH_ERROR.INVALID,
+]
 
 type ShotTab = AgentImage['type']
 
