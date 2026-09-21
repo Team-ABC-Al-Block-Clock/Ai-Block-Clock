@@ -34,11 +34,11 @@ public class NodeDefinitionService {
         return nodeReader.readMine(requester, keyword, cursor, size);
     }
 
+    @Transactional
     public NodeDefinition update(NodeDefinitionId id, OwnerId requester, String name, Prompt prompt, AiModel model) {
-        NodeDefinition node = nodeReader.read(id);
-        node.update(requester, new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model)), prompt);
+        nodeReader.read(id).ensureOwner(requester);
 
-        return nodeWriter.update(node);
+        return nodeWriter.update(id, new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model)), prompt);
     }
 
     @Transactional

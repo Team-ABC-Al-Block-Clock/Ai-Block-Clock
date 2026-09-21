@@ -21,12 +21,11 @@ public class NodeDefinitionWriter {
     }
 
     @Transactional
-    public NodeDefinition update(NodeDefinition node) {
-        NodeDefinitionEntity entity = nodeRepository.findById(node.getId().value())
+    public NodeDefinition update(NodeDefinitionId id, NodeSpec spec, Prompt prompt) {
+        NodeDefinitionEntity entity = nodeRepository.findById(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
 
-        entity.edit(node.getSpec().name(), node.getPrompt().value(),
-                node.getSpec().model(), node.getSpec().baseCost().value());
+        entity.edit(spec.name(), prompt.value(), spec.model(), spec.baseCost().value());
 
         return NodeDefinitionEntityConverter.toDomain(entity);
     }
