@@ -12,15 +12,15 @@ import java.util.List;
 
 @Validated
 @ConfigurationProperties(prefix = "auth-web")
-public record AuthWebProperties(boolean secureCookie, @NotEmpty List<@NotBlank String> allowedOrigins) {
+public record AuthWebProperties(boolean secureCookie, @NotEmpty List<@NotBlank String> csrfAllowedOrigins) {
 
-    @AssertTrue(message = "인증 허용 출처는 경로가 없는 HTTP 또는 HTTPS 출처여야 합니다.")
-    public boolean isAllowedOriginsValid() {
-        if (allowedOrigins == null) {
+    @AssertTrue(message = "CSRF 허용 출처는 경로가 없는 HTTP 또는 HTTPS 출처여야 합니다.")
+    public boolean isCsrfAllowedOriginsValid() {
+        if (csrfAllowedOrigins == null) {
             return true;
         }
 
-        return allowedOrigins.stream().allMatch(AuthWebProperties::isOrigin);
+        return csrfAllowedOrigins.stream().allMatch(AuthWebProperties::isOrigin);
     }
 
     private static boolean isOrigin(String value) {

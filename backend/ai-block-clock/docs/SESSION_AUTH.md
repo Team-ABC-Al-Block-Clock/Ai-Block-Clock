@@ -58,7 +58,7 @@ Access Token과 Refresh Token은 사용하지 않는다. 따라서 JWT 비밀키
 
 쿠키는 브라우저가 자동 전송하므로 상태 변경 요청에는 CSRF 방어가 필요하다.
 `POST`, `PUT`, `PATCH`, `DELETE /api/v1/**` 요청은 설정된 `Origin`과 일치해야 한다.
-허용 출처는 `AUTH_ALLOWED_ORIGINS`로 설정한다.
+CSRF 검사에서 허용할 출처는 `AUTH_ALLOWED_ORIGINS`로 설정한다.
 
 ## 설정
 
@@ -66,7 +66,7 @@ Access Token과 Refresh Token은 사용하지 않는다. 따라서 JWT 비밀키
 |---|---|---|
 | `AUTH_SESSION_TTL` | `7d` | 고정 로그인 세션 유효 시간 |
 | `AUTH_COOKIE_SECURE` | 운영 `true`, 로컬 `false` | Secure 쿠키 사용 여부 |
-| `AUTH_ALLOWED_ORIGINS` | 환경별 설정 | 상태 변경 요청에서 허용할 FE 출처 목록 |
+| `AUTH_ALLOWED_ORIGINS` | 환경별 설정 | 상태 변경 요청의 CSRF 검사에서 허용할 FE 출처 목록 |
 
 JWT 관련 `AUTH_JWT_SECRET_BASE64`, `AUTH_TOKEN_ISSUER`, `AUTH_ACCESS_TOKEN_TTL`은 사용하지 않는다.
 

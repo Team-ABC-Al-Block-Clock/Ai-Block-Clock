@@ -23,7 +23,7 @@ public class AuthOriginInterceptor implements HandlerInterceptor {
 
         String origin = request.getHeader("Origin");
 
-        if (origin == null || !properties.allowedOrigins().contains(origin)) {
+        if (origin == null || !properties.csrfAllowedOrigins().contains(origin)) {
             throw new CoreException(ErrorType.INVALID_REQUEST);
         }
 
