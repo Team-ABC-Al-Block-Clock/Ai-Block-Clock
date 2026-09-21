@@ -77,6 +77,6 @@ FE는 앱 시작 시, 로그인 성공 후, 로그아웃 후 `GET /api/v1/auth/c
 
 ## DB 마이그레이션
 
-`V10__replace_login_session_with_spring_session.sql`은 기존 커스텀 `login_session` 테이블을 삭제하고
-Spring Session JDBC 표준 테이블을 만든다. 배포 시 기존 로그인 세션은 유지되지 않으며 사용자는 한 번
-지갑 서명 로그인을 다시 해야 한다. 이후 세션 행의 저장·조회·삭제는 Spring Session JDBC가 담당한다.
+`V8__create_spring_session_tables.sql`이 Spring Session JDBC 표준 테이블 `SPRING_SESSION`,
+`SPRING_SESSION_ATTRIBUTES`를 만든다. 세션 행의 저장·조회·삭제는 Spring Session JDBC가 담당하므로
+우리가 만드는 세션 테이블은 없다.

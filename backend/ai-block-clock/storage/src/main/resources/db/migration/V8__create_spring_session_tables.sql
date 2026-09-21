@@ -1,5 +1,3 @@
-DROP TABLE login_session;
-
 CREATE TABLE SPRING_SESSION
 (
     PRIMARY_ID            CHAR(36)     NOT NULL,
