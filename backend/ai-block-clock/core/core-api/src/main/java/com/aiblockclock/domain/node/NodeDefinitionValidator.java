@@ -23,15 +23,14 @@ public class NodeDefinitionValidator {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void ensureEditable(NodeDefinitionId id, OwnerId requester) {
-        ensureOwner(ownerOf(read(id)), requester);
+        ensureOwner(ownerOf(lock(id)), requester);
     }
 
     @Transactional
     public void ensureDeletable(NodeDefinitionId id, OwnerId requester) {
-        NodeDefinitionEntity entity = nodeRepository.findByIdForUpdate(id.value())
-                .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
+        NodeDefinitionEntity entity = lock(id);
         ensureOwner(ownerOf(entity), requester);
 
         if (usageReader.isPlacedInAnyWorkflow(id)) {
@@ -39,8 +38,8 @@ public class NodeDefinitionValidator {
         }
     }
 
-    private NodeDefinitionEntity read(NodeDefinitionId id) {
-        return nodeRepository.findById(id.value())
+    private NodeDefinitionEntity lock(NodeDefinitionId id) {
+        return nodeRepository.findByIdForUpdate(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
     }
 

@@ -15,7 +15,7 @@ import com.aiblockclock.support.error.ErrorType;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
@@ -45,7 +45,9 @@ class NodeDefinitionDeletionMySqlTest {
     @Autowired
     private WorkflowNodeRepository workflowNodeRepository;
 
-    @Test
+    // 한 번만 돌리면 첫 회차의 커넥션 풀 초기화 · JIT 때문에 두 스레드가 겹치지 않아
+    // 락을 지워도 통과한다. 반복해야 락이 실제로 막고 있는지가 드러난다.
+    @RepeatedTest(30)
     @DisplayName("삭제와 배치가 동시에 들어와도 지워진 노드를 가리키는 배치는 남지 않는다")
     void deletionAndPlacementNeverLeaveADanglingReference() throws Exception {
         UUID nodeId = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
