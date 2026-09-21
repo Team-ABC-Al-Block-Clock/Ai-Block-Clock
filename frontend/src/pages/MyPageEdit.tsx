@@ -240,10 +240,11 @@ export default function MyPageEdit() {
               </button>
             )}
 
-            <div
+            {/* role 만 붙인 div 는 포커스는 잡히지만 Enter·Space 로 눌리지 않는다 —
+                옆의 삭제 버튼과 같은 <button> 으로 둔다 */}
+            <button
+              type="button"
               onClick={() => fileInput.current?.click()}
-              role="button"
-              tabIndex={0}
               aria-label="프로필 사진 선택"
               style={{
                 left: '74px',
@@ -285,7 +286,7 @@ export default function MyPageEdit() {
                   }}
                 ></div>
               </div>
-            </div>
+            </button>
           </div>
 
           <div className="flex flex-1 flex-col" style={{ gap: '20px' }}>
