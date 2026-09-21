@@ -17,7 +17,7 @@ export interface WalletMessage {
 
 /** 로그인 응답. 토큰은 없다 — `sessionToken` 은 Set-Cookie 로만 온다. */
 export interface WalletSession {
-  /** 로그인 만료 시각(7일 뒤). 화면에 만료를 보여줄 때만 쓴다 */
+  /** 로그인 만료 시각. 화면에 만료를 보여줄 때만 쓴다 */
   expiresAt: string
 }
 
