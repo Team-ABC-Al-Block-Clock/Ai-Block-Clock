@@ -44,24 +44,6 @@ class AgentTest {
     }
 
     @Test
-    @DisplayName("공개 버전이 아직 없으면 남은 배치할 수 없다")
-    void notPlaceableBeforeFirstPublish() {
-        Agent agent = agent();
-
-        assertThat(agent.isPlaceableBy(OTHER)).isFalse();
-        assertThat(agent.isPlaceableBy(OWNER)).isTrue();
-    }
-
-    @Test
-    @DisplayName("버전을 공개하면 남도 배치할 수 있다")
-    void placeableByAnyoneAfterPublish() {
-        Agent agent = agent();
-        agent.markVersionPublished(OWNER, AgentVersionId.newId(), VersionNumber.first());
-
-        assertThat(agent.isPlaceableBy(OTHER)).isTrue();
-    }
-
-    @Test
     @DisplayName("소유자가 아니면 프로필도 공개 버전도 바꿀 수 없다")
     void onlyOwnerCanModify() {
         Agent agent = agent();

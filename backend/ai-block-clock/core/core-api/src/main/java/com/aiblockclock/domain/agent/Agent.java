@@ -37,14 +37,6 @@ public final class Agent {
         this.publicVersion = new PublicVersion(versionId, number);
     }
 
-    public boolean isPlaceableBy(OwnerId requester) {
-        if (isOwnedBy(requester)) {
-            return true;
-        }
-
-        return publicVersion != null;
-    }
-
     public boolean isOwnedBy(OwnerId candidate) {
         return owner.equals(candidate);
     }
