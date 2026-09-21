@@ -1,6 +1,0 @@
-auth-web:
-  secure-cookie: ${AUTH_COOKIE_SECURE:true}
----
-spring.config.activate.on-profile: local
-auth-web:
-  secure-cookie: ${AUTH_COOKIE_SECURE:false}

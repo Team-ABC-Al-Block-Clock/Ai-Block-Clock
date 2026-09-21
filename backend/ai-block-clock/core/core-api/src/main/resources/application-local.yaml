@@ -1,0 +1,6 @@
+wallet-auth:
+  domain: ${WALLET_AUTH_DOMAIN:localhost:5173}
+  uri: ${WALLET_AUTH_URI:http://localhost:5173/}
+
+auth-web:
+  secure-cookie: ${AUTH_COOKIE_SECURE:false}

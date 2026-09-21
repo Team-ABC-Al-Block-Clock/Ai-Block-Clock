@@ -9,9 +9,10 @@ spring:
     import:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
-      - classpath:wallet-auth.yml  # :core:core-api
-      - classpath:login-session.yml # :core:core-api
-      - classpath:auth-web.yml     # :core:core-api
+  session:
+    timeout: ${AUTH_SESSION_TIMEOUT:2h}
+    jdbc:
+      initialize-schema: never
 
 server:
   port: ${SERVER_PORT:8080}
@@ -22,3 +23,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     persist-authorization: true
+
+wallet-auth:
+  domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
+  uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}
+  chain-id: ${WALLET_AUTH_CHAIN_ID:80002}
+  message-ttl: ${WALLET_AUTH_MESSAGE_TTL:5m}
+
+auth-web:
+  secure-cookie: ${AUTH_COOKIE_SECURE:true}

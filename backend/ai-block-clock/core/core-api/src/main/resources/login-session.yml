@@ -1,5 +1,0 @@
-spring:
-  session:
-    timeout: ${AUTH_SESSION_TIMEOUT:2h}
-    jdbc:
-      initialize-schema: never
