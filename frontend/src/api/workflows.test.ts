@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api/errors'
-import { deleteWorkflow, getMyWorkflows } from '@/api/workflows'
+import { deleteWorkflow, getMyWorkflows, getNodePalette } from '@/api/workflows'
 import { resetWorkflows } from '@/mocks/fixtures/workflows'
 
 /**
@@ -144,5 +144,123 @@ describe('deleteWorkflow', () => {
     // 멱등이 아니다. 화면은 '이미 삭제된 워크플로우' 문구를 내고 목록을 맞춰야 한다.
     await deleteWorkflow('wf_004')
     await expect(deleteWorkflow('wf_004')).rejects.toMatchObject({ code: 'WORKFLOW_002' })
+  })
+})
+
+describe('getNodePalette', () => {
+  it('명세 기본값 10건과 적용된 scope 를 함께 준다', async () => {
+    const page = await getNodePalette({ scope: 'ALL' })
+
+    expect(page.content).toHaveLength(10)
+    expect(page.scope).toBe('ALL')
+    expect(page.hasNext).toBe(true)
+    expect(page.nextCursor).toBeTruthy()
+    expect(page).not.toHaveProperty('status')
+  })
+
+  it('MINE 은 내 것만 주고, ALL 은 다른 사람의 에이전트까지 준다', async () => {
+    const mine = await getNodePalette({ scope: 'MINE', size: 30 })
+    const all = await getNodePalette({ scope: 'ALL', size: 30 })
+
+    expect(mine.content.every((item) => item.mine)).toBe(true)
+    expect(all.content.some((item) => !item.mine)).toBe(true)
+    expect(all.content.length).toBeGreaterThan(mine.content.length)
+  })
+
+  it('MINE 도 두 번째 장이 있다', async () => {
+    // 내 것이 10건 이하로 줄면 판매자 모드의 무한 스크롤을 확인할 방법이 없다.
+    const first = await getNodePalette({ scope: 'MINE' })
+    expect(first.hasNext).toBe(true)
+
+    const second = await getNodePalette({ scope: 'MINE', cursor: first.nextCursor ?? undefined })
+    const ids = [...first.content, ...second.content].map((item) => item.itemId)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('내 것이 먼저, 그다음 많이 쓰인 순이다', async () => {
+    const { content } = await getNodePalette({ scope: 'ALL', size: 30 })
+    const flags = content.map((item) => item.mine)
+
+    expect(flags.slice(0, flags.lastIndexOf(true) + 1).every(Boolean)).toBe(true)
+    const used = content.filter((item) => item.mine).map((item) => item.executionCount)
+    expect(used).toEqual([...used].sort((a, b) => b - a))
+  })
+
+  it('항목은 정보 카드에 필요한 것을 모두 담는다', async () => {
+    const [first] = (await getNodePalette({ scope: 'ALL' })).content
+
+    // i 버튼이 뒤집어 보여주는 넷(사용 횟수·단가·유형·설명)이 여기 다 있어야
+    // 카드마다 상세를 다시 부르지 않는다.
+    expect(Object.keys(first).sort()).toEqual([
+      'executionCount',
+      'iconUrl',
+      'itemId',
+      'itemType',
+      'mine',
+      'name',
+      'nodeType',
+      'owner',
+      'price',
+      'summary',
+    ])
+  })
+
+  it('다른 사람의 에이전트는 내부 구성을 공개하지 않는다', async () => {
+    const { content } = await getNodePalette({ scope: 'ALL', size: 30 })
+    const theirs = content.filter((item) => !item.mine)
+
+    expect(theirs.length).toBeGreaterThan(0)
+    expect(theirs.every((item) => item.nodeType === 'AGENT')).toBe(true)
+    expect(theirs.every((item) => !('prompt' in item) && !('nodes' in item))).toBe(true)
+  })
+
+  it('keyword 는 이름만 본다', async () => {
+    const byName = await getNodePalette({ scope: 'ALL', keyword: '통계', size: 30 })
+    expect(byName.content.map((item) => item.name)).toEqual(['통계 분석'])
+
+    // '평균과 분포를 계산합니다' 는 설명이라 걸리지 않는다.
+    const bySummary = await getNodePalette({ scope: 'ALL', keyword: '평균과 분포', size: 30 })
+    expect(bySummary.content).toHaveLength(0)
+  })
+
+  it('설명이나 아이콘이 없는 건이 섞여 있다', async () => {
+    const { content } = await getNodePalette({ scope: 'ALL', size: 30 })
+
+    // 화면이 빈칸이나 깨진 이미지를 내는지는 이 건들에서만 드러난다.
+    expect(content.some((item) => item.summary === null)).toBe(true)
+    expect(content.some((item) => item.iconUrl === null)).toBe(true)
+    expect(content.some((item) => item.executionCount === 0)).toBe(true)
+  })
+
+  it('scope 가 없거나 명세에 없는 값이면 COMMON_001', async () => {
+    const missing = await getNodePalette({} as never).catch((e: unknown) => e)
+    expect(missing).toBeInstanceOf(ApiError)
+    expect(missing).toMatchObject({ code: 'COMMON_001', status: 400 })
+
+    await expect(getNodePalette({ scope: 'EVERYTHING' as never })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+  })
+
+  it('size 가 범위를 벗어나면 COMMON_001, 커서가 어긋나면 MARKET_003', async () => {
+    await expect(getNodePalette({ scope: 'ALL', size: 99 })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+    await expect(getNodePalette({ scope: 'ALL', cursor: '망가진커서' })).rejects.toMatchObject({
+      code: 'MARKET_003',
+    })
+  })
+
+  it('시나리오 스위치로 강제한 실패가 ApiError 로 온다', async () => {
+    // 핸들러가 scene() 을 부르는지 확인한다 — 빠뜨리면 ?mockFail 이 이 화면에만 안 먹는다.
+    localStorage.setItem(
+      'abc:mock-scenario',
+      JSON.stringify({ delayMs: 0, failCode: 'COMMON_001', failStatus: 400 }),
+    )
+    try {
+      await expect(getNodePalette({ scope: 'ALL' })).rejects.toBeInstanceOf(ApiError)
+    } finally {
+      localStorage.removeItem('abc:mock-scenario')
+    }
   })
 })

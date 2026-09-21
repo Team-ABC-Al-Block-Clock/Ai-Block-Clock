@@ -20,6 +20,7 @@ if (!existsSync(join(SRC, 'index.css'))) throw new Error(`src 를 찾지 못했�
 const RUNTIME_VARS = new Set([
   // App.tsx 가 캔버스와 창 사이 여백을 인라인 style 로 내려준다 — 주입 전에는 없다
   '--edge',
+  '--edge-y',
 ])
 
 const isTailwindInternal = (name: string) => name.startsWith('--tw-')

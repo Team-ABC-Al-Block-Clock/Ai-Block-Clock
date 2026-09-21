@@ -65,11 +65,13 @@ export default function RegisterForm() {
   return (
     <>
       <div
-        className="scroll-quiet absolute top-0 left-0 overflow-x-hidden"
+        className="scroll-quiet absolute left-0 overflow-x-hidden"
         id="formScroll"
         style={{
           width: '1440px',
-          height: '1024px',
+          // 폼이 가로로 잘리지 않게 스크롤 영역을 창 위아래 끝까지 늘린다.
+          top: 'calc(-1 * var(--edge-y, 0px))',
+          height: 'calc(1024px + 2 * var(--edge-y, 0px))',
         }}
       >
         <div className="relative" style={{ width: '1440px', height: '1690px' }}>
@@ -88,8 +90,9 @@ export default function RegisterForm() {
             }}
           ></div>
 
+          {/* 완료 화면에서 들어온다. '취소하기' 와 같은 곳으로 되돌린다. */}
           <a
-            href={paths.edit.nodesSeller.withoutId}
+            href={`${paths.run.running.withoutId}?done=1`}
             style={{
               left: '272px',
               top: '94px',
@@ -478,7 +481,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href={paths.edit.nodesSeller.withoutId}
+            href={`${paths.run.running.withoutId}?done=1`}
             style={{
               left: '832px',
               top: '1580px',

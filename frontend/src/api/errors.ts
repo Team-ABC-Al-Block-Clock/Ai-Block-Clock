@@ -1,7 +1,4 @@
-/**
- * 서버 실패 응답 봉투.
- *   { "status": "error", "code": "AGENT_001", "message": "..." }
- */
+/** `{ status: 'error', code, message }` */
 export interface ApiErrorBody {
   status: 'error'
   code: string
@@ -9,11 +6,8 @@ export interface ApiErrorBody {
 }
 
 /**
- * 정규화된 API 오류.
- *
- * 화면에서는 HTTP status 대신 `code` 로 분기한다.
- * 400 하나에도 COMMON_001(입력값 누락)과 AGENT_003(visibility 값 오류)이 섞여 있어
- * status 만으로는 무엇이 잘못됐는지 구분할 수 없다.
+ * 화면은 HTTP status 대신 `code` 로 분기한다 — 400 하나에 입력값 누락과
+ * 값 검증 실패가 섞여 있어 status 만으로는 무엇이 잘못됐는지 알 수 없다.
  */
 export class ApiError extends Error {
   /** 서버가 준 도메인 오류 코드. 네트워크 오류 등 응답이 없으면 undefined */
@@ -35,10 +29,8 @@ export class ApiError extends Error {
 }
 
 /**
- * 인증 실패 코드. 401 안에서도 처리가 갈린다.
- *
- * AUTH_001~004 는 Refresh Token(HttpOnly 쿠키) 문제라 재발급이 불가능하다.
- * AUTH_005~007 은 Access Token 문제이고, 이 중 만료(007)만 재발급으로 회복된다.
+ * 401 안에서도 처리가 갈린다. AUTH_001~004 는 Refresh Token 문제라 재발급이 불가능하고,
+ * AUTH_005~007 은 Access Token 문제이며 이 중 만료(007)만 회복된다.
  */
 export const AUTH_ERROR = {
   /** Refresh Token 쿠키 미전달 */

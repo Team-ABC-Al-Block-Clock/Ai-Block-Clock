@@ -2,6 +2,7 @@ import { shortAddress } from '@/lib/format'
 import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
+import StatusDot from '@/components/StatusDot'
 
 const TABS = [
   { key: 'agents', label: '내 에이전트', href: paths.my.agents },
@@ -16,12 +17,9 @@ const BOX = { width: '126px', height: '38px', borderRadius: '11px' }
 
 type Tab = (typeof TABS)[number]['key']
 
-/** 마이페이지 좌측 패널 — 아바타·이름·수정 버튼·탭·지갑 카드.
- *  마이페이지 5개 화면에 똑같이 들어갑니다. 화면마다 다른 건 선택 상태뿐 —
- *  탭 하나(active)가 채워지거나, 정보 수정 화면이면 수정 버튼(editing)이 채워집니다.
- *
- *  사용자 정보는 인증 스토어에서 읽습니다 — 이 5개 화면이 모두 보호 라우트라
- *  프로필 없이는 그려지지 않지만, 타입이 nullable 이라 빈 값을 대비해 둡니다.
+/**
+ * 마이페이지 좌측 패널. 화면마다 다른 것은 선택 상태뿐이다.
+ * 사용자 정보는 인증 스토어에서 읽는다 — 보호 라우트라 프로필은 이미 있다.
  */
 interface SidebarProps {
   /** 채워질 탭 */
@@ -43,7 +41,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           width: '338px',
           height: '776px',
           borderRadius: '20px',
-          background: 'var(--color-surface-card)', // 오른쪽 카드와 같은 흰 유리 (원본은 rgba(18,9,32,.44) 어두운 판)
+          background: 'var(--color-surface-card)', // 오른쪽 카드와 같은 흰 유리 (원본은 rgba(18,9,32,.44) 어두운 패널)
           backdropFilter: 'blur(22px) saturate(118%)',
           WebkitBackdropFilter: 'blur(22px) saturate(118%)',
           animation: 'rise .8s cubic-bezier(.2,.8,.25,1) both',
@@ -59,7 +57,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           height: '230px',
           boxShadow: '0 20px 48px rgba(8,4,18,.32)',
           animation:
-            'floaty 7.4s ease-in-out infinite, rise .8s .08s cubic-bezier(.2,.8,.25,1) both',
+            'floaty 7.4s ease-in-out infinite, rise .8s .08s cubic-bezier(.2,.8,.25,1) backwards',
         }}
       >
         <div
@@ -201,10 +199,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           {profile ? chainNameOf(profile.wallet.chainId) : chainLabel}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
-          <div
-            className="rounded-full"
-            style={{ width: '8px', height: '8px', background: '#84bf9f' }}
-          ></div>
+          <StatusDot size={8} color="#84bf9f" />
           <div className="text-[12px] font-semibold" style={{ color: '#9ad0b4' }}>
             정상 연결
           </div>

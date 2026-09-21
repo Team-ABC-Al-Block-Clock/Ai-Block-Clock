@@ -1,6 +1,8 @@
-import { Fragment, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
+import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import SearchIcon from '@/components/SearchIcon'
 
 export default function EditSearching() {
   const navigate = useNavigate()
@@ -33,10 +35,11 @@ export default function EditSearching() {
       <div
         className="absolute top-0 left-0"
         style={{
-          width: '1076px',
+          width: '980px',
           height: '1024px',
           animation: 'paneInDeep 1.15s cubic-bezier(.18,.86,.24,1) both',
-          transformOrigin: '44% 46%',
+          // 줌의 기준점을 내용 한가운데에 둔다 — 어긋나면 들어오는 동안 원형이 옆으로 쓸린다
+          transformOrigin: '50% 46%',
         }}
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -55,7 +58,7 @@ export default function EditSearching() {
 
         <div
           className="pointer-events-none absolute"
-          style={{ left: '398px', top: '392px', width: '280px', height: '192px' }}
+          style={{ left: '350px', top: '392px', width: '280px', height: '192px' }}
         >
           <div
             className="absolute rounded-full"
@@ -108,7 +111,7 @@ export default function EditSearching() {
           className="absolute left-0 text-center text-[24px] font-semibold tracking-[-.01em] text-white"
           style={{
             top: '560px',
-            width: '1076px',
+            width: '980px',
             textShadow: '0 2px 20px rgba(35,8,45,.8)',
             animation: 'uiInPop .8s .5s cubic-bezier(.2,.8,.25,1) both',
           }}
@@ -119,7 +122,7 @@ export default function EditSearching() {
           className="absolute left-0 text-center text-[15px]"
           style={{
             top: '598px',
-            width: '1076px',
+            width: '980px',
             color: 'rgba(255,236,246,.8)',
             textShadow: '0 1px 10px rgba(35,8,45,.7)',
             animation: 'uiInPop .8s .58s cubic-bezier(.2,.8,.25,1) both',
@@ -129,141 +132,112 @@ export default function EditSearching() {
         </div>
       </div>
 
-      <div
-        className="absolute top-0"
-        style={{
-          right: 'calc(-1 * var(--edge, 0px))',
-          width: '400px',
-          height: '1024px',
-          boxShadow: 'inset 1px 0 0 rgba(255,255,255,.14),-30px 0 60px rgba(10,4,20,.35)',
-          animation: 'sideInDeep 1.05s .12s cubic-bezier(.18,.86,.24,1) both',
-        }}
-      >
+      <SidePanel animation="sideInDeep 1.05s .12s cubic-bezier(.18,.86,.24,1) both">
         <div
           className="absolute bg-[rgba(255,255,255,.10)]"
           style={{
-            left: '30px',
-            top: '30px',
-            width: '340px',
+            left: `${PANEL_INSET}px`,
+            top: `${PANEL_INSET}px`,
+            width: `${PANEL_CONTENT_WIDTH}px`,
             height: '40px',
             borderRadius: '10px',
           }}
         >
-          <div
-            className="absolute rounded-full"
-            style={{
-              left: '14px',
-              top: '13px',
-              width: '14px',
-              height: '14px',
-              border: '2px solid rgba(255,255,255,.7)',
-            }}
-          ></div>
-          <div
-            className="absolute"
-            style={{
-              left: '25px',
-              top: '25px',
-              width: '7px',
-              height: '2px',
-              borderRadius: '1px',
-              background: 'rgba(255,255,255,.7)',
-              transform: 'rotate(45deg)',
-            }}
-          ></div>
+          <SearchIcon left={14} top={13} color="rgba(255,255,255,.7)" />
           <input
             className="absolute border-0 bg-transparent font-[inherit] text-[14px] text-white outline-0"
             id="searchSide"
             type="text"
             placeholder="에이전트 검색"
-            style={{ left: '38px', top: '9px', width: '250px', height: '22px' }}
+            style={{ left: '38px', top: '9px', width: '310px', height: '22px' }}
           />
         </div>
 
         <div
           className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-          style={{ left: '30px', top: '88px' }}
+          style={{ left: `${PANEL_INSET}px`, top: '88px' }}
         >
           검색 결과
         </div>
         <div
           className="absolute text-right text-[13px]"
-          style={{ left: '266px', top: '90px', width: '68px', color: 'rgba(255,236,246,.6)' }}
+          style={{ right: `${PANEL_INSET}px`, top: '90px', color: 'rgba(255,236,246,.6)' }}
         >
           10개
         </div>
 
         <div
-          className="absolute flex flex-wrap"
+          className="scroll-thin absolute grid"
           style={{
-            left: '30px',
+            left: `${PANEL_INSET}px`,
             top: '116px',
-            width: '340px',
-            height: '876px',
+            width: '408px',
+            height: 'calc(876px + 2 * var(--edge-y, 0px))',
+            // 한 줄에 두 장. 남는 폭을 열이 나눠 갖게 한다.
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             gap: '14px',
-            alignContent: 'flex-start',
+            alignContent: 'start',
           }}
         >
           {results.map((item, i) => (
-            <Fragment key={i}>
+            <div
+              key={i}
+              style={{
+                // 폭은 주지 않고 그리드 열을 그대로 채운다.
+                height: '160px',
+                borderRadius: '12px',
+                transition: 'background .18s,transform .18s',
+              }}
+              className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
+            >
               <div
+                className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
                 style={{
-                  width: '163px',
-                  height: '160px',
-                  borderRadius: '12px',
-                  transition: 'background .18s,transform .18s',
+                  left: `${CARD_GUTTER}px`,
+                  top: '16px',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '10px',
                 }}
-                className="relative cursor-pointer bg-[rgba(255,255,255,.09)] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
               >
                 <div
-                  className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
-                  style={{
-                    left: '16px',
-                    top: '16px',
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '10px',
-                  }}
+                  className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
+                  style={{ color: 'rgba(255,226,238,.65)' }}
                 >
-                  <div
-                    className="absolute inset-0 flex items-center justify-center text-[16px] font-semibold"
-                    style={{ color: 'rgba(255,226,238,.65)' }}
-                  >
-                    {item.initial}
-                  </div>
+                  {item.initial}
                 </div>
-                <div
-                  className="absolute text-[14px] font-semibold tracking-[-.01em] text-white"
-                  style={{ left: '16px', top: '76px' }}
-                >
-                  {item.name}
-                </div>
-                <div
-                  className="absolute"
-                  style={{
-                    left: '16px',
-                    top: '100px',
-                    width: '113px',
-                    height: '10px',
-                    borderRadius: '3px',
-                    background: 'rgba(255,255,255,.14)',
-                  }}
-                ></div>
-                <div
-                  className="absolute bg-[rgba(255,255,255,.10)]"
-                  style={{
-                    left: '16px',
-                    top: '116px',
-                    width: '84px',
-                    height: '10px',
-                    borderRadius: '3px',
-                  }}
-                ></div>
               </div>
-            </Fragment>
+              <div
+                className="absolute truncate text-[14px] font-semibold tracking-[-.01em] text-white"
+                style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '76px' }}
+              >
+                {item.name}
+              </div>
+              <div
+                className="absolute"
+                style={{
+                  left: `${CARD_GUTTER}px`,
+                  top: '100px',
+                  width: '113px',
+                  height: '10px',
+                  borderRadius: '3px',
+                  background: 'rgba(255,255,255,.14)',
+                }}
+              ></div>
+              <div
+                className="absolute bg-[rgba(255,255,255,.10)]"
+                style={{
+                  left: `${CARD_GUTTER}px`,
+                  top: '116px',
+                  width: '84px',
+                  height: '10px',
+                  borderRadius: '3px',
+                }}
+              ></div>
+            </div>
           ))}
         </div>
-      </div>
+      </SidePanel>
     </>
   )
 }

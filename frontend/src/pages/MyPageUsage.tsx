@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import Sidebar from '../components/Sidebar'
 import { paths } from '@/routes/paths'
+import StatusDot from '@/components/StatusDot'
 
 export default function MyPageUsage() {
   const history = [
@@ -153,19 +154,13 @@ export default function MyPageUsage() {
         </div>
         <div className="flex" style={{ marginTop: '10px', gap: '18px' }}>
           <div className="flex items-center" style={{ gap: '7px' }}>
-            <div
-              className="flex-none rounded-full"
-              style={{ width: '7px', height: '7px', background: '#e9aec4' }}
-            ></div>
+            <StatusDot color="#e9aec4" />
             <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
               사용 코인
             </div>
           </div>
           <div className="flex items-center" style={{ gap: '7px' }}>
-            <div
-              className="flex-none rounded-full"
-              style={{ width: '7px', height: '7px', background: '#dba18b' }}
-            ></div>
+            <StatusDot color="#dba18b" />
             <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
               호출 수
             </div>

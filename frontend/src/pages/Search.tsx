@@ -7,15 +7,15 @@ import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 import { OceanTheme } from '../components/theme-store'
+import SearchIcon from '@/components/SearchIcon'
 
 const FULL_TITLE = '어떤 일을 맡겨볼까요?'
-/** 한 번에 불러오는 개수. 명세 기본값이다. */
+/** 명세 기본값 */
 const PAGE_SIZE = 9
 /** 입력이 멈춘 뒤에만 검색한다. 없으면 타자 한 번에 요청 한 번이다. */
 const DEBOUNCE_MS = 300
 
-/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다.
- *  <empty-state> 가 JSON 으로 받는다(`components/types.ts` 의 EmptyAction). */
+/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다. */
 const EMPTY_ACTIONS = JSON.stringify([
   { label: '직접 만들어보기', href: paths.home, primary: true },
   { label: '검색어 지우기', event: 'clear' },
@@ -28,16 +28,14 @@ const EMPTY_BODY =
 /** 실패 안내는 그리드 안쪽 폭(272~1168)에 맞춘다. */
 const NOTICE_BOX = { left: '272px', top: '470px', width: '896px' } as const
 
-/** 빈 상태 카드. 그리드 안쪽(896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
- *  translateX 로 중앙 정렬하지 않는다: transform 이 걸리면 backdrop 루트가 되어
- *  카드의 backdrop-filter 가 바깥 배경을 못 가져온다(컨벤션 10절). */
+/** 272 + (896 - 620) / 2 = 410. translateX 로 중앙 정렬하지 않는다 — transform 이
+ *  걸리면 backdrop 루트가 되어 카드가 바깥 배경을 못 가져온다. */
 const EMPTY_BOX = { left: '410px', top: '486px', width: '620px' } as const
 
 export default function Search() {
   /**
-   * 검색어의 원본은 주소다. 컴포넌트 상태에만 두면 새로고침하면 사라지고 링크로
-   * 공유할 수도 없다 — 뒤로가기도 검색을 되돌리지 않고 화면을 벗어난다.
-   * mock 시나리오 스위치(`mocks/scenario.ts`)가 쓰는 것과 같은 성격의 값이다.
+   * 검색어의 원본은 주소다. 상태에만 두면 새로고침하면 사라지고 링크로 공유할 수 없다 —
+   * 뒤로가기도 검색을 되돌리지 않고 화면을 벗어난다.
    */
   const [searchParams, setSearchParams] = useSearchParams()
   /** 첫 진입의 ?keyword= 만 읽는다. 그 뒤로 입력값의 주인은 이 state 다.
@@ -253,28 +251,7 @@ export default function Search() {
           animation: 'srchUp .7s cubic-bezier(.22,.8,.24,1) both',
         }}
       >
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: '28px',
-            top: '24px',
-            width: '20px',
-            height: '20px',
-            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.85)',
-          }}
-        ></div>
-        <div
-          className="absolute"
-          style={{
-            left: '44px',
-            top: '41px',
-            width: '9px',
-            height: '2px',
-            borderRadius: '1px',
-            background: 'rgba(255,255,255,.85)',
-            transform: 'rotate(45deg)',
-          }}
-        ></div>
+        <SearchIcon left={28} top={24} size={20} color="rgba(255,255,255,.85)" handleLength={9} />
         <input
           className="absolute border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
           id="searchQ"

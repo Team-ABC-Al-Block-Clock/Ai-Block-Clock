@@ -4,13 +4,13 @@ import { AUTH_ERROR, ApiError, isApiErrorBody } from '@/api/errors'
 import { env } from '@/lib/env'
 import { tokenStorage } from '@/lib/tokenStorage'
 
-/** 성공 응답 봉투. { "status": "success", "data": ... } */
+/** `{ status: 'success', data }` */
 interface ApiSuccessBody<T> {
   status: 'success'
   data: T
 }
 
-/** POST /auth/reissue 응답. Refresh Token 은 바디가 아니라 Set-Cookie 로 온다. */
+/** Refresh Token 은 바디가 아니라 Set-Cookie 로 온다. */
 interface ReissuedToken {
   accessToken: string
   tokenType: string
@@ -36,12 +36,8 @@ export const client = axios.create({
 })
 
 /**
- * 인증이 완전히 실패했을 때, 그 원인 코드와 함께 호출된다.
- * 인증 스토어가 등록해서 상태 정리와 로그인 화면 이동을 처리한다.
- * api 계층이 라우터를 직접 알지 않도록 콜백으로 뺐다.
- *
- * 코드를 넘기는 이유: 만료와 폐기·위조는 로그인 화면이 띄울 문구가 다르다.
- * 여기서 버리면 스토어는 이유를 지어낼 수밖에 없다.
+ * 회복 불가능한 인증 실패를 스토어에 알린다 — api 계층이 라우터를 알지 않게 콜백으로 뺐다.
+ * 코드를 함께 넘긴다. 만료와 폐기는 로그인 화면이 띄울 문구가 다르다.
  */
 export type AuthFailureHandler = (code?: string) => void
 
@@ -50,26 +46,21 @@ export function setOnAuthFailure(handler: AuthFailureHandler | null) {
   onAuthFailure = handler
 }
 
-// ── 요청 인터셉터 ────────────────────────────────────────────────
 client.interceptors.request.use((config) => {
   const token = tokenStorage.get()
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// ── 토큰 재발급 (단일 실행) ──────────────────────────────────────
-// 서버가 재발급 때마다 Refresh Token 을 교체하고 이전 것을 폐기한다.
-// 재발급이 두 번 나가면 두 번째는 폐기된 토큰을 보내 AUTH_004 가 되고,
-// 명세상 그 경우 서버가 세션을 종료한다. 반드시 한 번만 보내야 한다.
+// 서버가 재발급 때마다 Refresh Token 을 교체하고 이전 것을 폐기한다. 두 번 나가면
+// 두 번째는 폐기된 토큰을 보내 AUTH_004 가 되고 서버가 세션을 끝낸다.
 let refreshing: Promise<string> | null = null
 
 async function requestReissue(): Promise<string> {
-  // 인터셉터를 타지 않는 맨 axios 로 보낸다.
-  // client 로 보내면 이 요청의 401 이 다시 재발급을 부르며 재귀한다.
-  // baseURL 은 client 것을 참조한다 — 직접 조립하면 설정이 두 곳으로 갈린다.
+  // 맨 axios 로 보낸다 — client 로 보내면 이 요청의 401 이 다시 재발급을 부르며 재귀한다.
   const { data } = await axios.post<ApiSuccessBody<ReissuedToken>>(
     '/auth/reissue',
-    undefined, // Refresh Token 은 쿠키로 자동 전송된다. 바디는 없다.
+    undefined, // Refresh Token 은 쿠키로 간다
     { baseURL: client.defaults.baseURL, withCredentials: true },
   )
   const accessToken = data.data.accessToken
@@ -90,15 +81,14 @@ function failAuth(code?: string) {
   onAuthFailure?.(code)
 }
 
-/** 인터셉터를 타지 않은 오류(재발급 요청)에서 도메인 코드만 꺼낸다. */
+/** 인터셉터를 타지 않은 재발급 오류에서 도메인 코드만 꺼낸다. */
 function codeOf(error: unknown): string | undefined {
   const body = error instanceof AxiosError ? error.response?.data : undefined
   return isApiErrorBody(body) ? body.code : undefined
 }
 
-// ── 응답 인터셉터 ────────────────────────────────────────────────
 client.interceptors.response.use(
-  // 성공: 봉투를 벗겨 data 만 넘긴다. 화면이 res.data.data 를 몰라도 된다.
+  // 봉투를 벗겨 data 만 넘긴다 — 화면이 res.data.data 를 몰라도 된다.
   (response) => {
     const body = response.data
     if (typeof body === 'object' && body !== null && 'status' in body && 'data' in body) {
@@ -115,14 +105,11 @@ client.interceptors.response.use(
     const response = error.response
     const config = error.config as RetriableConfig | undefined
 
-    // 응답 자체를 못 받은 경우 — 네트워크 끊김, 타임아웃
     if (!response) {
       throw new ApiError('서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.', { cause: error })
     }
 
-    // 개발 중 502 는 대개 MSW 가 요청을 못 잡아 프록시로 샌 것이다. 서비스 워커가
-    // 유휴로 종료되면 로드 직후엔 되던 것이 도중에 이렇게 된다 — 원인을 찾느라
-    // 시간 쓰지 않도록 답을 바로 알려 준다.
+    // 개발 중 502 는 대개 MSW 가 요청을 못 잡아 프록시로 샌 것이다.
     if (import.meta.env.DEV && env.useMock && response.status === 502) {
       console.error(
         '[mocks] 502 — MSW 가 요청을 잡지 못했습니다. 페이지를 새로고침하세요.',
@@ -135,8 +122,7 @@ client.interceptors.response.use(
     const message = isApiErrorBody(body) ? body.message : error.message
 
     if (response.status === 401 && config) {
-      // Access Token 만료만 재발급 대상이다.
-      // 미전달(AUTH_005)·유효하지 않음(AUTH_006)은 재발급해도 결과가 같다.
+      // 만료만 재발급 대상이다. 미전달·무효는 재발급해도 결과가 같다.
       if (code === AUTH_ERROR.EXPIRED && !config._retried) {
         config._retried = true
         try {
@@ -144,9 +130,8 @@ client.interceptors.response.use(
           config.headers.Authorization = `Bearer ${accessToken}`
           return client.request(config)
         } catch (reissueError) {
-          // Refresh Token 쪽 실패(AUTH_001~004)는 회복 수단이 없다.
-          // 원인은 재발급 응답에 있다 — 원 요청의 코드(AUTH_007)를 넘기면
-          // 폐기된 세션까지 "만료" 로 안내하게 된다.
+          // Refresh 쪽 실패는 회복 수단이 없다. 원인은 재발급 응답에 있어,
+          // 원 요청의 코드를 넘기면 폐기된 세션까지 '만료' 로 안내하게 된다.
           failAuth(codeOf(reissueError))
           throw new ApiError('세션이 만료되었습니다. 다시 로그인해 주세요.', {
             code,
@@ -163,10 +148,7 @@ client.interceptors.response.use(
   },
 )
 
-/**
- * 타입이 붙은 요청 헬퍼.
- * 응답 인터셉터가 봉투를 벗기므로 반환값이 곧 data 다.
- */
+/** 인터셉터가 봉투를 벗기므로 반환값이 곧 data 다. */
 export const api = {
   get: <T>(url: string, config?: AxiosRequestConfig) => client.get<T, T>(url, config),
   post: <T>(url: string, body?: unknown, config?: AxiosRequestConfig) =>
@@ -179,11 +161,8 @@ export const api = {
 }
 
 /**
- * 앱 시작 시 세션 복구.
- * Access Token 은 메모리에만 있어 새로고침하면 사라진다.
+ * 앱 시작 시 세션 복구. Access Token 은 메모리에만 있어 새로고침하면 사라지고,
  * Refresh Token 쿠키가 살아 있으면 조용히 다시 받아온다.
- *
- * 인증 스토어(`stores/authStore.ts`)의 restore 가 부팅 시 한 번 호출한다.
  */
 export async function restoreSession(): Promise<boolean> {
   try {

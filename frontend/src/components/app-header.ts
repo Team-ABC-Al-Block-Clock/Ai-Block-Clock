@@ -1,11 +1,11 @@
 import { BaseElement, define } from './base'
 
-/** 좌상단 로고 + 앱 이름. 14개 화면에 동일하게 들어갑니다.
+/**
+ * 좌상단 로고 + 앱 이름.
  *
- *    <app-header home-href="/" logo-src="assets/logo.png"></app-header>
+ *   <app-header home-href="/" logo-src="assets/logo.png"></app-header>
  *
- *  기본은 화면과 같은 글자 로크업(ABC / AI BLOCK CLOCK)입니다.
- *  wordmark-src 를 주면 그 자리에 이미지를 넣습니다.
+ * 기본은 글자 로크업이고, `wordmark-src` 를 주면 그 자리에 이미지를 넣는다.
  */
 export class AppHeader extends BaseElement {
   static observedAttributes = ['home-href', 'name', 'tagline', 'logo-src', 'wordmark-src']

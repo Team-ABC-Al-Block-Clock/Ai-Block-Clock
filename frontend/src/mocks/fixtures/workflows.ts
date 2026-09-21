@@ -1,17 +1,11 @@
 import type { WorkflowSummary } from '@/api/workflows'
 
 /**
- * 내 워크플로우 픽스처. 에이전트로 등록하지 않고 내가 쓰는 것들이다(MYP-002).
- *
- * 응답 5필드에 **응답에 없는 내부 필드** 셋을 더한다. 핸들러만 읽고 `toWorkflowSummary` 가
- * 응답에서 떼어낸다 — `AgentDetail → toSummary` 와 같은 투영이다.
- *
- * 12건이다. 명세 기본 `size` 가 10 이라 그보다 적으면 `hasNext` 가 늘 false 여서
- * 화면의 무한 스크롤을 확인할 방법이 없다.
+ * 에이전트로 등록하지 않고 내가 쓰는 워크플로우. 응답 5필드에 핸들러만 읽는 내부 필드
+ * 셋을 더한다. 12건이다 — 기본 `size` 가 10 이라 그보다 적으면 무한 스크롤을 볼 수 없다.
  */
 interface WorkflowSeed extends WorkflowSummary {
-  /** 응답에 없다 — `sort=LATEST` 를 계산할 근거. 명세 응답에 등록 시각이 없어
-   *  이것 없이는 정렬을 흉내 낼 수 없다. */
+  /** 응답에 없다 — `sort=LATEST` 를 계산할 근거 */
   createdAt: string
   /** 응답에 없다 — 이미 에이전트로 등록된 것은 삭제할 수 없다(WORKFLOW_009). */
   registeredAsAgent: boolean
@@ -21,12 +15,9 @@ interface WorkflowSeed extends WorkflowSummary {
 
 /**
  * 원본. `WORKFLOWS` 는 삭제로 바뀌므로 되돌릴 기준이 필요하다.
- *
- * 실행 이력이 없는 건(`lastExecutedAt: null`)을 반드시 섞는다 — 기본 정렬이
- * 「아직 실행하지 않은 것은 뒤로 밀린다」라서 그 건이 없으면 정렬을 검증할 수 없고,
- * 화면이 'Invalid Date' 를 내는지도 드러나지 않는다.
+ * 실행 이력이 없는 건을 섞는다 — 없으면 정렬도, 화면의 'Invalid Date' 도 안 드러난다.
  */
-// 한 줄에 한 건 — Prettier 가 펼치면 건당 8줄이 되어 분산을 표처럼 훑을 수 없다.
+// 한 줄에 한 건 — 펼치면 건당 8줄이 되어 분산을 표처럼 훑을 수 없다.
 // prettier-ignore
 const SEEDS: WorkflowSeed[] = [
   { workflowId: 'wf_001', name: '월간 성적 리포트',      summary: '엑셀 성적표 → 통계 → 가정통신문 PDF', executionCount: 128, lastExecutedAt: '2026-09-08T09:15:00+09:00', createdAt: '2026-07-02T09:00:00+09:00', registeredAsAgent: false, running: false },
@@ -47,21 +38,19 @@ const SEEDS: WorkflowSeed[] = [
 /** 삭제가 실제로 항목을 없애므로 상수가 아니라 복사본이다. */
 export const WORKFLOWS: WorkflowSeed[] = [...SEEDS]
 
-// 눈으로 세면 어긋난다. 10건 이하로 줄면 무한 스크롤 검증이 조용히 사라진다.
+// 10건 이하로 줄면 무한 스크롤 검증이 조용히 사라진다.
 if (WORKFLOWS.length !== 12) {
   throw new Error(`[mock] 워크플로우 픽스처가 ${WORKFLOWS.length}건이다. 12건이어야 한다.`)
 }
 
-/** 테스트가 삭제한 건을 되살린다. 길이만 잘라내는 방식으로는 원복되지 않는다. */
+/** 길이만 잘라내는 방식으로는 원복되지 않는다. */
 export function resetWorkflows() {
   WORKFLOWS.splice(0, WORKFLOWS.length, ...SEEDS)
 }
 
 /**
- * 내부 필드를 떼어내고 명세 5필드만 남긴다.
- *
- * 핸들러에서 인라인하지 않는다 — `registeredAsAgent` 처럼 응답에 없는 필드가 한 번이라도
- * 새면 화면이 그것으로 버튼을 감추기 시작하고, 백엔드를 붙이는 날 조용히 `undefined` 가 된다.
+ * 내부 필드를 떼어낸다. 응답에 없는 필드가 한 번이라도 새면 화면이 그것으로 버튼을
+ * 감추기 시작하고, 백엔드를 붙이는 날 `undefined` 가 된다.
  */
 export function toWorkflowSummary(workflow: WorkflowSeed): WorkflowSummary {
   return {

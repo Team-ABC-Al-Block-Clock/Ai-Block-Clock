@@ -42,7 +42,7 @@ import Signup from './pages/Signup'
 /** 화면 안 링크는 전부 평범한 <a href="/...">. 하나하나 <Link>로 바꾸는 대신
  *  루트에서 한 번 가로채 클라이언트 라우팅으로 넘긴다 — 전체 재로드가 사라진다.
  *
- *  ponytail: 문서 전역 클릭 리스너 하나. 링크마다 <Link>가 필요해지면 그때 바꾸세요.
+ *  문서 전역 클릭 리스너 하나. 링크마다 <Link>가 필요해지면 그때 바꾸세요.
  */
 function useInternalLinks() {
   const navigate = useNavigate()
@@ -155,7 +155,6 @@ const SCREENS: Record<ScreenKey, ReactElement> = {
   agentDetail: <Detail />,
   editSearching: <EditSearching />,
   editNodes: <EditNodes />,
-  editNodesSeller: <EditNodes seller />,
   runWaiting: <RunWaiting />,
   runRunning: <RunRunning />,
   myAgents: <MyAgents />,
@@ -174,7 +173,7 @@ export default function App() {
   useWalletSessionGuard()
 
   // 프로필 메뉴의 아바타와 로그아웃 행만 세션을 본다 — 로그아웃한 사람에게
-  // 남의 이니셜과 로그아웃을 보여줄 수는 없다. 나머지 껍데기는 그대로다.
+  // 다른 사람의 이니셜과 로그아웃을 보여줄 수는 없다. 나머지 껍데기는 그대로다.
   const signedIn = useAuthStore((s) => s.status === 'authenticated')
   const banner = useChainBanner()
   const nickname = useAuthStore((s) => s.profile?.nickname)
@@ -217,6 +216,7 @@ export default function App() {
           {
             overflow: shell.bleed ? 'visible' : 'hidden',
             '--edge': `${Math.max(0, (shellBox.width - 1440) / 2)}px`,
+            '--edge-y': `${Math.max(0, (shellBox.height - 1024) / 2)}px`,
           } as CSSProperties
         }
       >
@@ -295,7 +295,7 @@ export default function App() {
         색·그림자·hover 는 이 앱의 primary 버튼(실행하기 등)과 같은 accent 계열로. */}
           {shell.studio && (
             <a
-              href={paths.edit.nodesSeller.withoutId}
+              href={paths.edit.nodes.withoutId}
               className="group bg-accent text-accent-ink pointer-events-auto absolute box-border flex cursor-pointer items-center justify-center text-[14px] font-semibold tracking-[-.01em] whitespace-nowrap transition-transform duration-[180ms] hover:-translate-y-[2px]"
               style={{
                 left: `${shellBox.width - STUDIO_RIGHT}px`,
@@ -327,13 +327,7 @@ export default function App() {
                 }}
               >
                 <div className="text-[13px] leading-[1.4] font-semibold tracking-[-.01em] text-white">
-                  나만의 에이전트를 만들어 팔아보세요
-                </div>
-                <div
-                  className="text-[12px] leading-[18px]"
-                  style={{ color: 'rgba(255,236,246,.6)' }}
-                >
-                  내가 등록한 에이전트만 조합해 판매용 에이전트를 만들 수 있어요
+                  나만의 에이전트를 만들고, 판매해보세요
                 </div>
               </div>
             </a>

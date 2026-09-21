@@ -365,9 +365,9 @@ describe('byNewest', () => {
 })
 
 /**
- * 마이페이지 「판매 중」. MYP-001
+ * 마이페이지 「판매 중」.
  *
- * 명세가 확정되기 전의 추정 타입(`tokenUsage`)이 남아 있으면 키 집합 검사에서 걸린다.
+ * 예전 추정 타입(`tokenUsage`)이 남아 있으면 키 집합 검사에서 걸린다.
  */
 describe('getMyAgents', () => {
   it('명세 기본값 10건과 다음 커서를 준다', async () => {
@@ -494,7 +494,7 @@ describe('getMyAgents', () => {
   })
 })
 
-/** 마이페이지 「즐겨찾기」. MYP-003 — 검색어도 정렬도 받지 않는다. */
+/** 마이페이지 「즐겨찾기」 — 검색어도 정렬도 받지 않는다. */
 describe('getMyFavorites', () => {
   it('목록 응답은 확정 명세의 필드만 담는다', async () => {
     const [first] = (await getMyFavorites()).content
@@ -545,12 +545,10 @@ describe('getMyFavorites', () => {
   })
 })
 
-/** 마이페이지 「사용한 에이전트」. MYP-004 */
 describe('getUsedAgents', () => {
   it('목록 응답은 확정 명세의 필드만 담는다', async () => {
     const [first] = (await getUsedAgents()).content
 
-    // currency 는 받지 않는다 — 단위가 ABC 하나뿐이라 화면이 붙인다.
     expect(Object.keys(first).sort()).toEqual([
       'agentId',
       'averageRating',
@@ -565,6 +563,7 @@ describe('getUsedAgents', () => {
       'summary',
       'totalSpent',
     ])
+    // 통화 단위는 ABC 하나 뿐이다.
     expect(first).not.toHaveProperty('currency')
     // 남이 만든 것이 대부분이라 수익은 오지 않는다.
     expect(first).not.toHaveProperty('revenue')

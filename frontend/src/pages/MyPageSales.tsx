@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import StatusDot from '@/components/StatusDot'
 
 export default function MyPageSales() {
   const [tab, setTab] = useState('customer')
@@ -355,10 +356,7 @@ export default function MyPageSales() {
           </div>
           <div className="flex items-center" style={{ gap: '14px' }}>
             <div className="flex items-center" style={{ gap: '7px' }}>
-              <div
-                className="rounded-full"
-                style={{ width: '7px', height: '7px', background: '#84bf9f' }}
-              ></div>
+              <StatusDot color="#84bf9f" />
               <div
                 className="text-[11.5px]"
                 style={{ color: 'rgba(255,255,255,.86)', fontVariantNumeric: 'tabular-nums' }}
@@ -367,10 +365,7 @@ export default function MyPageSales() {
               </div>
             </div>
             <div className="flex items-center" style={{ gap: '7px' }}>
-              <div
-                className="rounded-full"
-                style={{ width: '7px', height: '7px', background: '#e9aec4' }}
-              ></div>
+              <StatusDot color="#e9aec4" />
               <div
                 className="text-[11.5px]"
                 style={{ color: 'rgba(255,255,255,.86)', fontVariantNumeric: 'tabular-nums' }}

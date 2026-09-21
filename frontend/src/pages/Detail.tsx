@@ -16,7 +16,7 @@ import { paths } from '@/routes/paths'
 
 /** 안내 카드. 그리드 안쪽(272~1168, 896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
  *  translateX 로 중앙 정렬하지 않는다: transform 이 걸리면 backdrop 루트가 되어
- *  카드의 backdrop-filter 가 바깥 배경을 못 가져온다(컨벤션 10절). */
+ *  카드의 backdrop-filter 가 바깥 배경을 못 가져온다. */
 const NOTICE_BOX = { left: '410px', top: '360px', width: '620px' } as const
 
 /** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다.
@@ -61,8 +61,8 @@ export default function Detail() {
       next ? addAgentFavorite(agentId ?? '') : removeAgentFavorite(agentId ?? ''),
     /** 명세 「화면이 다시 조회하지 않게 갱신된 횟수를 함께 반환한다」 — 상세는 refetch 하지 않고 덮는다.
      *
-     *  목록은 무효화한다. 마이페이지가 `favorited` 로 별을 그리고 즐겨찾기 탭 자체가
-     *  이 상태로 만들어지므로(MYP-003), 안 하면 여기서 켠 별이 목록에서는 빈 별로 남는다. */
+     *  목록은 무효화한다. 즐겨찾기 탭 자체가 `favorited` 로 만들어져서, 안 하면
+     *  여기서 켠 별이 목록에서는 빈 별로 남는다. */
     onSuccess: (res) => {
       queryClient.setQueryData(
         queryKeys.marketplace.agents.detail(agentId ?? ''),
@@ -114,7 +114,7 @@ export default function Detail() {
       />
     )
 
-  // 불러오는 중에 '없음' 을 띄우지 않는다 — 요청마다 한 번씩 깜빡인다(컨벤션 6절).
+  // 불러오는 중에 '없음' 을 띄우지 않는다 — 요청마다 한 번씩 깜빡인다.
   if (isPending || !agent)
     return (
       <div
@@ -142,7 +142,7 @@ export default function Detail() {
   const step = (delta: number) => () =>
     setShot(shots.length ? (at + delta + shots.length) % shots.length : 0)
   const pickShot = (i: number) => () => setShot(i)
-  // 진행 중에 또 누르면 등록·해제가 엇갈린다. mutations retry 는 false 가 기본이다(컨벤션 6절).
+  // 진행 중에 또 누르면 등록·해제가 엇갈린다. mutations retry 는 false 가 기본이다.
   const handleToggleFav = () => {
     if (!favorite.isPending) favorite.mutate(!agent.favorited)
   }
