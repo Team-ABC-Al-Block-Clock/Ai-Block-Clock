@@ -11,7 +11,6 @@ import com.aiblockclock.domain.workflow.EdgeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
 import com.aiblockclock.domain.workflow.WorkflowService;
-import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -38,8 +37,6 @@ class ExecutionPlanAssemblerIntegrationTest {
     @Autowired
     private WorkflowService workflowService;
 
-    @Autowired
-    private WorkflowWriter workflowWriter;
 
     @Autowired
     private ExecutionPlanAssembler executionPlanAssembler;
@@ -49,7 +46,7 @@ class ExecutionPlanAssemblerIntegrationTest {
     @AfterEach
     void tearDown() {
         if (workflowId != null) {
-            workflowWriter.remove(workflowId);
+            workflowService.delete(workflowId, OWNER);
         }
     }
 

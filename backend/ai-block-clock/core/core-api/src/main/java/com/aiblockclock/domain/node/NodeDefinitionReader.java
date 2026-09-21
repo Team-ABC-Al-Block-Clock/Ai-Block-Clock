@@ -27,11 +27,6 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
-    public NodeDefinition readForUpdate(NodeDefinitionId id) {
-        return NodeDefinitionEntityConverter.toDomain(nodeRepository.findByIdForUpdate(id.value())
-                .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND)));
-    }
-
     public boolean isOwnedBy(NodeDefinitionId id, OwnerId owner) {
         return nodeRepository.existsByIdAndOwnerId(id.value(), owner.value());
     }

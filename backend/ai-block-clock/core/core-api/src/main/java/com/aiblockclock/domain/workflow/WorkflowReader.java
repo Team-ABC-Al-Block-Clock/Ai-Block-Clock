@@ -35,12 +35,6 @@ public class WorkflowReader {
         return withGraph(entity);
     }
 
-    public Workflow readForUpdate(WorkflowId id) {
-        WorkflowEntity entity = workflowRepository.findByIdForUpdate(id.value())
-                .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
-        return withGraph(entity);
-    }
-
     public CursorPage<WorkflowSummary> readMine(
             OwnerId owner, WorkflowSort sort, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);

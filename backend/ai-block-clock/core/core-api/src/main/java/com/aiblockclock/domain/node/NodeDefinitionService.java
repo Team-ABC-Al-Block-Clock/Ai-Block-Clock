@@ -15,7 +15,7 @@ public class NodeDefinitionService {
     private final NodeDefinitionReader nodeReader;
     private final NodeDefinitionWriter nodeWriter;
     private final BaseCostCalculator baseCostCalculator;
-    private final NodeDefinitionDeletionPolicy deletionPolicy;
+    private final NodeDefinitionValidator validator;
 
     public NodeDefinition create(OwnerId requester, String name, Prompt prompt, AiModel model) {
         NodeSpec spec = new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model));
@@ -25,7 +25,7 @@ public class NodeDefinitionService {
 
     public NodeDefinition get(NodeDefinitionId id, OwnerId requester) {
         NodeDefinition node = nodeReader.read(id);
-        node.ensureOwner(requester);
+        NodeDefinitionValidator.ensureOwner(node.getOwner(), requester);
 
         return node;
     }
@@ -36,14 +36,15 @@ public class NodeDefinitionService {
 
     @Transactional
     public NodeDefinition update(NodeDefinitionId id, OwnerId requester, String name, Prompt prompt, AiModel model) {
-        nodeReader.read(id).ensureOwner(requester);
+        validator.ensureEditable(id, requester);
 
         return nodeWriter.update(id, new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model)), prompt);
     }
 
     @Transactional
     public void delete(NodeDefinitionId id, OwnerId requester) {
-        deletionPolicy.ensureDeletable(nodeReader.readForUpdate(id), requester);
+        validator.ensureDeletable(id, requester);
+
         nodeWriter.remove(id);
     }
 }

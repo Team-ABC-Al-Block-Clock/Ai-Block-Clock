@@ -532,6 +532,44 @@ public final class AgentVersionPolicy {        // 판정은 도메인에 남는�
 
 ---
 
+### 11.5 연관 매핑과 자식 컬렉션 쓰기
+
+**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `workflow_node.reference_id` 는
+`node_definition` 이나 `agent` 를 가리키지만 `@ManyToOne` 이 아니라 생 `UUID` 다. 다형 참조라
+매핑할 수도 없고, 매핑하면 워크플로우 하나 읽는 데 노드 정의가 딸려 온다.
+
+**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `workflow_node` · `workflow_edge` 는
+생명주기가 부모에 종속되지만 `@OneToMany` 로 들지 않는다. 자식은 전용 리포지토리로 직접 쓴다.
+
+**`cascade` · `orphanRemoval` 을 쓰지 않는다.** 무엇이 언제 지워지는지 코드에서 보이지 않게 된다.
+`orphanRemoval` 로 자식을 갈아끼우면 Hibernate 가 DELETE 보다 INSERT 를 먼저 내보내 유니크 키가
+터져서, `clear()` → `flush()` → `addAll()` 순서를 손으로 챙겨야 하기도 한다.
+
+**갈아끼울 때 지우고 다시 넣지 않는다.** 살아남는 행까지 지웠다 넣으면 바뀌지도 않은 행에 DELETE 와
+INSERT 가 나간다. 벌크 UPDATE 로 제자리에서 고치고, 사라진 키만 지우고, 새 키만 넣는다.
+
+```java
+private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
+    workflowNodeRepository.deleteMissing(
+            workflowId, nodes.stream().map(WorkflowNodeEntity::getNodeKey).toList());
+
+    for (WorkflowNodeEntity node : nodes) {
+        int updated = workflowNodeRepository.updatePlacement(workflowId, node.getNodeKey(), ...);
+
+        if (updated == 0) {
+            workflowNodeRepository.save(node);
+        }
+    }
+}
+```
+
+**무엇이 남았는지 알려고 조회하지 않는다.** `UPDATE` 의 영향 행 수가 그것을 말해 준다 — 0 이면
+없던 키이니 넣는다. 기존 행을 `SELECT` 해서 키를 대조하는 코드는 그래서 필요 없다.
+
+부모를 통째로 지울 때는 다르다. 남길 것이 없으므로 자식을 벌크로 지우고 부모를 지운다.
+
+---
+
 ## 12. 아직 정하지 못한 것
 
 구현하면서 임시로 정한 값들이다. 확정되면 이 문서와 코드를 함께 고친다.

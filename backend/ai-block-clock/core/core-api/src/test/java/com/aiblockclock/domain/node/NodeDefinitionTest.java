@@ -15,18 +15,6 @@ class NodeDefinitionTest {
     private static final OwnerId OTHER = OwnerId.of(2L);
 
     @Test
-    @DisplayName("소유자만 통과시킨다")
-    void onlyOwnerPasses() {
-        NodeDefinition node = NodeDefinitionFixtures.of(OWNER);
-
-        assertThatCode(() -> node.ensureOwner(OWNER)).doesNotThrowAnyException();
-        assertThatThrownBy(() -> node.ensureOwner(OTHER))
-                .isInstanceOf(CoreException.class)
-                .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.NODE_FORBIDDEN);
-    }
-
-    @Test
     @DisplayName("원가는 밖에서 산출해 받는다")
     void baseCostComesFromOutside() {
         NodeDefinition node = NodeDefinitionFixtures.of(OWNER);

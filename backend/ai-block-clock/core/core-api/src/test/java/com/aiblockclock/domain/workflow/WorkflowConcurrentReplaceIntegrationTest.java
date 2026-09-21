@@ -41,8 +41,6 @@ class WorkflowConcurrentReplaceIntegrationTest {
     @Autowired
     private WorkflowRepository workflowRepository;
 
-    @Autowired
-    private WorkflowWriter workflowWriter;
 
     @Autowired
     private NodeDefinitionRepository nodeRepository;
@@ -58,7 +56,7 @@ class WorkflowConcurrentReplaceIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        workflowWriter.remove(workflowId);
+        workflowService.delete(workflowId, OWNER);
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
 import com.aiblockclock.domain.workflow.NodeReference;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.domain.workflow.WorkflowValidator;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -18,7 +19,7 @@ public final class AgentVersionPolicy {
     private final NodeDefinitionReader nodeReader;
 
     public void ensureVersionable(Workflow workflow, OwnerId requester) {
-        workflow.ensureOwner(requester);
+        WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
 
         if (!workflow.isValidated()) {
             throw new CoreException(ErrorType.AGENT_WORKFLOW_NOT_VALIDATED);

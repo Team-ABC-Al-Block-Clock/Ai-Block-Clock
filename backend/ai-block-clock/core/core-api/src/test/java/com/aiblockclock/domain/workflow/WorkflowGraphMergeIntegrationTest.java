@@ -41,8 +41,6 @@ class WorkflowGraphMergeIntegrationTest {
     @Autowired
     private WorkflowEdgeRepository workflowEdgeRepository;
 
-    @Autowired
-    private WorkflowWriter workflowWriter;
 
     @Autowired
     private NodeDefinitionRepository nodeRepository;
@@ -66,7 +64,7 @@ class WorkflowGraphMergeIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        workflowWriter.remove(workflowId);
+        workflowService.delete(workflowId, OWNER);
     }
 
     @Test
