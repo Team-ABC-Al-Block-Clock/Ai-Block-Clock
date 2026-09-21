@@ -26,9 +26,11 @@ Access Token과 Refresh Token은 사용하지 않는다. 따라서 JWT 비밀키
 ## 보호 API 인증 흐름
 
 브라우저는 `/api/v1` 요청마다 `sessionToken` 쿠키를 자동으로 보낸다.
-`CurrentOwnerArgumentResolver`는 쿠키 원문을 읽고 같은 SHA-256 해시를 만든 뒤
+`SessionTokenAuthenticationFilter`는 쿠키 원문을 읽고 같은 SHA-256 해시를 만든 뒤
 `login_session.session_token_hash`로 세션을 조회한다. 세션이 만료되지 않았고 `revoked_at`이
-비어 있으면 세션의 `user_id`를 `OwnerId`로 변환해 Controller에 전달한다.
+비어 있으면 세션의 `user_id`를 `OwnerId`로 변환해 Spring Security에 인증 사용자로 저장한다.
+`SecurityConfig`는 지갑 인증 메시지 발급과 로그인을 제외한 API에 인증을 요구한다.
+Controller의 `@CurrentOwner`는 인증을 수행하지 않고 Spring Security에 저장된 `OwnerId`만 전달한다.
 
 이 구조에서는 보호 API 요청마다 DB 조회가 한 번 발생한다. 대신 로그아웃과 재로그인의 세션
 종료 상태가 즉시 반영되고, 단일 로그인 정책을 단순하게 유지할 수 있다.

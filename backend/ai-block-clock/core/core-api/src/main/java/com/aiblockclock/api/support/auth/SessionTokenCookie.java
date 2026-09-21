@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -35,17 +37,23 @@ public class SessionTokenCookie {
         return builder("").maxAge(0).build();
     }
 
-    public String readRequired(HttpServletRequest request) {
+    public Optional<String> read(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (NAME.equals(cookie.getName())) {
-                    return requireValue(cookie.getValue());
-                }
-            }
+
+        if (cookies == null) {
+            return Optional.empty();
         }
 
-        throw new CoreException(ErrorType.REQUESTER_NOT_IDENTIFIED);
+        return Arrays.stream(cookies)
+                .filter(cookie -> NAME.equals(cookie.getName()))
+                .map(Cookie::getValue)
+                .findFirst();
+    }
+
+    public String readRequired(HttpServletRequest request) {
+        return read(request)
+                .map(this::requireValue)
+                .orElseThrow(() -> new CoreException(ErrorType.REQUESTER_NOT_IDENTIFIED));
     }
 
     public String requireValue(String value) {

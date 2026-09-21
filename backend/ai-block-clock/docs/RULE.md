@@ -545,7 +545,7 @@ public final class AgentVersionPolicy {        // 판정은 도메인에 남는�
 | 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `ApiResult` 와 명세서 | `{status: SUCCESS/FAIL, data, error{code,message,data}}` | 명세서는 `{status: success/error, code, message}` 평면형 |
 | `AGENT_006`, `AGENT_007`, `AGENT_009` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| `ownerId` 타입 | 인증한 로그인 사용자 번호를 그대로 `OwnerId` 로 전달한다 (`CurrentOwnerArgumentResolver`). 사용자 도메인이 생겨 두 이름이 같은 값을 가리킨다 | `OwnerId` 를 `UserId` 로 합칠지 |
+| `ownerId` 타입 | Spring Security가 인증한 로그인 사용자 번호를 `@CurrentOwner`로 `OwnerId`에 전달한다. 사용자 도메인이 생겨 두 이름이 같은 값을 가리킨다 | `OwnerId` 를 `UserId` 로 합칠지 |
 | 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. `AgentOwnershipView` 구현과 조립 위치가 함께 정해져야 한다 |
 | 출처 워크플로우 삭제 금지 | `WorkflowDeletionPolicy` 가 막는다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 출처 추적이 이유라면 삭제가 아니라 보존 표시가 맞다 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |

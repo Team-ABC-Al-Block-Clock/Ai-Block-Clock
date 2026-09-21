@@ -12,7 +12,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
 @RequiredArgsConstructor
-public class AuthOriginInterceptor implements HandlerInterceptor {
+public class CsrfOriginInterceptor implements HandlerInterceptor {
     private final AuthWebProperties properties;
 
     @Override
