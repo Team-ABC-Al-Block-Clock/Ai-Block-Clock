@@ -2,9 +2,10 @@
   "status": "local_pre_registration_not_final",
   "model": "abc-agent-retriever-v1",
   "hybrid_mode": "off",
+  "rank_mode": "additive",
   "trust_included": true,
   "indexed_agents": 24,
-  "content_sha256": "d0919705363239fbad2dfc684c49674c560516e1f11ee38d4736ed387dca1e89",
+  "content_sha256": "032527832f1aa1b6bfab5dbe7d280ad4ff810a1b7a94fcb830bdf24e7ce35953",
   "note": "기존 사전 평가의 브랜딩 9질의를 유지. 예산 질의는 현 콘텐츠 범위와 차이가 있어 해석 시 주의.",
   "before": {
     "golden": {
@@ -43,9 +44,9 @@
             "ag_seed_02",
             "ag_seed_05",
             "ag_seed_04",
-            "ag_seed_18",
             "ag_seed_09",
-            "ag_seed_08"
+            "ag_seed_08",
+            "ag_seed_18"
           ]
         },
         {
@@ -58,8 +59,8 @@
             "ag_seed_19",
             "ag_seed_15",
             "ag_seed_20",
-            "ag_seed_14",
             "ag_seed_18",
+            "ag_seed_14",
             "ag_seed_01",
             "ag_seed_11",
             "ag_seed_06"
@@ -112,8 +113,8 @@
             "ag_seed_14",
             "ag_seed_15",
             "ag_seed_01",
-            "ag_seed_19",
-            "ag_seed_20"
+            "ag_seed_18",
+            "ag_seed_19"
           ]
         },
         {
@@ -127,10 +128,10 @@
             "ag_seed_10",
             "ag_seed_01",
             "ag_seed_03",
-            "ag_seed_18",
             "ag_seed_08",
             "ag_seed_11",
-            "ag_seed_06"
+            "ag_seed_06",
+            "ag_seed_17"
           ]
         },
         {
@@ -231,9 +232,9 @@
             "ag_seed_15",
             "ag_seed_02",
             "ag_seed_01",
+            "ag_seed_18",
             "ag_seed_13",
-            "ag_seed_04",
-            "ag_seed_20"
+            "ag_seed_04"
           ]
         },
         {
@@ -351,8 +352,8 @@
             "ag_seed_09",
             "ag_seed_07",
             "ag_seed_01",
-            "ag_seed_18",
             "ag_seed_03",
+            "ag_seed_18",
             "ag_seed_12",
             "ag_seed_20"
           ]
@@ -397,7 +398,7 @@
       "n": 80,
       "top1": 66,
       "top8": 80,
-      "mrr": 0.899375,
+      "mrr": 0.9025000000000001,
       "rows": [
         {
           "query": "시험 결과 파일 주면 요약해 주나",
@@ -465,6 +466,43 @@
             "ag_seed_02",
             "ag_seed_11",
             "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.576173,
+              "semantic": 0.608819,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.461742,
+              "semantic": 0.31106,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.261345,
+              "semantic": 0.159065,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.252224,
+              "semantic": 0.146034,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.209613,
+              "semantic": 0.085161,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -496,9 +534,9 @@
             "ag_seed_15",
             "ag_seed_01",
             "ag_seed_16",
+            "ag_seed_05",
             "ag_seed_08",
-            "ag_seed_17",
-            "ag_seed_05"
+            "ag_seed_17"
           ]
         },
         {
@@ -511,8 +549,8 @@
             "ag_seed_02",
             "ag_seed_15",
             "ag_seed_20",
-            "ag_seed_01",
             "ag_seed_05",
+            "ag_seed_01",
             "ag_seed_16",
             "ag_seed_14",
             "ag_seed_07"
@@ -545,8 +583,8 @@
             "ag_seed_03",
             "ag_seed_01",
             "ag_seed_07",
-            "ag_seed_18",
             "ag_seed_11",
+            "ag_seed_18",
             "ag_seed_08",
             "ag_seed_02",
             "ag_seed_13"
@@ -667,8 +705,8 @@
             "ag_seed_03",
             "ag_seed_06",
             "ag_seed_11",
-            "ag_seed_18",
-            "ag_seed_20"
+            "ag_seed_20",
+            "ag_seed_16"
           ]
         },
         {
@@ -697,12 +735,49 @@
           "top8": [
             "ag_seed_01",
             "ag_seed_09",
-            "ag_seed_18",
             "ag_seed_08",
+            "ag_seed_18",
             "ag_seed_11",
             "ag_seed_05",
             "ag_seed_10",
             "ag_seed_02"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.368048,
+              "semantic": 0.177212,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.317129,
+              "semantic": 0.238756,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.286055,
+              "semantic": 0.194364,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.262276,
+              "semantic": 0.160394,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.251205,
+              "semantic": 0.144578,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -752,8 +827,45 @@
             "ag_seed_20",
             "ag_seed_15",
             "ag_seed_16",
-            "ag_seed_05",
-            "ag_seed_09"
+            "ag_seed_09",
+            "ag_seed_05"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.382844,
+              "semantic": 0.332635,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.356173,
+              "semantic": 0.294532,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.317896,
+              "semantic": 0.105566,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.315819,
+              "semantic": 0.236884,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.31447,
+              "semantic": 0.234957,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -839,6 +951,43 @@
             "ag_seed_15",
             "ag_seed_01",
             "ag_seed_19"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.542882,
+              "semantic": 0.56126,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.470715,
+              "semantic": 0.458164,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.356223,
+              "semantic": 0.294604,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.345263,
+              "semantic": 0.278947,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.280358,
+              "semantic": 0.186226,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -907,6 +1056,43 @@
             "ag_seed_15",
             "ag_seed_20",
             "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.48066,
+              "semantic": 0.472372,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.479256,
+              "semantic": 0.470365,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.333669,
+              "semantic": 0.262384,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.249102,
+              "semantic": 0.007289,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.247735,
+              "semantic": 0.139621,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1043,6 +1229,43 @@
             "ag_seed_09",
             "ag_seed_04",
             "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.380669,
+              "semantic": 0.329527,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.317674,
+              "semantic": 0.239534,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.269222,
+              "semantic": 0.036031,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.266204,
+              "semantic": 0.166005,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.256101,
+              "semantic": 0.151573,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1160,8 +1383,8 @@
             "ag_seed_01",
             "ag_seed_08",
             "ag_seed_10",
-            "ag_seed_11",
-            "ag_seed_05"
+            "ag_seed_05",
+            "ag_seed_11"
           ]
         },
         {
@@ -1193,9 +1416,9 @@
             "ag_seed_01",
             "ag_seed_13",
             "ag_seed_08",
-            "ag_seed_18",
             "ag_seed_11",
-            "ag_seed_16"
+            "ag_seed_16",
+            "ag_seed_05"
           ]
         },
         {
@@ -1279,8 +1502,8 @@
             "ag_seed_01",
             "ag_seed_04",
             "ag_seed_15",
-            "ag_seed_12",
-            "ag_seed_16"
+            "ag_seed_18",
+            "ag_seed_12"
           ]
         },
         {
@@ -1298,6 +1521,43 @@
             "ag_seed_18",
             "ag_seed_04",
             "ag_seed_05"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.405466,
+              "semantic": 0.364952,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.336246,
+              "semantic": 0.266066,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.33565,
+              "semantic": 0.265214,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.270503,
+              "semantic": 0.172147,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.244,
+              "semantic": -0.004648,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -1398,8 +1658,8 @@
             "ag_seed_02",
             "ag_seed_14",
             "ag_seed_01",
-            "ag_seed_07",
-            "ag_seed_09"
+            "ag_seed_18",
+            "ag_seed_07"
           ]
         },
         {
@@ -1417,6 +1677,43 @@
             "ag_seed_01",
             "ag_seed_10",
             "ag_seed_02"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.540533,
+              "semantic": 0.557904,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.532077,
+              "semantic": 0.545825,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.269806,
+              "semantic": 0.171151,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.268558,
+              "semantic": 0.169369,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.257201,
+              "semantic": 0.153145,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1445,8 +1742,8 @@
           "top8": [
             "ag_seed_16",
             "ag_seed_02",
-            "ag_seed_14",
             "ag_seed_18",
+            "ag_seed_14",
             "ag_seed_01",
             "ag_seed_17",
             "ag_seed_15",
@@ -1464,8 +1761,8 @@
             "ag_seed_14",
             "ag_seed_15",
             "ag_seed_02",
-            "ag_seed_01",
             "ag_seed_18",
+            "ag_seed_01",
             "ag_seed_17",
             "ag_seed_05"
           ]
@@ -1481,8 +1778,8 @@
             "ag_seed_02",
             "ag_seed_14",
             "ag_seed_01",
-            "ag_seed_05",
             "ag_seed_18",
+            "ag_seed_05",
             "ag_seed_17",
             "ag_seed_15"
           ]
@@ -1500,8 +1797,8 @@
             "ag_seed_19",
             "ag_seed_07",
             "ag_seed_10",
-            "ag_seed_14",
-            "ag_seed_12"
+            "ag_seed_18",
+            "ag_seed_14"
           ]
         },
         {
@@ -1517,8 +1814,8 @@
             "ag_seed_01",
             "ag_seed_02",
             "ag_seed_15",
-            "ag_seed_19",
-            "ag_seed_18"
+            "ag_seed_18",
+            "ag_seed_19"
           ]
         },
         {
@@ -1553,6 +1850,43 @@
             "ag_seed_01",
             "ag_seed_09",
             "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.390211,
+              "semantic": 0.343159,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.35877,
+              "semantic": 0.298243,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.264722,
+              "semantic": 0.163889,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.24947,
+              "semantic": 0.142099,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.246267,
+              "semantic": 0.137524,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1570,6 +1904,43 @@
             "ag_seed_09",
             "ag_seed_07",
             "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.486521,
+              "semantic": 0.480745,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.378643,
+              "semantic": 0.326632,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.353409,
+              "semantic": 0.290585,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.244,
+              "semantic": -0.045121,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.201918,
+              "semantic": 0.074169,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1577,16 +1948,53 @@
           "answers": [
             "ag_seed_18"
           ],
-          "rank": 5,
+          "rank": 2,
           "top8": [
             "ag_seed_01",
+            "ag_seed_18",
             "ag_seed_20",
             "ag_seed_15",
             "ag_seed_10",
-            "ag_seed_18",
             "ag_seed_08",
             "ag_seed_17",
             "ag_seed_19"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.307145,
+              "semantic": 0.090207,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.299491,
+              "semantic": 0.213559,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.289214,
+              "semantic": 0.198877,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.28064,
+              "semantic": 0.186629,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.264884,
+              "semantic": 0.16412,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1633,10 +2041,10 @@
             "ag_seed_19",
             "ag_seed_07",
             "ag_seed_20",
+            "ag_seed_18",
             "ag_seed_01",
             "ag_seed_11",
             "ag_seed_14",
-            "ag_seed_18",
             "ag_seed_15"
           ]
         },
@@ -1652,9 +2060,46 @@
             "ag_seed_15",
             "ag_seed_01",
             "ag_seed_14",
-            "ag_seed_07",
             "ag_seed_18",
+            "ag_seed_07",
             "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.550769,
+              "semantic": 0.572527,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.544224,
+              "semantic": 0.563177,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.330704,
+              "semantic": 0.258148,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.244,
+              "semantic": -0.142,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.23382,
+              "semantic": 0.119744,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1679,16 +2124,53 @@
           "answers": [
             "ag_seed_19"
           ],
-          "rank": 4,
+          "rank": 5,
           "top8": [
             "ag_seed_03",
+            "ag_seed_18",
             "ag_seed_01",
             "ag_seed_17",
             "ag_seed_19",
             "ag_seed_07",
             "ag_seed_20",
-            "ag_seed_11",
-            "ag_seed_18"
+            "ag_seed_11"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.247308,
+              "semantic": 0.139012,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.244141,
+              "semantic": 0.134487,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.244,
+              "semantic": -0.089225,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.241335,
+              "semantic": 0.130478,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.235603,
+              "semantic": 0.122289,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1704,8 +2186,8 @@
             "ag_seed_15",
             "ag_seed_01",
             "ag_seed_14",
-            "ag_seed_10",
-            "ag_seed_12"
+            "ag_seed_18",
+            "ag_seed_10"
           ]
         },
         {
@@ -1723,6 +2205,43 @@
             "ag_seed_14",
             "ag_seed_01",
             "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.559576,
+              "semantic": 0.585109,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.441095,
+              "semantic": 0.41585,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.351698,
+              "semantic": 0.28814,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.289785,
+              "semantic": 0.199693,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.271886,
+              "semantic": 0.174123,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -1735,9 +2254,9 @@
             "ag_seed_20",
             "ag_seed_15",
             "ag_seed_19",
+            "ag_seed_18",
             "ag_seed_10",
             "ag_seed_01",
-            "ag_seed_18",
             "ag_seed_07",
             "ag_seed_14"
           ]
@@ -1779,8 +2298,8 @@
             "ag_brand_01",
             "ag_seed_20",
             "ag_brand_02",
-            "ag_brand_04",
             "ag_brand_03",
+            "ag_brand_04",
             "ag_seed_12",
             "ag_seed_10",
             "ag_seed_07"
@@ -1831,8 +2350,8 @@
             "ag_brand_04",
             "ag_seed_10",
             "ag_brand_01",
-            "ag_seed_15",
             "ag_brand_03",
+            "ag_seed_15",
             "ag_seed_01",
             "ag_seed_04"
           ]
@@ -1846,8 +2365,8 @@
           "top8": [
             "ag_brand_02",
             "ag_brand_01",
-            "ag_brand_04",
             "ag_brand_03",
+            "ag_brand_04",
             "ag_seed_15",
             "ag_seed_10",
             "ag_seed_14",
@@ -1881,11 +2400,48 @@
             "ag_seed_19",
             "ag_brand_03",
             "ag_seed_15",
-            "ag_brand_01",
             "ag_brand_02",
+            "ag_brand_01",
             "ag_seed_09",
             "ag_brand_04",
             "ag_seed_20"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.554045,
+              "semantic": 0.577207,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.463666,
+              "semantic": 0.448094,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.399223,
+              "semantic": 0.356033,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_02",
+              "score": 0.397974,
+              "semantic": 0.354249,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.369264,
+              "semantic": 0.178949,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -1913,13 +2469,13 @@
           "rank": 1,
           "top8": [
             "ag_brand_04",
-            "ag_brand_02",
             "ag_brand_01",
             "ag_seed_10",
+            "ag_brand_02",
             "ag_seed_13",
             "ag_seed_11",
-            "ag_seed_15",
-            "ag_brand_03"
+            "ag_brand_03",
+            "ag_seed_15"
           ]
         }
       ]
@@ -1957,12 +2513,12 @@
           "top8": [
             "ag_seed_01",
             "ag_seed_03",
-            "ag_seed_02",
             "ag_brand_01",
+            "ag_seed_02",
             "ag_seed_05",
             "ag_seed_04",
-            "ag_seed_18",
-            "ag_brand_02"
+            "ag_brand_04",
+            "ag_seed_09"
           ]
         },
         {
@@ -1978,8 +2534,8 @@
             "ag_brand_04",
             "ag_seed_20",
             "ag_brand_01",
-            "ag_seed_14",
-            "ag_seed_18"
+            "ag_seed_18",
+            "ag_brand_02"
           ]
         },
         {
@@ -1991,11 +2547,11 @@
           "top8": [
             "ag_seed_10",
             "ag_seed_15",
-            "ag_brand_01",
             "ag_brand_02",
-            "ag_brand_04",
+            "ag_brand_01",
             "ag_seed_12",
             "ag_brand_03",
+            "ag_brand_04",
             "ag_seed_20"
           ]
         },
@@ -2009,8 +2565,8 @@
             "ag_seed_18",
             "ag_seed_19",
             "ag_brand_01",
-            "ag_brand_03",
             "ag_seed_20",
+            "ag_brand_03",
             "ag_seed_01",
             "ag_seed_08",
             "ag_brand_04"
@@ -2045,9 +2601,9 @@
             "ag_seed_01",
             "ag_brand_01",
             "ag_seed_03",
-            "ag_seed_18",
             "ag_seed_08",
-            "ag_seed_11"
+            "ag_seed_11",
+            "ag_seed_06"
           ]
         },
         {
@@ -2064,7 +2620,7 @@
             "ag_seed_04",
             "ag_brand_01",
             "ag_seed_05",
-            "ag_brand_02",
+            "ag_brand_04",
             "ag_seed_18"
           ]
         },
@@ -2077,12 +2633,12 @@
           "top8": [
             "ag_seed_02",
             "ag_seed_15",
-            "ag_brand_03",
             "ag_seed_14",
-            "ag_brand_02",
             "ag_brand_01",
             "ag_seed_01",
-            "ag_seed_05"
+            "ag_seed_05",
+            "ag_seed_16",
+            "ag_brand_02"
           ]
         },
         {
@@ -2099,7 +2655,7 @@
             "ag_seed_11",
             "ag_seed_01",
             "ag_seed_08",
-            "ag_brand_02"
+            "ag_seed_20"
           ]
         },
         {
@@ -2149,8 +2705,8 @@
             "ag_seed_02",
             "ag_seed_01",
             "ag_brand_01",
-            "ag_seed_13",
-            "ag_seed_04"
+            "ag_seed_18",
+            "ag_seed_13"
           ]
         },
         {
@@ -2165,10 +2721,10 @@
             "ag_seed_04",
             "ag_seed_13",
             "ag_brand_01",
-            "ag_brand_04",
             "ag_seed_01",
-            "ag_brand_02",
-            "ag_seed_15"
+            "ag_brand_04",
+            "ag_seed_15",
+            "ag_brand_02"
           ]
         },
         {
@@ -2213,10 +2769,10 @@
           "rank": 1,
           "top8": [
             "ag_seed_20",
-            "ag_brand_01",
             "ag_seed_15",
-            "ag_brand_02",
+            "ag_brand_01",
             "ag_seed_19",
+            "ag_brand_02",
             "ag_seed_01",
             "ag_seed_02",
             "ag_seed_16"
@@ -2236,7 +2792,7 @@
             "ag_seed_06",
             "ag_brand_01",
             "ag_seed_08",
-            "ag_brand_03"
+            "ag_seed_09"
           ]
         },
         {
@@ -2252,8 +2808,8 @@
             "ag_seed_11",
             "ag_seed_05",
             "ag_brand_01",
-            "ag_brand_04",
-            "ag_seed_01"
+            "ag_seed_01",
+            "ag_seed_04"
           ]
         },
         {
@@ -2268,10 +2824,10 @@
             "ag_seed_09",
             "ag_seed_07",
             "ag_brand_01",
-            "ag_brand_02",
+            "ag_brand_04",
             "ag_seed_01",
-            "ag_brand_03",
-            "ag_seed_18"
+            "ag_brand_02",
+            "ag_seed_03"
           ]
         },
         {
@@ -2283,12 +2839,12 @@
           "top8": [
             "ag_seed_15",
             "ag_seed_10",
-            "ag_brand_04",
             "ag_seed_09",
             "ag_brand_01",
-            "ag_seed_01",
             "ag_brand_02",
-            "ag_seed_07"
+            "ag_seed_01",
+            "ag_seed_07",
+            "ag_brand_04"
           ]
         },
         {
@@ -2304,8 +2860,8 @@
             "ag_seed_07",
             "ag_seed_01",
             "ag_brand_01",
-            "ag_seed_20",
-            "ag_seed_09"
+            "ag_brand_03",
+            "ag_seed_20"
           ]
         }
       ]
@@ -2313,8 +2869,8 @@
     "holdout": {
       "n": 80,
       "top1": 66,
-      "top8": 79,
-      "mrr": 0.8943204365079366,
+      "top8": 80,
+      "mrr": 0.895014880952381,
       "rows": [
         {
           "query": "시험 결과 파일 주면 요약해 주나",
@@ -2379,9 +2935,46 @@
             "ag_brand_01",
             "ag_seed_08",
             "ag_seed_09",
-            "ag_seed_18",
+            "ag_brand_04",
             "ag_brand_02",
-            "ag_seed_02"
+            "ag_seed_18"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.576173,
+              "semantic": 0.608819,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.461742,
+              "semantic": 0.31106,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.405454,
+              "semantic": 0.230649,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.261345,
+              "semantic": 0.159065,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.252224,
+              "semantic": 0.146034,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -2394,11 +2987,11 @@
             "ag_seed_02",
             "ag_seed_01",
             "ag_seed_05",
-            "ag_brand_01",
             "ag_seed_14",
             "ag_seed_17",
+            "ag_brand_01",
             "ag_seed_16",
-            "ag_brand_02"
+            "ag_seed_04"
           ]
         },
         {
@@ -2415,7 +3008,7 @@
             "ag_brand_01",
             "ag_brand_02",
             "ag_seed_16",
-            "ag_brand_03"
+            "ag_seed_05"
           ]
         },
         {
@@ -2427,12 +3020,12 @@
           "top8": [
             "ag_seed_02",
             "ag_seed_15",
+            "ag_brand_02",
             "ag_brand_03",
             "ag_brand_01",
-            "ag_brand_02",
             "ag_seed_20",
-            "ag_seed_01",
-            "ag_seed_05"
+            "ag_seed_05",
+            "ag_seed_01"
           ]
         },
         {
@@ -2444,12 +3037,12 @@
           "top8": [
             "ag_seed_02",
             "ag_seed_15",
-            "ag_brand_01",
-            "ag_brand_03",
             "ag_seed_05",
             "ag_seed_20",
+            "ag_brand_01",
             "ag_seed_16",
-            "ag_brand_02"
+            "ag_brand_02",
+            "ag_seed_01"
           ]
         },
         {
@@ -2464,9 +3057,9 @@
             "ag_brand_01",
             "ag_seed_07",
             "ag_brand_04",
-            "ag_seed_18",
             "ag_seed_11",
-            "ag_seed_08"
+            "ag_seed_18",
+            "ag_brand_02"
           ]
         },
         {
@@ -2481,9 +3074,9 @@
             "ag_seed_01",
             "ag_seed_18",
             "ag_seed_09",
-            "ag_brand_03",
+            "ag_brand_02",
             "ag_seed_07",
-            "ag_seed_04"
+            "ag_brand_04"
           ]
         },
         {
@@ -2497,10 +3090,10 @@
             "ag_seed_01",
             "ag_brand_01",
             "ag_seed_02",
+            "ag_brand_04",
             "ag_brand_02",
             "ag_seed_05",
-            "ag_seed_08",
-            "ag_seed_12"
+            "ag_seed_08"
           ]
         },
         {
@@ -2514,10 +3107,10 @@
             "ag_seed_01",
             "ag_brand_01",
             "ag_seed_02",
+            "ag_brand_04",
             "ag_seed_11",
             "ag_brand_02",
-            "ag_seed_08",
-            "ag_seed_05"
+            "ag_seed_08"
           ]
         },
         {
@@ -2585,7 +3178,7 @@
             "ag_seed_03",
             "ag_seed_06",
             "ag_seed_11",
-            "ag_seed_18"
+            "ag_seed_20"
           ]
         },
         {
@@ -2610,16 +3203,53 @@
           "answers": [
             "ag_seed_05"
           ],
-          "rank": 8,
+          "rank": 7,
           "top8": [
             "ag_seed_01",
             "ag_brand_01",
             "ag_seed_09",
-            "ag_seed_18",
             "ag_seed_08",
-            "ag_brand_04",
+            "ag_seed_18",
             "ag_seed_11",
-            "ag_seed_05"
+            "ag_seed_05",
+            "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.368048,
+              "semantic": 0.177212,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.328802,
+              "semantic": 0.121145,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.317129,
+              "semantic": 0.238756,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.286055,
+              "semantic": 0.194364,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.262276,
+              "semantic": 0.160394,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -2633,8 +3263,8 @@
             "ag_seed_01",
             "ag_seed_06",
             "ag_seed_02",
-            "ag_brand_01",
             "ag_seed_08",
+            "ag_brand_01",
             "ag_seed_04",
             "ag_seed_16"
           ]
@@ -2670,7 +3300,44 @@
             "ag_seed_15",
             "ag_seed_16",
             "ag_brand_01",
-            "ag_seed_05"
+            "ag_seed_09"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.382844,
+              "semantic": 0.332635,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.356173,
+              "semantic": 0.294532,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.317896,
+              "semantic": 0.105566,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.315819,
+              "semantic": 0.236884,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.31447,
+              "semantic": 0.234957,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -2681,9 +3348,9 @@
           "rank": 1,
           "top8": [
             "ag_seed_06",
+            "ag_brand_01",
             "ag_seed_19",
             "ag_seed_09",
-            "ag_brand_01",
             "ag_seed_10",
             "ag_seed_01",
             "ag_seed_11",
@@ -2750,12 +3417,49 @@
           "top8": [
             "ag_seed_08",
             "ag_seed_07",
-            "ag_brand_01",
             "ag_seed_20",
             "ag_seed_09",
+            "ag_brand_01",
             "ag_brand_03",
-            "ag_brand_02",
-            "ag_seed_14"
+            "ag_seed_14",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.542882,
+              "semantic": 0.56126,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.470715,
+              "semantic": 0.458164,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.356223,
+              "semantic": 0.294604,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.345263,
+              "semantic": 0.278947,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.311115,
+              "semantic": 0.095879,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -2766,9 +3470,9 @@
           "rank": 1,
           "top8": [
             "ag_seed_07",
-            "ag_brand_01",
             "ag_seed_13",
             "ag_seed_17",
+            "ag_brand_01",
             "ag_seed_12",
             "ag_seed_01",
             "ag_seed_09",
@@ -2783,11 +3487,11 @@
           "rank": 1,
           "top8": [
             "ag_seed_07",
-            "ag_brand_01",
             "ag_seed_09",
+            "ag_brand_01",
             "ag_seed_01",
-            "ag_seed_15",
             "ag_brand_03",
+            "ag_seed_15",
             "ag_seed_10",
             "ag_seed_12"
           ]
@@ -2801,12 +3505,12 @@
           "top8": [
             "ag_seed_08",
             "ag_seed_09",
-            "ag_brand_03",
             "ag_seed_07",
             "ag_seed_19",
             "ag_seed_14",
             "ag_seed_02",
-            "ag_brand_01"
+            "ag_brand_01",
+            "ag_seed_01"
           ]
         },
         {
@@ -2818,12 +3522,49 @@
           "top8": [
             "ag_seed_09",
             "ag_seed_08",
-            "ag_brand_01",
             "ag_seed_07",
-            "ag_brand_02",
-            "ag_brand_03",
+            "ag_brand_01",
             "ag_seed_01",
-            "ag_seed_03"
+            "ag_seed_03",
+            "ag_brand_02",
+            "ag_brand_03"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.48066,
+              "semantic": 0.472372,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.479256,
+              "semantic": 0.470365,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.333669,
+              "semantic": 0.262384,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.31924,
+              "semantic": 0.107485,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.249102,
+              "semantic": 0.007289,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -2835,12 +3576,12 @@
           "top8": [
             "ag_seed_08",
             "ag_seed_14",
-            "ag_brand_01",
-            "ag_brand_02",
             "ag_seed_12",
             "ag_brand_04",
             "ag_brand_03",
-            "ag_seed_01"
+            "ag_brand_01",
+            "ag_seed_01",
+            "ag_seed_06"
           ]
         },
         {
@@ -2854,10 +3595,10 @@
             "ag_seed_11",
             "ag_brand_04",
             "ag_seed_13",
-            "ag_brand_01",
             "ag_seed_14",
-            "ag_brand_02",
-            "ag_seed_01"
+            "ag_brand_01",
+            "ag_seed_01",
+            "ag_seed_07"
           ]
         },
         {
@@ -2871,8 +3612,8 @@
             "ag_seed_08",
             "ag_seed_07",
             "ag_brand_01",
-            "ag_brand_03",
             "ag_seed_06",
+            "ag_brand_03",
             "ag_seed_01",
             "ag_seed_18"
           ]
@@ -2903,10 +3644,10 @@
           "top8": [
             "ag_seed_09",
             "ag_seed_19",
-            "ag_brand_03",
             "ag_seed_07",
             "ag_seed_01",
             "ag_brand_01",
+            "ag_brand_03",
             "ag_seed_20",
             "ag_seed_06"
           ]
@@ -2923,9 +3664,9 @@
             "ag_seed_01",
             "ag_seed_19",
             "ag_brand_01",
-            "ag_brand_03",
             "ag_seed_17",
-            "ag_seed_04"
+            "ag_seed_04",
+            "ag_seed_06"
           ]
         },
         {
@@ -2936,12 +3677,12 @@
           "rank": 1,
           "top8": [
             "ag_seed_10",
-            "ag_brand_04",
             "ag_seed_04",
             "ag_seed_15",
             "ag_seed_12",
             "ag_brand_02",
             "ag_brand_01",
+            "ag_brand_04",
             "ag_seed_13"
           ]
         },
@@ -2953,13 +3694,50 @@
           "rank": 3,
           "top8": [
             "ag_seed_13",
-            "ag_brand_04",
-            "ag_seed_10",
             "ag_brand_01",
+            "ag_seed_10",
+            "ag_brand_04",
             "ag_seed_01",
             "ag_seed_15",
             "ag_seed_11",
             "ag_seed_09"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.380669,
+              "semantic": 0.329527,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.328716,
+              "semantic": 0.121023,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.317674,
+              "semantic": 0.239534,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_04",
+              "score": 0.274043,
+              "semantic": 0.177205,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.269222,
+              "semantic": 0.036031,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -2987,13 +3765,13 @@
           "rank": 1,
           "top8": [
             "ag_seed_10",
-            "ag_brand_04",
             "ag_brand_01",
             "ag_seed_15",
             "ag_brand_02",
+            "ag_brand_04",
             "ag_seed_04",
             "ag_seed_13",
-            "ag_seed_03"
+            "ag_brand_03"
           ]
         },
         {
@@ -3009,8 +3787,8 @@
             "ag_seed_13",
             "ag_seed_19",
             "ag_seed_14",
-            "ag_brand_01",
-            "ag_seed_01"
+            "ag_brand_04",
+            "ag_brand_01"
           ]
         },
         {
@@ -3027,7 +3805,7 @@
             "ag_seed_01",
             "ag_brand_01",
             "ag_seed_06",
-            "ag_seed_10"
+            "ag_brand_04"
           ]
         },
         {
@@ -3038,9 +3816,9 @@
           "rank": 1,
           "top8": [
             "ag_seed_11",
+            "ag_brand_04",
             "ag_seed_13",
             "ag_brand_01",
-            "ag_brand_04",
             "ag_seed_08",
             "ag_seed_18",
             "ag_seed_07",
@@ -3056,8 +3834,8 @@
           "top8": [
             "ag_seed_11",
             "ag_seed_08",
-            "ag_seed_18",
             "ag_brand_04",
+            "ag_seed_18",
             "ag_seed_19",
             "ag_brand_01",
             "ag_brand_02",
@@ -3078,7 +3856,7 @@
             "ag_seed_01",
             "ag_seed_08",
             "ag_seed_10",
-            "ag_seed_11"
+            "ag_seed_05"
           ]
         },
         {
@@ -3093,9 +3871,9 @@
             "ag_seed_10",
             "ag_seed_11",
             "ag_brand_01",
+            "ag_brand_02",
             "ag_brand_04",
-            "ag_seed_01",
-            "ag_brand_02"
+            "ag_seed_01"
           ]
         },
         {
@@ -3111,8 +3889,8 @@
             "ag_brand_01",
             "ag_seed_13",
             "ag_seed_08",
-            "ag_seed_18",
-            "ag_seed_11"
+            "ag_seed_11",
+            "ag_seed_16"
           ]
         },
         {
@@ -3144,9 +3922,9 @@
             "ag_seed_11",
             "ag_brand_01",
             "ag_brand_04",
+            "ag_brand_03",
             "ag_seed_09",
-            "ag_seed_01",
-            "ag_brand_02"
+            "ag_seed_01"
           ]
         },
         {
@@ -3159,8 +3937,8 @@
             "ag_seed_13",
             "ag_seed_10",
             "ag_seed_11",
-            "ag_seed_07",
             "ag_brand_01",
+            "ag_seed_07",
             "ag_brand_04",
             "ag_seed_01",
             "ag_seed_12"
@@ -3178,9 +3956,9 @@
             "ag_brand_04",
             "ag_seed_10",
             "ag_brand_01",
-            "ag_brand_02",
             "ag_seed_01",
-            "ag_seed_08"
+            "ag_seed_08",
+            "ag_brand_02"
           ]
         },
         {
@@ -3196,8 +3974,8 @@
             "ag_brand_01",
             "ag_seed_01",
             "ag_seed_04",
-            "ag_brand_04",
-            "ag_seed_15"
+            "ag_seed_15",
+            "ag_seed_18"
           ]
         },
         {
@@ -3215,6 +3993,43 @@
             "ag_brand_01",
             "ag_seed_18",
             "ag_brand_03"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.405466,
+              "semantic": 0.364952,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.336246,
+              "semantic": 0.266066,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.33565,
+              "semantic": 0.265214,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.270503,
+              "semantic": 0.172147,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.244,
+              "semantic": -0.004648,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -3244,11 +4059,11 @@
             "ag_seed_14",
             "ag_seed_15",
             "ag_seed_17",
-            "ag_brand_03",
             "ag_seed_02",
+            "ag_brand_03",
             "ag_seed_19",
-            "ag_brand_01",
-            "ag_seed_01"
+            "ag_brand_02",
+            "ag_brand_01"
           ]
         },
         {
@@ -3293,11 +4108,11 @@
           "rank": 1,
           "top8": [
             "ag_seed_15",
-            "ag_brand_04",
             "ag_seed_10",
             "ag_seed_13",
             "ag_seed_14",
-            "ag_brand_02",
+            "ag_brand_04",
+            "ag_brand_03",
             "ag_brand_01",
             "ag_seed_01"
           ]
@@ -3310,13 +4125,13 @@
           "rank": 1,
           "top8": [
             "ag_seed_15",
-            "ag_brand_03",
             "ag_seed_20",
+            "ag_brand_03",
+            "ag_brand_02",
             "ag_brand_01",
             "ag_seed_19",
-            "ag_brand_02",
             "ag_seed_02",
-            "ag_brand_04"
+            "ag_seed_14"
           ]
         },
         {
@@ -3330,10 +4145,47 @@
             "ag_seed_15",
             "ag_seed_14",
             "ag_seed_16",
-            "ag_brand_01",
+            "ag_brand_02",
             "ag_seed_19",
-            "ag_seed_01",
-            "ag_brand_03"
+            "ag_brand_03",
+            "ag_brand_01"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.540533,
+              "semantic": 0.557904,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.532077,
+              "semantic": 0.545825,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.269806,
+              "semantic": 0.171151,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.268558,
+              "semantic": 0.169369,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_02",
+              "score": 0.260994,
+              "semantic": 0.158563,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -3347,10 +4199,10 @@
             "ag_seed_14",
             "ag_seed_02",
             "ag_seed_15",
-            "ag_brand_01",
             "ag_seed_01",
+            "ag_brand_01",
             "ag_seed_05",
-            "ag_brand_03"
+            "ag_seed_12"
           ]
         },
         {
@@ -3362,8 +4214,8 @@
           "top8": [
             "ag_seed_16",
             "ag_seed_02",
-            "ag_seed_14",
             "ag_seed_18",
+            "ag_seed_14",
             "ag_seed_01",
             "ag_brand_01",
             "ag_seed_17",
@@ -3381,9 +4233,9 @@
             "ag_seed_14",
             "ag_seed_15",
             "ag_seed_02",
+            "ag_seed_18",
             "ag_seed_01",
             "ag_brand_01",
-            "ag_seed_18",
             "ag_seed_17"
           ]
         },
@@ -3399,8 +4251,8 @@
             "ag_seed_14",
             "ag_seed_01",
             "ag_brand_01",
-            "ag_seed_05",
             "ag_seed_18",
+            "ag_seed_05",
             "ag_seed_17"
           ]
         },
@@ -3414,9 +4266,9 @@
             "ag_seed_17",
             "ag_brand_01",
             "ag_seed_01",
+            "ag_brand_03",
             "ag_seed_03",
             "ag_seed_19",
-            "ag_brand_03",
             "ag_seed_07",
             "ag_seed_10"
           ]
@@ -3465,11 +4317,48 @@
             "ag_seed_16",
             "ag_seed_17",
             "ag_seed_14",
-            "ag_brand_03",
             "ag_seed_18",
+            "ag_brand_03",
             "ag_seed_02",
             "ag_brand_01",
             "ag_seed_01"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.390211,
+              "semantic": 0.343159,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.35877,
+              "semantic": 0.298243,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.264722,
+              "semantic": 0.163889,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.24947,
+              "semantic": 0.142099,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.248949,
+              "semantic": 0.141356,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -3484,9 +4373,46 @@
             "ag_seed_19",
             "ag_brand_01",
             "ag_seed_01",
-            "ag_brand_03",
             "ag_seed_17",
+            "ag_brand_03",
             "ag_seed_09"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.486521,
+              "semantic": 0.480745,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.378643,
+              "semantic": 0.326632,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.353409,
+              "semantic": 0.290585,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.303071,
+              "semantic": 0.084387,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.244,
+              "semantic": -0.045121,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -3494,16 +4420,53 @@
           "answers": [
             "ag_seed_18"
           ],
-          "rank": 9,
+          "rank": 6,
           "top8": [
             "ag_brand_01",
             "ag_brand_02",
             "ag_brand_03",
             "ag_brand_04",
             "ag_seed_01",
+            "ag_seed_18",
             "ag_seed_20",
-            "ag_seed_15",
-            "ag_seed_10"
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.474482,
+              "semantic": 0.329259,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_brand_02",
+              "score": 0.427458,
+              "semantic": 0.396369,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.42388,
+              "semantic": 0.391258,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_04",
+              "score": 0.371711,
+              "semantic": 0.31673,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.307145,
+              "semantic": 0.090207,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -3515,8 +4478,8 @@
           "top8": [
             "ag_seed_18",
             "ag_brand_01",
-            "ag_brand_03",
             "ag_seed_01",
+            "ag_brand_03",
             "ag_seed_08",
             "ag_seed_05",
             "ag_seed_09",
@@ -3536,8 +4499,8 @@
             "ag_seed_01",
             "ag_seed_08",
             "ag_brand_04",
-            "ag_brand_03",
-            "ag_seed_20"
+            "ag_seed_20",
+            "ag_brand_03"
           ]
         },
         {
@@ -3550,11 +4513,11 @@
             "ag_seed_19",
             "ag_brand_03",
             "ag_brand_01",
-            "ag_brand_04",
             "ag_seed_07",
+            "ag_brand_04",
+            "ag_brand_02",
             "ag_seed_20",
-            "ag_seed_01",
-            "ag_seed_11"
+            "ag_seed_18"
           ]
         },
         {
@@ -3571,7 +4534,44 @@
             "ag_brand_01",
             "ag_seed_01",
             "ag_seed_14",
-            "ag_seed_07"
+            "ag_brand_02"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.550769,
+              "semantic": 0.572527,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.544224,
+              "semantic": 0.563177,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.330704,
+              "semantic": 0.258148,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.252107,
+              "semantic": 0.145867,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.244,
+              "semantic": -0.0029,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -3596,16 +4596,53 @@
           "answers": [
             "ag_seed_19"
           ],
-          "rank": 7,
+          "rank": 8,
           "top8": [
             "ag_brand_01",
             "ag_brand_03",
+            "ag_brand_02",
             "ag_seed_03",
+            "ag_seed_18",
             "ag_seed_01",
             "ag_seed_17",
-            "ag_brand_02",
-            "ag_seed_19",
-            "ag_brand_04"
+            "ag_seed_19"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.411924,
+              "semantic": 0.239891,
+              "lexical": null,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.35013,
+              "semantic": 0.2859,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_02",
+              "score": 0.288381,
+              "semantic": 0.197688,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.247308,
+              "semantic": 0.139012,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.244141,
+              "semantic": 0.134487,
+              "lexical": null,
+              "trust": 0.5
+            }
           ]
         },
         {
@@ -3619,10 +4656,10 @@
             "ag_seed_08",
             "ag_brand_01",
             "ag_brand_04",
-            "ag_brand_02",
             "ag_seed_19",
             "ag_seed_15",
-            "ag_brand_03"
+            "ag_brand_03",
+            "ag_brand_02"
           ]
         },
         {
@@ -3637,9 +4674,46 @@
             "ag_seed_02",
             "ag_brand_02",
             "ag_brand_01",
-            "ag_seed_16",
             "ag_brand_03",
+            "ag_seed_16",
             "ag_seed_19"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.559576,
+              "semantic": 0.585109,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.441095,
+              "semantic": 0.41585,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.351698,
+              "semantic": 0.28814,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_02",
+              "score": 0.340659,
+              "semantic": 0.27237,
+              "lexical": null,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.314304,
+              "semantic": 0.100434,
+              "lexical": null,
+              "trust": 0.813333
+            }
           ]
         },
         {
@@ -3655,7 +4729,7 @@
             "ag_brand_03",
             "ag_brand_02",
             "ag_seed_19",
-            "ag_brand_04",
+            "ag_seed_18",
             "ag_seed_10"
           ]
         },
@@ -3670,10 +4744,10 @@
             "ag_brand_01",
             "ag_seed_19",
             "ag_seed_01",
-            "ag_brand_03",
             "ag_brand_02",
+            "ag_brand_03",
             "ag_seed_18",
-            "ag_brand_04"
+            "ag_seed_03"
           ]
         }
       ]

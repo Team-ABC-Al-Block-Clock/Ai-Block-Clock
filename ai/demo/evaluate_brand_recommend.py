@@ -29,17 +29,28 @@ def metrics(rows):
             "mrr": sum(1 / r["rank"] if r["rank"] else 0 for r in rows) / len(rows), "rows": rows}
 
 
+def rank_score(relevance, agent, mode, additive_score, trust):
+    """후보 수식 비교. gated는 서비스 변경 제안일 뿐 기본 실행에는 적용하지 않는다."""
+    if mode == "additive":
+        return additive_score
+    # 관련도가 낮으면 높은 등급도 위로 끌어올리지 못한다.
+    rel = max(0.0, min(1.0, relevance))
+    return rel * (0.7 + 0.3 * trust)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--agents", type=Path, default=ROOT / "brand/prepared/brand_agents_local.json")
     ap.add_argument("--out", type=Path, default=ROOT / "brand/prepared/recommend_local_report.json")
+    ap.add_argument("--rank-mode", choices=("additive", "gated"), default="additive")
+    ap.add_argument("--model", choices=("finetuned", "pretrained"), default="finetuned")
     args = ap.parse_args()
     # 로컬 가중치만 사용: 평가 중 다운로드나 모델 대체가 일어나지 않게 한다.
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     sys.path.insert(0, str(RECOMMEND))
     from sentence_transformers import SentenceTransformer
-    from app.config import FINETUNED_DIR, HYBRID_MODE
+    from app.config import FINETUNED_DIR, HYBRID_MODE, PRETRAINED
     from app.index.store import AgentIndex
     from app.ranking.score import final_score
     from app.schemas import AgentRecord
@@ -51,25 +62,45 @@ def main():
     golden = [(q["query"], set(q["answers"])) for q in read(RECOMMEND / "data/golden_queries.json")["queries"]]
     holdout = [(r["query"], {r["positive_agent_id"]}) for r in
                (json.loads(line) for line in (RECOMMEND / "data/holdout_pairs.jsonl").read_text(encoding="utf-8").splitlines() if line.strip())]
-    model = SentenceTransformer(str(FINETUNED_DIR), local_files_only=True, device="cpu")
+    model_path = str(FINETUNED_DIR) if args.model == "finetuned" else PRETRAINED
+    model = SentenceTransformer(model_path, local_files_only=True, device="cpu")
     def encode(texts):
         return model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-    index = AgentIndex(encode, "abc-agent-retriever-v1")
+    model_version = "abc-agent-retriever-v1" if args.model == "finetuned" else "ko-sroberta-multitask-pretrained"
+    index = AgentIndex(encode, model_version)
     def evaluate(pairs):
         rows = []
         for query, answers in pairs:
-            hits = sorted(index.search(query), key=lambda h: -final_score(h.relevance, h.agent)[0])
+            scored = []
+            for hit in index.search(query):
+                additive, trust = final_score(hit.relevance, hit.agent)
+                scored.append((rank_score(hit.relevance, hit.agent, args.rank_mode, additive, trust), trust, hit))
+            scored.sort(key=lambda row: -row[0])
+            hits = [row[2] for row in scored]
             ids = [h.agent.agent_id for h in hits]
             rank = next((i for i, aid in enumerate(ids, 1) if aid in answers), None)
-            rows.append({"query": query, "answers": sorted(answers), "rank": rank, "top8": ids[:8]})
+            top8 = []
+            diagnostics = []
+            for score, trust, hit in scored[:8]:
+                top8.append(hit.agent.agent_id)
+                if rank != 1 and len(diagnostics) < 5:
+                    diagnostics.append({"agent_id": hit.agent.agent_id, "score": round(score, 6),
+                                        "semantic": round(hit.semantic, 6),
+                                        "lexical": round(hit.lexical, 6) if hit.lexical is not None else None,
+                                        "trust": round(trust, 6)})
+            row = {"query": query, "answers": sorted(answers), "rank": rank, "top8": top8}
+            if diagnostics:
+                row["diagnostics"] = diagnostics
+            rows.append(row)
         return metrics(rows)
     index.upsert([AgentRecord(**a) for a in seed])
     before = {"golden": evaluate(golden), "holdout": evaluate(holdout)}
     index.upsert([AgentRecord(**a) for a in brand])
     after = {"brand": evaluate([(q, {aid}) for q, aid in QUERIES]),
              "golden": evaluate(golden), "holdout": evaluate(holdout)}
-    report = {"status": "local_pre_registration_not_final", "model": "abc-agent-retriever-v1",
-              "hybrid_mode": HYBRID_MODE, "trust_included": True, "indexed_agents": len(index),
+    report = {"status": "local_pre_registration_not_final", "model": model_version,
+              "hybrid_mode": HYBRID_MODE, "rank_mode": args.rank_mode,
+              "trust_included": True, "indexed_agents": len(index),
               "content_sha256": hashlib.sha256(args.agents.read_bytes()).hexdigest(),
               "note": "기존 사전 평가의 브랜딩 9질의를 유지. 예산 질의는 현 콘텐츠 범위와 차이가 있어 해석 시 주의.",
               "before": before, "after": after,

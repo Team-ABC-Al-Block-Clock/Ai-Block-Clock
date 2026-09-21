@@ -1,6 +1,6 @@
 import unittest
 from prepare_brand_demo import prepare, seed_score
-from evaluate_brand_recommend import metrics
+from evaluate_brand_recommend import metrics, rank_score
 
 
 class PreparationTests(unittest.TestCase):
@@ -42,6 +42,13 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(result["top8"], 2)
         with self.assertRaises(ValueError):
             metrics([])
+
+    def test_gated_trust_cannot_rescue_irrelevant_agent(self):
+        high_trust = rank_score(0, None, "gated", .3, 1)
+        relevant_bronze = rank_score(.4, None, "gated", .43, .5)
+        self.assertEqual(high_trust, 0)
+        self.assertGreater(relevant_bronze, high_trust)
+        self.assertEqual(rank_score(.2, None, "additive", .29, .5), .29)
 
 
 if __name__ == "__main__":
