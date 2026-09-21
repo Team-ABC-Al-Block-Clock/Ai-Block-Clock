@@ -21,8 +21,19 @@ import { queryClient } from '@/lib/queryClient'
 export type AuthStatus = 'idle' | 'restoring' | 'authenticated' | 'unauthenticated'
 
 /** 세션이 왜 끝났는지. 스스로 누른 로그아웃은 이유가 없다(`null`) —
- *  본인이 아는 일에 안내를 띄우면 사고처럼 보인다. */
-export type SessionEndReason = 'expired' | 'revoked' | 'invalid' | 'disconnected' | 'account'
+ *  본인이 아는 일에 안내를 띄우면 사고처럼 보인다.
+ *
+ *  타입과 런타임 검사가 이 배열 하나에서 나온다. 따로 두었더니 `routes/access.ts` 가
+ *  세 개만 통과시켜 `revoked`·`invalid` 안내가 화면에 닿지 못했다. */
+export const SESSION_END_REASONS = [
+  'expired',
+  'revoked',
+  'invalid',
+  'disconnected',
+  'account',
+] as const
+
+export type SessionEndReason = (typeof SESSION_END_REASONS)[number]
 
 /** 시간이 지나 끊긴 것과 서버가 끊은 것은 사용자가 할 일이 달라 문구를 나눈다. */
 export function endReasonFromAuthCode(code?: string): SessionEndReason {
