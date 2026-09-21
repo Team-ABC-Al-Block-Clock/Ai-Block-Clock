@@ -114,7 +114,7 @@ function writeSession(walletAddress: string | null) {
   }
 }
 
-/** 실서버가 7일을 준다. 화면이 만료 시각을 쓸 때 모양이 같아야 한다. */
+/** 실서버 TTL 과 같은 모양이면 된다 — 값 자체는 BE 설정이다. */
 const SESSION_DAYS = 7
 
 function issueSession() {
@@ -167,9 +167,14 @@ export const authHandlers = [
     return issueSession()
   }),
 
+  /** 쿠키가 없거나 형식이 틀리면 실서버도 거절한다 — 200 이 아니다. */
   http.post(`${API_BASE_URL}/auth/logout`, async () => {
     const forced = await scene()
     if (forced) return forced
+
+    if (!readSession()) {
+      return fail(401, AUTH_ERROR.INVALID, '로그인 세션을 사용할 수 없습니다.')
+    }
 
     writeSession(null)
     return ok(null)

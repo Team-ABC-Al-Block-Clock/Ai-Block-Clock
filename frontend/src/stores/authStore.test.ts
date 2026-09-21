@@ -184,6 +184,24 @@ describe('정상 경로', () => {
     expect(useAuthStore.getState().status).toBe('unauthenticated')
   })
 
+  it('로그아웃이 401 로 끝나도 사유를 남기지 않는다', async () => {
+    // 쿠키가 이미 없으면 서버가 401 을 준다. 그때 인터셉터가 먼저 사유를 남기고
+    // `signOut` 의 finally 가 뒤따르는데, 본인이 누른 로그아웃에 안내가 붙으면 안 된다.
+    h.getMyProfile.mockResolvedValue(PROFILE)
+    const useAuthStore = await freshStore()
+    await useAuthStore.getState().restore()
+
+    h.logout.mockImplementation(() => {
+      h.onAuthFailure('AUTH_018')
+      return Promise.reject(new Error('401'))
+    })
+
+    await expect(useAuthStore.getState().signOut()).rejects.toThrow('401')
+
+    expect(useAuthStore.getState().status).toBe('unauthenticated')
+    expect(useAuthStore.getState().endedBy).toBeNull()
+  })
+
   it('로그아웃 요청이 실패해도 세션은 끊는다', async () => {
     h.getMyProfile.mockResolvedValue(PROFILE)
     h.logout.mockRejectedValue(new Error('500'))
