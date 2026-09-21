@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class WorkflowTest {
@@ -32,47 +33,32 @@ class WorkflowTest {
     }
 
     @Test
-    @DisplayName("소유자가 아니면 캔버스를 바꿀 수 없다")
-    void onlyOwnerCanReplaceGraph() {
-        assertThatThrownBy(() -> workflow.replaceGraph(
-                OTHER, GraphFixtures.straightLine(), Revision.initial()))
-                .isInstanceOf(CoreException.class);
+    @DisplayName("소유자만 통과시킨다")
+    void onlyOwnerPasses() {
+        assertThatCode(() -> workflow.ensureOwner(OWNER)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> workflow.ensureOwner(OTHER))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.WORKFLOW_FORBIDDEN);
     }
 
     @Test
-    @DisplayName("교체에 성공하면 회차가 오른다")
-    void bumpsRevision() {
-        workflow.replaceGraph(OWNER, GraphFixtures.straightLine(), Revision.initial());
+    @DisplayName("교체하면 회차가 오르고 지난 검증 결과는 무효가 된다")
+    void bumpsRevisionAndResetsValidation() {
+        Workflow validated = WorkflowFixtures.validated(OWNER, GraphFixtures.straightLine());
 
-        assertThat(workflow.getRevision()).isEqualTo(Revision.of(2));
+        GraphRevision revised = validated.nextRevisionFor(Revision.initial());
+
+        assertThat(revised.revision()).isEqualTo(Revision.of(2));
+        assertThat(revised.validationStatus()).isEqualTo(ValidationStatus.NOT_VALIDATED);
     }
 
     @Test
     @DisplayName("들고 온 회차가 낡았으면 덮어쓰지 않는다")
     void rejectsStaleRevision() {
-        workflow.replaceGraph(OWNER, GraphFixtures.straightLine(), Revision.initial());
-
-        assertThatThrownBy(() -> workflow.replaceGraph(
-                OWNER, GraphFixtures.chainOf(2), Revision.initial()))
-                .isInstanceOf(CoreException.class);
-        assertThat(workflow.getGraph().nodeCount()).isEqualTo(3);
-    }
-
-    @Test
-    @DisplayName("캔버스가 바뀌면 지난 검증 결과는 무효가 된다")
-    void resetsValidationOnReplace() {
-        workflow.replaceGraph(OWNER, GraphFixtures.straightLine(), Revision.initial());
-        workflow.markValidated();
-
-        workflow.replaceGraph(OWNER, GraphFixtures.straightLine(), Revision.of(2));
-
-        assertThat(workflow.getValidationStatus()).isEqualTo(ValidationStatus.NOT_VALIDATED);
-    }
-
-    @Test
-    @DisplayName("소유자가 아니면 이름도 바꿀 수 없다")
-    void onlyOwnerCanRename() {
-        assertThatThrownBy(() -> workflow.rename(OTHER, "다른 이름"))
-                .isInstanceOf(CoreException.class);
+        assertThatThrownBy(() -> workflow.nextRevisionFor(Revision.of(2)))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.WORKFLOW_REVISION_CONFLICT);
     }
 }

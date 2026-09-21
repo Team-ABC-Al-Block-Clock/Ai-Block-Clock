@@ -40,15 +40,15 @@ public class WorkflowWriter {
     }
 
     @Transactional
-    public Workflow update(Workflow workflow) {
-        WorkflowEntity entity = workflowRepository.findById(workflow.getId().value())
+    public Workflow update(WorkflowId id, String name, WorkflowGraph graph, GraphRevision revised) {
+        WorkflowEntity entity = workflowRepository.findById(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
 
-        entity.rename(workflow.getName());
-        entity.revise(workflow.getValidationStatus(), workflow.getRevision().value());
+        entity.rename(name);
+        entity.revise(revised.validationStatus(), revised.revision().value());
 
-        List<WorkflowNodeEntity> nodes = mergeNodes(entity.getId(), workflow.getGraph());
-        List<WorkflowEdgeEntity> edges = mergeEdges(entity.getId(), workflow.getGraph());
+        List<WorkflowNodeEntity> nodes = mergeNodes(entity.getId(), graph);
+        List<WorkflowEdgeEntity> edges = mergeEdges(entity.getId(), graph);
 
         return WorkflowEntityConverter.toDomain(entity, nodes, edges);
     }

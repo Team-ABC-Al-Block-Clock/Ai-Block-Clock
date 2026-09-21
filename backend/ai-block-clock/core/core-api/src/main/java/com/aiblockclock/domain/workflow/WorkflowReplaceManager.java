@@ -30,8 +30,6 @@ public class WorkflowReplaceManager {
 
         WorkflowGraph graph = workflowGraphAssembler.assemble(nodes, edges);
 
-        workflow.rename(requester, name);
-        workflow.replaceGraph(requester, graph, expectedRevision);
-        return workflowWriter.update(workflow);
+        return workflowWriter.update(id, name, graph, workflow.nextRevisionFor(expectedRevision));
     }
 }

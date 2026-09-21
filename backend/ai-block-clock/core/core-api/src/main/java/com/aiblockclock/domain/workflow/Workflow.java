@@ -7,24 +7,22 @@ import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.time.Instant;
 import java.util.Map;
 
 @Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Workflow {
     private final WorkflowId id;
     private final OwnerId owner;
-
-    private String name;
-    private String description;
-    private WorkflowGraph graph;
-    private ValidationStatus validationStatus;
-    private Revision revision;
-
+    private final String name;
+    private final String description;
+    private final WorkflowGraph graph;
+    private final ValidationStatus validationStatus;
+    private final Revision revision;
     private final Timestamps timestamps;
     private final Instant lastExecutedAt;
 
@@ -49,30 +47,13 @@ public final class Workflow {
                 timestamps, lastExecutedAt);
     }
 
-    public void rename(OwnerId requester, String name) {
-        ensureOwner(requester);
-        this.name = name;
-    }
-
-    public void replaceGraph(OwnerId requester, WorkflowGraph graph, Revision expected) {
-        ensureOwner(requester);
+    public GraphRevision nextRevisionFor(Revision expected) {
         if (!revision.equals(expected)) {
             throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
                     Map.of("expectedRevision", expected.value(), "currentRevision", revision.value()));
         }
 
-        this.graph = graph;
-
-        this.validationStatus = ValidationStatus.NOT_VALIDATED;
-        this.revision = revision.next();
-    }
-
-    public void markValidated() {
-        this.validationStatus = ValidationStatus.VALID;
-    }
-
-    public void markInvalid() {
-        this.validationStatus = ValidationStatus.INVALID;
+        return new GraphRevision(revision.next(), ValidationStatus.NOT_VALIDATED);
     }
 
     public boolean isValidated() {
