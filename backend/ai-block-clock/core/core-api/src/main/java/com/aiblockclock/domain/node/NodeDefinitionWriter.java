@@ -25,7 +25,8 @@ public class NodeDefinitionWriter {
         NodeDefinitionEntity entity = nodeRepository.findById(node.getId().value())
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
 
-        entity.edit(node.getName(), node.getPrompt().value(), node.getModel(), node.getBaseCost().value());
+        entity.edit(node.getSpec().name(), node.getPrompt().value(),
+                node.getSpec().model(), node.getSpec().baseCost().value());
 
         return NodeDefinitionEntityConverter.toDomain(entity);
     }

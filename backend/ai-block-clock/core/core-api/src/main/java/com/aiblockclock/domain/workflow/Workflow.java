@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.enums.workflow.ValidationStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -9,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.time.Instant;
 import java.util.Map;
 
 @Getter
@@ -23,12 +25,13 @@ public final class Workflow {
     private ValidationStatus validationStatus;
     private Revision revision;
 
-    private final WorkflowTimestamps timestamps;
+    private final Timestamps timestamps;
+    private final Instant lastExecutedAt;
 
     public static Workflow create(
             WorkflowId id, OwnerId owner, String name, String description, WorkflowGraph graph) {
         return new Workflow(id, owner, name, description, graph,
-                ValidationStatus.NOT_VALIDATED, Revision.initial(), WorkflowTimestamps.unsaved());
+                ValidationStatus.NOT_VALIDATED, Revision.initial(), Timestamps.unsaved(), null);
     }
 
     public static Workflow restore(
@@ -39,9 +42,11 @@ public final class Workflow {
             WorkflowGraph graph,
             ValidationStatus validationStatus,
             Revision revision,
-            WorkflowTimestamps timestamps
+            Timestamps timestamps,
+            Instant lastExecutedAt
     ) {
-        return new Workflow(id, owner, name, description, graph, validationStatus, revision, timestamps);
+        return new Workflow(id, owner, name, description, graph, validationStatus, revision,
+                timestamps, lastExecutedAt);
     }
 
     public void rename(OwnerId requester, String name) {

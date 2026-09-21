@@ -1,8 +1,7 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.OwnerId;
-import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -15,25 +14,25 @@ import lombok.Getter;
 public final class NodeDefinition {
     private final NodeDefinitionId id;
     private final OwnerId owner;
+    private final Timestamps timestamps;
 
-    private String name;
+    private NodeSpec spec;
     private Prompt prompt;
-    private AiModel model;
-    private AbcAmount baseCost;
 
-    public static NodeDefinition create(
-            NodeDefinitionId id, OwnerId owner, String name, Prompt prompt, AiModel model, AbcAmount baseCost) {
-        return new NodeDefinition(id, owner, name, prompt, model, baseCost);
+    public static NodeDefinition create(NodeDefinitionId id, OwnerId owner, NodeSpec spec, Prompt prompt) {
+        return new NodeDefinition(id, owner, Timestamps.unsaved(), spec, prompt);
     }
 
-    public void update(
-            OwnerId requester, String name, Prompt prompt, AiModel model, AbcAmount baseCost) {
+    public static NodeDefinition restore(
+            NodeDefinitionId id, OwnerId owner, Timestamps timestamps, NodeSpec spec, Prompt prompt) {
+        return new NodeDefinition(id, owner, timestamps, spec, prompt);
+    }
+
+    public void update(OwnerId requester, NodeSpec spec, Prompt prompt) {
         ensureOwner(requester);
 
-        this.name = name;
+        this.spec = spec;
         this.prompt = prompt;
-        this.model = model;
-        this.baseCost = baseCost;
     }
 
     public boolean isOwnedBy(OwnerId candidate) {

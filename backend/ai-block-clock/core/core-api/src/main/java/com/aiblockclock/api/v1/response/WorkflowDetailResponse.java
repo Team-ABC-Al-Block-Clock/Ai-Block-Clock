@@ -63,7 +63,7 @@ public record WorkflowDetailResponse(
                 edges,
                 AbcPricing.UNPRICED,
                 AbcPricing.CURRENCY,
-                workflow.getTimestamps().lastExecutedAt(),
+                workflow.getLastExecutedAt(),
                 workflow.getTimestamps().updatedAt());
     }
 

@@ -1,6 +1,5 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.support.paging.CursorPage;
@@ -19,9 +18,9 @@ public class NodeDefinitionService {
     private final NodeDefinitionDeletionPolicy deletionPolicy;
 
     public NodeDefinition create(OwnerId requester, String name, Prompt prompt, AiModel model) {
-        AbcAmount baseCost = baseCostCalculator.calculate(prompt, model);
+        NodeSpec spec = new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model));
 
-        return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, name, prompt, model, baseCost));
+        return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt));
     }
 
     public NodeDefinition get(NodeDefinitionId id, OwnerId requester) {
@@ -37,7 +36,7 @@ public class NodeDefinitionService {
 
     public NodeDefinition update(NodeDefinitionId id, OwnerId requester, String name, Prompt prompt, AiModel model) {
         NodeDefinition node = nodeReader.read(id);
-        node.update(requester, name, prompt, model, baseCostCalculator.calculate(prompt, model));
+        node.update(requester, new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model)), prompt);
 
         return nodeWriter.update(node);
     }

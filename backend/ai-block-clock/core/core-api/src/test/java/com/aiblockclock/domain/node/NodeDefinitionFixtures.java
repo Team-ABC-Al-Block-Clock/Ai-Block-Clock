@@ -13,7 +13,11 @@ public final class NodeDefinitionFixtures {
     }
 
     public static NodeDefinition of(OwnerId owner) {
-        return NodeDefinition.create(NodeDefinitionId.newId(), owner, "성적 분석",
-                Prompt.of("당신은 학원 성적 데이터 분석가입니다."), AiModel.defaultModel(), COST);
+        return NodeDefinition.create(NodeDefinitionId.newId(), owner, spec("성적 분석"),
+                Prompt.of("당신은 학원 성적 데이터 분석가입니다."));
+    }
+
+    public static NodeSpec spec(String name) {
+        return new NodeSpec(name, AiModel.defaultModel(), COST);
     }
 }

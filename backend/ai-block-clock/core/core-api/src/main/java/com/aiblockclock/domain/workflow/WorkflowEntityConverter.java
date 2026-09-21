@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
 import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
@@ -33,10 +34,8 @@ final class WorkflowEntityConverter {
                 WorkflowGraph.of(nodes, edges),
                 entity.getValidationStatus(),
                 Revision.of(entity.getRevision()),
-                new WorkflowTimestamps(
-                        entity.getCreatedAt(),
-                        entity.getUpdatedAt(),
-                        entity.getLastExecutedAt()));
+                new Timestamps(entity.getCreatedAt(), entity.getUpdatedAt()),
+                entity.getLastExecutedAt());
     }
 
     static WorkflowSummary toSummary(WorkflowEntity entity) {

@@ -1,7 +1,6 @@
 package com.aiblockclock.domain.node;
 
 import com.aiblockclock.domain.OwnerId;
-import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -19,10 +18,10 @@ class NodeDefinitionTest {
     void ownerUpdates() {
         NodeDefinition node = NodeDefinitionFixtures.of(OWNER);
 
-        node.update(OWNER, "가정통신문 작성", Prompt.of("당신은 교육 심리 전문가입니다."),
-                AiModel.defaultModel(), NodeDefinitionFixtures.COST);
+        node.update(OWNER, NodeDefinitionFixtures.spec("가정통신문 작성"),
+                Prompt.of("당신은 교육 심리 전문가입니다."));
 
-        assertThat(node.getName()).isEqualTo("가정통신문 작성");
+        assertThat(node.getSpec().name()).isEqualTo("가정통신문 작성");
         assertThat(node.getPrompt().value()).isEqualTo("당신은 교육 심리 전문가입니다.");
     }
 
@@ -31,8 +30,7 @@ class NodeDefinitionTest {
     void rejectsNonOwner() {
         NodeDefinition node = NodeDefinitionFixtures.of(OWNER);
 
-        assertThatThrownBy(() -> node.update(OTHER, "탈취", node.getPrompt(),
-                AiModel.defaultModel(), NodeDefinitionFixtures.COST))
+        assertThatThrownBy(() -> node.update(OTHER, NodeDefinitionFixtures.spec("탈취"), node.getPrompt()))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.NODE_FORBIDDEN);
@@ -43,6 +41,6 @@ class NodeDefinitionTest {
     void baseCostComesFromOutside() {
         NodeDefinition node = NodeDefinitionFixtures.of(OWNER);
 
-        assertThat(node.getBaseCost()).isEqualTo(NodeDefinitionFixtures.COST);
+        assertThat(node.getSpec().baseCost()).isEqualTo(NodeDefinitionFixtures.COST);
     }
 }
