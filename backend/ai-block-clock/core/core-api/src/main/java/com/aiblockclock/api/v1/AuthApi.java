@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
-@Tag(name = "인증", description = "지갑 로그인 및 세션 관리. 허용된 Origin 또는 Referer가 필요합니다.")
+@Tag(name = "인증", description = "지갑 로그인 및 세션 관리. 허용된 Origin이 필요합니다.")
 public interface AuthApi {
 
     @Operation(summary = "서명할 지갑 인증 메시지 발급")

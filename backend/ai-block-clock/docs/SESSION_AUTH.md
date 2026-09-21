@@ -57,7 +57,7 @@ Access Token과 Refresh Token은 사용하지 않는다. 따라서 JWT 비밀키
 ## CSRF와 CORS
 
 쿠키는 브라우저가 자동 전송하므로 상태 변경 요청에는 CSRF 방어가 필요하다.
-`POST`, `PUT`, `PATCH`, `DELETE /api/v1/**` 요청은 설정된 `Origin` 또는 `Referer`와 일치해야 한다.
+`POST`, `PUT`, `PATCH`, `DELETE /api/v1/**` 요청은 설정된 `Origin`과 일치해야 한다.
 허용 출처는 `AUTH_ALLOWED_ORIGINS`로 설정한다. CORS는 쿠키를 허용하도록
 `allowCredentials(true)`를 사용한다.
 

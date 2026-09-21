@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.net.URI;
-
 @Component
 @RequiredArgsConstructor
 public class AuthOriginInterceptor implements HandlerInterceptor {
@@ -24,9 +22,6 @@ public class AuthOriginInterceptor implements HandlerInterceptor {
         }
 
         String origin = request.getHeader("Origin");
-        if (origin == null) {
-            origin = originOf(request.getHeader("Referer"));
-        }
 
         if (origin == null || !properties.allowedOrigins().contains(origin)) {
             throw new CoreException(ErrorType.INVALID_REQUEST);
@@ -38,22 +33,5 @@ public class AuthOriginInterceptor implements HandlerInterceptor {
     private static boolean isStateChanging(String method) {
         return "POST".equals(method) || "PUT".equals(method)
                 || "PATCH".equals(method) || "DELETE".equals(method);
-    }
-
-    private static String originOf(String referer) {
-        if (referer == null) {
-            return null;
-        }
-
-        try {
-            URI uri = URI.create(referer);
-            if (uri.getHost() == null || uri.getRawUserInfo() != null) {
-                return null;
-            }
-
-            return uri.getScheme() + "://" + uri.getRawAuthority();
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
     }
 }

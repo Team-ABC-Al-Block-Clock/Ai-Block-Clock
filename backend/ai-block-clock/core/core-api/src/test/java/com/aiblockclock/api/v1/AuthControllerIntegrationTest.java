@@ -105,7 +105,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void 상태를_바꾸는_API는_허용된_Origin이나_Referer가_필요하다() throws Exception {
+    void 상태를_바꾸는_API는_허용된_Origin이_필요하다() throws Exception {
         String requestBody = mapper.writeValueAsString(Map.of("walletAddress", address(newWallet())));
 
         mvc.perform(post(ROOT + "/wallet/message")
@@ -116,7 +116,7 @@ class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
                 .andExpect(status().isForbidden());
         mvc.perform(post(ROOT + "/wallet/message")
-                        .header(HttpHeaders.REFERER, ORIGIN + "/login")
+                        .header(HttpHeaders.ORIGIN, ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
                 .andExpect(status().isOk());
     }
