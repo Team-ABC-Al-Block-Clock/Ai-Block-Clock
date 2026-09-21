@@ -1,0 +1,5461 @@
+{
+  "status": "local_pre_registration_not_final",
+  "model": "ko-sroberta-multitask-pretrained",
+  "hybrid_mode": "weighted",
+  "rank_mode": "additive",
+  "trust_included": true,
+  "indexed_agents": 24,
+  "content_sha256": "032527832f1aa1b6bfab5dbe7d280ad4ff810a1b7a94fcb830bdf24e7ce35953",
+  "note": "기존 사전 평가의 브랜딩 9질의를 유지. 예산 질의는 현 콘텐츠 범위와 차이가 있어 해석 시 주의.",
+  "before": {
+    "golden": {
+      "n": 22,
+      "top1": 21,
+      "top8": 22,
+      "mrr": 0.9772727272727273,
+      "rows": [
+        {
+          "query": "회의록 요약해줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "성적 데이터 분석하고 싶어",
+          "answers": [
+            "ag_seed_01",
+            "ag_seed_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_05",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "커밋 메시지 좀 써줘",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_11",
+            "ag_seed_16",
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_02"
+          ]
+        },
+        {
+          "query": "주간 일정 브리핑 만들어줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_04"
+          ]
+        },
+        {
+          "query": "코드 리뷰 코멘트 달아줘",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_20",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_04",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "사과문 초안 작성해줘",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_08",
+            "ag_seed_19",
+            "ag_seed_17",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_seed_14",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "출결 리포트 뽑아줘",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_02",
+            "ag_seed_19",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "학원 애들 점수가 얼마나 올랐는지 보고 싶은데",
+          "answers": [
+            "ag_seed_01",
+            "ag_seed_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_02",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_05",
+            "ag_seed_08",
+            "ag_seed_18",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "부모님께 보낼 안내문 좀 써줘",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_05",
+            "ag_seed_01",
+            "ag_seed_17",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "우리 팀이 짠 코드 좀 봐줄 사람 없나",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_20",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_12",
+            "ag_seed_14",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "애들이 몇 번이나 안 나왔는지 정리해야 해",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_03",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_05"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.5321,
+              "semantic": 0.412357,
+              "lexical": 2.489246,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.51059,
+              "semantic": 0.490261,
+              "lexical": 6.197853,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.442248,
+              "semantic": 0.386839,
+              "lexical": 6.275601,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.383988,
+              "semantic": 0.331467,
+              "lexical": 2.431809,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.382414,
+              "semantic": 0.349495,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "긴 글에서 중요한 부분만 뽑아줘",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_15",
+            "ag_seed_19",
+            "ag_seed_17"
+          ]
+        },
+        {
+          "query": "고객사에 늦어져서 죄송하다고 연락드려야 하는데",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_02",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "앞으로 며칠간 뭘 해야 하는지 한눈에 보고 싶어",
+          "answers": [
+            "ag_seed_10",
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_seed_12",
+            "ag_seed_15",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "대화 내용에서 해야 할 것만 뽑아낼 수 있나",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_06",
+            "ag_seed_09",
+            "ag_seed_12",
+            "ag_seed_05",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "거래처에 정중하게 연락해야 하는데 문장이 안 떠올라",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_13",
+            "ag_seed_12",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "이번에 뭐가 바뀌었는지 팀에 알려야 해",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_16",
+            "ag_seed_01",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_14",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "학부모랑 얘기한 내용 문서로 남겨야 해",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_02",
+            "ag_seed_01",
+            "ag_seed_16",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "다음 모임에서 뭘 다룰지 목록으로 만들어줘",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_06",
+            "ag_seed_05",
+            "ag_seed_08",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "조사한 내용 가지고 문서 뼈대부터 잡아줘",
+          "answers": [
+            "ag_seed_07",
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_06",
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "같은 내용을 여러 사람에게 한꺼번에 전달해야 하는데",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_12",
+            "ag_seed_10",
+            "ag_seed_14",
+            "ag_seed_01",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "새로 쓸 필요는 없고 있는 글만 다듬어 줬으면",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_09",
+            "ag_seed_20",
+            "ag_seed_11",
+            "ag_seed_14",
+            "ag_seed_07",
+            "ag_seed_16",
+            "ag_seed_19"
+          ]
+        }
+      ]
+    },
+    "holdout": {
+      "n": 80,
+      "top1": 58,
+      "top8": 79,
+      "mrr": 0.8393055555555555,
+      "rows": [
+        {
+          "query": "시험 결과 파일 주면 요약해 주나",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_05",
+            "ag_seed_18",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_02"
+          ]
+        },
+        {
+          "query": "성적표 데이터 정리",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_seed_05",
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_02"
+          ]
+        },
+        {
+          "query": "중간고사 기말고사 비교 분석",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_18",
+            "ag_seed_08",
+            "ag_seed_20"
+          ]
+        },
+        {
+          "query": "점수표 넣으면 통계 내주는 거",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_18",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "우리 아이 어떤가요 물어보실 때 드릴 답변 미리 준비하고 싶어",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_seed_14",
+            "ag_seed_01",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_17"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.447415,
+              "semantic": 0.44724,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.433864,
+              "semantic": 0.393065,
+              "lexical": 3.494382,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.423174,
+              "semantic": 0.410787,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.409476,
+              "semantic": 0.377374,
+              "lexical": 1.325045,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.399272,
+              "semantic": 0.233492,
+              "lexical": 0.0,
+              "trust": 0.813333
+            }
+          ]
+        },
+        {
+          "query": "가정에 보내는 글 초안",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "보호자 안내 문구 작성",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_19",
+            "ag_seed_05",
+            "ag_seed_14",
+            "ag_seed_07",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "학부모 안내 문서 작성",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_15",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_16",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "상위권 하위권 몇 명인지 세어줘",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_12",
+            "ag_seed_02",
+            "ag_seed_07"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.544225,
+              "semantic": 0.451466,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.474009,
+              "semantic": 0.4346,
+              "lexical": 5.785468,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.435985,
+              "semantic": 0.430053,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.402909,
+              "semantic": 0.380315,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.398585,
+              "semantic": 0.373812,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "어느 영역이 전체적으로 약한지 숫자로 나오나요",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_03",
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "학급 성취도 수치화",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_19",
+            "ag_seed_08",
+            "ag_seed_13"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.662775,
+              "semantic": 0.629737,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.645287,
+              "semantic": 0.692162,
+              "lexical": 8.678202,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.475187,
+              "semantic": 0.489003,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.472225,
+              "semantic": 0.484549,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.420372,
+              "semantic": 0.406574,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "성취 수준별 인원 파악",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.644626,
+              "semantic": 0.580157,
+              "lexical": 2.212964,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.594638,
+              "semantic": 0.615996,
+              "lexical": 5.22554,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.470761,
+              "semantic": 0.482347,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.451659,
+              "semantic": 0.453623,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.404832,
+              "semantic": 0.383205,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "결석 많은 애들 정리해줘",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_05",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_12",
+            "ag_seed_02",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "출석 기록 요약해 주실 수 있나요",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_05",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.568746,
+              "semantic": 0.577062,
+              "lexical": 5.417615,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.54136,
+              "semantic": 0.588512,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.52124,
+              "semantic": 0.416903,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.513747,
+              "semantic": 0.521728,
+              "lexical": 2.600183,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.508339,
+              "semantic": 0.525386,
+              "lexical": 1.386484,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "출석 통계 리포트",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_03",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_seed_13"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.60253,
+              "semantic": 0.521059,
+              "lexical": 2.63163,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.522451,
+              "semantic": 0.507445,
+              "lexical": 7.659547,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.48734,
+              "semantic": 0.488515,
+              "lexical": 2.730705,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.44235,
+              "semantic": 0.439623,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.41573,
+              "semantic": 0.399595,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "지각 결석 정리해서 표로",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "아이랑 얘기한 내용 문서로 정리하고 싶어",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_06",
+            "ag_seed_11",
+            "ag_seed_02",
+            "ag_seed_09",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "다음에 확인할 것까지 같이 적어줘",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_05",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_01",
+            "ag_seed_19",
+            "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.580854,
+              "semantic": 0.637849,
+              "lexical": 1.961099,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.533691,
+              "semantic": 0.576979,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.51261,
+              "semantic": 0.492646,
+              "lexical": 10.269491,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.510395,
+              "semantic": 0.530098,
+              "lexical": 2.311939,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.504588,
+              "semantic": 0.533215,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "학생 면담 내용 보고용으로 정리",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_08",
+            "ag_seed_06",
+            "ag_seed_14",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "메모 흩어진 거 하나로 모아서 정리해줘",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 9,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_08",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_seed_15",
+            "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.524304,
+              "semantic": 0.547633,
+              "lexical": 1.961099,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.506381,
+              "semantic": 0.517036,
+              "lexical": 2.430343,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.50336,
+              "semantic": 0.524541,
+              "lexical": 0.879123,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.49499,
+              "semantic": 0.491258,
+              "lexical": 3.544087,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.477613,
+              "semantic": 0.49265,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "참석 못한 사람한테 공유할 요약본 만들어줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_15",
+            "ag_seed_20",
+            "ag_seed_12",
+            "ag_seed_04",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "무슨 결정 났는지만 뽑아줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_06",
+            "ag_seed_12",
+            "ag_seed_16",
+            "ag_seed_13",
+            "ag_seed_09",
+            "ag_seed_19",
+            "ag_seed_14"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.463391,
+              "semantic": 0.471265,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.430275,
+              "semantic": 0.369271,
+              "lexical": 3.688418,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.395124,
+              "semantic": 0.368608,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.365973,
+              "semantic": 0.272141,
+              "lexical": 3.719208,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.363936,
+              "semantic": 0.321708,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "회의 내용 길게 적었는데 줄여줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "회의 내용 압축",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_12",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "내용 구획 나누기",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_13",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "문서 개요 만들기",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_19",
+            "ag_seed_06",
+            "ag_seed_09",
+            "ag_seed_20",
+            "ag_seed_10",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.689497,
+              "semantic": 0.772854,
+              "lexical": 1.969399,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.6502,
+              "semantic": 0.713761,
+              "lexical": 1.969399,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.545127,
+              "semantic": 0.594176,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.532702,
+              "semantic": 0.542684,
+              "lexical": 1.681744,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.527075,
+              "semantic": 0.533631,
+              "lexical": 1.712069,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "읽는 순서 재배치해 주세요",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_09",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "목차 있는 형태로 바꿔줘",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_07",
+            "ag_seed_20",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_19",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "정리한 내용으로 제출용 글 만들어줘",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_04",
+            "ag_seed_15",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "자료 바탕으로 글 써줘",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_05",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "업무 보고 문서 초안",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_06",
+            "ag_seed_19",
+            "ag_seed_12",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "앞으로 할 일까지 포함해서 문서 만들어줘",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_07",
+            "ag_seed_10",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_09"
+          ]
+        },
+        {
+          "query": "문서 핵심 파악",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_06",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "방대한 자료 요점 정리",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_01",
+            "ag_seed_10",
+            "ag_seed_15",
+            "ag_seed_06",
+            "ag_seed_04"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.618139,
+              "semantic": 0.652144,
+              "lexical": 3.026226,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.600719,
+              "semantic": 0.625142,
+              "lexical": 3.073301,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.552331,
+              "semantic": 0.590132,
+              "lexical": 0.868681,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.527477,
+              "semantic": 0.415558,
+              "lexical": 0.62615,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.480807,
+              "semantic": 0.486822,
+              "lexical": 0.620835,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "논문 같은 거 짧게 정리해 줄 수 있나요",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_04",
+            "ag_seed_15",
+            "ag_seed_07",
+            "ag_seed_20",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "반복되는 내용 빼고 정리해 주세요",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_08",
+            "ag_seed_20",
+            "ag_seed_18",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "주간 스케줄 문서",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_04"
+          ]
+        },
+        {
+          "query": "미리 챙길 것까지 같이 정리해줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_07",
+            "ag_seed_01"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.542984,
+              "semantic": 0.560869,
+              "lexical": 2.966093,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.508971,
+              "semantic": 0.519914,
+              "lexical": 1.961099,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.5005,
+              "semantic": 0.474437,
+              "lexical": 5.188945,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.473674,
+              "semantic": 0.477917,
+              "lexical": 0.868681,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.425916,
+              "semantic": 0.408335,
+              "lexical": 0.648355,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "요일별로 뭐 있는지 알려줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_01",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_07",
+            "ag_seed_12",
+            "ag_seed_04"
+          ]
+        },
+        {
+          "query": "일정표 한눈에 보이게 만들어줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_01",
+            "ag_seed_07",
+            "ag_seed_04"
+          ]
+        },
+        {
+          "query": "메모 속 업무 찾아내기",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_05",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "놓친 업무 없는지 뽑아보고 싶어",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_12",
+            "ag_seed_08",
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.473532,
+              "semantic": 0.448236,
+              "lexical": 3.223275,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.462371,
+              "semantic": 0.46973,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.422651,
+              "semantic": 0.359839,
+              "lexical": 4.223986,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.366328,
+              "semantic": 0.325305,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.362888,
+              "semantic": 0.267501,
+              "lexical": 4.431881,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "업무 항목 뽑아줘",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_18",
+            "ag_seed_15",
+            "ag_seed_01",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "태스크 정리",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 5,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_13",
+            "ag_seed_07",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_06",
+            "ag_seed_01"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.56091,
+              "semantic": 0.565903,
+              "lexical": 0.868681,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.508025,
+              "semantic": 0.499221,
+              "lexical": 0.654155,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.503169,
+              "semantic": 0.479075,
+              "lexical": 0.868681,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.502184,
+              "semantic": 0.491125,
+              "lexical": 0.642658,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.490094,
+              "semantic": 0.511419,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "안건 정리 문서",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "주제별로 몇 분씩 쓸지 짜줘",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_09",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "지난번에 결론 안 난 것부터 챙겨 주실 수 있나요",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_16",
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "안건 순서 정하기",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "데드라인 정리",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_12",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "마감순 정렬",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_15",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "기한별 업무 정리",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_07",
+            "ag_seed_01",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "늦어지고 있는 일 찾아 주세요",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_12",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "이렇게 쓰면 무례한가 봐줘",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_02",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_05"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.495555,
+              "semantic": 0.519632,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.495269,
+              "semantic": 0.519202,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.429717,
+              "semantic": 0.420627,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.393425,
+              "semantic": 0.366052,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.393213,
+              "semantic": 0.365734,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "요청하는 메일 써줘",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_02",
+            "ag_seed_19",
+            "ag_seed_13"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.627954,
+              "semantic": 0.688514,
+              "lexical": 2.673186,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.623534,
+              "semantic": 0.65945,
+              "lexical": 4.656484,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.536119,
+              "semantic": 0.555513,
+              "lexical": 2.222201,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.519738,
+              "semantic": 0.555996,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.480305,
+              "semantic": 0.468118,
+              "lexical": 2.528657,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "인사말이랑 맺음말 넣어서 메일 만들어줘",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_19",
+            "ag_seed_11",
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "격식 갖춘 글 작성",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_14",
+            "ag_seed_08",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_19",
+            "ag_seed_09",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "공지사항 작성",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_19",
+            "ag_seed_20",
+            "ag_seed_18",
+            "ag_seed_14",
+            "ag_seed_10",
+            "ag_seed_04"
+          ]
+        },
+        {
+          "query": "일괄 발송할 내용 작성",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_19",
+            "ag_seed_14",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "안내 문구 작성",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_19",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_02",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "변경 사항 공지 메일",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_20",
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_19",
+            "ag_seed_17",
+            "ag_seed_18",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "죄송하다는 말 어떻게 시작하지",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_02",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "실수해서 죄송하다고 써야 하는데",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_02",
+            "ag_seed_18",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "사과 메일 문구",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_02",
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "진정성 있게 사과하는 문장 만들어줘",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "톤 맞춰 주세요",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_12",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_14",
+            "ag_seed_01",
+            "ag_seed_19",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "회신 글 다듬기",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_18",
+            "ag_seed_16",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_08",
+            "ag_seed_14",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "말투 부드럽게 바꿔 주세요",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "무례하게 읽힐 부분 찾아 주세요",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_16",
+            "ag_seed_09",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_15",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "바뀐 소스 봐줄 수 있어?",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_seed_17",
+            "ag_seed_07",
+            "ag_seed_14",
+            "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.525001,
+              "semantic": 0.51128,
+              "lexical": 2.930869,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.434429,
+              "semantic": 0.427713,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.410874,
+              "semantic": 0.392292,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.385865,
+              "semantic": 0.21333,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.37178,
+              "semantic": 0.333503,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "PR 올리기 전에 한번 봐줘",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 6,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_08",
+            "ag_seed_18",
+            "ag_seed_12",
+            "ag_seed_14"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.465703,
+              "semantic": 0.474741,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.456947,
+              "semantic": 0.461574,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.45467,
+              "semantic": 0.45815,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.442392,
+              "semantic": 0.439687,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.439678,
+              "semantic": 0.435606,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "리뷰 남겨 주세요",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_05",
+            "ag_seed_17"
+          ]
+        },
+        {
+          "query": "소스 검토",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_08",
+            "ag_seed_01",
+            "ag_seed_19",
+            "ag_seed_11",
+            "ag_seed_20",
+            "ag_seed_06",
+            "ag_seed_12"
+          ]
+        },
+        {
+          "query": "커밋 제목 작성",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_19",
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_14",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "변경 사항 한 줄 설명",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_seed_09",
+            "ag_seed_16",
+            "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.631983,
+              "semantic": 0.672155,
+              "lexical": 4.530406,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.530064,
+              "semantic": 0.551588,
+              "lexical": 1.716157,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.50326,
+              "semantic": 0.531218,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.479252,
+              "semantic": 0.472704,
+              "lexical": 1.929166,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.468283,
+              "semantic": 0.478621,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "변경 내용 한 문장",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_17",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_08",
+            "ag_seed_16"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.547421,
+              "semantic": 0.563415,
+              "lexical": 2.507925,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.533735,
+              "semantic": 0.553635,
+              "lexical": 1.716157,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.531131,
+              "semantic": 0.543698,
+              "lexical": 2.157545,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.523989,
+              "semantic": 0.562389,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.517859,
+              "semantic": 0.50054,
+              "lexical": 3.858332,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "feat인지 fix인지 정해줘",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_14",
+            "ag_seed_19",
+            "ag_seed_12",
+            "ag_seed_18",
+            "ag_seed_01",
+            "ag_seed_13",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.440587,
+              "semantic": 0.436973,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.437642,
+              "semantic": 0.379913,
+              "lexical": 4.3666,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.408505,
+              "semantic": 0.337298,
+              "lexical": 4.267004,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.401988,
+              "semantic": 0.378929,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.398363,
+              "semantic": 0.341674,
+              "lexical": 2.638728,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "배포 노트 초안 좀",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_16",
+            "ag_seed_07"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.584206,
+              "semantic": 0.624952,
+              "lexical": 1.93272,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.556044,
+              "semantic": 0.557961,
+              "lexical": 3.634346,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.5112,
+              "semantic": 0.543157,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.505581,
+              "semantic": 0.513819,
+              "lexical": 1.442519,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.469665,
+              "semantic": 0.480699,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "사용자한테 알릴 변경 내용 만들어줘",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_19",
+            "ag_seed_11",
+            "ag_seed_18",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "릴리즈 안내문",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_15",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_19",
+            "ag_seed_18",
+            "ag_seed_07",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "버전 변경점 요약",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_seed_18",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_17",
+            "ag_seed_16"
+          ]
+        }
+      ]
+    }
+  },
+  "after": {
+    "brand": {
+      "n": 9,
+      "top1": 7,
+      "top8": 9,
+      "mrr": 0.8888888888888888,
+      "rows": [
+        {
+          "query": "신제품 내놓는데 어떤 컨셉으로 갈지 방향 좀 잡아줘",
+          "answers": [
+            "ag_brand_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_01",
+            "ag_seed_20",
+            "ag_brand_02",
+            "ag_seed_08",
+            "ag_brand_03",
+            "ag_seed_12",
+            "ag_seed_10",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "우리 제품 시장에서 어떻게 자리잡을지 전략 세워줘",
+          "answers": [
+            "ag_brand_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_01",
+            "ag_brand_02",
+            "ag_brand_03",
+            "ag_brand_04",
+            "ag_seed_08",
+            "ag_seed_01",
+            "ag_seed_13",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "브랜드 전략 만들어줘",
+          "answers": [
+            "ag_brand_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_01",
+            "ag_brand_02",
+            "ag_brand_03",
+            "ag_brand_04",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_seed_08",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "인스타랑 유튜브에 뭘 언제 올릴지 계획 짜줘",
+          "answers": [
+            "ag_brand_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_02",
+            "ag_brand_01",
+            "ag_brand_04",
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_brand_03",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "소셜미디어 캠페인 기획해줘",
+          "answers": [
+            "ag_brand_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_02",
+            "ag_brand_01",
+            "ag_brand_04",
+            "ag_brand_03",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "광고에 쓸 문구랑 해시태그 뽑아줘",
+          "answers": [
+            "ag_brand_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_03",
+            "ag_brand_02",
+            "ag_brand_01",
+            "ag_brand_04",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_11",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "한 줄로 각인되는 홍보 문장 만들어줘",
+          "answers": [
+            "ag_brand_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_15",
+            "ag_brand_03",
+            "ag_seed_19",
+            "ag_seed_09",
+            "ag_seed_14",
+            "ag_brand_01",
+            "ag_brand_02",
+            "ag_brand_04"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.585366,
+              "semantic": 0.607492,
+              "lexical": 4.401757,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.565941,
+              "semantic": 0.600481,
+              "lexical": 2.331284,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.543494,
+              "semantic": 0.540365,
+              "lexical": 4.789951,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.5254,
+              "semantic": 0.5321,
+              "lexical": 3.023061,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.511462,
+              "semantic": 0.521775,
+              "lexical": 2.031175,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "앞에서 나온 캠페인이랑 문구를 일정이랑 예산으로 묶어줘",
+          "answers": [
+            "ag_brand_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_brand_04",
+            "ag_seed_10",
+            "ag_brand_01",
+            "ag_seed_11",
+            "ag_brand_02",
+            "ag_seed_13",
+            "ag_brand_03",
+            "ag_seed_12"
+          ]
+        },
+        {
+          "query": "채널별로 언제 뭘 집행할지 예산까지 정리해줘",
+          "answers": [
+            "ag_brand_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_10",
+            "ag_brand_04",
+            "ag_brand_01",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_01",
+            "ag_brand_02",
+            "ag_seed_12"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.544285,
+              "semantic": 0.54215,
+              "lexical": 4.789601,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_04",
+              "score": 0.538534,
+              "semantic": 0.531629,
+              "lexical": 4.966256,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.518584,
+              "semantic": 0.412908,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.515663,
+              "semantic": 0.513033,
+              "lexical": 3.475818,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.478724,
+              "semantic": 0.470748,
+              "lexical": 2.224415,
+              "trust": 0.5
+            }
+          ]
+        }
+      ]
+    },
+    "golden": {
+      "n": 22,
+      "top1": 21,
+      "top8": 22,
+      "mrr": 0.9772727272727273,
+      "rows": [
+        {
+          "query": "회의록 요약해줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "성적 데이터 분석하고 싶어",
+          "answers": [
+            "ag_seed_01",
+            "ag_seed_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_brand_01",
+            "ag_seed_05",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_08",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "커밋 메시지 좀 써줘",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_11",
+            "ag_seed_16",
+            "ag_seed_12",
+            "ag_brand_03",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "주간 일정 브리핑 만들어줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_brand_01",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "코드 리뷰 코멘트 달아줘",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_20",
+            "ag_seed_08",
+            "ag_brand_03",
+            "ag_brand_01",
+            "ag_seed_11",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "사과문 초안 작성해줘",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_08",
+            "ag_seed_19",
+            "ag_seed_17",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_brand_03",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "출결 리포트 뽑아줘",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_02",
+            "ag_seed_19",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "학원 애들 점수가 얼마나 올랐는지 보고 싶은데",
+          "answers": [
+            "ag_seed_01",
+            "ag_seed_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_02",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_05",
+            "ag_brand_01",
+            "ag_seed_08",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "부모님께 보낼 안내문 좀 써줘",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_05",
+            "ag_seed_01",
+            "ag_seed_17",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "우리 팀이 짠 코드 좀 봐줄 사람 없나",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_brand_01",
+            "ag_seed_20",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "애들이 몇 번이나 안 나왔는지 정리해야 해",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_03",
+            "ag_seed_05"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.532647,
+              "semantic": 0.412357,
+              "lexical": 2.970844,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.511023,
+              "semantic": 0.490261,
+              "lexical": 7.205979,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.441775,
+              "semantic": 0.386839,
+              "lexical": 7.108556,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.383627,
+              "semantic": 0.331467,
+              "lexical": 2.717899,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.382973,
+              "semantic": 0.343933,
+              "lexical": 0.876575,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "긴 글에서 중요한 부분만 뽑아줘",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_15",
+            "ag_seed_19",
+            "ag_seed_17"
+          ]
+        },
+        {
+          "query": "고객사에 늦어져서 죄송하다고 연락드려야 하는데",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_brand_01",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_02"
+          ]
+        },
+        {
+          "query": "앞으로 며칠간 뭘 해야 하는지 한눈에 보고 싶어",
+          "answers": [
+            "ag_seed_10",
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_brand_01",
+            "ag_seed_04",
+            "ag_seed_12",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "대화 내용에서 해야 할 것만 뽑아낼 수 있나",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_06",
+            "ag_seed_09",
+            "ag_seed_12",
+            "ag_seed_05",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "거래처에 정중하게 연락해야 하는데 문장이 안 떠올라",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_13",
+            "ag_brand_03",
+            "ag_brand_01"
+          ]
+        },
+        {
+          "query": "이번에 뭐가 바뀌었는지 팀에 알려야 해",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_16",
+            "ag_seed_01",
+            "ag_brand_01",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "학부모랑 얘기한 내용 문서로 남겨야 해",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_02",
+            "ag_seed_01",
+            "ag_seed_16",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "다음 모임에서 뭘 다룰지 목록으로 만들어줘",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_06",
+            "ag_seed_05",
+            "ag_seed_08",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "조사한 내용 가지고 문서 뼈대부터 잡아줘",
+          "answers": [
+            "ag_seed_07",
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_06",
+            "ag_seed_18",
+            "ag_brand_01",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "같은 내용을 여러 사람에게 한꺼번에 전달해야 하는데",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_12",
+            "ag_seed_10",
+            "ag_seed_14",
+            "ag_seed_01",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "새로 쓸 필요는 없고 있는 글만 다듬어 줬으면",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_09",
+            "ag_seed_20",
+            "ag_seed_11",
+            "ag_seed_14",
+            "ag_seed_07",
+            "ag_seed_16",
+            "ag_seed_19"
+          ]
+        }
+      ]
+    },
+    "holdout": {
+      "n": 80,
+      "top1": 58,
+      "top8": 78,
+      "mrr": 0.8368055555555556,
+      "rows": [
+        {
+          "query": "시험 결과 파일 주면 요약해 주나",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_05",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_02"
+          ]
+        },
+        {
+          "query": "성적표 데이터 정리",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_brand_01",
+            "ag_seed_05",
+            "ag_seed_18",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "중간고사 기말고사 비교 분석",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_brand_01",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_18",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "점수표 넣으면 통계 내주는 거",
+          "answers": [
+            "ag_seed_01"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_brand_01",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_brand_04"
+          ]
+        },
+        {
+          "query": "우리 아이 어떤가요 물어보실 때 드릴 답변 미리 준비하고 싶어",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_brand_01",
+            "ag_seed_14",
+            "ag_seed_01",
+            "ag_seed_11",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.447415,
+              "semantic": 0.44724,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.433477,
+              "semantic": 0.393065,
+              "lexical": 3.815719,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.423174,
+              "semantic": 0.410787,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.421061,
+              "semantic": 0.266257,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.40901,
+              "semantic": 0.377374,
+              "lexical": 1.391651,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "가정에 보내는 글 초안",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "보호자 안내 문구 작성",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_19",
+            "ag_seed_05",
+            "ag_seed_14",
+            "ag_seed_07",
+            "ag_brand_03"
+          ]
+        },
+        {
+          "query": "학부모 안내 문서 작성",
+          "answers": [
+            "ag_seed_02"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_15",
+            "ag_seed_08",
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_16",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "상위권 하위권 몇 명인지 세어줘",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_brand_01",
+            "ag_seed_04",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_12",
+            "ag_seed_02"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.544225,
+              "semantic": 0.451466,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.474009,
+              "semantic": 0.4346,
+              "lexical": 6.405736,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.463491,
+              "semantic": 0.330062,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.435985,
+              "semantic": 0.430053,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.402909,
+              "semantic": 0.380315,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "어느 영역이 전체적으로 약한지 숫자로 나오나요",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_03",
+            "ag_brand_01",
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_09"
+          ]
+        },
+        {
+          "query": "학급 성취도 수치화",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_brand_01",
+            "ag_seed_05",
+            "ag_brand_04",
+            "ag_seed_19"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.662775,
+              "semantic": 0.629737,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.645287,
+              "semantic": 0.692162,
+              "lexical": 9.608604,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.475187,
+              "semantic": 0.489003,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.472225,
+              "semantic": 0.484549,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.449414,
+              "semantic": 0.308893,
+              "lexical": 0.0,
+              "trust": 0.813333
+            }
+          ]
+        },
+        {
+          "query": "성취 수준별 인원 파악",
+          "answers": [
+            "ag_seed_03"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_03",
+            "ag_brand_01",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_brand_04",
+            "ag_seed_13"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.644793,
+              "semantic": 0.580157,
+              "lexical": 2.494173,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.594638,
+              "semantic": 0.615996,
+              "lexical": 5.824197,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.516008,
+              "semantic": 0.409034,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.470761,
+              "semantic": 0.482347,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.451659,
+              "semantic": 0.453623,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "결석 많은 애들 정리해줘",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_05",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_12",
+            "ag_seed_02",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "출석 기록 요약해 주실 수 있나요",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_05",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.568746,
+              "semantic": 0.577062,
+              "lexical": 6.258685,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.54136,
+              "semantic": 0.588512,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.52124,
+              "semantic": 0.416903,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.513383,
+              "semantic": 0.521728,
+              "lexical": 2.938634,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.508765,
+              "semantic": 0.525386,
+              "lexical": 1.677845,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "출석 통계 리포트",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_03",
+            "ag_brand_01",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_15",
+            "ag_seed_18"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.602872,
+              "semantic": 0.521059,
+              "lexical": 2.971786,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_04",
+              "score": 0.522451,
+              "semantic": 0.507445,
+              "lexical": 8.410082,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_03",
+              "score": 0.487663,
+              "semantic": 0.488515,
+              "lexical": 3.075888,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.450686,
+              "semantic": 0.310806,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.44235,
+              "semantic": 0.439623,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "지각 결석 정리해서 표로",
+          "answers": [
+            "ag_seed_04"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_04",
+            "ag_seed_01",
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "아이랑 얘기한 내용 문서로 정리하고 싶어",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_06",
+            "ag_seed_11",
+            "ag_seed_02",
+            "ag_seed_09",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "다음에 확인할 것까지 같이 적어줘",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_05",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_01",
+            "ag_seed_19",
+            "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.581308,
+              "semantic": 0.637849,
+              "lexical": 2.224415,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.533691,
+              "semantic": 0.576979,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_05",
+              "score": 0.51261,
+              "semantic": 0.492646,
+              "lexical": 10.906989,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.510856,
+              "semantic": 0.530098,
+              "lexical": 2.599244,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.504588,
+              "semantic": 0.533215,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "학생 면담 내용 보고용으로 정리",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_05",
+            "ag_seed_01",
+            "ag_seed_04",
+            "ag_seed_02",
+            "ag_seed_08",
+            "ag_seed_06",
+            "ag_seed_14",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "메모 흩어진 거 하나로 모아서 정리해줘",
+          "answers": [
+            "ag_seed_05"
+          ],
+          "rank": 9,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_08",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_seed_15",
+            "ag_seed_10"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.524141,
+              "semantic": 0.547633,
+              "lexical": 2.224415,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.507124,
+              "semantic": 0.517036,
+              "lexical": 2.967689,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.504048,
+              "semantic": 0.524541,
+              "lexical": 1.167142,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.495187,
+              "semantic": 0.491258,
+              "lexical": 4.129532,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.477613,
+              "semantic": 0.49265,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "참석 못한 사람한테 공유할 요약본 만들어줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_15",
+            "ag_seed_20",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_04",
+            "ag_seed_10",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "무슨 결정 났는지만 뽑아줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_06",
+            "ag_seed_12",
+            "ag_brand_01",
+            "ag_seed_16",
+            "ag_seed_13",
+            "ag_seed_09",
+            "ag_seed_19"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.463391,
+              "semantic": 0.471265,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.430291,
+              "semantic": 0.369271,
+              "lexical": 4.215332,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.395124,
+              "semantic": 0.368608,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.390263,
+              "semantic": 0.219945,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.365973,
+              "semantic": 0.272141,
+              "lexical": 4.248605,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "회의 내용 길게 적었는데 줄여줘",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "회의 내용 압축",
+          "answers": [
+            "ag_seed_06"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_06",
+            "ag_seed_12",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "내용 구획 나누기",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_13",
+            "ag_brand_01"
+          ]
+        },
+        {
+          "query": "문서 개요 만들기",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_19",
+            "ag_seed_06",
+            "ag_seed_09",
+            "ag_seed_20",
+            "ag_seed_10",
+            "ag_seed_15"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.69696,
+              "semantic": 0.772854,
+              "lexical": 2.31512,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.657664,
+              "semantic": 0.713761,
+              "lexical": 2.31512,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.545127,
+              "semantic": 0.594176,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_06",
+              "score": 0.539278,
+              "semantic": 0.542684,
+              "lexical": 1.99118,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.533736,
+              "semantic": 0.533631,
+              "lexical": 2.024686,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "읽는 순서 재배치해 주세요",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_seed_09",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "목차 있는 형태로 바꿔줘",
+          "answers": [
+            "ag_seed_07"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_07",
+            "ag_seed_20",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_19",
+            "ag_brand_01"
+          ]
+        },
+        {
+          "query": "정리한 내용으로 제출용 글 만들어줘",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_09",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_04",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "자료 바탕으로 글 써줘",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_05",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "업무 보고 문서 초안",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_13",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_06",
+            "ag_seed_19",
+            "ag_seed_12",
+            "ag_seed_11"
+          ]
+        },
+        {
+          "query": "앞으로 할 일까지 포함해서 문서 만들어줘",
+          "answers": [
+            "ag_seed_08"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_07",
+            "ag_seed_10",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_09"
+          ]
+        },
+        {
+          "query": "문서 핵심 파악",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_06",
+            "ag_brand_01",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "방대한 자료 요점 정리",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_01",
+            "ag_seed_10",
+            "ag_brand_01",
+            "ag_seed_15",
+            "ag_seed_06"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.618176,
+              "semantic": 0.652144,
+              "lexical": 3.589305,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_09",
+              "score": 0.600719,
+              "semantic": 0.625142,
+              "lexical": 3.641312,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.553532,
+              "semantic": 0.590132,
+              "lexical": 1.154194,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.528431,
+              "semantic": 0.415558,
+              "lexical": 0.84114,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.481757,
+              "semantic": 0.486822,
+              "lexical": 0.834394,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "논문 같은 거 짧게 정리해 줄 수 있나요",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_04",
+            "ag_seed_15",
+            "ag_seed_07",
+            "ag_seed_20",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_06"
+          ]
+        },
+        {
+          "query": "반복되는 내용 빼고 정리해 주세요",
+          "answers": [
+            "ag_seed_09"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_09",
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_08",
+            "ag_seed_20",
+            "ag_seed_18",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "주간 스케줄 문서",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_brand_01",
+            "ag_brand_04"
+          ]
+        },
+        {
+          "query": "미리 챙길 것까지 같이 정리해줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_15",
+            "ag_seed_12",
+            "ag_seed_07",
+            "ag_brand_01"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.543355,
+              "semantic": 0.560869,
+              "lexical": 3.475818,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.508784,
+              "semantic": 0.519914,
+              "lexical": 2.224415,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.5005,
+              "semantic": 0.474437,
+              "lexical": 5.97008,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.474582,
+              "semantic": 0.477917,
+              "lexical": 1.154194,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.426639,
+              "semantic": 0.408335,
+              "lexical": 0.869251,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "요일별로 뭐 있는지 알려줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_brand_01",
+            "ag_seed_01",
+            "ag_seed_11",
+            "ag_seed_15",
+            "ag_seed_07",
+            "ag_seed_12"
+          ]
+        },
+        {
+          "query": "일정표 한눈에 보이게 만들어줘",
+          "answers": [
+            "ag_seed_10"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_10",
+            "ag_seed_13",
+            "ag_brand_01",
+            "ag_brand_04",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "메모 속 업무 찾아내기",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_05",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "놓친 업무 없는지 뽑아보고 싶어",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_brand_01",
+            "ag_seed_12",
+            "ag_seed_08",
+            "ag_seed_01",
+            "ag_seed_04"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.474001,
+              "semantic": 0.448236,
+              "lexical": 3.581373,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.462371,
+              "semantic": 0.46973,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.420301,
+              "semantic": 0.359839,
+              "lexical": 4.283771,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.396906,
+              "semantic": 0.229934,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.366328,
+              "semantic": 0.325305,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "업무 항목 뽑아줘",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_brand_04",
+            "ag_seed_08",
+            "ag_brand_01",
+            "ag_seed_07",
+            "ag_seed_18",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "태스크 정리",
+          "answers": [
+            "ag_seed_11"
+          ],
+          "rank": 5,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_13",
+            "ag_seed_07",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_01",
+            "ag_seed_06"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.560937,
+              "semantic": 0.565903,
+              "lexical": 1.154194,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.508268,
+              "semantic": 0.499221,
+              "lexical": 0.876575,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.503196,
+              "semantic": 0.479075,
+              "lexical": 1.154194,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_12",
+              "score": 0.502449,
+              "semantic": 0.491125,
+              "lexical": 0.862049,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.490094,
+              "semantic": 0.511419,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "안건 정리 문서",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_07",
+            "ag_seed_11",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_10"
+          ]
+        },
+        {
+          "query": "주제별로 몇 분씩 쓸지 짜줘",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_09",
+            "ag_brand_04"
+          ]
+        },
+        {
+          "query": "지난번에 결론 안 난 것부터 챙겨 주실 수 있나요",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_16",
+            "ag_seed_06",
+            "ag_seed_08",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "안건 순서 정하기",
+          "answers": [
+            "ag_seed_12"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_10",
+            "ag_brand_01",
+            "ag_seed_08"
+          ]
+        },
+        {
+          "query": "데드라인 정리",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_brand_03",
+            "ag_seed_07",
+            "ag_seed_12",
+            "ag_brand_04"
+          ]
+        },
+        {
+          "query": "마감순 정렬",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_brand_01",
+            "ag_seed_15"
+          ]
+        },
+        {
+          "query": "기한별 업무 정리",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_08",
+            "ag_seed_12",
+            "ag_brand_04",
+            "ag_seed_07",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "늦어지고 있는 일 찾아 주세요",
+          "answers": [
+            "ag_seed_13"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_10",
+            "ag_seed_12",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_brand_01",
+            "ag_seed_17"
+          ]
+        },
+        {
+          "query": "이렇게 쓰면 무례한가 봐줘",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 3,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_02",
+            "ag_seed_18",
+            "ag_brand_01",
+            "ag_seed_11"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.495555,
+              "semantic": 0.519632,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.495269,
+              "semantic": 0.519202,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.429717,
+              "semantic": 0.420627,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.393425,
+              "semantic": 0.366052,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_02",
+              "score": 0.393213,
+              "semantic": 0.365734,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "요청하는 메일 써줘",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_11",
+            "ag_seed_17",
+            "ag_seed_02",
+            "ag_seed_19",
+            "ag_seed_13"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.627967,
+              "semantic": 0.688514,
+              "lexical": 3.038033,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.623534,
+              "semantic": 0.65945,
+              "lexical": 5.28856,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_16",
+              "score": 0.536284,
+              "semantic": 0.555513,
+              "lexical": 2.548793,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.519738,
+              "semantic": 0.555996,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.480394,
+              "semantic": 0.468118,
+              "lexical": 2.885416,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "인사말이랑 맺음말 넣어서 메일 만들어줘",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_19",
+            "ag_seed_11",
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_brand_03"
+          ]
+        },
+        {
+          "query": "격식 갖춘 글 작성",
+          "answers": [
+            "ag_seed_14"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_14",
+            "ag_seed_08",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_19",
+            "ag_seed_09",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "공지사항 작성",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_19",
+            "ag_brand_03",
+            "ag_brand_02",
+            "ag_seed_20",
+            "ag_seed_18",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "일괄 발송할 내용 작성",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_13",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_seed_10",
+            "ag_seed_19",
+            "ag_seed_14",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "안내 문구 작성",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_brand_03",
+            "ag_seed_19",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_brand_01"
+          ]
+        },
+        {
+          "query": "변경 사항 공지 메일",
+          "answers": [
+            "ag_seed_15"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_15",
+            "ag_seed_20",
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_19",
+            "ag_seed_17",
+            "ag_seed_18",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "죄송하다는 말 어떻게 시작하지",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_12",
+            "ag_seed_11",
+            "ag_seed_02",
+            "ag_seed_13"
+          ]
+        },
+        {
+          "query": "실수해서 죄송하다고 써야 하는데",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_02",
+            "ag_seed_18",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_01"
+          ]
+        },
+        {
+          "query": "사과 메일 문구",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_02",
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "진정성 있게 사과하는 문장 만들어줘",
+          "answers": [
+            "ag_seed_16"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_05"
+          ]
+        },
+        {
+          "query": "톤 맞춰 주세요",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_12",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_brand_01",
+            "ag_seed_14",
+            "ag_seed_01",
+            "ag_seed_19"
+          ]
+        },
+        {
+          "query": "회신 글 다듬기",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_18",
+            "ag_seed_16",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_08",
+            "ag_seed_14",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "말투 부드럽게 바꿔 주세요",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_14",
+            "ag_seed_16",
+            "ag_seed_02",
+            "ag_seed_05",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_07"
+          ]
+        },
+        {
+          "query": "무례하게 읽힐 부분 찾아 주세요",
+          "answers": [
+            "ag_seed_17"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_17",
+            "ag_seed_16",
+            "ag_seed_09",
+            "ag_seed_18",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_seed_15",
+            "ag_brand_03"
+          ]
+        },
+        {
+          "query": "바뀐 소스 봐줄 수 있어?",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_brand_01",
+            "ag_seed_17",
+            "ag_seed_07",
+            "ag_seed_14"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.525001,
+              "semantic": 0.51128,
+              "lexical": 3.277032,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.434429,
+              "semantic": 0.427713,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.410874,
+              "semantic": 0.392292,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_01",
+              "score": 0.385865,
+              "semantic": 0.21333,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.375462,
+              "semantic": 0.197687,
+              "lexical": 0.0,
+              "trust": 0.813333
+            }
+          ]
+        },
+        {
+          "query": "PR 올리기 전에 한번 봐줘",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 10,
+          "top8": [
+            "ag_brand_01",
+            "ag_brand_03",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_seed_11",
+            "ag_brand_02",
+            "ag_seed_15",
+            "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.532042,
+              "semantic": 0.433145,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.470671,
+              "semantic": 0.482213,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_13",
+              "score": 0.465703,
+              "semantic": 0.474741,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_10",
+              "score": 0.456947,
+              "semantic": 0.461574,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.45467,
+              "semantic": 0.45815,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "리뷰 남겨 주세요",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_seed_19",
+            "ag_seed_16",
+            "ag_seed_15",
+            "ag_brand_03",
+            "ag_seed_11",
+            "ag_seed_08",
+            "ag_brand_01"
+          ]
+        },
+        {
+          "query": "소스 검토",
+          "answers": [
+            "ag_seed_18"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_18",
+            "ag_brand_01",
+            "ag_seed_08",
+            "ag_seed_01",
+            "ag_seed_19",
+            "ag_seed_11",
+            "ag_seed_20",
+            "ag_brand_03"
+          ]
+        },
+        {
+          "query": "커밋 제목 작성",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_19",
+            "ag_seed_12",
+            "ag_seed_06",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_07",
+            "ag_brand_03",
+            "ag_seed_14"
+          ]
+        },
+        {
+          "query": "변경 사항 한 줄 설명",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_15",
+            "ag_seed_18",
+            "ag_seed_09",
+            "ag_seed_16",
+            "ag_seed_08"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.631983,
+              "semantic": 0.672155,
+              "lexical": 5.089091,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.530357,
+              "semantic": 0.551588,
+              "lexical": 1.970402,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.50326,
+              "semantic": 0.531218,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.479485,
+              "semantic": 0.472704,
+              "lexical": 2.200878,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_18",
+              "score": 0.468283,
+              "semantic": 0.478621,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "변경 내용 한 문장",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_07",
+            "ag_seed_17",
+            "ag_seed_15",
+            "ag_seed_14",
+            "ag_seed_08",
+            "ag_seed_16"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.546924,
+              "semantic": 0.563415,
+              "lexical": 2.798615,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.533835,
+              "semantic": 0.553635,
+              "lexical": 1.970402,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_07",
+              "score": 0.530922,
+              "semantic": 0.543698,
+              "lexical": 2.435111,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_17",
+              "score": 0.523989,
+              "semantic": 0.562389,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.517859,
+              "semantic": 0.50054,
+              "lexical": 4.401757,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "feat인지 fix인지 정해줘",
+          "answers": [
+            "ag_seed_19"
+          ],
+          "rank": 5,
+          "top8": [
+            "ag_brand_01",
+            "ag_seed_11",
+            "ag_seed_14",
+            "ag_brand_03",
+            "ag_seed_19",
+            "ag_seed_12",
+            "ag_seed_18",
+            "ag_seed_01"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_brand_01",
+              "score": 0.487736,
+              "semantic": 0.36652,
+              "lexical": 0.0,
+              "trust": 0.813333
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.440587,
+              "semantic": 0.436973,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_14",
+              "score": 0.437642,
+              "semantic": 0.379913,
+              "lexical": 5.014147,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_brand_03",
+              "score": 0.417679,
+              "semantic": 0.402525,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.408556,
+              "semantic": 0.337298,
+              "lexical": 4.907054,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "배포 노트 초안 좀",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 2,
+          "top8": [
+            "ag_seed_08",
+            "ag_seed_20",
+            "ag_seed_19",
+            "ag_seed_15",
+            "ag_seed_11",
+            "ag_seed_13",
+            "ag_seed_16",
+            "ag_seed_07"
+          ],
+          "diagnostics": [
+            {
+              "agent_id": "ag_seed_08",
+              "score": 0.585266,
+              "semantic": 0.624952,
+              "lexical": 2.250525,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_20",
+              "score": 0.556044,
+              "semantic": 0.557961,
+              "lexical": 4.004038,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_19",
+              "score": 0.5112,
+              "semantic": 0.543157,
+              "lexical": 0.0,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_15",
+              "score": 0.506505,
+              "semantic": 0.513819,
+              "lexical": 1.694923,
+              "trust": 0.5
+            },
+            {
+              "agent_id": "ag_seed_11",
+              "score": 0.469665,
+              "semantic": 0.480699,
+              "lexical": 0.0,
+              "trust": 0.5
+            }
+          ]
+        },
+        {
+          "query": "사용자한테 알릴 변경 내용 만들어줘",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_15",
+            "ag_seed_16",
+            "ag_seed_14",
+            "ag_seed_19",
+            "ag_seed_11",
+            "ag_brand_01",
+            "ag_brand_04"
+          ]
+        },
+        {
+          "query": "릴리즈 안내문",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_seed_15",
+            "ag_seed_13",
+            "ag_seed_10",
+            "ag_brand_01",
+            "ag_brand_03",
+            "ag_seed_19",
+            "ag_seed_18"
+          ]
+        },
+        {
+          "query": "버전 변경점 요약",
+          "answers": [
+            "ag_seed_20"
+          ],
+          "rank": 1,
+          "top8": [
+            "ag_seed_20",
+            "ag_brand_01",
+            "ag_seed_19",
+            "ag_seed_01",
+            "ag_seed_18",
+            "ag_seed_07",
+            "ag_seed_08",
+            "ag_seed_17"
+          ]
+        }
+      ]
+    }
+  },
+  "brand_top8_gate": true,
+  "regression_top1_non_decreasing": true
+}
