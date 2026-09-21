@@ -54,12 +54,11 @@ Access Token과 Refresh Token은 사용하지 않는다. 따라서 JWT 비밀키
 - 다른 브라우저 로그인: 새 브라우저의 로그인이 완료되면 이전 브라우저 세션도 종료된다.
 - 7일 만료: 토큰을 재발급하지 않고 지갑 서명 로그인부터 다시 수행한다.
 
-## CSRF와 CORS
+## CSRF 방어
 
 쿠키는 브라우저가 자동 전송하므로 상태 변경 요청에는 CSRF 방어가 필요하다.
 `POST`, `PUT`, `PATCH`, `DELETE /api/v1/**` 요청은 설정된 `Origin`과 일치해야 한다.
-허용 출처는 `AUTH_ALLOWED_ORIGINS`로 설정한다. CORS는 쿠키를 허용하도록
-`allowCredentials(true)`를 사용한다.
+허용 출처는 `AUTH_ALLOWED_ORIGINS`로 설정한다.
 
 ## 설정
 
@@ -67,7 +66,7 @@ Access Token과 Refresh Token은 사용하지 않는다. 따라서 JWT 비밀키
 |---|---|---|
 | `AUTH_SESSION_TTL` | `7d` | 고정 로그인 세션 유효 시간 |
 | `AUTH_COOKIE_SECURE` | 운영 `true`, 로컬 `false` | Secure 쿠키 사용 여부 |
-| `AUTH_ALLOWED_ORIGINS` | 환경별 설정 | 상태 변경과 CORS에서 허용할 FE 출처 목록 |
+| `AUTH_ALLOWED_ORIGINS` | 환경별 설정 | 상태 변경 요청에서 허용할 FE 출처 목록 |
 
 JWT 관련 `AUTH_JWT_SECRET_BASE64`, `AUTH_TOKEN_ISSUER`, `AUTH_ACCESS_TOKEN_TTL`은 사용하지 않는다.
 

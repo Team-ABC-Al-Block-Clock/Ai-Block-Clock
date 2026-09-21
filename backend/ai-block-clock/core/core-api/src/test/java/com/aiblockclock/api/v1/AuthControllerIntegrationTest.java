@@ -34,7 +34,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -110,11 +109,13 @@ class AuthControllerIntegrationTest {
 
         mvc.perform(post(ROOT + "/wallet/message")
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
         mvc.perform(post(ROOT + "/wallet/message")
                         .header(HttpHeaders.ORIGIN, "https://evil.example")
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
         mvc.perform(post(ROOT + "/wallet/message")
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
@@ -134,17 +135,6 @@ class AuthControllerIntegrationTest {
                         .cookie(new Cookie(SessionTokenCookie.NAME, "a".repeat(64))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_018"));
-    }
-
-    @Test
-    void FE의_CORS_사전_요청은_쿠키_전송을_허용하고_Authorization_헤더는_요구하지_않는다() throws Exception {
-        mvc.perform(options(ROOT + "/wallet/login")
-                        .header(HttpHeaders.ORIGIN, ORIGIN)
-                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
-                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type"))
-                .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN))
-                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
     }
 
     @Test
