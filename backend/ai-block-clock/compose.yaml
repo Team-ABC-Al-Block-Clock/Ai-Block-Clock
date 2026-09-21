@@ -42,7 +42,6 @@ services:
       WALLET_AUTH_CHAIN_ID: ${WALLET_AUTH_CHAIN_ID:-80002}
       WALLET_AUTH_MESSAGE_TTL: ${WALLET_AUTH_MESSAGE_TTL:-5m}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8080}
     ports:
       - "8080:8080"
     depends_on:

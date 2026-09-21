@@ -35,6 +35,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -47,7 +48,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class AuthControllerIntegrationTest {
     private static final String ROOT = "/api/v1/auth";
-    private static final String ORIGIN = "http://localhost:5173";
     private static final Instant NOW = Instant.parse("2026-09-17T00:00:00Z");
 
     private final JsonMapper mapper = JsonMapper.builder().build();
@@ -99,7 +99,7 @@ class AuthControllerIntegrationTest {
         Cookie cookie = login(newWallet()).getResponse().getCookie(SessionCookie.NAME);
 
         MvcResult logout = mvc.perform(post(ROOT + "/logout")
-                        .header(HttpHeaders.ORIGIN, ORIGIN)
+                        .with(csrf().asHeader())
                         .cookie(cookie))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -114,20 +114,33 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void 상태를_바꾸는_API는_허용된_Origin이_필요하다() throws Exception {
+    void CSRF_토큰을_발급하고_상태_변경_요청에서_검증한다() throws Exception {
         String requestBody = mapper.writeValueAsString(Map.of("walletAddress", address(newWallet())));
 
+        MvcResult issued = mvc.perform(get(ROOT + "/csrf"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.headerName").value("X-CSRF-TOKEN"))
+                .andExpect(jsonPath("$.data.token").isNotEmpty())
+                .andReturn();
+        Cookie sessionCookie = issued.getResponse().getCookie(SessionCookie.NAME);
+        var csrfData = mapper.readTree(issued.getResponse().getContentAsString()).path("data");
+        String headerName = csrfData.path("headerName").asString();
+        String token = csrfData.path("token").asString();
+
+        assertThat(sessionCookie).isNotNull();
+
         mvc.perform(post(ROOT + "/wallet/message")
+                        .cookie(sessionCookie)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+                .andExpect(status().isForbidden());
         mvc.perform(post(ROOT + "/wallet/message")
-                        .header(HttpHeaders.ORIGIN, "https://evil.example")
+                        .cookie(sessionCookie)
+                        .header(headerName, "invalid")
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+                .andExpect(status().isForbidden());
         mvc.perform(post(ROOT + "/wallet/message")
-                        .header(HttpHeaders.ORIGIN, ORIGIN)
+                        .cookie(sessionCookie)
+                        .header(headerName, token)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody))
                 .andExpect(status().isOk());
     }
@@ -189,7 +202,7 @@ class AuthControllerIntegrationTest {
     private MvcResult login(ECKeyPair wallet, Cookie currentSession) throws Exception {
         String walletAddress = address(wallet);
         MockHttpServletRequestBuilder messageRequest = post(ROOT + "/wallet/message")
-                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(Map.of("walletAddress", walletAddress)));
         if (currentSession != null) {
@@ -203,7 +216,7 @@ class AuthControllerIntegrationTest {
         assertThat(message).isEqualTo(messageRepository.findByWalletAddress(walletAddress).orElseThrow().getMessage());
 
         MockHttpServletRequestBuilder loginRequest = post(ROOT + "/wallet/login")
-                .header(HttpHeaders.ORIGIN, ORIGIN)
+                .with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(Map.of(
                         "walletAddress", walletAddress,

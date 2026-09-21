@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -31,13 +30,13 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @Tag("integration")
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 class WorkflowControllerTest {
-    private static final String ALLOWED_ORIGIN = "http://localhost:5173";
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @Autowired
@@ -93,7 +92,7 @@ class WorkflowControllerTest {
     private String create(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(chainBody(name)))
                 .andExpect(status().isCreated())
@@ -124,7 +123,7 @@ class WorkflowControllerTest {
 
         mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -148,7 +147,7 @@ class WorkflowControllerTest {
 
         mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.workflowId").value(workflowId));
 
@@ -163,7 +162,7 @@ class WorkflowControllerTest {
     void returnsNodesInConnectedOrder() throws Exception {
         MvcResult created = mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -214,7 +213,7 @@ class WorkflowControllerTest {
 
         mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
                         .with(as(other))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_003"));
     }
@@ -224,7 +223,7 @@ class WorkflowControllerTest {
     void inputSourceIsPerPlacement() throws Exception {
         MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -251,7 +250,7 @@ class WorkflowControllerTest {
 
         mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk());
     }
 
@@ -262,7 +261,7 @@ class WorkflowControllerTest {
 
         mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -281,7 +280,7 @@ class WorkflowControllerTest {
     void rejectsCycle() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -305,7 +304,7 @@ class WorkflowControllerTest {
     void rejectsEmptyNodes() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "name": "빈 캔버스", "nodes": [], "edges": [] }
@@ -319,7 +318,7 @@ class WorkflowControllerTest {
     void rejectsAgentPlacement() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -357,7 +356,7 @@ class WorkflowControllerTest {
     void rejectsUnreadableBody() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ \"name\": "))
                 .andExpect(status().isBadRequest())

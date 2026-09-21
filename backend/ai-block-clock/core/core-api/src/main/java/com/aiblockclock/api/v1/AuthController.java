@@ -3,6 +3,7 @@ package com.aiblockclock.api.v1;
 import com.aiblockclock.api.support.auth.SessionAuthenticationManager;
 import com.aiblockclock.api.v1.request.WalletLoginRequest;
 import com.aiblockclock.api.v1.request.WalletMessageRequest;
+import com.aiblockclock.api.v1.response.CsrfTokenResponse;
 import com.aiblockclock.api.v1.response.LoginSessionResponse;
 import com.aiblockclock.api.v1.response.WalletMessageResponse;
 import com.aiblockclock.domain.auth.WalletAuthService;
@@ -15,6 +16,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController implements AuthApi {
     private final WalletAuthService walletAuthService;
     private final SessionAuthenticationManager sessionAuthenticationManager;
+
+    @Override
+    @GetMapping("/csrf")
+    public ApiResult<CsrfTokenResponse> csrf(CsrfToken csrfToken) {
+        return ApiResult.success(CsrfTokenResponse.from(csrfToken));
+    }
 
     @Override
     @PostMapping("/wallet/message")

@@ -14,15 +14,17 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 
 ## 로그인 흐름
 
-1. FE가 `POST /api/v1/auth/wallet/message`로 서명 메시지를 받는다.
-2. FE가 지갑에 메시지 서명을 요청한다.
-3. FE가 지갑 주소와 서명값을 `POST /api/v1/auth/wallet/login`으로 보낸다.
-4. `WalletAuthService`가 메시지 만료·재사용 여부와 지갑 서명을 확인한다.
-5. 신규 지갑이면 사용자와 ABC 잔액 계정을 만든다.
-6. `SessionAuthenticationManager`가 같은 사용자의 기존 Spring Session을 삭제한다.
-7. 사용자의 `OwnerId`로 Spring Security `Authentication`과 `SecurityContext`를 만든다.
-8. Spring Session JDBC가 SecurityContext와 고정 만료 시각을 MySQL에 저장한다.
-9. Spring Session이 `sessionToken` 쿠키를 응답에 추가한다.
+1. FE가 `GET /api/v1/auth/csrf`로 CSRF 토큰을 받는다.
+2. FE가 토큰을 `X-CSRF-TOKEN` 헤더에 넣어 `POST /api/v1/auth/wallet/message`로 서명 메시지를 받는다.
+3. FE가 지갑에 메시지 서명을 요청한다.
+4. FE가 같은 CSRF 헤더와 함께 지갑 주소와 서명값을 `POST /api/v1/auth/wallet/login`으로 보낸다.
+5. `WalletAuthService`가 메시지 만료·재사용 여부와 지갑 서명을 확인한다.
+6. 신규 지갑이면 사용자와 ABC 잔액 계정을 만든다.
+7. `SessionAuthenticationManager`가 같은 사용자의 기존 Spring Session을 삭제한다.
+8. 사용자의 `OwnerId`로 Spring Security `Authentication`과 `SecurityContext`를 만든다.
+9. Spring Session JDBC가 SecurityContext와 고정 만료 시각을 MySQL에 저장한다.
+10. Spring Session이 `sessionToken` 쿠키를 응답에 추가한다.
+11. 로그인으로 세션이 교체되었으므로 FE가 CSRF 토큰을 다시 발급받는다.
 
 ## 보호 API 인증 흐름
 
@@ -61,8 +63,9 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 ## CSRF 방어
 
 쿠키는 브라우저가 자동 전송하므로 상태 변경 요청에는 CSRF 방어가 필요하다. `POST`, `PUT`, `PATCH`,
-`DELETE /api/v1/**` 요청은 설정된 `Origin`과 일치해야 한다. CSRF 검사에서 허용할 출처는
-`AUTH_ALLOWED_ORIGINS`로 설정한다.
+`DELETE` 요청은 Spring Security가 세션에 저장한 CSRF 토큰과 `X-CSRF-TOKEN` 헤더를 비교한다.
+FE는 앱 시작 시, 로그인 성공 후, 로그아웃 후 `GET /api/v1/auth/csrf`로 토큰을 발급받는다.
+토큰이 없거나 일치하지 않으면 Spring Security가 Controller 실행 전에 `403 Forbidden`으로 차단한다.
 
 ## 설정
 
@@ -70,7 +73,6 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 |---|---|---|
 | `AUTH_SESSION_TTL` | `7d` | Spring Session 미사용 만료 시간과 고정 로그인 유효 시간 |
 | `AUTH_COOKIE_SECURE` | 운영 `true`, 로컬 `false` | Secure 쿠키 사용 여부 |
-| `AUTH_ALLOWED_ORIGINS` | 환경별 설정 | 상태 변경 요청의 CSRF 검사에서 허용할 FE 출처 목록 |
 
 ## DB 마이그레이션
 

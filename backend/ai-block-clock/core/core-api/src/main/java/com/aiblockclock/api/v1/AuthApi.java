@@ -2,6 +2,7 @@ package com.aiblockclock.api.v1;
 
 import com.aiblockclock.api.v1.request.WalletLoginRequest;
 import com.aiblockclock.api.v1.request.WalletMessageRequest;
+import com.aiblockclock.api.v1.response.CsrfTokenResponse;
 import com.aiblockclock.api.v1.response.LoginSessionResponse;
 import com.aiblockclock.api.v1.response.WalletMessageResponse;
 import com.aiblockclock.support.response.ApiResult;
@@ -15,14 +16,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
-@Tag(name = "인증", description = "지갑 로그인 및 세션 관리. 허용된 Origin이 필요합니다.")
+import org.springframework.security.web.csrf.CsrfToken;
+
+@Tag(name = "인증", description = "지갑 로그인, 세션 관리 및 CSRF 토큰 발급")
 public interface AuthApi {
+
+    @Operation(summary = "CSRF 토큰 발급",
+            description = "변경 요청의 X-CSRF-TOKEN 헤더에 넣을 토큰을 반환합니다.")
+    @SecurityRequirements
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "CSRF 토큰 발급")
+    })
+    ApiResult<CsrfTokenResponse> csrf(CsrfToken csrfToken);
 
     @Operation(summary = "서명할 지갑 인증 메시지 발급")
     @SecurityRequirements
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "메시지 및 nonce 발급"),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 형식 또는 허용되지 않은 출처"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 형식"),
+            @ApiResponse(responseCode = "403", description = "CSRF 토큰이 없거나 유효하지 않음"),
             @ApiResponse(responseCode = "409", description = "동시에 메시지를 변경함 (AUTH_007)")
     })
     ApiResult<WalletMessageResponse> issueMessage(@Valid WalletMessageRequest request);
@@ -32,7 +44,8 @@ public interface AuthApi {
     @SecurityRequirements
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그인 및 Spring Session 쿠키 발급"),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 형식 또는 허용되지 않은 출처"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 형식"),
+            @ApiResponse(responseCode = "403", description = "CSRF 토큰이 없거나 유효하지 않음"),
             @ApiResponse(responseCode = "401", description = "서명 또는 인증 메시지가 유효하지 않음 (AUTH_008~012)")
     })
     ApiResult<LoginSessionResponse> login(
@@ -45,7 +58,7 @@ public interface AuthApi {
             description = "현재 HttpSession을 무효화하고 세션 쿠키를 삭제합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그아웃 및 쿠키 삭제"),
-            @ApiResponse(responseCode = "400", description = "허용되지 않은 출처"),
+            @ApiResponse(responseCode = "403", description = "CSRF 토큰이 없거나 유효하지 않음"),
             @ApiResponse(responseCode = "401", description = "로그인 세션이 없거나 만료됨 (AUTH_005, AUTH_013)")
     })
     ApiResult<Void> logout(HttpServletRequest request);

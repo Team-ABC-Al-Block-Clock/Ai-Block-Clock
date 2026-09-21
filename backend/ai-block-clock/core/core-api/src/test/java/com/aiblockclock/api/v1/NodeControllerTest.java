@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -29,14 +28,13 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @Tag("integration")
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 class NodeControllerTest {
-    private static final String ALLOWED_ORIGIN = "http://localhost:5173";
-
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @Autowired
@@ -77,7 +75,7 @@ class NodeControllerTest {
     private String create(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/nodes")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(name, "당신은 학원 성적 데이터 분석가입니다.")))
                 .andExpect(status().isCreated())
@@ -103,7 +101,7 @@ class NodeControllerTest {
 
         mockMvc.perform(put("/api/v1/nodes/{id}", nodeId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("가정통신문 작성", "당신은 교육 심리 전문가입니다.")))
                 .andExpect(status().isOk())
@@ -118,7 +116,7 @@ class NodeControllerTest {
 
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/nodes/{id}", nodeId)
@@ -132,7 +130,7 @@ class NodeControllerTest {
     void rejectsBlankPrompt() throws Exception {
         mockMvc.perform(post("/api/v1/nodes")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("빈 프롬프트", "   ")))
                 .andExpect(status().isBadRequest());
@@ -150,14 +148,14 @@ class NodeControllerTest {
 
         mockMvc.perform(put("/api/v1/nodes/{id}", nodeId)
                         .with(as(other))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("탈취", "남의 것을 고친다.")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk());
     }
 
@@ -168,7 +166,7 @@ class NodeControllerTest {
 
         MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -182,7 +180,7 @@ class NodeControllerTest {
 
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("NODE_004"));
 
@@ -190,11 +188,11 @@ class NodeControllerTest {
                 .get("data").get("workflowId").asText();
         mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk());
         mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
                         .with(as(owner))
-                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk());
     }
 }
