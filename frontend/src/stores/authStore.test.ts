@@ -206,6 +206,28 @@ describe('정상 경로', () => {
     expect(useAuthStore.getState().status).toBe('unauthenticated')
   })
 
+  it('로그인 요청이 실패해도 기다리던 복구가 멈추지 않는다', async () => {
+    // 로그인은 기다리기 전에 세션 번호를 올려 진행 중인 부팅 복구를 쫓아낸다.
+    // 그 로그인이 실패했는데 상태를 끝내지 않으면 복구는 제 응답을 버리고,
+    // 화면은 '세션을 확인하고 있어요' 에서 새로고침 전까지 나오지 못한다.
+    const booting = deferred<unknown>()
+    h.getMyProfile.mockReturnValue(booting.promise)
+    h.loginWithWallet.mockRejectedValue(new Error('AUTH_004'))
+    const useAuthStore = await freshStore()
+
+    const restoring = useAuthStore.getState().restore()
+    await settle()
+    expect(useAuthStore.getState().status).toBe('restoring')
+
+    await expect(useAuthStore.getState().signIn(CREDENTIALS)).rejects.toThrow('AUTH_004')
+    expect(useAuthStore.getState().status).toBe('unauthenticated')
+
+    booting.resolve(PROFILE)
+    await restoring
+    await settle()
+    expect(useAuthStore.getState().status).toBe('unauthenticated')
+  })
+
   it('로그아웃이 401 로 끝나도 사유를 남기지 않는다', async () => {
     // 쿠키가 이미 없으면 서버가 401 을 준다. 그때 인터셉터가 먼저 사유를 남기고
     // `signOut` 의 finally 가 뒤따르는데, 본인이 누른 로그아웃에 안내가 붙으면 안 된다.

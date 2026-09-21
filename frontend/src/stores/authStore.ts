@@ -151,7 +151,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // 사용자가 누른 로그인이 부팅 복구를 이긴다.
       const mine = ++epoch
       latestSignIn = mine
-      await loginWithWallet({ walletAddress, signature })
+
+      try {
+        await loginWithWallet({ walletAddress, signature })
+      } catch (error) {
+        // 실패했어도 번호는 이미 올려 부팅 복구를 쫓아냈다. 여기서 상태를 끝내지 않으면
+        // 기다리던 `restore()` 가 제 응답을 버리고 화면이 '세션을 확인하고 있어요' 에 멈춘다.
+        if (mine === epoch) dropSession()
+        throw error
+      }
 
       if (mine !== epoch) {
         // 그 사이 세션이 갈렸다. 쿠키는 이미 브라우저에 저장됐고 HttpOnly 라 JS 가
