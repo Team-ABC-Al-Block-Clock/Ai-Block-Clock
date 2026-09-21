@@ -8,13 +8,13 @@ import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.Getter;
 
 import java.math.BigDecimal;
 
 @Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class AgentVersion {
     private final AgentVersionId id;
     private final AgentId agentId;
