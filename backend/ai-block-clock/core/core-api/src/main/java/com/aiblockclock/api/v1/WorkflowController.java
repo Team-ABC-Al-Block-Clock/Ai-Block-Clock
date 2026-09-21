@@ -24,7 +24,6 @@ import com.aiblockclock.support.response.ApiResult;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,7 +40,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(value = "/api/v1/workflows", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping("/api/v1/workflows")
 @RequiredArgsConstructor
 public class WorkflowController implements WorkflowApi {
     private final WorkflowService workflowService;

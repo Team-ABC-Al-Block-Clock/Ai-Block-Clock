@@ -17,7 +17,6 @@ import com.aiblockclock.support.response.ApiResult;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,7 +32,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(value = "/api/v1/nodes", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping("/api/v1/nodes")
 @RequiredArgsConstructor
 public class NodeController implements NodeApi {
     private final NodeDefinitionService nodeService;

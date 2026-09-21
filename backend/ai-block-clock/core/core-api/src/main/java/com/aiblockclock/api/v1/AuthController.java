@@ -15,27 +15,26 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(value = "/api/v1/auth", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController implements AuthApi {
     private final WalletAuthService walletAuthService;
     private final SessionAuthenticationManager sessionAuthenticationManager;
 
     @Override
-    @PostMapping(value = "/wallet/message", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping("/wallet/message")
     public ApiResult<WalletMessageResponse> issueMessage(@RequestBody WalletMessageRequest request) {
         return ApiResult.success(WalletMessageResponse.from(walletAuthService.issueMessage(request.walletAddress())));
     }
 
     @Override
-    @PostMapping(value = "/wallet/login", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping("/wallet/login")
     public ApiResult<LoginSessionResponse> login(
             @RequestBody WalletLoginRequest request,
             HttpServletRequest httpRequest,
