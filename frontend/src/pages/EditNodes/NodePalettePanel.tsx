@@ -2,6 +2,9 @@ import SearchIcon from '@/components/SearchIcon'
 import { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import type { useNodePalette } from '@/hooks/useNodePalette'
 
+/** `scrollbar-width: thin` 이 먹는 폭. 이만큼 넓혀야 카드가 위의 검색칸과 나란히 선다. */
+const SCROLLBAR = 8
+
 type Palette = ReturnType<typeof useNodePalette>
 
 type NodePalettePanelProps = {
@@ -9,7 +12,10 @@ type NodePalettePanelProps = {
   cards: Palette['cards']
   isEmpty: Palette['isEmpty']
   isError: Palette['isError']
+  isFetchNextPageError: Palette['isFetchNextPageError']
+  isFetchingNextPage: Palette['isFetchingNextPage']
   onSearch: Palette['handleSearch']
+  onRetryNextPage: Palette['handleRetryNextPage']
   refs: Palette['refs']
 }
 
@@ -19,7 +25,10 @@ export default function NodePalettePanel({
   cards,
   isEmpty,
   isError,
+  isFetchNextPageError,
+  isFetchingNextPage,
   onSearch: handleSearch,
+  onRetryNextPage: handleRetryNextPage,
   refs: { paletteRef, sentinelRef },
 }: NodePalettePanelProps) {
   return (
@@ -65,7 +74,7 @@ export default function NodePalettePanel({
         style={{
           left: `${PANEL_INSET}px`,
           top: '502px',
-          width: '408px',
+          width: `${PANEL_CONTENT_WIDTH + SCROLLBAR}px`,
           height: 'calc(498px + 2 * var(--edge-y, 0px))',
           // 한 줄에 두 장. 남는 폭을 열이 나눠 갖게 한다.
           gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -229,6 +238,34 @@ export default function NodePalettePanel({
           </div>
         ))}
         <div ref={sentinelRef} style={{ gridColumn: '1 / -1', height: '1px' }}></div>
+        {/* observer 가 꺼진 뒤라 손으로 눌러야 다음 장이 다시 온다. */}
+        {isFetchNextPageError && (
+          <div
+            className="flex items-center justify-center text-[12.5px]"
+            style={{
+              gridColumn: '1 / -1',
+              gap: '10px',
+              paddingTop: '4px',
+              animation: 'fadeIn .2s ease both',
+            }}
+          >
+            <span style={{ color: 'rgba(255,196,214,.9)' }}>다음 목록을 불러오지 못했습니다</span>
+            <span
+              onClick={handleRetryNextPage}
+              className="flex items-center font-semibold text-white hover:bg-[rgba(255,255,255,.16)]"
+              style={{
+                height: '28px',
+                padding: '0 12px',
+                borderRadius: '14px',
+                background: 'rgba(255,255,255,.09)',
+                opacity: isFetchingNextPage ? 0.6 : 1,
+                cursor: isFetchingNextPage ? 'default' : 'pointer',
+              }}
+            >
+              {isFetchingNextPage ? '불러오는 중…' : '다시 시도'}
+            </span>
+          </div>
+        )}
       </div>
     </>
   )

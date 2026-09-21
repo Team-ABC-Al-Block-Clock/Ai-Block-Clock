@@ -110,7 +110,13 @@ export function useNodePalette() {
     cards,
     isEmpty,
     isError,
+    isFetchNextPageError,
+    isFetchingNextPage,
     refs: { paletteRef, sentinelRef },
+    /** observer 가 실패한 커서를 다시 밟지 않으려고 스스로를 꺼서, 손으로 되살릴 길이 필요하다. */
+    handleRetryNextPage: () => {
+      if (!isFetchingNextPage) void fetchNextPage()
+    },
     /** 놓인 항목을 id 로 되찾는다 — 드래그로는 id 하나만 건너온다. */
     findItem: (itemId: string) => items.find((it) => it.itemId === itemId),
     handleTogglePanel: () => setPanelOpen((v) => !v),
