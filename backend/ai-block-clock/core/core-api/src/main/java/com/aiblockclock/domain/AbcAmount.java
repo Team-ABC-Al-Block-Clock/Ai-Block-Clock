@@ -1,4 +1,4 @@
-package com.aiblockclock.domain.payment;
+package com.aiblockclock.domain;
 
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -31,5 +31,12 @@ public record AbcAmount(BigDecimal value) {
 
     public static AbcAmount of(BigDecimal value) {
         return new AbcAmount(value);
+    }
+
+    public AbcAmount multiply(BigDecimal multiplier) {
+        return new AbcAmount(
+                value.multiply(multiplier)
+                        .setScale(DECIMAL_PLACES, RoundingMode.HALF_UP)
+        );
     }
 }

@@ -90,6 +90,18 @@ public enum ErrorType {
     WORKFLOW_REVISION_CONFLICT(HttpStatus.CONFLICT, ErrorCode.WORKFLOW_016,
             "워크플로우가 다른 요청에 의해 수정되었습니다.", LogLevel.WARN),
 
+    NODE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.NODE_001,
+            "노드를 찾을 수 없습니다.", LogLevel.WARN),
+
+    NODE_FORBIDDEN(HttpStatus.FORBIDDEN, ErrorCode.NODE_002,
+            "노드에 대한 권한이 없습니다.", LogLevel.WARN),
+
+    NODE_PROMPT_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.NODE_003,
+            "프롬프트를 입력해야 합니다.", LogLevel.WARN),
+
+    NODE_PLACED_IN_WORKFLOW(HttpStatus.CONFLICT, ErrorCode.NODE_004,
+            "워크플로우에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
+
     AGENT_WORKFLOW_EMPTY(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
             "노드가 없는 워크플로우로는 에이전트를 만들 수 없습니다.", LogLevel.WARN),
 
@@ -104,6 +116,9 @@ public enum ErrorType {
 
     AGENT_VERSION_ALREADY_PUBLISHED(HttpStatus.CONFLICT, ErrorCode.AGENT_007,
             "이미 공개된 버전은 변경할 수 없습니다.", LogLevel.WARN),
+
+    AGENT_VERSION_NOT_NEWER(HttpStatus.CONFLICT, ErrorCode.AGENT_009,
+            "이미 공개된 버전보다 이전 버전은 공개할 수 없습니다.", LogLevel.WARN),
 
     CHARGE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_001,
             "충전 요청을 찾을 수 없습니다.", LogLevel.WARN),

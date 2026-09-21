@@ -64,7 +64,8 @@ final class WorkflowEntityConverter {
                         node.key().value(),
                         node.sourceType(),
                         node.reference().referenceId(),
-                        node.reference().versionId()))
+                        node.reference().versionId(),
+                        node.inputSource()))
                 .toList();
     }
 
@@ -87,9 +88,10 @@ final class WorkflowEntityConverter {
                             Map.of("nodeKey", key.value(), "sourceType", node.getSourceType().name()));
                 }
 
-                yield new BaseNode(key, node.getReferenceId());
+                yield new BaseNode(key, node.getReferenceId(), node.getInputSource());
             }
-            case AGENT -> new AgentNode(key, node.getReferenceId(), node.getVersionId());
+            case AGENT -> new AgentNode(key, node.getReferenceId(), node.getVersionId(),
+                    node.getInputSource());
         };
     }
 

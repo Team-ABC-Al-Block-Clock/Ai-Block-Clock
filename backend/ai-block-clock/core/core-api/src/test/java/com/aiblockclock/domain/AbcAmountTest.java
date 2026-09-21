@@ -1,4 +1,4 @@
-package com.aiblockclock.domain.payment;
+package com.aiblockclock.domain;
 
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -23,6 +23,23 @@ class AbcAmountTest {
         assertThat(amount.value())
                 .isEqualByComparingTo("1.100000");
         assertThat(amount.value().scale()).isEqualTo(6);
+    }
+
+    @Test
+    void 곱한_금액도_소수_6자리를_지킨다() {
+        AbcAmount amount = AbcAmount.of(new BigDecimal("3.0"))
+                .multiply(new BigDecimal("1.5"));
+
+        assertThat(amount.value()).isEqualByComparingTo("4.500000");
+        assertThat(amount.value().scale()).isEqualTo(6);
+    }
+
+    @Test
+    void 곱해서_자릿수가_넘치면_반올림한다() {
+        AbcAmount amount = AbcAmount.of(new BigDecimal("1.000001"))
+                .multiply(new BigDecimal("1.5"));
+
+        assertThat(amount.value()).isEqualByComparingTo("1.500002");
     }
 
     @ParameterizedTest

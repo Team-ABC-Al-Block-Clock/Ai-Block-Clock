@@ -5,8 +5,10 @@ import com.aiblockclock.domain.auth.SessionTokenGenerator;
 import com.aiblockclock.domain.auth.SessionTokenHasher;
 import com.aiblockclock.storage.auth.LoginSessionEntity;
 import com.aiblockclock.storage.auth.LoginSessionRepository;
+import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
+import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -61,17 +63,24 @@ class WorkflowControllerTest {
     @Autowired
     private Clock clock;
 
+    @Autowired
+    private NodeDefinitionRepository nodeRepository;
+
     private String owner;
 
     private String other;
 
+    private UUID nodeId;
+
     @BeforeEach
-    void 두_사용자의_세션_토큰을_준비한다() {
-        owner = issueSessionToken();
-        other = issueSessionToken();
+    void 두_사용자의_세션과_노드_정의를_준비한다() {
+        UserSession ownerSession = issueSession();
+        owner = ownerSession.rawSessionToken();
+        other = issueSession().rawSessionToken();
+        nodeId = NodeDefinitionSeeder.seed(nodeRepository, ownerSession.userId());
     }
 
-    private String issueSessionToken() {
+    private UserSession issueSession() {
         String walletAddress = "0x" + UUID.randomUUID().toString().replace("-", "") + "00000000";
         UserEntity user = userRepository.saveAndFlush(UserEntity.of(walletAddress));
         String rawSessionToken = sessionTokenGenerator.generate();
@@ -81,10 +90,13 @@ class WorkflowControllerTest {
                 clock.instant().plus(7, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MICROS)
         ));
 
-        return rawSessionToken;
+        return new UserSession(rawSessionToken, user.getId());
     }
 
-    private static String chainBody(String name) {
+    private record UserSession(String rawSessionToken, long userId) {
+    }
+
+    private String chainBody(String name) {
         return """
                 {
                   "name": "%s",
@@ -96,7 +108,7 @@ class WorkflowControllerTest {
                     { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
                   ]
                 }
-                """.formatted(name, UUID.randomUUID(), UUID.randomUUID());
+                """.formatted(name, nodeId, nodeId);
     }
 
     private String create(String name) throws Exception {
@@ -142,7 +154,7 @@ class WorkflowControllerTest {
                                   "nodes": [ { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" } ],
                                   "edges": []
                                 }
-                                """.formatted(UUID.randomUUID())))
+                                """.formatted(nodeId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("이름을 고쳤다"))
                 .andExpect(jsonPath("$.data.revision").value(2))
@@ -187,7 +199,7 @@ class WorkflowControllerTest {
                                     { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
                                   ]
                                 }
-                                """.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
+                                """.formatted(nodeId, nodeId, nodeId)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
@@ -229,6 +241,42 @@ class WorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("입력 출처는 배치마다 정하고, 비우면 앞 노드 결과를 받는다")
+    void inputSourceIsPerPlacement() throws Exception {
+        MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "입력 출처",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s",
+                                      "inputSource": "USER" },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [ { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" } ]
+                                }
+                                """.formatted(nodeId, nodeId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String workflowId = mapper.readTree(saved.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes[0].inputSource").value("USER"))
+                .andExpect(jsonPath("$.data.nodes[1].inputSource").value("PREV"));
+
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .cookie(new Cookie(SessionTokenCookie.NAME, owner))
+                        .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("낡은 회차로 수정하면 충돌로 막는다")
     void rejectsStaleRevision() throws Exception {
         String workflowId = create("회차 충돌");
@@ -244,7 +292,7 @@ class WorkflowControllerTest {
                                   "nodes": [ { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" } ],
                                   "edges": []
                                 }
-                                """.formatted(UUID.randomUUID())))
+                                """.formatted(nodeId)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_016"));
     }
@@ -268,7 +316,7 @@ class WorkflowControllerTest {
                                     { "edgeKey": "e2", "sourceNodeKey": "n2", "targetNodeKey": "n1" }
                                   ]
                                 }
-                                """.formatted(UUID.randomUUID(), UUID.randomUUID())))
+                                """.formatted(nodeId, nodeId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_005"));
     }

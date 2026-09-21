@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
+import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -103,6 +104,21 @@ public final class WorkflowGraph {
 
     public Optional<GraphNode> findNode(NodeKey key) {
         return Optional.ofNullable(nodeIndex.get(key));
+    }
+
+    public List<NodeReference> agentReferences() {
+        return referencesOf(SourceType.AGENT);
+    }
+
+    public List<NodeReference> baseNodeReferences() {
+        return referencesOf(SourceType.NODE);
+    }
+
+    private List<NodeReference> referencesOf(SourceType sourceType) {
+        return nodes.stream()
+                .filter(node -> node.sourceType() == sourceType)
+                .map(GraphNode::reference)
+                .toList();
     }
 
     public int chainLength() {

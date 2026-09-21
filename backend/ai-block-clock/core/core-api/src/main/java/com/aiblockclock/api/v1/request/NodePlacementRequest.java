@@ -2,6 +2,7 @@ package com.aiblockclock.api.v1.request;
 
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,11 +24,23 @@ public record NodePlacementRequest(
         @NotNull SourceType sourceType,
 
         @Schema(description = "원본 노드 ID 또는 에이전트 ID", example = "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13")
-        @NotNull UUID sourceId
+        @NotNull UUID sourceId,
+
+        @Schema(description = """
+                이 자리가 무엇을 입력으로 받나.
+                USER 는 사용자가 올린 원본, PREV 는 앞 노드 결과, PREV_AND_USER 는 둘 다.
+                비우면 PREV 다. 맨 앞 노드는 앞이 없으므로 값과 무관하게 원본을 받는다.
+                """, nullable = true)
+        InputSource inputSource
 ) {
     public static List<NodePlacement> toPlacements(List<NodePlacementRequest> nodes) {
         return nodes.stream()
-                .map(node -> new NodePlacement(NodeKey.of(node.nodeKey()), node.sourceType(), node.sourceId()))
+                .map(node -> new NodePlacement(NodeKey.of(node.nodeKey()), node.sourceType(),
+                        node.sourceId(), node.inputSourceOrDefault()))
                 .toList();
+    }
+
+    public InputSource inputSourceOrDefault() {
+        return inputSource == null ? InputSource.defaultSource() : inputSource;
     }
 }

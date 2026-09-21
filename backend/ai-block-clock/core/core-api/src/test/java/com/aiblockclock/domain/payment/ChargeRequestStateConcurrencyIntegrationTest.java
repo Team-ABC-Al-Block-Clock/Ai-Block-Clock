@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;

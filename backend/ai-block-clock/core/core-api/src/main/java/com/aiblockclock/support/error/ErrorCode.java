@@ -28,10 +28,16 @@ public enum ErrorCode {
     WORKFLOW_015,
     WORKFLOW_016,
 
+    NODE_001,
+    NODE_002,
+    NODE_003,
+    NODE_004,
+
     AGENT_001,
     AGENT_002,
     AGENT_006,
     AGENT_007,
+    AGENT_009,
 
     PAYMENT_001,
     PAYMENT_002,

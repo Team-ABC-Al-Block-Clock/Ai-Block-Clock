@@ -70,6 +70,10 @@ public final class Workflow {
         this.validationStatus = ValidationStatus.INVALID;
     }
 
+    public boolean isValidated() {
+        return validationStatus == ValidationStatus.VALID;
+    }
+
     public boolean isOwnedBy(OwnerId candidate) {
         return owner.equals(candidate);
     }

@@ -1,5 +1,6 @@
 package com.aiblockclock.storage.workflow;
 
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import jakarta.persistence.Column;
@@ -49,18 +50,24 @@ public class WorkflowNodeEntity {
     @Column(name = "version_id", length = 36)
     private UUID versionId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "input_source", length = 20, nullable = false)
+    private InputSource inputSource;
+
     public WorkflowNodeEntity(UUID workflowId, String nodeKey, SourceType sourceType,
-                              UUID referenceId, UUID versionId) {
+                              UUID referenceId, UUID versionId, InputSource inputSource) {
         this.workflowId = workflowId;
         this.nodeKey = nodeKey;
         this.sourceType = sourceType;
         this.referenceId = referenceId;
         this.versionId = versionId;
+        this.inputSource = inputSource;
     }
 
-    public void refer(SourceType sourceType, UUID referenceId, UUID versionId) {
+    public void refer(SourceType sourceType, UUID referenceId, UUID versionId, InputSource inputSource) {
         this.sourceType = sourceType;
         this.referenceId = referenceId;
         this.versionId = versionId;
+        this.inputSource = inputSource;
     }
 }

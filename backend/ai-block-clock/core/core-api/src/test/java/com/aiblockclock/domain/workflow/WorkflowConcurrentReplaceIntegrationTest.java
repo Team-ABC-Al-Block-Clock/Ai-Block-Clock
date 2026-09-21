@@ -1,8 +1,11 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
+import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
+import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -41,10 +44,15 @@ class WorkflowConcurrentReplaceIntegrationTest {
     @Autowired
     private WorkflowWriter workflowWriter;
 
+    @Autowired
+    private NodeDefinitionRepository nodeRepository;
+
     private WorkflowId workflowId;
+    private UUID seededNode;
 
     @BeforeEach
     void setUp() {
+        seededNode = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
         workflowId = workflowService.save(OWNER, "동시 수정", null, placements(), edges()).getId();
     }
 
@@ -100,10 +108,10 @@ class WorkflowConcurrentReplaceIntegrationTest {
         }
     }
 
-    private static List<NodePlacement> placements() {
+    private List<NodePlacement> placements() {
         return List.of(
-                new NodePlacement(NodeKey.of("n1"), SourceType.NODE, UUID.randomUUID()),
-                new NodePlacement(NodeKey.of("n2"), SourceType.NODE, UUID.randomUUID()));
+                new NodePlacement(NodeKey.of("n1"), SourceType.NODE, seededNode, InputSource.defaultSource()),
+                new NodePlacement(NodeKey.of("n2"), SourceType.NODE, seededNode, InputSource.defaultSource()));
     }
 
     private static List<GraphEdge> edges() {
