@@ -17,8 +17,9 @@ const AMOUNT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 })
 /**
  * '540.00' → '540 ABC', '1248.50' → '1,248.5 ABC'
  *
- * 단언은 여기 한 곳에서만 한다 — 값이 숫자가 아니면 RangeError 로 터지는 편이
- * 'abc ABC' 를 조용히 그리는 것보다 낫다.
+ * TS 가 문자열 오버로드를 `StringNumericLiteral` 로 타이핑해 API 의 `string` 은 단언이
+ * 필요하다. 명세가 10진수 문자열로 확정했으니 여기 한 곳에서만 한다 — 값이 숫자가
+ * 아니면 RangeError 로 터지는 편이 'abc ABC' 를 조용히 그리는 것보다 낫다.
  */
 export function priceLabel(price: string | number) {
   return `${AMOUNT.format(price as Intl.StringNumericLiteral)} ABC`

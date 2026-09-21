@@ -4,6 +4,9 @@ import { fail, ok } from '@/mocks/response'
 /**
  * 필드를 **각각** 본다. 이어 붙여 한 덩어리로 보면 이름 끝과 설명 앞에 걸친 말이
  * 매칭되는데, 서버는 `LIKE` 를 필드별로 걸어 실서버에서는 안 걸린다.
+ *
+ * 실제로 갈라진 적이 있다 — 마켓은 필드별, 마이페이지는 `name + ' ' + summary` 라
+ * 두 필드에 걸친 검색어가 마이페이지에서만 걸렸다. 그래서 여기 하나로 모았다.
  */
 export function matchKeyword(keyword: string, ...fields: string[]) {
   const q = keyword.trim().toLowerCase()

@@ -24,11 +24,11 @@ export interface DeletedWorkflow {
   deletedAt: string
 }
 
-/** 에이전트로 등록하지 않은 내 워크플로우 */
+/** 에이전트로 등록하지 않은 내 워크플로우. */
 export const getMyWorkflows = (params: WorkflowQuery = {}) =>
   api.get<CursorPage<WorkflowSummary>>('/workflows', { params })
 
-/** 멱등이 아니다. 에이전트로 등록됐거나 실행이 진행 중이면 409 로 거절된다. */
+/** 멱등이 아니다 — 에이전트로 등록됐거나 실행이 진행 중이면 409 로 거절된다. 화면은 `code` 로 갈라 다른 문구를 낸다. */
 export const deleteWorkflow = (workflowId: string) =>
   api.delete<DeletedWorkflow>(`/workflows/${workflowId}`)
 

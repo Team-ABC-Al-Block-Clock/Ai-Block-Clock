@@ -28,7 +28,10 @@ export class ApiError extends Error {
   }
 }
 
-/** 401 안에서도 처리가 갈린다. 재발급으로 회복되는 것은 Access Token 만료뿐이다. */
+/**
+ * 401 안에서도 처리가 갈린다. AUTH_001~004 는 Refresh Token 문제라 재발급이 불가능하고,
+ * AUTH_005~007 은 Access Token 문제이며 이 중 만료(007)만 회복된다.
+ */
 export const AUTH_ERROR = {
   /** Refresh Token 쿠키 미전달 */
   REFRESH_MISSING: 'AUTH_001',

@@ -269,7 +269,7 @@ function findFreeSpot(
  * 카드가 원이라 모서리가 아니라 중심 거리로 본다. 가장 깊이 겹친 것부터 중심선 바깥으로
  * 밀어내고, 밀린 자리가 또 겹치면 되풀이한다 — 한 번에 밀면 옆 카드 위로 올라간다.
  *
- * 갈 수 있는 자리는 `bounds` 가 정한다 — 패널 뒤로는 못 가고, 화면 밖으로는 절반까지다.
+ * 갈 수 있는 자리는 `bounds` 가 정한다 — 화면 밖으로도 패널 뒤로도 카드 절반까지다.
  */
 export function resolveOverlap(
   nodes: CanvasNodeData[],

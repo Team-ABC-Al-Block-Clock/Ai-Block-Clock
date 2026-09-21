@@ -130,8 +130,8 @@ client.interceptors.response.use(
           config.headers.Authorization = `Bearer ${accessToken}`
           return client.request(config)
         } catch (reissueError) {
-          // 원인은 재발급 응답에 있다 — 원 요청의 코드를 넘기면 폐기된 세션까지
-          // '만료' 로 안내하게 된다.
+          // Refresh 쪽 실패는 회복 수단이 없다. 원인은 재발급 응답에 있어,
+          // 원 요청의 코드를 넘기면 폐기된 세션까지 '만료' 로 안내하게 된다.
           failAuth(codeOf(reissueError))
           throw new ApiError('세션이 만료되었습니다. 다시 로그인해 주세요.', {
             code,

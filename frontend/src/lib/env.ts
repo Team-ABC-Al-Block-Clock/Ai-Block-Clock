@@ -1,6 +1,8 @@
 /**
  * 값이 없으면 켠다. .env 가 커밋되지 않아 새로 클론한 팀원에게는 이 값이 없는데,
  * 그때 mock 이 꺼지면 없는 백엔드로 요청이 나가 원인을 찾기 어렵다.
+ *
+ * 끄는 쪽만 'false' 를 명시하게 한다 — 오타가 mock 을 조용히 켜 두는 편이 안전하다.
  */
 function resolveUseMock(raw: string | undefined): boolean {
   if (raw === undefined || raw === '') return true
