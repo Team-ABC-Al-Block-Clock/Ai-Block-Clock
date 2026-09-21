@@ -7,6 +7,7 @@ import com.aiblockclock.support.paging.CursorPage;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,6 +20,7 @@ public class WorkflowService {
     private final WorkflowGraphAssembler workflowGraphAssembler;
     private final WorkflowDeletionPolicy deletionPolicy;
 
+    @Transactional
     public Workflow save(
             OwnerId requester,
             String name,

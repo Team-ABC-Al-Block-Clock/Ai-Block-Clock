@@ -27,6 +27,11 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
+    public NodeDefinition readForUpdate(NodeDefinitionId id) {
+        return NodeDefinitionEntityConverter.toDomain(nodeRepository.findByIdForUpdate(id.value())
+                .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND)));
+    }
+
     public CursorPage<NodeDefinitionSummary> readMine(OwnerId owner, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
         Pageable pageable = OffsetPageable.of(offset, size + 1);

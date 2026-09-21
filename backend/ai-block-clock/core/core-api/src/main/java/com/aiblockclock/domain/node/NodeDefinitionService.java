@@ -8,6 +8,7 @@ import com.aiblockclock.support.paging.CursorPage;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -41,8 +42,9 @@ public class NodeDefinitionService {
         return nodeWriter.update(node);
     }
 
+    @Transactional
     public void delete(NodeDefinitionId id, OwnerId requester) {
-        deletionPolicy.ensureDeletable(nodeReader.read(id), requester);
+        deletionPolicy.ensureDeletable(nodeReader.readForUpdate(id), requester);
         nodeWriter.remove(id);
     }
 }
