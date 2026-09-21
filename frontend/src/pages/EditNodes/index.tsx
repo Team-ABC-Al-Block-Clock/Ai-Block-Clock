@@ -48,6 +48,7 @@ export default function EditNodes() {
   } = canvas
   const { paneRef, panelRef, glowRef, tempRef } = canvas.refs
   const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
+  const { isFetchNextPageError, isFetchingNextPage, handleRetryNextPage } = palette
 
   const handleDragOver = (ev: React.DragEvent<HTMLDivElement>) => {
     if (!ev.dataTransfer.types.includes(DND_TYPE)) return
@@ -79,6 +80,7 @@ export default function EditNodes() {
         borderRadius: '50%',
         pointerEvents: 'none',
         opacity: hovId && hovId !== selId ? 0.6 : 1,
+        // 카드가 호버에 5px 떠오른다. 빛도 같은 만큼 같은 시간에 따라가야 붙어 보인다.
         transform: `translateY(${hovId && !dragId ? -5 : 0}px)`,
         background:
           'radial-gradient(circle, rgba(255,160,200,.30) 0 42%, rgba(255,160,200,.14) 62%, rgba(255,160,200,0) 76%)',
@@ -127,48 +129,6 @@ export default function EditNodes() {
           </div>
         )}
 
-        {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 앞에서 잘라 넘어간 만큼만 가린다. */}
-        <div className="absolute inset-0" style={{ clipPath: PANEL_CLIP }}>
-          <div ref={glowRef} style={selRing}></div>
-
-          {nodes.map((node, i) => (
-            <CanvasNode
-              key={node.id}
-              index={i}
-              name={node.name}
-              sublabel={nodeTypeLabel(node.nodeType)}
-              x={node.x}
-              y={node.y}
-              mine={node.mine}
-              floaty={node.floaty}
-              enter={node.enter}
-              background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
-              sublabelColor="rgba(230,196,212,.85)"
-              title={
-                node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
-              }
-              nodeId={node.id}
-              dragging={dragId === node.id}
-              onSelect={handleSelect}
-              onPointerDown={handleNodePointerDown(node.id)}
-              onPortDown={handlePortDown(node.id)}
-              portDim={(side) => !portOpen(node.id, side)}
-              // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
-              onPointerMove={(ev) => {
-                handleNodePointerMove(ev)
-                handlePortMove(ev)
-              }}
-              onPointerUp={(ev) => {
-                handleNodePointerUp()
-                handlePortUp(ev)
-              }}
-              onPointerCancel={handlePointerCancel}
-              onHover={() => onHover(node.id)}
-              onHoverOut={handleHoverOut}
-            />
-          ))}
-        </div>
-
         <CanvasEdgeLayer>
           <defs>
             <linearGradient id="edgeOn" x1="0" y1="0" x2="1" y2="0">
@@ -212,19 +172,67 @@ export default function EditNodes() {
                 />
               </Fragment>
             ))}
-            {/* 아직 연결되지 않은 선 */}
-            {linkFrom && (
-              <path
-                ref={tempRef}
-                fill="none"
-                stroke="rgba(255,224,238,.7)"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-                strokeDasharray="6 10"
-              />
-            )}
           </g>
         </CanvasEdgeLayer>
+
+        {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 앞에서 잘라 넘어간 만큼만 가린다.
+            자르기만 하는 판이라 판정은 흘려보낸다 — 작업면을 덮고 있어 그대로 두면
+            아래에 깔린 연결선을 누를 수 없다. 카드가 제 몫만 다시 켠다. */}
+        <div className="pointer-events-none absolute inset-0" style={{ clipPath: PANEL_CLIP }}>
+          <div ref={glowRef} style={selRing}></div>
+
+          {nodes.map((node, i) => (
+            <CanvasNode
+              key={node.id}
+              index={i}
+              name={node.name}
+              sublabel={nodeTypeLabel(node.nodeType)}
+              x={node.x}
+              y={node.y}
+              mine={node.mine}
+              floaty={node.floaty}
+              enter={node.enter}
+              background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
+              sublabelColor="rgba(230,196,212,.85)"
+              title={
+                node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+              }
+              nodeId={node.id}
+              dragging={dragId === node.id}
+              onSelect={handleSelect}
+              onPointerDown={handleNodePointerDown(node.id)}
+              onPortDown={handlePortDown(node.id)}
+              portDim={(side) => !portOpen(node.id, side)}
+              // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
+              onPointerMove={(ev) => {
+                handleNodePointerMove(ev)
+                handlePortMove(ev)
+              }}
+              onPointerUp={(ev) => {
+                handleNodePointerUp()
+                handlePortUp(ev)
+              }}
+              onPointerCancel={handlePointerCancel}
+              onHover={() => onHover(node.id)}
+              onHoverOut={handleHoverOut}
+            />
+          ))}
+        </div>
+
+        {/* 끄는 중인 선은 카드 위에 둔다 — 이어진 선과 달리 카드를 피해 가지 않아서,
+            아래에 깔면 겨냥하는 카드에 가려 끝이 보이지 않는다. 판 전체가 판정을 흘린다. */}
+        {linkFrom && (
+          <CanvasEdgeLayer>
+            <path
+              ref={tempRef}
+              fill="none"
+              stroke="rgba(255,224,238,.7)"
+              strokeWidth="3.4"
+              strokeLinecap="round"
+              strokeDasharray="6 10"
+            />
+          </CanvasEdgeLayer>
+        )}
 
         <div
           className="absolute flex items-center overflow-hidden"
@@ -269,212 +277,210 @@ export default function EditNodes() {
         </div>
 
         {panelOpen && (
-          <>
+          <div
+            className="absolute box-border flex flex-col"
+            style={{
+              left: 'calc(32px - var(--edge, 0px))',
+              top: '262px',
+              width: '500px',
+              height: '700px',
+              borderRadius: '14px',
+              background: 'rgba(20,11,36,.88)',
+              backdropFilter: 'blur(28px) saturate(125%)',
+              WebkitBackdropFilter: 'blur(28px) saturate(125%)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18),0 26px 60px rgba(4,2,12,.6)',
+              padding: '20px',
+              animation: 'panelPop .34s cubic-bezier(.2,.9,.3,1) both',
+              transformOrigin: '20% 100%',
+            }}
+          >
             <div
-              className="absolute box-border flex flex-col"
+              className="flex flex-none items-center justify-between"
+              style={{ marginBottom: '16px' }}
+            >
+              <div className="text-[20px] font-semibold tracking-[-.01em] text-white">
+                노드 추가
+              </div>
+              <div
+                onClick={handleTogglePanel}
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '6px',
+                  color: 'rgba(255,255,255,.6)',
+                }}
+                className="flex cursor-pointer items-center justify-center text-[16px] hover:bg-[rgba(255,255,255,.14)] hover:text-[#fff]"
+              >
+                ×
+              </div>
+            </div>
+
+            <div
+              className="flex-1 overflow-x-hidden"
+              id="addPanelFields"
               style={{
-                left: 'calc(32px - var(--edge, 0px))',
-                top: '262px',
-                width: '500px',
-                height: '700px',
-                borderRadius: '14px',
-                background: 'rgba(20,11,36,.88)',
-                backdropFilter: 'blur(28px) saturate(125%)',
-                WebkitBackdropFilter: 'blur(28px) saturate(125%)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18),0 26px 60px rgba(4,2,12,.6)',
-                padding: '20px',
-                animation: 'panelPop .34s cubic-bezier(.2,.9,.3,1) both',
-                transformOrigin: '20% 100%',
+                minHeight: '0',
+                overflowY: 'auto',
+                paddingRight: '4px',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(255,255,255,.26) transparent',
               }}
             >
               <div
-                className="flex flex-none items-center justify-between"
-                style={{ marginBottom: '16px' }}
+                className="text-[17px]"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
               >
-                <div className="text-[20px] font-semibold tracking-[-.01em] text-white">
-                  노드 추가
-                </div>
-                <div
-                  onClick={handleTogglePanel}
-                  style={{
-                    width: '22px',
-                    height: '22px',
-                    borderRadius: '6px',
-                    color: 'rgba(255,255,255,.6)',
-                  }}
-                  className="flex cursor-pointer items-center justify-center text-[16px] hover:bg-[rgba(255,255,255,.14)] hover:text-[#fff]"
-                >
-                  ×
-                </div>
+                노드 이름
               </div>
-
               <div
-                className="flex-1 overflow-x-hidden"
-                id="addPanelFields"
+                className="bg-surface-card flex items-center"
                 style={{
-                  minHeight: '0',
-                  overflowY: 'auto',
-                  paddingRight: '4px',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: 'rgba(255,255,255,.26) transparent',
+                  height: '44px',
+                  borderRadius: '11px',
+                  padding: '0 12px',
+                  marginBottom: '14px',
                 }}
               >
-                <div
-                  className="text-[17px]"
-                  style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
-                >
-                  노드 이름
-                </div>
-                <div
-                  className="bg-surface-card flex items-center"
-                  style={{
-                    height: '44px',
-                    borderRadius: '11px',
-                    padding: '0 12px',
-                    marginBottom: '14px',
-                  }}
-                >
-                  <input
-                    className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
-                    type="text"
-                    placeholder="예: 내용 분석"
-                    style={{ width: '100%' }}
-                  />
-                </div>
+                <input
+                  className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
+                  type="text"
+                  placeholder="예: 내용 분석"
+                  style={{ width: '100%' }}
+                />
+              </div>
 
-                <div
-                  className="text-[17px]"
-                  style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
-                >
-                  입력 파일
+              <div
+                className="text-[17px]"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
+              >
+                입력 파일
+              </div>
+              <div
+                className="bg-surface-card flex items-center justify-between"
+                style={{
+                  height: '44px',
+                  borderRadius: '11px',
+                  padding: '0 6px 0 12px',
+                  marginBottom: '14px',
+                }}
+              >
+                <div className="text-[17px]" style={{ color: 'rgba(255,255,255,.5)' }}>
+                  파일을 선택하세요
                 </div>
                 <div
-                  className="bg-surface-card flex items-center justify-between"
                   style={{
-                    height: '44px',
-                    borderRadius: '11px',
-                    padding: '0 6px 0 12px',
-                    marginBottom: '14px',
+                    height: '30px',
+                    padding: '0 14px',
+                    borderRadius: '8px',
+                    background: 'rgba(255,255,255,.16)',
                   }}
+                  className="flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.28)]"
                 >
-                  <div className="text-[17px]" style={{ color: 'rgba(255,255,255,.5)' }}>
-                    파일을 선택하세요
-                  </div>
-                  <div
-                    style={{
-                      height: '30px',
-                      padding: '0 14px',
-                      borderRadius: '8px',
-                      background: 'rgba(255,255,255,.16)',
-                    }}
-                    className="flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.28)]"
-                  >
-                    찾기
-                  </div>
-                </div>
-
-                <div
-                  className="text-[17px]"
-                  style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
-                >
-                  AI 모델
-                </div>
-                <div
-                  className="bg-surface-card flex items-center"
-                  style={{
-                    height: '44px',
-                    borderRadius: '11px',
-                    padding: '0 12px',
-                    marginBottom: '14px',
-                  }}
-                >
-                  <div className="text-[17px] text-white">기본 모델</div>
-                </div>
-
-                <div
-                  className="text-[17px] font-semibold"
-                  style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
-                >
-                  프롬프트
-                </div>
-                <div
-                  className="bg-surface-card"
-                  style={{
-                    height: '150px',
-                    borderRadius: '9px',
-                    padding: '11px 12px',
-                    marginBottom: '14px',
-                  }}
-                >
-                  <textarea
-                    className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
-                    placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
-                    style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
-                  ></textarea>
-                </div>
-
-                <div
-                  className="text-[17px]"
-                  style={{ color: 'rgba(255,214,232,.85)', marginBottom: '10px' }}
-                >
-                  제어 흐름 노드
-                </div>
-                <div className="flex" style={{ gap: '8px', marginBottom: '2px' }}>
-                  <div
-                    style={{ height: '36px', padding: '0 13px', borderRadius: '10px' }}
-                    className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold whitespace-nowrap text-white hover:bg-[rgba(255,255,255,.2)]"
-                  >
-                    조건 분기 (if / else)
-                  </div>
-                  <div
-                    style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                    className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
-                  >
-                    반복
-                  </div>
-                  <div
-                    style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                    className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
-                  >
-                    병합
-                  </div>
+                  찾기
                 </div>
               </div>
 
               <div
-                className="flex flex-none"
-                style={{ justifyContent: 'flex-end', gap: '8px', paddingTop: '14px' }}
+                className="text-[17px]"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
               >
+                AI 모델
+              </div>
+              <div
+                className="bg-surface-card flex items-center"
+                style={{
+                  height: '44px',
+                  borderRadius: '11px',
+                  padding: '0 12px',
+                  marginBottom: '14px',
+                }}
+              >
+                <div className="text-[17px] text-white">기본 모델</div>
+              </div>
+
+              <div
+                className="text-[17px] font-semibold"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
+              >
+                프롬프트
+              </div>
+              <div
+                className="bg-surface-card"
+                style={{
+                  height: '150px',
+                  borderRadius: '9px',
+                  padding: '11px 12px',
+                  marginBottom: '14px',
+                }}
+              >
+                <textarea
+                  className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
+                  placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
+                  style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
+                ></textarea>
+              </div>
+
+              <div
+                className="text-[17px]"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '10px' }}
+              >
+                제어 흐름 노드
+              </div>
+              <div className="flex" style={{ gap: '8px', marginBottom: '2px' }}>
                 <div
-                  onClick={handleTogglePanel}
-                  style={{
-                    height: '40px',
-                    padding: '0 22px',
-                    borderRadius: '11px',
-                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
-                    color: 'rgba(255,255,255,.9)',
-                  }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[17px] font-semibold hover:bg-[rgba(255,255,255,.18)]"
+                  style={{ height: '36px', padding: '0 13px', borderRadius: '10px' }}
+                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold whitespace-nowrap text-white hover:bg-[rgba(255,255,255,.2)]"
                 >
-                  취소
+                  조건 분기 (if / else)
                 </div>
                 <div
-                  onClick={handleTogglePanel}
-                  style={{
-                    height: '40px',
-                    padding: '0 24px',
-                    borderRadius: '11px',
-                    background: 'var(--color-accent)',
-                    boxShadow: '0 8px 20px rgba(140,100,130,.24)',
-                    color: 'var(--color-accent-ink)',
-                  }}
-                  className="flex cursor-pointer items-center text-[17px] font-bold hover:brightness-[1.05]"
+                  style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
+                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
                 >
-                  추가
+                  반복
+                </div>
+                <div
+                  style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
+                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
+                >
+                  병합
                 </div>
               </div>
             </div>
-          </>
+
+            <div
+              className="flex flex-none"
+              style={{ justifyContent: 'flex-end', gap: '8px', paddingTop: '14px' }}
+            >
+              <div
+                onClick={handleTogglePanel}
+                style={{
+                  height: '40px',
+                  padding: '0 22px',
+                  borderRadius: '11px',
+                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
+                  color: 'rgba(255,255,255,.9)',
+                }}
+                className="bg-surface-card flex cursor-pointer items-center text-[17px] font-semibold hover:bg-[rgba(255,255,255,.18)]"
+              >
+                취소
+              </div>
+              <div
+                onClick={handleTogglePanel}
+                style={{
+                  height: '40px',
+                  padding: '0 24px',
+                  borderRadius: '11px',
+                  background: 'var(--color-accent)',
+                  boxShadow: '0 8px 20px rgba(140,100,130,.24)',
+                  color: 'var(--color-accent-ink)',
+                }}
+                className="flex cursor-pointer items-center text-[17px] font-bold hover:brightness-[1.05]"
+              >
+                추가
+              </div>
+            </div>
+          </div>
         )}
 
         <a
@@ -517,7 +523,10 @@ export default function EditNodes() {
           cards={cards}
           isEmpty={isEmpty}
           isError={isError}
+          isFetchNextPageError={isFetchNextPageError}
+          isFetchingNextPage={isFetchingNextPage}
           onSearch={handleSearch}
+          onRetryNextPage={handleRetryNextPage}
           refs={palette.refs}
         />
       </SidePanel>
