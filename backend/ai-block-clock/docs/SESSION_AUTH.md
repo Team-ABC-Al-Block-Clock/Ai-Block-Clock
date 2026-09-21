@@ -72,6 +72,6 @@ JWT 관련 `AUTH_JWT_SECRET_BASE64`, `AUTH_TOKEN_ISSUER`, `AUTH_ACCESS_TOKEN_TTL
 
 ## DB 마이그레이션
 
-`V7__replace_refresh_token_with_session_token.sql`은 기존 `refresh_token` 테이블을 삭제하고,
+`V9__replace_refresh_token_with_session_token.sql`은 기존 `refresh_token` 테이블을 삭제하고,
 개발 중 발급된 기존 세션을 비운 뒤 `login_session.session_token_hash` 고유 컬럼을 추가한다.
 배포 후 기존 로그인은 유지되지 않으며 한 번 지갑 서명 로그인을 다시 해야 한다.

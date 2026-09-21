@@ -36,10 +36,10 @@ class WalletAuthMessageWriterTest {
             Clock.fixed(Instant.parse("2026-09-17T00:00:30Z"), ZoneOffset.UTC));
 
     @Test
-    void V5의_지갑_중복_제약만_동시_발급_충돌로_처리한다() throws IOException {
+    void V7의_지갑_중복_제약만_동시_발급_충돌로_처리한다() throws IOException {
         String migrationSql;
         try (InputStream migration = getClass().getResourceAsStream(
-                "/db/migration/V5__create_wallet_auth_message_table.sql")) {
+                "/db/migration/V7__create_wallet_auth_message_table.sql")) {
             assertThat(migration).isNotNull();
             migrationSql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
         }
