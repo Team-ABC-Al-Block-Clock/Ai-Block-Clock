@@ -10,7 +10,10 @@ import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.EdgeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
+import com.aiblockclock.domain.workflow.WorkflowEdgeWriter;
+import com.aiblockclock.domain.workflow.WorkflowNodeWriter;
 import com.aiblockclock.domain.workflow.WorkflowService;
+import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -37,16 +40,28 @@ class ExecutionPlanAssemblerIntegrationTest {
     @Autowired
     private WorkflowService workflowService;
 
+    @Autowired
+    private WorkflowWriter workflowWriter;
+
+    @Autowired
+    private WorkflowNodeWriter workflowNodeWriter;
+
+    @Autowired
+    private WorkflowEdgeWriter workflowEdgeWriter;
 
     @Autowired
     private ExecutionPlanAssembler executionPlanAssembler;
 
     private WorkflowId workflowId;
 
+    // 정리는 삭제 정책을 타지 않는다. WorkflowUsageView 가 실제 조회로 바뀌면
+    // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
         if (workflowId != null) {
-            workflowService.delete(workflowId, OWNER);
+            workflowEdgeWriter.removeAll(workflowId);
+            workflowNodeWriter.removeAll(workflowId);
+            workflowWriter.remove(workflowId);
         }
     }
 

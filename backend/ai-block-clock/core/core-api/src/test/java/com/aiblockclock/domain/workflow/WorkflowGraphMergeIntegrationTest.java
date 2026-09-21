@@ -41,9 +41,17 @@ class WorkflowGraphMergeIntegrationTest {
     @Autowired
     private WorkflowEdgeRepository workflowEdgeRepository;
 
-
     @Autowired
     private NodeDefinitionRepository nodeRepository;
+
+    @Autowired
+    private WorkflowWriter workflowWriter;
+
+    @Autowired
+    private WorkflowNodeWriter workflowNodeWriter;
+
+    @Autowired
+    private WorkflowEdgeWriter workflowEdgeWriter;
 
     private WorkflowId workflowId;
 
@@ -62,9 +70,13 @@ class WorkflowGraphMergeIntegrationTest {
                 List.of(GraphFixtures.edge("e1", "n1", "n2"))).getId();
     }
 
+    // 정리는 삭제 정책을 타지 않는다. WorkflowUsageView 가 실제 조회로 바뀌면
+    // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
-        workflowService.delete(workflowId, OWNER);
+        workflowEdgeWriter.removeAll(workflowId);
+        workflowNodeWriter.removeAll(workflowId);
+        workflowWriter.remove(workflowId);
     }
 
     @Test

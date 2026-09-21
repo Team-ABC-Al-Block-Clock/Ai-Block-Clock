@@ -33,7 +33,8 @@ public interface WorkflowEdgeRepository extends JpaRepository<WorkflowEdgeEntity
             """)
     int deleteMissing(@Param("workflowId") UUID workflowId, @Param("keptKeys") Collection<String> keptKeys);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    // 자식 행은 같은 트랜잭션에서 다시 읽지 않는다. 그래서 셋 다 flushAutomatically 만 둔다.
+    @Modifying(flushAutomatically = true)
     @Query("delete from WorkflowEdgeEntity e where e.workflowId = :workflowId")
     int deleteAllByWorkflowId(@Param("workflowId") UUID workflowId);
 }

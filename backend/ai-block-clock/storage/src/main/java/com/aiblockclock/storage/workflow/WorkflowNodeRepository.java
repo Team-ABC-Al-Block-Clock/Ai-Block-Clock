@@ -42,7 +42,8 @@ public interface WorkflowNodeRepository extends JpaRepository<WorkflowNodeEntity
             """)
     int deleteMissing(@Param("workflowId") UUID workflowId, @Param("keptKeys") Collection<String> keptKeys);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    // 자식 행은 같은 트랜잭션에서 다시 읽지 않는다. 그래서 셋 다 flushAutomatically 만 둔다.
+    @Modifying(flushAutomatically = true)
     @Query("delete from WorkflowNodeEntity n where n.workflowId = :workflowId")
     int deleteAllByWorkflowId(@Param("workflowId") UUID workflowId);
 }

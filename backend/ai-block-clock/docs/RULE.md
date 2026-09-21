@@ -644,6 +644,14 @@ private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
 **무엇이 남았는지 알려고 조회하지 않는다.** `UPDATE` 의 영향 행 수가 그것을 말해 준다 — 0 이면
 없던 키이니 넣는다. 기존 행을 `SELECT` 해서 키를 대조하는 코드는 그래서 필요 없다.
 
+이것은 커넥터 기본값에 기댄다. Connector/J 는 `useAffectedRows=false` 라 MySQL 이 matched rows 를
+돌려주고, 값이 그대로인 행도 1 을 받는다. `useAffectedRows=true` 를 켜면 안 바뀐 행이 0 을 돌려주고
+곧장 `save()` 로 가서 유니크 키가 터진다. 이 옵션을 건드리지 않는다.
+
+**자식 쓰기의 `@Modifying` 에는 `flushAutomatically` 만 둔다.** 자식은 같은 트랜잭션에서 다시 읽지
+않으므로 `clearAutomatically` 가 필요 없다. 그것은 영속성 컨텍스트를 통째로 비워 같은 트랜잭션이
+들고 있던 부모까지 다시 읽게 만든다.
+
 부모를 통째로 지울 때는 다르다. 남길 것이 없으므로 자식을 벌크로 지우고 부모를 지운다.
 
 ---
