@@ -12,6 +12,9 @@ import StatusDot from '@/components/StatusDot'
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 
+// 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
+const EDGES = edgeGeometry(CANVAS_NODES)
+
 export default function RunWaiting() {
   const navigate = useNavigate()
   // 에이전트 조회가 붙으면 여기로 들어온다. 최대 200자라 넘치면 줄바꿈된다.
@@ -46,6 +49,20 @@ export default function RunWaiting() {
   return (
     <>
       <CanvasPane>
+        <CanvasEdgeLayer>
+          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {EDGES.map((edge) => (
+              <path
+                key={edge.id}
+                d={edge.d}
+                fill="none"
+                stroke="rgba(255,255,255,.26)"
+                strokeWidth="3.4"
+              />
+            ))}
+          </g>
+        </CanvasEdgeLayer>
+
         {CANVAS_NODES.map((node, i) => (
           <CanvasNode
             key={node.id}
@@ -61,20 +78,6 @@ export default function RunWaiting() {
             numberColor="rgba(255,255,255,.9)"
           />
         ))}
-
-        <CanvasEdgeLayer>
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edgeGeometry(CANVAS_NODES).map((edge) => (
-              <path
-                key={edge.id}
-                d={edge.d}
-                fill="none"
-                stroke="rgba(255,255,255,.26)"
-                strokeWidth="3.4"
-              />
-            ))}
-          </g>
-        </CanvasEdgeLayer>
       </CanvasPane>
 
       <SidePanel>

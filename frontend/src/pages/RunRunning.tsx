@@ -9,6 +9,9 @@ import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 
+// 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
+const EDGES = edgeGeometry(CANVAS_NODES)
+
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
   const [searchParams] = useSearchParams()
@@ -22,7 +25,6 @@ export default function RunRunning() {
   const rafId = useRef<number>(undefined)
 
   const defs = CANVAS_NODES
-  const edgePaths = edgeGeometry(CANVAS_NODES).map((edge) => edge.d)
   const logLines = [
     '입력 파일 128개 수집 완료',
     'PDF 112개 · 이미지 16개 판별',
@@ -72,11 +74,11 @@ export default function RunRunning() {
       stateLabel: running ? '진행 중' : done ? '완료' : '대기',
     }
   })
-  const edges = edgePaths.map((d, i) => ({
-    d,
+  const edges = EDGES.map((edge, i) => ({
+    ...edge,
     stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
-  const liveEdges = edgePaths.slice(0, Math.max(0, active)).map((d) => ({ d }))
+  const liveEdges = EDGES.slice(0, Math.max(0, active))
   const shown = Math.min(
     logLines.length,
     Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
@@ -191,6 +193,26 @@ export default function RunRunning() {
       <CanvasPane>
         <div style={glowStyle}></div>
 
+        <CanvasEdgeLayer>
+          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+            {edges.map((e) => (
+              <path key={e.id} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
+            ))}
+            {liveEdges.map((e) => (
+              <path
+                key={e.id}
+                d={e.d}
+                fill="none"
+                stroke="rgba(255,224,238,.85)"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                strokeDasharray="3 18"
+                style={{ animation: 'dash 1.5s linear infinite' }}
+              />
+            ))}
+          </g>
+        </CanvasEdgeLayer>
+
         {nodes.map((n, i) => (
           <CanvasNode
             key={n.id}
@@ -209,26 +231,6 @@ export default function RunRunning() {
             glass
           />
         ))}
-
-        <CanvasEdgeLayer>
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edges.map((e, i) => (
-              <path key={i} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
-            ))}
-            {liveEdges.map((e, i) => (
-              <path
-                key={i}
-                d={e.d}
-                fill="none"
-                stroke="rgba(255,224,238,.85)"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-                strokeDasharray="3 18"
-                style={{ animation: 'dash 1.5s linear infinite' }}
-              />
-            ))}
-          </g>
-        </CanvasEdgeLayer>
       </CanvasPane>
 
       <SidePanel>
