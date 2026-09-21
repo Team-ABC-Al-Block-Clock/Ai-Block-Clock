@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
   addAgentFavorite,
   getAgentProvenance,
+  getAgentReviews,
   getMarketplaceAgent,
   removeAgentFavorite,
   type AgentDetail,
@@ -21,6 +22,7 @@ import {
   runLabel,
   shortAddress,
   successLabel,
+  timeLabel,
 } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { chainNameOf } from '@/lib/wagmi'
@@ -45,6 +47,19 @@ const ERROR_ACTIONS = JSON.stringify([
 
 /** 즐겨찾기 실패 중 로그인 문제. 401 안에서도 문구가 갈린다(`api/errors.ts`). */
 const AUTH_CODES: string[] = [AUTH_ERROR.MISSING, AUTH_ERROR.INVALID, AUTH_ERROR.EXPIRED]
+
+/** 한 번에 불러오는 리뷰 개수. */
+const REVIEW_PAGE_SIZE = 5
+
+/** 리뷰 한 건이 차지하는 높이. 본문을 2줄로 자르기 때문에 건마다 같다 —
+ *  이 페이지는 절대 좌표라 높이를 미리 알아야 바닥이 정해진다. */
+const REVIEW_ROW = 84
+/** 리뷰 카드의 위아래 여백 합. */
+const REVIEW_PAD = 48
+/** '더 보기' 줄. 다음 장이 없으면 자리도 없다. */
+const REVIEW_MORE = 52
+/** 리뷰가 없거나 못 불러왔을 때 대신 들어가는 한 줄. */
+const REVIEW_NOTICE = 44
 
 /** 아직 블록에 안 들어간 트랜잭션은 되돌려질 수 있다 — 검증됐다고 말하지 않는다. */
 function proofBadgeOf(proof: AgentProvenance) {
@@ -86,6 +101,20 @@ export default function Detail() {
   // 404 가 두 가지라 status 로는 못 가른다.
   const provenanceMissing =
     provenance.error instanceof ApiError && provenance.error.code === 'BLOCKCHAIN_003'
+
+  // 상세·증명과 나란히 나간다. 리뷰는 페이지 맨 아래라 늦게 와도 위쪽을 밀지 않는다.
+  const reviews = useInfiniteQuery({
+    queryKey: queryKeys.marketplace.agents.reviews.list(agentId ?? '', {
+      size: REVIEW_PAGE_SIZE,
+    }),
+    queryFn: ({ pageParam }) =>
+      getAgentReviews(agentId ?? '', { cursor: pageParam, size: REVIEW_PAGE_SIZE }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled: !!agentId,
+  })
+
+  const reviewItems = reviews.data?.pages.flatMap((page) => page.content) ?? []
 
   const queryClient = useQueryClient()
   const favorite = useMutation({
@@ -205,6 +234,15 @@ export default function Detail() {
   ]
   // 실행 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
   const proofTop = agent.usageExample ? 1440 : 1268
+
+  /* 리뷰는 페이지의 마지막 블록이다 — 개수가 변하는 영역을 맨 아래 두어야
+     위쪽 절대 좌표를 건드리지 않고 바닥만 늘릴 수 있다. 증명 카드가 끝나는
+     자리(proofTop + 426)에서 32px 띄운다. */
+  const reviewsTop = proofTop + 458
+  const reviewsBody = reviewItems.length ? reviewItems.length * REVIEW_ROW : REVIEW_NOTICE
+  const reviewsCard = REVIEW_PAD + reviewsBody + (reviews.hasNextPage ? REVIEW_MORE : 0)
+  // 제목 32px + 카드 + 바닥 여백 64px.
+  const pageHeight = reviewsTop + 32 + reviewsCard + 64
   const proof = provenance.data
   const proofBadge = proof && proofBadgeOf(proof)
   // 대조해 보라고 두는 값이라 주소는 줄이지 않는다.
@@ -231,7 +269,7 @@ export default function Detail() {
         }}
       >
         {/* 426 = 증명 카드 높이 + 아래 여백 */}
-        <div className="relative" style={{ width: '1440px', height: `${proofTop + 426}px` }}>
+        <div className="relative" style={{ width: '1440px', height: `${pageHeight}px` }}>
           <a
             className="absolute flex items-center text-[14px] tracking-[-.01em]"
             href={paths.search}
@@ -841,6 +879,103 @@ export default function Detail() {
                   기록합니다.
                 </div>
               </>
+            )}
+          </div>
+
+          <div
+            className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
+            style={{
+              left: '272px',
+              top: `${reviewsTop}px`,
+              animation: 'rise .7s .58s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            리뷰 {compactCount(agent.reviewCount)}
+          </div>
+          <div
+            className="absolute box-border text-[13.5px] tracking-[-.01em]"
+            style={{
+              left: '272px',
+              top: `${reviewsTop + 32}px`,
+              width: '896px',
+              padding: '24px',
+              borderRadius: '14px',
+              background: 'var(--color-surface-inset)',
+              animation: 'unfold .8s .6s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            {reviews.isPending && <div className="text-faint">불러오는 중…</div>}
+
+            {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다. */}
+            {!reviews.isPending && !reviews.isError && reviewItems.length === 0 && (
+              <div className="text-muted">아직 리뷰가 없습니다. 첫 리뷰를 남겨 보세요.</div>
+            )}
+
+            {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다. */}
+            {reviews.isError && reviewItems.length === 0 && (
+              <div className="flex items-center" style={{ gap: '12px' }}>
+                <span style={{ color: 'rgba(255,196,214,.9)' }}>리뷰를 불러오지 못했습니다.</span>
+                <button
+                  className="text-muted cursor-pointer underline"
+                  onClick={() => void reviews.refetch()}
+                  style={{ background: 'none', border: 0, padding: 0 }}
+                  type="button"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
+            {reviewItems.map((review, i) => (
+              <div
+                key={review.reviewId}
+                style={{
+                  borderTop: i === 0 ? 0 : '1px solid rgba(255,255,255,.16)',
+                  paddingTop: i === 0 ? 0 : '16px',
+                  marginTop: i === 0 ? 0 : '16px',
+                }}
+              >
+                <div className="flex items-center" style={{ gap: '10px' }}>
+                  <span className="text-body font-semibold">{review.authorNickname}</span>
+                  <span style={{ color: 'var(--color-accent-bright)' }}>★ {review.rating}</span>
+                  <span className="text-faint text-[12.5px]">{timeLabel(review.createdAt)}</span>
+                </div>
+                {/* 2줄로 자른다 — 건마다 높이가 같아야 페이지 바닥을 미리 계산할 수 있다. */}
+                <div
+                  className="text-muted"
+                  style={{
+                    marginTop: '6px',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {review.content}
+                </div>
+              </div>
+            ))}
+
+            {reviews.hasNextPage && (
+              <button
+                className="text-muted w-full cursor-pointer"
+                disabled={reviews.isFetchingNextPage}
+                onClick={() => void reviews.fetchNextPage()}
+                style={{
+                  marginTop: '20px',
+                  padding: '8px 0',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,.16)',
+                  background: 'none',
+                }}
+                type="button"
+              >
+                {reviews.isFetchNextPageError
+                  ? '다시 시도'
+                  : reviews.isFetchingNextPage
+                    ? '불러오는 중…'
+                    : '리뷰 더 보기'}
+              </button>
             )}
           </div>
         </div>
