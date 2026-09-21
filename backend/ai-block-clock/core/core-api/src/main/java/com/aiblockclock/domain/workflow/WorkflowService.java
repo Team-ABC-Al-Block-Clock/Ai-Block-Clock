@@ -50,9 +50,9 @@ public class WorkflowService {
         return workflowReplaceManager.replace(id, requester, name, expectedRevision, nodes, edges);
     }
 
+    @Transactional
     public void delete(WorkflowId id, OwnerId requester) {
-        Workflow workflow = workflowReader.read(id);
-        deletionPolicy.ensureDeletable(workflow, requester);
+        deletionPolicy.ensureDeletable(workflowReader.readForUpdate(id), requester);
         workflowWriter.remove(id);
     }
 
