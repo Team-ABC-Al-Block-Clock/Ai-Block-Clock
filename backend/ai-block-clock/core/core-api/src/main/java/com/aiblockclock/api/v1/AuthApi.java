@@ -59,7 +59,7 @@ public interface AuthApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그아웃 및 쿠키 삭제"),
             @ApiResponse(responseCode = "403", description = "CSRF 토큰이 없거나 유효하지 않음"),
-            @ApiResponse(responseCode = "401", description = "로그인 세션이 없거나 만료됨 (AUTH_005, AUTH_013)")
+            @ApiResponse(responseCode = "401", description = "로그인 세션이 없거나 만료됨 (AUTH_005)")
     })
     ApiResult<Void> logout(HttpServletRequest request);
 }

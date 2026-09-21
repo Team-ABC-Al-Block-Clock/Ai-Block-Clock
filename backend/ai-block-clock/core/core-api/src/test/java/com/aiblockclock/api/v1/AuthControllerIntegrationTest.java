@@ -79,10 +79,10 @@ class AuthControllerIntegrationTest {
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.getSecure()).isFalse();
         assertThat(cookie.getPath()).isEqualTo("/api/v1");
-        assertThat(cookie.getMaxAge()).isEqualTo(7 * 24 * 60 * 60);
+        assertThat(cookie.getMaxAge()).isEqualTo(-1);
         assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE)).contains("SameSite=Lax");
         assertThat(result.getResponse().getContentAsString())
-                .contains("2026-09-24T00:00:00Z")
+                .contains("2026-09-17T02:00:00Z")
                 .doesNotContain(cookie.getValue(), "accessToken", "refreshToken");
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from SPRING_SESSION where SESSION_ID = ?",
@@ -173,13 +173,14 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void 로그인_후_고정_7일이_지나면_사용_중이어도_세션이_만료된다() throws Exception {
+    void 로그인_세션은_설정한_미사용_만료_시간을_갖는다() throws Exception {
         Cookie cookie = login(newWallet()).getResponse().getCookie(SessionCookie.NAME);
-        when(clock.instant()).thenReturn(NOW.plusSeconds(7 * 24 * 60 * 60));
 
-        mvc.perform(get("/api/v1/workflows").cookie(cookie))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("AUTH_013"));
+        assertThat(jdbcTemplate.queryForObject(
+                "select MAX_INACTIVE_INTERVAL from SPRING_SESSION where SESSION_ID = ?",
+                Integer.class,
+                cookie.getValue()
+        )).isEqualTo(2 * 60 * 60);
     }
 
     @Test

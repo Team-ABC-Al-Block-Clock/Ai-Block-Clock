@@ -59,8 +59,7 @@ public class OpenApiConfig {
                 .schema(new Schema<>().$ref("#/components/schemas/ApiResult"))
                 .addExamples("default", example);
         ApiResponse unauthorized = new ApiResponse()
-                .description("로그인 세션이 없다 (`AUTH_005`)"
-                        + " · 로그인 시점부터 7일이 지나 만료됐다 (`AUTH_013`)")
+                .description("로그인 세션이 없거나 미사용으로 만료됐다 (`AUTH_005`)")
                 .content(new Content().addMediaType(APPLICATION_JSON, mediaType));
 
         return (operation, handlerMethod) -> {

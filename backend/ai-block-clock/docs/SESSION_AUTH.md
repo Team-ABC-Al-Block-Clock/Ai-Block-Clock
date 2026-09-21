@@ -9,8 +9,9 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 브라우저에는 Spring Session ID가 `sessionToken` HttpOnly 쿠키로 전달된다. 응답 JSON과 서버 로그에는
 세션 ID를 출력하지 않는다. Access Token과 Refresh Token은 사용하지 않으며 `/auth/reissue` API도 없다.
 
-세션은 로그인 시점부터 7일 동안 유효하다. Spring Session의 미사용 만료 시간과 별도로 고정 만료 시각을
-세션 속성에 저장하므로, 사용 중이어도 로그인 후 7일이 지나면 다시 지갑 로그인을 해야 한다.
+세션 유지 정책은 미사용 만료 하나다. 마지막 요청으로부터 2시간 동안 요청이 없으면 만료되고, 요청이
+오면 그만큼 뒤로 밀린다. 세션 행은 서버가 언제든 지울 수 있으므로 로그인 시점 기준의 고정 만료는 두지
+않는다. 만료 판정은 Spring Session이 하고, 우리 코드는 만료를 확인하지 않는다.
 
 ## 로그인 흐름
 
@@ -22,7 +23,7 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 6. 신규 지갑이면 사용자와 ABC 잔액 계정을 만든다.
 7. `SessionAuthenticationManager`가 같은 사용자의 기존 Spring Session을 삭제한다.
 8. 사용자의 `OwnerId`로 Spring Security `Authentication`과 `SecurityContext`를 만든다.
-9. Spring Session JDBC가 SecurityContext와 고정 만료 시각을 MySQL에 저장한다.
+9. Spring Session JDBC가 SecurityContext를 MySQL에 저장한다.
 10. Spring Session이 `sessionToken` 쿠키를 응답에 추가한다.
 11. 로그인으로 세션이 교체되었으므로 FE가 CSRF 토큰을 다시 발급받는다.
 
@@ -36,8 +37,8 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 `@CurrentOwner`는 인증을 수행하지 않고 Spring Security가 복원한 `OwnerId`만 전달한다. 새 보호 API에
 `@CurrentOwner`를 빼먹더라도 `.anyRequest().authenticated()`가 먼저 차단한다.
 
-`SessionExpirationFilter`는 우리 서비스의 고정 7일 만료 정책만 확인한다. 세션 생성·조회·저장·삭제는
-직접 구현하지 않고 Spring Session JDBC에 맡긴다.
+세션 생성·조회·저장·삭제와 미사용 만료 판정은 직접 구현하지 않고 Spring Session JDBC에 맡긴다.
+만료된 세션은 조회되지 않으므로 인증 실패로 처리된다.
 
 ## 쿠키 정책
 
@@ -48,7 +49,7 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 | HttpOnly | `true` | 브라우저 JavaScript에서 세션 ID 접근 차단 |
 | Secure | 운영 `true`, 로컬 `false` | 운영에서는 HTTPS에서만 전송 |
 | SameSite | `Lax` | 일반적인 교차 사이트 요청의 쿠키 전송 제한 |
-| Max-Age | 7일 | 브라우저를 닫아도 고정 만료 전까지 유지 |
+| Max-Age | 없음 | 브라우저를 닫으면 삭제. 세션 유지 기간은 서버의 미사용 만료가 정한다 |
 
 로그인 응답 JSON에는 `expiresAt`만 들어간다.
 
@@ -57,8 +58,8 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 - 로그아웃: 현재 HttpSession을 무효화한다. Spring Session이 DB 세션을 삭제하고 쿠키를 만료시킨다.
 - 재로그인: 현재 세션과 같은 사용자의 기존 세션을 삭제한 뒤 새 세션을 만든다.
 - 다른 브라우저 로그인: 새 로그인이 완료되면 이전 브라우저의 세션 ID는 더 이상 조회되지 않는다.
-- 7일 만료: 고정 만료 시각이 지나면 세션을 무효화하고 `AUTH_013`을 반환한다.
-- 쿠키가 없거나 DB에 세션이 없으면 `AUTH_005`를 반환한다.
+- 미사용 만료: 마지막 요청으로부터 2시간이 지나면 Spring Session이 세션을 만료시킨다.
+- 쿠키가 없거나 DB에 세션이 없거나 만료됐으면 `AUTH_005`를 반환한다.
 
 ## CSRF 방어
 
@@ -71,7 +72,7 @@ FE는 앱 시작 시, 로그인 성공 후, 로그아웃 후 `GET /api/v1/auth/c
 
 | 환경변수 | 기본값 | 설명 |
 |---|---|---|
-| `AUTH_SESSION_TTL` | `7d` | Spring Session 미사용 만료 시간과 고정 로그인 유효 시간 |
+| `AUTH_SESSION_TIMEOUT` | `2h` | 세션 미사용 만료 시간 (`spring.session.timeout`) |
 | `AUTH_COOKIE_SECURE` | 운영 `true`, 로컬 `false` | Secure 쿠키 사용 여부 |
 
 ## DB 마이그레이션

@@ -1,7 +1,6 @@
 package com.aiblockclock.api.support.auth;
 
 import com.aiblockclock.domain.OwnerId;
-import com.aiblockclock.domain.auth.LoginSessionProperties;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,12 +23,8 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class SessionAuthenticationManager {
-    public static final String ABSOLUTE_EXPIRES_AT_ATTRIBUTE =
-            SessionAuthenticationManager.class.getName() + ".absoluteExpiresAt";
-
     private final FindByIndexNameSessionRepository<? extends Session> sessionRepository;
     private final SecurityContextRepository securityContextRepository;
-    private final LoginSessionProperties properties;
     private final Clock clock;
 
     public Instant login(
@@ -48,12 +43,7 @@ public class SessionAuthenticationManager {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, request, response);
 
-        Instant expiresAt = clock.instant().plus(properties.ttl());
-        HttpSession session = request.getSession();
-        session.setMaxInactiveInterval(Math.toIntExact(properties.ttl().toSeconds()));
-        session.setAttribute(ABSOLUTE_EXPIRES_AT_ATTRIBUTE, expiresAt);
-
-        return expiresAt;
+        return idleExpiresAt(request.getSession());
     }
 
     public void logout(HttpServletRequest request) {
@@ -73,5 +63,10 @@ public class SessionAuthenticationManager {
         sessionRepository.findByPrincipalName(owner.getName())
                 .keySet()
                 .forEach(sessionRepository::deleteById);
+    }
+
+    /** 더 이상 요청이 없을 때 세션이 만료되는 시각. 요청이 오면 그만큼 뒤로 밀린다. */
+    private Instant idleExpiresAt(HttpSession session) {
+        return clock.instant().plusSeconds(session.getMaxInactiveInterval());
     }
 }

@@ -67,8 +67,8 @@ await fetch(`${API_BASE_URL}/api/v1/workflows`, {
 });
 ```
 
-세션 쿠키가 없거나 MySQL에 해당 Spring Session이 없으면 `AUTH_005`, 로그인 시점부터 7일이 지나면
-`AUTH_013`과 함께 HTTP 401을 반환한다.
+세션 쿠키가 없거나 MySQL에 해당 Spring Session이 없거나 만료됐으면 `AUTH_005`와 함께 HTTP 401을
+반환한다.
 
 ## 4. 로그아웃
 
@@ -92,19 +92,20 @@ await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
 - `Authorization: Bearer ...`를 사용하지 않는다.
 - Access Token과 Refresh Token을 저장하거나 전달하지 않는다.
 
-세션은 로그인 시점부터 7일 동안 고정으로 유지된다. 7일이 지나면 지갑 서명 로그인을 다시 한다.
+세션은 마지막 요청으로부터 2시간 동안 유지되고, 요청을 보낼 때마다 그만큼 연장된다. 2시간 동안 요청이
+없으면 만료되므로 지갑 서명 로그인을 다시 한다. 로그인 응답의 `expiresAt`은 추가 요청이 없을 때의 만료
+시각이다.
 
 ## 주요 오류 코드
 
 | 코드 | 의미 |
 |---|---|
-| `AUTH_005` | 세션 쿠키가 없어 사용자를 확인할 수 없음 |
+| `AUTH_005` | 세션 쿠키가 없거나 만료되어 사용자를 확인할 수 없음 |
 | `AUTH_008` | 지갑 서명이 올바르지 않음 |
 | `AUTH_009` | 지갑 인증 메시지가 만료됨 |
 | `AUTH_010` | 이미 사용한 인증 메시지 |
 | `AUTH_011` | 인증 메시지를 사용할 수 없음 |
 | `AUTH_012` | 먼저 발급받은 인증 메시지가 없음 |
-| `AUTH_013` | 로그인 세션 만료 |
 
 Swagger는 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 확인한다. Swagger의 보호 API에는
 `sessionToken` 쿠키 인증 방식이 표시된다.

@@ -3,8 +3,6 @@ package com.aiblockclock.api.config;
 import com.aiblockclock.api.support.auth.ApiAuthenticationEntryPoint;
 import com.aiblockclock.api.support.auth.AuthWebProperties;
 import com.aiblockclock.api.support.auth.SessionCookie;
-import com.aiblockclock.api.support.auth.SessionExpirationFilter;
-import com.aiblockclock.domain.auth.LoginSessionProperties;
 
 import jakarta.servlet.DispatcherType;
 
@@ -17,7 +15,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.session.web.http.CookieSerializer;
@@ -30,7 +27,6 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            SessionExpirationFilter expirationFilter,
             SecurityContextRepository securityContextRepository,
             ApiAuthenticationEntryPoint authenticationEntryPoint
     ) throws Exception {
@@ -64,7 +60,6 @@ public class SecurityConfig {
                                 "/actuator/**"
                         ).permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(expirationFilter, AnonymousAuthenticationFilter.class)
                 .build();
     }
 
@@ -74,10 +69,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CookieSerializer cookieSerializer(
-            AuthWebProperties webProperties,
-            LoginSessionProperties sessionProperties
-    ) {
+    public CookieSerializer cookieSerializer(AuthWebProperties webProperties) {
         DefaultCookieSerializer serializer = new DefaultCookieSerializer();
         serializer.setCookieName(SessionCookie.NAME);
         serializer.setCookiePath(SessionCookie.PATH);
@@ -85,7 +77,6 @@ public class SecurityConfig {
         serializer.setUseSecureCookie(webProperties.secureCookie());
         serializer.setUseBase64Encoding(false);
         serializer.setSameSite("Lax");
-        serializer.setCookieMaxAge(Math.toIntExact(sessionProperties.ttl().toSeconds()));
         return serializer;
     }
 }
