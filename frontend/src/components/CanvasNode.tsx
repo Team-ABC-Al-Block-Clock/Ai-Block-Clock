@@ -39,12 +39,18 @@ const MINE_RING =
   'inset 0 0 0 1.5px rgba(255,190,220,.55), 0 0 0 5px rgba(255,190,220,.07), inset 0 1px 0 rgba(255,255,255,.2)'
 const PLAIN_RING = 'inset 0 1px 0 rgba(255,255,255,.12)'
 
-/** 모드가 달라도 카드 모양은 같다. 커서와 눌림 표시만 다르다. */
+/**
+ * 모드가 달라도 카드 모양은 같다. 커서와 눌림 표시만 다르다.
+ *
+ * 호버 리프트는 `translate` 라 `floaty` 의 `transform` 과 합성된다 — 겹쳐도 서로 지우지 않는다.
+ * 끄는 동안만 뺀다. 손끝을 따라가는 중에 5px 이 얹히면 커서와 어긋난다.
+ */
 const CARD_BASE = 'absolute flex flex-col items-center justify-center rounded-full'
+const LIFT = ' hover:-translate-y-[5px]'
 const CARD_MODE = {
   dragging: ' cursor-grabbing select-none',
-  draggable: ' cursor-grab select-none',
-  clickable: ' cursor-pointer hover:-translate-y-[5px]',
+  draggable: ` cursor-grab select-none${LIFT}`,
+  clickable: ` cursor-pointer${LIFT}`,
   plain: '',
 } as const
 
@@ -147,6 +153,8 @@ export default function CanvasNode({
         background,
         gap: '5px',
         boxShadow: mine ? MINE_RING : PLAIN_RING,
+        // 판정을 끈 판 안에 들어가도 카드는 눌려야 한다.
+        pointerEvents: 'auto',
         // 끌 수 있는 카드는 터치를 브라우저에 넘기지 않는다 — 넘기면 팬으로
         // 가로채여 pointercancel 이 나고 드래그가 중간에 끊긴다.
         touchAction: draggable ? 'none' : undefined,
@@ -162,7 +170,7 @@ export default function CanvasNode({
               transition: 'background .5s,box-shadow .5s',
             }
           : // 드래그 중 transform 에 전환이 걸리면 0.2초 늦게 따라온다.
-            { transition: dragging ? 'none' : 'transform .2s,box-shadow .2s' }),
+            { transition: dragging ? 'none' : 'translate .2s,transform .2s,box-shadow .2s' }),
       }}
       className={CARD_BASE + CARD_MODE[mode]}
     >
