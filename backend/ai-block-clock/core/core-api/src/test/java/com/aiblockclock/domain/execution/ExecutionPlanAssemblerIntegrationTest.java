@@ -1,9 +1,9 @@
 package com.aiblockclock.domain.execution;
 
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionService;
 import com.aiblockclock.domain.node.Prompt;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphEdge;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 class ExecutionPlanAssemblerIntegrationTest {
-    private static final OwnerId OWNER = OwnerId.of(9401L);
+    private static final UserId OWNER = UserId.of(9401L);
 
     @Autowired
     private NodeDefinitionService nodeService;

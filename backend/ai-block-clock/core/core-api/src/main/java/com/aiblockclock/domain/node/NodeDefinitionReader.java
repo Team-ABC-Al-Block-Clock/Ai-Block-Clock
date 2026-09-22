@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.node.NodeDefinitionEntity;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.support.OffsetPageable;
@@ -27,11 +27,11 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
-    public boolean isOwnedBy(NodeDefinitionId id, OwnerId owner) {
+    public boolean isOwnedBy(NodeDefinitionId id, UserId owner) {
         return nodeRepository.existsByIdAndOwnerId(id.value(), owner.value());
     }
 
-    public CursorPage<NodeDefinitionSummary> readMine(OwnerId owner, String keyword, String cursor, int size) {
+    public CursorPage<NodeDefinitionSummary> readMine(UserId owner, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
         Pageable pageable = OffsetPageable.of(offset, size + 1);
 

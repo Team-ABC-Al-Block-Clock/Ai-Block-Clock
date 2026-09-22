@@ -1,23 +1,22 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.support.auth.CurrentOwner;
+import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.NodeSaveRequest;
 import com.aiblockclock.api.v1.response.NodeDeleteResponse;
 import com.aiblockclock.api.v1.response.NodeDetailResponse;
 import com.aiblockclock.api.v1.response.NodePageResponse;
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionService;
 import com.aiblockclock.domain.node.NodeDefinitionSummary;
 import com.aiblockclock.domain.node.Prompt;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.paging.CursorPage;
 import com.aiblockclock.support.response.ApiResult;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,7 +32,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(value = "/api/v1/nodes", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping("/api/v1/nodes")
 @RequiredArgsConstructor
 public class NodeController implements NodeApi {
     private final NodeDefinitionService nodeService;
@@ -42,7 +41,7 @@ public class NodeController implements NodeApi {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<NodeDetailResponse> save(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @RequestBody NodeSaveRequest request
     ) {
         NodeDefinition saved = nodeService.create(
@@ -54,7 +53,7 @@ public class NodeController implements NodeApi {
     @Override
     @GetMapping("/{nodeId}")
     public ApiResult<NodeDetailResponse> get(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @PathVariable UUID nodeId
     ) {
         return ApiResult.success(NodeDetailResponse.from(nodeService.get(NodeDefinitionId.of(nodeId), owner)));
@@ -63,7 +62,7 @@ public class NodeController implements NodeApi {
     @Override
     @PutMapping("/{nodeId}")
     public ApiResult<NodeDetailResponse> update(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @PathVariable UUID nodeId,
             @RequestBody NodeSaveRequest request
     ) {
@@ -77,7 +76,7 @@ public class NodeController implements NodeApi {
     @Override
     @DeleteMapping("/{nodeId}")
     public ApiResult<NodeDeleteResponse> delete(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @PathVariable UUID nodeId
     ) {
         nodeService.delete(NodeDefinitionId.of(nodeId), owner);
@@ -88,7 +87,7 @@ public class NodeController implements NodeApi {
     @Override
     @GetMapping
     public ApiResult<NodePageResponse> findMine(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "10") int size

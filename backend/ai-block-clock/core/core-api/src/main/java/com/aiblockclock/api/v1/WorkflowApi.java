@@ -6,7 +6,7 @@ import com.aiblockclock.api.v1.response.WorkflowDeleteResponse;
 import com.aiblockclock.api.v1.response.WorkflowDetailResponse;
 import com.aiblockclock.api.v1.response.WorkflowPageResponse;
 import com.aiblockclock.api.v1.response.WorkflowSaveResponse;
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.support.response.ApiResult;
 
@@ -160,7 +160,7 @@ public interface WorkflowApi {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
                             examples = @ExampleObject(value = SOURCE_NOT_FOUND_EXAMPLE)))})
-    ApiResult<WorkflowSaveResponse> save(OwnerId owner, @Valid WorkflowSaveRequest request);
+    ApiResult<WorkflowSaveResponse> save(UserId owner, @Valid WorkflowSaveRequest request);
 
     @Operation(
             summary = "워크플로우 상세 조회",
@@ -183,7 +183,7 @@ public interface WorkflowApi {
                             schema = @Schema(implementation = ApiResult.class),
                             examples = @ExampleObject(value = NOT_FOUND_EXAMPLE)))})
     ApiResult<WorkflowDetailResponse> get(
-            OwnerId owner,
+            UserId owner,
             @Parameter(description = "조회할 워크플로우 ID", required = true,
                     example = "33567ab2-e08b-461b-a0f2-51a857df5ec7") UUID workflowId);
 
@@ -222,7 +222,7 @@ public interface WorkflowApi {
                             schema = @Schema(implementation = ApiResult.class),
                             examples = @ExampleObject(value = REVISION_CONFLICT_EXAMPLE)))})
     ApiResult<WorkflowSaveResponse> replace(
-            OwnerId owner,
+            UserId owner,
             @Parameter(description = "수정할 워크플로우 ID", required = true,
                     example = "33567ab2-e08b-461b-a0f2-51a857df5ec7") UUID workflowId,
             @Valid WorkflowReplaceRequest request);
@@ -251,7 +251,7 @@ public interface WorkflowApi {
                                             value = SOURCE_OF_VERSION_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_010 · 실행 중", value = EXECUTING_EXAMPLE)}))})
     ApiResult<WorkflowDeleteResponse> delete(
-            OwnerId owner,
+            UserId owner,
             @Parameter(description = "삭제할 워크플로우 ID", required = true,
                     example = "33567ab2-e08b-461b-a0f2-51a857df5ec7") UUID workflowId);
 
@@ -265,7 +265,7 @@ public interface WorkflowApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 완료")})
     ApiResult<WorkflowPageResponse> findMine(
-            OwnerId owner,
+            UserId owner,
             @Parameter(description = "정렬 기준. 마지막 실행 시각(`LAST_EXECUTED`) 또는 생성 시각(`LATEST`)",
                     example = "LAST_EXECUTED") WorkflowSort sort,
             @Parameter(description = "이름 부분 검색어. 비우면 전체", example = "성적") String keyword,

@@ -412,7 +412,7 @@ Reader 와 Writer 를 이어 부르는 Service · Manager 에 `@Transactional` �
 
 **감싼다**
 
-- 식별자 — `WorkflowId`, `AgentId`, `AgentVersionId`, `OwnerId`, `NodeKey`, `EdgeKey`
+- 식별자 — `WorkflowId`, `AgentId`, `AgentVersionId`, `UserId`, `NodeKey`, `EdgeKey`
 - 행동이 붙는 수치 — `Revision.next()`, `VersionNumber.next()`, `Money.multiply()`
 - 짝으로만 의미가 있는 값 — `Position(x, y)`, `AgentPlacement(agentId, versionId)`
 
@@ -488,8 +488,9 @@ NodeDefinitionSummary — id · spec · timestamps
 core-api    com.aiblockclock
             ├── api            Controller · Request · Response
             ├── domain         Service · 도메인 모델      (아래가 이 장의 범위)
-            │   ├── OwnerId    회원 도메인이 생기면 그쪽으로 갈 임시 거처
             │   ├── AbcAmount  ABC 수량. 어느 도메인 것도 아니라 계속 여기 있는다
+            │   ├── user       사용자 애그리거트 — `UserId` 는 로그인 사용자 번호이자
+            │   │              워크플로우·노드의 소유자 번호다
             │   ├── node       `NodeDefinition` 애그리거트 — 프롬프트 · 모델 · 원가
             │   │              그래프에 놓인 배치(`BaseNode`)와 다른 것이다
             │   ├── workflow   워크플로우 애그리거트 — 그래프 · 배치 · 연결선
@@ -540,9 +541,10 @@ core-enum   com.aiblockclock.enums
    `WorkflowGraph` 도 같다. `AgentVersion` 이 스냅샷으로 들고 있지만 워크플로우의 형상이므로
    `workflow` 에 있다. 쓰는 쪽이 둘이라는 것은 별도 패키지를 만들 근거가 못 된다.
 2. **아직 주인이 없으면 `domain` 바로 밑에 둔다.**
-   `OwnerId` 는 회원 도메인이 생기면 그쪽으로 간다.
-   그때까지는 하위 패키지를 미리 만들지 않는다. 빈 패키지를 만들어 두는 것도 자리를 미리 잡는
-   또 다른 방식일 뿐이다.
+   `AbcAmount` 처럼 어느 애그리거트의 것도 아닌 값이 여기 온다.
+   주인이 생기면 그쪽으로 옮긴다. `OwnerId` 가 사용자 도메인이 생기면서 `user` 패키지의
+   `UserId` 로 합쳐진 것이 그 예다. 주인이 없는 동안 하위 패키지를 미리 만들지는 않는다.
+   빈 패키지를 만들어 두는 것도 자리를 미리 잡는 또 다른 방식일 뿐이다.
 3. **두 패키지가 서로를 참조해야 할 것 같으면, 둘 곳이 아니라 모델을 의심한다.** (아래)
 
 ### 11.3 패키지 순환은 모델이 잘못됐다는 신호다
@@ -594,7 +596,7 @@ public final class AgentVersionPolicy {        // 판정은 도메인에 남는�
     private final AgentOwnershipView agentOwnershipView;
     private final NodeDefinitionReader nodeReader;
 
-    public void ensureVersionable(Workflow workflow, OwnerId requester) { ... }
+    public void ensureVersionable(Workflow workflow, UserId requester) { ... }
 }
 ```
 
@@ -666,9 +668,9 @@ private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
 | 그래프 모양 | 분기 없는 한 줄만 받는다 (`WorkflowGraph.chainLength`) | 제어 노드(분기)가 들어오면 한 줄 검증을 DAG 검증으로 되돌려야 한다 |
 | 노드 수 / 깊이 한도 | 한 줄이라 둘을 같은 수(`chainLength`)로 잰다. 실효 한도는 10 하나뿐이고, 20 은 11개 이상일 때 어느 코드가 나가는지를 가르는 경계다 (11~20 은 깊이, 21 부터는 노드) | 명세서가 둘을 따로 둘 이유가 있는지 |
 | 목록 커서 | 오프셋을 Base64 로 감싼 것. `size + 1` 을 읽어 다음 페이지 유무를 판정한다 | 정렬 키 기반 커서. 지금은 페이지를 넘기다 행이 끼면 밀린다 |
+| 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `ApiResult` 와 명세서 | `{status: SUCCESS/FAIL, data, error{code,message,data}}` | 명세서는 `{status: success/error, code, message}` 평면형 |
 | `AGENT_006`, `AGENT_007`, `AGENT_009` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| `ownerId` 출처 | 회원 도메인·인증이 없어 `X-Owner-Id` 헤더를 그대로 믿는다 (`CurrentOwnerArgumentResolver`). 클라이언트가 남을 가장할 수 있다 | 인증 붙은 뒤 현재 사용자 조회 방식 |
 | 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. `AgentOwnershipView` 구현과 조립 위치가 함께 정해져야 한다 |
 | 출처 워크플로우 삭제 금지 | `WorkflowDeletionPolicy` 가 막는다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 출처 추적이 이유라면 삭제가 아니라 보존 표시가 맞다 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |

@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.node.NodeDefinitionEntity;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.support.error.CoreException;
@@ -17,19 +17,19 @@ public class NodeDefinitionValidator {
     private final NodeDefinitionRepository nodeRepository;
     private final NodeDefinitionUsageReader usageReader;
 
-    public static void ensureOwner(OwnerId owner, OwnerId requester) {
+    public static void ensureOwner(UserId owner, UserId requester) {
         if (!owner.equals(requester)) {
             throw new CoreException(ErrorType.NODE_FORBIDDEN);
         }
     }
 
     @Transactional
-    public void ensureEditable(NodeDefinitionId id, OwnerId requester) {
+    public void ensureEditable(NodeDefinitionId id, UserId requester) {
         ensureOwner(ownerOf(lock(id)), requester);
     }
 
     @Transactional
-    public void ensureDeletable(NodeDefinitionId id, OwnerId requester) {
+    public void ensureDeletable(NodeDefinitionId id, UserId requester) {
         NodeDefinitionEntity entity = lock(id);
         ensureOwner(ownerOf(entity), requester);
 
@@ -43,7 +43,7 @@ public class NodeDefinitionValidator {
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
     }
 
-    private static OwnerId ownerOf(NodeDefinitionEntity entity) {
-        return OwnerId.of(entity.getOwnerId());
+    private static UserId ownerOf(NodeDefinitionEntity entity) {
+        return UserId.of(entity.getOwnerId());
     }
 }

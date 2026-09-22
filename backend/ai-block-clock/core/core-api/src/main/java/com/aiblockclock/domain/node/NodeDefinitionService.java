@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.support.paging.CursorPage;
 
@@ -17,32 +17,32 @@ public class NodeDefinitionService {
     private final BaseCostCalculator baseCostCalculator;
     private final NodeDefinitionValidator validator;
 
-    public NodeDefinition create(OwnerId requester, String name, Prompt prompt, AiModel model) {
+    public NodeDefinition create(UserId requester, String name, Prompt prompt, AiModel model) {
         NodeSpec spec = new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model));
 
         return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt));
     }
 
-    public NodeDefinition get(NodeDefinitionId id, OwnerId requester) {
+    public NodeDefinition get(NodeDefinitionId id, UserId requester) {
         NodeDefinition node = nodeReader.read(id);
         NodeDefinitionValidator.ensureOwner(node.getOwner(), requester);
 
         return node;
     }
 
-    public CursorPage<NodeDefinitionSummary> getMine(OwnerId requester, String keyword, String cursor, int size) {
+    public CursorPage<NodeDefinitionSummary> getMine(UserId requester, String keyword, String cursor, int size) {
         return nodeReader.readMine(requester, keyword, cursor, size);
     }
 
     @Transactional
-    public NodeDefinition update(NodeDefinitionId id, OwnerId requester, String name, Prompt prompt, AiModel model) {
+    public NodeDefinition update(NodeDefinitionId id, UserId requester, String name, Prompt prompt, AiModel model) {
         validator.ensureEditable(id, requester);
 
         return nodeWriter.update(id, new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model)), prompt);
     }
 
     @Transactional
-    public void delete(NodeDefinitionId id, OwnerId requester) {
+    public void delete(NodeDefinitionId id, UserId requester) {
         validator.ensureDeletable(id, requester);
 
         nodeWriter.remove(id);

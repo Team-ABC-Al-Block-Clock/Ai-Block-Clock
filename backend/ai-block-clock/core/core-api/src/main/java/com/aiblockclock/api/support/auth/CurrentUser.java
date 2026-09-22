@@ -1,5 +1,7 @@
 package com.aiblockclock.api.support.auth;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -9,5 +11,6 @@ import java.lang.annotation.Target;
 @Documented
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface CurrentOwner {
+@AuthenticationPrincipal(errorOnInvalidType = true)
+public @interface CurrentUser {
 }

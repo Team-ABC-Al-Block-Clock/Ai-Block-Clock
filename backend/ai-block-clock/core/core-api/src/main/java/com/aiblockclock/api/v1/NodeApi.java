@@ -4,7 +4,7 @@ import com.aiblockclock.api.v1.request.NodeSaveRequest;
 import com.aiblockclock.api.v1.response.NodeDeleteResponse;
 import com.aiblockclock.api.v1.response.NodeDetailResponse;
 import com.aiblockclock.api.v1.response.NodePageResponse;
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.response.ApiResult;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,7 +30,7 @@ public interface NodeApi {
             @ApiResponse(responseCode = "201", description = "생성됨"),
             @ApiResponse(responseCode = "400", description = "프롬프트가 비었거나 이름이 길다", content = @io.swagger.v3.oas.annotations.media.Content)
     })
-    ApiResult<NodeDetailResponse> save(OwnerId owner, @Valid NodeSaveRequest request);
+    ApiResult<NodeDetailResponse> save(UserId owner, @Valid NodeSaveRequest request);
 
     @Operation(summary = "노드 상세", description = "프롬프트 원문까지 돌려준다. 소유자만 볼 수 있다.")
     @ApiResponses({
@@ -38,11 +38,11 @@ public interface NodeApi {
             @ApiResponse(responseCode = "403", description = "남의 노드", content = @io.swagger.v3.oas.annotations.media.Content),
             @ApiResponse(responseCode = "404", description = "없는 노드", content = @io.swagger.v3.oas.annotations.media.Content)
     })
-    ApiResult<NodeDetailResponse> get(OwnerId owner, UUID nodeId);
+    ApiResult<NodeDetailResponse> get(UserId owner, UUID nodeId);
 
     @Operation(summary = "노드 수정",
             description = "이름·프롬프트·모델을 한 번에 고친다. 원가는 다시 산출해 덮어쓴다.")
-    ApiResult<NodeDetailResponse> update(OwnerId owner, UUID nodeId, @Valid NodeSaveRequest request);
+    ApiResult<NodeDetailResponse> update(UserId owner, UUID nodeId, @Valid NodeSaveRequest request);
 
     @Operation(summary = "노드 삭제",
             description = "워크플로우에 놓여 있으면 삭제할 수 없다.")
@@ -50,11 +50,11 @@ public interface NodeApi {
             @ApiResponse(responseCode = "200", description = "삭제됨"),
             @ApiResponse(responseCode = "409", description = "워크플로우에 배치되어 있다", content = @io.swagger.v3.oas.annotations.media.Content)
     })
-    ApiResult<NodeDeleteResponse> delete(OwnerId owner, UUID nodeId);
+    ApiResult<NodeDeleteResponse> delete(UserId owner, UUID nodeId);
 
     @Operation(summary = "내 노드 목록", description = "최근 만든 순. 프롬프트 원문은 담지 않는다.")
     ApiResult<NodePageResponse> findMine(
-            OwnerId owner,
+            UserId owner,
             @Parameter(description = "이름 부분 일치") String keyword,
             @Parameter(description = "이전 응답의 nextCursor") String cursor,
             @Parameter(description = "한 페이지 크기") @Positive @Max(50) int size);

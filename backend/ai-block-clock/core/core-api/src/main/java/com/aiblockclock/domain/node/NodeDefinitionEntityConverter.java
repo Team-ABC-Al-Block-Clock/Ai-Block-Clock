@@ -1,8 +1,8 @@
 package com.aiblockclock.domain.node;
 
 import com.aiblockclock.domain.AbcAmount;
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.Timestamps;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.node.NodeDefinitionEntity;
 
 public final class NodeDefinitionEntityConverter {
@@ -22,7 +22,7 @@ public final class NodeDefinitionEntityConverter {
     public static NodeDefinition toDomain(NodeDefinitionEntity entity) {
         return NodeDefinition.restore(
                 NodeDefinitionId.of(entity.getId()),
-                OwnerId.of(entity.getOwnerId()),
+                UserId.of(entity.getOwnerId()),
                 toTimestamps(entity),
                 toSpec(entity),
                 Prompt.of(entity.getPrompt()));

@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.ValidationStatus;
 import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @Transactional
 class WorkflowReaderIntegrationTest {
-    private static final OwnerId OWNER = OwnerId.of(9101L);
+    private static final UserId OWNER = UserId.of(9101L);
 
     @Autowired
     private WorkflowReader workflowReader;

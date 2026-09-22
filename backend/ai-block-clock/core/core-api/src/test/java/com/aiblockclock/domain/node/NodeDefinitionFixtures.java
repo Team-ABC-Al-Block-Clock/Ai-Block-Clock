@@ -1,7 +1,7 @@
 package com.aiblockclock.domain.node;
 
 import com.aiblockclock.domain.AbcAmount;
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.node.AiModel;
 
 import java.math.BigDecimal;
@@ -12,7 +12,7 @@ public final class NodeDefinitionFixtures {
     private NodeDefinitionFixtures() {
     }
 
-    public static NodeDefinition of(OwnerId owner) {
+    public static NodeDefinition of(UserId owner) {
         return NodeDefinition.create(NodeDefinitionId.newId(), owner, spec("성적 분석"),
                 Prompt.of("당신은 학원 성적 데이터 분석가입니다."));
     }

@@ -1,13 +1,13 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class NodeDefinitionTest {
-    private static final OwnerId OWNER = OwnerId.of(1L);
+    private static final UserId OWNER = UserId.of(1L);
 
     @Test
     @DisplayName("원가는 밖에서 산출해 받는다")

@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.ValidationStatus;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
@@ -19,8 +19,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 class WorkflowValidatorTest {
-    private static final OwnerId OWNER = OwnerId.of(1L);
-    private static final OwnerId OTHER = OwnerId.of(2L);
+    private static final UserId OWNER = UserId.of(1L);
+    private static final UserId OTHER = UserId.of(2L);
     private static final WorkflowId WORKFLOW_ID = WorkflowId.of(UUID.randomUUID());
 
     private final WorkflowRepository workflowRepository = mock(WorkflowRepository.class);

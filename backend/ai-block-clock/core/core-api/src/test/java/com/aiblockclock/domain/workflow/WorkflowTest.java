@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.ValidationStatus;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class WorkflowTest {
-    private static final OwnerId OWNER = OwnerId.of(1L);
+    private static final UserId OWNER = UserId.of(1L);
 
     private Workflow workflow;
 

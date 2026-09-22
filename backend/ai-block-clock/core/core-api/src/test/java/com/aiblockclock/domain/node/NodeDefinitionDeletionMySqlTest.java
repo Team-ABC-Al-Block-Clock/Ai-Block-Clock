@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphEdge;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodeKey;
@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @NodeMySqlTest
 class NodeDefinitionDeletionMySqlTest {
-    private static final OwnerId OWNER = OwnerId.of(9311L);
+    private static final UserId OWNER = UserId.of(9311L);
 
     @Autowired
     private NodeDefinitionService nodeDefinitionService;

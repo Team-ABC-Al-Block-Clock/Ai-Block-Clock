@@ -1,7 +1,7 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
 import com.aiblockclock.domain.Timestamps;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
 import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
@@ -19,7 +19,7 @@ final class WorkflowEntityConverter {
     static Workflow toDomain(WorkflowEntity entity, WorkflowGraph graph) {
         return Workflow.restore(
                 WorkflowId.of(entity.getId()),
-                OwnerId.of(entity.getOwnerId()),
+                UserId.of(entity.getOwnerId()),
                 entity.getName(),
                 entity.getDescription(),
                 graph,
@@ -41,7 +41,7 @@ final class WorkflowEntityConverter {
 
         return Workflow.restore(
                 WorkflowId.of(entity.getId()),
-                OwnerId.of(entity.getOwnerId()),
+                UserId.of(entity.getOwnerId()),
                 entity.getName(),
                 entity.getDescription(),
                 WorkflowGraph.of(nodes, edges),

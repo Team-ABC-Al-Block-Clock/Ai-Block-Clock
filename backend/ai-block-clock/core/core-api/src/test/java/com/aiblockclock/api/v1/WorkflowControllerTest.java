@@ -1,6 +1,9 @@
 package com.aiblockclock.api.v1;
 
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
+import com.aiblockclock.storage.user.UserEntity;
+import com.aiblockclock.storage.user.UserRepository;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +16,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -24,26 +29,49 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.UUID;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 @Tag("integration")
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 class WorkflowControllerTest {
-    private static final String OWNER = "1";
-    private static final String OTHER = "2";
-
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private NodeDefinitionRepository nodeRepository;
+
+    private long owner;
+
+    private long other;
 
     private UUID nodeId;
 
     @BeforeEach
-    void seedNode() {
-        nodeId = NodeDefinitionSeeder.seed(nodeRepository, Long.parseLong(OWNER));
+    void 두_사용자와_노드_정의를_준비한다() {
+        owner = createUser();
+        other = createUser();
+        nodeId = NodeDefinitionSeeder.seed(nodeRepository, owner);
+    }
+
+    private long createUser() {
+        String walletAddress = "0x" + UUID.randomUUID().toString().replace("-", "") + "00000000";
+        UserEntity user = userRepository.saveAndFlush(UserEntity.of(walletAddress));
+        return user.getId();
+    }
+
+    private RequestPostProcessor as(long userId) {
+        return authentication(org.springframework.security.authentication
+                .UsernamePasswordAuthenticationToken.authenticated(
+                        UserId.of(userId), null, java.util.List.of()
+                ));
     }
 
     private String chainBody(String name) {
@@ -63,7 +91,8 @@ class WorkflowControllerTest {
 
     private String create(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(chainBody(name)))
                 .andExpect(status().isCreated())
@@ -80,7 +109,8 @@ class WorkflowControllerTest {
     void lifecycle() throws Exception {
         String workflowId = create("성적 분석 리포트");
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("성적 분석 리포트"))
                 .andExpect(jsonPath("$.data.nodes.length()").value(2))
@@ -90,7 +120,8 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.data.lastExecutedAt").doesNotExist());
 
         mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -105,17 +136,20 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.data.revision").value(2));
 
         mockMvc.perform(get("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
                         .param("keyword", "고쳤다"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].workflowId").value(workflowId))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
-        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.workflowId").value(workflowId));
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_002"));
     }
@@ -124,7 +158,8 @@ class WorkflowControllerTest {
     @DisplayName("뒤섞어 보낸 노드도 다시 읽으면 연결 순서대로 나온다")
     void returnsNodesInConnectedOrder() throws Exception {
         MvcResult created = mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -146,7 +181,8 @@ class WorkflowControllerTest {
         String workflowId = mapper.readTree(created.getResponse().getContentAsString())
                 .get("data").get("workflowId").asText();
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nodes[0].nodeKey").value("n1"))
                 .andExpect(jsonPath("$.data.nodes[1].nodeKey").value("n2"))
@@ -167,11 +203,14 @@ class WorkflowControllerTest {
     void rejectsOtherOwner() throws Exception {
         String workflowId = create("남의 것");
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OTHER))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(other)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_003"));
 
-        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OTHER))
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .with(as(other))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_003"));
     }
@@ -180,7 +219,8 @@ class WorkflowControllerTest {
     @DisplayName("입력 출처는 배치마다 정하고, 비우면 앞 노드 결과를 받는다")
     void inputSourceIsPerPlacement() throws Exception {
         MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -199,12 +239,15 @@ class WorkflowControllerTest {
         String workflowId = mapper.readTree(saved.getResponse().getContentAsString())
                 .get("data").get("workflowId").asText();
 
-        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nodes[0].inputSource").value("USER"))
                 .andExpect(jsonPath("$.data.nodes[1].inputSource").value("PREV"));
 
-        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId).header("X-Owner-Id", OWNER))
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner))
+                        .with(csrf().asHeader()))
                 .andExpect(status().isOk());
     }
 
@@ -214,7 +257,8 @@ class WorkflowControllerTest {
         String workflowId = create("회차 충돌");
 
         mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -232,7 +276,8 @@ class WorkflowControllerTest {
     @DisplayName("순환이 있으면 저장하지 않는다")
     void rejectsCycle() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -255,7 +300,8 @@ class WorkflowControllerTest {
     @DisplayName("노드가 없으면 저장하지 않는다")
     void rejectsEmptyNodes() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "name": "빈 캔버스", "nodes": [], "edges": [] }
@@ -268,7 +314,8 @@ class WorkflowControllerTest {
     @DisplayName("에이전트 배치는 아직 열려 있지 않다")
     void rejectsAgentPlacement() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -284,7 +331,8 @@ class WorkflowControllerTest {
     @Test
     @DisplayName("워크플로우 ID 자리에 아무 문자열이나 오면 400 이다")
     void rejectsMalformedWorkflowId() throws Exception {
-        mockMvc.perform(get("/api/v1/workflows/{id}", "워크플로우아님").header("X-Owner-Id", OWNER))
+        mockMvc.perform(get("/api/v1/workflows/{id}", "워크플로우아님")
+                        .with(as(owner)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("COMMON_001"))
                 .andExpect(jsonPath("$.error.data.field").value("workflowId"));
@@ -293,7 +341,9 @@ class WorkflowControllerTest {
     @Test
     @DisplayName("목록 조회 크기가 범위를 벗어나면 400 이다")
     void rejectsSizeOutOfRange() throws Exception {
-        mockMvc.perform(get("/api/v1/workflows").header("X-Owner-Id", OWNER).param("size", "101"))
+        mockMvc.perform(get("/api/v1/workflows")
+                        .with(as(owner))
+                        .param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("COMMON_001"));
     }
@@ -302,7 +352,8 @@ class WorkflowControllerTest {
     @DisplayName("읽을 수 없는 본문은 400 이다")
     void rejectsUnreadableBody() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
-                        .header("X-Owner-Id", OWNER)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ \"name\": "))
                 .andExpect(status().isBadRequest())

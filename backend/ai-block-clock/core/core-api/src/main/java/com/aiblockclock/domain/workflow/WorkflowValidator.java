@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.ValidationStatus;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
@@ -20,16 +20,16 @@ public class WorkflowValidator {
     private final WorkflowRepository workflowRepository;
     private final WorkflowUsageView usageView;
 
-    public static void ensureOwner(OwnerId owner, OwnerId requester) {
+    public static void ensureOwner(UserId owner, UserId requester) {
         if (!owner.equals(requester)) {
             throw new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
         }
     }
 
     @Transactional
-    public GraphRevision ensureReplaceable(WorkflowId id, OwnerId requester, Revision expected) {
+    public GraphRevision ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
         WorkflowEntity entity = lock(id);
-        ensureOwner(OwnerId.of(entity.getOwnerId()), requester);
+        ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
         Revision current = Revision.of(entity.getRevision());
         if (!current.equals(expected)) {
@@ -41,9 +41,9 @@ public class WorkflowValidator {
     }
 
     @Transactional
-    public void ensureDeletable(WorkflowId id, OwnerId requester) {
+    public void ensureDeletable(WorkflowId id, UserId requester) {
         WorkflowEntity entity = lock(id);
-        ensureOwner(OwnerId.of(entity.getOwnerId()), requester);
+        ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
         if (usageView.isSourceOfAnyVersion(id)) {
             throw new CoreException(ErrorType.WORKFLOW_SOURCE_OF_AGENT_VERSION);

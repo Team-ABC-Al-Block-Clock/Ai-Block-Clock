@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.storage.support.OffsetPageable;
 import com.aiblockclock.storage.workflow.WorkflowEdgeRepository;
@@ -35,7 +35,7 @@ public class WorkflowReader {
     }
 
     public CursorPage<WorkflowSummary> readMine(
-            OwnerId owner, WorkflowSort sort, String keyword, String cursor, int size) {
+            UserId owner, WorkflowSort sort, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
 
         // 다음 페이지가 있는지는 size + 1 번째 행이 있는지로 판정한다.
