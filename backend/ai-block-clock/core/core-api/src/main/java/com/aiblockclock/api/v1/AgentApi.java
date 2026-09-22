@@ -26,9 +26,11 @@ public interface AgentApi {
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "등록됨"),
+            @ApiResponse(responseCode = "400", description = "요청 본문이 올바르지 않다 (`COMMON_001`)", content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 워크플로우이거나 남의 노드·에이전트가 섞였다 (`WORKFLOW_003`, `AGENT_002`)",
                     content = @Content),
-            @ApiResponse(responseCode = "404", description = "없는 워크플로우 (`WORKFLOW_002`)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "없는 워크플로우이거나 배치된 노드가 사라졌다 (`WORKFLOW_002`, `WORKFLOW_015`)",
+                    content = @Content),
             @ApiResponse(responseCode = "409", description = "회차가 어긋났다 (`WORKFLOW_016`)", content = @Content)
     })
     ApiResult<AgentRegisterResponse> register(UserId owner, @Valid AgentRegisterRequest request);

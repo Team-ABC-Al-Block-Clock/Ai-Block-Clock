@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -34,8 +35,9 @@ public class AgentService {
         WorkflowValidator.ensureRevision(source.getRevision(), expectedRevision);
 
         WorkflowGraph snapshot = source.getGraph();
-        List<NodeDefinition> placedNodes = nodeReader.readAllForShare(placedNodeIds(snapshot));
-        versionPolicy.ensureVersionable(source, requester, placedNodes);
+        List<NodeDefinition> locked = nodeReader.readAllForShare(placedNodeIds(snapshot));
+        Map<NodeDefinitionId, NodeDefinition> placedNodes =
+                versionPolicy.ensureVersionable(source, requester, locked);
 
         GraphId graphId = copyGraph(snapshot);
         AgentRegistration registered = publishFirstVersion(

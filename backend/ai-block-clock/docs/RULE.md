@@ -594,9 +594,9 @@ agent      ->  workflow, domain
 ```java
 public class AgentVersionPolicy {              // 판정은 도메인에 남는다
     private final AgentReader agentReader;
-    private final NodeDefinitionReader nodeReader;
 
-    public void ensureVersionable(Workflow workflow, UserId requester) { ... }
+    public Map<NodeDefinitionId, NodeDefinition> ensureVersionable(
+            Workflow workflow, UserId requester, List<NodeDefinition> placedNodes) { ... }
 }
 ```
 
@@ -614,11 +614,11 @@ public class AgentVersionPolicy {              // 판정은 도메인에 남는�
 
 ### 11.5 연관 매핑과 자식 컬렉션 쓰기
 
-**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `workflow_node.reference_id` 는
+**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `graph_node.reference_id` 는
 `node_definition` 이나 `agent` 를 가리키지만 `@ManyToOne` 이 아니라 생 `UUID` 다. 다형 참조라
 매핑할 수도 없고, 매핑하면 워크플로우 하나 읽는 데 노드 정의가 딸려 온다.
 
-**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `workflow_node` · `workflow_edge` 는
+**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `graph_node` · `graph_edge` 는
 생명주기가 부모에 종속되지만 `@OneToMany` 로 들지 않는다. 자식은 전용 리포지토리로 직접 쓴다.
 
 **`cascade` · `orphanRemoval` 을 쓰지 않는다.** 무엇이 언제 지워지는지 코드에서 보이지 않게 된다.

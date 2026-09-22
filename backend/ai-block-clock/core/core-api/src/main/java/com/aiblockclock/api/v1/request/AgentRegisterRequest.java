@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
@@ -17,7 +17,7 @@ public record AgentRegisterRequest(
         @NotNull UUID workflowId,
 
         @Schema(description = "사용자가 보던 회차. 그 사이 워크플로우가 바뀌었으면 거부한다", example = "1")
-        @PositiveOrZero long revision,
+        @NotNull @Positive Long revision,
 
         @Schema(description = "에이전트 이름", example = "성적 분석 에이전트", minLength = 2, maxLength = 40)
         @NotBlank @Size(min = 2, max = 40) String name,

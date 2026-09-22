@@ -23,7 +23,8 @@ import java.util.stream.Collectors;
 public class AgentVersionPolicy {
     private final AgentReader agentReader;
 
-    public void ensureVersionable(Workflow workflow, UserId requester, List<NodeDefinition> placedNodes) {
+    public Map<NodeDefinitionId, NodeDefinition> ensureVersionable(
+            Workflow workflow, UserId requester, List<NodeDefinition> placedNodes) {
         WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
 
         Map<NodeDefinitionId, NodeDefinition> loaded = placedNodes.stream()
@@ -50,5 +51,7 @@ public class AgentVersionPolicy {
                         Map.of("agentId", placement.agentId().value()));
             }
         }
+
+        return loaded;
     }
 }

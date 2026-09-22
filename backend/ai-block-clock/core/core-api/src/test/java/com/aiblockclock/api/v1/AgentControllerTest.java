@@ -196,6 +196,22 @@ class AgentControllerTest {
     }
 
     @Test
+    @DisplayName("회차를 빼먹으면 409 가 아니라 400 이다")
+    void rejectsMissingRevision() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+
+        mockMvc.perform(register(owner, """
+                {
+                  "workflowId": "%s",
+                  "name": "성적 분석 에이전트", "summary": "성적을 분석한다",
+                  "description": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다"
+                }
+                """.formatted(workflowId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
     @DisplayName("이름이 한 글자이거나 설명이 비면 400 이다")
     void rejectsInvalidProfile() throws Exception {
         String workflowId = createWorkflow(nodeId, nodeId);

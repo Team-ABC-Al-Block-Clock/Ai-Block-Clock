@@ -9,26 +9,21 @@ import com.aiblockclock.domain.workflow.WorkflowGraph;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public final class VersionCostAssembler {
     private VersionCostAssembler() {
     }
 
-    public static VersionCost assemble(WorkflowGraph snapshot, List<NodeDefinition> placedNodes) {
-        Map<NodeDefinitionId, BigDecimal> costs = placedNodes.stream()
-                .collect(Collectors.toMap(
-                        NodeDefinition::getId, node -> node.getSpec().baseCost().value()));
-
-        List<NodeDefinitionId> placed = snapshot.baseNodeReferences().stream()
+    public static VersionCost assemble(
+            WorkflowGraph snapshot, Map<NodeDefinitionId, NodeDefinition> placedNodes) {
+        List<BigDecimal> costs = snapshot.baseNodeReferences().stream()
                 .map(NodeReference::referenceId)
                 .map(NodeDefinitionId::of)
+                .map(placedNodes::get)
+                .map(node -> node.getSpec().baseCost().value())
                 .toList();
 
-        BigDecimal total = placed.stream()
-                .map(costs::get)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        return new VersionCost(placed.size(), AbcAmount.of(total));
+        return new VersionCost(costs.size(),
+                AbcAmount.of(costs.stream().reduce(BigDecimal.ZERO, BigDecimal::add)));
     }
 }
