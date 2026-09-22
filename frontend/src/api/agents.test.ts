@@ -337,22 +337,26 @@ describe('getAgentReviews', () => {
 
   it('끝까지 이어 받으면 중복·누락 없이 전부 모인다', async () => {
     // 멈추지 않으면 '더 보기' 가 빈 장을 계속 붙이고, 커서가 밀리면 중간이 샌다.
-    let page = await getAgentReviews('agt_01', { size: 5 })
+    // 개수는 상세가 말한 reviewCount 로 맞춘다 — mock 의 건수를 숫자로 박아 두면
+    // 목록을 늘릴 때마다 이 테스트가 같이 깨져서, 진짜 회귀와 구별되지 않는다.
+    const { reviewCount } = await getMarketplaceAgent('agt_01')
+    const size = 30
+    let page = await getAgentReviews('agt_01', { size })
     const ids = page.content.map((r) => r.reviewId)
     let pages = 1
     // 상한을 둔다 — 커서가 안 먹으면 hasNext 가 영영 true 라 조건만으로는 멈추지 않는다.
     // 멈추지 않는 테스트는 실패를 알리지 못하고 CI 를 잡아 둔다.
-    while (page.hasNext && pages < 20) {
-      page = await getAgentReviews('agt_01', { cursor: page.nextCursor ?? '', size: 5 })
+    const limit = Math.ceil(reviewCount / size) + 1
+    while (page.hasNext && pages < limit) {
+      page = await getAgentReviews('agt_01', { cursor: page.nextCursor ?? '', size })
       ids.push(...page.content.map((r) => r.reviewId))
       pages += 1
     }
 
     expect(pages).toBeGreaterThan(1)
     expect(page.nextCursor).toBeNull()
-    // mock 은 reviewCount 를 24 로 자른다.
-    expect(ids).toHaveLength(24)
-    expect(new Set(ids).size).toBe(24)
+    expect(ids).toHaveLength(reviewCount)
+    expect(new Set(ids).size).toBe(reviewCount)
   })
 
   it('리뷰가 없으면 빈 목록이다 — 오류가 아니다', async () => {
