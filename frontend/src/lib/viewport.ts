@@ -80,3 +80,22 @@ export function zoomPercent(view: Viewport): number {
 export function viewportTransform(view: Viewport): string {
   return `translate(${view.tx}px, ${view.ty}px) scale(${view.k})`
 }
+
+/** 격자 한 칸. 팬·줌을 따라갈 때도 이 간격이 기준이다. */
+export const GRID = 26
+
+/**
+ * 격자는 변환 판이 아니라 화면에 고정된 층에 남는다 — 판에 얹어 무한히 늘리는
+ * 것보다 싸고, 아무리 멀리 가도 끊기지 않는다. 대신 위상과 간격을 여기서 맞춘다.
+ *
+ * 컴포넌트가 그리는 값과 팬 중에 직접 써 넣는 값이 갈리면 손을 떼는 순간 격자가
+ * 튀므로, 두 곳이 이 함수 하나를 같이 쓴다.
+ */
+export function gridSize(view: Viewport): string {
+  return `${GRID * view.k}px ${GRID * view.k}px`
+}
+
+export function gridPosition(view: Viewport): string {
+  const half = (GRID / 2) * view.k
+  return `${half + view.tx}px ${half + view.ty}px`
+}

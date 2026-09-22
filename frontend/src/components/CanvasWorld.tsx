@@ -22,6 +22,11 @@ type CanvasWorldProps = {
  * `transformOrigin` 은 좌상단이다. 가운데로 두면 `scale` 이 제 이동량을 더해
  * `lib/viewport` 의 「화면 = 설계 × k + t」가 어긋난다.
  *
+ * **여기 들어가는 것에 `backdrop-filter` 를 쓰지 않는다**(원본 10절). 이 판은
+ * `transform` 을 늘 달고 있어 backdrop 루트가 된다 — 안쪽 유리는 바깥 배경을
+ * 못 가져와 검게 보인다. `CanvasNode` 의 `glass` 는 이 판을 쓰지 않는 실행 화면
+ * 전용이다.
+ *
  * 판정은 흘려보낸다 — 작업면을 덮고 있어 그대로 두면 아래가 눌리지 않는다.
  * 연결선과 카드가 각자 제 몫만 다시 켠다.
  */

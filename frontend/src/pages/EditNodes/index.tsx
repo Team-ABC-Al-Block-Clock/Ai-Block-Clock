@@ -48,12 +48,13 @@ export default function EditNodes() {
     handlePaneDown,
     handlePaneMove,
     handlePaneUp,
+    handlePaneCancel,
     view,
     zoomLabel,
     zoomIn,
     zoomOut,
   } = canvas
-  const { paneRef, worldRef, panelRef, glowRef, tempRef } = canvas.refs
+  const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
   const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
   const { isFetchNextPageError, isFetchingNextPage, handleRetryNextPage } = palette
 
@@ -104,15 +105,17 @@ export default function EditNodes() {
     <>
       <CanvasPane
         ref={paneRef}
+        gridRef={gridRef}
         view={view}
         onPointerDown={handlePaneDown}
         onPointerMove={handlePaneMove}
         onPointerUp={handlePaneUp}
+        onPointerCancel={handlePaneCancel}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
         <div
-          className="absolute left-0 text-center text-[16px] tracking-[-.005em]"
+          className="pointer-events-none absolute left-0 text-center text-[16px] tracking-[-.005em]"
           style={{
             top: 'calc(74px - var(--edge-y, 0px))',
             width: '980px',
@@ -125,7 +128,7 @@ export default function EditNodes() {
 
         {(selEdge || n) && (
           <div
-            className="absolute left-0 flex items-center justify-center text-[14px]"
+            className="pointer-events-none absolute left-0 flex items-center justify-center text-[14px]"
             style={{
               top: 'calc(102px - var(--edge-y, 0px))',
               width: '980px',
@@ -521,7 +524,7 @@ export default function EditNodes() {
         </a>
       </CanvasPane>
 
-      <SidePanel ref={panelRef}>
+      <SidePanel>
         <div
           className="absolute text-[17px] font-semibold tracking-[-.005em] text-white"
           style={{ left: `${PANEL_INSET}px`, top: `${PANEL_INSET}px` }}

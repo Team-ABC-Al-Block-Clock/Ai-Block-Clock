@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  GRID,
   INITIAL_VIEWPORT,
   ZOOM_MAX,
   ZOOM_MIN,
   clampZoom,
+  gridPosition,
+  gridSize,
   panBy,
   viewportTransform,
   wheelZoom,
@@ -143,5 +146,21 @@ describe('viewportTransform', () => {
   it('이동이 배율보다 앞에 온다', () => {
     // 순서를 바꾸면 이동량이 배율을 타 팬이 확대 배율만큼 빨라진다.
     expect(viewportTransform({ tx: 12, ty: -8, k: 1.5 })).toBe('translate(12px, -8px) scale(1.5)')
+  })
+})
+
+describe('격자', () => {
+  it('칸이 배율을 탄다 — 카드와 같은 비율로 커져야 한다', () => {
+    expect(gridSize({ tx: 0, ty: 0, k: 2 })).toBe(`${GRID * 2}px ${GRID * 2}px`)
+  })
+
+  it('위상이 팬을 그대로 따라간다', () => {
+    // 여기에 배율을 곱하면 확대한 상태에서 격자가 그래프보다 빨리 흐른다.
+    const 기준 = (GRID / 2) * 1
+    expect(gridPosition({ tx: 40, ty: -15, k: 1 })).toBe(`${기준 + 40}px ${기준 - 15}px`)
+  })
+
+  it('팬이 없으면 반 칸 밀린 자리에서 시작한다', () => {
+    expect(gridPosition(INITIAL_VIEWPORT)).toBe(`${GRID / 2}px ${GRID / 2}px`)
   })
 })
