@@ -1,9 +1,7 @@
 package com.aiblockclock.domain.agent;
 
-import com.aiblockclock.domain.node.NodeDefinitionId;
-import com.aiblockclock.domain.node.NodeDefinitionReader;
+import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.user.UserId;
-import com.aiblockclock.domain.workflow.NodeReference;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowValidator;
 import com.aiblockclock.support.error.CoreException;
@@ -13,22 +11,21 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class AgentVersionPolicy {
     private final AgentReader agentReader;
-    private final NodeDefinitionReader nodeReader;
 
-    public void ensureVersionable(Workflow workflow, UserId requester) {
+    public void ensureVersionable(Workflow workflow, UserId requester, List<NodeDefinition> placedNodes) {
         WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
 
-        for (NodeReference reference : workflow.getGraph().baseNodeReferences()) {
-            NodeDefinitionId nodeId = NodeDefinitionId.of(reference.referenceId());
-            if (!nodeReader.isOwnedBy(nodeId, requester)) {
+        for (NodeDefinition node : placedNodes) {
+            if (!node.getOwner().equals(requester)) {
                 throw new CoreException(ErrorType.AGENT_FOREIGN_NODE_INCLUDED,
-                        Map.of("nodeId", nodeId.value()));
+                        Map.of("nodeId", node.getId().value()));
             }
         }
 
