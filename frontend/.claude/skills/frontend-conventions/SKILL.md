@@ -36,14 +36,11 @@ frontend/docs/frontend-conventions.md
    화면이 1440×1024 고정 좌표다. `left-[504px]` 로 옮겨도 이득이 없다.
    기준은 2회 이상 나오는 선언만 Tailwind.
 
-## API 응답 타입은 아직 추정이다
+## 명세가 확정되지 않은 필드
 
-API 명세서 링크가 공유되지 않아 `api/page.ts`·`api/agents.ts`·`api/credits.ts`·`api/workflows.ts`
-의 필드명은 **추정**이다. 확정된 것은 `/api/v1` 접두어, 봉투 `{status, data}`, 인증 계열뿐이다.
-
-**화면에 필드명을 직접 박지 말 것.** 화면은 `api/` 타입만 참조하고 표시 문자열은
-`lib/format.ts` 를 거친다. 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
-자세한 구분은 원본 7절.
+**화면에 필드명을 직접 박지 말 것.** 추정 필드는 `api/` 안에만 두고, 화면은 `api/` 타입만
+참조하며 표시 문자열은 `lib/format.ts` 를 거친다. 명세가 오면 고칠 곳이 `api/` 로 한정되어야
+한다. 무엇이 아직 추정인지는 원본 7절.
 
 ## 네이밍 요약
 
@@ -79,5 +76,6 @@ paths.agentDetail.withoutId // '/agent' — 해당 도메인 mock 핸들러 붙�
 `<ProtectedRoute>` 로 감싼다 — 화면 안에서 로그인 여부를 확인하지 않는다. 여기도
 `Record<ScreenKey, boolean>` 이라 화면을 추가하면 공개·보호를 정할 때까지 컴파일이 실패한다.
 
-세션은 `stores/authStore.ts` 하나가 들고 있다. Access Token 은 스토어에 복사하지 않고
-`lib/tokenStorage.ts` 에 둔다 — axios 인터셉터가 React 트리 밖에서 읽어야 한다. 자세한 것은 원본 4절·7절.
+세션은 `stores/authStore.ts` 하나가 들고 있다. `sessionToken` 은 HttpOnly 쿠키라 JS 가 값을
+읽지 못하므로, 스토어가 들고 있는 것은 토큰이 아니라 「서버가 나를 알아보는가」의 결과다.
+자세한 것은 원본 4절·7절.

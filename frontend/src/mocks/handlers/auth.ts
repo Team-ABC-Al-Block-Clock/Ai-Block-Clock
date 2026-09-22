@@ -1,6 +1,6 @@
 import { http } from 'msw'
 
-import type { AuthTokens, UpdatedProfile, UserProfile, WalletMessage } from '@/api/auth'
+import type { UpdatedProfile, UserProfile, WalletMessage, WalletSession } from '@/api/auth'
 import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
 import { AUTH_ERROR, USER_ERROR } from '@/api/errors'
@@ -92,8 +92,8 @@ async function toDataUrl(file: File) {
 }
 
 /**
- * Refresh Token 쿠키 대역. mock 은 쿠키를 세팅하지 않아 localStorage 로 흉내 낸다 —
- * 그래야 새로고침 후 재발급으로 세션이 되살아나는 경로를 확인할 수 있다.
+ * `sessionToken` 쿠키 대역. mock 은 HttpOnly 쿠키를 세팅할 수 없어 localStorage 로
+ * 흉내 낸다 — 그래야 새로고침 후에도 세션이 남는 경로를 확인할 수 있다.
  */
 const SESSION_KEY = 'mockWalletSession'
 
@@ -114,12 +114,12 @@ function writeSession(walletAddress: string | null) {
   }
 }
 
-function issueTokens() {
-  return ok<AuthTokens>({
-    accessToken: `mock-access-token.${Date.now()}`,
-    tokenType: 'Bearer',
-    expiresIn: 3600,
-  })
+/** 실서버 TTL 과 같은 모양이면 된다 — 값 자체는 BE 설정이다. */
+const SESSION_DAYS = 7
+
+function issueSession() {
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000)
+  return ok<WalletSession>({ expiresAt: expiresAt.toISOString() })
 }
 
 export const authHandlers = [
@@ -164,21 +164,17 @@ export const authHandlers = [
     rememberWallet(walletAddress)
 
     writeSession(walletAddress)
-    return issueTokens()
+    return issueSession()
   }),
 
-  /** 인터셉터가 401(AUTH_007) 을 받고, 부팅 시 `restoreSession` 이 부른다.
-   *  세션이 없으면 실서버처럼 거절한다 — 늘 성공을 주면 로그인 없이도 인증된다.
-   *
-   *  여기만 `scene()` 을 건너뛴다. `?mockFail=` 로 화면의 실패 UI 를 볼 때 재발급까지
-   *  실패하면 그 화면이 로그인으로 튕긴다. 재발급 실패는 세션을 지워서 만든다. */
-  http.post(`${API_BASE_URL}/auth/reissue`, () => {
-    if (!readSession()) return fail(401, AUTH_ERROR.REFRESH_MISSING, '로그인이 필요합니다.')
-    return issueTokens()
-  }),
+  /** 쿠키가 없거나 형식이 틀리면 실서버도 거절한다 — 200 이 아니다. */
   http.post(`${API_BASE_URL}/auth/logout`, async ({ request }) => {
     const forced = await scene(request)
     if (forced) return forced
+
+    if (!readSession()) {
+      return fail(401, AUTH_ERROR.INVALID, '로그인 세션을 사용할 수 없습니다.')
+    }
 
     writeSession(null)
     return ok(null)

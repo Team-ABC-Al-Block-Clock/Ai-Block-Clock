@@ -15,10 +15,10 @@ export interface WalletMessage {
   nonce: string
 }
 
-export interface AuthTokens {
-  accessToken: string
-  tokenType: string
-  expiresIn: number
+/** 로그인 응답. 토큰은 없다 — `sessionToken` 은 Set-Cookie 로만 온다. */
+export interface WalletSession {
+  /** 로그인 만료 시각. 화면에 만료를 보여줄 때만 쓴다 */
+  expiresAt: string
 }
 
 /** 네트워크는 사용자가 고르는 값이 아니라 서버 배포 설정이다 — 서버가 알려준다(7절). */
@@ -48,12 +48,12 @@ export const requestWalletMessage = (walletAddress: string) =>
 
 /**
  * POST /auth/wallet/login — 서명을 검증하고 가입 또는 로그인한다.
- * Refresh Token 은 응답 바디가 아니라 HttpOnly 쿠키로 내려온다.
+ * 세션은 `sessionToken` HttpOnly 쿠키로 내려온다. 바디에 토큰은 없다.
  */
-
 export const loginWithWallet = (params: { walletAddress: string; signature: string }) =>
-  api.post<AuthTokens>('/auth/wallet/login', params)
+  api.post<WalletSession>('/auth/wallet/login', params)
 
+/** 서버가 DB 세션을 끝내고 쿠키를 지운다 — 클라이언트만 비우면 새로고침에 되살아난다. */
 export const logout = () => api.post<void>('/auth/logout')
 
 /** GET /users/me — 프로필과 연결된 지갑. 명세 확정(7절) */
