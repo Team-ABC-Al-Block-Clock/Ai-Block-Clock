@@ -1,0 +1,11 @@
+{
+  "status": "synthetic_demo_only_not_applied",
+  "formula_source": "ai/docs/grading-formula.md v1.0",
+  "note": "팀 제안 수식으로 계산한 시연용 값. 실제 실적이 아니며 운영 DB에 적용하지 않았다. consumer/platform 실패는 성공률 분모에서 제외한다.",
+  "agents": [
+    {"local_key": "ag_brand_01", "successful_runs": 120, "supplier_failures": 5, "review_count": 25, "average_rating": 4.6, "expected_tier": 2},
+    {"local_key": "ag_brand_02", "successful_runs": 0, "supplier_failures": 0, "review_count": 0, "average_rating": null, "expected_tier": 4},
+    {"local_key": "ag_brand_03", "successful_runs": 0, "supplier_failures": 0, "review_count": 0, "average_rating": null, "expected_tier": 4},
+    {"local_key": "ag_brand_04", "successful_runs": 0, "supplier_failures": 0, "review_count": 0, "average_rating": null, "expected_tier": 4}
+  ]
+}
