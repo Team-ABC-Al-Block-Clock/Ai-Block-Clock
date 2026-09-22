@@ -63,6 +63,17 @@ uv run python -c "import json;from src import graph,runner;print(graph.validate(
 
 분기 판정은 코드가 한다. **같은 입력이면 항상 같은 경로가 나온다** — 정산과 견적의 근거이기 때문이다.
 
+## 실호출 결과 (09-22, `gemini-2.5-flash` · GMS)
+
+| 브리프 | 의도 | 모델 판정 | 경로 | 시간 | 원가 |
+| --- | --- | --- | --- | --- | --- |
+| `ai/demo/brand/brief_high.json` 소소칫솔(칫솔) | high | **high** ✓ | n3a 차별화 | 48.6s | 7.00 ABC |
+| `ai/demo/brand/brief_low.json` 밤길동무(LED 하네스) | low | **high** ✗ | n3a 차별화 | 53.3s | 6.64 ABC |
+
+교정 재요청 0회, 발행일 · 작성 기관 주입 정상, 브랜드명 보존, 정산 4노드 · 환원 1노드 모두 계약대로.
+**분기 자체는 코드가 값을 읽어 정확히 갈랐다**(mock 에서 양쪽 경로 검증). low 브리프가 high 로 판정된 것은
+프롬프트 `01` 의 high/low 기준 또는 브리프 선택의 문제로, 트랙 B 와 조정한다(리허설 전 low 경로 실호출 재확인).
+
 ## 프롬프트
 
 `ai/prompts/brand/01 ~ 07*.md` — **트랙 B(조유진) 작성.** 마커 3블록(`system` · `user` · `fewshot`)과
