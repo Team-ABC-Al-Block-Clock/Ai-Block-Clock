@@ -40,7 +40,7 @@
 }
 ```
 
-성공하면 응답 헤더에 `sessionToken` HttpOnly 쿠키가 설정된다. 응답 JSON에는 토큰 원문이 없다.
+성공하면 응답 헤더에 `SESSION` HttpOnly 쿠키가 설정된다. 응답 JSON에는 토큰 원문이 없다.
 
 ```json
 {
@@ -58,7 +58,7 @@
 
 ## 3. 보호 API 호출
 
-별도의 `Authorization` 헤더를 만들지 않는다. 브라우저가 `sessionToken` 쿠키를 자동으로 보내며,
+별도의 `Authorization` 헤더를 만들지 않는다. 브라우저가 `SESSION` 쿠키를 자동으로 보내며,
 서버가 쿠키로 로그인 사용자를 확인한다.
 
 ```javascript
@@ -84,7 +84,7 @@ await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
 });
 ```
 
-서버는 HttpSession을 무효화한다. Spring Session JDBC가 DB 세션을 삭제하고 `sessionToken` 쿠키를
+서버는 HttpSession을 무효화한다. Spring Session JDBC가 DB 세션을 삭제하고 `SESSION` 쿠키를
 만료시킨다.
 
 ## 제거된 API와 헤더
@@ -109,4 +109,4 @@ await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
 | `AUTH_012` | 먼저 발급받은 인증 메시지가 없음 |
 
 Swagger는 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 확인한다. Swagger의 보호 API에는
-`sessionToken` 쿠키 인증 방식이 표시된다.
+`SESSION` 쿠키 인증 방식이 표시된다.

@@ -1,7 +1,6 @@
 package com.aiblockclock.api.config;
 
 import com.aiblockclock.api.support.auth.CurrentUser;
-import com.aiblockclock.api.support.auth.SessionCookie;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -23,7 +22,8 @@ public class OpenApiConfig {
 
     private static final String APPLICATION_JSON = "application/json";
 
-    private static final String SESSION_COOKIE_SCHEME = SessionCookie.NAME;
+    /** Spring Session 기본 쿠키 이름. */
+    private static final String SESSION_COOKIE_SCHEME = "SESSION";
 
     private static final String UNAUTHORIZED_EXAMPLE =
             "{ \"status\": \"FAIL\", \"data\": null,"
@@ -36,10 +36,10 @@ public class OpenApiConfig {
     /** 보호 API는 HttpOnly Spring Session 쿠키를 사용한다. */
     @Bean
     public OpenAPI openAPI() {
-        SecurityScheme sessionToken = new SecurityScheme()
+        SecurityScheme sessionCookie = new SecurityScheme()
                 .type(SecurityScheme.Type.APIKEY)
                 .in(SecurityScheme.In.COOKIE)
-                .name(SessionCookie.NAME)
+                .name(SESSION_COOKIE_SCHEME)
                 .description("지갑 로그인으로 발급받은 HttpOnly 세션 쿠키");
 
         return new OpenAPI()
@@ -47,7 +47,7 @@ public class OpenApiConfig {
                         .title("AI Block Clock API")
                         .description("AI Block Clock 백엔드 API 문서")
                         .version("v1"))
-                .components(new Components().addSecuritySchemes(SESSION_COOKIE_SCHEME, sessionToken))
+                .components(new Components().addSecuritySchemes(SESSION_COOKIE_SCHEME, sessionCookie))
                 .addSecurityItem(new SecurityRequirement().addList(SESSION_COOKIE_SCHEME));
     }
 

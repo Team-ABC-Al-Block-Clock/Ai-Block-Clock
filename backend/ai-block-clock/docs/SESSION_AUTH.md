@@ -6,7 +6,7 @@
 Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Session이 세션을 MySQL의
 `SPRING_SESSION`, `SPRING_SESSION_ATTRIBUTES` 테이블에 보관한다.
 
-브라우저에는 Spring Session ID가 `sessionToken` HttpOnly 쿠키로 전달된다. 응답 JSON과 서버 로그에는
+브라우저에는 Spring Session ID가 `SESSION` HttpOnly 쿠키로 전달된다. 응답 JSON과 서버 로그에는
 세션 ID를 출력하지 않는다. Access Token과 Refresh Token은 사용하지 않으며 `/auth/reissue` API도 없다.
 
 세션 유지 정책은 미사용 만료 하나다. 마지막 요청으로부터 2시간 동안 요청이 없으면 만료되고, 요청이
@@ -24,12 +24,12 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 7. 사용자의 `UserId`로 Spring Security `Authentication`을 만든다.
 8. `ChangeSessionIdAuthenticationStrategy`가 세션 ID를 교체하고 `SecurityContext`를 만든다.
 9. Spring Session JDBC가 SecurityContext를 MySQL에 저장한다.
-10. Spring Session이 `sessionToken` 쿠키를 응답에 추가한다.
+10. Spring Session이 `SESSION` 쿠키를 응답에 추가한다.
 11. 로그인으로 세션이 교체되었으므로 FE가 CSRF 토큰을 다시 발급받는다.
 
 ## 보호 API 인증 흐름
 
-브라우저는 `/api/v1` 요청마다 `sessionToken` 쿠키를 자동으로 보낸다. Spring Session 필터가 쿠키의
+브라우저는 `/api/v1` 요청마다 `SESSION` 쿠키를 자동으로 보낸다. Spring Session 필터가 쿠키의
 세션 ID로 MySQL을 조회하고 HttpSession을 복원한다. Spring Security는 세션에 저장된
 `SecurityContext`에서 `UserId`를 읽는다.
 
@@ -44,7 +44,7 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 
 | 속성 | 값 | 이유 |
 |---|---|---|
-| 이름 | `sessionToken` | 기존 FE 계약을 유지한 Spring Session ID 쿠키 |
+| 이름 | `SESSION` | Spring Session 기본값. FE 는 HttpOnly 라 이름을 알 필요가 없다 |
 | Path | `/api/v1` | 인증 API와 모든 보호 API에 전달 |
 | HttpOnly | `true` | 브라우저 JavaScript에서 세션 ID 접근 차단 |
 | Secure | 운영 `true`, 로컬 `false` | 운영에서는 HTTPS에서만 전송 |

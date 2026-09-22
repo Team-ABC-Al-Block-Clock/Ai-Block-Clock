@@ -16,6 +16,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        path: /api/v1
+        secure: ${AUTH_COOKIE_SECURE:true}
 
 springdoc:
   api-docs:
@@ -29,6 +34,3 @@ wallet-auth:
   uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}
   chain-id: ${WALLET_AUTH_CHAIN_ID:80002}
   message-ttl: ${WALLET_AUTH_MESSAGE_TTL:5m}
-
-auth-web:
-  secure-cookie: ${AUTH_COOKIE_SECURE:true}

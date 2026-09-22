@@ -1,11 +1,11 @@
 package com.aiblockclock.api.config;
 
 import com.aiblockclock.api.support.auth.ApiAuthenticationEntryPoint;
-import com.aiblockclock.api.support.auth.AuthWebProperties;
-import com.aiblockclock.api.support.auth.SessionCookie;
 
 import jakarta.servlet.DispatcherType;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.session.autoconfigure.DefaultCookieSerializerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,8 +22,6 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
-import org.springframework.session.web.http.CookieSerializer;
-import org.springframework.session.web.http.DefaultCookieSerializer;
 
 import java.util.List;
 
@@ -94,15 +92,22 @@ public class SecurityConfig {
         ));
     }
 
+    /**
+     * 쿠키 이름은 Spring Session 기본값 SESSION 을 쓰고 나머지 속성만 덧칠한다.
+     * {@code server.servlet.session.cookie.*} 는 내장 톰캣으로 뜰 때만 반영되므로
+     * MockMvc 테스트에서도 같은 값이 적용되도록 이 확장 지점에서 지정한다.
+     */
     @Bean
-    public CookieSerializer cookieSerializer(AuthWebProperties webProperties) {
-        DefaultCookieSerializer serializer = new DefaultCookieSerializer();
-        serializer.setCookieName(SessionCookie.NAME);
-        serializer.setCookiePath(SessionCookie.PATH);
-        serializer.setUseHttpOnlyCookie(true);
-        serializer.setUseSecureCookie(webProperties.secureCookie());
-        serializer.setUseBase64Encoding(false);
-        serializer.setSameSite("Lax");
-        return serializer;
+    public DefaultCookieSerializerCustomizer cookieSerializerCustomizer(
+            @Value("${server.servlet.session.cookie.path}") String path,
+            @Value("${server.servlet.session.cookie.secure}") boolean secure
+    ) {
+        return serializer -> {
+            serializer.setCookiePath(path);
+            serializer.setUseSecureCookie(secure);
+            serializer.setUseHttpOnlyCookie(true);
+            serializer.setSameSite("Lax");
+            serializer.setUseBase64Encoding(false);
+        };
     }
 }

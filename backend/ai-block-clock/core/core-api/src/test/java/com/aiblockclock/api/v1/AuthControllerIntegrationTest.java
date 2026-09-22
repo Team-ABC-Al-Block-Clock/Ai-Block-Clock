@@ -1,6 +1,5 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.support.auth.SessionCookie;
 import com.aiblockclock.storage.auth.WalletAuthMessageRepository;
 
 import jakarta.servlet.http.Cookie;
@@ -48,6 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class AuthControllerIntegrationTest {
     private static final String ROOT = "/api/v1/auth";
+    private static final String SESSION_COOKIE = "SESSION";
     private static final Instant NOW = Instant.parse("2026-09-17T00:00:00Z");
 
     private final JsonMapper mapper = JsonMapper.builder().build();
@@ -72,7 +72,7 @@ class AuthControllerIntegrationTest {
     @Test
     void 로그인은_Spring_Session을_MySQL에_저장하고_HttpOnly_쿠키만_전달한다() throws Exception {
         MvcResult result = login(newWallet());
-        Cookie cookie = result.getResponse().getCookie(SessionCookie.NAME);
+        Cookie cookie = result.getResponse().getCookie(SESSION_COOKIE);
 
         assertThat(cookie).isNotNull();
         assertThat(cookie.getValue()).isNotBlank();
@@ -96,7 +96,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void 로그아웃은_Spring_Session을_삭제하고_브라우저_쿠키를_삭제한다() throws Exception {
-        Cookie cookie = login(newWallet()).getResponse().getCookie(SessionCookie.NAME);
+        Cookie cookie = login(newWallet()).getResponse().getCookie(SESSION_COOKIE);
 
         MvcResult logout = mvc.perform(post(ROOT + "/logout")
                         .with(csrf().asHeader())
@@ -104,7 +104,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        Cookie cleared = logout.getResponse().getCookie(SessionCookie.NAME);
+        Cookie cleared = logout.getResponse().getCookie(SESSION_COOKIE);
         assertThat(cleared.getValue()).isEmpty();
         assertThat(cleared.getMaxAge()).isZero();
         assertThat(cleared.getPath()).isEqualTo("/api/v1");
@@ -122,7 +122,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.headerName").value("X-CSRF-TOKEN"))
                 .andExpect(jsonPath("$.data.token").isNotEmpty())
                 .andReturn();
-        Cookie sessionCookie = issued.getResponse().getCookie(SessionCookie.NAME);
+        Cookie sessionCookie = issued.getResponse().getCookie(SESSION_COOKIE);
         var csrfData = mapper.readTree(issued.getResponse().getContentAsString()).path("data");
         String headerName = csrfData.path("headerName").asString();
         String token = csrfData.path("token").asString();
@@ -151,7 +151,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_005"));
         mvc.perform(get("/api/v1/workflows")
-                        .cookie(new Cookie(SessionCookie.NAME, "bad")))
+                        .cookie(new Cookie(SESSION_COOKIE, "bad")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTH_005"));
     }
@@ -162,9 +162,9 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
-                .getCookie(SessionCookie.NAME);
+                .getCookie(SESSION_COOKIE);
 
-        Cookie after = login(newWallet(), before).getResponse().getCookie(SessionCookie.NAME);
+        Cookie after = login(newWallet(), before).getResponse().getCookie(SESSION_COOKIE);
 
         assertThat(after.getValue()).isNotEqualTo(before.getValue());
         assertThat(sessionCount(before)).isZero();
@@ -178,7 +178,7 @@ class AuthControllerIntegrationTest {
     @Test
     void 로그인하면_로그인_전_CSRF_토큰도_무효가_된다() throws Exception {
         MvcResult issued = mvc.perform(get(ROOT + "/csrf")).andExpect(status().isOk()).andReturn();
-        Cookie sessionCookie = issued.getResponse().getCookie(SessionCookie.NAME);
+        Cookie sessionCookie = issued.getResponse().getCookie(SESSION_COOKIE);
         var csrfData = mapper.readTree(issued.getResponse().getContentAsString()).path("data");
         String headerName = csrfData.path("headerName").asString();
         String token = csrfData.path("token").asString();
@@ -206,7 +206,7 @@ class AuthControllerIntegrationTest {
                 .andReturn();
 
         mvc.perform(post(ROOT + "/wallet/message")
-                        .cookie(loggedIn.getResponse().getCookie(SessionCookie.NAME))
+                        .cookie(loggedIn.getResponse().getCookie(SESSION_COOKIE))
                         .header(headerName, token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(Map.of("walletAddress", address(newWallet())))))
@@ -216,8 +216,8 @@ class AuthControllerIntegrationTest {
     @Test
     void 다른_브라우저에서_로그인해도_기존_세션은_유지된다() throws Exception {
         ECKeyPair wallet = newWallet();
-        Cookie first = login(wallet).getResponse().getCookie(SessionCookie.NAME);
-        Cookie second = login(wallet).getResponse().getCookie(SessionCookie.NAME);
+        Cookie first = login(wallet).getResponse().getCookie(SESSION_COOKIE);
+        Cookie second = login(wallet).getResponse().getCookie(SESSION_COOKIE);
 
         assertThat(second.getValue()).isNotEqualTo(first.getValue());
         mvc.perform(get("/api/v1/workflows").cookie(first))
@@ -228,7 +228,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void 로그인_세션은_설정한_미사용_만료_시간을_갖는다() throws Exception {
-        Cookie cookie = login(newWallet()).getResponse().getCookie(SessionCookie.NAME);
+        Cookie cookie = login(newWallet()).getResponse().getCookie(SESSION_COOKIE);
 
         assertThat(jdbcTemplate.queryForObject(
                 "select MAX_INACTIVE_INTERVAL from SPRING_SESSION where SESSION_ID = ?",
@@ -244,10 +244,10 @@ class AuthControllerIntegrationTest {
         var paths = root.path("paths");
         assertThat(paths.has(ROOT + "/reissue")).isFalse();
         assertThat(root.path("components").path("securitySchemes")
-                .path(SessionCookie.NAME).path("in").asString()).isEqualTo("cookie");
+                .path(SESSION_COOKIE).path("in").asString()).isEqualTo("cookie");
         assertThat(paths.path(ROOT + "/wallet/message").path("post").path("security").size()).isZero();
         assertThat(paths.path(ROOT + "/wallet/login").path("post").path("security").size()).isZero();
-        assertThat(root.path("security").get(0).has(SessionCookie.NAME)).isTrue();
+        assertThat(root.path("security").get(0).has(SESSION_COOKIE)).isTrue();
     }
 
     private MvcResult login(ECKeyPair wallet) throws Exception {
