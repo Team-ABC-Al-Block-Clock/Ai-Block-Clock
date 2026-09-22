@@ -114,6 +114,18 @@ class AgentRegistrationIntegrationTest {
     }
 
     @Test
+    @DisplayName("같은 노드를 두 자리에 놓으면 두 번 센다")
+    void countsEveryPlacementOfTheSameNode() {
+        UUID sharedNode = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
+        WorkflowId repeated = saveWorkflow(sharedNode, sharedNode);
+
+        AgentRegistration registered = agentService.register(OWNER, repeated, Revision.initial(), profile());
+
+        assertThat(registered.version().getCost().promptNodeCount()).isEqualTo(2);
+        assertThat(registered.version().finalPrice().value()).isEqualByComparingTo("6.000000");
+    }
+
+    @Test
     @DisplayName("보던 회차가 아니면 굳히지 않는다")
     void rejectsStaleRevision() {
         assertThatThrownBy(() -> register(Revision.of(2L)))
