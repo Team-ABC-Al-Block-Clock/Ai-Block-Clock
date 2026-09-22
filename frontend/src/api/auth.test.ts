@@ -67,7 +67,7 @@ async function capturePartsOf(send: () => Promise<unknown>): Promise<FormData> {
   const capture: AxiosAdapter = (config) => {
     captured = config.data as FormData
     return Promise.resolve({
-      data: { status: 'success', data: {} },
+      data: { status: 'SUCCESS', data: {} },
       status: 200,
       statusText: 'OK',
       headers: {},

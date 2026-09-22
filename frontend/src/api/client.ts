@@ -63,8 +63,8 @@ client.interceptors.response.use(
     }
 
     const body = response.data
-    const code = isApiErrorBody(body) ? body.code : undefined
-    const message = isApiErrorBody(body) ? body.message : error.message
+    const code = isApiErrorBody(body) ? body.error.code : undefined
+    const message = isApiErrorBody(body) ? body.error.message : error.message
 
     // 401 은 전부 회복 불가다 — 자동 재발급 API 가 없어 지갑 서명 로그인부터 다시 한다.
     if (response.status === 401) onAuthFailure?.(code)

@@ -1,8 +1,12 @@
-/** `{ status: 'error', code, message }` */
+/** `{ status: 'FAIL', data: null, error: { code, message, data } }` — `support/response/ApiResult` */
 export interface ApiErrorBody {
-  status: 'error'
-  code: string
-  message: string
+  status: string
+  error: {
+    code: string
+    message: string
+    /** 오류를 짚어 주는 값. 응답마다 모양이 다르고 없으면 null — 아직 화면이 읽지 않는다 */
+    data?: unknown
+  }
 }
 
 /**
@@ -67,9 +71,19 @@ export const USER_ERROR = {
   IMAGE_CONFLICT: 'USER_007',
 } as const
 
-/** 응답 본문이 서버의 실패 봉투 모양인지 확인한다. */
+/**
+ * 응답 본문이 서버의 실패 봉투 모양인지 확인한다.
+ *
+ * `status` 값('FAIL')이 아니라 `error` 안에 code·message 가 있는지로 본다. 서버의 CSRF·인증
+ * 거절은 Spring 기본 오류 본문(`{ timestamp, status, error: 'Forbidden', path }`)으로 오는데,
+ * 거기도 `error` 키가 있지만 문자열이라 여기서 걸러진다.
+ *
+ * 이 판정이 틀리면 code 와 message 가 통째로 버려져 화면의 코드 분기와 401 사유가 사라진다.
+ */
 export function isApiErrorBody(body: unknown): body is ApiErrorBody {
   if (typeof body !== 'object' || body === null) return false
-  const b = body as Record<string, unknown>
-  return b.status === 'error' && typeof b.code === 'string' && typeof b.message === 'string'
+  const { error } = body as { error?: unknown }
+  if (typeof error !== 'object' || error === null) return false
+  const e = error as Record<string, unknown>
+  return typeof e.code === 'string' && typeof e.message === 'string'
 }
