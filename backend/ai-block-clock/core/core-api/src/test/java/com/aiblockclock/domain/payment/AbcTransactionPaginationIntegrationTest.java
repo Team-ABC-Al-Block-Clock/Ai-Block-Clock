@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
 import com.aiblockclock.storage.payment.LedgerAccountEntity;
@@ -49,7 +50,7 @@ class AbcTransactionPaginationIntegrationTest {
         LedgerAccountEntity userAccount =
                 saveAccount(
                         LedgerAccountType.ABC_BALANCE,
-                        "user-a"
+                        "1"
                 );
 
         List<Long> transactionIds = new ArrayList<>();
@@ -68,7 +69,7 @@ class AbcTransactionPaginationIntegrationTest {
         AbcTransactionSearchCondition condition = AbcTransactionSearchCondition.allDates(null);
 
         CursorPage<AbcTransaction> firstPage =
-                abcLedgerQueryService.readTransactions("user-a", condition, null, 10);
+                abcLedgerQueryService.readTransactions(UserId.of(1L), condition, null, 10);
 
         assertThat(firstPage.content())
                 .extracting(AbcTransaction::transactionId)
@@ -79,7 +80,7 @@ class AbcTransactionPaginationIntegrationTest {
         assertThat(firstPage.nextCursor()).isNotNull();
 
         CursorPage<AbcTransaction> secondPage =
-                abcLedgerQueryService.readTransactions("user-a", condition, firstPage.nextCursor(), 10);
+                abcLedgerQueryService.readTransactions(UserId.of(1L), condition, firstPage.nextCursor(), 10);
 
         assertThat(secondPage.content())
                 .extracting(AbcTransaction::transactionId)

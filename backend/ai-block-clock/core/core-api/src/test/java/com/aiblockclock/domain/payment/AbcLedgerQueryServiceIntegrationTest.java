@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
 import com.aiblockclock.storage.payment.LedgerAccountEntity;
@@ -41,7 +42,7 @@ class AbcLedgerQueryServiceIntegrationTest {
     @Test
     void 장부_계좌가_없으면_ABC_잔액과_예약_금액은_0이다() {
         AbcBalance balance =
-                abcLedgerQueryService.readBalance("user-without-account");
+                abcLedgerQueryService.readBalance(UserId.of(999L));
 
         assertThat(balance.available()).isEqualByComparingTo("0");
         assertThat(balance.reserved()).isEqualByComparingTo("0");
@@ -49,14 +50,14 @@ class AbcLedgerQueryServiceIntegrationTest {
 
     @Test
     void 사용자_식별값에_해당하는_ABC_잔액만_조회한다() {
-        saveAccount("user-a", "12.000");
-        saveAccount("user-b", "99.000");
+        saveAccount("1", "12.000");
+        saveAccount("2", "99.000");
 
         AbcBalance userABalance =
-                abcLedgerQueryService.readBalance("user-a");
+                abcLedgerQueryService.readBalance(UserId.of(1L));
 
         AbcBalance userBBalance =
-                abcLedgerQueryService.readBalance("user-b");
+                abcLedgerQueryService.readBalance(UserId.of(2L));
 
         assertThat(userABalance.available())
                 .isEqualByComparingTo("12.000");
@@ -67,12 +68,12 @@ class AbcLedgerQueryServiceIntegrationTest {
 
     @Test
     void 실행에_묶인_ABC는_예약_금액으로_따로_조회한다() {
-        saveAccount("user-a", "70.000");
+        saveAccount("1", "70.000");
         LedgerAccountEntity escrowAccount =
-                saveAccount(LedgerAccountType.EXECUTION_ESCROW, "user-a");
+                saveAccount(LedgerAccountType.EXECUTION_ESCROW, "1");
         ledgerAccountRepository.addBalanceDelta(escrowAccount.getId(), new BigDecimal("30.000"), Instant.now());
 
-        AbcBalance balance = abcLedgerQueryService.readBalance("user-a");
+        AbcBalance balance = abcLedgerQueryService.readBalance(UserId.of(1L));
 
         assertThat(balance.available()).isEqualByComparingTo("70.000");
         assertThat(balance.reserved()).isEqualByComparingTo("30.000");
@@ -82,7 +83,7 @@ class AbcLedgerQueryServiceIntegrationTest {
     void 장부_계좌가_없으면_ABC_사용_내역은_비어_있다() {
         CursorPage<AbcTransaction> transactionPage =
                 abcLedgerQueryService.readTransactions(
-                        "user-without-account",
+                        UserId.of(999L),
                         AbcTransactionSearchCondition.allDates(null),
                         null,
                         10
@@ -102,10 +103,10 @@ class AbcLedgerQueryServiceIntegrationTest {
                 );
 
         LedgerAccountEntity userAAccount =
-                saveAccount("user-a", "0.000");
+                saveAccount("1", "0.000");
 
         LedgerAccountEntity userBAccount =
-                saveAccount("user-b", "0.000");
+                saveAccount("2", "0.000");
 
         LedgerAccountEntity escrowAccount =
                 saveAccount(
@@ -148,7 +149,7 @@ class AbcLedgerQueryServiceIntegrationTest {
 
         List<AbcTransaction> transactions =
                 abcLedgerQueryService.readTransactions(
-                                "user-a",
+                                UserId.of(1L),
                                 AbcTransactionSearchCondition.allDates(null),
                                 null,
                                 10

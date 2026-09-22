@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
 import com.aiblockclock.storage.payment.LedgerAccountEntity;
@@ -50,7 +51,7 @@ class AbcTransactionFilterIntegrationTest {
         LedgerAccountEntity userAccount =
                 saveAccount(
                         LedgerAccountType.ABC_BALANCE,
-                        "user-a"
+                        "1"
                 );
 
         LedgerAccountEntity escrowAccount =
@@ -92,7 +93,7 @@ class AbcTransactionFilterIntegrationTest {
 
         CursorPage<AbcTransaction> transactionPage =
                 abcLedgerQueryService.readTransactions(
-                        "user-a",
+                        UserId.of(1L),
                         condition,
                         null,
                         10
@@ -117,7 +118,7 @@ class AbcTransactionFilterIntegrationTest {
         LedgerAccountEntity userAccount =
                 saveAccount(
                         LedgerAccountType.ABC_BALANCE,
-                        "user-a"
+                        "1"
                 );
 
         LedgerTransactionEntity chargeTransaction =
@@ -146,7 +147,7 @@ class AbcTransactionFilterIntegrationTest {
 
         CursorPage<AbcTransaction> transactionPage =
                 abcLedgerQueryService.readTransactions(
-                        "user-a",
+                        UserId.of(1L),
                         condition,
                         null,
                         10

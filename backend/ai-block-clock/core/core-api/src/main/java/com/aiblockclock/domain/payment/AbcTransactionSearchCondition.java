@@ -33,6 +33,24 @@ public record AbcTransactionSearchCondition(
         }
     }
 
+    // 요청 파라미터는 둘 다 없거나 둘 다 있어야 한다. 한쪽만 오면 조회 범위를 정할 수 없다.
+    public static AbcTransactionSearchCondition of(
+            LocalDate startDate,
+            LocalDate endDate,
+            LedgerEventType eventType
+    ) {
+        if (startDate == null && endDate == null) {
+            return allDates(eventType);
+        }
+
+        if (startDate == null || endDate == null) {
+            throw new CoreException(ErrorType.INVALID_REQUEST,
+                    Map.of("from", String.valueOf(startDate), "to", String.valueOf(endDate)));
+        }
+
+        return betweenDates(startDate, endDate, eventType);
+    }
+
     public static AbcTransactionSearchCondition allDates(LedgerEventType eventType) {
         return new AbcTransactionSearchCondition(null, null, eventType);
     }
