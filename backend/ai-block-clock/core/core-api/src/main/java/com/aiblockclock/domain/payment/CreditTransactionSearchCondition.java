@@ -1,11 +1,13 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.LedgerEventType;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.Objects;
+import java.util.Map;
 
 public record CreditTransactionSearchCondition(
         int page,
@@ -18,25 +20,20 @@ public record CreditTransactionSearchCondition(
 
     public CreditTransactionSearchCondition {
         if (page < 1) {
-            throw new IllegalArgumentException(
-                    "페이지 번호는 1 이상이어야 합니다."
-            );
+            throw new CoreException(ErrorType.INVALID_REQUEST, Map.of("page", page));
         }
 
         boolean hasStart = startAtInclusive != null;
         boolean hasEnd = endAtExclusive != null;
 
         if (hasStart != hasEnd) {
-            throw new IllegalArgumentException(
-                    "조회 시작일과 종료일은 함께 필요합니다."
-            );
+            throw new CoreException(ErrorType.INVALID_REQUEST,
+                    Map.of("hasStart", hasStart, "hasEnd", hasEnd));
         }
 
-        if (hasStart
-                && !startAtInclusive.isBefore(endAtExclusive)) {
-            throw new IllegalArgumentException(
-                    "조회 시작일은 종료일보다 늦을 수 없습니다."
-            );
+        if (hasStart && !startAtInclusive.isBefore(endAtExclusive)) {
+            throw new CoreException(ErrorType.INVALID_REQUEST,
+                    Map.of("startAt", startAtInclusive, "endAt", endAtExclusive));
         }
     }
 
@@ -58,15 +55,6 @@ public record CreditTransactionSearchCondition(
             LocalDate endDate,
             LedgerEventType eventType
     ) {
-        Objects.requireNonNull(startDate);
-        Objects.requireNonNull(endDate);
-
-        if (startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException(
-                    "조회 시작일은 종료일보다 늦을 수 없습니다."
-            );
-        }
-
         return new CreditTransactionSearchCondition(
                 page,
                 startDate.atStartOfDay(LEDGER_ZONE).toInstant(),
