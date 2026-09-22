@@ -250,6 +250,11 @@ assertThat(version.getSnapshot()).isSameAs(original);
 `CoreException` 하나만 던진다. 상황마다 예외 클래스를 만들면 잡는 자리가 계속 늘고,
 같은 상황에 대해 어떤 HTTP 상태와 코드로 나가는지가 클래스마다 흩어진다.
 
+`core-api` 바깥의 `client:*` 모듈은 `CoreException` 을 참조할 수 없다(역방향 의존, MODULES.md 2.3).
+그 모듈은 같은 모양의 **모듈 예외 하나**(`BlockchainClientException` + 사유 enum `BlockchainClientError`)만
+던지고, `core-api` 가 호출 경계에서 잡아 `CoreException` 으로 바꾼다. 모듈 안에서 `IllegalArgumentException`
+같은 범용 예외나 라이브러리 예외(`RestClientException`)를 밖으로 내보내지 않는다.
+
 ```java
 // 이렇게 던진다
 throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,

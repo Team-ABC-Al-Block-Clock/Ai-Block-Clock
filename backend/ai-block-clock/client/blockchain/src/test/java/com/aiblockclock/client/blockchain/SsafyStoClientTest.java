@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,7 +47,8 @@ class SsafyStoClientTest {
     void doesNotTreatServerErrorAsFalseResponse() {
         server.expect(requestTo("https://sto.ssafy.io/health"))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
-        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(client::isHealthy).isInstanceOfSatisfying(BlockchainClientException.class,
+                exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.REQUEST_FAILED));
         server.verify();
     }
 
@@ -56,7 +56,8 @@ class SsafyStoClientTest {
     void rejectsEmptyResponse() {
         server.expect(requestTo("https://sto.ssafy.io/health"))
                 .andRespond(withSuccess());
-        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(client::isHealthy).isInstanceOfSatisfying(BlockchainClientException.class,
+                exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         server.verify();
     }
 
@@ -64,7 +65,8 @@ class SsafyStoClientTest {
     void rejectsMalformedResponse() {
         server.expect(requestTo("https://sto.ssafy.io/health"))
                 .andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
-        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(client::isHealthy).isInstanceOfSatisfying(BlockchainClientException.class,
+                exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         server.verify();
     }
 
@@ -96,7 +98,8 @@ class SsafyStoClientTest {
     void rejectsHtmlErrorPageInsteadOfReturningFalse() {
         server.expect(requestTo("https://sto.ssafy.io/health"))
                 .andRespond(withSuccess("<html>error</html>", MediaType.TEXT_HTML));
-        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(client::isHealthy).isInstanceOfSatisfying(BlockchainClientException.class,
+                exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         server.verify();
     }
 
@@ -104,7 +107,8 @@ class SsafyStoClientTest {
     void rejectsWhitespaceOnlyResponse() {
         server.expect(requestTo("https://sto.ssafy.io/health"))
                 .andRespond(withSuccess(" \n", MediaType.TEXT_PLAIN));
-        assertThatThrownBy(client::isHealthy).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(client::isHealthy).isInstanceOfSatisfying(BlockchainClientException.class,
+                exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         server.verify();
     }
 }

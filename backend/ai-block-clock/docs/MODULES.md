@@ -246,6 +246,10 @@ client/blockchain/src/main/resources/
 
 - **조회만 한다.** 토큰 정보·잔액·총공급량·민터 권한·발행 가능 상태를 읽는 메서드만 둔다.
   배포·발행처럼 결과를 되돌릴 수 없는 쓰기 동작은 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
+- **예외는 `BlockchainClientException` 하나다.** 사유는 `BlockchainClientError` 로 가른다
+  (`INVALID_ADDRESS` · `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
+  `REQUEST_FAILED` 만 체인 결과를 알 수 없는 상황이고, 나머지는 실패가 확인된 상황이다.
+  `core-api` 는 `CoreException` 을 이 모듈에 내릴 수 없으므로(2.3 규칙 1) 호출 경계에서 변환한다 (RULE.md 7.1)
 - 의존성: `spring-web`, `spring-boot-starter-jackson`, `spring-boot-starter`.
   서버 스타터(`spring-boot-starter-webmvc`)에 얹히지 않도록 클라이언트 쪽만 선언한다
 - 프로파일 변형 파일을 두지 않는다. 환경별로 달라지는 값은 `${SSAFY_STO_BASE_URL:...}` 처럼

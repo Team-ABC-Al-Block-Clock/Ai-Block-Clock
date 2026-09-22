@@ -8,10 +8,12 @@ final class SsafyBlockchainAddress {
     private SsafyBlockchainAddress() {
     }
 
-    static String requireValid(String address, String propertyName) {
-        if (address == null || !ADDRESS_PATTERN.matcher(address).matches()) {
-            throw new IllegalArgumentException(propertyName + " must be a 0x-prefixed 40-hex blockchain address");
+    static String requireValid(String address, String parameterName) {
+        if (!isValid(address)) {
+            throw new BlockchainClientException(BlockchainClientError.INVALID_ADDRESS,
+                    parameterName + " must be a 0x-prefixed 40-hex blockchain address");
         }
+
         return address;
     }
 

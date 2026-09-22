@@ -8,7 +8,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -75,9 +74,11 @@ class SsafyTokenQueryTest {
         expectQuery("/status/issuance", "healthy");
 
         assertThatThrownBy(() -> client.getTokenName(CONTRACT_ADDRESS))
-                .isInstanceOf(RestClientException.class);
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         assertThatThrownBy(() -> client.isIssuable(CONTRACT_ADDRESS))
-                .isInstanceOf(RestClientException.class);
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         verifyAllQueriesWereMade();
     }
 
@@ -89,18 +90,22 @@ class SsafyTokenQueryTest {
                 .andRespond(withSuccess("not-a-number", MediaType.TEXT_PLAIN));
 
         assertThatThrownBy(() -> client.getTotalSupply(CONTRACT_ADDRESS))
-                .isInstanceOf(RestClientException.class);
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         assertThatThrownBy(() -> client.getBalance(CONTRACT_ADDRESS, HOLDER_ADDRESS))
-                .isInstanceOf(RestClientException.class);
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.MALFORMED_RESPONSE));
         verifyAllQueriesWereMade();
     }
 
     @Test
     void rejectsInvalidAddressesBeforeSendingRequest() {
         assertThatThrownBy(() -> client.getBalance("invalid-contract", HOLDER_ADDRESS))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.INVALID_ADDRESS));
         assertThatThrownBy(() -> client.isMinter(CONTRACT_ADDRESS, "invalid-holder"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.INVALID_ADDRESS));
         verifyAllQueriesWereMade();
     }
 

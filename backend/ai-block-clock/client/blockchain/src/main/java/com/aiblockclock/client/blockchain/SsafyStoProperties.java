@@ -17,8 +17,10 @@ public record SsafyStoProperties(
                 || "http".equalsIgnoreCase(baseUrl.getScheme()))
                 || baseUrl.getUserInfo() != null || baseUrl.getQuery() != null
                 || baseUrl.getFragment() != null) {
-            throw new IllegalArgumentException("ssafy.sto.base-url must be an HTTP(S) server URI without credentials, query or fragment");
+            throw new BlockchainClientException(BlockchainClientError.INVALID_CONFIGURATION,
+                    "ssafy.sto.base-url must be an HTTP(S) server URI without credentials, query or fragment");
         }
+
         validateTimeout(connectTimeout, "ssafy.sto.connect-timeout");
         validateTimeout(readTimeout, "ssafy.sto.read-timeout");
     }
@@ -26,7 +28,8 @@ public record SsafyStoProperties(
     private static void validateTimeout(Duration timeout, String propertyName) {
         if (timeout == null || timeout.compareTo(Duration.ofMillis(1)) < 0
                 || timeout.compareTo(Duration.ofMillis(Integer.MAX_VALUE)) > 0) {
-            throw new IllegalArgumentException(propertyName + " must be between 1ms and " + Integer.MAX_VALUE + "ms");
+            throw new BlockchainClientException(BlockchainClientError.INVALID_CONFIGURATION,
+                    propertyName + " must be between 1ms and " + Integer.MAX_VALUE + "ms");
         }
     }
 }

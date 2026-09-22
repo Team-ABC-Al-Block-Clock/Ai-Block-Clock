@@ -33,7 +33,8 @@ class SsafyTokenPropertiesTest {
             assertThat(context).hasNotFailed();
             SsafyTokenProperties properties = context.getBean(SsafyTokenProperties.class);
             assertThatThrownBy(properties::requiredContractAddress)
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOfSatisfying(BlockchainClientException.class, exception ->
+                            assertThat(exception.getError()).isEqualTo(BlockchainClientError.INVALID_CONFIGURATION));
         });
     }
 
