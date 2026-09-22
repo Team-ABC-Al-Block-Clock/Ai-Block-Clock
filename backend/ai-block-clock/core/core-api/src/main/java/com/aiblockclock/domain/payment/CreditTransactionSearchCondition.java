@@ -2,16 +2,19 @@ package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.enums.payment.LedgerEventType;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Objects;
 
 public record CreditTransactionSearchCondition(
         int page,
-        LocalDateTime startAtInclusive,
-        LocalDateTime endAtExclusive,
+        Instant startAtInclusive,
+        Instant endAtExclusive,
         LedgerEventType eventType
 ) {
+    // 장부 시각은 서버 시계(ClockConfig, UTC)로 기록되므로 날짜 경계도 같은 기준으로 잡는다.
+    private static final ZoneOffset LEDGER_ZONE = ZoneOffset.UTC;
 
     public CreditTransactionSearchCondition {
         if (page < 1) {
@@ -66,8 +69,8 @@ public record CreditTransactionSearchCondition(
 
         return new CreditTransactionSearchCondition(
                 page,
-                startDate.atStartOfDay(),
-                endDate.plusDays(1).atStartOfDay(),
+                startDate.atStartOfDay(LEDGER_ZONE).toInstant(),
+                endDate.plusDays(1).atStartOfDay(LEDGER_ZONE).toInstant(),
                 eventType
         );
     }

@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -172,8 +173,10 @@ class CreditServiceIntegrationTest {
                         userReferenceId
                 );
 
-        account.modifyBalance(new BigDecimal(balance));
-        return account;
+        // 잔액은 운영 코드와 같은 경로(증감 UPDATE)로만 바꾼다. 쿼리가 영속성 컨텍스트를 비우므로 다시 읽는다.
+        ledgerAccountRepository.addBalanceDelta(account.getId(), new BigDecimal(balance), Instant.now());
+
+        return ledgerAccountRepository.findById(account.getId()).orElseThrow();
     }
 
     private LedgerAccountEntity saveAccount(

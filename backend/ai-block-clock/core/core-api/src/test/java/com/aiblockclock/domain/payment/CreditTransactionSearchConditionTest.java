@@ -3,8 +3,8 @@ package com.aiblockclock.domain.payment;
 import com.aiblockclock.enums.payment.LedgerEventType;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,20 +33,10 @@ class CreditTransactionSearchConditionTest {
                 );
 
         assertThat(condition.startAtInclusive())
-                .isEqualTo(
-                        LocalDateTime.of(
-                                2026, 9, 1,
-                                0, 0
-                        )
-                );
+                .isEqualTo(Instant.parse("2026-09-01T00:00:00Z"));
 
         assertThat(condition.endAtExclusive())
-                .isEqualTo(
-                        LocalDateTime.of(
-                                2026, 9, 13,
-                                0, 0
-                        )
-                );
+                .isEqualTo(Instant.parse("2026-09-13T00:00:00Z"));
 
         assertThat(condition.eventType())
                 .isEqualTo(LedgerEventType.RESERVE);

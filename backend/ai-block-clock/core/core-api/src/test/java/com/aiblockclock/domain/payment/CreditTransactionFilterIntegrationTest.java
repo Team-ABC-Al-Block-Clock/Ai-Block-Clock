@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +80,7 @@ class CreditTransactionFilterIntegrationTest {
                 );
 
         LocalDate createdDate =
-                reserveTransaction.getCreatedAt().toLocalDate();
+                reserveTransaction.getCreatedAt().atOffset(ZoneOffset.UTC).toLocalDate();
 
         CreditTransactionSearchCondition condition =
                 CreditTransactionSearchCondition.betweenDates(
@@ -130,6 +131,7 @@ class CreditTransactionFilterIntegrationTest {
 
         LocalDate previousDate =
                 chargeTransaction.getCreatedAt()
+                        .atOffset(ZoneOffset.UTC)
                         .toLocalDate()
                         .minusDays(1);
 

@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public interface LedgerEntryRepository
@@ -54,9 +54,9 @@ public interface LedgerEntryRepository
             @Param("eventType")
             LedgerEventType eventType,
             @Param("startAtInclusive")
-            LocalDateTime startAtInclusive,
+            Instant startAtInclusive,
             @Param("endAtExclusive")
-            LocalDateTime endAtExclusive,
+            Instant endAtExclusive,
             Pageable pageable
     );
 }
