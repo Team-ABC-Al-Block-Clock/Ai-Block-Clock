@@ -16,7 +16,7 @@ const isScope = (value: unknown): value is PaletteScope => value === 'MINE' || v
 
 export const workflowsHandlers = [
   http.get(`${API_BASE_URL}/workflows/node-palette`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const url = new URL(request.url)

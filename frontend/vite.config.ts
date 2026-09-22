@@ -46,6 +46,9 @@ export default defineConfig(({ mode }) => {
     } satisfies InlineConfig,
     server: {
       port: 5173,
+      // 포트가 막히면 조용히 다른 포트로 뜬다 — 출처가 달라진 것을 모른 채
+      // 실서버에 붙어 상태 변경 요청만 거절당한다. 여기서 바로 실패하게 둔다.
+      strictPort: true,
       proxy: {
         '/api': {
           target: env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080',

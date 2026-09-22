@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   addAgentFavorite,
   createAgent,
+  getAgentProvenance,
+  getAgentReviews,
   getMarketplaceAgent,
   getMarketplaceAgents,
   getMyAgents,
@@ -31,7 +33,7 @@ describe('getMarketplaceAgents', () => {
     expect(page).not.toHaveProperty('status')
   })
 
-  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+  it('목록 응답은 명세의 필드만 담는다', async () => {
     const [first] = (await getMarketplaceAgents()).content
 
     // 없는 필드를 나열하면(tier·baseCost 처럼) 그 필드가 사라진 뒤 공허한 단언이 된다.
@@ -122,7 +124,7 @@ describe('getMarketplaceAgents', () => {
  * (설명 3종·스크린샷·노드 개수·성공률·즐겨찾기 수)가 전부 여기서만 검증된다.
  */
 describe('getMarketplaceAgent', () => {
-  it('상세 응답은 확정 명세의 필드만 담는다', async () => {
+  it('상세 응답은 명세의 필드만 담는다', async () => {
     const agent = await getMarketplaceAgent('agt_06')
 
     // 명세가 정한 키 집합과 정확히 맞는지를 본다 — 필드 누락과, 추정 시절의 잔재
@@ -200,6 +202,183 @@ describe('getMarketplaceAgent', () => {
 
     expect(error).toBeInstanceOf(ApiError)
     expect(error).toMatchObject({ code: 'MARKET_001', status: 404 })
+  })
+})
+
+describe('getAgentProvenance', () => {
+  it('증명 응답은 세 묶음을 담는다', async () => {
+    const provenance = await getAgentProvenance('agt_06')
+
+    expect(Object.keys(provenance).sort()).toEqual([
+      'agentId',
+      'blockchain',
+      'owner',
+      'verification',
+    ])
+    expect(Object.keys(provenance.owner).sort()).toEqual(['nickname', 'walletAddress'])
+    expect(Object.keys(provenance.blockchain).sort()).toEqual([
+      'blockNumber',
+      'chainId',
+      'contractAddress',
+      'explorerUrl',
+      'network',
+      'registeredAt',
+      'transactionHash',
+      'transactionStatus',
+    ])
+    expect(Object.keys(provenance.verification).sort()).toEqual([
+      'metadataMatched',
+      'offChainMetadataHash',
+      'offChainOwnerAddress',
+      'onChainMetadataHash',
+      'onChainOwnerAddress',
+      'ownerMatched',
+      'verified',
+    ])
+    expect(provenance).not.toHaveProperty('status')
+  })
+
+  it('확정된 건은 해시·블록 번호·등록 시각이 다 있다', async () => {
+    const [agent, provenance] = await Promise.all([
+      getMarketplaceAgent('agt_06'),
+      getAgentProvenance('agt_06'),
+    ])
+
+    expect(provenance.blockchain.transactionStatus).toBe('CONFIRMED')
+    expect(provenance.blockchain.transactionHash).toMatch(/^0x[0-9a-f]{64}$/)
+    expect(provenance.blockchain.blockNumber).toBeGreaterThan(0)
+    expect(provenance.blockchain.explorerUrl.endsWith(provenance.blockchain.transactionHash)).toBe(
+      true,
+    )
+    expect(provenance.blockchain.registeredAt).toBe(agent.createdAt)
+    expect(provenance.verification.verified).toBe(true)
+  })
+
+  it('확정 대기 중이면 blockNumber 가 null 이다', async () => {
+    const provenance = await getAgentProvenance('agt_29')
+
+    expect(provenance.blockchain.transactionStatus).toBe('PENDING')
+    expect(provenance.blockchain.blockNumber).toBeNull()
+  })
+
+  it('대조가 어긋난 건은 verified 가 false 다', async () => {
+    const { verification } = await getAgentProvenance('agt_28')
+
+    expect(verification.onChainOwnerAddress).not.toBe(verification.offChainOwnerAddress)
+    expect(verification.onChainMetadataHash).not.toBe(verification.offChainMetadataHash)
+    expect(verification.ownerMatched).toBe(false)
+    expect(verification.metadataMatched).toBe(false)
+    expect(verification.verified).toBe(false)
+  })
+
+  it('블록 번호는 UUID 로 등록한 건에서도 안전한 정수다', async () => {
+    const created = await createAgent({
+      name: '증명 확인용',
+      summary: '한 줄',
+      description: '설명',
+      usageExample: '예시',
+      onboardingMessage: '안내',
+    })
+    const { blockchain } = await getAgentProvenance(created.agentId)
+
+    expect(Number.isSafeInteger(blockchain.blockNumber)).toBe(true)
+  })
+
+  it('온체인 기록이 없으면 BLOCKCHAIN_003 — 에이전트 자체는 있다', async () => {
+    const error = await getAgentProvenance('agt_30').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ code: 'BLOCKCHAIN_003', status: 404 })
+    await expect(getMarketplaceAgent('agt_30')).resolves.toMatchObject({ agentId: 'agt_30' })
+  })
+
+  it('없는 ID 는 MARKET_001 — 기록 없음과 코드가 갈린다', async () => {
+    const error = await getAgentProvenance('agt_없음').catch((e: unknown) => e)
+
+    expect(error).toMatchObject({ code: 'MARKET_001', status: 404 })
+  })
+})
+
+/**
+ * 리뷰 목록. 상세 화면이 커서로 이어 받는 유일한 목록이라, 이어 받기가 깨지면
+ * '더 보기' 가 같은 장을 반복하거나 멈춘다.
+ */
+describe('getAgentReviews', () => {
+  it('리뷰 응답은 명세의 필드만 담는다', async () => {
+    const [first] = (await getAgentReviews('agt_01')).content
+
+    // 없는 필드를 나열하면 그 필드가 사라진 뒤 공허한 단언이 된다 — 키 집합으로 본다.
+    expect(Object.keys(first).sort()).toEqual([
+      'authorNickname',
+      'content',
+      'createdAt',
+      'rating',
+      'reviewId',
+    ])
+  })
+
+  it('size 만큼 끊어 주고 다음 커서를 낸다', async () => {
+    const page = await getAgentReviews('agt_01', { size: 5 })
+
+    expect(page.content).toHaveLength(5)
+    expect(page.hasNext).toBe(true)
+    expect(page.nextCursor).toBeTruthy()
+  })
+
+  it('커서로 이어 받으면 앞 장과 겹치지 않는다', async () => {
+    // '더 보기' 가 같은 장을 다시 받으면 목록에 같은 리뷰가 두 번 쌓인다.
+    const first = await getAgentReviews('agt_01', { size: 5 })
+    const second = await getAgentReviews('agt_01', { cursor: first.nextCursor ?? '', size: 5 })
+
+    // arrayContaining 은 전부 겹칠 때만 걸린다 — 한 건만 겹쳐도 잡아야 한다.
+    const ids = new Set(first.content.map((r) => r.reviewId))
+    expect(second.content.filter((r) => ids.has(r.reviewId))).toEqual([])
+  })
+
+  it('끝까지 이어 받으면 중복·누락 없이 전부 모인다', async () => {
+    // 멈추지 않으면 '더 보기' 가 빈 장을 계속 붙이고, 커서가 밀리면 중간이 샌다.
+    // 개수는 상세가 말한 reviewCount 로 맞춘다 — mock 의 건수를 숫자로 박아 두면
+    // 목록을 늘릴 때마다 이 테스트가 같이 깨져서, 진짜 회귀와 구별되지 않는다.
+    const { reviewCount } = await getMarketplaceAgent('agt_01')
+    const size = 30
+    let page = await getAgentReviews('agt_01', { size })
+    const ids = page.content.map((r) => r.reviewId)
+    let pages = 1
+    // 상한을 둔다 — 커서가 안 먹으면 hasNext 가 영영 true 라 조건만으로는 멈추지 않는다.
+    // 멈추지 않는 테스트는 실패를 알리지 못하고 CI 를 잡아 둔다.
+    const limit = Math.ceil(reviewCount / size) + 1
+    while (page.hasNext && pages < limit) {
+      page = await getAgentReviews('agt_01', { cursor: page.nextCursor ?? '', size })
+      ids.push(...page.content.map((r) => r.reviewId))
+      pages += 1
+    }
+
+    expect(pages).toBeGreaterThan(1)
+    expect(page.nextCursor).toBeNull()
+    expect(ids).toHaveLength(reviewCount)
+    expect(new Set(ids).size).toBe(reviewCount)
+  })
+
+  it('리뷰가 없으면 빈 목록이다 — 오류가 아니다', async () => {
+    // 상세가 reviewCount 를 주므로 0건은 정상이다. 화면이 실패 안내를 띄우면 안 된다.
+    const page = await getAgentReviews('agt_29')
+
+    expect(page.content).toEqual([])
+    expect(page.hasNext).toBe(false)
+  })
+
+  it('없는 에이전트는 MARKET_001 이다', async () => {
+    await expect(getAgentReviews('agt_없음')).rejects.toMatchObject({
+      code: 'MARKET_001',
+      status: 404,
+    })
+  })
+
+  it('커서가 유효하지 않으면 COMMON_001', async () => {
+    await expect(getAgentReviews('agt_01', { cursor: 'not-a-cursor' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
+    })
   })
 })
 
@@ -391,7 +570,7 @@ describe('getMyAgents', () => {
     expect(ids).toHaveLength((await getMyAgents({ size: 30 })).content.length)
   })
 
-  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+  it('목록 응답은 명세의 필드만 담는다', async () => {
     const [first] = (await getMyAgents()).content
 
     expect(Object.keys(first).sort()).toEqual([
@@ -496,7 +675,7 @@ describe('getMyAgents', () => {
 
 /** 마이페이지 「즐겨찾기」 — 검색어도 정렬도 받지 않는다. */
 describe('getMyFavorites', () => {
-  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+  it('목록 응답은 명세의 필드만 담는다', async () => {
     const [first] = (await getMyFavorites()).content
 
     // 수익은 오지 않는다 — 내가 만들지 않은 에이전트가 섞여 있다(명세 참고사항).
@@ -546,7 +725,7 @@ describe('getMyFavorites', () => {
 })
 
 describe('getUsedAgents', () => {
-  it('목록 응답은 확정 명세의 필드만 담는다', async () => {
+  it('목록 응답은 명세의 필드만 담는다', async () => {
     const [first] = (await getUsedAgents()).content
 
     expect(Object.keys(first).sort()).toEqual([

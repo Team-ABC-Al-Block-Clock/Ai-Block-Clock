@@ -1,5 +1,5 @@
 import { paths, type ScreenKey } from '@/routes/paths'
-import type { SessionEndReason } from '@/stores/authStore'
+import { SESSION_END_REASONS, type SessionEndReason } from '@/stores/authStore'
 
 /**
  * 화면별 인증 요구. `App.tsx` 가 이 값을 보고 `<ProtectedRoute>` 로 감싼다.
@@ -39,11 +39,14 @@ export interface LoginRedirectState {
 /** 첫 글자만 `/` 여야 한다. `//evil.com` 과 `/\evil.com`은 `/` 로 시작하지만 외부 주소가 된다. */
 const INTERNAL_PATH = /^\/(?![/\\])/
 
-/** 밀려온 이유. 스스로 로그아웃하고 온 것과 구분해 안내를 띄운다. */
+/** 밀려온 이유. 스스로 로그아웃하고 온 것과 구분해 안내를 띄운다.
+ *
+ *  state 는 사용자가 조작할 수 있어 아는 값인지 확인한다. 목록을 손으로 적지 않는다 —
+ *  사유를 늘렸을 때 여기를 빠뜨리면 문구가 조용히 안 뜬다. */
 export function endReasonFrom(state: unknown): SessionEndReason | null {
   const endedBy = (state as LoginRedirectState | null)?.endedBy
-  return endedBy === 'expired' || endedBy === 'disconnected' || endedBy === 'account'
-    ? endedBy
+  return SESSION_END_REASONS.includes(endedBy as SessionEndReason)
+    ? (endedBy as SessionEndReason)
     : null
 }
 

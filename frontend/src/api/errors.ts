@@ -29,25 +29,20 @@ export class ApiError extends Error {
 }
 
 /**
- * 401 안에서도 처리가 갈린다. AUTH_001~004 는 Refresh Token 문제라 재발급이 불가능하고,
- * AUTH_005~007 은 Access Token 문제이며 이 중 만료(007)만 회복된다.
+ * 세션 쿠키 실패 코드. 다섯 가지 모두 회복 수단이 없다 — 지갑 서명 로그인부터 다시 한다.
+ * 문구만 갈려서 `stores/authStore.ts` 의 `endReasonFromAuthCode` 가 사유로 옮긴다.
  */
 export const AUTH_ERROR = {
-  /** Refresh Token 쿠키 미전달 */
-  REFRESH_MISSING: 'AUTH_001',
-  /** Refresh Token 형식·서명 오류 */
-  REFRESH_INVALID: 'AUTH_002',
-  /** Refresh Token 만료 */
-  REFRESH_EXPIRED: 'AUTH_003',
-  /** 이미 폐기된 Refresh Token 재사용 — 서버가 세션을 종료한다 */
-  REFRESH_REUSED: 'AUTH_004',
-
-  /** Access Token 미전달 */
+  /** sessionToken 쿠키 미전달 — 로그인 전이거나 쿠키가 저장되지 않았다 */
   MISSING: 'AUTH_005',
-  /** Access Token 유효하지 않음 */
-  INVALID: 'AUTH_006',
-  /** Access Token 만료 — 재발급을 시도할 수 있는 유일한 경우 */
-  EXPIRED: 'AUTH_007',
+  /** 세션은 있으나 요청자를 특정할 수 없다 */
+  UNIDENTIFIABLE: 'AUTH_006',
+  /** 세션 만료 */
+  EXPIRED: 'AUTH_013',
+  /** 로그아웃했거나 다른 곳에서 재로그인해 이 세션이 종료됐다 */
+  ENDED: 'AUTH_014',
+  /** 알 수 없거나 잘못된 세션 토큰 */
+  INVALID: 'AUTH_018',
 } as const
 
 /**
@@ -55,7 +50,7 @@ export const AUTH_ERROR = {
  *
  * 화면이 코드로 분기하는 것은 ALREADY_SIGNED_UP 하나지만 나머지도 적어 둔다 —
  * mock 핸들러가 여기를 보고 응답해야 지어낸 코드가 섞이지 않는다.
- * 이름 누락은 도메인 코드가 아니라 COMMON_001 이라 여기 없다.
+ * 이름 누락은 도메인 코드가 아니라 COMMON_001 이다.
  */
 export const USER_ERROR = {
   /** 이름이 2~20자가 아니거나 한 줄 소개가 40자를 넘음 */

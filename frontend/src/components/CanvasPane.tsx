@@ -1,12 +1,17 @@
 import type { DragEvent, PointerEvent, ReactNode, Ref } from 'react'
 
+import { INITIAL_VIEWPORT, gridPosition, gridSize, type Viewport } from '@/lib/viewport'
+
 /** 작업면 div 의 설계 폭. 창 좌표를 설계 좌표로 되돌릴 때 배율의 기준이 된다. */
 export const PANE_WIDTH = 1076
 /** 작업면 div 의 설계 높이. 창이 더 길면 `--edge-y` 로 넘겨 채운다. */
 export const PANE_HEIGHT = 1024
 
 /** 패널이 작업면을 덮기 시작하는 자리. 오른쪽 끝에서 이만큼 안쪽이다. */
-const PANEL_EDGE = 'calc(96px - var(--edge, 0px))'
+const PANEL_OVERLAP = 96
+const PANEL_EDGE = `calc(${PANEL_OVERLAP}px - var(--edge, 0px))`
+/** 패널에 가리지 않고 실제로 보이는 폭. */
+export const PANE_CONTENT_WIDTH = PANE_WIDTH - PANEL_OVERLAP
 /**
  * 패널 뒤로 넘어간 만큼만 가리는 클립.
  *
@@ -19,7 +24,12 @@ type CanvasPaneProps = {
   children: ReactNode
   /** 창 좌표를 설계 좌표로 되돌리려면 실제로 그려진 크기를 재야 한다. */
   ref?: Ref<HTMLDivElement>
+  gridRef?: Ref<HTMLDivElement>
+  view?: Viewport
   onPointerDown?: (ev: PointerEvent<HTMLDivElement>) => void
+  onPointerMove?: (ev: PointerEvent<HTMLDivElement>) => void
+  onPointerUp?: (ev: PointerEvent<HTMLDivElement>) => void
+  onPointerCancel?: (ev: PointerEvent<HTMLDivElement>) => void
   onDragOver?: (ev: DragEvent<HTMLDivElement>) => void
   onDrop?: (ev: DragEvent<HTMLDivElement>) => void
 }
@@ -34,7 +44,12 @@ type CanvasPaneProps = {
 export default function CanvasPane({
   children,
   ref,
+  gridRef,
+  view = INITIAL_VIEWPORT,
   onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
   onDragOver,
   onDrop,
 }: CanvasPaneProps) {
@@ -49,6 +64,9 @@ export default function CanvasPane({
       ref={ref}
       className="absolute top-0 left-0"
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       onDragOver={onDragOver}
       onDrop={onDrop}
       style={{
@@ -66,6 +84,7 @@ export default function CanvasPane({
       */}
       <div
         className="absolute"
+        data-canvas-bg=""
         style={bleed}
         onDragOver={onDragOver}
         onDrop={
@@ -77,12 +96,13 @@ export default function CanvasPane({
         }
       ></div>
       <div
+        ref={gridRef}
         className="pointer-events-none absolute"
         style={{
           ...bleed,
           backgroundImage: 'radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px)',
-          backgroundSize: '26px 26px',
-          backgroundPosition: '13px 13px',
+          backgroundSize: gridSize(view),
+          backgroundPosition: gridPosition(view),
           opacity: '.5',
         }}
       ></div>
