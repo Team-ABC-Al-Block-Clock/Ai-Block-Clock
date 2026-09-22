@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.node;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.node.NodeDefinitionEntity;
 
@@ -12,29 +13,30 @@ public final class NodeDefinitionEntityConverter {
         return new NodeDefinitionEntity(
                 node.getId().value(),
                 node.getOwner().value(),
-                node.getName(),
+                node.getSpec().name(),
                 node.getPrompt().value(),
-                node.getModel(),
-                node.getBaseCost().value());
+                node.getSpec().model(),
+                node.getSpec().baseCost().value());
     }
 
     public static NodeDefinition toDomain(NodeDefinitionEntity entity) {
-        return NodeDefinition.create(
+        return NodeDefinition.restore(
                 NodeDefinitionId.of(entity.getId()),
                 UserId.of(entity.getOwnerId()),
-                entity.getName(),
-                Prompt.of(entity.getPrompt()),
-                entity.getModel(),
-                AbcAmount.of(entity.getBaseCost()));
+                toTimestamps(entity),
+                toSpec(entity),
+                Prompt.of(entity.getPrompt()));
     }
 
     public static NodeDefinitionSummary toSummary(NodeDefinitionEntity entity) {
-        return new NodeDefinitionSummary(
-                NodeDefinitionId.of(entity.getId()),
-                entity.getName(),
-                entity.getModel(),
-                AbcAmount.of(entity.getBaseCost()),
-                entity.getCreatedAt(),
-                entity.getUpdatedAt());
+        return new NodeDefinitionSummary(NodeDefinitionId.of(entity.getId()), toSpec(entity), toTimestamps(entity));
+    }
+
+    private static NodeSpec toSpec(NodeDefinitionEntity entity) {
+        return new NodeSpec(entity.getName(), entity.getModel(), AbcAmount.of(entity.getBaseCost()));
+    }
+
+    private static Timestamps toTimestamps(NodeDefinitionEntity entity) {
+        return new Timestamps(entity.getCreatedAt(), entity.getUpdatedAt());
     }
 }

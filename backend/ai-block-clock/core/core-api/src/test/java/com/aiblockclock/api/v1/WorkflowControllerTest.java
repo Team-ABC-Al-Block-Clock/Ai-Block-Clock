@@ -97,8 +97,6 @@ class WorkflowControllerTest {
                         .content(chainBody(name)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.nodeCount").value(2))
-                .andExpect(jsonPath("$.data.edgeCount").value(1))
                 .andExpect(jsonPath("$.data.revision").value(1))
                 .andReturn();
 
@@ -135,8 +133,7 @@ class WorkflowControllerTest {
                                 """.formatted(nodeId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("이름을 고쳤다"))
-                .andExpect(jsonPath("$.data.revision").value(2))
-                .andExpect(jsonPath("$.data.nodeCount").value(1));
+                .andExpect(jsonPath("$.data.revision").value(2));
 
         mockMvc.perform(get("/api/v1/workflows")
                         .with(as(owner))

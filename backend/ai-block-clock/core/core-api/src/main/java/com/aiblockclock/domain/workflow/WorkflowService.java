@@ -7,6 +7,7 @@ import com.aiblockclock.support.paging.CursorPage;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -15,10 +16,12 @@ import java.util.List;
 public class WorkflowService {
     private final WorkflowReader workflowReader;
     private final WorkflowWriter workflowWriter;
-    private final WorkflowReplaceManager workflowReplaceManager;
+    private final WorkflowNodeWriter workflowNodeWriter;
+    private final WorkflowEdgeWriter workflowEdgeWriter;
     private final WorkflowGraphAssembler workflowGraphAssembler;
-    private final WorkflowDeletionPolicy deletionPolicy;
+    private final WorkflowValidator validator;
 
+    @Transactional
     public Workflow save(
             UserId requester,
             String name,
@@ -26,17 +29,23 @@ public class WorkflowService {
             List<NodePlacement> nodes,
             List<GraphEdge> edges
     ) {
-        WorkflowGraph graph = workflowGraphAssembler.assemble(nodes, edges);
-        Workflow workflow = Workflow.create(WorkflowId.newId(), requester, name, description, graph);
-        return workflowWriter.append(workflow);
+        WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
+        Workflow saved = workflowWriter.append(
+                Workflow.create(WorkflowId.newId(), requester, name, description, graph));
+        workflowNodeWriter.append(saved.getId(), graph.getNodes());
+        workflowEdgeWriter.append(saved.getId(), graph.getEdges());
+
+        return saved;
     }
 
     public Workflow get(WorkflowId id, UserId requester) {
         Workflow workflow = workflowReader.read(id);
-        workflow.ensureOwner(requester);
+        WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
+
         return workflow;
     }
 
+    @Transactional
     public Workflow replace(
             WorkflowId id,
             UserId requester,
@@ -45,12 +54,20 @@ public class WorkflowService {
             List<NodePlacement> nodes,
             List<GraphEdge> edges
     ) {
-        return workflowReplaceManager.replace(id, requester, name, expectedRevision, nodes, edges);
+        GraphRevision revised = validator.ensureReplaceable(id, requester, expectedRevision);
+        WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
+        workflowNodeWriter.replace(id, graph.getNodes());
+        workflowEdgeWriter.replace(id, graph.getEdges());
+
+        return workflowWriter.revise(id, name, revised, graph);
     }
 
+    @Transactional
     public void delete(WorkflowId id, UserId requester) {
-        Workflow workflow = workflowReader.read(id);
-        deletionPolicy.ensureDeletable(workflow, requester);
+        validator.ensureDeletable(id, requester);
+
+        workflowEdgeWriter.removeAll(id);
+        workflowNodeWriter.removeAll(id);
         workflowWriter.remove(id);
     }
 

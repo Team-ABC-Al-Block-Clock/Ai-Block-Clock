@@ -10,10 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class NodeDefinitionUsageReader implements NodeDefinitionUsageView {
+public class NodeDefinitionUsageReader {
     private final WorkflowNodeRepository workflowNodeRepository;
 
-    @Override
     public boolean isPlacedInAnyWorkflow(NodeDefinitionId nodeId) {
         return workflowNodeRepository.existsByReferenceId(nodeId.value());
     }

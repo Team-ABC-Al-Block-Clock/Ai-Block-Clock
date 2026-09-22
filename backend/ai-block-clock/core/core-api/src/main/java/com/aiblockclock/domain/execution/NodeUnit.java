@@ -8,6 +8,6 @@ import java.util.List;
 public record NodeUnit(InputSource inputSource, NodeDefinition node) implements ExecutionUnit {
     @Override
     public List<PlannedPrompt> flatten() {
-        return List.of(new PlannedPrompt(node.getName(), node.getPrompt(), inputSource));
+        return List.of(new PlannedPrompt(node.getSpec().name(), node.getPrompt(), inputSource));
     }
 }

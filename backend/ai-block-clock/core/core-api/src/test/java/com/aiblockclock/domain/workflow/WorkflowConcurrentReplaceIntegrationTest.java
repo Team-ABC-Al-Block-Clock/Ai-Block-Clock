@@ -42,10 +42,16 @@ class WorkflowConcurrentReplaceIntegrationTest {
     private WorkflowRepository workflowRepository;
 
     @Autowired
+    private NodeDefinitionRepository nodeRepository;
+
+    @Autowired
     private WorkflowWriter workflowWriter;
 
     @Autowired
-    private NodeDefinitionRepository nodeRepository;
+    private WorkflowNodeWriter workflowNodeWriter;
+
+    @Autowired
+    private WorkflowEdgeWriter workflowEdgeWriter;
 
     private WorkflowId workflowId;
     private UUID seededNode;
@@ -56,8 +62,12 @@ class WorkflowConcurrentReplaceIntegrationTest {
         workflowId = workflowService.save(OWNER, "동시 수정", null, placements(), edges()).getId();
     }
 
+    // 정리는 삭제 정책을 타지 않는다. WorkflowUsageView 가 실제 조회로 바뀌면
+    // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
+        workflowEdgeWriter.removeAll(workflowId);
+        workflowNodeWriter.removeAll(workflowId);
         workflowWriter.remove(workflowId);
     }
 

@@ -41,6 +41,8 @@ class PaymentMigrationMySqlTest {
             Flyway flyway = Flyway.configure().dataSource(dataSource).load();
             flyway.migrate();
             flyway.validate();
+            // 결제 마이그레이션이 이 순서로 얹히는지만 본다. 뒤에 붙는 다른 도메인 버전까지
+            // 적으면 마이그레이션이 하나 늘 때마다 이 결제 테스트가 깨진다.
             assertThat(List.of(flyway.info().applied()).stream()
                     .map(migration -> migration.getVersion().getVersion()).toList()).startsWith("1", "2", "2.1");
             assertThat(jdbc.queryForObject("SELECT balance FROM ledger_account WHERE id = 1", BigDecimal.class))

@@ -28,6 +28,7 @@ create table workflow_node
 );
 
 create unique index uk_workflow_node_key on workflow_node (workflow_id, node_key);
+create index idx_workflow_node_reference on workflow_node (reference_id);
 
 create table workflow_edge
 (

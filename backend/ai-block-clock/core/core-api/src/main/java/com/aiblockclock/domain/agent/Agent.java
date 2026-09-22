@@ -5,44 +5,33 @@ import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Agent {
     private final AgentId id;
     private final UserId owner;
-
-    private AgentProfile profile;
-
-    private PublicVersion publicVersion;
+    private final AgentProfile profile;
+    private final PublicVersion publicVersion;
 
     public static Agent draft(AgentId id, UserId owner, AgentProfile profile) {
         return new Agent(id, owner, profile, null);
     }
 
-    public void updateProfile(UserId requester, AgentProfile profile) {
-        ensureOwner(requester);
-        this.profile = profile;
+    public static Agent restore(AgentId id, UserId owner, AgentProfile profile, PublicVersion publicVersion) {
+        return new Agent(id, owner, profile, publicVersion);
     }
 
-    public void markVersionPublished(UserId requester, AgentVersionId versionId, VersionNumber number) {
+    public PublicVersion nextPublicVersion(UserId requester, AgentVersionId versionId, VersionNumber number) {
         ensureOwner(requester);
 
         if (publicVersion != null && !publicVersion.isOlderThan(number)) {
             throw new CoreException(ErrorType.AGENT_VERSION_NOT_NEWER);
         }
 
-        this.publicVersion = new PublicVersion(versionId, number);
-    }
-
-    public boolean isPlaceableBy(UserId requester) {
-        if (isOwnedBy(requester)) {
-            return true;
-        }
-
-        return publicVersion != null;
+        return new PublicVersion(versionId, number);
     }
 
     public boolean isOwnedBy(UserId candidate) {

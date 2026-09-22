@@ -24,12 +24,12 @@ public record NodePageResponse(
         List<NodeItemResponse> content = page.content().stream()
                 .map(summary -> new NodeItemResponse(
                         summary.id().value().toString(),
-                        summary.name(),
-                        summary.model(),
-                        summary.baseCost().value().toPlainString(),
+                        summary.spec().name(),
+                        summary.spec().model(),
+                        summary.spec().baseCost().value().toPlainString(),
                         AbcPricing.CURRENCY,
-                        summary.createdAt(),
-                        summary.updatedAt()))
+                        summary.timestamps().createdAt(),
+                        summary.timestamps().updatedAt()))
                 .toList();
 
         return new NodePageResponse(content, page.nextCursor(), page.hasNext());

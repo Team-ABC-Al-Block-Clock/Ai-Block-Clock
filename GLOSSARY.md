@@ -133,7 +133,7 @@
 | --- | --- | --- |
 | **버전 생성** | 그래프를 복사해 불변의 `AgentVersion`(DRAFT) 을 만든다 | `AgentVersion.first` · `.next` |
 | **확정** | DRAFT → PUBLISHED. 단가가 굳고 더는 못 고친다 | `AgentVersion.publish()` |
-| **공개** | 마켓에 내놓아 남이 배치할 수 있게 한다 | `Agent.markVersionPublished` · `PublicVersion` |
+| **공개** | 마켓에 내놓아 남이 배치할 수 있게 한다 | `Agent.nextPublicVersion` · `PublicVersion` |
 
 셋은 시점이 다르다. 이름을 마켓에 내놓는 것과 실행 정의가 굳는 것이 같은 순간이 아니기 때문에
 나뉘어 있다. 한 단어로 덮으면 이 구분이 사라진다.

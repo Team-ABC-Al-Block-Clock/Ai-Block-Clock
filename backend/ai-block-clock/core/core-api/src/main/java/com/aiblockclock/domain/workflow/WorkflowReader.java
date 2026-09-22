@@ -23,7 +23,6 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-
 public class WorkflowReader {
     private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository workflowNodeRepository;
@@ -31,12 +30,6 @@ public class WorkflowReader {
 
     public Workflow read(WorkflowId id) {
         WorkflowEntity entity = workflowRepository.findById(id.value())
-                .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
-        return withGraph(entity);
-    }
-
-    public Workflow readForUpdate(WorkflowId id) {
-        WorkflowEntity entity = workflowRepository.findByIdForUpdate(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
         return withGraph(entity);
     }

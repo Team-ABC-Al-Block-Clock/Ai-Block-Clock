@@ -27,6 +27,10 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
+    public boolean isOwnedBy(NodeDefinitionId id, UserId owner) {
+        return nodeRepository.existsByIdAndOwnerId(id.value(), owner.value());
+    }
+
     public CursorPage<NodeDefinitionSummary> readMine(UserId owner, String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
         Pageable pageable = OffsetPageable.of(offset, size + 1);
