@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation project(':core:core-enum')
     implementation project(':storage')
+    implementation project(':client:blockchain')
     runtimeOnly project(':support:logging')
     runtimeOnly project(':support:monitoring')
 
