@@ -39,6 +39,9 @@ CODES: dict[str, ErrorSpec] = {
     "AGENT_BOUNDARY_VIOLATION": ErrorSpec(
         "supplier", True, "에이전트가 공개한 출력 형식과 다른 결과를 냈습니다.",
         "판매자에게 알려진 문제입니다. 사용료는 환원됩니다."),
+    "PROMPT_TEMPLATE_INVALID": ErrorSpec(
+        "supplier", False, "블록의 프롬프트가 요구하는 입력값을 이 자리에서 받을 수 없습니다.",
+        "판매자가 프롬프트의 입력 틀({…})을 블록이 받는 형식에 맞게 고쳐야 합니다."),
     "REF_FILE_REJECTED": ErrorSpec(
         "supplier", False, "블록에 붙은 참고 자료를 쓸 수 없습니다.",
         "형식 또는 크기 제한을 넘었습니다. 판매자가 고쳐야 합니다."),
