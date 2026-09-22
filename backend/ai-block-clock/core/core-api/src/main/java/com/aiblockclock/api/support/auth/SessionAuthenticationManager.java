@@ -11,9 +11,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.session.Session;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -23,7 +22,7 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class SessionAuthenticationManager {
-    private final FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+    private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
     private final SecurityContextRepository securityContextRepository;
     private final Clock clock;
 
@@ -32,12 +31,11 @@ public class SessionAuthenticationManager {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        invalidateCurrentSession(request);
-        invalidateExistingSessions(user);
-
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(
                 user, null, List.of()
         );
+        sessionAuthenticationStrategy.onAuthentication(authentication, request, response);
+
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
@@ -47,22 +45,13 @@ public class SessionAuthenticationManager {
     }
 
     public void logout(HttpServletRequest request) {
-        invalidateCurrentSession(request);
-        SecurityContextHolder.clearContext();
-    }
-
-    private void invalidateCurrentSession(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
 
         if (session != null) {
             session.invalidate();
         }
-    }
 
-    private void invalidateExistingSessions(UserId user) {
-        sessionRepository.findByPrincipalName(user.getName())
-                .keySet()
-                .forEach(sessionRepository::deleteById);
+        SecurityContextHolder.clearContext();
     }
 
     /** 더 이상 요청이 없을 때 세션이 만료되는 시각. 요청이 오면 그만큼 뒤로 밀린다. */

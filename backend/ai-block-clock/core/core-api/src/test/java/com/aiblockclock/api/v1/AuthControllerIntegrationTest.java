@@ -157,19 +157,73 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void 같은_사용자가_다시_로그인하면_이전_Spring_Session은_종료된다() throws Exception {
+    void 로그인하면_로그인_전_세션_ID는_더_이상_쓰이지_않는다() throws Exception {
+        Cookie before = mvc.perform(get(ROOT + "/csrf"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getCookie(SessionCookie.NAME);
+
+        Cookie after = login(newWallet(), before).getResponse().getCookie(SessionCookie.NAME);
+
+        assertThat(after.getValue()).isNotEqualTo(before.getValue());
+        assertThat(sessionCount(before)).isZero();
+        mvc.perform(get("/api/v1/workflows").cookie(before))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_005"));
+        mvc.perform(get("/api/v1/workflows").cookie(after))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 로그인하면_로그인_전_CSRF_토큰도_무효가_된다() throws Exception {
+        MvcResult issued = mvc.perform(get(ROOT + "/csrf")).andExpect(status().isOk()).andReturn();
+        Cookie sessionCookie = issued.getResponse().getCookie(SessionCookie.NAME);
+        var csrfData = mapper.readTree(issued.getResponse().getContentAsString()).path("data");
+        String headerName = csrfData.path("headerName").asString();
+        String token = csrfData.path("token").asString();
+
+        ECKeyPair wallet = newWallet();
+        String walletAddress = address(wallet);
+        MvcResult message = mvc.perform(post(ROOT + "/wallet/message")
+                        .cookie(sessionCookie)
+                        .header(headerName, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(Map.of("walletAddress", walletAddress))))
+                .andExpect(status().isOk())
+                .andReturn();
+        String signable = mapper.readTree(message.getResponse().getContentAsString())
+                .path("data").path("message").asString();
+        MvcResult loggedIn = mvc.perform(post(ROOT + "/wallet/login")
+                        .cookie(sessionCookie)
+                        .header(headerName, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(Map.of(
+                                "walletAddress", walletAddress,
+                                "signature", sign(signable, wallet)
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        mvc.perform(post(ROOT + "/wallet/message")
+                        .cookie(loggedIn.getResponse().getCookie(SessionCookie.NAME))
+                        .header(headerName, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(Map.of("walletAddress", address(newWallet())))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 다른_브라우저에서_로그인해도_기존_세션은_유지된다() throws Exception {
         ECKeyPair wallet = newWallet();
         Cookie first = login(wallet).getResponse().getCookie(SessionCookie.NAME);
-        Cookie second = login(wallet, first).getResponse().getCookie(SessionCookie.NAME);
+        Cookie second = login(wallet).getResponse().getCookie(SessionCookie.NAME);
 
         assertThat(second.getValue()).isNotEqualTo(first.getValue());
         mvc.perform(get("/api/v1/workflows").cookie(first))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("AUTH_005"));
+                .andExpect(status().isOk());
         mvc.perform(get("/api/v1/workflows").cookie(second))
                 .andExpect(status().isOk());
-        assertThat(sessionCount(first)).isZero();
-        assertThat(sessionCount(second)).isEqualTo(1);
     }
 
     @Test

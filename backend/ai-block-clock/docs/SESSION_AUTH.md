@@ -21,8 +21,8 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 4. FE가 같은 CSRF 헤더와 함께 지갑 주소와 서명값을 `POST /api/v1/auth/wallet/login`으로 보낸다.
 5. `WalletAuthService`가 메시지 만료·재사용 여부와 지갑 서명을 확인한다.
 6. 신규 지갑이면 사용자와 ABC 잔액 계정을 만든다.
-7. `SessionAuthenticationManager`가 같은 사용자의 기존 Spring Session을 삭제한다.
-8. 사용자의 `UserId`로 Spring Security `Authentication`과 `SecurityContext`를 만든다.
+7. 사용자의 `UserId`로 Spring Security `Authentication`을 만든다.
+8. `ChangeSessionIdAuthenticationStrategy`가 세션 ID를 교체하고 `SecurityContext`를 만든다.
 9. Spring Session JDBC가 SecurityContext를 MySQL에 저장한다.
 10. Spring Session이 `sessionToken` 쿠키를 응답에 추가한다.
 11. 로그인으로 세션이 교체되었으므로 FE가 CSRF 토큰을 다시 발급받는다.
@@ -56,8 +56,8 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 ## 로그아웃·재로그인·만료
 
 - 로그아웃: 현재 HttpSession을 무효화한다. Spring Session이 DB 세션을 삭제하고 쿠키를 만료시킨다.
-- 재로그인: 현재 세션과 같은 사용자의 기존 세션을 삭제한 뒤 새 세션을 만든다.
-- 다른 브라우저 로그인: 새 로그인이 완료되면 이전 브라우저의 세션 ID는 더 이상 조회되지 않는다.
+- 재로그인: 세션 ID만 교체되므로 로그인 전 세션 ID는 더 이상 조회되지 않는다.
+- 다른 브라우저 로그인: 한 사용자가 여러 세션을 동시에 가질 수 있다. 기기 수를 제한하지 않는다.
 - 미사용 만료: 마지막 요청으로부터 2시간이 지나면 Spring Session이 세션을 만료시킨다.
 - 쿠키가 없거나 DB에 세션이 없거나 만료됐으면 `AUTH_005`를 반환한다.
 
