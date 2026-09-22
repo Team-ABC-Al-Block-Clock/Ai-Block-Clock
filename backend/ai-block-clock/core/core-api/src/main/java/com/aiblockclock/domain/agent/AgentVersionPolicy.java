@@ -11,11 +11,14 @@ import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.stereotype.Component;
+
 import java.util.Map;
 
+@Component
 @RequiredArgsConstructor
-public final class AgentVersionPolicy {
-    private final AgentOwnershipView agentOwnershipView;
+public class AgentVersionPolicy {
+    private final AgentReader agentReader;
     private final NodeDefinitionReader nodeReader;
 
     public void ensureVersionable(Workflow workflow, UserId requester) {
@@ -34,7 +37,7 @@ public final class AgentVersionPolicy {
         }
 
         for (AgentPlacement placement : AgentPlacement.in(workflow.getGraph())) {
-            if (!agentOwnershipView.isOwnedBy(placement.agentId(), requester)) {
+            if (!agentReader.isOwnedBy(placement.agentId(), requester)) {
                 throw new CoreException(ErrorType.AGENT_FOREIGN_NODE_INCLUDED,
                         Map.of("agentId", placement.agentId().value()));
             }

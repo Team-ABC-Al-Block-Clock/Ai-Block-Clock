@@ -26,13 +26,22 @@ class AgentVersionPolicyTest {
     private static final UserId OTHER = UserId.of(2L);
 
     private static AgentVersionPolicy policy(Set<AgentId> ownedAgents) {
-        return new AgentVersionPolicy(
-                (agentId, owner) -> OWNER.equals(owner) && ownedAgents.contains(agentId),
-                nodeReaderAnswering(true));
+        AgentReader agentReader = mock(AgentReader.class);
+        given(agentReader.isOwnedBy(any(), any()))
+                .willAnswer(call -> OWNER.equals(call.getArgument(1)) && ownedAgents.contains(call.getArgument(0)));
+
+        return new AgentVersionPolicy(agentReader, nodeReaderAnswering(true));
     }
 
     private static AgentVersionPolicy policyWithForeignNodes() {
-        return new AgentVersionPolicy((agentId, owner) -> true, nodeReaderAnswering(false));
+        return new AgentVersionPolicy(agentReaderAnswering(true), nodeReaderAnswering(false));
+    }
+
+    private static AgentReader agentReaderAnswering(boolean owned) {
+        AgentReader agentReader = mock(AgentReader.class);
+        given(agentReader.isOwnedBy(any(), any())).willReturn(owned);
+
+        return agentReader;
     }
 
     private static NodeDefinitionReader nodeReaderAnswering(boolean owned) {

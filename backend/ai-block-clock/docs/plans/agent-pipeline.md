@@ -26,11 +26,12 @@
 | 금액 타입 통일 (`AbcAmount`) | **들어감** |
 | 원가 산출 (`BaseCostCalculator` · 고정값 구현) | **들어감** |
 | 노드 카탈로그 (도메인 · 저장 · API) | **들어감** |
-| 소유권 검사 — 팔 때 (노드 + 에이전트) | **들어감** — 빈으로 뜨지 않는다 |
+| 소유권 검사 — 팔 때 (노드 + 에이전트) | **들어감** — `AgentVersionPolicy` 가 빈으로 뜬다 |
 | 배치별 입력 출처 (`InputSource`) | **들어감** |
 | 실행 단위 타입 — 기본 노드 (`NodeUnit`) | **들어감** |
 | 쓰기 경로 정리 (판정 · 쓰기 분리, 동시성 차단) | **들어감** (MR !61) |
-| 에이전트 저장 · `POST /agents` | **하는 중** |
+| 에이전트 · 버전 저장 (`AgentWriter` · `AgentVersionWriter`) | **들어감** |
+| `POST /agents` | **하는 중** |
 | 실행 단위 타입 — 에이전트 (`AgentUnit` · 재귀 조립) | 남음 (6장) |
 | 에이전트 배치 (`AgentNodeSourceResolver` 열기) | 남음 |
 | 노드 편집 화면 · 단계 초안 도우미 | 남음 (3장) |
@@ -483,8 +484,8 @@ execution  ->  agent, workflow, node, domain
 | `BaseCostCalculator` | `node` | `node` (고정값) | 이 프롬프트의 원가는 얼마인가 |
 | `AiRuntimeClient` | `execution` | 아직 없음 | 실행을 맡기고 상태를 묻는다 |
 
-`AgentOwnershipView` 는 `AgentReader` 가 생기면 걷는다. 노드 소유권 · 사용 여부를 묻던 두
-인터페이스는 이미 걷었고 정책이 `NodeDefinitionReader` 를 직접 문다.
+`AgentOwnershipView` 는 걷었다. 노드 소유권 · 사용 여부를 묻던 두 인터페이스도 이미 걷었고,
+정책이 `AgentReader` · `NodeDefinitionReader` 를 직접 문다.
 
 `BaseCostCalculator` 가 **PSA 의 본보기다.** 지금 구현은 파라미터를 무시하고 고정값을 내지만,
 시그니처가 이미 프롬프트와 모델을 받으므로 AI 서버 구현으로 바꿀 때 계약을 다시 안 고쳐도 된다.

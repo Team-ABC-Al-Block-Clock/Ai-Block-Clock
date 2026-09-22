@@ -32,10 +32,9 @@ class AgentTest {
     void publicVersionMovesForward() {
         AgentVersionId second = AgentVersionId.newId();
 
-        PublicVersion moved = publishedAt(VersionNumber.of(1))
-                .nextPublicVersion(OWNER, second, VersionNumber.of(2));
+        Agent moved = publishedAt(VersionNumber.of(1)).publish(OWNER, second, VersionNumber.of(2));
 
-        assertThat(moved).isEqualTo(new PublicVersion(second, VersionNumber.of(2)));
+        assertThat(moved.getPublicVersion()).isEqualTo(new PublicVersion(second, VersionNumber.of(2)));
     }
 
     @Test
@@ -43,7 +42,7 @@ class AgentTest {
     void publicVersionNeverMovesBackward() {
         Agent agent = publishedAt(VersionNumber.of(2));
 
-        assertThatThrownBy(() -> agent.nextPublicVersion(OWNER, AgentVersionId.newId(), VersionNumber.of(1)))
+        assertThatThrownBy(() -> agent.publish(OWNER, AgentVersionId.newId(), VersionNumber.of(1)))
                 .isInstanceOf(CoreException.class);
     }
 
@@ -54,7 +53,7 @@ class AgentTest {
 
         assertThatThrownBy(() -> agent.ensureOwner(OTHER))
                 .isInstanceOf(CoreException.class);
-        assertThatThrownBy(() -> agent.nextPublicVersion(OTHER, AgentVersionId.newId(), VersionNumber.first()))
+        assertThatThrownBy(() -> agent.publish(OTHER, AgentVersionId.newId(), VersionNumber.first()))
                 .isInstanceOf(CoreException.class);
     }
 }

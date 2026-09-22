@@ -51,8 +51,12 @@ public class AgentEntity extends BaseTimeEntity {
     @Column(name = "public_version_id", length = 36)
     private UUID publicVersionId;
 
+    @Column(name = "public_version_no")
+    private Integer publicVersionNo;
+
     public AgentEntity(UUID id, Long ownerId, String name, String summary, String description,
-                       String usageExample, String onboardingMessage, String thumbnailUrl) {
+                       String usageExample, String onboardingMessage, String thumbnailUrl,
+                       UUID publicVersionId, Integer publicVersionNo) {
         this.id = id;
         this.ownerId = ownerId;
         this.name = name;
@@ -61,9 +65,7 @@ public class AgentEntity extends BaseTimeEntity {
         this.usageExample = usageExample;
         this.onboardingMessage = onboardingMessage;
         this.thumbnailUrl = thumbnailUrl;
-    }
-
-    public void publish(UUID publicVersionId) {
         this.publicVersionId = publicVersionId;
+        this.publicVersionNo = publicVersionNo;
     }
 }

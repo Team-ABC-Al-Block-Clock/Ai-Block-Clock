@@ -592,8 +592,8 @@ agent      ->  workflow, domain
 도메인이 필요로 하는 조회는 인터페이스로 선언하고 구현은 바깥에 맡긴다.
 
 ```java
-public final class AgentVersionPolicy {        // 판정은 도메인에 남는다
-    private final AgentOwnershipView agentOwnershipView;
+public class AgentVersionPolicy {              // 판정은 도메인에 남는다
+    private final AgentReader agentReader;
     private final NodeDefinitionReader nodeReader;
 
     public void ensureVersionable(Workflow workflow, UserId requester) { ... }
@@ -601,8 +601,8 @@ public final class AgentVersionPolicy {        // 판정은 도메인에 남는�
 ```
 
 협력자가 다른 애그리거트의 Reader 여도 된다. `domain -> implementation` 은 허용된 방향이므로
-(ARCHITECTURE 1.1) 물음 하나를 위해 인터페이스를 새로 만들지 않는다 (6장). `AgentOwnershipView`
-가 인터페이스로 남은 것은 `AgentReader` 가 아직 없기 때문이고, 생기면 걷는다.
+(ARCHITECTURE 1.1) 물음 하나를 위해 인터페이스를 새로 만들지 않는다 (6장). 소유권을 묻던
+`AgentOwnershipView` 는 `AgentReader` 가 생기면서 걷었다.
 
 애그리거트에 넣을 수도, 서비스로 흘릴 수도 없는 규칙이 여기로 온다.
 
@@ -671,8 +671,8 @@ private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
 | 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `ApiResult` 와 명세서 | `{status: SUCCESS/FAIL, data, error{code,message,data}}` | 명세서는 `{status: success/error, code, message}` 평면형 |
 | `AGENT_006`, `AGENT_007`, `AGENT_009` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. `AgentOwnershipView` 구현과 조립 위치가 함께 정해져야 한다 |
-| 출처 워크플로우 삭제 금지 | `WorkflowDeletionPolicy` 가 막는다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 출처 추적이 이유라면 삭제가 아니라 보존 표시가 맞다 |
+| 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. 소유권은 이제 `AgentReader` 로 물을 수 있고 조립 위치만 남았다 |
+| 출처 워크플로우 삭제 금지 | `WorkflowValidator.ensureDeletable` 이 막는다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 출처 추적이 이유라면 삭제가 아니라 보존 표시가 맞다 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |
 
 ### `domain` 이 Spring 을 참조하는 문제

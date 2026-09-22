@@ -9,6 +9,7 @@ create table agent
     onboarding_message varchar(20)   null,
     thumbnail_url      varchar(500)  null,
     public_version_id  varchar(36)   null,
+    public_version_no  int           null,
     created_at         datetime(6)   not null,
     updated_at         datetime(6)   not null,
     primary key (id)
