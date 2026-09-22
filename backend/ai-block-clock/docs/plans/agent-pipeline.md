@@ -33,7 +33,7 @@
 | 에이전트 · 버전 저장 (`AgentWriter` · `AgentVersionWriter`) | **들어감** |
 | `POST /agents` (등록 = 첫 버전 공개) | **들어감** |
 | AI Runtime 실행 클라이언트 (`AiRuntimeClient`) | **들어감** — 실행 요청 · 폴링 · 결과 조회 |
-| 실행 단위 타입 — 에이전트 (`AgentUnit` · 재귀 조립) | 남음 (6장) |
+| 실행 단위 타입 — 에이전트 (`AgentUnit` · 재귀 조립) | **들어감** — 버전의 그래프를 펼쳐 프롬프트로 잇는다 |
 | 에이전트 배치 (공개 버전 고정) | **들어감** — `PublishedAgentSourceResolver` 가 공개 버전을 박는다 |
 | 새 작업 노드를 배치에 실어 받기 | **들어감** — `LLM` 배치만 본문을 싣고, `CatalogNodeSourceResolver` 가 만든다 |
 | 추천 중계 `GET /marketplace/agents/recommendations` | **들어감** — 자연어 한 줄로 공개 에이전트를 찾는다 (1.4) |
