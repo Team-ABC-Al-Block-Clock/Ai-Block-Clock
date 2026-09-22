@@ -3,6 +3,7 @@ package com.aiblockclock.domain.payment;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
+import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -59,11 +60,16 @@ public class AbcTransactionReader {
     private AbcTransaction toAbcTransaction(
             LedgerEntryEntity entry
     ) {
+        LedgerTransactionEntity transaction = entry.getTransaction();
+
         return AbcTransaction.of(
-                entry.getTransaction().getId(),
-                entry.getTransaction().getEventType(),
+                transaction.getId(),
+                transaction.getEventType(),
                 entry.getAmountDelta(),
-                entry.getTransaction().getCreatedAt()
+                transaction.getCreatedAt(),
+                transaction.getReferenceType(),
+                transaction.getReferenceId(),
+                transaction.getTransactionHash()
         );
     }
 }

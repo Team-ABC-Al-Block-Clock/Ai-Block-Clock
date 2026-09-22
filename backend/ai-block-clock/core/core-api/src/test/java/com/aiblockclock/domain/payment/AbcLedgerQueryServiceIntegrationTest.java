@@ -121,6 +121,7 @@ class AbcLedgerQueryServiceIntegrationTest {
                         "charge-user-a",
                         "CHARGE_REQUEST",
                         "101",
+                        "0xabc123",
                         issuanceAccount,
                         userAAccount,
                         "10.000"
@@ -174,6 +175,16 @@ class AbcLedgerQueryServiceIntegrationTest {
 
         assertThat(transactions.get(1).amount())
                 .isEqualByComparingTo("10.000");
+
+        AbcTransaction reserveLine = transactions.get(0);
+        assertThat(reserveLine.referenceType()).isEqualTo("EXECUTION");
+        assertThat(reserveLine.referenceId()).isEqualTo("201");
+        assertThat(reserveLine.transactionHash()).isNull();
+
+        AbcTransaction chargeLine = transactions.get(1);
+        assertThat(chargeLine.referenceType()).isEqualTo("CHARGE_REQUEST");
+        assertThat(chargeLine.referenceId()).isEqualTo("101");
+        assertThat(chargeLine.transactionHash()).isEqualTo("0xabc123");
     }
 
     private LedgerAccountEntity saveAccount(
@@ -214,6 +225,21 @@ class AbcLedgerQueryServiceIntegrationTest {
             LedgerAccountEntity toAccount,
             String amount
     ) {
+        return recordTransfer(eventType, idempotencyKey, referenceType, referenceId, null,
+                fromAccount, toAccount, amount);
+    }
+
+    // 온체인 거래가 있는 충전 줄을 만들 때 해시까지 넣는다.
+    private LedgerTransactionEntity recordTransfer(
+            LedgerEventType eventType,
+            String idempotencyKey,
+            String referenceType,
+            String referenceId,
+            String transactionHash,
+            LedgerAccountEntity fromAccount,
+            LedgerAccountEntity toAccount,
+            String amount
+    ) {
         LedgerTransactionEntity transaction =
                 ledgerTransactionRepository.save(
                         LedgerTransactionEntity.of(
@@ -222,7 +248,7 @@ class AbcLedgerQueryServiceIntegrationTest {
                                 referenceType,
                                 referenceId,
                                 null,
-                                null
+                                transactionHash
                         )
                 );
 
