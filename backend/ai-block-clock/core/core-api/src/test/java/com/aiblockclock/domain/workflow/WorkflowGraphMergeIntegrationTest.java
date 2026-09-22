@@ -49,10 +49,7 @@ class WorkflowGraphMergeIntegrationTest {
     private WorkflowWriter workflowWriter;
 
     @Autowired
-    private GraphNodeWriter graphNodeWriter;
-
-    @Autowired
-    private GraphEdgeWriter graphEdgeWriter;
+    private GraphWriter graphWriter;
 
     @Autowired
     private WorkflowRepository workflowRepository;
@@ -78,8 +75,7 @@ class WorkflowGraphMergeIntegrationTest {
     // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
-        graphEdgeWriter.removeAll(graphIdOf(workflowId));
-        graphNodeWriter.removeAll(graphIdOf(workflowId));
+        graphWriter.removeAll(graphIdOf(workflowId));
         workflowWriter.remove(workflowId);
     }
 

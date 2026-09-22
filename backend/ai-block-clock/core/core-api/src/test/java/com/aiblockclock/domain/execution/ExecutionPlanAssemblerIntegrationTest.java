@@ -12,8 +12,7 @@ import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.EdgeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
-import com.aiblockclock.domain.workflow.GraphEdgeWriter;
-import com.aiblockclock.domain.workflow.GraphNodeWriter;
+import com.aiblockclock.domain.workflow.GraphWriter;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
@@ -46,10 +45,7 @@ class ExecutionPlanAssemblerIntegrationTest {
     private WorkflowWriter workflowWriter;
 
     @Autowired
-    private GraphNodeWriter graphNodeWriter;
-
-    @Autowired
-    private GraphEdgeWriter graphEdgeWriter;
+    private GraphWriter graphWriter;
 
     @Autowired
     private ExecutionPlanAssembler executionPlanAssembler;
@@ -64,8 +60,7 @@ class ExecutionPlanAssemblerIntegrationTest {
     @AfterEach
     void tearDown() {
         if (workflowId != null) {
-            graphEdgeWriter.removeAll(graphIdOf(workflowId));
-            graphNodeWriter.removeAll(graphIdOf(workflowId));
+            graphWriter.removeAll(graphIdOf(workflowId));
             workflowWriter.remove(workflowId);
         }
     }

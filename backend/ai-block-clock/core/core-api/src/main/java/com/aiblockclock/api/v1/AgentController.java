@@ -7,7 +7,9 @@ import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Revision;
+import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
+import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.support.response.ApiResult;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/agents")
 @RequiredArgsConstructor
 public class AgentController implements AgentApi {
+    private final WorkflowService workflowService;
     private final AgentService agentService;
 
     @Override
@@ -32,11 +35,10 @@ public class AgentController implements AgentApi {
             @CurrentUser UserId owner,
             @RequestBody AgentRegisterRequest request
     ) {
+        Workflow source = workflowService.get(WorkflowId.of(request.workflowId()), owner);
+
         AgentRegistration registered = agentService.register(
-                owner,
-                WorkflowId.of(request.workflowId()),
-                Revision.of(request.revision()),
-                request.toProfile());
+                owner, source, Revision.of(request.revision()), request.toProfile());
 
         return ApiResult.success(AgentRegisterResponse.from(registered));
     }

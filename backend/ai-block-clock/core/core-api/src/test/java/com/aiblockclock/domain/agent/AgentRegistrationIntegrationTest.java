@@ -5,7 +5,7 @@ import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Revision;
-import com.aiblockclock.domain.workflow.WorkflowId;
+import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.agent.PublicationState;
 import com.aiblockclock.enums.workflow.InputSource;
@@ -63,11 +63,11 @@ class AgentRegistrationIntegrationTest {
     @Autowired
     private GraphNodeRepository graphNodeRepository;
 
-    private WorkflowId workflowId;
+    private Workflow source;
 
     @BeforeEach
     void setUp() {
-        workflowId = saveWorkflow(
+        source = saveWorkflow(
                 NodeDefinitionSeeder.seed(nodeRepository, OWNER.value()),
                 NodeDefinitionSeeder.seed(nodeRepository, OWNER.value()));
     }
@@ -85,7 +85,7 @@ class AgentRegistrationIntegrationTest {
         assertThat(agent.getPublicVersionNo()).isEqualTo(1);
         assertThat(version.getVersionNo()).isEqualTo(1);
         assertThat(version.getPublicationState()).isEqualTo(PublicationState.PUBLISHED);
-        assertThat(version.getSourceWorkflowId()).isEqualTo(workflowId.value());
+        assertThat(version.getSourceWorkflowId()).isEqualTo(source.getId().value());
         assertThat(version.getSourceRevision()).isEqualTo(Revision.initial().value());
     }
 
@@ -94,7 +94,7 @@ class AgentRegistrationIntegrationTest {
     void copiesGraphUnderItsOwnAddress() {
         AgentRegistration registered = register(Revision.initial());
 
-        UUID sourceGraphId = workflowRepository.findById(workflowId.value()).orElseThrow().getGraphId();
+        UUID sourceGraphId = workflowRepository.findById(source.getId().value()).orElseThrow().getGraphId();
         UUID versionGraphId =
                 agentVersionRepository.findById(registered.version().getId().value()).orElseThrow().getGraphId();
 
@@ -117,7 +117,7 @@ class AgentRegistrationIntegrationTest {
     @DisplayName("같은 노드를 두 자리에 놓으면 두 번 센다")
     void countsEveryPlacementOfTheSameNode() {
         UUID sharedNode = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
-        WorkflowId repeated = saveWorkflow(sharedNode, sharedNode);
+        Workflow repeated = saveWorkflow(sharedNode, sharedNode);
 
         AgentRegistration registered = agentService.register(OWNER, repeated, Revision.initial(), profile());
 
@@ -137,7 +137,7 @@ class AgentRegistrationIntegrationTest {
     @Test
     @DisplayName("남의 노드가 섞여 있으면 굳히지 않는다")
     void rejectsForeignNode() {
-        WorkflowId mixed = saveWorkflow(
+        Workflow mixed = saveWorkflow(
                 NodeDefinitionSeeder.seed(nodeRepository, OWNER.value()),
                 NodeDefinitionSeeder.seed(nodeRepository, OTHER.value()));
 
@@ -148,16 +148,16 @@ class AgentRegistrationIntegrationTest {
     }
 
     private AgentRegistration register(Revision revision) {
-        return agentService.register(OWNER, workflowId, revision, profile());
+        return agentService.register(OWNER, source, revision, profile());
     }
 
-    private WorkflowId saveWorkflow(UUID firstSource, UUID secondSource) {
+    private Workflow saveWorkflow(UUID firstSource, UUID secondSource) {
         return workflowService.save(
                 OWNER,
                 "성적 분석",
                 null,
                 List.of(placement("n1", firstSource), placement("n2", secondSource)),
-                List.of(GraphFixtures.edge("e1", "n1", "n2"))).getId();
+                List.of(GraphFixtures.edge("e1", "n1", "n2")));
     }
 
     private static NodePlacement placement(String key, UUID sourceId) {
