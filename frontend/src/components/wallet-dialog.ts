@@ -63,7 +63,18 @@ export class WalletDialog extends BaseElement {
         'animation:wd-orbit 1.5s cubic-bezier(.55,.12,.45,.88) infinite}' +
         // 움직임을 줄여 달라고 설정한 사람에게는 후광만 천천히 남긴다
         '@media (prefers-reduced-motion:reduce){.wd-arc{animation:none}' +
-        '.wd-halo{animation-duration:4s}}',
+        '.wd-halo{animation-duration:4s}}' +
+        // 서명 원문은 접어 둔다. details 는 열고 닫기를 브라우저가 맡아 상태를 따로 들지 않는다.
+        '.wd-raw{margin-top:10px}' +
+        '.wd-raw>summary{cursor:pointer;list-style:none;font-size:11.5px;' +
+        'color:rgba(255,236,246,.55);letter-spacing:-.01em}' +
+        '.wd-raw>summary::-webkit-details-marker{display:none}' +
+        '.wd-raw>summary::after{content:" ▾"}' +
+        '.wd-raw[open]>summary::after{content:" ▴"}' +
+        '.wd-raw>pre{margin:10px 0 0;box-sizing:border-box;padding:12px 14px;border-radius:11px;' +
+        'background:rgba(255,255,255,.06);text-align:left;white-space:pre-wrap;word-break:break-all;' +
+        'max-height:150px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;' +
+        'font-size:11px;line-height:1.55;color:rgba(255,236,246,.62)}',
     )
   }
 
@@ -163,12 +174,14 @@ export class WalletDialog extends BaseElement {
         this.spinner() +
         this.heading('지갑에서 서명을 기다리는 중') +
         this.lead('MetaMask 창에서 서명을 완료해 주세요.\n서명에는 가스비가 들지 않습니다.') +
-        // 지갑이 실제로 서명하는 원문을 그대로 보여 준다. 요약을 손으로 만들면
-        // MetaMask 창과 달라져, 대조해 확인하려는 사람을 오히려 속인다.
-        this.note([
-          ...this.str('message-text').split(/\r?\n/).filter(Boolean),
-          `서명 계정: ${this.str('address', '0x0000…0000')}`,
-        ]) +
+        // 요약만 보여 주고 원문은 접어 둔다. 원문에는 URI·Version·Chain ID·Nonce·Issued At 이
+        // 줄줄이 들어 있어 그대로 펼치면 읽을 사람이 읽지 않는다.
+        //
+        // 그렇다고 원문을 감추지는 않는다. 지갑 서명은 보이는 것을 승인하는 일이라,
+        // 요약만 두면 MetaMask 창과 대조해 확인할 길이 사라진다. 요약은 우리가 지어낸
+        // 문장이고 실제로 서명되는 것은 아래 원문이다.
+        this.note(['ABC 로그인 서명', `서명 계정: ${this.str('address', '0x0000…0000')}`]) +
+        this.rawMessage() +
         // 승인·거절은 MetaMask 창이 받는다. 여기에는 물러날 길만 둔다.
         this.actions([{ label: '취소', kind: 'cancel' }])
       )
@@ -209,6 +222,17 @@ export class WalletDialog extends BaseElement {
       '<span class="wd-track"></span>' +
       '<span class="wd-arc"></span>' +
       '</div>'
+    )
+  }
+
+  /** 지갑이 실제로 서명하는 원문. 늦게 붙는 값이라 없으면 자리도 만들지 않는다. */
+  private rawMessage(): string {
+    const text = this.str('message-text')
+    if (!text) return ''
+    return (
+      '<details class="wd-raw"><summary>서명할 원문 보기</summary><pre>' +
+      this.esc(text) +
+      '</pre></details>'
     )
   }
 
