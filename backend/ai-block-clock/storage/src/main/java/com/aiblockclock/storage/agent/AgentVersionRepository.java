@@ -1,0 +1,12 @@
+package com.aiblockclock.storage.agent;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.UUID;
+
+public interface AgentVersionRepository extends JpaRepository<AgentVersionEntity, UUID> {
+    boolean existsBySourceWorkflowId(UUID sourceWorkflowId);
+
+    List<AgentVersionEntity> findByAgentIdOrderByVersionNoAsc(UUID agentId);
+}

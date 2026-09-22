@@ -16,8 +16,8 @@ public class WorkflowWriter {
     private final WorkflowRepository workflowRepository;
 
     @Transactional
-    public Workflow append(Workflow workflow) {
-        WorkflowEntity saved = workflowRepository.save(WorkflowEntityConverter.toEntity(workflow));
+    public Workflow append(Workflow workflow, GraphId graphId) {
+        WorkflowEntity saved = workflowRepository.save(WorkflowEntityConverter.toEntity(workflow, graphId));
 
         return WorkflowEntityConverter.toDomain(saved, workflow.getGraph());
     }

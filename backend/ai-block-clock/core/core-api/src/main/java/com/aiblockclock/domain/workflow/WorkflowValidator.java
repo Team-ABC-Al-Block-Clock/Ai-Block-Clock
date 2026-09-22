@@ -27,7 +27,7 @@ public class WorkflowValidator {
     }
 
     @Transactional
-    public GraphRevision ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
+    public ReplaceTarget ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
         WorkflowEntity entity = lock(id);
         ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
@@ -37,11 +37,12 @@ public class WorkflowValidator {
                     Map.of("expectedRevision", expected.value(), "currentRevision", current.value()));
         }
 
-        return new GraphRevision(current.next(), ValidationStatus.NOT_VALIDATED);
+        return new ReplaceTarget(GraphId.of(entity.getGraphId()),
+                new GraphRevision(current.next(), ValidationStatus.NOT_VALIDATED));
     }
 
     @Transactional
-    public void ensureDeletable(WorkflowId id, UserId requester) {
+    public GraphId ensureDeletable(WorkflowId id, UserId requester) {
         WorkflowEntity entity = lock(id);
         ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
@@ -52,6 +53,8 @@ public class WorkflowValidator {
         if (usageView.isExecuting(id)) {
             throw new CoreException(ErrorType.WORKFLOW_EXECUTION_IN_PROGRESS);
         }
+
+        return GraphId.of(entity.getGraphId());
     }
 
     private WorkflowEntity lock(WorkflowId id) {

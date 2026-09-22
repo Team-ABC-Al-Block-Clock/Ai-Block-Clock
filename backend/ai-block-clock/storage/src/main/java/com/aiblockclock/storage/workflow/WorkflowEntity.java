@@ -33,6 +33,10 @@ public class WorkflowEntity extends BaseTimeEntity {
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
 
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "graph_id", length = 36, nullable = false, updatable = false)
+    private UUID graphId;
+
     @Column(name = "name", length = 40, nullable = false)
     private String name;
 
@@ -49,10 +53,11 @@ public class WorkflowEntity extends BaseTimeEntity {
     @Column(name = "last_executed_at")
     private Instant lastExecutedAt;
 
-    public WorkflowEntity(UUID id, Long ownerId, String name, String description,
+    public WorkflowEntity(UUID id, Long ownerId, UUID graphId, String name, String description,
                           ValidationStatus validationStatus, Long revision) {
         this.id = id;
         this.ownerId = ownerId;
+        this.graphId = graphId;
         this.name = name;
         this.description = description;
         this.validationStatus = validationStatus;

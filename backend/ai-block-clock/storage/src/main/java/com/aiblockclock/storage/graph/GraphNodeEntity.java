@@ -1,4 +1,4 @@
-package com.aiblockclock.storage.workflow;
+package com.aiblockclock.storage.graph;
 
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -22,18 +22,18 @@ import org.hibernate.type.SqlTypes;
 import java.util.UUID;
 
 @Entity
-@Table(name = "workflow_node")
+@Table(name = "graph_node")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class WorkflowNodeEntity {
+public class GraphNodeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(name = "workflow_id", length = 36, nullable = false, updatable = false)
-    private UUID workflowId;
+    @Column(name = "graph_id", length = 36, nullable = false, updatable = false)
+    private UUID graphId;
 
     @Column(name = "node_key", length = 64, nullable = false)
     private String nodeKey;
@@ -54,9 +54,9 @@ public class WorkflowNodeEntity {
     @Column(name = "input_source", length = 20, nullable = false)
     private InputSource inputSource;
 
-    public WorkflowNodeEntity(UUID workflowId, String nodeKey, SourceType sourceType,
+    public GraphNodeEntity(UUID graphId, String nodeKey, SourceType sourceType,
                               UUID referenceId, UUID versionId, InputSource inputSource) {
-        this.workflowId = workflowId;
+        this.graphId = graphId;
         this.nodeKey = nodeKey;
         this.sourceType = sourceType;
         this.referenceId = referenceId;
