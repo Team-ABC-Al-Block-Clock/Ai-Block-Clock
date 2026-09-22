@@ -312,6 +312,7 @@ public class MemberWithdrawManager {
 | `implementation` | `com.aiblockclock.domain.{도메인}` | `:core:core-api` | 생성됨 — **도메인 패키지 안에 함께 둔다** |
 | `storage` | `com.aiblockclock.storage` | `:storage` | 생성됨 |
 | (계층 아님) | `com.aiblockclock.support` | `:core:core-api` | 생성됨 — 계층을 가로지르는 공통 코드 |
+| (계층 아님) | `com.aiblockclock.client` | `:client:blockchain` | 생성됨 — 외부 시스템 어댑터 |
 
 `domain` 과 `implementation` 계층을 담을 모듈은 아직 정하지 않았다. 결정 전까지 이 문서의 규칙은 패키지 단위로 적용한다.
 
@@ -319,6 +320,11 @@ public class MemberWithdrawManager {
 (`ApiResult`, `ErrorType`, `CursorPage`, `OffsetCursor`) 의 자리다. `api` 패키지에 두면 api 계층 전용처럼
 보여서 implementation 계층이 쓰기를 망설이게 되고, 도메인 패키지에 두면 `WorkflowPage` · `AgentPage` 처럼
 같은 모양이 도메인마다 복제된다. 도메인 이름이 붙지 않는 헬퍼라면 `support` 다.
+
+**특정 외부 시스템에 붙는 어댑터는 `support` 가 아니라 `client` 모듈로 간다.** SSAFY STO 클라이언트처럼
+상대 시스템의 주소·요청 형식·응답 형식을 아는 코드는 계층을 가로지르는 헬퍼가 아니라 그 시스템 전용
+번역기다. `support` 에 두면 다음 외부 연동도 따라 들어와 공통 헬퍼 자리가 잡동사니가 된다
+(MODULES.md 3.6).
 
 `storage` 안에서만 쓰는 영속성 헬퍼(`OffsetPageable`)는 예외로 `com.aiblockclock.storage.support` 에 둔다.
 `storage` 는 `core-api` 를 의존할 수 없어서(MODULES.md 2.3 역방향 금지) 위쪽 `support` 를 쓸 수 없다.
