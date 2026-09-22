@@ -1,6 +1,6 @@
 import { http } from 'msw'
 
-import type { CreateAgentRequest, CreatedAgent, MyAgentSort, UsedAgentSort } from '@/api/agents'
+import type { AgentImage, CreatedAgent, MyAgentSort, UsedAgentSort } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import type { DeletedWorkflow, WorkflowSort } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
@@ -16,6 +16,25 @@ import { scene } from '@/mocks/scenario'
 const PAGE_SIZE = 10
 
 const invalidQuery = () => fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
+
+/** jsdom 에는 createObjectURL 이 없다. */
+export function previewUrl(value: FormDataEntryValue | null): string | null {
+  if (!(value instanceof File)) return null
+  return typeof URL.createObjectURL === 'function'
+    ? URL.createObjectURL(value)
+    : `blob:mock/${value.name}`
+}
+
+/** 설명(`*ImageCaptions`)은 받아서 버린다 — 상세 응답에 담을 필드가 없다. */
+export function shots(form: FormData, type: 'INPUT' | 'OUTPUT'): AgentImage[] {
+  const key = type === 'INPUT' ? 'inputImageFiles' : 'outputImageFiles'
+  return form.getAll(key).map((file, order) => ({
+    imageId: crypto.randomUUID(),
+    type,
+    url: previewUrl(file) ?? '',
+    order,
+  }))
+}
 
 /**
  * 없으면 기본값, 있으면 유효해야 한다. 조용히 기본값으로 떨어뜨리면 화면이 잘못된 값을
@@ -73,17 +92,20 @@ export const mypageHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    const body = (await request.json()) as Partial<CreateAgentRequest>
+    const form = await request.formData()
+    const text = (name: string) => String(form.get(name) ?? '').trim()
     // 빈 값을 통과시키면 목록에 이름 없는 카드가 생기고 검색에도 안 걸린다.
-    if (!body.name?.trim() || !body.summary?.trim())
+    if (!text('name') || !text('summary'))
       return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
 
     const agent = addAgent({
-      name: body.name.trim(),
-      summary: body.summary.trim(),
-      description: body.description?.trim() ?? '',
-      usageExample: body.usageExample?.trim() ?? '',
-      onboardingMessage: body.onboardingMessage?.trim() ?? '',
+      name: text('name'),
+      summary: text('summary'),
+      description: text('description'),
+      usageExample: text('usageExample'),
+      onboardingMessage: text('onboardingMessage'),
+      iconUrl: previewUrl(form.get('iconFile')),
+      images: [...shots(form, 'INPUT'), ...shots(form, 'OUTPUT')],
     })
     return ok<CreatedAgent>({ agentId: agent.agentId }, { status: 201 })
   }),

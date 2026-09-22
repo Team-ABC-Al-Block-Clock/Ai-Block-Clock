@@ -4,12 +4,12 @@ import type {
   AgentImage,
   AgentProvenance,
   AgentSummary,
-  CreateAgentRequest,
   FavoriteAgent,
   MyAgent,
   UsedAgent,
 } from '@/api/agents'
 import iconUrl from '@/assets/logo.png'
+import { sellingPrice } from '@/lib/price'
 
 /**
  * 에이전트 픽스처 30건. 단가·성공률·즐겨찾기 수는 서버가 기록해 주는 값이라 그대로 적는다.
@@ -383,11 +383,22 @@ export function usedAgents(): UsedAgent[] {
   })
 }
 
-/**
- * 화면이 넘기는 텍스트만 받고 나머지는 서버가 채울 기본값을 흉내 낸다.
- * `onboardingMessage` 는 받아서 버린다 — 상세 응답에 없는 필드다.
- */
-export function addAgent(input: CreateAgentRequest): AgentDetail {
+/** 등록 요청에서 상세로 옮겨 담는 값. `onboardingMessage` 는 상세 응답에 없어 버린다. */
+export interface NewAgentInput {
+  name: string
+  summary: string
+  description: string
+  usageExample: string
+  onboardingMessage: string
+  iconUrl: string | null
+  images: AgentImage[]
+}
+
+/** 화면이 넘기는 값만 받고 나머지는 서버가 채울 기본값을 흉내 낸다. */
+/** 임시 실행가. 등록 화면에 워크플로우가 연결되면 사라진다. */
+const MOCK_ESTIMATED_COST = '450'
+
+export function addAgent(input: NewAgentInput): AgentDetail {
   const owner = OWNERS[ME]
   const agent: AgentDetail = {
     // 실서버는 UUID 를 준다. 픽스처의 `agt_NN` 은 build() 가 날짜에서 만드는 것이라
@@ -397,12 +408,9 @@ export function addAgent(input: CreateAgentRequest): AgentDetail {
     summary: input.summary,
     description: input.description,
     usageExample: input.usageExample || null,
-    // 아이콘·스크린샷 업로드는 등록 화면에서 아직 연결되지 않았다.
-    iconUrl: null,
-    images: [],
-    // 단가는 서버가 워크플로우에서 계산한다. 등록 화면에 입력 칸이 없어
-    // 고정값을 둔다 — 산정 명세가 오면 그대로 받는다.
-    price: '540',
+    iconUrl: input.iconUrl,
+    images: input.images,
+    price: sellingPrice(MOCK_ESTIMATED_COST) ?? '0',
     // 갓 등록한 것이라 실적이 없다. 상세 화면이 '—' 를 내야 한다.
     executionCount: 0,
     successRate: 0,
