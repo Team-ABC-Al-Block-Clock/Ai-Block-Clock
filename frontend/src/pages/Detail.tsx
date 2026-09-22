@@ -1,17 +1,32 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
   addAgentFavorite,
+  getAgentProvenance,
+  getAgentReviews,
   getMarketplaceAgent,
   removeAgentFavorite,
   type AgentDetail,
   type AgentImage,
+  type AgentProvenance,
 } from '@/api/agents'
 import { ApiError, AUTH_ERROR } from '@/api/errors'
-import { compactCount, priceLabel, ratingLabel, runLabel, successLabel } from '@/lib/format'
+import {
+  blockLabel,
+  compactCount,
+  dateTimeLabel,
+  maskName,
+  priceLabel,
+  ratingLabel,
+  runLabel,
+  shortAddress,
+  successLabel,
+  timeLabel,
+} from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
+import { chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 
 /** 안내 카드. 그리드 안쪽(272~1168, 896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
@@ -40,6 +55,38 @@ const AUTH_CODES: string[] = [
   AUTH_ERROR.INVALID,
 ]
 
+/** 한 번에 불러오는 리뷰 개수. */
+const REVIEW_PAGE_SIZE = 5
+
+/** 리뷰 한 건이 차지하는 높이. 본문을 2줄로 자르기 때문에 건마다 같다 —
+ *  이 페이지는 절대 좌표라 높이를 미리 알아야 바닥이 정해진다. */
+const REVIEW_ROW = 84
+/** 리뷰 카드의 위아래 여백 합. */
+const REVIEW_PAD = 48
+/** '더 보기' 버튼 줄. 누르기 전까지만 있다. */
+const REVIEW_MORE_BUTTON = 52
+/** 버튼을 누른 뒤 목록 끝에 남겨 두는 빈 자리. 센티넬과 '불러오는 중'·'다시 시도' 가
+ *  여기 들어가고, 다음 장은 이 자리부터 채워진다. 한 줄 높이로 잡는다 — 바닥에 닿기
+ *  전에 끝이 보여야 리뷰가 붙는 것이 눈에 들어온다. */
+const REVIEW_LANDING = REVIEW_ROW
+/** 리뷰가 없거나 못 불러왔을 때 대신 들어가는 한 줄. */
+const REVIEW_NOTICE = 44
+
+/** 바닥에 닿고 나서 다음 장을 받기까지 두는 시간.
+ *  닿자마자 채우면 다섯 줄이 한 번에 튀어 깜빡인 것처럼 보인다. 기다리는 동안
+ *  '불러오는 중' 을 먼저 보여 주면 목록이 늘어난 것이 사건으로 읽힌다.
+ *  튕겨서 바닥을 스치기만 한 경우에는 벗어나는 순간 취소된다. */
+const REVIEW_HOLD_MS = 400
+
+/** 아직 블록에 안 들어간 트랜잭션은 되돌려질 수 있다 — 검증됐다고 말하지 않는다. */
+function proofBadgeOf(proof: AgentProvenance) {
+  if (proof.blockchain.transactionStatus === 'PENDING')
+    return { text: '블록 확정 대기 중', color: 'var(--color-muted)' }
+  if (!proof.verification.verified)
+    return { text: '✗ 원본 검증 불일치', color: 'rgba(255,196,214,.9)' }
+  return { text: '✓ 원본 검증됨', color: 'var(--color-accent-bright)' }
+}
+
 type ShotTab = AgentImage['type']
 
 export default function Detail() {
@@ -60,6 +107,73 @@ export default function Detail() {
     // 단언 대신 enabled 로 막는다 — 빈 ID 로 요청이 나가지 않는다.
     enabled: !!agentId,
   })
+
+  // 상세를 기다리지 않는다 — 두 요청이 나란히 나간다.
+  const provenance = useQuery({
+    queryKey: queryKeys.marketplace.agents.provenance(agentId ?? ''),
+    queryFn: () => getAgentProvenance(agentId ?? ''),
+    enabled: !!agentId,
+  })
+
+  // 404 가 두 가지라 status 로는 못 가른다.
+  const provenanceMissing =
+    provenance.error instanceof ApiError && provenance.error.code === 'BLOCKCHAIN_003'
+
+  // 상세·증명과 나란히 나간다. 리뷰는 페이지 맨 아래라 늦게 와도 위쪽을 밀지 않는다.
+  const reviews = useInfiniteQuery({
+    queryKey: queryKeys.marketplace.agents.reviews.list(agentId ?? '', {
+      size: REVIEW_PAGE_SIZE,
+    }),
+    queryFn: ({ pageParam }) =>
+      getAgentReviews(agentId ?? '', { cursor: pageParam, size: REVIEW_PAGE_SIZE }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled: !!agentId,
+  })
+
+  const reviewItems = reviews.data?.pages.flatMap((page) => page.content) ?? []
+
+  /* 처음에는 '더 보기' 버튼만 둔다. 상세를 보러 온 사람에게 리뷰가 먼저 자라면
+     읽던 자리를 잃는다 — 더 볼지는 사용자가 정한다. 한 번 누르면 그 뒤로는
+     끝에 닿을 때마다 이어받는다.
+     불린 대신 어느 에이전트에서 눌렀는지를 담는다 — 다른 상세로 옮기면 effect 로
+     되돌리지 않아도 저절로 버튼 상태로 돌아간다. */
+  const [autoLoadFor, setAutoLoadFor] = useState<string | null>(null)
+  const reviewAutoLoad = autoLoadFor === agentId
+
+  /* root 를 주지 않아도 된다 — 교차 계산은 조상의 클립(#detailScroll)까지 함께 본다.
+     실패한 커서로 다시 관찰하지 않는다 — 교차할 때마다 같은 요청이 반복된다.
+
+     rootMargin 은 두지 않고 센티넬도 목록이 아니라 페이지 맨 아래에 둔다. 조금이라도
+     미리 받으면 사용자가 끝에 닿기 전에 다음 장이 화면 밖에 그려져, 내려가 보면
+     처음부터 다 있었던 것처럼 보인다. 바닥에 닿은 뒤에만 받는다.
+
+     그래도 자라는 것이 보이도록 목록 끝에 한 줄짜리 빈 자리(REVIEW_LANDING)를 남긴다.
+     바닥에 닿은 순간 그 자리가 화면에 있으므로, 비어 있던 곳이 새 리뷰로 채워진다. */
+  const reviewEndRef = useRef<HTMLDivElement>(null)
+  /** 바닥에 닿아 다음 장을 기다리는 중. 아직 요청 전이다. */
+  const [reviewHold, setReviewHold] = useState(false)
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = reviews
+  useEffect(() => {
+    const node = reviewEndRef.current
+    if (!node || !reviewAutoLoad || !hasNextPage || isFetchNextPageError) return
+    let hold: ReturnType<typeof setTimeout> | undefined
+    const observer = new IntersectionObserver(([entry]) => {
+      clearTimeout(hold)
+      // 바닥을 벗어나면 기다리던 것을 취소한다 — 스쳐 지나간 것은 요청이 아니다.
+      if (!entry.isIntersecting || isFetchingNextPage) return setReviewHold(false)
+      setReviewHold(true)
+      hold = setTimeout(() => {
+        setReviewHold(false)
+        void fetchNextPage()
+      }, REVIEW_HOLD_MS)
+    })
+    observer.observe(node)
+    return () => {
+      clearTimeout(hold)
+      observer.disconnect()
+    }
+  }, [reviewAutoLoad, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   const queryClient = useQueryClient()
   const favorite = useMutation({
@@ -177,6 +291,28 @@ export default function Detail() {
     `★ ${ratingLabel(agent.averageRating, agent.reviewCount)}`,
     `즐겨찾기 ${compactCount(agent.favoriteCount)}`,
   ]
+  // 실행 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
+  const proofTop = agent.usageExample ? 1440 : 1268
+
+  /* 리뷰는 위쪽 좌표를 건드리지 않고 바닥을 늘릴 수 있도록 페이지의 마지막 블록으로 한다.
+     증명 카드가 끝나는 자리(proofTop + 426)에서 32px 띄운다. */
+  const reviewsTop = proofTop + 458
+  const reviewsBody = reviewItems.length ? reviewItems.length * REVIEW_ROW : REVIEW_NOTICE
+  const reviewsFoot =
+    reviews.hasNextPage || reviews.isFetchNextPageError
+      ? reviewAutoLoad
+        ? REVIEW_LANDING
+        : REVIEW_MORE_BUTTON
+      : 0
+  const reviewsCard = REVIEW_PAD + reviewsBody + reviewsFoot
+  // 제목 32px + 카드 + 바닥 여백 64px.
+  const pageHeight = reviewsTop + 32 + reviewsCard + 64
+  const proof = provenance.data
+  const proofBadge = proof && proofBadgeOf(proof)
+  // 대조해 보라고 두는 값이라 주소는 줄이지 않는다.
+  const onChainOwner = proof?.verification.onChainOwnerAddress ?? ''
+  const onChainHash = proof ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…` : ''
+
   const thumbs = shots.map((img, i) => ({
     imageId: img.imageId,
     url: img.url,
@@ -196,7 +332,8 @@ export default function Detail() {
           height: '1024px',
         }}
       >
-        <div className="relative" style={{ width: '1440px', height: '1520px' }}>
+        {/* 426 = 증명 카드 높이 + 아래 여백 */}
+        <div className="relative" style={{ width: '1440px', height: `${pageHeight}px` }}>
           <a
             className="absolute flex items-center text-[14px] tracking-[-.01em]"
             href={paths.search}
@@ -243,15 +380,34 @@ export default function Detail() {
           </div>
 
           <div
-            className="absolute text-[32px] font-bold tracking-[-.02em] text-white"
+            className="absolute flex items-center"
             style={{
               left: '424px',
               top: '180px',
-              textShadow: '0 2px 20px rgba(35,8,45,.6)',
+              gap: '12px',
               animation: 'rise .7s .08s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            {agent.name}
+            <div
+              className="text-[32px] font-bold tracking-[-.02em] text-white"
+              style={{ textShadow: '0 2px 20px rgba(35,8,45,.6)' }}
+            >
+              {agent.name}
+            </div>
+            {proofBadge && (
+              <div
+                className="flex flex-none items-center text-[12.5px] font-semibold tracking-[-.01em]"
+                style={{
+                  height: '26px',
+                  padding: '0 12px',
+                  borderRadius: '13px',
+                  background: 'var(--color-surface-quiet)',
+                  color: proofBadge.color,
+                }}
+              >
+                {proofBadge.text}
+              </div>
+            )}
           </div>
           <div
             className="absolute text-[15px] tracking-[-.01em]"
@@ -668,6 +824,264 @@ export default function Detail() {
               </div>
             </>
           )}
+
+          <div
+            className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
+            style={{
+              left: '272px',
+              top: `${proofTop}px`,
+              animation: 'rise .7s .54s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            원본 증명
+          </div>
+          <div
+            className="absolute box-border text-[13.5px] tracking-[-.01em]"
+            style={{
+              left: '272px',
+              top: `${proofTop + 32}px`,
+              width: '896px',
+              padding: '24px',
+              borderRadius: '14px',
+              background: 'var(--color-surface-inset)',
+              animation: 'unfold .8s .56s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            {provenance.isPending && <div className="text-faint">불러오는 중…</div>}
+
+            {/* 재조회가 실패해도 직전 응답은 캐시에 남는다 — 안내와 증명을 같이 띄우지 않는다. */}
+            {provenanceMissing && !proof && (
+              <>
+                <div className="text-body">아직 온체인에 기록되지 않았습니다.</div>
+                <div className="text-muted" style={{ marginTop: '8px' }}>
+                  등록이 끝나면 원작자 주소와 트랜잭션이 여기에 표시됩니다.
+                </div>
+              </>
+            )}
+
+            {provenance.isError && !provenanceMissing && !proof && (
+              <div className="flex items-center" style={{ gap: '12px' }}>
+                <span style={{ color: 'rgba(255,196,214,.9)' }}>
+                  원본 증명을 불러오지 못했습니다.
+                </span>
+                <button
+                  className="text-muted cursor-pointer underline"
+                  onClick={() => void provenance.refetch()}
+                  style={{ background: 'none', border: 0, padding: 0 }}
+                  type="button"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
+            {proof && (
+              <>
+                <div>
+                  {(
+                    [
+                      [
+                        '원작자',
+                        `${proof.owner.nickname}  ${shortAddress(proof.owner.walletAddress)}`,
+                      ],
+                      // 네트워크 이름은 손으로 적지 않는다 — chainId 로 찾는다.
+                      [
+                        '네트워크',
+                        `${chainNameOf(proof.blockchain.chainId)} · ${proof.blockchain.chainId}`,
+                      ],
+                      ['트랜잭션', shortAddress(proof.blockchain.transactionHash)],
+                      ['블록', blockLabel(proof.blockchain.blockNumber)],
+                      ['등록 시각', dateTimeLabel(proof.blockchain.registeredAt)],
+                    ] as const
+                  ).map(([label, value], i) => (
+                    <div className="flex" key={label} style={{ marginTop: i === 0 ? 0 : '10px' }}>
+                      <div className="text-muted" style={{ width: '88px' }}>
+                        {label}
+                      </div>
+                      <div className="text-body">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: '18px' }}>
+                  {(
+                    [
+                      ['원작자 주소', proof.verification.ownerMatched, onChainOwner],
+                      ['메타데이터 해시', proof.verification.metadataMatched, onChainHash],
+                    ] as const
+                  ).map(([label, matched, value], i) => (
+                    <div
+                      className="flex items-center"
+                      key={label}
+                      style={{ gap: '10px', marginTop: i === 0 ? 0 : '8px' }}
+                    >
+                      <span
+                        style={{
+                          color: matched ? 'var(--color-accent-bright)' : 'rgba(255,196,214,.9)',
+                        }}
+                      >
+                        {matched ? `✓ ${label} 일치` : `✗ ${label} 불일치`}
+                      </span>
+                      <span className="text-faint text-[12.5px]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 외부 주소라 paths 를 거치지 않는다. */}
+                <a
+                  className="text-accent-bright inline-block"
+                  href={proof.blockchain.explorerUrl}
+                  rel="noreferrer"
+                  style={{ marginTop: '18px' }}
+                  target="_blank"
+                >
+                  Polygonscan에서 보기 →
+                </a>
+
+                <div className="text-faint text-[12.5px]" style={{ marginTop: '16px' }}>
+                  노드 구성·연결 관계·프롬프트는 블록체인에 기록하지 않습니다. 소유권과 해시만
+                  기록합니다.
+                </div>
+              </>
+            )}
+          </div>
+
+          <div
+            className="absolute text-[16px] font-semibold tracking-[-.01em] text-white"
+            style={{
+              left: '272px',
+              top: `${reviewsTop}px`,
+              animation: 'rise .7s .58s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            리뷰 {compactCount(agent.reviewCount)}
+          </div>
+          <div
+            className="absolute box-border text-[13.5px] tracking-[-.01em]"
+            style={{
+              left: '272px',
+              top: `${reviewsTop + 32}px`,
+              width: '896px',
+              padding: '24px',
+              borderRadius: '14px',
+              background: 'var(--color-surface-inset)',
+              animation: 'unfold .8s .6s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            {/* 목록 대신 들어가는 한 줄들은 가운데로 둔다 — 왼쪽에 붙이면 첫 번째
+                리뷰처럼 보인다. 빈 화면을 가운데 두는 것은 empty-state 와 같은 규칙이다. */}
+            {reviews.isPending && <div className="text-faint text-center">불러오는 중…</div>}
+
+            {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다. */}
+            {!reviews.isPending && !reviews.isError && reviewItems.length === 0 && (
+              <div className="text-muted text-center">
+                아직 리뷰가 없습니다. 첫 리뷰를 남겨 보세요.
+              </div>
+            )}
+
+            {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다.
+                여기서도 다시 받는 중이면 오류 대신 진행을 보여 준다. */}
+            {reviews.isError &&
+              reviewItems.length === 0 &&
+              (reviews.isFetching ? (
+                <div className="text-faint text-center">불러오는 중…</div>
+              ) : (
+                <div className="flex items-center justify-center" style={{ gap: '12px' }}>
+                  <span style={{ color: 'rgba(255,196,214,.9)' }}>리뷰를 불러오지 못했습니다.</span>
+                  <button
+                    className="text-muted cursor-pointer underline"
+                    onClick={() => void reviews.refetch()}
+                    style={{ background: 'none', border: 0, padding: 0 }}
+                    type="button"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ))}
+
+            {reviewItems.map((review, i) => (
+              <div
+                key={review.reviewId}
+                style={{
+                  borderTop: i === 0 ? 0 : '1px solid rgba(255,255,255,.16)',
+                  paddingTop: i === 0 ? 0 : '16px',
+                  marginTop: i === 0 ? 0 : '16px',
+                }}
+              >
+                <div className="flex items-center" style={{ gap: '10px' }}>
+                  <span className="text-body font-semibold">{maskName(review.authorNickname)}</span>
+                  <span style={{ color: 'var(--color-accent-bright)' }}>★ {review.rating}</span>
+                  <span className="text-faint text-[12.5px]">{timeLabel(review.createdAt)}</span>
+                </div>
+                {/* 2줄로 자른다 — 건마다 높이가 같아야 페이지 바닥을 미리 계산할 수 있다. */}
+                <div
+                  className="text-muted"
+                  style={{
+                    marginTop: '6px',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {review.content}
+                </div>
+              </div>
+            ))}
+
+            {(reviews.hasNextPage || reviews.isFetchNextPageError) &&
+              (reviewAutoLoad ? (
+                /* 빈 자리 한가운데에 놓는다. 위에 붙여 두면 마지막 리뷰의 꼬리처럼
+                   보여서 안내인 줄 모른다. */
+                <div
+                  className="text-faint flex items-center justify-center text-[12.5px]"
+                  style={{ marginTop: '16px', height: `${REVIEW_LANDING - 16}px` }}
+                >
+                  {/* 진행 중이 실패보다 앞선다. 재시도 중에도 오류 문구가 그대로면
+                      눌린 것인지 알 수 없다 — 재시도는 백오프까지 붙어 몇 초가 걸린다.
+                      다시 실패하면 버튼이 돌아온다. */}
+                  {reviewHold || reviews.isFetchingNextPage ? (
+                    '불러오는 중…'
+                  ) : reviews.isFetchNextPageError ? (
+                    <button
+                      className="text-muted cursor-pointer underline"
+                      onClick={() => void reviews.fetchNextPage()}
+                      style={{ background: 'none', border: 0, padding: 0 }}
+                      type="button"
+                    >
+                      리뷰를 더 불러오지 못했습니다. 다시 시도
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  className="text-muted w-full cursor-pointer"
+                  disabled={reviews.isFetchingNextPage}
+                  onClick={() => {
+                    setAutoLoadFor(agentId)
+                    void reviews.fetchNextPage()
+                  }}
+                  style={{
+                    marginTop: '20px',
+                    padding: '8px 0',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,.16)',
+                    background: 'none',
+                  }}
+                  type="button"
+                >
+                  더 보기
+                </button>
+              ))}
+          </div>
+
+          {/* 페이지의 마지막 1px. 여기가 보인다는 것은 바닥에 닿았다는 뜻이다.
+              센티넬을 목록 끝에 두면 카드 여백·페이지 여백만큼(156px) 먼저 걸려,
+              사용자가 도착하기 전에 다음 장이 화면 밖에 이미 그려져 있다. */}
+          <div
+            ref={reviewEndRef}
+            style={{ position: 'absolute', top: `${pageHeight - 1}px`, left: 0, height: '1px' }}
+          ></div>
         </div>
       </div>
     </>

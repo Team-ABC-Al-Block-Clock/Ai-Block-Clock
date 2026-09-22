@@ -125,7 +125,7 @@ function issueSession() {
 export const authHandlers = [
   /** 서명할 nonce 발급 */
   http.post(`${API_BASE_URL}/auth/wallet/message`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const { walletAddress } = (await request.json()) as { walletAddress?: string }
@@ -140,7 +140,7 @@ export const authHandlers = [
 
   /** 서명 검증 후 가입 또는 로그인 */
   http.post(`${API_BASE_URL}/auth/wallet/login`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const { walletAddress, signature } = (await request.json()) as {
@@ -168,8 +168,8 @@ export const authHandlers = [
   }),
 
   /** 쿠키가 없거나 형식이 틀리면 실서버도 거절한다 — 200 이 아니다. */
-  http.post(`${API_BASE_URL}/auth/logout`, async () => {
-    const forced = await scene()
+  http.post(`${API_BASE_URL}/auth/logout`, async ({ request }) => {
+    const forced = await scene(request)
     if (forced) return forced
 
     if (!readSession()) {
@@ -179,8 +179,8 @@ export const authHandlers = [
     writeSession(null)
     return ok(null)
   }),
-  http.get(`${API_BASE_URL}/users/me`, async () => {
-    const forced = await scene()
+  http.get(`${API_BASE_URL}/users/me`, async ({ request }) => {
+    const forced = await scene(request)
     if (forced) return forced
 
     const walletAddress = readSession()
@@ -192,7 +192,7 @@ export const authHandlers = [
     return ok<UserProfile>({ ...stored, wallet: { ...stored.wallet, address: walletAddress } })
   }),
   http.patch(`${API_BASE_URL}/users/me`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     // 명세가 multipart 다 — 프로필 이미지가 같은 요청에 실린다
@@ -253,7 +253,7 @@ export const authHandlers = [
    * 이름을 덮어쓰고 나서 409 를 내는 일이 없다.
    */
   http.post(`${API_BASE_URL}/users/me/signup`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     if (!readSession()) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')

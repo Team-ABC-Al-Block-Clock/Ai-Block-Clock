@@ -2,6 +2,7 @@ import type {
   AgentDetail,
   AgentFavorite,
   AgentImage,
+  AgentProvenance,
   AgentSummary,
   CreateAgentRequest,
   FavoriteAgent,
@@ -187,6 +188,65 @@ export function toSummary(agent: AgentDetail): AgentSummary {
     favorited: agent.favorited,
     owner: { nickname: agent.owner.nickname },
     createdAt: agent.createdAt,
+  }
+}
+
+/** 화면의 세 갈래 — 기록 없음(404) · 확정 대기 · 대조 불일치 — 는 이 셋으로만 확인된다. */
+const NO_RECORD = 'agt_30'
+const PENDING = 'agt_29'
+/** 주소와 해시가 둘 다 어긋난 건. 화면의 ✗ 두 줄을 한 번에 확인한다. */
+const TAMPERED = 'agt_28'
+
+/** 난수로 만들면 refetch 마다 해시가 바뀌어 값이 달라진 것처럼 보인다. */
+function hex(seed: string, length: number) {
+  let h = 0
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+
+  let out = ''
+  for (let i = 0; out.length < length; i++) {
+    out += ((h + i * 0x9e3779b9) >>> 0).toString(16).padStart(8, '0')
+  }
+  return out.slice(0, length)
+}
+
+export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
+  if (agent.agentId === NO_RECORD) return null
+
+  const pending = agent.agentId === PENDING
+  const stale = agent.agentId === TAMPERED
+
+  const walletAddress = `0x${hex(agent.owner.userId, 40)}`
+  const transactionHash = `0x${hex(`${agent.agentId}:tx`, 64)}`
+  const metadataHash = `0x${hex(`${agent.agentId}:metadata`, 64)}`
+  const onChainOwnerAddress = stale ? `0x${hex(`${agent.agentId}:stale-owner`, 40)}` : walletAddress
+  const onChainMetadataHash = stale ? `0x${hex(`${agent.agentId}:stale-hash`, 64)}` : metadataHash
+
+  const ownerMatched = onChainOwnerAddress === walletAddress
+  const metadataMatched = onChainMetadataHash === metadataHash
+
+  return {
+    agentId: agent.agentId,
+    owner: { nickname: agent.owner.nickname, walletAddress },
+    blockchain: {
+      network: 'POLYGON_AMOY',
+      chainId: 80002,
+      contractAddress: '0x41e2e64a79b19e9329f82d3d55be5e767a6f571d',
+      transactionHash,
+      transactionStatus: pending ? 'PENDING' : 'CONFIRMED',
+      // 등록 화면으로 만든 건은 ID 가 UUID 다 — 숫자만 뽑으면 안전한 정수 범위를 넘는다.
+      blockNumber: pending ? null : 15_230_000 + (parseInt(hex(agent.agentId, 6), 16) % 100_000),
+      registeredAt: agent.createdAt,
+      explorerUrl: `https://amoy.polygonscan.com/tx/${transactionHash}`,
+    },
+    verification: {
+      offChainOwnerAddress: walletAddress,
+      onChainOwnerAddress,
+      offChainMetadataHash: metadataHash,
+      onChainMetadataHash,
+      ownerMatched,
+      metadataMatched,
+      verified: ownerMatched && metadataMatched,
+    },
   }
 }
 
