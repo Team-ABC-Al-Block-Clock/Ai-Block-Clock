@@ -27,6 +27,12 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
+    public List<NodeDefinition> readAll(List<NodeDefinitionId> ids) {
+        return nodeRepository.findAllById(ids.stream().map(NodeDefinitionId::value).toList()).stream()
+                .map(NodeDefinitionEntityConverter::toDomain)
+                .toList();
+    }
+
     public boolean isOwnedBy(NodeDefinitionId id, UserId owner) {
         return nodeRepository.existsByIdAndOwnerId(id.value(), owner.value());
     }

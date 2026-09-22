@@ -26,16 +26,20 @@ public class WorkflowValidator {
         }
     }
 
+    public static void ensureRevision(Revision current, Revision expected) {
+        if (!current.equals(expected)) {
+            throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
+                    Map.of("expectedRevision", expected.value(), "currentRevision", current.value()));
+        }
+    }
+
     @Transactional
     public ReplaceTarget ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
         WorkflowEntity entity = lock(id);
         ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
         Revision current = Revision.of(entity.getRevision());
-        if (!current.equals(expected)) {
-            throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
-                    Map.of("expectedRevision", expected.value(), "currentRevision", current.value()));
-        }
+        ensureRevision(current, expected);
 
         return new ReplaceTarget(GraphId.of(entity.getGraphId()),
                 new GraphRevision(current.next(), ValidationStatus.NOT_VALIDATED));
