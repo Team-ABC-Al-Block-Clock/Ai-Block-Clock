@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useReducer, useRef } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
-import { PANE_WIDTH } from '@/components/CanvasPane'
+import { PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
   initialCanvasState,
@@ -9,16 +9,22 @@ import {
 } from '@/lib/canvasReducer'
 import {
   NODE_SIZE,
-  NO_BOUNDS,
   canConnect,
   canSellWorkflow,
-  clampToBounds,
   edgeGeometry,
   edgePath,
   portPoint,
   resolveOverlap,
-  type CanvasBounds,
 } from '@/lib/canvasWorkflow'
+import {
+  INITIAL_VIEWPORT,
+  panBy,
+  viewportTransform,
+  wheelZoom,
+  zoomPercent,
+  zoomStep,
+  type Viewport,
+} from '@/lib/viewport'
 
 /** 이 거리보다 움직였으면 선택이 아니라 이동으로 본다. */
 const DRAG_SLOP = 4
@@ -37,28 +43,46 @@ interface Grab {
   el: HTMLDivElement
   baseX: number
   baseY: number
-  bounds: CanvasBounds
   /** 선택 빛이 지금 이 카드를 따라다니는가 */
   glow: boolean
+}
+
+/** 작업면을 끄는 동안 알아야 하는 것. 카드와 같은 이유로 ref 에 둔다. */
+interface Pan {
+  /** 누른 창 좌표 */
+  ox: number
+  oy: number
+  /** 누를 때의 뷰포트. 여기서부터 더한다 */
+  from: Viewport
+  /** 지금까지 민 설계 거리. 손을 뗄 때 이 값으로 확정한다 */
+  dx: number
+  dy: number
+  /** 끈 것인가. 아니면 빈 곳을 클릭한 것이라 선택만 푼다 */
+  moved: boolean
 }
 
 /**
  * 캔버스의 상태와 손짓을 한데 묶는다.
  *
- * 상태 전이는 전부 `canvasReducer` 가 한다. 여기는 화면을 재고(`toCanvasPoint`·
- * `canvasBounds`), 포인터를 따라 DOM 을 직접 고치고(드래그 중 리렌더를 피한다),
- * 언제 어떤 액션을 낼지만 정한다.
+ * 상태 전이는 전부 `canvasReducer` 가 한다. 여기는 화면을 재고(`toCanvasPoint`),
+ * 포인터를 따라 DOM 을 직접 고치고(드래그 중 리렌더를 피한다), 언제 어떤 액션을
+ * 낼지만 정한다. 좌표 변환은 `lib/viewport` 한 곳에 모여 있다.
  */
 export function useCanvasWorkflow() {
   const [state, dispatch] = useReducer(canvasReducer, initialCanvasState)
   const { nodes, edges, selId, hovId, selEdge, dragId, linkFrom } = state
+  const [view, setView] = useState<Viewport>(INITIAL_VIEWPORT)
 
+  /** 작업면 상자. 화면에 고정돼 있어 배율을 재는 기준이 된다. */
   const paneRef = useRef<HTMLDivElement>(null)
+  /** 팬·줌이 걸린 판. 노드 좌표는 이 안의 좌표다. */
+  const worldRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const glowRef = useRef<HTMLDivElement>(null)
   const tempRef = useRef<SVGPathElement>(null)
 
   const grab = useRef<Grab | null>(null)
+  const pan = useRef<Pan | null>(null)
   /** 드래그가 끝난 자리. 손을 뗄 때 한 번만 상태로 옮긴다. */
   const landing = useRef<{ x: number; y: number } | null>(null)
   const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -83,39 +107,37 @@ export function useCanvasWorkflow() {
   }
   useEffect(() => () => clearTimeout(settleTimer.current), [])
 
-  /** 창 좌표 → 설계 좌표. 프레임이 화면 크기에 맞춰 배율을 걸어 둬서 그대로 쓰면 어긋난다. */
+  /**
+   * 창 좌표 → 설계 좌표.
+   *
+   * 판을 직접 재는 것으로 끝난다 — `getBoundingClientRect` 가 창맞춤 배율과 팬·줌을
+   * 모두 반영한 값을 주므로 여기서 변환을 다시 셈하지 않는다. 팬 중에 인라인으로
+   * 써 넣은 `transform` 도 그대로 잡혀 끄는 도중에 놓아도 자리가 맞는다.
+   */
   const toCanvasPoint = (clientX: number, clientY: number) => {
-    const rect = paneRef.current?.getBoundingClientRect()
+    const rect = worldRef.current?.getBoundingClientRect()
     if (!rect || rect.width === 0) return null
     const scale = rect.width / PANE_WIDTH
     return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale }
   }
 
   /**
-   * 카드가 갈 수 있는 범위를 화면에서 잰다. 패널 위치가 `--edge` 만큼 창 너비를 타서
-   * 설계 좌표로 박을 수 없다. 네 방향 모두 카드 절반까지만 — 남은 절반으로 되꺼낸다.
+   * 창을 설계 크기에 맞추느라 걸린 배율. 팬·줌은 빠진 값이다.
+   *
+   * 뷰포트의 이동량(`tx`·`ty`)은 판 **바깥** 좌표라 줌 배율을 타지 않는다.
+   * 창에서 끈 거리를 그 좌표로 옮기려면 이 배율로만 나눠야 한다.
    */
-  const canvasBounds = (): CanvasBounds | null => {
-    const pane = paneRef.current?.getBoundingClientRect()
-    const panel = panelRef.current?.getBoundingClientRect()
-    if (!pane || !panel || pane.width === 0) return null
-    const scale = pane.width / PANE_WIDTH
-    const toX = (clientX: number) => (clientX - pane.left) / scale
-    const toY = (clientY: number) => (clientY - pane.top) / scale
-    const half = NODE_SIZE / 2
-    return {
-      minX: toX(0) - half,
-      maxX: toX(panel.left) - half,
-      minY: toY(0) - half,
-      maxY: toY(window.innerHeight) - half,
-    }
+  const fitScale = () => {
+    const rect = paneRef.current?.getBoundingClientRect()
+    if (!rect || rect.width === 0) return null
+    return rect.width / PANE_WIDTH
   }
 
   /** 드래그 중 직접 써 넣은 선은 React 가 모른다. 좌표가 정해질 때마다 여기서 고친다. */
   const paintEdges = (at: { id: string; x: number; y: number }, only = edges) => {
     const preview = nodes.map((node) => (node.id === at.id ? { ...node, x: at.x, y: at.y } : node))
     for (const edge of edgeGeometry(preview, only)) {
-      paneRef.current
+      worldRef.current
         ?.querySelectorAll(`[data-edge="${edge.id}"]`)
         .forEach((path) => path.setAttribute('d', edge.d))
     }
@@ -149,7 +171,6 @@ export function useCanvasWorkflow() {
       el: ev.currentTarget,
       baseX: at.x,
       baseY: at.y,
-      bounds: canvasBounds() ?? NO_BOUNDS,
       glow: (hovId ?? selId) === id,
     }
     landing.current = { x: at.x, y: at.y }
@@ -177,8 +198,9 @@ export function useCanvasWorkflow() {
     const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
     if (slid > DRAG_SLOP) moved.current = true
 
-    // 겹침은 손을 뗄 때 한 번만 정리한다.
-    const next = clampToBounds(point.x - held.dx, point.y - held.dy, held.bounds)
+    // 겹침은 손을 뗄 때 한 번만 정리한다. 캔버스는 끝이 없어 자르지 않는다 —
+    // 화면 밖으로 밀어 두고 작업면을 끌어 따라가는 것이 정상이다.
+    const next = { x: point.x - held.dx, y: point.y - held.dy }
     landing.current = next
     held.el.style.transform = `translate3d(${next.x - held.baseX}px, ${next.y - held.baseY}px, 0)`
     // 빛은 left·top 으로 민다 — transform 은 React 가 들고 있지 않아 지우면 되살아나지 않는다.
@@ -201,7 +223,7 @@ export function useCanvasWorkflow() {
       return
     }
 
-    const settled = resolveOverlap(nodes, held.id, raw.x, raw.y, held.bounds)
+    const settled = resolveOverlap(nodes, held.id, raw.x, raw.y)
     const offset = (p: { x: number; y: number }) =>
       `translate3d(${p.x - held.baseX}px, ${p.y - held.baseY}px, 0)`
 
@@ -284,11 +306,80 @@ export function useCanvasWorkflow() {
     dispatch({ type: 'endLink', targetId: target.id, side })
   }
 
-  /** 빈 곳을 누르면 선택 해제. */
+  /**
+   * 빈 곳을 누른다 — 끌면 작업면 이동, 안 끌고 떼면 선택 해제. 손을 떼는 순간 판단한다.
+   */
   const handlePaneDown = (ev: React.PointerEvent<HTMLDivElement>) => {
-    if ((ev.target as HTMLElement).closest('[data-node],[data-edge]')) return
-    dispatch({ type: 'clearSelection' })
+    if (ev.button !== 0) return
+    // 바닥을 직접 눌렀을 때만 끈다. 줌 툴바·이름 입력·실행 버튼이 모두 작업면 안에
+    // 있어서, 조상까지 올려보면 그것들을 눌러도 팬이 시작된다 — 포인터를 캡처해 가
+    // 버려 정작 그 버튼의 click 이 오지 않는다.
+    const target = ev.target as HTMLElement
+    if (target !== ev.currentTarget && !target.hasAttribute('data-canvas-bg')) return
+    pan.current = { ox: ev.clientX, oy: ev.clientY, from: view, dx: 0, dy: 0, moved: false }
+    try {
+      ev.currentTarget.setPointerCapture(ev.pointerId)
+    } catch {
+      /* 이미 놓인 포인터 */
+    }
   }
+
+  /** 카드와 같은 방식 — 끄는 동안에는 판의 `transform` 만 직접 쓴다. */
+  const handlePaneMove = (ev: React.PointerEvent<HTMLDivElement>) => {
+    const held = pan.current
+    const fit = fitScale()
+    if (!held || !fit) return
+    const slid = Math.abs(ev.clientX - held.ox) + Math.abs(ev.clientY - held.oy)
+    if (slid > DRAG_SLOP) held.moved = true
+    if (!held.moved) return
+
+    held.dx = (ev.clientX - held.ox) / fit
+    held.dy = (ev.clientY - held.oy) / fit
+    if (worldRef.current) {
+      worldRef.current.style.transform = viewportTransform(panBy(held.from, held.dx, held.dy))
+    }
+  }
+
+  const handlePaneUp = () => {
+    const held = pan.current
+    pan.current = null
+    if (!held) return
+    if (!held.moved) {
+      dispatch({ type: 'clearSelection' })
+      return
+    }
+    setView(panBy(held.from, held.dx, held.dy))
+  }
+
+  /** 툴바 − / + . 화면 한가운데를 붙잡는다. */
+  const zoomBy = (direction: 'in' | 'out') =>
+    setView((current) => zoomStep(current, direction, PANE_WIDTH / 2, PANE_HEIGHT / 2))
+
+  /**
+   * 휠 확대·축소. 네이티브로 단다 — React 의 wheel 은 passive 라
+   * `preventDefault` 가 먹지 않아 페이지가 같이 스크롤된다.
+   */
+  useEffect(() => {
+    const pane = paneRef.current
+    if (!pane) return
+    // 좌표는 여기서 직접 잰다 — 렌더마다 새로 만들어지는 함수를 물면 휠을 다시 단다.
+    const onWheel = (ev: WheelEvent) => {
+      const rect = pane.getBoundingClientRect()
+      if (rect.width === 0) return
+      const fit = rect.width / PANE_WIDTH
+      ev.preventDefault()
+      setView((current) =>
+        wheelZoom(
+          current,
+          ev.deltaY,
+          (ev.clientX - rect.left) / fit,
+          (ev.clientY - rect.top) / fit,
+        ),
+      )
+    }
+    pane.addEventListener('wheel', onWheel, { passive: false })
+    return () => pane.removeEventListener('wheel', onWheel)
+  }, [])
 
   /** 팔레트에서 끌어온 항목을 커서가 카드 한가운데를 잡고 있는 것처럼 놓는다. */
   const placeFromPalette = (seed: Omit<PlacedSeed, 'id'>, point: { x: number; y: number }) => {
@@ -298,7 +389,6 @@ export function useCanvasWorkflow() {
       seed: { ...seed, id: `placed-${placedCount.current}` },
       x: point.x - NODE_SIZE / 2,
       y: point.y - NODE_SIZE / 2,
-      bounds: canvasBounds() ?? NO_BOUNDS,
     })
   }
 
@@ -337,7 +427,11 @@ export function useCanvasWorkflow() {
     linkFrom,
     canSell: canSellWorkflow(nodes),
     portOpen,
-    refs: { paneRef, panelRef, glowRef, tempRef },
+    view,
+    zoomLabel: `${zoomPercent(view)}%`,
+    zoomIn: () => zoomBy('in'),
+    zoomOut: () => zoomBy('out'),
+    refs: { paneRef, worldRef, panelRef, glowRef, tempRef },
     placeFromPalette,
     toCanvasPoint,
     onHover: (id: string) => dispatch({ type: 'hover', id }),
@@ -352,5 +446,7 @@ export function useCanvasWorkflow() {
     handlePortMove,
     handlePortUp,
     handlePaneDown,
+    handlePaneMove,
+    handlePaneUp,
   }
 }
