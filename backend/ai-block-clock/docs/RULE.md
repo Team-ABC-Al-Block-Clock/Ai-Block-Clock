@@ -578,10 +578,10 @@ agent      ->  workflow, domain
 그래서 그래프를 `workflow` 안에 둬도 순환이 생기지 않는다.
 
 **건너오는 타입을 세어서 본다.** `agent` 가 `workflow` 에서 아는 것은 `Workflow` · `WorkflowGraph` ·
-`NodeReference` · `WorkflowId` · `Revision` 다섯뿐이다. `AgentNode` 같은 구체 노드 타입도,
-`ValidationStatus` 같은 enum 도 건너오지 않는다 — 전자는 `agentReferences()` 가, 후자는
-`Workflow.isValidated()` 가 막는다. **`instanceof` 로 남의 패키지 타입을 갈라 보고 있으면
-그쪽이 물음에 답해 주지 않고 있다는 뜻이다.**
+`NodeReference` · `WorkflowId` · `Revision` · `GraphId` 여섯뿐이다. `AgentNode` 같은 구체 노드
+타입은 건너오지 않는다 — `agentReferences()` 가 막는다. 상태 enum 을 꺼내 갈라 볼 일이 생기면
+`Workflow` 가 그 물음에 답하는 메서드를 내놓는다. **`instanceof` 나 enum 비교로 남의 패키지 타입을
+갈라 보고 있으면 그쪽이 물음에 답해 주지 않고 있다는 뜻이다.**
 
 테스트 소스셋도 같다. `workflow` 의 픽스처가 `AgentId` 를 받으면 main 에서 막아 둔 방향이
 테스트에서 뚫린다. 에이전트가 필요한 픽스처는 `agent` 쪽에 둔다 (`AgentGraphFixtures`).

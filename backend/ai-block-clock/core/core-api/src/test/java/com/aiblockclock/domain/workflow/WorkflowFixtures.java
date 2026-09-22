@@ -8,7 +8,7 @@ public final class WorkflowFixtures {
     private WorkflowFixtures() {
     }
 
-    public static Workflow validated(UserId owner, WorkflowGraph graph) {
+    public static Workflow owned(UserId owner, WorkflowGraph graph) {
         return Workflow.restore(WorkflowId.newId(), owner, "성적 분석", null, graph,
                 ValidationStatus.VALID, Revision.initial(), Timestamps.unsaved(), null);
     }

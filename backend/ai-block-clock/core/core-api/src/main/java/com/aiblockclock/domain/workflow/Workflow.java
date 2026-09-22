@@ -42,8 +42,4 @@ public final class Workflow {
         return new Workflow(id, owner, name, description, graph, validationStatus, revision,
                 timestamps, lastExecutedAt);
     }
-
-    public boolean isValidated() {
-        return validationStatus == ValidationStatus.VALID;
-    }
 }

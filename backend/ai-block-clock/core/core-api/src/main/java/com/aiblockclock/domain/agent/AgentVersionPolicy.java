@@ -24,10 +24,6 @@ public class AgentVersionPolicy {
     public void ensureVersionable(Workflow workflow, UserId requester) {
         WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
 
-        if (!workflow.isValidated()) {
-            throw new CoreException(ErrorType.AGENT_WORKFLOW_NOT_VALIDATED);
-        }
-
         for (NodeReference reference : workflow.getGraph().baseNodeReferences()) {
             NodeDefinitionId nodeId = NodeDefinitionId.of(reference.referenceId());
             if (!nodeReader.isOwnedBy(nodeId, requester)) {

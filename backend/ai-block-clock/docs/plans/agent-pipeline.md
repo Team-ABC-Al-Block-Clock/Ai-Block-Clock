@@ -193,6 +193,7 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 | 응답 `images` · `blockchain` | 없음 | 위와 같다 |
 | 응답 `price` | **넣는다** | `AgentVersion.finalPrice()` 로 지금 계산된다 |
 | `AGENT_001` (테스트 미통과) | 쓰지 않는다 | `executionId` 를 안 받으므로 걸릴 일이 없다 |
+| 검증 통과 요구 (`AGENT_WORKFLOW_NOT_VALIDATED`) | **걷어냈다** | `ValidationStatus` 를 `VALID` 로 만드는 길이 프로덕션에 없어 무조건 걸렸다. 실행 도메인이 붙어 시험 실행이 생기면 그때 되살린다 |
 
 받는 것은 `workflowId` · `revision` 과 프로필 다섯이다. **회차를 같이 받는다** — 사용자가 보던
 회차와 굳히는 회차가 다르면 막아야 한다.

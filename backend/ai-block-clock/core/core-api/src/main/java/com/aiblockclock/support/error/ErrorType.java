@@ -93,9 +93,6 @@ public enum ErrorType {
     AGENT_WORKFLOW_EMPTY(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
             "노드가 없는 워크플로우로는 에이전트를 만들 수 없습니다.", LogLevel.WARN),
 
-    AGENT_WORKFLOW_NOT_VALIDATED(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
-            "검증이 완료되지 않은 워크플로우입니다.", LogLevel.WARN),
-
     AGENT_FOREIGN_NODE_INCLUDED(HttpStatus.FORBIDDEN, ErrorCode.AGENT_002,
             "타인 소유의 노드 또는 에이전트가 포함되어 있습니다.", LogLevel.WARN),
 

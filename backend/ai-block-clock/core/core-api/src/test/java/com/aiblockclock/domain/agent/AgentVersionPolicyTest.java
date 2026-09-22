@@ -3,11 +3,8 @@ package com.aiblockclock.domain.agent;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
-import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowFixtures;
-import com.aiblockclock.domain.workflow.WorkflowGraph;
-import com.aiblockclock.domain.workflow.WorkflowId;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -51,14 +48,10 @@ class AgentVersionPolicyTest {
         return nodeReader;
     }
 
-    private static Workflow emptyWorkflow() {
-        return Workflow.create(WorkflowId.newId(), OWNER, "성적 분석", null, WorkflowGraph.empty());
-    }
-
     @Test
-    @DisplayName("검증을 통과한 내 워크플로우로는 에이전트 버전을 만들 수 있다")
+    @DisplayName("내 노드로만 이루어진 워크플로우로는 에이전트 버전을 만들 수 있다")
     void allowsValidatedOwnWorkflow() {
-        Workflow workflow = WorkflowFixtures.validated(OWNER, GraphFixtures.straightLine());
+        Workflow workflow = WorkflowFixtures.owned(OWNER, GraphFixtures.straightLine());
 
         assertThatCode(() -> policy(Set.of()).ensureVersionable(workflow, OWNER))
                 .doesNotThrowAnyException();
@@ -67,28 +60,16 @@ class AgentVersionPolicyTest {
     @Test
     @DisplayName("소유자가 아니면 에이전트 버전을 만들 수 없다")
     void rejectsNonOwner() {
-        Workflow workflow = WorkflowFixtures.validated(OWNER, GraphFixtures.straightLine());
+        Workflow workflow = WorkflowFixtures.owned(OWNER, GraphFixtures.straightLine());
 
         assertThatThrownBy(() -> policy(Set.of()).ensureVersionable(workflow, OTHER))
                 .isInstanceOf(CoreException.class);
     }
 
     @Test
-    @DisplayName("검증 전 워크플로우로는 에이전트 버전을 만들 수 없다")
-    void rejectsNotValidated() {
-        Workflow workflow = Workflow.create(
-                WorkflowId.newId(), OWNER, "성적 분석", null, GraphFixtures.straightLine());
-
-        assertThatThrownBy(() -> policy(Set.of()).ensureVersionable(workflow, OWNER))
-                .isInstanceOf(CoreException.class)
-                .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.AGENT_WORKFLOW_NOT_VALIDATED);
-    }
-
-    @Test
     @DisplayName("남의 기본 노드가 섞여 있으면 에이전트 버전을 만들 수 없다")
     void rejectsForeignBaseNode() {
-        Workflow workflow = WorkflowFixtures.validated(OWNER, GraphFixtures.straightLine());
+        Workflow workflow = WorkflowFixtures.owned(OWNER, GraphFixtures.straightLine());
 
         assertThatThrownBy(() -> policyWithForeignNodes().ensureVersionable(workflow, OWNER))
                 .isInstanceOf(CoreException.class)
@@ -99,7 +80,7 @@ class AgentVersionPolicyTest {
     @Test
     @DisplayName("버전 생성 시점에 소유권을 다시 훑어 남의 것을 잡아낸다")
     void rechecksOwnershipAtVersionCreation() {
-        Workflow workflow = WorkflowFixtures.validated(OWNER,
+        Workflow workflow = WorkflowFixtures.owned(OWNER,
                 AgentGraphFixtures.withAgent(AgentId.newId(), AgentVersionId.newId()));
 
         assertThatThrownBy(() -> policy(Set.of()).ensureVersionable(workflow, OWNER))
