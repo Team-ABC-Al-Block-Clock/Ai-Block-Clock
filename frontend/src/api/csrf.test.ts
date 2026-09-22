@@ -141,7 +141,7 @@ describe('세션이 갈릴 때', () => {
 
   it('401 이면 버린다 — 세션이 사라졌으니 거기 매인 토큰도 죽었다', async () => {
     server.use(
-      http.post(PROBE, () => fail(401, AUTH_ERROR.EXPIRED, '세션이 만료되었습니다.')),
+      http.post(PROBE, () => fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')),
       http.post(`${API_BASE_URL}/probe-again`, () => ok(null)),
     )
 

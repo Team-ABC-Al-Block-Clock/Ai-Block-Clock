@@ -19,7 +19,7 @@ export const client = axios.create({
   timeout: 30_000,
   // Content-Type 은 지정하지 않는다. 여기에 application/json 을 박으면
   // FormData 가 JSON 문자열로 바뀌어 나간다.
-  // sessionToken 이 HttpOnly 쿠키로 오간다. 이게 없으면 모든 요청이 AUTH_005 다.
+  // 세션이 SESSION HttpOnly 쿠키로 오간다. 이게 없으면 모든 요청이 AUTH_005 다.
   withCredentials: true,
 })
 
@@ -50,9 +50,9 @@ client.interceptors.request.use(async (config) => {
 
 /**
  * 회복 불가능한 인증 실패를 스토어에 알린다 — api 계층이 라우터를 알지 않게 콜백으로 뺐다.
- * 코드를 함께 넘긴다. 만료와 폐기는 로그인 화면이 띄울 문구가 다르다.
+ * 코드는 넘기지 않는다. 서버가 401 을 `AUTH_005` 하나로만 답해서 가를 것이 없다.
  */
-export type AuthFailureHandler = (code?: string) => void
+export type AuthFailureHandler = () => void
 
 let onAuthFailure: AuthFailureHandler | null = null
 export function setOnAuthFailure(handler: AuthFailureHandler | null) {
@@ -112,7 +112,7 @@ client.interceptors.response.use(
     // 세션이 사라졌으니 거기 매인 토큰도 죽은 값이다.
     if (response.status === 401) {
       clearCsrfToken()
-      onAuthFailure?.(code)
+      onAuthFailure?.()
     }
 
     throw new ApiError(message, { code, status: response.status, cause: error })

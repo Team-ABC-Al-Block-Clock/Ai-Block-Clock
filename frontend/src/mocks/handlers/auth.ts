@@ -93,7 +93,7 @@ async function toDataUrl(file: File) {
 }
 
 /**
- * `sessionToken` 쿠키 대역. mock 은 HttpOnly 쿠키를 세팅할 수 없어 localStorage 로
+ * `SESSION` 쿠키 대역. mock 은 HttpOnly 쿠키를 세팅할 수 없어 localStorage 로
  * 흉내 낸다 — 그래야 새로고침 후에도 세션이 남는 경로를 확인할 수 있다.
  */
 const SESSION_KEY = 'mockWalletSession'
@@ -182,7 +182,7 @@ export const authHandlers = [
     if (forced) return forced
 
     if (!readSession()) {
-      return fail(401, AUTH_ERROR.INVALID, '로그인 세션을 사용할 수 없습니다.')
+      return fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')
     }
 
     writeSession(null)
@@ -193,7 +193,7 @@ export const authHandlers = [
     if (forced) return forced
 
     const walletAddress = readSession()
-    if (!walletAddress) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+    if (!walletAddress) return fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')
 
     // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — 픽스처 주소를 그대로
     // 돌려주면 어느 지갑으로 들어왔는지 화면에서 확인할 수 없다.
@@ -265,7 +265,7 @@ export const authHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    if (!readSession()) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+    if (!readSession()) return fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')
 
     const current = readProfile()
     if (current.onboardingCompleted) {

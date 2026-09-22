@@ -33,20 +33,20 @@ export class ApiError extends Error {
 }
 
 /**
- * 세션 쿠키 실패 코드. 다섯 가지 모두 회복 수단이 없다 — 지갑 서명 로그인부터 다시 한다.
- * 문구만 갈려서 `stores/authStore.ts` 의 `endReasonFromAuthCode` 가 사유로 옮긴다.
+ * 세션 인증 실패 코드. 이름은 서버의 `ErrorType` 을 그대로 따른다.
+ *
+ * 만료·폐기를 가르는 코드는 없다. 쿠키가 없든 세션이 만료됐든 알 수 없는 세션이든
+ * 서버는 `ApiAuthenticationEntryPoint` 에서 `AUTH_005` 하나로 답한다. 만료 판정을
+ * Spring Session 이 하고 만료된 세션은 조회조차 되지 않아 서버도 「없음」과 「만료」를
+ * 구분하지 않는다(백엔드 `docs/SESSION_AUTH.md`).
+ *
+ * 어느 쪽이든 회복 수단이 없다 — 지갑 서명 로그인부터 다시 한다.
  */
 export const AUTH_ERROR = {
-  /** sessionToken 쿠키 미전달 — 로그인 전이거나 쿠키가 저장되지 않았다 */
-  MISSING: 'AUTH_005',
+  /** 쿠키가 없거나, 세션이 만료됐거나, 알 수 없는 세션이다 */
+  NOT_IDENTIFIED: 'AUTH_005',
   /** 세션은 있으나 요청자를 특정할 수 없다 */
-  UNIDENTIFIABLE: 'AUTH_006',
-  /** 세션 만료 */
-  EXPIRED: 'AUTH_013',
-  /** 로그아웃했거나 다른 곳에서 재로그인해 이 세션이 종료됐다 */
-  ENDED: 'AUTH_014',
-  /** 알 수 없거나 잘못된 세션 토큰 */
-  INVALID: 'AUTH_018',
+  NOT_IDENTIFIABLE: 'AUTH_006',
 } as const
 
 /**

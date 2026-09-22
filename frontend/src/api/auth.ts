@@ -16,7 +16,7 @@ export interface WalletMessage {
   nonce: string
 }
 
-/** 로그인 응답. 토큰은 없다 — `sessionToken` 은 Set-Cookie 로만 온다. */
+/** 로그인 응답. 토큰은 없다 — 세션은 `SESSION` 쿠키로만 온다. */
 export interface WalletSession {
   /** 로그인 만료 시각. 화면에 만료를 보여줄 때만 쓴다 */
   expiresAt: string
@@ -49,7 +49,7 @@ export const requestWalletMessage = (walletAddress: string) =>
 
 /**
  * POST /auth/wallet/login — 서명을 검증하고 가입 또는 로그인한다.
- * 세션은 `sessionToken` HttpOnly 쿠키로 내려온다. 바디에 토큰은 없다.
+ * 세션은 `SESSION` HttpOnly 쿠키로 내려온다. 바디에 토큰은 없다.
  *
  * 성공하면 세션이 새로 열려 쓰던 CSRF 토큰이 죽는다. 스토어가 아니라 여기서 버리는 것은
  * 로그인·로그아웃을 부르는 곳이 한 군데가 아니기 때문이다(`authStore` 의 버려진 로그인).

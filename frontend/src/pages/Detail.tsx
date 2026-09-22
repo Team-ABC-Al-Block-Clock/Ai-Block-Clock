@@ -46,14 +46,8 @@ const ERROR_ACTIONS = JSON.stringify([
   { label: '목록으로', href: paths.search },
 ])
 
-/** 즐겨찾기 실패 중 로그인 문제. 401 안에서도 문구가 갈린다(`api/errors.ts`). */
-const AUTH_CODES: string[] = [
-  AUTH_ERROR.MISSING,
-  AUTH_ERROR.UNIDENTIFIABLE,
-  AUTH_ERROR.EXPIRED,
-  AUTH_ERROR.ENDED,
-  AUTH_ERROR.INVALID,
-]
+/** 즐겨찾기 실패 중 로그인 문제(`api/errors.ts`). */
+const AUTH_CODES: string[] = [AUTH_ERROR.NOT_IDENTIFIED, AUTH_ERROR.NOT_IDENTIFIABLE]
 
 /** 한 번에 불러오는 리뷰 개수. */
 const REVIEW_PAGE_SIZE = 5

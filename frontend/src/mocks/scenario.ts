@@ -7,7 +7,7 @@ import { fail } from '@/mocks/response'
  *
  *   ?mockDelay=1500                        모든 응답을 늦춘다
  *   ?mockFail=COMMON_001                   모든 응답을 실패시킨다 (기본 400)
- *   ?mockFail=AUTH_014&mockFailStatus=401
+ *   ?mockFail=AUTH_005&mockFailStatus=401
  *   ?mockFail=MARKET_009&mockFailPath=/reviews   경로가 맞는 요청만 실패시킨다
  *   ?mockFail=MARKET_009&mockFailAfter=1   앞의 1건은 통과시키고 그 뒤부터 실패
  *   ?mockDelay=0&mockFail=&mockFailAfter=0 끈다

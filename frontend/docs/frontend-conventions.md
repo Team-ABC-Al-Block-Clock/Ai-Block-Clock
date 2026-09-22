@@ -253,12 +253,13 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 ### 세션 쿠키
 
-로그인 응답의 `Set-Cookie` 로 `sessionToken` 이 내려오고, 브라우저가 이후 요청에 자동으로 붙인다. 유효기간은 7일이고 브라우저를 다시 열어도 유지된다.
+로그인 응답의 `Set-Cookie` 로 `SESSION` 이 내려오고, 브라우저가 이후 요청에 자동으로 붙인다. Max-Age 가 없어 브라우저를 닫으면 사라지고, 서버는 마지막 요청으로부터 2시간 미사용이면 만료시킨다(백엔드 `docs/SESSION_AUTH.md`).
 
 - **토큰을 다루는 코드는 없다.** Access Token·Refresh Token·재발급(`POST /auth/reissue`)은 전부 사라졌다
 - **쿠키는 읽지 않는다.** HttpOnly 라 `document.cookie` 로 보이지 않는 것이 정상이다
 - **`withCredentials: true` 는 인스턴스 기본값이다**(`api/client.ts`). 이게 없으면 쿠키가 안 붙어 모든 요청이 `AUTH_005` 다
-- **401 은 전부 회복 불가다.** 자동 재발급 수단이 없으므로 지갑 서명 로그인부터 다시 한다. 코드는 문구만 가른다 — `AUTH_005`(쿠키 없음) · `AUTH_006`(요청자 특정 불가) · `AUTH_013`(만료) · `AUTH_014`(로그아웃·다른 곳 재로그인) · `AUTH_018`(잘못된 토큰)
+- **401 은 전부 회복 불가다.** 자동 재발급 수단이 없으므로 지갑 서명 로그인부터 다시 한다
+- **401 코드로 문구를 가르지 않는다.** 서버는 쿠키가 없든 세션이 만료됐든 알 수 없는 세션이든 `AUTH_005` 하나로 답한다. 만료 판정을 Spring Session 이 하고 만료된 세션은 조회조차 되지 않아 서버도 구분하지 않는다. 안내는 `invalid` 하나뿐이고, `disconnected`·`account` 는 지갑 쪽이라 화면이 아는 값이다
 - **세션 확인은 `GET /users/me` 뿐이다.** 쿠키가 있는지 JS 가 알 수 없어, 부팅 때 프로필을 물어보는 것이 유일한 방법이다(`hooks/useSessionRestore.ts`)
 
 ### 인증 세션은 스토어 하나가 들고 있다
@@ -338,7 +339,7 @@ mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 
 | ------------------------- | -------------- | ------------------ |
 | `GET /users/me`           | 401 `AUTH_005` | 세션 주소의 프로필 |
 | `POST /auth/wallet/login` | —              | `expiresAt`(7일)   |
-| `POST /auth/logout`       | 401 `AUTH_018` | 세션을 지운다      |
+| `POST /auth/logout`       | 401 `AUTH_005` | 세션을 지운다      |
 
 되돌리려면 `localStorage.removeItem('mockWalletSession')` · `removeItem('mockProfile')` ·
 `removeItem('mockKnownWallets')` 를 실행한다. 셋을 다 지워야 처음 보는 지갑으로 돌아가 가입 화면
@@ -357,7 +358,7 @@ mock 상태는 대개 새로고침하면 픽스처로 돌아가지만, **쓰기 
 ```
 ?mockDelay=1500                        모든 응답을 늦춘다
 ?mockFail=COMMON_001                   모든 응답을 실패시킨다 (기본 400)
-?mockFail=AUTH_014&mockFailStatus=401
+?mockFail=AUTH_005&mockFailStatus=401
 ?mockDelay=0&mockFail=                 끈다
 ```
 
