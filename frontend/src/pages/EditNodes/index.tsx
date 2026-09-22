@@ -189,9 +189,7 @@ export default function EditNodes() {
             </g>
           </CanvasEdgeLayer>
 
-          {/* 패널 앞에서 자르는 것은 `CanvasWorld` 가 판 바깥에서 한다 — 여기서 자르면
-            팬·줌과 함께 변환돼 잘리는 자리가 패널에서 밀려난다. 이 판은 빛과 카드를
-            묶기만 한다. 판정은 흘려보내고 카드가 제 몫만 다시 켠다. */}
+          {/* 판정은 흘려보내고 카드가 제 몫만 다시 켠다. 자르기는 `CanvasWorld` 가 한다. */}
           <div className="pointer-events-none absolute inset-0">
             <div ref={glowRef} style={selRing}></div>
 

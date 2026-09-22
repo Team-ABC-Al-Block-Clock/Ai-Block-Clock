@@ -17,12 +17,7 @@ import {
   type Viewport,
 } from './viewport'
 
-/**
- * 뷰포트가 지켜야 하는 것은 하나다 — **붙잡은 점의 설계 좌표가 변하지 않는다.**
- * 이게 깨지면 확대할 때마다 보던 자리가 밀려 커서로 따라가야 한다.
- */
-
-/** 화면 좌표를 설계 좌표로 되돌린다. 구현에서 가져오지 않는다 — 나란히 틀리면 못 잡는다. */
+/** 구현에서 가져오지 않는다 — 나란히 틀리면 못 잡는다. */
 const toDesign = (view: Viewport, cx: number, cy: number) => ({
   x: (cx - view.tx) / view.k,
   y: (cy - view.ty) / view.k,
@@ -50,7 +45,6 @@ describe('panBy', () => {
   })
 
   it('확대된 상태에서도 화면 이동량과 1:1 이다', () => {
-    // 여기에 배율을 곱하면 확대할수록 배경이 손가락보다 빨리 흐른다.
     expect(panBy({ tx: 0, ty: 0, k: 2 }, 30, 0).tx).toBe(30)
   })
 })
@@ -67,7 +61,6 @@ describe('zoomAtPoint', () => {
   })
 
   it('한계까지 확대해도 붙잡은 점은 그대로다', () => {
-    // 잘라 낸 배율로 이동량을 다시 계산하지 않으면 여기서 어긋난다.
     const before = { tx: 10, ty: 10, k: 1.9 }
     const [cx, cy] = [200, 150]
 
@@ -85,7 +78,6 @@ describe('zoomAtPoint', () => {
 
 describe('zoomStep', () => {
   it('확대 뒤 축소하면 제자리로 돌아온다', () => {
-    // 덧셈으로 걸면 여기가 어긋난다 — 1.2 를 더하고 빼는 것과 곱하고 나누는 것은 다르다.
     const back = zoomStep(zoomStep(INITIAL_VIEWPORT, 'in', 300, 200), 'out', 300, 200)
 
     expect(back.k).toBeCloseTo(1)
@@ -118,7 +110,6 @@ describe('wheelZoom', () => {
   })
 
   it('어느 배율에서 굴리든 한 칸의 비율이 같다', () => {
-    // 지수가 아니라 덧셈이면 작은 배율에서 한 칸이 과하게 먹는다.
     const 작을때 = wheelZoom({ tx: 0, ty: 0, k: 0.4 }, -100, 0, 0).k / 0.4
     const 클때 = wheelZoom({ tx: 0, ty: 0, k: 1.6 }, -100, 0, 0).k / 1.6
     expect(작을때).toBeCloseTo(클때)
@@ -144,18 +135,16 @@ describe('zoomPercent', () => {
 
 describe('viewportTransform', () => {
   it('이동이 배율보다 앞에 온다', () => {
-    // 순서를 바꾸면 이동량이 배율을 타 팬이 확대 배율만큼 빨라진다.
     expect(viewportTransform({ tx: 12, ty: -8, k: 1.5 })).toBe('translate(12px, -8px) scale(1.5)')
   })
 })
 
 describe('격자', () => {
-  it('칸이 배율을 탄다 — 카드와 같은 비율로 커져야 한다', () => {
+  it('칸이 배율을 탄다', () => {
     expect(gridSize({ tx: 0, ty: 0, k: 2 })).toBe(`${GRID * 2}px ${GRID * 2}px`)
   })
 
   it('위상이 팬을 그대로 따라간다', () => {
-    // 여기에 배율을 곱하면 확대한 상태에서 격자가 그래프보다 빨리 흐른다.
     const 기준 = (GRID / 2) * 1
     expect(gridPosition({ tx: 40, ty: -15, k: 1 })).toBe(`${기준 + 40}px ${기준 - 15}px`)
   })

@@ -4,10 +4,7 @@ import { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from './CanvasPane'
 
 type CanvasEdgeLayerProps = {
   children: ReactNode
-  /**
-   * 패널 쪽을 여기서 자를지. 팬·줌이 걸린 화면은 `CanvasWorld` 가 판 바깥에서
-   * 이미 자르므로 끈다 — 변환 안에서 자르면 잘리는 자리가 그래프를 따라 움직인다.
-   */
+  /** 팬·줌 화면은 `CanvasWorld` 가 판 바깥에서 자르므로 끈다. */
   clip?: boolean
 }
 
