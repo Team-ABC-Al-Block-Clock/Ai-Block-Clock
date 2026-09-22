@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -173,6 +174,25 @@ class AgentControllerTest {
         mockMvc.perform(register(owner, registerBody(workflowId, 1)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("AGENT_002"));
+    }
+
+    @Test
+    @DisplayName("원본 워크플로우를 지워도 굳힌 에이전트가 쓰는 노드는 지울 수 없다")
+    void keepsNodesOfRegisteredAgentUndeletable() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+
+        mockMvc.perform(register(owner, registerBody(workflowId, 1)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(delete("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
+                        .with(as(owner))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("NODE_004"));
     }
 
     @Test

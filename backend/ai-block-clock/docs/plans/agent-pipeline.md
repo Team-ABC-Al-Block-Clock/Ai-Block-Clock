@@ -204,6 +204,11 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 같은 스냅샷에서 나온다. 그 사이 `PUT` 이 커밋해도 우리가 복사한 것은 회차 N 의 일관된 그래프이고,
 "출처 회차 N" 으로 박히는 것이 맞다. `replace` 가 락을 잡는 것은 같은 행을 **쓰기** 때문이다.
 
+**대신 배치된 노드 행에는 공유 락을 잡는다** (`readAllForShare`). 그래프는 값 복사지만 실행에는
+`node_definition` 행이 필요하다. 워크플로우 행을 잠그지 않으므로 "등록 진행 중 → 원본 워크플로우
+삭제 → 노드 삭제" 가 겹칠 수 있고, 다형 참조라 FK 도 막아 주지 않아 지워진 노드를 가리키는 버전이
+남는다. 저장 경로(`CatalogNodeSourceResolver.findByIdForShare`)와 같은 모양으로 막는다.
+
 필드 길이는 명세 값을 그대로 쓴다 — `name` 2\~40, `summary` 80, `description` 2000(필수),
 `usageExample` 500, `onboardingMessage` 20.
 

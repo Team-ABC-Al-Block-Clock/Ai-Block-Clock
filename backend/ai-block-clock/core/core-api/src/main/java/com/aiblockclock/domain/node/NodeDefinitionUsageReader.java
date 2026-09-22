@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class NodeDefinitionUsageReader {
     private final GraphNodeRepository graphNodeRepository;
 
-    public boolean isPlacedInAnyWorkflow(NodeDefinitionId nodeId) {
+    public boolean isPlacedInAnyGraph(NodeDefinitionId nodeId) {
         return graphNodeRepository.existsByReferenceId(nodeId.value());
     }
 }

@@ -34,7 +34,7 @@ public class AgentService {
         WorkflowValidator.ensureRevision(source.getRevision(), expectedRevision);
 
         WorkflowGraph snapshot = source.getGraph();
-        List<NodeDefinition> placedNodes = nodeReader.readAll(placedNodeIds(snapshot));
+        List<NodeDefinition> placedNodes = nodeReader.readAllForShare(placedNodeIds(snapshot));
         versionPolicy.ensureVersionable(source, requester, placedNodes);
 
         GraphId graphId = copyGraph(snapshot);

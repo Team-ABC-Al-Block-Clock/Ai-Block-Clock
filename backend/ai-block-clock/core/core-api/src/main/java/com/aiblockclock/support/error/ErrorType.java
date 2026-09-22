@@ -87,8 +87,8 @@ public enum ErrorType {
     NODE_PROMPT_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.NODE_003,
             "프롬프트를 입력해야 합니다.", LogLevel.WARN),
 
-    NODE_PLACED_IN_WORKFLOW(HttpStatus.CONFLICT, ErrorCode.NODE_004,
-            "워크플로우에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
+    NODE_PLACED_IN_GRAPH(HttpStatus.CONFLICT, ErrorCode.NODE_004,
+            "워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
 
     AGENT_WORKFLOW_EMPTY(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
             "노드가 없는 워크플로우로는 에이전트를 만들 수 없습니다.", LogLevel.WARN),

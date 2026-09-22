@@ -27,8 +27,13 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
-    public List<NodeDefinition> readAll(List<NodeDefinitionId> ids) {
-        return nodeRepository.findAllById(ids.stream().map(NodeDefinitionId::value).toList()).stream()
+    @Transactional
+    public List<NodeDefinition> readAllForShare(List<NodeDefinitionId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        return nodeRepository.findAllByIdForShare(ids.stream().map(NodeDefinitionId::value).toList()).stream()
                 .map(NodeDefinitionEntityConverter::toDomain)
                 .toList();
     }
