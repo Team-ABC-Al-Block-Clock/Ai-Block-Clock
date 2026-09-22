@@ -1,0 +1,64 @@
+package com.aiblockclock.domain.workflow;
+
+import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.workflow.ValidationStatus;
+import com.aiblockclock.storage.workflow.WorkflowEntity;
+import com.aiblockclock.storage.workflow.WorkflowRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+
+@Component
+@RequiredArgsConstructor
+public class WorkflowValidator {
+    private final WorkflowRepository workflowRepository;
+    private final WorkflowUsageView usageView;
+
+    public static void ensureOwner(UserId owner, UserId requester) {
+        if (!owner.equals(requester)) {
+            throw new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
+        }
+    }
+
+    public static void ensureRevision(Revision current, Revision expected) {
+        if (!current.equals(expected)) {
+            throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
+                    Map.of("expectedRevision", expected.value(), "currentRevision", current.value()));
+        }
+    }
+
+    @Transactional
+    public ReplaceTarget ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
+        WorkflowEntity entity = lock(id);
+        ensureOwner(UserId.of(entity.getOwnerId()), requester);
+
+        Revision current = Revision.of(entity.getRevision());
+        ensureRevision(current, expected);
+
+        return new ReplaceTarget(GraphId.of(entity.getGraphId()),
+                new GraphRevision(current.next(), ValidationStatus.NOT_VALIDATED));
+    }
+
+    @Transactional
+    public GraphId ensureDeletable(WorkflowId id, UserId requester) {
+        WorkflowEntity entity = lock(id);
+        ensureOwner(UserId.of(entity.getOwnerId()), requester);
+
+        if (usageView.isExecuting(id)) {
+            throw new CoreException(ErrorType.WORKFLOW_EXECUTION_IN_PROGRESS);
+        }
+
+        return GraphId.of(entity.getGraphId());
+    }
+
+    private WorkflowEntity lock(WorkflowId id) {
+        return workflowRepository.findByIdForUpdate(id.value())
+                .orElseThrow(() -> new CoreException(ErrorType.WORKFLOW_NOT_FOUND));
+    }
+}

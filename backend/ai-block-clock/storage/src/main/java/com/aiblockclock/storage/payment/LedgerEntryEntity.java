@@ -44,8 +44,8 @@ public class LedgerEntryEntity extends BaseCreatedAtEntity {
 
     @Column(
             nullable = false,
-            precision = 38,
-            scale = 3,
+            precision = 41,
+            scale = 6,
             updatable = false
     )
     private BigDecimal amountDelta;

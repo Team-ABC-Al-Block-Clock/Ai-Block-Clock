@@ -1,0 +1,268 @@
+package com.aiblockclock.api.v1;
+
+import com.aiblockclock.api.v1.request.WorkflowReplaceRequest;
+import com.aiblockclock.api.v1.request.WorkflowSaveRequest;
+import com.aiblockclock.api.v1.response.WorkflowDeleteResponse;
+import com.aiblockclock.api.v1.response.WorkflowDetailResponse;
+import com.aiblockclock.api.v1.response.WorkflowPageResponse;
+import com.aiblockclock.api.v1.response.WorkflowSaveResponse;
+import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.workflow.WorkflowSort;
+import com.aiblockclock.support.response.ApiResult;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Positive;
+
+import java.util.UUID;
+
+@Tag(name = "워크플로우", description = "캔버스에서 만든 워크플로우를 저장하고 다시 불러온다.")
+public interface WorkflowApi {
+    String SAVE_REQUEST_EXAMPLE = """
+            {
+              "name": "성적 분석 리포트",
+              "description": "학생별 성적을 모아 리포트로 만든다",
+              "nodes": [
+                { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13" },
+                { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "c0a8012e-5d31-4f0a-8b6d-77a1e9f3b210" }
+              ],
+              "edges": [
+                { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
+              ]
+            }""";
+
+    String REPLACE_REQUEST_EXAMPLE = """
+            {
+              "name": "성적 분석 리포트 v2",
+              "revision": 1,
+              "nodes": [
+                { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13" },
+                { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "c0a8012e-5d31-4f0a-8b6d-77a1e9f3b210" },
+                { "nodeKey": "n3", "sourceType": "NODE", "sourceId": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed" }
+              ],
+              "edges": [
+                { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" },
+                { "edgeKey": "e2", "sourceNodeKey": "n2", "targetNodeKey": "n3" }
+              ]
+            }""";
+
+    String DETAIL_RESPONSE_EXAMPLE = """
+            {
+              "status": "SUCCESS",
+              "data": {
+                "workflowId": "33567ab2-e08b-461b-a0f2-51a857df5ec7",
+                "name": "성적 분석 리포트",
+                "description": "학생별 성적을 모아 리포트로 만든다",
+                "revision": 1,
+                "nodes": [
+                  { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13",
+                    "versionId": null },
+                  { "nodeKey": "n2", "sourceType": "AGENT", "sourceId": "b7e2d4c8-1f65-4a09-93de-5c0a8b2f7e41",
+                    "versionId": "6f3a1c92-77b4-4a8e-9d61-2c5e8a0b4f17" }
+                ],
+                "edges": [
+                  { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
+                ],
+                "estimatedCost": "0",
+                "currency": "ABC",
+                "lastExecutedAt": null,
+                "updatedAt": "2026-09-11T09:31:15.482Z"
+              },
+              "error": null
+            }""";
+
+    String NOT_FOUND_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_002", "message": "워크플로우를 찾을 수 없습니다.", "data": null } }""";
+
+    String FORBIDDEN_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_003", "message": "워크플로우에 대한 권한이 없습니다.", "data": null } }""";
+
+    String GRAPH_EMPTY_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_014", "message": "노드를 하나 이상 놓아야 저장할 수 있습니다.", "data": null } }""";
+
+    String CYCLE_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_005", "message": "노드 연결에 순환 구조가 존재합니다.", "data": null } }""";
+
+    String EXECUTING_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_010", "message": "실행이 진행 중인 워크플로우는 삭제할 수 없습니다.", "data": null } }""";
+
+    String NOT_LINEAR_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_013", "message": "노드는 한 줄로 이어져야 합니다.",
+                         "data": { "nodeKey": "n1" } } }""";
+
+    String DANGLING_EDGE_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_013", "message": "연결선이 존재하지 않는 노드를 가리킵니다.",
+                         "data": { "edgeKey": "e1", "nodeKey": "n9" } } }""";
+
+    String DEPTH_LIMIT_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_007", "message": "연결 깊이가 허용 범위를 넘었습니다.",
+                         "data": { "limit": 10, "actual": 12 } } }""";
+
+    String SOURCE_NOT_FOUND_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_015", "message": "배치할 노드나 공개된 에이전트를 찾을 수 없습니다.",
+                         "data": { "nodeKey": "n2", "sourceId": "b7e2d4c8-1f65-4a09-93de-5c0a8b2f7e41" } } }""";
+
+    String REVISION_CONFLICT_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_016", "message": "워크플로우가 다른 요청에 의해 수정되었습니다.",
+                         "data": { "expectedRevision": 1, "currentRevision": 3 } } }""";
+
+    @Operation(
+            summary = "워크플로우 저장",
+            description = """
+                    캔버스 구성을 새 워크플로우로 저장한다. `revision` 은 1 로 시작한다.
+
+                    노드는 실체가 아니라 배치 정보(`nodeKey` · `sourceType` · `sourceId`)만 보낸다.
+                    `AGENT` 는 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
+                    `NODE` 는 노드 카탈로그가 붙기 전까지 `sourceId` 를 검증하지 않고 그대로 저장한다.
+
+                    구조 검사는 세 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
+                    그리고 전체가 분기 없는 한 줄로 이어질 것. 분기·합류·단절은 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.""",
+            requestBody = @RequestBody(required = true,
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(name = "노드 두 개를 한 줄로", value = SAVE_REQUEST_EXAMPLE))))
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "저장 완료"),
+            @ApiResponse(responseCode = "400", description = "요청 본문이나 그래프 구조가 올바르지 않다",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = {
+                                    @ExampleObject(name = "WORKFLOW_014 · 노드가 없다", value = GRAPH_EMPTY_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 한 줄이 아니다", value = NOT_LINEAR_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 연결선이 빈 곳을 가리킨다",
+                                            value = DANGLING_EDGE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_007 · 깊이 초과", value = DEPTH_LIMIT_EXAMPLE)})),
+            @ApiResponse(responseCode = "404", description = "배치할 원본 노드나 공개 에이전트가 없다",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = SOURCE_NOT_FOUND_EXAMPLE)))})
+    ApiResult<WorkflowSaveResponse> save(UserId owner, @Valid WorkflowSaveRequest request);
+
+    @Operation(
+            summary = "워크플로우 상세 조회",
+            description = """
+                    저장된 노드와 연결선을 돌려준다. 캔버스는 이 값으로 복원한다.
+
+                    배치 좌표는 저장하지 않는다. `edges` 의 연결 순서만으로 화면이 배치를 계산한다.
+                    `nodes` 와 `edges` 는 그 연결을 따라간 순서로 나간다. 보낸 배열 순서가 달랐어도 같다.
+                    소유자만 조회할 수 있다.""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 완료", useReturnTypeSchema = true,
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = DETAIL_RESPONSE_EXAMPLE))),
+            @ApiResponse(responseCode = "403", description = "소유자가 아니다 (`WORKFLOW_003`)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = FORBIDDEN_EXAMPLE))),
+            @ApiResponse(responseCode = "404", description = "워크플로우가 없다 (`WORKFLOW_002`)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = NOT_FOUND_EXAMPLE)))})
+    ApiResult<WorkflowDetailResponse> get(
+            UserId owner,
+            @Parameter(description = "조회할 워크플로우 ID", required = true,
+                    example = "33567ab2-e08b-461b-a0f2-51a857df5ec7") UUID workflowId);
+
+    @Operation(
+            summary = "워크플로우 수정",
+            description = """
+                    이름과 그래프를 통째로 바꾼다. 부분 수정은 없다. 보낸 구성이 그대로 저장된 구성이 된다.
+
+                    `revision` 에는 **수정 전에 읽은 값**을 넣는다. 그 사이 다른 요청이 먼저 수정했으면 `WORKFLOW_016` 으로 거부하고,
+                    성공하면 `revision` 이 1 오른다. 응답의 `revision` 을 다음 수정에 다시 넣으면 된다.
+
+                    저장할 때와 같은 구조 검사를 거친다.""",
+            requestBody = @RequestBody(required = true,
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(name = "노드 하나를 뒤에 붙인다", value = REPLACE_REQUEST_EXAMPLE))))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "수정 완료. `revision` 이 1 오른다"),
+            @ApiResponse(responseCode = "400", description = "요청 본문이나 그래프 구조가 올바르지 않다",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = {
+                                    @ExampleObject(name = "WORKFLOW_013 · 한 줄이 아니다", value = NOT_LINEAR_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE)})),
+            @ApiResponse(responseCode = "403", description = "소유자가 아니다 (`WORKFLOW_003`)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = FORBIDDEN_EXAMPLE))),
+            @ApiResponse(responseCode = "404", description = "워크플로우나 배치할 원본이 없다",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = {
+                                    @ExampleObject(name = "WORKFLOW_002 · 워크플로우 없음", value = NOT_FOUND_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_015 · 원본 없음", value = SOURCE_NOT_FOUND_EXAMPLE)})),
+            @ApiResponse(responseCode = "409", description = "그 사이 다른 요청이 먼저 수정했다",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = REVISION_CONFLICT_EXAMPLE)))})
+    ApiResult<WorkflowSaveResponse> replace(
+            UserId owner,
+            @Parameter(description = "수정할 워크플로우 ID", required = true,
+                    example = "33567ab2-e08b-461b-a0f2-51a857df5ec7") UUID workflowId,
+            @Valid WorkflowReplaceRequest request);
+
+    @Operation(
+            summary = "워크플로우 삭제",
+            description = """
+                    워크플로우와 그 노드·연결선을 지운다. 배치의 원본이 된 노드와 에이전트는 지우지 않는다.
+
+                    에이전트 버전은 그래프를 복사해 갖고 있으므로 출처 워크플로우를 지워도 그대로 실행된다.
+                    실행 중인 워크플로우(`WORKFLOW_010`)만 삭제할 수 없다.""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "삭제 완료"),
+            @ApiResponse(responseCode = "403", description = "소유자가 아니다 (`WORKFLOW_003`)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = FORBIDDEN_EXAMPLE))),
+            @ApiResponse(responseCode = "404", description = "워크플로우가 없다 (`WORKFLOW_002`)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = NOT_FOUND_EXAMPLE))),
+            @ApiResponse(responseCode = "409", description = "실행이 진행 중이다 (`WORKFLOW_010`)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResult.class),
+                            examples = @ExampleObject(value = EXECUTING_EXAMPLE)))})
+    ApiResult<WorkflowDeleteResponse> delete(
+            UserId owner,
+            @Parameter(description = "삭제할 워크플로우 ID", required = true,
+                    example = "33567ab2-e08b-461b-a0f2-51a857df5ec7") UUID workflowId);
+
+    @Operation(
+            summary = "내 워크플로우 목록 조회",
+            description = """
+                    요청자가 만든 워크플로우를 커서 페이지로 돌려준다. 그래프는 담지 않는다.
+
+                    `nextCursor` 를 다음 요청의 `cursor` 에 그대로 넣는다. `hasNext` 가 `false` 면 `nextCursor` 는 `null` 이다.
+                    지금 커서는 오프셋을 감싼 값이라, 페이지를 넘기는 사이에 행이 추가·삭제되면 창이 밀릴 수 있다.""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 완료")})
+    ApiResult<WorkflowPageResponse> findMine(
+            UserId owner,
+            @Parameter(description = "정렬 기준. 마지막 실행 시각(`LAST_EXECUTED`) 또는 생성 시각(`LATEST`)",
+                    example = "LAST_EXECUTED") WorkflowSort sort,
+            @Parameter(description = "이름 부분 검색어. 비우면 전체", example = "성적") String keyword,
+            @Parameter(description = "이전 응답의 `nextCursor`. 첫 페이지는 비운다", example = "b2Zmc2V0PTEw") String cursor,
+            @Parameter(description = "한 번에 가져올 개수. 1 이상 100 이하", example = "10") @Positive @Max(100) int size);
+}

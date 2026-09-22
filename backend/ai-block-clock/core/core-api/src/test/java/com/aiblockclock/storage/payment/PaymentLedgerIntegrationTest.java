@@ -10,6 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -233,10 +234,10 @@ class PaymentLedgerIntegrationTest {
                 new BigDecimal("1.000")
         );
 
-        issuanceAccount.modifyBalance(new BigDecimal("-10.000"));
-        userAccount.modifyBalance(new BigDecimal("7.000"));
-        escrowAccount.modifyBalance(new BigDecimal("0.000"));
-        payoutAccount.modifyBalance(new BigDecimal("3.000"));
+        ledgerAccountRepository.addBalanceDelta(issuanceAccount.getId(), new BigDecimal("-10.000"), Instant.now());
+        ledgerAccountRepository.addBalanceDelta(userAccount.getId(), new BigDecimal("7.000"), Instant.now());
+        ledgerAccountRepository.addBalanceDelta(escrowAccount.getId(), new BigDecimal("0.000"), Instant.now());
+        ledgerAccountRepository.addBalanceDelta(payoutAccount.getId(), new BigDecimal("3.000"), Instant.now());
 
         ledgerAccountRepository.flush();
 
@@ -295,7 +296,7 @@ class PaymentLedgerIntegrationTest {
                         .map(LedgerEntryEntity::getAmountDelta)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        assertThat(account.getBalance())
+        assertThat(ledgerAccountRepository.findById(account.getId()).orElseThrow().getBalance())
                 .isEqualByComparingTo(entryTotal);
     }
 }

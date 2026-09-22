@@ -1,14 +1,45 @@
 package com.aiblockclock.support.error;
 
 public enum ErrorCode {
+    COMMON_001,
+    COMMON_002,
+
+    AUTH_005,
+    AUTH_006,
+    AUTH_007,
+    AUTH_008,
+    AUTH_009,
+    AUTH_010,
+    AUTH_011,
+    AUTH_012,
+
+    WORKFLOW_002,
     WORKFLOW_003,
     WORKFLOW_005,
     WORKFLOW_006,
     WORKFLOW_007,
-    WORKFLOW_008,
+    WORKFLOW_010,
+    WORKFLOW_013,
+    WORKFLOW_014,
+    WORKFLOW_015,
+    WORKFLOW_016,
+
+    NODE_001,
+    NODE_002,
+    NODE_003,
+    NODE_004,
 
     AGENT_001,
     AGENT_002,
     AGENT_006,
-    AGENT_007
+    AGENT_007,
+    AGENT_009,
+
+    PAYMENT_001,
+    PAYMENT_002,
+    PAYMENT_003,
+    PAYMENT_004,
+    PAYMENT_005,
+    PAYMENT_006,
+    PAYMENT_007
 }
