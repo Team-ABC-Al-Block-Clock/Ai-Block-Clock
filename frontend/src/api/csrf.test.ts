@@ -30,8 +30,20 @@ beforeEach(() => {
   )
 })
 
-/** 서버의 CSRF 거절. 컨트롤러 앞에서 막히므로 우리 오류 봉투가 아니다. */
-const forbidden = () => HttpResponse.json({ error: 'Forbidden' }, { status: 403 })
+/**
+ * 서버의 CSRF 거절. 컨트롤러 앞에서 막혀 우리 오류 봉투가 아니라 Spring 기본 본문이 온다.
+ * 실서버에서 받아 온 모양 그대로다 — `error` 가 객체가 아니라 문자열인 것이 핵심이다.
+ */
+const forbidden = () =>
+  HttpResponse.json(
+    {
+      timestamp: '2026-09-22T07:29:18.094Z',
+      status: 403,
+      error: 'Forbidden',
+      path: '/api/v1/probe',
+    },
+    { status: 403 },
+  )
 
 describe('CSRF 토큰 부착', () => {
   it('쓰기에만 붙인다 — 읽기는 면제라 토큰을 받지도 않는다', async () => {
@@ -58,7 +70,7 @@ describe('CSRF 토큰 부착', () => {
     expect(issued).toEqual(['token-1'])
   })
 
-  it('받은 토큰은 다음 쓰기에 다시 쓴다 — 서버가 세션 안에서 같은 값을 재사용한다', async () => {
+  it('받은 토큰은 다음 쓰기에 다시 쓴다 — 세션이 살아 있으면 계속 유효하다', async () => {
     server.use(http.post(PROBE, () => ok(null)))
 
     await api.post('/probe')
