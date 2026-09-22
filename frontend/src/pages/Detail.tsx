@@ -17,6 +17,7 @@ import {
   blockLabel,
   compactCount,
   dateTimeLabel,
+  maskName,
   priceLabel,
   ratingLabel,
   runLabel,
@@ -935,7 +936,7 @@ export default function Detail() {
                 }}
               >
                 <div className="flex items-center" style={{ gap: '10px' }}>
-                  <span className="text-body font-semibold">{review.authorNickname}</span>
+                  <span className="text-body font-semibold">{maskName(review.authorNickname)}</span>
                   <span style={{ color: 'var(--color-accent-bright)' }}>★ {review.rating}</span>
                   <span className="text-faint text-[12.5px]">{timeLabel(review.createdAt)}</span>
                 </div>

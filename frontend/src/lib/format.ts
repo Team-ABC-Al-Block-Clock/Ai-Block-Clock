@@ -56,6 +56,23 @@ export function shortAddress(address: string) {
 }
 
 /**
+ * '이싸피' → '이*피', '김민' → '김*', '박' → '박'
+ *
+ * 리뷰는 누가 썼는지 알아볼 수 있으면 안 되지만 완전히 익명이면 같은 사람이 여러 건을
+ * 쓴 것인지도 구별되지 않는다. 가운데만 가려 앞뒤 글자는 남긴다 — 국내 서비스의 통례다.
+ *
+ * 서버가 아니라 화면에서 가린다. 마스킹은 표시 규칙이라 값 자체는 원본으로 두어야
+ * 정렬·비교가 어긋나지 않는다. 대신 이 함수를 거치지 않고 닉네임을 그리면 그대로
+ * 노출되므로, 리뷰를 새로 그리는 곳에서는 반드시 여기를 통과시킨다.
+ */
+export function maskName(name: string) {
+  const trimmed = name.trim()
+  if (trimmed.length <= 1) return trimmed
+  if (trimmed.length === 2) return `${trimmed[0]}*`
+  return `${trimmed[0]}${'*'.repeat(trimmed.length - 2)}${trimmed.at(-1)}`
+}
+
+/**
  * '2026-09-07T14:22:00Z' → '09.07 14:22', null → '—'
  *
  * 표준시를 서울로 고정한다. 상대 시각('3일 전')은 만들지 않는다. 목록을 열어 둔 채 자정을 넘기면 값이 어긋나기 때문이다.
