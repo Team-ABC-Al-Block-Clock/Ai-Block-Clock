@@ -75,6 +75,17 @@ class AgentVersionPolicyTest {
     }
 
     @Test
+    @DisplayName("배치된 노드가 사라졌으면 500 이 아니라 찾을 수 없다고 끊는다")
+    void rejectsMissingBaseNode() {
+        Workflow workflow = WorkflowFixtures.owned(OWNER, GraphFixtures.straightLine());
+
+        assertThatThrownBy(() -> policy(Set.of()).ensureVersionable(workflow, OWNER, List.of()))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.WORKFLOW_NODE_SOURCE_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("버전 생성 시점에 소유권을 다시 훑어 남의 에이전트를 잡아낸다")
     void rejectsForeignAgentPlacement() {
         Workflow workflow = WorkflowFixtures.owned(OWNER,
