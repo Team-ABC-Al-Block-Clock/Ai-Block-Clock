@@ -57,10 +57,20 @@ const REVIEW_PAGE_SIZE = 5
 const REVIEW_ROW = 84
 /** 리뷰 카드의 위아래 여백 합. */
 const REVIEW_PAD = 48
-/** '더 보기' 줄. 다음 장이 없으면 자리도 없다. */
-const REVIEW_MORE = 52
+/** '더 보기' 버튼 줄. 누르기 전까지만 있다. */
+const REVIEW_MORE_BUTTON = 52
+/** 버튼을 누른 뒤 목록 끝에 남겨 두는 빈 자리. 센티넬과 '불러오는 중'·'다시 시도' 가
+ *  여기 들어가고, 다음 장은 이 자리부터 채워진다. 한 줄 높이로 잡는다 — 바닥에 닿기
+ *  전에 끝이 보여야 리뷰가 붙는 것이 눈에 들어온다. */
+const REVIEW_LANDING = REVIEW_ROW
 /** 리뷰가 없거나 못 불러왔을 때 대신 들어가는 한 줄. */
 const REVIEW_NOTICE = 44
+
+/** 바닥에 닿고 나서 다음 장을 받기까지 두는 시간.
+ *  닿자마자 채우면 다섯 줄이 한 번에 튀어 깜빡인 것처럼 보인다. 기다리는 동안
+ *  '불러오는 중' 을 먼저 보여 주면 목록이 늘어난 것이 사건으로 읽힌다.
+ *  튕겨서 바닥을 스치기만 한 경우에는 벗어나는 순간 취소된다. */
+const REVIEW_HOLD_MS = 400
 
 /** 아직 블록에 안 들어간 트랜잭션은 되돌려질 수 있다 — 검증됐다고 말하지 않는다. */
 function proofBadgeOf(proof: AgentProvenance) {
@@ -116,6 +126,48 @@ export default function Detail() {
   })
 
   const reviewItems = reviews.data?.pages.flatMap((page) => page.content) ?? []
+
+  /* 처음에는 '더 보기' 버튼만 둔다. 상세를 보러 온 사람에게 리뷰가 먼저 자라면
+     읽던 자리를 잃는다 — 더 볼지는 사용자가 정한다. 한 번 누르면 그 뒤로는
+     끝에 닿을 때마다 이어받는다.
+     불린 대신 어느 에이전트에서 눌렀는지를 담는다 — 다른 상세로 옮기면 effect 로
+     되돌리지 않아도 저절로 버튼 상태로 돌아간다. */
+  const [autoLoadFor, setAutoLoadFor] = useState<string | null>(null)
+  const reviewAutoLoad = autoLoadFor === agentId
+
+  /* root 를 주지 않아도 된다 — 교차 계산은 조상의 클립(#detailScroll)까지 함께 본다.
+     실패한 커서로 다시 관찰하지 않는다 — 교차할 때마다 같은 요청이 반복된다.
+
+     rootMargin 은 두지 않고 센티넬도 목록이 아니라 페이지 맨 아래에 둔다. 조금이라도
+     미리 받으면 사용자가 끝에 닿기 전에 다음 장이 화면 밖에 그려져, 내려가 보면
+     처음부터 다 있었던 것처럼 보인다. 바닥에 닿은 뒤에만 받는다.
+
+     그래도 자라는 것이 보이도록 목록 끝에 한 줄짜리 빈 자리(REVIEW_LANDING)를 남긴다.
+     바닥에 닿은 순간 그 자리가 화면에 있으므로, 비어 있던 곳이 새 리뷰로 채워진다. */
+  const reviewEndRef = useRef<HTMLDivElement>(null)
+  /** 바닥에 닿아 다음 장을 기다리는 중. 아직 요청 전이다. */
+  const [reviewHold, setReviewHold] = useState(false)
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = reviews
+  useEffect(() => {
+    const node = reviewEndRef.current
+    if (!node || !reviewAutoLoad || !hasNextPage || isFetchNextPageError) return
+    let hold: ReturnType<typeof setTimeout> | undefined
+    const observer = new IntersectionObserver(([entry]) => {
+      clearTimeout(hold)
+      // 바닥을 벗어나면 기다리던 것을 취소한다 — 스쳐 지나간 것은 요청이 아니다.
+      if (!entry.isIntersecting || isFetchingNextPage) return setReviewHold(false)
+      setReviewHold(true)
+      hold = setTimeout(() => {
+        setReviewHold(false)
+        void fetchNextPage()
+      }, REVIEW_HOLD_MS)
+    })
+    observer.observe(node)
+    return () => {
+      clearTimeout(hold)
+      observer.disconnect()
+    }
+  }, [reviewAutoLoad, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   const queryClient = useQueryClient()
   const favorite = useMutation({
@@ -240,7 +292,13 @@ export default function Detail() {
      증명 카드가 끝나는 자리(proofTop + 426)에서 32px 띄운다. */
   const reviewsTop = proofTop + 458
   const reviewsBody = reviewItems.length ? reviewItems.length * REVIEW_ROW : REVIEW_NOTICE
-  const reviewsCard = REVIEW_PAD + reviewsBody + (reviews.hasNextPage ? REVIEW_MORE : 0)
+  const reviewsFoot =
+    reviews.hasNextPage || reviews.isFetchNextPageError
+      ? reviewAutoLoad
+        ? REVIEW_LANDING
+        : REVIEW_MORE_BUTTON
+      : 0
+  const reviewsCard = REVIEW_PAD + reviewsBody + reviewsFoot
   // 제목 32px + 카드 + 바닥 여백 64px.
   const pageHeight = reviewsTop + 32 + reviewsCard + 64
   const proof = provenance.data
@@ -904,27 +962,36 @@ export default function Detail() {
               animation: 'unfold .8s .6s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            {reviews.isPending && <div className="text-faint">불러오는 중…</div>}
+            {/* 목록 대신 들어가는 한 줄들은 가운데로 둔다 — 왼쪽에 붙이면 첫 번째
+                리뷰처럼 보인다. 빈 화면을 가운데 두는 것은 empty-state 와 같은 규칙이다. */}
+            {reviews.isPending && <div className="text-faint text-center">불러오는 중…</div>}
 
             {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다. */}
             {!reviews.isPending && !reviews.isError && reviewItems.length === 0 && (
-              <div className="text-muted">아직 리뷰가 없습니다. 첫 리뷰를 남겨 보세요.</div>
-            )}
-
-            {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다. */}
-            {reviews.isError && reviewItems.length === 0 && (
-              <div className="flex items-center" style={{ gap: '12px' }}>
-                <span style={{ color: 'rgba(255,196,214,.9)' }}>리뷰를 불러오지 못했습니다.</span>
-                <button
-                  className="text-muted cursor-pointer underline"
-                  onClick={() => void reviews.refetch()}
-                  style={{ background: 'none', border: 0, padding: 0 }}
-                  type="button"
-                >
-                  다시 시도
-                </button>
+              <div className="text-muted text-center">
+                아직 리뷰가 없습니다. 첫 리뷰를 남겨 보세요.
               </div>
             )}
+
+            {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다.
+                여기서도 다시 받는 중이면 오류 대신 진행을 보여 준다. */}
+            {reviews.isError &&
+              reviewItems.length === 0 &&
+              (reviews.isFetching ? (
+                <div className="text-faint text-center">불러오는 중…</div>
+              ) : (
+                <div className="flex items-center justify-center" style={{ gap: '12px' }}>
+                  <span style={{ color: 'rgba(255,196,214,.9)' }}>리뷰를 불러오지 못했습니다.</span>
+                  <button
+                    className="text-muted cursor-pointer underline"
+                    onClick={() => void reviews.refetch()}
+                    style={{ background: 'none', border: 0, padding: 0 }}
+                    type="button"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ))}
 
             {reviewItems.map((review, i) => (
               <div
@@ -956,28 +1023,59 @@ export default function Detail() {
               </div>
             ))}
 
-            {reviews.hasNextPage && (
-              <button
-                className="text-muted w-full cursor-pointer"
-                disabled={reviews.isFetchingNextPage}
-                onClick={() => void reviews.fetchNextPage()}
-                style={{
-                  marginTop: '20px',
-                  padding: '8px 0',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255,255,255,.16)',
-                  background: 'none',
-                }}
-                type="button"
-              >
-                {reviews.isFetchNextPageError
-                  ? '다시 시도'
-                  : reviews.isFetchingNextPage
-                    ? '불러오는 중…'
-                    : '리뷰 더 보기'}
-              </button>
-            )}
+            {(reviews.hasNextPage || reviews.isFetchNextPageError) &&
+              (reviewAutoLoad ? (
+                /* 빈 자리 한가운데에 놓는다. 위에 붙여 두면 마지막 리뷰의 꼬리처럼
+                   보여서 안내인 줄 모른다. */
+                <div
+                  className="text-faint flex items-center justify-center text-[12.5px]"
+                  style={{ marginTop: '16px', height: `${REVIEW_LANDING - 16}px` }}
+                >
+                  {/* 진행 중이 실패보다 앞선다. 재시도 중에도 오류 문구가 그대로면
+                      눌린 것인지 알 수 없다 — 재시도는 백오프까지 붙어 몇 초가 걸린다.
+                      다시 실패하면 버튼이 돌아온다. */}
+                  {reviewHold || reviews.isFetchingNextPage ? (
+                    '불러오는 중…'
+                  ) : reviews.isFetchNextPageError ? (
+                    <button
+                      className="text-muted cursor-pointer underline"
+                      onClick={() => void reviews.fetchNextPage()}
+                      style={{ background: 'none', border: 0, padding: 0 }}
+                      type="button"
+                    >
+                      리뷰를 더 불러오지 못했습니다. 다시 시도
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  className="text-muted w-full cursor-pointer"
+                  disabled={reviews.isFetchingNextPage}
+                  onClick={() => {
+                    setAutoLoadFor(agentId)
+                    void reviews.fetchNextPage()
+                  }}
+                  style={{
+                    marginTop: '20px',
+                    padding: '8px 0',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,.16)',
+                    background: 'none',
+                  }}
+                  type="button"
+                >
+                  더 보기
+                </button>
+              ))}
           </div>
+
+          {/* 페이지의 마지막 1px. 여기가 보인다는 것은 바닥에 닿았다는 뜻이다.
+              센티넬을 목록 끝에 두면 카드 여백·페이지 여백만큼(156px) 먼저 걸려,
+              사용자가 도착하기 전에 다음 장이 화면 밖에 이미 그려져 있다. */}
+          <div
+            ref={reviewEndRef}
+            style={{ position: 'absolute', top: `${pageHeight - 1}px`, left: 0, height: '1px' }}
+          ></div>
         </div>
       </div>
     </>
