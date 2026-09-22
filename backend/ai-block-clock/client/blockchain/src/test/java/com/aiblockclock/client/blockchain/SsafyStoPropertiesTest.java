@@ -14,8 +14,7 @@ class SsafyStoPropertiesTest {
             .withPropertyValues(
                     "ssafy.sto.base-url=https://sto.ssafy.io",
                     "ssafy.sto.connect-timeout=3s",
-                    "ssafy.sto.read-timeout=10s",
-                    "ssafy.sto.transaction-timeout=60s"
+                    "ssafy.sto.read-timeout=10s"
             );
 
     @Test
@@ -26,7 +25,6 @@ class SsafyStoPropertiesTest {
             assertThat(properties.baseUrl()).isEqualTo(URI.create("https://sto.ssafy.io"));
             assertThat(properties.connectTimeout()).isEqualTo(Duration.ofSeconds(3));
             assertThat(properties.readTimeout()).isEqualTo(Duration.ofSeconds(10));
-            assertThat(properties.transactionTimeout()).isEqualTo(Duration.ofSeconds(60));
         });
     }
 
@@ -51,12 +49,6 @@ class SsafyStoPropertiesTest {
     @Test
     void refusesTimeoutOutsideClientSupportedRangeAtStartup() {
         contextRunner.withPropertyValues("ssafy.sto.read-timeout=30d")
-                .run(context -> assertThat(context).hasFailed());
-    }
-
-    @Test
-    void refusesZeroTransactionTimeoutAtStartup() {
-        contextRunner.withPropertyValues("ssafy.sto.transaction-timeout=0s")
                 .run(context -> assertThat(context).hasFailed());
     }
 }

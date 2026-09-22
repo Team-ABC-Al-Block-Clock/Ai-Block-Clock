@@ -14,8 +14,7 @@ class SsafyTokenPropertiesTest {
             .withPropertyValues(
                     "ssafy.sto.base-url=https://sto.ssafy.io",
                     "ssafy.sto.connect-timeout=3s",
-                    "ssafy.sto.read-timeout=10s",
-                    "ssafy.sto.transaction-timeout=60s"
+                    "ssafy.sto.read-timeout=10s"
             );
 
     @Test

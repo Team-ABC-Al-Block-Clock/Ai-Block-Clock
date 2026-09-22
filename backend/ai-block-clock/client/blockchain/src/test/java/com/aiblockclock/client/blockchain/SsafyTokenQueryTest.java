@@ -21,16 +21,13 @@ class SsafyTokenQueryTest {
     private static final String HOLDER_ADDRESS = "0x2222222222222222222222222222222222222222";
 
     private MockRestServiceServer queryServer;
-    private MockRestServiceServer transactionServer;
     private SsafyStoClient client;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder queryBuilder = RestClient.builder().baseUrl("https://sto.ssafy.io");
-        RestClient.Builder transactionBuilder = RestClient.builder().baseUrl("https://sto.ssafy.io");
         queryServer = MockRestServiceServer.bindTo(queryBuilder).build();
-        transactionServer = MockRestServiceServer.bindTo(transactionBuilder).build();
-        client = new SsafyStoClient(queryBuilder.build(), transactionBuilder.build());
+        client = new SsafyStoClient(queryBuilder.build());
     }
 
     @Test
@@ -42,7 +39,7 @@ class SsafyTokenQueryTest {
         assertThat(client.getTokenName(CONTRACT_ADDRESS)).isEqualTo("ABC Payment Token");
         assertThat(client.getTokenSymbol(CONTRACT_ADDRESS)).isEqualTo("abcToken");
         assertThat(client.getGranularity(CONTRACT_ADDRESS)).isEqualTo(BigInteger.ONE);
-        verifyOnlyQueryClientWasUsed();
+        verifyAllQueriesWereMade();
     }
 
     @Test
@@ -56,7 +53,7 @@ class SsafyTokenQueryTest {
 
         assertThat(client.getTotalSupply(CONTRACT_ADDRESS)).isEqualTo(new BigInteger(largeAmount));
         assertThat(client.getBalance(CONTRACT_ADDRESS, HOLDER_ADDRESS)).isZero();
-        verifyOnlyQueryClientWasUsed();
+        verifyAllQueriesWereMade();
     }
 
     @Test
@@ -69,7 +66,7 @@ class SsafyTokenQueryTest {
 
         assertThat(client.isMinter(CONTRACT_ADDRESS, HOLDER_ADDRESS)).isTrue();
         assertThat(client.isIssuable(CONTRACT_ADDRESS)).isFalse();
-        verifyOnlyQueryClientWasUsed();
+        verifyAllQueriesWereMade();
     }
 
     @Test
@@ -81,7 +78,7 @@ class SsafyTokenQueryTest {
                 .isInstanceOf(RestClientException.class);
         assertThatThrownBy(() -> client.isIssuable(CONTRACT_ADDRESS))
                 .isInstanceOf(RestClientException.class);
-        verifyOnlyQueryClientWasUsed();
+        verifyAllQueriesWereMade();
     }
 
     @Test
@@ -95,7 +92,7 @@ class SsafyTokenQueryTest {
                 .isInstanceOf(RestClientException.class);
         assertThatThrownBy(() -> client.getBalance(CONTRACT_ADDRESS, HOLDER_ADDRESS))
                 .isInstanceOf(RestClientException.class);
-        verifyOnlyQueryClientWasUsed();
+        verifyAllQueriesWereMade();
     }
 
     @Test
@@ -104,7 +101,7 @@ class SsafyTokenQueryTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> client.isMinter(CONTRACT_ADDRESS, "invalid-holder"))
                 .isInstanceOf(IllegalArgumentException.class);
-        verifyOnlyQueryClientWasUsed();
+        verifyAllQueriesWereMade();
     }
 
     private void expectQuery(String suffix, String response) {
@@ -113,8 +110,7 @@ class SsafyTokenQueryTest {
                 .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
     }
 
-    private void verifyOnlyQueryClientWasUsed() {
+    private void verifyAllQueriesWereMade() {
         queryServer.verify();
-        transactionServer.verify();
     }
 }

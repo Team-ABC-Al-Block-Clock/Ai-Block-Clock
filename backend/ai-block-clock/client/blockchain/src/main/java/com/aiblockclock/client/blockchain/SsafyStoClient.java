@@ -1,11 +1,7 @@
 package com.aiblockclock.client.blockchain;
 
 import java.math.BigInteger;
-import java.util.List;
-import java.util.Objects;
 
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -14,72 +10,13 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class SsafyStoClient {
     private final RestClient queryRestClient;
-    private final RestClient transactionRestClient;
 
-    public SsafyStoClient(
-            @Qualifier("ssafyStoQueryRestClient") RestClient queryRestClient,
-            @Qualifier("ssafyStoTransactionRestClient") RestClient transactionRestClient
-    ) {
+    public SsafyStoClient(RestClient queryRestClient) {
         this.queryRestClient = queryRestClient;
-        this.transactionRestClient = transactionRestClient;
     }
 
     public boolean isHealthy() {
         return getBoolean("/health", "health");
-    }
-
-    public SsafyTokenDeploymentReceipt deployToken(SsafyTokenDeploymentRequest request) {
-        SsafyTokenDeploymentReceipt receipt = transactionRestClient.post()
-                .uri("/v1/tokens")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(SsafyTokenDeploymentReceipt.class);
-
-        if (receipt == null || receipt.status() == null
-                || receipt.transactionHash() == null || receipt.transactionHash().isBlank()
-                || Boolean.TRUE.equals(receipt.status())
-                && (receipt.contractAddress() == null || receipt.contractAddress().isBlank())) {
-            throw new RestClientException("SSAFY STO deployment receipt is incomplete; verify chain outcome before resubmitting");
-        }
-        return receipt;
-    }
-
-    public SsafyTokenMintReceipt mintToken(String contractAddress, SsafyTokenMintRequest request) {
-        SsafyBlockchainAddress.requireValid(contractAddress, "contractAddress");
-        Objects.requireNonNull(request, "request must not be null");
-
-        SsafyTokenMintReceipt receipt = transactionRestClient.post()
-                .uri("/v1/tokens/{contractAddress}", contractAddress)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(SsafyTokenMintReceipt.class);
-
-        if (receipt == null || receipt.status() == null
-                || receipt.transactionHash() == null || receipt.transactionHash().isBlank()) {
-            throw new RestClientException(
-                    "SSAFY STO mint receipt is incomplete; verify chain outcome before resubmitting"
-            );
-        }
-        return receipt;
-    }
-
-    public List<SsafyDeployedToken> getDeployedTokens(String ownerAddress) {
-        SsafyBlockchainAddress.requireValid(ownerAddress, "ownerAddress");
-        List<SsafyDeployedToken> tokens = queryRestClient.get()
-                .uri("/v1/tokens/{ownerAddress}", ownerAddress)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {
-                });
-
-        if (tokens == null) {
-            throw new RestClientException("SSAFY STO deployed-token response is empty");
-        }
-        return List.copyOf(tokens);
     }
 
     public String getTokenName(String contractAddress) {

@@ -24,8 +24,7 @@ class SsafyStoClientTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://sto.ssafy.io");
         server = MockRestServiceServer.bindTo(builder).build();
-        RestClient restClient = builder.build();
-        client = new SsafyStoClient(restClient, restClient);
+        client = new SsafyStoClient(builder.build());
     }
 
     @Test
