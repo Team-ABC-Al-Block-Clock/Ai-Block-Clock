@@ -29,6 +29,8 @@ public enum ErrorCode {
     NODE_003,
     NODE_004,
 
+    RECOMMEND_001,
+
     AGENT_001,
     AGENT_002,
     AGENT_006,
