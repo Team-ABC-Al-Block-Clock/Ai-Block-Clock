@@ -93,9 +93,15 @@ def is_compatible(output_schema_id: str, input_schema_id: str) -> bool:
     return output_schema_id == input_schema_id
 
 
-def sample(schema_id: str) -> dict[str, Any]:
-    """형식을 만족하는 샘플 payload. mock 실행 · 템플릿 등록 검증에 쓴다."""
-    return sample_payload(get(schema_id).model)
+def sample(schema_id: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    """형식을 만족하는 샘플 payload. mock 실행 · 템플릿 등록 검증에 쓴다.
+
+    `overrides` 로 특정 필드를 지정할 수 있다. mock 으로 분기 양쪽을 다 돌려 보려면
+    `{"competition_level": "low"}` 처럼 분기 기준값을 바꿔 주면 된다.
+    """
+    payload = sample_payload(get(schema_id).model)
+    payload.update(overrides or {})
+    return payload
 
 
 def parse(schema_id: str, payload: dict[str, Any]) -> BaseModel:

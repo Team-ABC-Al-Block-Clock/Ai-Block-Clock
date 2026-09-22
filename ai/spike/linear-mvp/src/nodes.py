@@ -70,10 +70,15 @@ def run_llm_node(
     system: str,
     message: str,
     runtime_values: dict[str, Any] | None = None,
+    mock_overrides: dict[str, Any] | None = None,
 ) -> NodeRun:
-    """노드 하나를 실행해 봉투를 돌려준다. 예외를 던지지 않는다."""
+    """노드 하나를 실행해 봉투를 돌려준다. 예외를 던지지 않는다.
+
+    `mock_overrides` 는 mock 실행에서 쓸 값이다 — 분기 기준값을 바꿔 양쪽 경로를
+    모두 돌려 보는 데 쓴다.
+    """
     response_schema = catalog.response_schema(schema_id)
-    mock_json = catalog.sample(schema_id) if llm.mock else None
+    mock_json = catalog.sample(schema_id, mock_overrides) if llm.mock else None
     if mock_json:
         for name in catalog.runtime_fields(schema_id):
             mock_json.pop(name, None)      # 주입 필드는 LLM이 만들지 않는다

@@ -460,6 +460,7 @@ curl -X POST $BASE/v1/runs \
 ```
 
 **노드 상태값** `pending → running → succeeded` 또는 `failed`. 한 방향뿐이고 되돌아가지 않는다.
+분기로 선택되지 않은 경로의 노드는 `skipped`가 되고 `skip_reason`(`branch_not_taken` · `upstream_failed`)이 붙는다. 같은 내용이 `not_executed[]`에도 담기므로 정산은 그쪽만 보면 된다.
 
 ### 7.3 `GET /v1/runs/{run_id}/artifact` — 결과 JSON
 
