@@ -4,6 +4,8 @@ import { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from './CanvasPane'
 
 type CanvasEdgeLayerProps = {
   children: ReactNode
+  /** 팬·줌 화면은 `CanvasWorld` 가 판 바깥에서 자르므로 끈다. */
+  clip?: boolean
 }
 
 /**
@@ -14,14 +16,14 @@ type CanvasEdgeLayerProps = {
  * 패널 쪽만 `PANEL_CLIP` 으로 자른다. 카드와 같은 선에서 가려져야 한다.
  * 판정은 선마다 따로 켠다 — 판 전체가 포인터를 먹으면 카드를 못 잡는다.
  */
-export default function CanvasEdgeLayer({ children }: CanvasEdgeLayerProps) {
+export default function CanvasEdgeLayer({ children, clip = true }: CanvasEdgeLayerProps) {
   return (
     <svg
       className="pointer-events-none absolute top-0 left-0"
       width={PANE_WIDTH}
       height={PANE_HEIGHT}
       viewBox={`0 0 ${PANE_WIDTH} ${PANE_HEIGHT}`}
-      style={{ overflow: 'visible', clipPath: PANEL_CLIP }}
+      style={{ overflow: 'visible', clipPath: clip ? PANEL_CLIP : undefined }}
     >
       {children}
     </svg>

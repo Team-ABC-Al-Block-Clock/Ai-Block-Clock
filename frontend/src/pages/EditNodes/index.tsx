@@ -2,7 +2,8 @@ import { Fragment, type CSSProperties } from 'react'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
-import CanvasPane, { PANEL_CLIP } from '@/components/CanvasPane'
+import CanvasPane from '@/components/CanvasPane'
+import CanvasWorld from '@/components/CanvasWorld'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
@@ -45,8 +46,15 @@ export default function EditNodes() {
     handlePortMove,
     handlePortUp,
     handlePaneDown,
+    handlePaneMove,
+    handlePaneUp,
+    handlePaneCancel,
+    view,
+    zoomLabel,
+    zoomIn,
+    zoomOut,
   } = canvas
-  const { paneRef, panelRef, glowRef, tempRef } = canvas.refs
+  const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
   const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
   const { isFetchNextPageError, isFetchingNextPage, handleRetryNextPage } = palette
 
@@ -97,12 +105,17 @@ export default function EditNodes() {
     <>
       <CanvasPane
         ref={paneRef}
+        gridRef={gridRef}
+        view={view}
         onPointerDown={handlePaneDown}
+        onPointerMove={handlePaneMove}
+        onPointerUp={handlePaneUp}
+        onPointerCancel={handlePaneCancel}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
         <div
-          className="absolute left-0 text-center text-[16px] tracking-[-.005em]"
+          className="pointer-events-none absolute left-0 text-center text-[16px] tracking-[-.005em]"
           style={{
             top: 'calc(74px - var(--edge-y, 0px))',
             width: '980px',
@@ -115,7 +128,7 @@ export default function EditNodes() {
 
         {(selEdge || n) && (
           <div
-            className="absolute left-0 flex items-center justify-center text-[14px]"
+            className="pointer-events-none absolute left-0 flex items-center justify-center text-[14px]"
             style={{
               top: 'calc(102px - var(--edge-y, 0px))',
               width: '980px',
@@ -129,110 +142,112 @@ export default function EditNodes() {
           </div>
         )}
 
-        <CanvasEdgeLayer>
-          <defs>
-            <linearGradient id="edgeOn" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
-              <stop offset="100%" stopColor="#dba18b" stopOpacity=".8" />
-            </linearGradient>
-          </defs>
-          {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {geometry.map((edge, i) => (
-              <Fragment key={edge.id}>
-                <path
-                  data-edge={edge.id}
-                  d={edge.d}
-                  fill="none"
-                  stroke={selEdge === edge.id ? 'rgba(255,214,234,.95)' : 'url(#edgeOn)'}
-                  strokeWidth={selEdge === edge.id ? 5 : 3.4}
-                />
-                <path
-                  data-edge={edge.id}
-                  d={edge.d}
-                  fill="none"
-                  stroke="rgba(255,224,238,.85)"
-                  strokeWidth="3.4"
-                  strokeLinecap="round"
-                  strokeDasharray="3 18"
-                  style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
-                />
-                {/* 선이 얇아 그대로는 못 누른다. 굵은 투명선에 판정만 맡긴다. */}
-                <path
-                  data-edge={edge.id}
-                  d={edge.d}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth="18"
-                  style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-                  onPointerDown={(ev) => {
-                    ev.stopPropagation()
-                    onSelectEdge(edge.id)
-                  }}
-                />
-              </Fragment>
-            ))}
-          </g>
-        </CanvasEdgeLayer>
-
-        {/* 패널은 칠하지 않아 뒤가 비치므로 노드를 패널 앞에서 잘라 넘어간 만큼만 가린다.
-            자르기만 하는 판이라 판정은 흘려보낸다 — 작업면을 덮고 있어 그대로 두면
-            아래에 깔린 연결선을 누를 수 없다. 카드가 제 몫만 다시 켠다. */}
-        <div className="pointer-events-none absolute inset-0" style={{ clipPath: PANEL_CLIP }}>
-          <div ref={glowRef} style={selRing}></div>
-
-          {nodes.map((node, i) => (
-            <CanvasNode
-              key={node.id}
-              index={i}
-              name={node.name}
-              sublabel={nodeTypeLabel(node.nodeType)}
-              x={node.x}
-              y={node.y}
-              mine={node.mine}
-              floaty={node.floaty}
-              enter={node.enter}
-              background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
-              sublabelColor="rgba(230,196,212,.85)"
-              title={
-                node.mine ? undefined : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
-              }
-              nodeId={node.id}
-              dragging={dragId === node.id}
-              onSelect={handleSelect}
-              onPointerDown={handleNodePointerDown(node.id)}
-              onPortDown={handlePortDown(node.id)}
-              portDim={(side) => !portOpen(node.id, side)}
-              // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
-              onPointerMove={(ev) => {
-                handleNodePointerMove(ev)
-                handlePortMove(ev)
-              }}
-              onPointerUp={(ev) => {
-                handleNodePointerUp()
-                handlePortUp(ev)
-              }}
-              onPointerCancel={handlePointerCancel}
-              onHover={() => onHover(node.id)}
-              onHoverOut={handleHoverOut}
-            />
-          ))}
-        </div>
-
-        {/* 끄는 중인 선은 카드 위에 둔다 — 이어진 선과 달리 카드를 피해 가지 않아서,
-            아래에 깔면 겨냥하는 카드에 가려 끝이 보이지 않는다. 판 전체가 판정을 흘린다. */}
-        {linkFrom && (
-          <CanvasEdgeLayer>
-            <path
-              ref={tempRef}
-              fill="none"
-              stroke="rgba(255,224,238,.7)"
-              strokeWidth="3.4"
-              strokeLinecap="round"
-              strokeDasharray="6 10"
-            />
+        <CanvasWorld view={view} ref={worldRef}>
+          <CanvasEdgeLayer clip={false}>
+            <defs>
+              <linearGradient id="edgeOn" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#e3b7c8" stopOpacity=".9" />
+                <stop offset="100%" stopColor="#dba18b" stopOpacity=".8" />
+              </linearGradient>
+            </defs>
+            {/* 노드가 다 떠오른 뒤에 잇는다. 먼저 나오면 빈자리에 선만 떠 있다. */}
+            <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+              {geometry.map((edge, i) => (
+                <Fragment key={edge.id}>
+                  <path
+                    data-edge={edge.id}
+                    d={edge.d}
+                    fill="none"
+                    stroke={selEdge === edge.id ? 'rgba(255,214,234,.95)' : 'url(#edgeOn)'}
+                    strokeWidth={selEdge === edge.id ? 5 : 3.4}
+                  />
+                  <path
+                    data-edge={edge.id}
+                    d={edge.d}
+                    fill="none"
+                    stroke="rgba(255,224,238,.85)"
+                    strokeWidth="3.4"
+                    strokeLinecap="round"
+                    strokeDasharray="3 18"
+                    style={{ animation: `dash ${1.4 + i * 0.1}s ${i * 0.2}s linear infinite` }}
+                  />
+                  {/* 선이 얇아 그대로는 못 누른다. 굵은 투명선에 판정만 맡긴다. */}
+                  <path
+                    data-edge={edge.id}
+                    d={edge.d}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth="18"
+                    style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                    onPointerDown={(ev) => {
+                      ev.stopPropagation()
+                      onSelectEdge(edge.id)
+                    }}
+                  />
+                </Fragment>
+              ))}
+            </g>
           </CanvasEdgeLayer>
-        )}
+
+          {/* 판정은 흘려보내고 카드가 제 몫만 다시 켠다. 자르기는 `CanvasWorld` 가 한다. */}
+          <div className="pointer-events-none absolute inset-0">
+            <div ref={glowRef} style={selRing}></div>
+
+            {nodes.map((node, i) => (
+              <CanvasNode
+                key={node.id}
+                index={i}
+                name={node.name}
+                sublabel={nodeTypeLabel(node.nodeType)}
+                x={node.x}
+                y={node.y}
+                mine={node.mine}
+                floaty={node.floaty}
+                enter={node.enter}
+                background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
+                sublabelColor="rgba(230,196,212,.85)"
+                title={
+                  node.mine
+                    ? undefined
+                    : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+                }
+                nodeId={node.id}
+                dragging={dragId === node.id}
+                onSelect={handleSelect}
+                onPointerDown={handleNodePointerDown(node.id)}
+                onPortDown={handlePortDown(node.id)}
+                portDim={(side) => !portOpen(node.id, side)}
+                // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
+                onPointerMove={(ev) => {
+                  handleNodePointerMove(ev)
+                  handlePortMove(ev)
+                }}
+                onPointerUp={(ev) => {
+                  handleNodePointerUp()
+                  handlePortUp(ev)
+                }}
+                onPointerCancel={handlePointerCancel}
+                onHover={() => onHover(node.id)}
+                onHoverOut={handleHoverOut}
+              />
+            ))}
+          </div>
+
+          {/* 끄는 중인 선은 카드 위에 둔다 — 이어진 선과 달리 카드를 피해 가지 않아서,
+            아래에 깔면 겨냥하는 카드에 가려 끝이 보이지 않는다. 판 전체가 판정을 흘린다. */}
+          {linkFrom && (
+            <CanvasEdgeLayer clip={false}>
+              <path
+                ref={tempRef}
+                fill="none"
+                stroke="rgba(255,224,238,.7)"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                strokeDasharray="6 10"
+              />
+            </CanvasEdgeLayer>
+          )}
+        </CanvasWorld>
 
         <div
           className="absolute flex items-center overflow-hidden"
@@ -248,6 +263,8 @@ export default function EditNodes() {
           }}
         >
           <div
+            onClick={zoomOut}
+            title="축소"
             style={{ width: '41px', height: '36px', color: 'rgba(255,255,255,.82)' }}
             className="flex cursor-pointer items-center justify-center text-[17px] font-semibold hover:bg-[rgba(255,255,255,.12)]"
           >
@@ -257,9 +274,11 @@ export default function EditNodes() {
             className="flex items-center justify-center text-[15px] font-semibold"
             style={{ width: '67px', height: '36px', color: 'rgba(255,255,255,.82)' }}
           >
-            100%
+            {zoomLabel}
           </div>
           <div
+            onClick={zoomIn}
+            title="확대"
             style={{ width: '41px', height: '36px', color: 'rgba(255,255,255,.82)' }}
             className="flex cursor-pointer items-center justify-center text-[17px] font-semibold hover:bg-[rgba(255,255,255,.12)]"
           >
@@ -503,7 +522,7 @@ export default function EditNodes() {
         </a>
       </CanvasPane>
 
-      <SidePanel ref={panelRef}>
+      <SidePanel>
         <div
           className="absolute text-[17px] font-semibold tracking-[-.005em] text-white"
           style={{ left: `${PANEL_INSET}px`, top: `${PANEL_INSET}px` }}
