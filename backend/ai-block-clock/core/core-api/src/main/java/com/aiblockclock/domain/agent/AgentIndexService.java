@@ -3,7 +3,7 @@ package com.aiblockclock.domain.agent;
 import com.aiblockclock.client.ai.IndexOutcome;
 import com.aiblockclock.client.ai.IndexedAgent;
 import com.aiblockclock.client.ai.RecommendClient;
-import com.aiblockclock.client.ai.RecommendClientException;
+import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.agent.Tier;
 
@@ -80,7 +80,7 @@ public class AgentIndexService {
             IndexOutcome outcome = push.run();
             log.info("추천 색인 {} 완료: 반영 {}건, 색인 전체 {}건, 모델 {}",
                     what, outcome.indexed(), outcome.total(), outcome.modelVersion());
-        } catch (RecommendClientException exception) {
+        } catch (AiClientException exception) {
             log.warn("추천 색인 {} 실패: {}", what, exception.getMessage(), exception);
         }
     }

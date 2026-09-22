@@ -1,7 +1,7 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.client.ai.RecommendClient;
-import com.aiblockclock.client.ai.RecommendClientException;
+import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.client.ai.RecommendedAgent;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -44,7 +44,7 @@ public class AgentRecommendationService {
                     .map(AgentRecommendationService::toAgentId)
                     .flatMap(Optional::stream)
                     .toList();
-        } catch (RecommendClientException exception) {
+        } catch (AiClientException exception) {
             log.warn("추천을 가져오지 못했다: {}", exception.getMessage(), exception);
 
             throw new CoreException(ErrorType.RECOMMEND_UNAVAILABLE);

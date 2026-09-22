@@ -11,8 +11,6 @@ import java.util.Map;
 
 @RequiredArgsConstructor
 public class RecommendClient {
-    public static final String SERVICE_TOKEN_HEADER = "X-ABC-Service-Token";
-
     private static final String INDEX_PATH = "/v1/index/agents";
     private static final String RECOMMEND_PATH = "/v1/recommend";
 
@@ -48,14 +46,14 @@ public class RecommendClient {
                     .retrieve()
                     .body(responseType);
         } catch (RestClientException exception) {
-            throw new RecommendClientException(RecommendClientError.REQUEST_FAILED,
+            throw new AiClientException(AiClientError.REQUEST_FAILED,
                     "recommend request to " + path + " failed", exception);
         }
     }
 
     private static <T> T require(T response, String what) {
         if (response == null) {
-            throw new RecommendClientException(RecommendClientError.MALFORMED_RESPONSE,
+            throw new AiClientException(AiClientError.MALFORMED_RESPONSE,
                     "recommend response has no " + what);
         }
 

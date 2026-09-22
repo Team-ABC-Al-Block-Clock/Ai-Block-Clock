@@ -1,0 +1,80 @@
+package com.aiblockclock.client.ai;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record RunStatus(
+        @JsonProperty("run_id") String runId,
+        String status,
+        Progress progress,
+        List<Node> nodes,
+        List<Contribution> contribution,
+        @JsonProperty("not_executed") List<NotExecuted> notExecuted,
+        Result result,
+        Failure failure
+) {
+    public boolean isFinished() {
+        return isSucceeded() || "failed".equals(status);
+    }
+
+    public boolean isSucceeded() {
+        return "succeeded".equals(status);
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Progress(
+            int done,
+            int total,
+            int percent,
+            @JsonProperty("current_node_id") String currentNodeId,
+            @JsonProperty("current_node_name") String currentNodeName
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Node(
+            String id,
+            String name,
+            String type,
+            String status,
+            @JsonProperty("agent_id") String agentId,
+            @JsonProperty("owner_id") String ownerId,
+            @JsonProperty("cost_abc") BigDecimal costAbc,
+            @JsonProperty("skip_reason") String skipReason
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Contribution(
+            @JsonProperty("node_id") String nodeId,
+            @JsonProperty("owner_id") String ownerId,
+            @JsonProperty("agent_id") String agentId,
+            @JsonProperty("charged_abc") BigDecimal chargedAbc
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record NotExecuted(
+            @JsonProperty("node_id") String nodeId,
+            String reason,
+            @JsonProperty("refund_abc") BigDecimal refundAbc
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Result(
+            String type,
+            @JsonProperty("schema_id") String schemaId,
+            @JsonProperty("artifact_url") String artifactUrl,
+            @JsonProperty("pdf_url") String pdfUrl
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Failure(String code, String message, @JsonProperty("node_id") String nodeId) {
+    }
+}
