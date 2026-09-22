@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 목적 | 1단계(판매자 한 사람의 워크플로우)가 **나뉘고 · 합쳐지고 · 갈라지고 · 다시 만나는** 것을 한 실행으로 보여 준다 |
-| 정의 파일 | `ai/spike/linear-mvp/workflows/brand_agent.json` (2노드 축소판은 `brand_2node.json`) |
+| 정의 파일 | `ai/spike/linear-mvp/workflows/brand_agent.json` |
 | 입력 예시 | `ai/spike/linear-mvp/data/brand_brief.json` |
 | 계약 | `integration-guide.md` §5(워크플로우 정의) · §6(카탈로그 · 봉투) |
 
@@ -63,10 +63,22 @@ uv run python -c "import json;from src import graph,runner;print(graph.validate(
 
 분기 판정은 코드가 한다. **같은 입력이면 항상 같은 경로가 나온다** — 정산과 견적의 근거이기 때문이다.
 
+## 실호출 결과 (09-22, `gemini-2.5-flash` · GMS)
+
+| 브리프 | 의도 | 모델 판정 | 경로 | 시간 | 원가 |
+| --- | --- | --- | --- | --- | --- |
+| `ai/demo/brand/brief_high.json` 소소칫솔(칫솔) | high | **high** ✓ | n3a 차별화 | 48.6s | 7.00 ABC |
+| `ai/demo/brand/brief_low.json` 밤길동무(LED 하네스) | low | **high** ✗ | n3a 차별화 | 53.3s | 6.64 ABC |
+
+교정 재요청 0회, 발행일 · 작성 기관 주입 정상, 브랜드명 보존, 정산 4노드 · 환원 1노드 모두 계약대로.
+**분기 자체는 코드가 값을 읽어 정확히 갈랐다**(mock 에서 양쪽 경로 검증). low 브리프가 high 로 판정된 것은
+프롬프트 `01` 의 high/low 기준 또는 브리프 선택의 문제로, 트랙 B 와 조정한다(리허설 전 low 경로 실호출 재확인).
+
 ## 프롬프트
 
-`ai/spike/linear-mvp/prompts/brand/` 에 있다. **본문은 트랙 B(조유진) 담당**이고 현재는 형식
-관통 확인용 자리표시자다. 교체 시 출력 형식(카탈로그)은 바뀌지 않으므로 워크플로우 정의는 그대로 둔다.
+`ai/prompts/brand/01 ~ 07*.md` — **트랙 B(조유진) 작성.** 마커 3블록(`system` · `user` · `fewshot`)과
+자리표시자를 Runtime 이 해석한다(`src/prompts.py`). 견본 워크플로우는 이 파일을 `../../prompts/brand/…` 로 가리키며,
+컨테이너에서는 같은 상대 경로가 `/prompts/brand/…` 로 풀린다.
 
 ---
 

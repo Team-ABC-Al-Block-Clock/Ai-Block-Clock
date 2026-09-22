@@ -411,6 +411,11 @@ def validate(wf: dict) -> dict:
             "stats": stats, "estimate": quote}
 
 
+def output_schema_of(graph: Graph, node_id: str) -> str | None:
+    """노드가 내는 형식. 분기 노드는 받은 것을 그대로 넘기므로 상위의 형식이다."""
+    return _output_schema_of(graph, node_id)
+
+
 def _output_schema_of(graph: Graph, node_id: str) -> str | None:
     """분기 노드는 받은 것을 그대로 넘기므로 상위의 출력 형식을 물려받는다."""
     node = graph.node(node_id)

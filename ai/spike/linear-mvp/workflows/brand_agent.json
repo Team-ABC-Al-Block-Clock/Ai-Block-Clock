@@ -5,7 +5,7 @@
   "nodes": [
     {
       "id": "n1", "name": "시장 조사",
-      "prompt": "prompts/brand/market_research.md",
+      "prompt": "../../prompts/brand/01_market_research.md",
       "input_schema_id": "biz.brand_brief@1",
       "output_schema_id": "biz.market_research@1",
       "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩",
@@ -13,7 +13,7 @@
     },
     {
       "id": "n2", "name": "제품 분석",
-      "prompt": "prompts/brand/product_analysis.md",
+      "prompt": "../../prompts/brand/02_product_analysis.md",
       "input_schema_id": "biz.brand_brief@1",
       "output_schema_id": "biz.product_analysis@1",
       "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩",
@@ -25,21 +25,21 @@
     },
     {
       "id": "n3a", "name": "차별화 전략",
-      "prompt": "prompts/brand/strategy_differentiation.md",
+      "prompt": "../../prompts/brand/03a_strategy_differentiate.md",
       "output_schema_id": "biz.strategy_draft@1",
       "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩",
       "unit_price": 4.5, "base_cost": 3.5, "premium_rate": 0.3
     },
     {
       "id": "n3b", "name": "대중 공략 전략",
-      "prompt": "prompts/brand/strategy_mass.md",
+      "prompt": "../../prompts/brand/03b_strategy_mass.md",
       "output_schema_id": "biz.strategy_draft@1",
       "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩",
       "unit_price": 4.5, "base_cost": 3.5, "premium_rate": 0.3
     },
     {
       "id": "n4", "name": "브랜드 전략 보고서",
-      "prompt": "prompts/brand/brand_strategy.md",
+      "prompt": "../../prompts/brand/04_brand_report.md",
       "input_schema_id": "biz.strategy_draft@1",
       "output_schema_id": "biz.brand_strategy@1",
       "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩",

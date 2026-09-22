@@ -23,6 +23,7 @@ from . import catalog, errors, pricing
 from . import expand as expand_mod
 from . import graph as graph_mod
 from . import nodes as node_runner
+from . import prompts
 from .excel_to_text import excel_to_common_table, excel_to_markdown
 from .llm import LLM
 from .payload_md import payload_to_markdown
@@ -59,12 +60,18 @@ def list_workflows() -> list[dict]:
 def resolve_prompts(wf: dict) -> dict:
     """prompt 값이 저장소 안의 .md 경로면 파일 내용으로 바꾼다. 백엔드가 보내는 원문은 그대로 둔다."""
     wf = json.loads(json.dumps(wf))  # 얕은 수정 방지
-    for node in wf.get("nodes", []):
+
+    def resolve(node: dict) -> None:
         p = str(node.get("prompt", ""))
         if p.endswith(".md"):
-            candidate = ROOT / p
+            candidate = ROOT / p        # `../../prompts/brand/…` 도 여기서 풀린다(공용 프롬프트)
             if candidate.exists():
                 node["prompt"] = candidate.read_text(encoding="utf-8")
+        for inner in (node.get("agent") or {}).get("nodes") or []:
+            resolve(inner)              # 에이전트 안의 노드도 견본이면 파일을 가리킨다
+
+    for node in wf.get("nodes", []):
+        resolve(node)
     return wf
 
 
@@ -366,12 +373,28 @@ def execute(
                 entry.update(status="failed", finished_at=_now())
                 return fail(node_id, "SCHEMA_VALIDATION_FAILED", reason, fault="consumer", index=index)
 
-            message = build_json_message(received, comment, user_input)
+            prompt = prompts.parse(node["prompt"])
+            if prompt.templated:
+                # 트랙 B 작성 형식 — user 블록의 자리표시자를 fan-in 결과로 채운다
+                live = graph_mod.live_edges(graph, node_id, payloads, branch_taken)
+                upstream_schema = (graph_mod.output_schema_of(graph, live[0]["from"])
+                                   if len(live) == 1 else None)
+                values = prompts.values_for(received, input_payload=input_payload, comment=comment,
+                                            upstream_schema_id=upstream_schema)
+                try:
+                    message = prompt.render_user(values)
+                except prompts.PlaceholderMissing as e:
+                    entry.update(status="failed", finished_at=_now())
+                    return fail(node_id, "PROMPT_TEMPLATE_INVALID",
+                                f"프롬프트가 요구하는 값이 없습니다: {e}", fault="supplier", index=index)
+            else:
+                message = build_json_message(received, comment, user_input)
+            system = prompt.system
             (out_dir / "nodes" / f"{node_id}.request.md").write_text(
-                _REQUEST_TMPL.format(system=node["prompt"], user=message), encoding="utf-8")
+                _REQUEST_TMPL.format(system=system, user=message), encoding="utf-8")
             nr = node_runner.run_llm_node(
                 llm, run_id=run_id, node_id=node_id, schema_id=schema_id,
-                system=node["prompt"], message=message,
+                system=system, message=message,
                 runtime_values=_runtime_values(schema_id, node),
                 mock_overrides=(mock_overrides or {}).get(schema_id))
 

@@ -49,27 +49,40 @@ def auth(x_abc_service_token: str | None = Header(default=None)) -> None:
 
 
 def _public(run: dict, include_node_output: bool = False) -> dict:
-    """백엔드에 돌려줄 형태. 노드 출력 전문은 요청할 때만 포함한다."""
+    """백엔드에 돌려줄 형태 — 계약 §7.2 그대로. 노드 출력 전문은 요청할 때만 포함한다.
+
+    러너 내부 상태에는 프롬프트 · 마크다운 · 파일 경로가 있지만 밖으로는 내지 않는다.
+    필드를 더하면 계약 문서도 같은 MR 에서 고친다.
+    """
+    public_keys = ("id", "name", "type", "status", "schema_id", "agent_id", "owner_id",
+                   "started_at", "finished_at", "duration_ms", "input_tokens", "output_tokens",
+                   "retries", "repair_count", "cost_abc", "unit_price", "skip_reason", "branch_taken")
     nodes = []
     for n in run["nodes"]:
-        item = {k: n.get(k) for k in ("id", "name", "status", "context", "duration_ms",
-                                      "input_tokens", "output_tokens", "retries",
-                                      "owner_id", "unit_price")}
+        item = {k: n.get(k) for k in public_keys}
+        item["type"] = n.get("type") or ("branch" if n.get("branch_taken") is not None else "llm")
         if include_node_output:
-            item["output"] = n["output"]
+            item["output"] = n.get("output")
         nodes.append(item)
 
-    done = sum(1 for n in run["nodes"] if n["status"] == "succeeded")
-    total = len(run["nodes"])
+    # 진행률은 "돌아야 하는 LLM 노드" 기준이다 — 분기 노드와 건너뛴 노드는 세지 않는다(계약 §7.2)
+    countable = [n for n in run["nodes"]
+                 if n.get("type") != "branch" and n.get("branch_taken") is None
+                 and n.get("status") != "skipped"]
+    done = sum(1 for n in countable if n["status"] == "succeeded")
+    total = len(countable)
     current = next((i for i, n in enumerate(run["nodes"]) if n["status"] == "running"), None)
     cur_node = run["nodes"][current] if current is not None else None
 
     result = None
     if run.get("result"):
+        has_pdf = bool(run["result"].get("pdf"))
+        has_envelope = bool(run["result"].get("envelope"))
         result = {
-            "type": run["result"]["type"],
-            "markdown": run["result"]["markdown"],
-            "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if run["result"].get("pdf") else None,
+            "type": run["result"].get("type"),
+            "schema_id": run["result"].get("schema_id"),
+            "artifact_url": f"/v1/runs/{run['run_id']}/artifact" if has_envelope else None,
+            "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if has_pdf else None,
         }
 
     return {
@@ -90,7 +103,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
         "started_at": run["started_at"],
         "finished_at": run["finished_at"],
         "total_duration_ms": run["total_duration_ms"],
-        # 정산 입력값 (계약 문서 6장)
+        # 정산 근거 (계약 §8)
         "contribution": run.get("contribution", []),
         "not_executed": run.get("not_executed", []),
         "failure": run.get("failure"),
