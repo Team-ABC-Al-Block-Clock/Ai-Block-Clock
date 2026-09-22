@@ -3,6 +3,7 @@ import { http } from 'msw'
 import type { UpdatedProfile, UserProfile, WalletMessage, WalletSession } from '@/api/auth'
 import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
+import type { CsrfToken } from '@/api/csrf'
 import { AUTH_ERROR, USER_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
@@ -123,6 +124,14 @@ function issueSession() {
 }
 
 export const authHandlers = [
+  /**
+   * CSRF 토큰 발급. 이 핸들러만 `scene` 을 타지 않는다 —
+   * 여기가 강제 실패에 걸리면 모든 쓰기가 제 핸들러에 닿기도 전에 엉뚱한 코드로 죽는다.
+   */
+  http.get(`${API_BASE_URL}/auth/csrf`, () =>
+    ok<CsrfToken>({ headerName: 'X-CSRF-TOKEN', token: crypto.randomUUID() }),
+  ),
+
   /** 서명할 nonce 발급 */
   http.post(`${API_BASE_URL}/auth/wallet/message`, async ({ request }) => {
     const forced = await scene(request)

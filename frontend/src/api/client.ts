@@ -1,11 +1,12 @@
-import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 
+import { clearCsrfToken, getCsrfToken } from '@/api/csrf'
 import { ApiError, isApiErrorBody } from '@/api/errors'
 import { env } from '@/lib/env'
 
-/** `{ status: 'success', data }` */
+/** `{ status: 'SUCCESS', data }` — 값으로 분기하지 않고 봉투 모양만 본다. */
 interface ApiSuccessBody<T> {
-  status: 'success'
+  status: string
   data: T
 }
 
@@ -20,6 +21,31 @@ export const client = axios.create({
   // FormData 가 JSON 문자열로 바뀌어 나간다.
   // sessionToken 이 HttpOnly 쿠키로 오간다. 이게 없으면 모든 요청이 AUTH_005 다.
   withCredentials: true,
+})
+
+/** 서버가 토큰을 요구하는 메서드. GET·HEAD·OPTIONS 는 면제다. */
+const CSRF_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+
+const needsCsrf = (config: AxiosRequestConfig) =>
+  CSRF_METHODS.has((config.method ?? 'get').toLowerCase())
+
+/** 재시도는 한 번뿐이다. 표시가 없으면 403 이 끝없이 돈다. */
+interface RetriedConfig extends InternalAxiosRequestConfig {
+  csrfRetried?: boolean
+}
+
+/**
+ * 쓰기 요청에 CSRF 토큰을 붙인다.
+ *
+ * 부팅 때 미리 받지 않고 첫 쓰기에서 받는다 — 읽고 떠나는 방문자에게 요청 한 건을
+ * 더 들이지 않으려고. 발급이 실패하면 요청을 보내지 않고 그대로 실패한다.
+ * 헤더 없이 내보내 403 을 받는 것보다 원인이 드러난다.
+ */
+client.interceptors.request.use(async (config) => {
+  if (!needsCsrf(config)) return config
+  const { headerName, token } = await getCsrfToken()
+  config.headers.set(headerName, token)
+  return config
 })
 
 /**
@@ -66,8 +92,28 @@ client.interceptors.response.use(
     const code = isApiErrorBody(body) ? body.error.code : undefined
     const message = isApiErrorBody(body) ? body.error.message : error.message
 
+    // CSRF 토큰이 죽었다 — 세션이 갈렸는데 캐시를 버리지 못한 경우다. 한 번만 다시 받아 보낸다.
+    // 도메인 코드가 붙은 403 은 권한 거절이라 건드리지 않는다. 서버의 CSRF 검사는
+    // 컨트롤러 앞에서 막아 우리 오류 봉투를 만들지 못하므로 code 가 없다.
+    const config = error.config as RetriedConfig | undefined
+    if (
+      response.status === 403 &&
+      code === undefined &&
+      config &&
+      needsCsrf(config) &&
+      !config.csrfRetried
+    ) {
+      config.csrfRetried = true
+      clearCsrfToken()
+      return client.request(config)
+    }
+
     // 401 은 전부 회복 불가다 — 자동 재발급 API 가 없어 지갑 서명 로그인부터 다시 한다.
-    if (response.status === 401) onAuthFailure?.(code)
+    // 세션이 사라졌으니 거기 매인 토큰도 죽은 값이다.
+    if (response.status === 401) {
+      clearCsrfToken()
+      onAuthFailure?.(code)
+    }
 
     throw new ApiError(message, { code, status: response.status, cause: error })
   },
