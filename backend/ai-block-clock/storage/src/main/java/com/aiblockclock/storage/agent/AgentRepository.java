@@ -6,10 +6,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AgentRepository extends JpaRepository<AgentEntity, UUID> {
     boolean existsByIdAndOwnerId(UUID id, Long ownerId);
+
+    @Query("select a.publicVersionId from AgentEntity a where a.id = :id and a.publicVersionId is not null")
+    Optional<UUID> findPublicVersionId(@Param("id") UUID id);
 
     @Query("""
             select new com.aiblockclock.storage.agent.PublicAgentRow(

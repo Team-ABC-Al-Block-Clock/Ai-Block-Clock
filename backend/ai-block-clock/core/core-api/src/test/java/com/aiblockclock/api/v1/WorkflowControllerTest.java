@@ -471,7 +471,7 @@ class WorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("에이전트 배치는 아직 열려 있지 않다")
+    @DisplayName("공개되지 않은 에이전트는 놓을 수 없다")
     void rejectsAgentPlacement() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))

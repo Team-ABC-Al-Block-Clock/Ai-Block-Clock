@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -21,6 +22,10 @@ public class AgentReader {
 
     public boolean isOwnedBy(AgentId id, UserId owner) {
         return agentRepository.existsByIdAndOwnerId(id.value(), owner.value());
+    }
+
+    public Optional<AgentVersionId> findPublicVersion(AgentId id) {
+        return agentRepository.findPublicVersionId(id.value()).map(AgentVersionId::of);
     }
 
     public List<PublicAgent> readPublic() {
