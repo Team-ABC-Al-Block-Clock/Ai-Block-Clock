@@ -11,15 +11,11 @@ class AbcBalanceResponseTest {
 
     @Test
     void 잔액_도메인을_API_응답으로_변환한다() {
-        AbcBalance abcBalance =
-                AbcBalance.from(
-                        new BigDecimal("12.345")
-                );
+        AbcBalance abcBalance = AbcBalance.of(new BigDecimal("12.345"), new BigDecimal("3"));
 
-        AbcBalanceResponse response =
-                AbcBalanceResponse.from(abcBalance);
+        AbcBalanceResponse response = AbcBalanceResponse.from(abcBalance);
 
-        assertThat(response.balance())
-                .isEqualByComparingTo("12.345");
+        assertThat(response.available()).isEqualByComparingTo("12.345");
+        assertThat(response.reserved()).isEqualByComparingTo("3");
     }
 }

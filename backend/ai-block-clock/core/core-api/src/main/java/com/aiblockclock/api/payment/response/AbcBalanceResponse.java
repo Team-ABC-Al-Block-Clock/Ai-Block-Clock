@@ -4,13 +4,9 @@ import com.aiblockclock.domain.payment.AbcBalance;
 
 import java.math.BigDecimal;
 
-public record AbcBalanceResponse(BigDecimal balance) {
+public record AbcBalanceResponse(BigDecimal available, BigDecimal reserved) {
 
-    public static AbcBalanceResponse from(
-            AbcBalance abcBalance
-    ) {
-        return new AbcBalanceResponse(
-                abcBalance.amount()
-        );
+    public static AbcBalanceResponse from(AbcBalance abcBalance) {
+        return new AbcBalanceResponse(abcBalance.available(), abcBalance.reserved());
     }
 }

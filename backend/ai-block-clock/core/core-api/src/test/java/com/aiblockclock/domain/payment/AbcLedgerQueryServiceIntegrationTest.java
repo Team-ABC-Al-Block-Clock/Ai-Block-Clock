@@ -38,12 +38,12 @@ class AbcLedgerQueryServiceIntegrationTest {
     private LedgerEntryRepository ledgerEntryRepository;
 
     @Test
-    void 장부_계좌가_없으면_ABC_잔액은_0이다() {
+    void 장부_계좌가_없으면_ABC_잔액과_예약_금액은_0이다() {
         AbcBalance balance =
                 abcLedgerQueryService.readBalance("user-without-account");
 
-        assertThat(balance.amount())
-                .isEqualByComparingTo("0.000");
+        assertThat(balance.available()).isEqualByComparingTo("0");
+        assertThat(balance.reserved()).isEqualByComparingTo("0");
     }
 
     @Test
@@ -57,11 +57,24 @@ class AbcLedgerQueryServiceIntegrationTest {
         AbcBalance userBBalance =
                 abcLedgerQueryService.readBalance("user-b");
 
-        assertThat(userABalance.amount())
+        assertThat(userABalance.available())
                 .isEqualByComparingTo("12.000");
 
-        assertThat(userBBalance.amount())
+        assertThat(userBBalance.available())
                 .isEqualByComparingTo("99.000");
+    }
+
+    @Test
+    void 실행에_묶인_ABC는_예약_금액으로_따로_조회한다() {
+        saveAccount("user-a", "70.000");
+        LedgerAccountEntity escrowAccount =
+                saveAccount(LedgerAccountType.EXECUTION_ESCROW, "user-a");
+        ledgerAccountRepository.addBalanceDelta(escrowAccount.getId(), new BigDecimal("30.000"), Instant.now());
+
+        AbcBalance balance = abcLedgerQueryService.readBalance("user-a");
+
+        assertThat(balance.available()).isEqualByComparingTo("70.000");
+        assertThat(balance.reserved()).isEqualByComparingTo("30.000");
     }
 
     @Test
