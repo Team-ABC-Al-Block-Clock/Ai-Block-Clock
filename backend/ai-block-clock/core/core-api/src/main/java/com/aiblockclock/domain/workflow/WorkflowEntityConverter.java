@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.Timestamps;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
 import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
@@ -15,6 +16,19 @@ final class WorkflowEntityConverter {
     private WorkflowEntityConverter() {
     }
 
+    static Workflow toDomain(WorkflowEntity entity, WorkflowGraph graph) {
+        return Workflow.restore(
+                WorkflowId.of(entity.getId()),
+                UserId.of(entity.getOwnerId()),
+                entity.getName(),
+                entity.getDescription(),
+                graph,
+                entity.getValidationStatus(),
+                Revision.of(entity.getRevision()),
+                new Timestamps(entity.getCreatedAt(), entity.getUpdatedAt()),
+                entity.getLastExecutedAt());
+    }
+
     static Workflow toDomain(WorkflowEntity entity,
                              List<WorkflowNodeEntity> nodeRows,
                              List<WorkflowEdgeEntity> edgeRows) {
@@ -27,16 +41,14 @@ final class WorkflowEntityConverter {
 
         return Workflow.restore(
                 WorkflowId.of(entity.getId()),
-                OwnerId.of(entity.getOwnerId()),
+                UserId.of(entity.getOwnerId()),
                 entity.getName(),
                 entity.getDescription(),
                 WorkflowGraph.of(nodes, edges),
                 entity.getValidationStatus(),
                 Revision.of(entity.getRevision()),
-                new WorkflowTimestamps(
-                        entity.getCreatedAt(),
-                        entity.getUpdatedAt(),
-                        entity.getLastExecutedAt()));
+                new Timestamps(entity.getCreatedAt(), entity.getUpdatedAt()),
+                entity.getLastExecutedAt());
     }
 
     static WorkflowSummary toSummary(WorkflowEntity entity) {
@@ -57,19 +69,20 @@ final class WorkflowEntityConverter {
                 workflow.getRevision().value());
     }
 
-    static List<WorkflowNodeEntity> toNodeEntities(UUID workflowId, WorkflowGraph graph) {
-        return graph.getNodes().stream()
+    static List<WorkflowNodeEntity> toNodeEntities(UUID workflowId, List<GraphNode> nodes) {
+        return nodes.stream()
                 .map(node -> new WorkflowNodeEntity(
                         workflowId,
                         node.key().value(),
                         node.sourceType(),
                         node.reference().referenceId(),
-                        node.reference().versionId()))
+                        node.reference().versionId(),
+                        node.inputSource()))
                 .toList();
     }
 
-    static List<WorkflowEdgeEntity> toEdgeEntities(UUID workflowId, WorkflowGraph graph) {
-        return graph.getEdges().stream()
+    static List<WorkflowEdgeEntity> toEdgeEntities(UUID workflowId, List<GraphEdge> edges) {
+        return edges.stream()
                 .map(edge -> new WorkflowEdgeEntity(
                         workflowId,
                         edge.key().value(),
@@ -87,9 +100,10 @@ final class WorkflowEntityConverter {
                             Map.of("nodeKey", key.value(), "sourceType", node.getSourceType().name()));
                 }
 
-                yield new BaseNode(key, node.getReferenceId());
+                yield new BaseNode(key, node.getReferenceId(), node.getInputSource());
             }
-            case AGENT -> new AgentNode(key, node.getReferenceId(), node.getVersionId());
+            case AGENT -> new AgentNode(key, node.getReferenceId(), node.getVersionId(),
+                    node.getInputSource());
         };
     }
 

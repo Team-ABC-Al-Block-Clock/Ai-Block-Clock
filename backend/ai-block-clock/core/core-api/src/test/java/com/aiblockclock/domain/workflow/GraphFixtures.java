@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.workflow;
 
+import com.aiblockclock.enums.workflow.InputSource;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,11 +12,11 @@ public final class GraphFixtures {
     }
 
     public static GraphNode node(String key) {
-        return new BaseNode(NodeKey.of(key), deterministicId(key));
+        return new BaseNode(NodeKey.of(key), deterministicId(key), InputSource.defaultSource());
     }
 
     public static AgentNode agent(String key, UUID agentId, UUID versionId) {
-        return new AgentNode(NodeKey.of(key), agentId, versionId);
+        return new AgentNode(NodeKey.of(key), agentId, versionId, InputSource.defaultSource());
     }
 
     public static GraphEdge edge(String key, String source, String target) {

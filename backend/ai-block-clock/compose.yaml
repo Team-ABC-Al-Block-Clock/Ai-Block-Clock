@@ -36,6 +36,12 @@ services:
       DB_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-ai_block_clock}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul"
       DB_USERNAME: ${MYSQL_USER:-ai_block_clock}
       DB_PASSWORD: ${MYSQL_PASSWORD:-local_password}
+      AUTH_SESSION_TIMEOUT: ${AUTH_SESSION_TIMEOUT:-2h}
+      WALLET_AUTH_DOMAIN: ${WALLET_AUTH_DOMAIN:-localhost:5173}
+      WALLET_AUTH_URI: ${WALLET_AUTH_URI:-http://localhost:5173/}
+      WALLET_AUTH_CHAIN_ID: ${WALLET_AUTH_CHAIN_ID:-80002}
+      WALLET_AUTH_MESSAGE_TTL: ${WALLET_AUTH_MESSAGE_TTL:-5m}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
     ports:
       - "8080:8080"
     depends_on:

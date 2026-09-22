@@ -6,6 +6,12 @@ public enum ErrorCode {
 
     AUTH_005,
     AUTH_006,
+    AUTH_007,
+    AUTH_008,
+    AUTH_009,
+    AUTH_010,
+    AUTH_011,
+    AUTH_012,
 
     WORKFLOW_002,
     WORKFLOW_003,
@@ -19,10 +25,16 @@ public enum ErrorCode {
     WORKFLOW_015,
     WORKFLOW_016,
 
+    NODE_001,
+    NODE_002,
+    NODE_003,
+    NODE_004,
+
     AGENT_001,
     AGENT_002,
     AGENT_006,
     AGENT_007,
+    AGENT_009,
 
     PAYMENT_001,
     PAYMENT_002,

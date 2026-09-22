@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.testsupport.MySqlTestConfiguration;
+
 import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -18,6 +20,6 @@ import java.lang.annotation.Target;
         "spring.jpa.show-sql=false",
         "spring.jpa.hibernate.ddl-auto=validate"
 })
-@Import(PaymentMySqlTestConfiguration.class)
+@Import(MySqlTestConfiguration.class)
 @interface PaymentMySqlTest {
 }

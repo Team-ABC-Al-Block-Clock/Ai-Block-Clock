@@ -1,8 +1,11 @@
 package com.aiblockclock.domain.workflow;
 
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
+import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
+import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -29,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 class WorkflowConcurrentReplaceIntegrationTest {
-    private static final OwnerId OWNER = OwnerId.of(9102L);
+    private static final UserId OWNER = UserId.of(9102L);
     private static final Revision READ_BY_BOTH = Revision.of(1L);
 
     @Autowired
@@ -39,17 +42,32 @@ class WorkflowConcurrentReplaceIntegrationTest {
     private WorkflowRepository workflowRepository;
 
     @Autowired
+    private NodeDefinitionRepository nodeRepository;
+
+    @Autowired
     private WorkflowWriter workflowWriter;
 
+    @Autowired
+    private WorkflowNodeWriter workflowNodeWriter;
+
+    @Autowired
+    private WorkflowEdgeWriter workflowEdgeWriter;
+
     private WorkflowId workflowId;
+    private UUID seededNode;
 
     @BeforeEach
     void setUp() {
+        seededNode = NodeDefinitionSeeder.seed(nodeRepository, OWNER.value());
         workflowId = workflowService.save(OWNER, "동시 수정", null, placements(), edges()).getId();
     }
 
+    // 정리는 삭제 정책을 타지 않는다. WorkflowUsageView 가 실제 조회로 바뀌면
+    // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
+        workflowEdgeWriter.removeAll(workflowId);
+        workflowNodeWriter.removeAll(workflowId);
         workflowWriter.remove(workflowId);
     }
 
@@ -100,10 +118,10 @@ class WorkflowConcurrentReplaceIntegrationTest {
         }
     }
 
-    private static List<NodePlacement> placements() {
+    private List<NodePlacement> placements() {
         return List.of(
-                new NodePlacement(NodeKey.of("n1"), SourceType.NODE, UUID.randomUUID()),
-                new NodePlacement(NodeKey.of("n2"), SourceType.NODE, UUID.randomUUID()));
+                new NodePlacement(NodeKey.of("n1"), SourceType.NODE, seededNode, InputSource.defaultSource()),
+                new NodePlacement(NodeKey.of("n2"), SourceType.NODE, seededNode, InputSource.defaultSource()));
     }
 
     private static List<GraphEdge> edges() {

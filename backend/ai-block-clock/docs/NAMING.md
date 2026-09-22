@@ -117,7 +117,7 @@ Member   +   Withdraw    +   Manager
 | `implementation` | `Reader` | `MemberReader` | 조회 |
 | | `Writer` | `MemberWriter` | 저장·수정·삭제 |
 | | `Validator` | `MemberValidator` | 검증 |
-| | `Manager` | `MemberWithdrawManager` | 여러 implementation 을 한 트랜잭션으로 묶음 |
+| | `Manager` | `MemberWithdrawManager` | 여러 유스케이스에서 재사용하는 복합 단계 구현 |
 | | `Notifier` / `Sender` | `MemberNotifier` | 외부 시스템 연동 |
 | `storage` | `Entity` | `MemberEntity` | JPA 엔티티 |
 | | `Repository` | `MemberRepository` | 저장소 접근 |
@@ -134,7 +134,7 @@ Member   +   Withdraw    +   Manager
   memberService.withdraw(memberId);
   ```
 
-- **`Manager` 는 트랜잭션 조합 전용이다.** "이것저것 관리하는 클래스" 라는 뜻으로 쓰지 않는다 ([ARCHITECTURE.md 3.3](./ARCHITECTURE.md))
+- **`Manager` 는 재사용하는 복합 단계에만 둔다.** 트랜잭션 위임만 하거나 유스케이스 전체를 대신 수행하는 클래스로 만들지 않는다 ([ARCHITECTURE.md 3.3](./ARCHITECTURE.md))
 - **엔티티에는 `Entity` 를 붙인다.** 도메인 모델 `Member` 와 엔티티 `MemberEntity` 가 이름으로 구분되어야, 엔티티가 `storage` 밖으로 새는 것이 리뷰에서 바로 보인다
 
 ### 2.4 쓰지 않는 이름
@@ -144,7 +144,7 @@ Member   +   Withdraw    +   Manager
 | `XxxUtil`, `XxxHelper` | 행동의 주체가 없다. 갈 곳 없는 코드가 모이는 창고가 된다 | 동작할 객체의 메서드로 옮기거나, 역할 이름을 붙인 클래스로 만든다 |
 | `XxxInfo`, `XxxData`, `XxxVo` | 무엇을 담는지 말하지 않는다 | `MemberProfile`, `MemberRegisterCommand` 처럼 용도를 이름에 넣는다 |
 | `XxxProcessor`, `XxxHandler` | 모든 코드가 무언가를 처리한다. 구분에 쓸모가 없다 | 실제 하는 일로 바꾼다: `MemberService.register(...)` |
-| `XxxManager` (범용) | 관리의 범위가 무한하다 | 2.3 의 정의대로 트랜잭션 조합에만 쓴다 |
+| `XxxManager` (범용) | 관리의 범위가 무한하다 | 2.3 의 정의대로 재사용하는 복합 단계에만 쓴다 |
 | `XxxServiceImpl` | 구현이 하나뿐인데 인터페이스를 나눈 흔적. 이름이 아무 정보도 주지 않는다 | 구현이 하나면 인터페이스를 두지 않는다 |
 | `Common`, `Base`, `AbstractXxx` (습관적) | 공통이라는 이유로 관련 없는 코드가 붙는다 | 실제로 공유하는 개념의 이름을 찾는다 |
 

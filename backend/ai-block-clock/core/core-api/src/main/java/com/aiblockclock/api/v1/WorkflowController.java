@@ -1,6 +1,6 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.support.auth.CurrentOwner;
+import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.EdgePlacementRequest;
 import com.aiblockclock.api.v1.request.NodePlacementRequest;
 import com.aiblockclock.api.v1.request.WorkflowReplaceRequest;
@@ -9,7 +9,7 @@ import com.aiblockclock.api.v1.response.WorkflowDeleteResponse;
 import com.aiblockclock.api.v1.response.WorkflowDetailResponse;
 import com.aiblockclock.api.v1.response.WorkflowPageResponse;
 import com.aiblockclock.api.v1.response.WorkflowSaveResponse;
-import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphEdge;
 import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.Revision;
@@ -24,7 +24,6 @@ import com.aiblockclock.support.response.ApiResult;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,7 +40,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(value = "/api/v1/workflows", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping("/api/v1/workflows")
 @RequiredArgsConstructor
 public class WorkflowController implements WorkflowApi {
     private final WorkflowService workflowService;
@@ -50,7 +49,7 @@ public class WorkflowController implements WorkflowApi {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResult<WorkflowSaveResponse> save(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @RequestBody WorkflowSaveRequest request
     ) {
         List<NodePlacement> nodes = NodePlacementRequest.toPlacements(request.nodes());
@@ -65,7 +64,7 @@ public class WorkflowController implements WorkflowApi {
     @Override
     @GetMapping("/{workflowId}")
     public ApiResult<WorkflowDetailResponse> get(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @PathVariable UUID workflowId
     ) {
         Workflow workflow = workflowService.get(WorkflowId.of(workflowId), owner);
@@ -76,7 +75,7 @@ public class WorkflowController implements WorkflowApi {
     @Override
     @PutMapping("/{workflowId}")
     public ApiResult<WorkflowSaveResponse> replace(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @PathVariable UUID workflowId,
             @RequestBody WorkflowReplaceRequest request
     ) {
@@ -93,7 +92,7 @@ public class WorkflowController implements WorkflowApi {
     @Override
     @DeleteMapping("/{workflowId}")
     public ApiResult<WorkflowDeleteResponse> delete(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @PathVariable UUID workflowId
     ) {
         workflowService.delete(WorkflowId.of(workflowId), owner);
@@ -104,7 +103,7 @@ public class WorkflowController implements WorkflowApi {
     @Override
     @GetMapping
     public ApiResult<WorkflowPageResponse> findMine(
-            @CurrentOwner OwnerId owner,
+            @CurrentUser UserId owner,
             @RequestParam(defaultValue = "LAST_EXECUTED") WorkflowSort sort,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String cursor,
