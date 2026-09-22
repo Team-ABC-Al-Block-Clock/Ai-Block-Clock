@@ -9,6 +9,7 @@ spring:
     import:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
+      - classpath:blockchain.yml   # :client:blockchain
   session:
     timeout: ${AUTH_SESSION_TIMEOUT:2h}
     jdbc:
@@ -34,11 +35,3 @@ wallet-auth:
   uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}
   chain-id: ${WALLET_AUTH_CHAIN_ID:80002}
   message-ttl: ${WALLET_AUTH_MESSAGE_TTL:5m}
-
-ssafy:
-  sto:
-    base-url: ${SSAFY_STO_BASE_URL:https://sto.ssafy.io}
-    connect-timeout: ${SSAFY_STO_CONNECT_TIMEOUT:3s}
-    read-timeout: ${SSAFY_STO_READ_TIMEOUT:10s}
-    token:
-      contract-address: ${SSAFY_TOKEN_CONTRACT_ADDRESS:}

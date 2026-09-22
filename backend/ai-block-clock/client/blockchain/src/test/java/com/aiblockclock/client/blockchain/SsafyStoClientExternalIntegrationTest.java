@@ -13,7 +13,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @EnabledIfEnvironmentVariable(named = "SSAFY_STO_EXTERNAL_TEST", matches = "true")
 class SsafyStoClientExternalIntegrationTest {
+    // 이 모듈이 소유한 blockchain.yml 을 읽는다. application.yaml 은 core-api 것이라 여기서 보이지 않는다.
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+            .withPropertyValues("spring.config.name=blockchain")
             .withInitializer(new ConfigDataApplicationContextInitializer())
             .withUserConfiguration(SsafyStoConfiguration.class, SsafyStoClient.class);
 
