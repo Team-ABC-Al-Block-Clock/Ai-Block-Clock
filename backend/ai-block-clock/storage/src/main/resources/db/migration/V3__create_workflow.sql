@@ -1,9 +1,3 @@
-create table graph
-(
-    id varchar(36) not null,
-    primary key (id)
-);
-
 create table graph_node
 (
     id           bigint      not null auto_increment,
@@ -13,10 +7,7 @@ create table graph_node
     reference_id varchar(36) not null,
     version_id   varchar(36) null,
     input_source varchar(20) not null,
-    primary key (id),
-
-    constraint fk_graph_node_graph
-        foreign key (graph_id) references graph (id)
+    primary key (id)
 );
 
 create unique index uk_graph_node_key on graph_node (graph_id, node_key);
@@ -29,10 +20,7 @@ create table graph_edge
     edge_key        varchar(64) not null,
     source_node_key varchar(64) not null,
     target_node_key varchar(64) not null,
-    primary key (id),
-
-    constraint fk_graph_edge_graph
-        foreign key (graph_id) references graph (id)
+    primary key (id)
 );
 
 create unique index uk_graph_edge_key on graph_edge (graph_id, edge_key);
@@ -49,10 +37,7 @@ create table workflow
     last_executed_at  datetime(6)  null,
     created_at        datetime(6)  not null,
     updated_at        datetime(6)  not null,
-    primary key (id),
-
-    constraint fk_workflow_graph
-        foreign key (graph_id) references graph (id)
+    primary key (id)
 );
 
 create index idx_workflow_owner_last_executed on workflow (owner_id, last_executed_at, created_at, id);

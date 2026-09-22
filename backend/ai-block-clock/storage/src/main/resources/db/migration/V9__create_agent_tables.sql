@@ -33,10 +33,7 @@ create table agent_version
     primary key (id),
 
     constraint fk_agent_version_agent
-        foreign key (agent_id) references agent (id),
-
-    constraint fk_agent_version_graph
-        foreign key (graph_id) references graph (id)
+        foreign key (agent_id) references agent (id)
 );
 
 create unique index uk_agent_version_no on agent_version (agent_id, version_no);

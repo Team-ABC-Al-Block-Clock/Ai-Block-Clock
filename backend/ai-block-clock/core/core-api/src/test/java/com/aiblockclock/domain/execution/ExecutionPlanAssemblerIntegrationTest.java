@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.storage.workflow.WorkflowRepository;
+import com.aiblockclock.domain.workflow.GraphId;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionService;
 import com.aiblockclock.domain.node.Prompt;
@@ -10,8 +12,8 @@ import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.EdgeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
-import com.aiblockclock.domain.workflow.WorkflowEdgeWriter;
-import com.aiblockclock.domain.workflow.WorkflowNodeWriter;
+import com.aiblockclock.domain.workflow.GraphEdgeWriter;
+import com.aiblockclock.domain.workflow.GraphNodeWriter;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
@@ -44,13 +46,16 @@ class ExecutionPlanAssemblerIntegrationTest {
     private WorkflowWriter workflowWriter;
 
     @Autowired
-    private WorkflowNodeWriter workflowNodeWriter;
+    private GraphNodeWriter graphNodeWriter;
 
     @Autowired
-    private WorkflowEdgeWriter workflowEdgeWriter;
+    private GraphEdgeWriter graphEdgeWriter;
 
     @Autowired
     private ExecutionPlanAssembler executionPlanAssembler;
+
+    @Autowired
+    private WorkflowRepository workflowRepository;
 
     private WorkflowId workflowId;
 
@@ -59,8 +64,8 @@ class ExecutionPlanAssemblerIntegrationTest {
     @AfterEach
     void tearDown() {
         if (workflowId != null) {
-            workflowEdgeWriter.removeAll(workflowId);
-            workflowNodeWriter.removeAll(workflowId);
+            graphEdgeWriter.removeAll(graphIdOf(workflowId));
+            graphNodeWriter.removeAll(graphIdOf(workflowId));
             workflowWriter.remove(workflowId);
         }
     }
@@ -91,5 +96,9 @@ class ExecutionPlanAssemblerIntegrationTest {
                 .containsExactly(InputSource.USER, InputSource.PREV);
         assertThat(plan.prompts().get(0).prompt().value())
                 .isEqualTo("당신은 학원 성적 데이터 분석가입니다.");
+    }
+
+    private GraphId graphIdOf(WorkflowId id) {
+        return GraphId.of(workflowRepository.findById(id.value()).orElseThrow().getGraphId());
     }
 }

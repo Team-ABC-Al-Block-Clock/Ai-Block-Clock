@@ -9,7 +9,7 @@ import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
-import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
+import com.aiblockclock.storage.graph.GraphNodeRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
@@ -43,7 +43,7 @@ class NodeDefinitionDeletionMySqlTest {
     private NodeDefinitionRepository nodeRepository;
 
     @Autowired
-    private WorkflowNodeRepository workflowNodeRepository;
+    private GraphNodeRepository graphNodeRepository;
 
     // 한 번만 돌리면 첫 회차의 커넥션 풀 초기화 · JIT 때문에 두 스레드가 겹치지 않아
     // 락을 지워도 통과한다. 반복해야 락이 실제로 막고 있는지가 드러난다.
@@ -76,7 +76,7 @@ class NodeDefinitionDeletionMySqlTest {
             assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
         }
 
-        assertThat(workflowNodeRepository.existsByReferenceId(nodeId) && nodeRepository.findById(nodeId).isEmpty())
+        assertThat(graphNodeRepository.existsByReferenceId(nodeId) && nodeRepository.findById(nodeId).isEmpty())
                 .as("배치가 남았다면 노드도 남아 있어야 한다")
                 .isFalse();
     }

@@ -16,7 +16,6 @@ import java.util.List;
 public class WorkflowService {
     private final WorkflowReader workflowReader;
     private final WorkflowWriter workflowWriter;
-    private final GraphWriter graphWriter;
     private final GraphNodeWriter graphNodeWriter;
     private final GraphEdgeWriter graphEdgeWriter;
     private final WorkflowGraphAssembler workflowGraphAssembler;
@@ -32,7 +31,6 @@ public class WorkflowService {
     ) {
         WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
         GraphId graphId = GraphId.newId();
-        graphWriter.append(graphId);
         graphNodeWriter.append(graphId, graph.getNodes());
         graphEdgeWriter.append(graphId, graph.getEdges());
 
@@ -71,7 +69,6 @@ public class WorkflowService {
         workflowWriter.remove(id);
         graphEdgeWriter.removeAll(graphId);
         graphNodeWriter.removeAll(graphId);
-        graphWriter.remove(graphId);
     }
 
     public CursorPage<WorkflowSummary> findMine(

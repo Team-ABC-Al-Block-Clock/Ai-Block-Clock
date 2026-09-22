@@ -34,10 +34,7 @@ class WorkflowReaderIntegrationTest {
     @BeforeEach
     void setUp() {
         for (int i = 0; i < 3; i++) {
-            workflowRepository.save(new WorkflowEntity(
-                    UUID.randomUUID(),
-                    OWNER.value(),
-                    "workflow-%d".formatted(i),
+            workflowRepository.save(new WorkflowEntity(UUID.randomUUID(), OWNER.value(), UUID.randomUUID(), "workflow-%d".formatted(i),
                     null,
                     ValidationStatus.NOT_VALIDATED,
                     0L));

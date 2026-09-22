@@ -29,10 +29,7 @@ class WorkflowPagingIntegrationTest {
     @BeforeEach
     void setUp() {
         for (int i = 0; i < 30; i++) {
-            workflowRepository.save(new WorkflowEntity(
-                    UUID.randomUUID(),
-                    OWNER_ID,
-                    "workflow-%02d".formatted(i),
+            workflowRepository.save(new WorkflowEntity(UUID.randomUUID(), OWNER_ID, UUID.randomUUID(), "workflow-%02d".formatted(i),
                     null,
                     ValidationStatus.NOT_VALIDATED,
                     0L));

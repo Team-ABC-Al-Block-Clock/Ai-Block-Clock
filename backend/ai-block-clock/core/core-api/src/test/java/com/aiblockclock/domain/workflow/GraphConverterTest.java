@@ -2,9 +2,7 @@ package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
-import com.aiblockclock.enums.workflow.ValidationStatus;
-import com.aiblockclock.storage.workflow.WorkflowEntity;
-import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
+import com.aiblockclock.storage.graph.GraphNodeEntity;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -16,17 +14,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.UUID;
 
-class WorkflowEntityConverterTest {
-    private static final UUID WORKFLOW_ID = UUID.randomUUID();
-    private static final WorkflowEntity WORKFLOW = new WorkflowEntity(
-            WORKFLOW_ID, 1L, "워크플로우", null, ValidationStatus.NOT_VALIDATED, 1L);
+class GraphConverterTest {
+    private static final UUID GRAPH_ID = UUID.randomUUID();
 
     @Test
     @DisplayName("판별자가 NODE 인 행은 기본 노드로 복원된다")
     void restoresBaseNode() {
         UUID sourceId = UUID.randomUUID();
 
-        WorkflowGraph graph = toDomain(new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.NODE, sourceId, null, InputSource.defaultSource()));
+        WorkflowGraph graph = toDomain(new GraphNodeEntity(GRAPH_ID, "n1", SourceType.NODE, sourceId, null, InputSource.defaultSource()));
 
         assertThat(graph.getNodes()).containsExactly(new BaseNode(NodeKey.of("n1"), sourceId, InputSource.defaultSource()));
     }
@@ -37,7 +33,7 @@ class WorkflowEntityConverterTest {
         UUID agentId = UUID.randomUUID();
         UUID versionId = UUID.randomUUID();
 
-        WorkflowGraph graph = toDomain(new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.AGENT, agentId, versionId, InputSource.defaultSource()));
+        WorkflowGraph graph = toDomain(new GraphNodeEntity(GRAPH_ID, "n1", SourceType.AGENT, agentId, versionId, InputSource.defaultSource()));
 
         assertThat(graph.getNodes()).containsExactly(new AgentNode(NodeKey.of("n1"), agentId, versionId, InputSource.defaultSource()));
     }
@@ -45,8 +41,8 @@ class WorkflowEntityConverterTest {
     @Test
     @DisplayName("기본 노드 행에 버전이 차 있으면 복원하지 않는다")
     void rejectsVersionedBaseNodeRow() {
-        WorkflowNodeEntity corrupt =
-                new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.NODE, UUID.randomUUID(),
+        GraphNodeEntity corrupt =
+                new GraphNodeEntity(GRAPH_ID, "n1", SourceType.NODE, UUID.randomUUID(),
                         UUID.randomUUID(), InputSource.defaultSource());
 
         assertThatThrownBy(() -> toDomain(corrupt))
@@ -58,8 +54,8 @@ class WorkflowEntityConverterTest {
     @Test
     @DisplayName("에이전트 행에 버전이 비어 있으면 복원하지 않는다")
     void rejectsUnversionedAgentRow() {
-        WorkflowNodeEntity corrupt =
-                new WorkflowNodeEntity(WORKFLOW_ID, "n1", SourceType.AGENT, UUID.randomUUID(), null, InputSource.defaultSource());
+        GraphNodeEntity corrupt =
+                new GraphNodeEntity(GRAPH_ID, "n1", SourceType.AGENT, UUID.randomUUID(), null, InputSource.defaultSource());
 
         assertThatThrownBy(() -> toDomain(corrupt))
                 .isInstanceOf(CoreException.class)
@@ -67,7 +63,7 @@ class WorkflowEntityConverterTest {
                 .isEqualTo(ErrorType.WORKFLOW_NODE_REFERENCE_MISMATCH);
     }
 
-    private static WorkflowGraph toDomain(WorkflowNodeEntity node) {
-        return WorkflowEntityConverter.toDomain(WORKFLOW, List.of(node), List.of()).getGraph();
+    private static WorkflowGraph toDomain(GraphNodeEntity node) {
+        return GraphConverter.toGraph(List.of(node), List.of());
     }
 }
