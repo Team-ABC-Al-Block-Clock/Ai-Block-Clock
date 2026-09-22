@@ -66,9 +66,14 @@ export interface AgentFavorite {
   favoriteCount: number
 }
 
+export interface AgentImageInput {
+  file: File
+  caption: string
+}
+
 /**
- * 등록 화면이 모으는 텍스트만 담았다. 아이콘·스크린샷 업로드와 워크플로우 연결,
- * 가격 산정은 명세가 오면 붙인다.
+ * 등록 요청. 파일·설명 파트와 워크플로우 연결·가격 산정은 명세 전 추정이다 —
+ * 명세가 오면 고칠 곳이 이 파일이다.
  */
 export interface CreateAgentRequest {
   name: string
@@ -76,6 +81,9 @@ export interface CreateAgentRequest {
   description: string
   usageExample: string
   onboardingMessage: string
+  iconFile?: File
+  inputImages?: AgentImageInput[]
+  outputImages?: AgentImageInput[]
 }
 
 /** 화면이 상세로 이동하는 데 필요한 것은 ID 뿐이다. */
@@ -83,7 +91,27 @@ export interface CreatedAgent {
   agentId: string
 }
 
-export const createAgent = (body: CreateAgentRequest) => api.post<CreatedAgent>('/agents', body)
+/** 파일과 설명을 같은 순서로 하나씩 싣는다 — 설명이 비어도 자리를 비우지 않는다. */
+function appendImages(form: FormData, where: 'input' | 'output', images?: AgentImageInput[]) {
+  for (const image of images ?? []) {
+    form.append(`${where}ImageFiles`, image.file)
+    form.append(`${where}ImageCaptions`, image.caption)
+  }
+}
+
+/** Content-Type 은 지정하지 않는다 — 박으면 FormData 가 JSON 문자열로 나간다. */
+export const createAgent = (body: CreateAgentRequest) => {
+  const form = new FormData()
+  form.append('name', body.name)
+  form.append('summary', body.summary)
+  form.append('description', body.description)
+  form.append('usageExample', body.usageExample)
+  form.append('onboardingMessage', body.onboardingMessage)
+  if (body.iconFile) form.append('iconFile', body.iconFile)
+  appendImages(form, 'input', body.inputImages)
+  appendImages(form, 'output', body.outputImages)
+  return api.post<CreatedAgent>('/agents', form)
+}
 
 /**
  * 판매 중인 내 에이전트. `AgentSummary` 를 확장하지 않는다 — 명세에 없는 평점·리뷰 수가

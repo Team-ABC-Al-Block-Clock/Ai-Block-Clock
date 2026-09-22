@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import type { AxiosAdapter } from 'axios'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   addAgentFavorite,
@@ -13,8 +14,20 @@ import {
   removeAgentFavorite,
 } from '@/api/agents'
 import type { AgentSummary } from '@/api/agents'
+import { API_BASE_URL, client } from '@/api/client'
 import { ApiError } from '@/api/errors'
 import type { CursorPage } from '@/api/page'
+
+/** jsdom 의 XHR 은 FormData 에 multipart Content-Type 을 붙이지 않는다 — mock 이 파트를 읽으려면 node 어댑터여야 한다. */
+const TRANSPORT = { adapter: client.defaults.adapter, baseURL: client.defaults.baseURL }
+beforeAll(() => {
+  client.defaults.adapter = 'http'
+  client.defaults.baseURL = `${location.origin}${API_BASE_URL}`
+})
+afterAll(() => {
+  client.defaults.adapter = TRANSPORT.adapter
+  client.defaults.baseURL = TRANSPORT.baseURL
+})
 
 /**
  * 마켓 목록 조회. api 레이어 + mock 핸들러 + 커서 모듈을 한 번에 통과시킨다.
@@ -511,6 +524,57 @@ describe('createAgent', () => {
 
     expect(page.content[0].agentId).toBe(agentId)
     expect(times).toEqual([...times].sort((a, b) => b - a))
+  })
+
+  const PNG = (name: string) => new File(['\u0089PNG'], name, { type: 'image/png' })
+
+  /** 파일 파트는 이 경로로만 볼 수 있다 — 실제로 보내면 follow-redirects 가 Blob 파트를 쓰지 못한다. */
+  const capturePartsOf = async (send: () => Promise<unknown>) => {
+    const previous = client.defaults.adapter
+    let captured: FormData | undefined
+    const capture: AxiosAdapter = (config) => {
+      captured = config.data as FormData
+      return Promise.resolve({
+        data: { status: 'success', data: { agentId: 'agt_new' } },
+        status: 201,
+        statusText: 'Created',
+        headers: {},
+        config,
+      })
+    }
+
+    client.defaults.adapter = capture
+    try {
+      await send()
+    } finally {
+      client.defaults.adapter = previous
+    }
+
+    if (!captured) throw new Error('요청 본문을 가로채지 못했다')
+    return captured
+  }
+
+  it('파일과 설명을 같은 순서로 싣는다', async () => {
+    const parts = await capturePartsOf(() =>
+      createAgent({
+        ...INPUT,
+        iconFile: PNG('icon.png'),
+        inputImages: [
+          { file: PNG('in-1.png'), caption: '첫 장' },
+          { file: PNG('in-2.png'), caption: '' },
+        ],
+      }),
+    )
+
+    expect(parts.get('name')).toBe(INPUT.name)
+    expect((parts.get('iconFile') as File).name).toBe('icon.png')
+    expect(parts.getAll('inputImageFiles').map((file) => (file as File).name)).toEqual([
+      'in-1.png',
+      'in-2.png',
+    ])
+    // 설명이 비어도 자리를 비우지 않는다 — 어긋나면 엉뚱한 사진에 붙는다.
+    expect(parts.getAll('inputImageCaptions')).toEqual(['첫 장', ''])
+    expect(parts.has('outputImageFiles')).toBe(false)
   })
 
   it('이름이나 한 줄 설명이 비면 COMMON_001', async () => {

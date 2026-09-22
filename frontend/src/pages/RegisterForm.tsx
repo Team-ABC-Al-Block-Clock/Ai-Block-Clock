@@ -26,6 +26,9 @@ function read(id: string) {
     : ''
 }
 
+/** 스크린샷 설명 칸 id. 파일과 같은 순서로 읽는다. */
+const captionId = (where: 'in' | 'out', i: number) => `regShotCaption-${where}-${i}`
+
 type Picked = { file: File; url: string }
 
 const SHOT_SLOTS = [0, 1, 2, 3, 4]
@@ -79,6 +82,9 @@ export default function RegisterForm() {
     setAsking({ name: read(FIELD.name) })
   }
 
+  const withCaptions = (where: 'in' | 'out', list: Picked[]) =>
+    list.map((picked, i) => ({ file: picked.file, caption: read(captionId(where, i)) }))
+
   const submit = () => {
     setAsking(null)
     if (register.isPending) return
@@ -88,6 +94,9 @@ export default function RegisterForm() {
       description: read(FIELD.description),
       usageExample: read(FIELD.usageExample),
       onboardingMessage: read(FIELD.onboardingMessage),
+      iconFile: icon?.file,
+      inputImages: withCaptions('in', inShots),
+      outputImages: withCaptions('out', outShots),
     })
   }
 
@@ -498,6 +507,7 @@ export default function RegisterForm() {
                   </div>
                   <input
                     className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
+                    id={captionId('in', i)}
                     type="text"
                     placeholder="입력 예시 사진 설명"
                     style={{
@@ -514,7 +524,7 @@ export default function RegisterForm() {
             <input
               ref={inFileRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg"
               multiple
               hidden
               onChange={handleAddInShots}
@@ -597,6 +607,7 @@ export default function RegisterForm() {
                   </div>
                   <input
                     className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
+                    id={captionId('out', i)}
                     type="text"
                     placeholder="출력 예시 사진 설명"
                     style={{
@@ -613,7 +624,7 @@ export default function RegisterForm() {
             <input
               ref={outFileRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg"
               multiple
               hidden
               onChange={handleAddOutShots}
@@ -809,7 +820,7 @@ export default function RegisterForm() {
         ref={confirmRef}
         open={asking ? '' : undefined}
         heading="마켓에 등록하시겠습니까?"
-        body-text={'등록하면 수정도 삭제도 할 수 없습니다.\n소유권이 블록체인에 기록됩니다.'}
+        body-text={'등록 후에는 수정 및 삭제가 불가합니다.\n소유권이 블록체인에 기록됩니다.'}
         note-text={asking?.name || undefined}
         confirm-label="등록하기"
         cancel-label="취소"
