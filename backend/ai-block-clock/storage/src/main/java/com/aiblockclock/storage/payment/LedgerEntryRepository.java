@@ -2,7 +2,6 @@ package com.aiblockclock.storage.payment;
 
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -45,7 +44,8 @@ public interface LedgerEntryRepository
             ORDER BY ledgerTransaction.createdAt DESC,
                      ledgerTransaction.id DESC
             """)
-    Page<LedgerEntryEntity>
+    // 커서 페이지는 전체 개수를 쓰지 않으므로 Page 대신 List 로 받아 count 쿼리를 내지 않는다.
+    List<LedgerEntryEntity>
     searchAbcTransactions(
             @Param("accountType")
             LedgerAccountType accountType,

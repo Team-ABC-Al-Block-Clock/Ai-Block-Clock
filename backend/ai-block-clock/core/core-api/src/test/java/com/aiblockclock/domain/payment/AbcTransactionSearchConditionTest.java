@@ -14,19 +14,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AbcTransactionSearchConditionTest {
 
     @Test
-    void 페이지는_1부터_시작한다() {
-        assertThatThrownBy(
-                () -> AbcTransactionSearchCondition
-                        .allDates(0, null)
-        ).isInstanceOfSatisfying(CoreException.class,
-                exception -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_REQUEST));
-    }
-
-    @Test
     void 종료일은_다음_날_0시_미만으로_변환한다() {
         AbcTransactionSearchCondition condition =
                 AbcTransactionSearchCondition.betweenDates(
-                        1,
                         LocalDate.of(2026, 9, 1),
                         LocalDate.of(2026, 9, 12),
                         LedgerEventType.RESERVE
@@ -47,7 +37,6 @@ class AbcTransactionSearchConditionTest {
         assertThatThrownBy(
                 () -> AbcTransactionSearchCondition
                         .betweenDates(
-                                1,
                                 LocalDate.of(2026, 9, 12),
                                 LocalDate.of(2026, 9, 1),
                                 null
@@ -60,10 +49,7 @@ class AbcTransactionSearchConditionTest {
     void 기간을_생략하면_시작과_종료_시각이_없다() {
         AbcTransactionSearchCondition condition =
                 AbcTransactionSearchCondition
-                        .allDates(
-                                1,
-                                LedgerEventType.CHARGE
-                        );
+                        .allDates(LedgerEventType.CHARGE);
 
         assertThat(condition.startAtInclusive()).isNull();
         assertThat(condition.endAtExclusive()).isNull();

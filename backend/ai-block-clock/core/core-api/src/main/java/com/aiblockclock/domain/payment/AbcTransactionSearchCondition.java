@@ -9,8 +9,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Map;
 
+// 무엇을 볼지(기간·유형)만 담는다. 어디부터 몇 개(cursor·size)는 페이지 넘김 정보라 따로 다닌다.
 public record AbcTransactionSearchCondition(
-        int page,
         Instant startAtInclusive,
         Instant endAtExclusive,
         LedgerEventType eventType
@@ -19,10 +19,6 @@ public record AbcTransactionSearchCondition(
     private static final ZoneOffset LEDGER_ZONE = ZoneOffset.UTC;
 
     public AbcTransactionSearchCondition {
-        if (page < 1) {
-            throw new CoreException(ErrorType.INVALID_REQUEST, Map.of("page", page));
-        }
-
         boolean hasStart = startAtInclusive != null;
         boolean hasEnd = endAtExclusive != null;
 
@@ -37,26 +33,16 @@ public record AbcTransactionSearchCondition(
         }
     }
 
-    public static AbcTransactionSearchCondition allDates(
-            int page,
-            LedgerEventType eventType
-    ) {
-        return new AbcTransactionSearchCondition(
-                page,
-                null,
-                null,
-                eventType
-        );
+    public static AbcTransactionSearchCondition allDates(LedgerEventType eventType) {
+        return new AbcTransactionSearchCondition(null, null, eventType);
     }
 
     public static AbcTransactionSearchCondition betweenDates(
-            int page,
             LocalDate startDate,
             LocalDate endDate,
             LedgerEventType eventType
     ) {
         return new AbcTransactionSearchCondition(
-                page,
                 startDate.atStartOfDay(LEDGER_ZONE).toInstant(),
                 endDate.plusDays(1).atStartOfDay(LEDGER_ZONE).toInstant(),
                 eventType

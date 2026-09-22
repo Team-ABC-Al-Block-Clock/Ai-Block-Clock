@@ -8,6 +8,7 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.support.paging.CursorPage;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,23 +85,24 @@ class AbcTransactionFilterIntegrationTest {
 
         AbcTransactionSearchCondition condition =
                 AbcTransactionSearchCondition.betweenDates(
-                        1,
                         createdDate,
                         createdDate,
                         LedgerEventType.RESERVE
                 );
 
-        AbcTransactionPage transactionPage =
+        CursorPage<AbcTransaction> transactionPage =
                 abcLedgerQueryService.readTransactions(
                         "user-a",
-                        condition
+                        condition,
+                        null,
+                        10
                 );
 
-        assertThat(transactionPage.items())
+        assertThat(transactionPage.content())
                 .extracting(AbcTransaction::transactionId)
                 .containsExactly(reserveTransaction.getId());
 
-        assertThat(transactionPage.items().get(0).eventType())
+        assertThat(transactionPage.content().get(0).eventType())
                 .isEqualTo(LedgerEventType.RESERVE);
     }
 
@@ -137,20 +139,21 @@ class AbcTransactionFilterIntegrationTest {
 
         AbcTransactionSearchCondition condition =
                 AbcTransactionSearchCondition.betweenDates(
-                        1,
                         previousDate,
                         previousDate,
                         null
                 );
 
-        AbcTransactionPage transactionPage =
+        CursorPage<AbcTransaction> transactionPage =
                 abcLedgerQueryService.readTransactions(
                         "user-a",
-                        condition
+                        condition,
+                        null,
+                        10
                 );
 
-        assertThat(transactionPage.items()).isEmpty();
-        assertThat(transactionPage.totalElements()).isZero();
+        assertThat(transactionPage.content()).isEmpty();
+        assertThat(transactionPage.hasNext()).isFalse();
     }
 
     private LedgerAccountEntity saveAccount(

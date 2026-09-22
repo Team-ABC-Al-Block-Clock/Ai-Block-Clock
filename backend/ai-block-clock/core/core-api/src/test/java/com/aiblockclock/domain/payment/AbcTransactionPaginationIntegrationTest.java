@@ -8,6 +8,7 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.support.paging.CursorPage;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +39,7 @@ class AbcTransactionPaginationIntegrationTest {
     private LedgerEntryRepository ledgerEntryRepository;
 
     @Test
-    void ABC_사용_내역은_1페이지부터_10개씩_조회한다() {
+    void ABC_사용_내역은_커서로_이어서_조회한다() {
         LedgerAccountEntity issuanceAccount =
                 saveAccount(
                         LedgerAccountType.ABC_ISSUANCE,
@@ -64,45 +65,29 @@ class AbcTransactionPaginationIntegrationTest {
             transactionIds.add(transaction.getId());
         }
 
-        AbcTransactionPage firstPage =
-                abcLedgerQueryService.readTransactions(
-                        "user-a",
-                        AbcTransactionSearchCondition
-                                .allDates(1, null)
-                );
+        AbcTransactionSearchCondition condition = AbcTransactionSearchCondition.allDates(null);
 
-        AbcTransactionPage secondPage =
-                abcLedgerQueryService.readTransactions(
-                        "user-a",
-                        AbcTransactionSearchCondition
-                                .allDates(2, null)
-                );
+        CursorPage<AbcTransaction> firstPage =
+                abcLedgerQueryService.readTransactions("user-a", condition, null, 10);
 
-        assertThat(firstPage.items())
+        assertThat(firstPage.content())
                 .extracting(AbcTransaction::transactionId)
                 .containsExactlyElementsOf(
                         reversedRange(transactionIds, 2, 12)
                 );
-
-        assertThat(firstPage.page()).isEqualTo(1);
-        assertThat(firstPage.size()).isEqualTo(10);
-        assertThat(firstPage.totalElements()).isEqualTo(12);
-        assertThat(firstPage.totalPages()).isEqualTo(2);
-        assertThat(firstPage.hasPrevious()).isFalse();
         assertThat(firstPage.hasNext()).isTrue();
+        assertThat(firstPage.nextCursor()).isNotNull();
 
-        assertThat(secondPage.items())
+        CursorPage<AbcTransaction> secondPage =
+                abcLedgerQueryService.readTransactions("user-a", condition, firstPage.nextCursor(), 10);
+
+        assertThat(secondPage.content())
                 .extracting(AbcTransaction::transactionId)
                 .containsExactlyElementsOf(
                         reversedRange(transactionIds, 0, 2)
                 );
-
-        assertThat(secondPage.page()).isEqualTo(2);
-        assertThat(secondPage.size()).isEqualTo(10);
-        assertThat(secondPage.totalElements()).isEqualTo(12);
-        assertThat(secondPage.totalPages()).isEqualTo(2);
-        assertThat(secondPage.hasPrevious()).isTrue();
         assertThat(secondPage.hasNext()).isFalse();
+        assertThat(secondPage.nextCursor()).isNull();
     }
 
     private LedgerAccountEntity saveAccount(

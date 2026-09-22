@@ -8,6 +8,7 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.support.paging.CursorPage;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,20 +80,17 @@ class AbcLedgerQueryServiceIntegrationTest {
 
     @Test
     void 장부_계좌가_없으면_ABC_사용_내역은_비어_있다() {
-        AbcTransactionPage transactionPage =
+        CursorPage<AbcTransaction> transactionPage =
                 abcLedgerQueryService.readTransactions(
                         "user-without-account",
-                        AbcTransactionSearchCondition
-                                .allDates(1, null)
+                        AbcTransactionSearchCondition.allDates(null),
+                        null,
+                        10
                 );
 
-        assertThat(transactionPage.items()).isEmpty();
-        assertThat(transactionPage.page()).isEqualTo(1);
-        assertThat(transactionPage.size()).isEqualTo(10);
-        assertThat(transactionPage.totalElements()).isZero();
-        assertThat(transactionPage.totalPages()).isZero();
-        assertThat(transactionPage.hasPrevious()).isFalse();
+        assertThat(transactionPage.content()).isEmpty();
         assertThat(transactionPage.hasNext()).isFalse();
+        assertThat(transactionPage.nextCursor()).isNull();
     }
 
     @Test
@@ -151,10 +149,11 @@ class AbcLedgerQueryServiceIntegrationTest {
         List<AbcTransaction> transactions =
                 abcLedgerQueryService.readTransactions(
                                 "user-a",
-                                AbcTransactionSearchCondition
-                                        .allDates(1, null)
+                                AbcTransactionSearchCondition.allDates(null),
+                                null,
+                                10
                         )
-                        .items();
+                        .content();
 
         assertThat(transactions)
                 .extracting(AbcTransaction::transactionId)
