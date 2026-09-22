@@ -93,6 +93,9 @@ public enum ErrorType {
     NODE_PLACED_IN_GRAPH(HttpStatus.CONFLICT, ErrorCode.NODE_004,
             "워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
 
+    RECOMMEND_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.RECOMMEND_001,
+            "추천을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
+
     AGENT_WORKFLOW_EMPTY(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
             "노드가 없는 워크플로우로는 에이전트를 만들 수 없습니다.", LogLevel.WARN),
 
