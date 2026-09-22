@@ -20,8 +20,11 @@ from typing import Callable
 from dotenv import load_dotenv
 
 from . import catalog, errors, pricing
+from . import expand as expand_mod
+from . import graph as graph_mod
 from . import nodes as node_runner
-from .excel_to_text import excel_to_markdown
+from . import prompts
+from .excel_to_text import excel_to_common_table, excel_to_markdown
 from .llm import LLM
 from .payload_md import payload_to_markdown
 from .pdf import markdown_to_pdf
@@ -57,12 +60,18 @@ def list_workflows() -> list[dict]:
 def resolve_prompts(wf: dict) -> dict:
     """prompt 값이 저장소 안의 .md 경로면 파일 내용으로 바꾼다. 백엔드가 보내는 원문은 그대로 둔다."""
     wf = json.loads(json.dumps(wf))  # 얕은 수정 방지
-    for node in wf.get("nodes", []):
+
+    def resolve(node: dict) -> None:
         p = str(node.get("prompt", ""))
         if p.endswith(".md"):
-            candidate = ROOT / p
+            candidate = ROOT / p        # `../../prompts/brand/…` 도 여기서 풀린다(공용 프롬프트)
             if candidate.exists():
                 node["prompt"] = candidate.read_text(encoding="utf-8")
+        for inner in (node.get("agent") or {}).get("nodes") or []:
+            resolve(inner)              # 에이전트 안의 노드도 견본이면 파일을 가리킨다
+
+    for node in wf.get("nodes", []):
+        resolve(node)
     return wf
 
 
@@ -158,6 +167,7 @@ def execute(
     file_path: str | Path | None = None,
     mock: bool = False,
     input_payload: dict | None = None,
+    mock_overrides: dict | None = None,
     run_id: str | None = None,
     on_event: ProgressHook | None = None,
     verbose: bool = False,
@@ -169,6 +179,11 @@ def execute(
     실행 도중에도 노드별 진행 상황을 실시간으로 읽을 수 있다.
     """
     wf = resolve_prompts(wf)
+    wf_canvas = wf                                      # 검증 · 상한은 사용자가 놓은 캔버스 기준으로 본다
+    try:
+        wf, _expand_stats = expand_mod.expand(wf)       # 실행은 펼친 그래프로 한다(계약 §5.2)
+    except expand_mod.ExpandError:
+        pass                                            # 아래 정의 검증이 같은 오류를 잡아 보고한다
     run_id = run_id or new_run_id()
     out_dir = OUT_ROOT / run_id
     (out_dir / "nodes").mkdir(parents=True, exist_ok=True)
@@ -191,6 +206,7 @@ def execute(
             {"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
              "context": n.get("context", "prev"), "duration_ms": None,
              "schema_id": n.get("output_schema_id"), "repair_count": 0, "cost_abc": None,
+             "agent_id": n.get("agent_id"),
              "input_tokens": None, "output_tokens": None, "retries": 0, "output": None,
              # 정산 입력값. 백엔드가 요청에 실어 보내면 그대로 되돌려준다
              "owner_id": n.get("owner_id"), "unit_price": n.get("unit_price"),
@@ -232,7 +248,37 @@ def execute(
     _save(out_dir, result)
     emit("run.started", {"run_id": run_id, "total": len(nodes)})
 
-    first_input_schema = (nodes[0] or {}).get("input_schema_id") if nodes else None
+    # 정의 자체가 틀렸으면 실행하지 않는다(계약 §5.7). 순환 · 상한 · 스키마 호환까지 여기서 걸린다
+    report = graph_mod.validate(wf_canvas)
+    if not report["valid"]:
+        first = report["errors"][0]
+        result.update(status="failed", finished_at=_now(), total_duration_ms=0,
+                      error={**errors.describe("SCHEMA_VALIDATION_FAILED", fault="consumer",
+                                               detail=f"{first['code']}: {first['message']}"),
+                             "code": "INVALID_WORKFLOW", "node_id": first.get("node_id"),
+                             "errors": report["errors"]})
+        _settlement(result, 0, "SCHEMA_VALIDATION_FAILED", fault="consumer")
+        _save(out_dir, result)
+        emit("run.failed", {"run_id": run_id, "error": result["error"]})
+        return result
+    graph = graph_mod.build(wf)
+
+    # 진입 노드(edges 의 to 에 없는 노드)는 사용자 입력을 받는다
+    entry_schemas = [(n, graph.node(n).get("input_schema_id")) for n in graph.entries]
+    first_input_schema = next((sid for _, sid in entry_schemas if sid), None)
+
+    # 엑셀 · CSV 를 올렸고 진입 노드가 표를 받는다면 그대로 payload 로 바꾼다(H2A 최소 경로)
+    if input_payload is None and file_path and first_input_schema == "common.table@1":
+        try:
+            input_payload = excel_to_common_table(file_path)
+        except Exception as e:
+            result.update(status="failed", finished_at=_now(), total_duration_ms=0,
+                          error={**errors.describe("FILE_PARSE_FAILED", detail=str(e)[:500]),
+                                 "node_id": graph.entries[0] if graph.entries else None})
+            _settlement(result, 0, "FILE_PARSE_FAILED")
+            _save(out_dir, result)
+            emit("run.failed", {"run_id": run_id, "error": result["error"]})
+            return result
     if first_input_schema:
         reason = ("입력값이 없습니다" if input_payload is None
                   else node_runner.check_input(first_input_schema, input_payload))
@@ -240,7 +286,7 @@ def execute(
             result.update(status="failed", finished_at=_now(), total_duration_ms=0,
                           error={**errors.describe("SCHEMA_VALIDATION_FAILED", fault="consumer",
                                                    detail=reason),
-                                 "node_id": nodes[0].get("id")})
+                                 "node_id": graph.entries[0] if graph.entries else None})
             _settlement(result, 0, "SCHEMA_VALIDATION_FAILED", fault="consumer")
             _save(out_dir, result)
             emit("run.failed", {"run_id": run_id, "error": result["error"]})
@@ -251,97 +297,170 @@ def execute(
     prev_payload: dict | None = input_payload
     last_envelope: dict | None = None
 
-    for i, node in enumerate(nodes):
-        entry = result["nodes"][i]
-        entry["status"] = "running"
+    entry_by_id = {n["id"]: e for n, e in zip(nodes, result["nodes"])}
+    node_ids = [n["id"] for n in nodes]
+    payloads: dict = {}                 # 노드 id → 낸 payload. fan-in 과 분기 조건이 여기서 읽는다
+    branch_taken: dict = {}             # 분기 노드 id → 선택된 쪽
+    skipped: dict = {}                  # 실행되지 않는 노드 id → 이유
+
+    def fail(node_id, code, detail, fault=None, index=None):
+        """노드 하나가 실패하면 실행을 멈춘다. 이후 노드는 not_executed 로 남는다."""
+        result.update(status="failed", finished_at=_now(),
+                      total_duration_ms=int((time.perf_counter() - started) * 1000),
+                      error={**errors.describe(code, fault=fault, detail=detail),
+                             "node_id": node_id})
+        _settlement(result, index, code, fault=fault)
         _save(out_dir, result)
-        emit("node.started", {"run_id": run_id, "index": i, "node_id": node.get("id")})
+        emit("node.failed", {"run_id": run_id, "node_id": node_id})
+        emit("run.failed", {"run_id": run_id, "error": result["error"]})
         if verbose:
-            print(f"[{i+1}/{len(nodes)}] {entry['name']} … ", end="", flush=True)
+            print(f"실패: {result['error']['message']}")
+        return result
+
+    for position, node_id in enumerate(graph.order):
+        node = graph.node(node_id)
+        entry = entry_by_id[node_id]
+        index = node_ids.index(node_id)
+
+        # 상위가 모두 죽은 노드는 돌지 않는다 — 분기 미선택이거나 상위 실패다
+        if graph.incoming.get(node_id) and not graph_mod.live_edges(graph, node_id, payloads, branch_taken):
+            reason = graph_mod.skip_reason(graph, node_id, payloads, branch_taken, skipped)
+            skipped[node_id] = reason
+            entry.update(status="skipped", skip_reason=reason)
+            _save(out_dir, result)
+            if verbose:
+                print(f"[{position+1}/{len(graph.order)}] {entry['name']} … 건너뜀({reason})")
+            continue
+
+        entry.update(status="running", started_at=_now())
+        _save(out_dir, result)
+        emit("node.started", {"run_id": run_id, "index": index, "node_id": node_id})
+        if verbose:
+            print(f"[{position+1}/{len(graph.order)}] {entry['name']} … ", end="", flush=True)
+
+        received = graph_mod.fan_in(graph, node_id, payloads, branch_taken)
+        if received is None:
+            received = input_payload
+
+        # --- 분기 노드: LLM 을 부르지 않는다. 판정은 코드가 한다 ---
+        if node.get("type") == "branch":
+            try:
+                taken = graph_mod.evaluate(node.get("condition") or {}, payloads)
+            except graph_mod.ConditionInvalid as e:
+                entry.update(status="failed", finished_at=_now())
+                return fail(node_id, "BRANCH_CONDITION_INVALID", str(e), fault="consumer", index=index)
+            branch_taken[node_id] = taken
+            payloads[node_id] = received              # 받은 것을 그대로 넘긴다
+            entry.update(status="succeeded", finished_at=_now(), duration_ms=0,
+                         input_tokens=0, output_tokens=0, cost_abc=0.0, branch_taken=taken)
+            _save(out_dir, result)
+            emit("node.succeeded", {"run_id": run_id, "index": index, "node_id": node_id,
+                                    "duration_ms": 0})
+            if verbose:
+                print("분기 " + ("예" if taken else "아니오"))
+            continue
 
         schema_id = node.get("output_schema_id")
-        if schema_id:
-            message = build_json_message(prev_payload, comment, user_input)
-            (out_dir / "nodes" / f"{node['id']}.request.md").write_text(
-                _REQUEST_TMPL.format(system=node["prompt"], user=message), encoding="utf-8")
-            nr = node_runner.run_llm_node(
-                llm, run_id=run_id, node_id=node["id"], schema_id=schema_id,
-                system=node["prompt"], message=message,
-                runtime_values=_runtime_values(schema_id, node))
 
-            (out_dir / "nodes" / f"{node['id']}.json").write_text(
+        # --- JSON 노드: 구조화 출력 · 검증 · 교정 · 봉투 ---
+        if schema_id:
+            # 합류(도착한 하나)는 검증하고, 병합(port 로 묶인 객체)은 건너뛴다
+            single_upstream = len(graph_mod.live_edges(graph, node_id, payloads, branch_taken)) <= 1
+            reason = None
+            if received is not None and single_upstream:
+                reason = node_runner.check_input(node.get("input_schema_id"), received)
+            if reason:
+                entry.update(status="failed", finished_at=_now())
+                return fail(node_id, "SCHEMA_VALIDATION_FAILED", reason, fault="consumer", index=index)
+
+            prompt = prompts.parse(node["prompt"])
+            if prompt.templated:
+                # 트랙 B 작성 형식 — user 블록의 자리표시자를 fan-in 결과로 채운다
+                live = graph_mod.live_edges(graph, node_id, payloads, branch_taken)
+                upstream_schema = (graph_mod.output_schema_of(graph, live[0]["from"])
+                                   if len(live) == 1 else None)
+                values = prompts.values_for(received, input_payload=input_payload, comment=comment,
+                                            upstream_schema_id=upstream_schema)
+                try:
+                    message = prompt.render_user(values)
+                except prompts.PlaceholderMissing as e:
+                    entry.update(status="failed", finished_at=_now())
+                    return fail(node_id, "PROMPT_TEMPLATE_INVALID",
+                                f"프롬프트가 요구하는 값이 없습니다: {e}", fault="supplier", index=index)
+            else:
+                message = build_json_message(received, comment, user_input)
+            system = prompt.system
+            (out_dir / "nodes" / f"{node_id}.request.md").write_text(
+                _REQUEST_TMPL.format(system=system, user=message), encoding="utf-8")
+            nr = node_runner.run_llm_node(
+                llm, run_id=run_id, node_id=node_id, schema_id=schema_id,
+                system=system, message=message,
+                runtime_values=_runtime_values(schema_id, node),
+                mock_overrides=(mock_overrides or {}).get(schema_id))
+
+            (out_dir / "nodes" / f"{node_id}.json").write_text(
                 json.dumps(nr.envelope, ensure_ascii=False, indent=2), encoding="utf-8")
             meta = nr.envelope["meta"]
             entry.update(duration_ms=meta["duration_ms"], retries=meta["retry_count"],
                          repair_count=meta["repair_count"], schema_id=schema_id,
+                         cost_abc=meta["cost_abc"],
                          input_tokens=meta["usage"]["input_tokens"],
                          output_tokens=meta["usage"]["output_tokens"])
-            entry["cost_abc"] = meta["cost_abc"]
             result["totals"]["input_tokens"] += meta["usage"]["input_tokens"]
             result["totals"]["output_tokens"] += meta["usage"]["output_tokens"]
             result["totals"]["cost_abc"] = round(result["totals"]["cost_abc"] + (meta["cost_abc"] or 0), 4)
 
             if not nr.ok:
                 err = nr.error
-                entry["status"] = "failed"
-                result.update(status="failed", finished_at=_now(),
-                              total_duration_ms=int((time.perf_counter() - started) * 1000),
-                              error={**errors.describe(err["code"], fault=err["fault"],
-                                                       detail=err["message"]),
-                                     "node_id": node.get("id")})
-                _settlement(result, i, err["code"], fault=err["fault"])
-                _save(out_dir, result)
-                emit("node.failed", {"run_id": run_id, "index": i, "node_id": node.get("id")})
-                emit("run.failed", {"run_id": run_id, "error": result["error"]})
-                if verbose:
-                    print(f"실패: {err['message']}")
-                return result
+                entry.update(status="failed", finished_at=_now())
+                return fail(node_id, err["code"], err["message"], fault=err["fault"], index=index)
 
-            entry.update(status="succeeded", output=json.dumps(nr.payload, ensure_ascii=False))
-            prev_payload = nr.payload
+            boundary = expand_mod.boundary_of(node)
+            if boundary:
+                violation = node_runner.check_input(boundary["schema_id"], nr.payload)
+                if violation:
+                    entry.update(status="failed", finished_at=_now())
+                    return fail(node_id, "AGENT_BOUNDARY_VIOLATION", violation,
+                                fault="supplier", index=index)
+
+            entry.update(status="succeeded", finished_at=_now(),
+                         output=json.dumps(nr.payload, ensure_ascii=False))
+            payloads[node_id] = nr.payload
             prev_output = payload_to_markdown(schema_id, nr.payload)
             last_envelope = nr.envelope
             _save(out_dir, result)
-            emit("node.succeeded", {"run_id": run_id, "index": i, "node_id": node.get("id"),
+            emit("node.succeeded", {"run_id": run_id, "index": index, "node_id": node_id,
                                     "duration_ms": meta["duration_ms"]})
             if verbose:
                 print(f"{meta['duration_ms']/1000:.1f}s  JSON {schema_id}  교정 {meta['repair_count']}회")
             continue
 
+        # --- 스키마가 없는 노드: 기존 자유 텍스트 경로(하위 호환) ---
         message = build_message(node, user_input, prev_output)
-        (out_dir / "nodes" / f"{node['id']}.request.md").write_text(
-            f"# system\n{node['prompt']}\n\n# user\n{message}", encoding="utf-8")
-
+        (out_dir / "nodes" / f"{node_id}.request.md").write_text(
+            _REQUEST_TMPL.format(system=node["prompt"], user=message), encoding="utf-8")
         try:
-            res = llm.generate(system=node["prompt"], user=message, label=node.get("id", ""))
+            res = llm.generate(system=node["prompt"], user=message, label=node_id)
         except Exception as e:
-            entry.update(status="failed")
-            code = _error_code(e)
-            result.update(status="failed", finished_at=_now(),
-                          total_duration_ms=int((time.perf_counter() - started) * 1000),
-                          error={"code": code, "message": str(e)[:500], "node_id": node.get("id")})
-            _settlement(result, i, code)
-            _save(out_dir, result)
-            emit("node.failed", {"run_id": run_id, "index": i, "node_id": node.get("id")})
-            emit("run.failed", {"run_id": run_id, "error": result["error"]})
-            if verbose:
-                print(f"실패: {e}")
-            return result
+            entry.update(status="failed", finished_at=_now())
+            return fail(node_id, _error_code(e), str(e)[:500], index=index)
 
-        (out_dir / "nodes" / f"{node['id']}.md").write_text(res.text, encoding="utf-8")
+        (out_dir / "nodes" / f"{node_id}.md").write_text(res.text, encoding="utf-8")
         node_cost = pricing.cost_abc(res.model, res.input_tokens, res.output_tokens)
-        entry.update(status="succeeded", duration_ms=res.duration_ms, input_tokens=res.input_tokens,
-                     output_tokens=res.output_tokens, retries=res.retries, output=res.text,
-                     cost_abc=node_cost)
+        entry.update(status="succeeded", finished_at=_now(), duration_ms=res.duration_ms,
+                     input_tokens=res.input_tokens, output_tokens=res.output_tokens,
+                     retries=res.retries, output=res.text, cost_abc=node_cost)
         result["totals"]["input_tokens"] += res.input_tokens
         result["totals"]["output_tokens"] += res.output_tokens
         result["totals"]["cost_abc"] = round(result["totals"]["cost_abc"] + node_cost, 4)
         prev_output = res.text
+        payloads[node_id] = None
         _save(out_dir, result)
-        emit("node.succeeded", {"run_id": run_id, "index": i, "node_id": node.get("id"),
+        emit("node.succeeded", {"run_id": run_id, "index": index, "node_id": node_id,
                                 "duration_ms": res.duration_ms})
         if verbose:
             print(f"{res.duration_ms/1000:.1f}s  in {res.input_tokens} / out {res.output_tokens} tokens")
+
 
     output_cfg = wf.get("output", {}) or {}
     result["result"] = {"type": output_cfg.get("type", "pdf"), "markdown": prev_output, "pdf": None}
@@ -397,12 +516,15 @@ def _settlement(result: dict, failed_index: int | None, code: str | None,
     """
     nodes = result["nodes"]
     result["contribution"] = [
-        {"node_id": n["id"], "owner_id": n.get("owner_id"), "charged_abc": n.get("unit_price")}
-        for n in nodes if n["status"] == "succeeded"
+        {"node_id": n["id"], "owner_id": n.get("owner_id"), "agent_id": n.get("agent_id"),
+         "charged_abc": n.get("unit_price")}
+        for n in nodes if n["status"] == "succeeded" and n.get("branch_taken") is None
     ]
     result["not_executed"] = [
-        {"node_id": n["id"], "reason": "not_reached", "refund_abc": n.get("unit_price")}
-        for n in nodes if n["status"] == "pending"
+        {"node_id": n["id"],
+         "reason": n.get("skip_reason") or ("upstream_failed" if failed_index is not None else "not_reached"),
+         "refund_abc": n.get("unit_price")}
+        for n in nodes if n["status"] in {"pending", "skipped"}
     ]
     if failed_index is None:
         result["failure"] = None
@@ -425,9 +547,9 @@ def _save(out_dir: Path, result: dict) -> None:
 
 
 def run_workflow(workflow_id: str, comment: str, file_path: str | None, mock: bool = False,
-                 input_payload: dict | None = None) -> dict:
+                 input_payload: dict | None = None, mock_overrides: dict | None = None) -> dict:
     return execute(load_workflow(workflow_id), comment=comment, file_path=file_path, mock=mock,
-                   input_payload=input_payload, verbose=True)
+                   input_payload=input_payload, mock_overrides=mock_overrides, verbose=True)
 
 
 def main() -> None:
@@ -438,10 +560,18 @@ def main() -> None:
     ap.add_argument("--comment", default="")
     ap.add_argument("--mock", action="store_true", help="LLM 호출 없이 파이프라인만 확인")
     ap.add_argument("--input", default=None, help="첫 노드 입력 payload JSON 파일 경로")
+    ap.add_argument("--mock-set", default=None, metavar="SCHEMA_ID.FIELD=VALUE",
+                    help="mock 값 지정. 예: biz.market_research@1.competition_level=low")
     args = ap.parse_args()
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8")) if args.input else None
-    run = run_workflow(args.workflow, args.comment, args.file, mock=args.mock, input_payload=payload)
+    overrides = None
+    if args.mock_set:
+        target, _, value = args.mock_set.partition("=")
+        schema_id, _, field_name = target.rpartition(".")
+        overrides = {schema_id: {field_name: value}}
+    run = run_workflow(args.workflow, args.comment, args.file, mock=args.mock,
+                       input_payload=payload, mock_overrides=overrides)
     if run["status"] != "succeeded":
         print(f"\n실패  {run['error']}")
         sys.exit(1)

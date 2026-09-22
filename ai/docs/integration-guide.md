@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | **확정본** (2026-09-19). 버전 번호를 붙이지 않는다. 이 파일이 항상 최신 계약이다 |
+| 상태 | **확정본** (2026-09-19 · **09-22 갱신** — 검증 응답의 견적, 노드 필드 8종, 결과 URL, 정의 검증 코드, 원가 산출). 버전 번호를 붙이지 않는다. 이 파일이 항상 최신 계약이다 |
 | 작성 | AI 파트 트랙 A (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
 | 범위 | 실행 엔진(8000). 추천 서비스(8100)는 [`recommend-api.md`](recommend-api.md), 등급 수식은 [`grading-formula.md`](grading-formula.md) |
@@ -399,50 +399,79 @@ curl -X POST $BASE/v1/runs \
 ### 7.2 `GET /v1/runs/{run_id}` — 진행 상황 · 결과 조회
 
 **2초 간격으로 호출한다.** `status`가 `succeeded` 또는 `failed`가 되면 멈춘다.
-쿼리 `include_node_output=true`를 붙이면 노드별 payload 전문이 함께 온다. 기본은 제외다(응답이 커진다).
+쿼리 `include_node_output=true`를 붙이면 노드별 payload 전문(`nodes[].output`)이 함께 온다. 기본은 제외다(응답이 커진다).
 
 ```jsonc
 {
   "run_id": "20260919-100451-688",
   "status": "running",                      // queued | running | succeeded | failed
-  "workflow": { "id": "brand_agent", "name": "브랜딩 전략", "node_count": 6 },
+  "workflow": { "id": "brand_agent", "name": "브랜딩 전략 에이전트", "node_count": 6 },
   "mock": false,
 
   "progress": {
-    "done": 1, "total": 5, "percent": 20,   // total은 실행 대상 노드 수(branch 제외)
-    "current_index": 1,
-    "current_node_id": "n2",
-    "current_node_name": "제품 분석"           // ← 진행 화면에 그대로 표시하면 된다
+    "done": 2, "total": 4, "percent": 50,   // total = 돌아야 하는 LLM 노드 수. 분기 노드 · 건너뛴 노드는 세지 않는다
+    "current_index": 3,
+    "current_node_id": "n3a",
+    "current_node_name": "차별화 전략"          // ← 진행 화면에 그대로 표시하면 된다
   },
 
   "nodes": [
     { "id": "n1", "name": "시장 조사", "type": "llm", "status": "succeeded",
-      "schema_id": "biz.market_research@1",
-      "started_at": "2026-09-19T01:04:52+00:00",
-      "finished_at": "2026-09-19T01:05:10+00:00",
+      "schema_id": "biz.market_research@1", "agent_id": null, "owner_id": "u_2001",
+      "started_at": "2026-09-19T01:04:52+00:00", "finished_at": "2026-09-19T01:05:10+00:00",
       "duration_ms": 18100, "input_tokens": 1281, "output_tokens": 1349,
-      "retries": 0, "repair_count": 1,
-      "owner_id": "u_2001", "agent_id": null, "unit_price": null },
-    { "id": "n2", "name": "제품 분석", "type": "llm", "status": "running",
-      "started_at": "2026-09-19T01:05:10+00:00", "finished_at": null,
+      "retries": 0, "repair_count": 1, "cost_abc": 3.76, "unit_price": 4.2,
+      "skip_reason": null, "branch_taken": null },
+    { "id": "br1", "name": "경쟁 강도 분기", "type": "branch", "status": "succeeded",
+      "schema_id": null, "duration_ms": 0, "input_tokens": 0, "output_tokens": 0,
+      "repair_count": 0, "cost_abc": 0.0, "unit_price": null,
+      "skip_reason": null, "branch_taken": true },                          // 코드가 판정했다. LLM 호출 · 과금 없음
+    { "id": "n3a", "name": "차별화 전략", "type": "llm", "status": "running",
+      "started_at": "2026-09-19T01:05:11+00:00", "finished_at": null,
       "duration_ms": null, "input_tokens": null, "output_tokens": null,
-      "retries": 0, "repair_count": 0, "owner_id": "u_2001" }
+      "retries": 0, "repair_count": 0, "cost_abc": null, "unit_price": 4.5 },
+    { "id": "n3b", "name": "대중 공략 전략", "type": "llm", "status": "skipped",
+      "skip_reason": "branch_not_taken", "unit_price": 4.5, "cost_abc": null }   // 안 간 쪽. §8.4 에 환원으로 잡힌다
   ],
 
-  "totals": { "input_tokens": 1281, "output_tokens": 1349, "cost_abc": 0.12 },
+  "totals": { "input_tokens": 1281, "output_tokens": 1349, "cost_abc": 3.76 },
   "started_at": "2026-09-19T01:04:51+00:00",
   "finished_at": null,
   "total_duration_ms": null,
 
   "contribution": [                          // 성공한 노드가 늘어날 때마다 즉시 커진다
-    { "node_id": "n1", "owner_id": "u_2001", "agent_id": null, "charged_abc": null }
+    { "node_id": "n1", "owner_id": "u_2001", "agent_id": null, "charged_abc": 4.2 }
   ],
-  "not_executed": [],                        // §8.4
+  "not_executed": [                          // §8.4
+    { "node_id": "n3b", "reason": "branch_not_taken", "refund_abc": 4.5 }
+  ],
   "failure": null,                           // 실패 시에만
   "result": null,                            // 완료 시에만
   "error": null
 }
 ```
+
+**`nodes[]` 필드 — 무엇을 뜻하고 누가 쓰나**
+
+| 필드 | 뜻 | 주로 쓰는 곳 |
+| --- | --- | --- |
+| `type` | `llm` 또는 `branch`. 분기 노드는 LLM을 부르지 않고 과금도 없다 | 프론트 — 분기 노드는 진행 표시를 다르게 |
+| `status` | `pending → running → succeeded` · `failed` · **`skipped`** | 진행 화면 |
+| `schema_id` | 이 노드가 낸 결과의 카탈로그 형식. 분기 노드는 `null` | 프론트 — 노드 결과 미리보기 |
+| `agent_id` | 어느 에이전트 안에서 돈 노드인가. 캔버스의 에이전트 블록과 매핑 | 백엔드 — 에이전트 단위로 정산 묶기 · 화면 표시 |
+| `owner_id` | 정산이 귀속되는 판매자 계정 | 백엔드 — 적립 |
+| `started_at` · `finished_at` · `duration_ms` | 노드 실행 시각 · 소요 | 진행 화면 · 실측 |
+| `input_tokens` · `output_tokens` | 쓴 토큰. **교정 재요청분까지 합산** | 원가 검산 |
+| `retries` | 모델 API 오류(429 · 5xx)로 다시 부른 횟수 | 운영 |
+| `repair_count` | **형식이 틀려 다시 요청한 횟수(0 ~ 2).** 2를 넘기면 `SCHEMA_VALIDATION_FAILED` · 공급자 책임 | 판매자 품질 지표 |
+| `cost_abc` | **실측 원가**(§8.1 수식). 판매가 `unit_price`와 다르다 — 그 차이가 마진이다 | 백엔드 — Base Cost 보정 · 마진 |
+| `unit_price` | 요청에 실어 보낸 값 그대로. 안 보냈으면 `null` | 백엔드 |
+| `skip_reason` | `skipped`일 때만. `branch_not_taken`(분기로 안 감) · `upstream_failed`(앞이 실패) | 정산은 이것 말고 `not_executed[]`를 본다 |
+| `branch_taken` | 분기 노드가 고른 쪽. `true`면 `when: true` 간선으로 갔다 | 진행 화면 "예 / 아니오" |
+
+**노드 상태값** `pending → running → succeeded` 또는 `failed`. 한 방향뿐이고 되돌아가지 않는다.
+분기로 선택되지 않은 경로의 노드는 `skipped`가 되고 `skip_reason`이 붙는다. 같은 내용이 `not_executed[]`에도 담기므로 **정산은 그쪽만 보면 된다.**
+에이전트를 펼친 노드의 `id`는 `a1.n1`처럼 **에이전트 id가 접두**로 붙는다(§5.2).
 
 **완료 시 추가되는 부분**
 
@@ -452,14 +481,13 @@ curl -X POST $BASE/v1/runs \
   "finished_at": "2026-09-19T01:07:02+00:00",
   "total_duration_ms": 131000,
   "result": {
+    "type": "pdf",
     "schema_id": "biz.brand_strategy@1",
-    "artifact_url": "/v1/runs/20260919-100451-688/artifact",   // 결과 JSON (봉투)
-    "pdf_url": "/v1/runs/20260919-100451-688/pdf"              // 템플릿이 적용된 PDF
+    "artifact_url": "/v1/runs/20260919-100451-688/artifact",   // 결과 JSON (봉투) — 항상 있다
+    "pdf_url": "/v1/runs/20260919-100451-688/pdf"              // PDF. 렌더 실패면 null (실행 실패 아님)
   }
 }
 ```
-
-**노드 상태값** `pending → running → succeeded` 또는 `failed`. 한 방향뿐이고 되돌아가지 않는다.
 
 ### 7.3 `GET /v1/runs/{run_id}/artifact` — 결과 JSON
 
@@ -472,22 +500,61 @@ curl -X POST $BASE/v1/runs \
 `application/pdf`. 아직이면 409 `PDF_NOT_READY`.
 Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사라진다. **백엔드 스토리지에 저장하고 프론트에는 백엔드가 발급한 URL을 준다.**
 
-### 7.5 `POST /v1/workflows/validate` — 저장 시점 검증
+### 7.5 `POST /v1/workflows/validate` — 저장 시점 검증 + 견적
 
-워크플로우 JSON만 받아 **실행하지 않고** 검증 결과만 돌려준다. 저장 버튼에서 한 번 부르면 상한 · 순환 · 스키마 호환 규칙을 백엔드가 복제하지 않아도 된다.
+워크플로우 JSON만 받아 **실행하지 않고** 검증 결과와 **견적**을 돌려준다. 저장 버튼에서 한 번 부르면 상한 · 순환 · 스키마 호환 규칙을 백엔드가 복제하지 않아도 되고, 실행 버튼 옆에 **최대 청구액**을 보여줄 수 있다. 과금은 없다.
 
 ```jsonc
 // 요청 (application/json)
-{ "workflow": { /* §5 형식 */ } }
+{ "workflow": { /* §5 형식. 에이전트 노드는 정의를 그대로 끼워 보낸다 */ } }
 
-// 응답 200
+// 응답 200 — UC1(5노드 + 분기) 실제 응답
+{ "valid": true,
+  "errors": [],
+  "warnings": [],
+  "stats": { "node_count": 6,              // 캔버스에 놓인 노드 수 (에이전트 1개 = 1)
+             "expanded_node_count": 6,     // 에이전트를 펼친 뒤 노드 수
+             "longest_path": 4,            // 가능한 가장 긴 경로 (실제로 도는 경로가 아니다)
+             "agent_depth": 0 },
+  "estimate": { "max_charge_abc": 17.5,    // 분기 조합 중 가장 비싼 경우의 unit_price 합
+                "worst_case_nodes": ["n1", "n2", "n3a", "n4"],   // 그때 실제로 도는 노드
+                "unpriced_nodes": [] } }   // 단가가 없어 0 으로 센 노드. 비어 있지 않으면 견적이 실제보다 낮다
+
+// 응답 200 — 틀린 정의
 { "valid": false,
   "errors": [ { "code": "SCHEMA_INCOMPATIBLE", "node_id": "n4",
                 "message": "n3a의 출력(biz.strategy_draft@1)이 n4의 입력(biz.campaign_plan@1)과 맞지 않습니다" } ],
-  "warnings": [ { "code": "LONG_PATH",
-                  "message": "최장 경로 7단계. 5분을 넘길 수 있습니다" } ],
-  "stats": { "node_count": 6, "expanded_node_count": 6, "longest_path": 4, "agent_depth": 0 } }
+  "warnings": [ { "code": "LONG_PATH", "node_id": null, "message": "최장 경로 7단계. 5분을 넘길 수 있습니다" } ],
+  "stats": { "...": "..." }, "estimate": { "...": "..." } }
 ```
+
+**견적은 최장 경로가 아니다.** 분할 · 병합이 있으면 여러 노드가 함께 돌기 때문에, 분기 조합마다 "그 경우 실제로 도는 노드의 `unit_price` 합"을 구해 최댓값을 잡는다. 분기 노드는 과금하지 않는다. `unit_price`를 안 보낸 노드는 0으로 세고 `unpriced_nodes`에 남긴다 — 화면에는 "최대 17.5 ABC" 대신 "단가 미정 노드 있음"으로 보여야 한다.
+
+**`errors[].code` — 하나라도 있으면 `valid: false`, 실행 요청은 400 `INVALID_WORKFLOW`**
+
+| code | 뜻 |
+| --- | --- |
+| `NO_NODES` | `nodes`가 비어 있음 |
+| `INVALID_GRAPH` | id 누락 · 중복, 없는 노드를 가리키는 엣지, **순환** |
+| `MISSING_PROMPT` | `llm` 노드의 `prompt`가 비어 있음 |
+| `MISSING_OUTPUT_SCHEMA` | `llm` 노드에 `output_schema_id`가 없음 |
+| `UNKNOWN_SCHEMA` | 카탈로그에 없는 `schema_id` |
+| `SCHEMA_INCOMPATIBLE` | 앞 노드 출력 형식 ≠ 뒤 노드 입력 형식 (완전 일치만 허용) |
+| `JOIN_SCHEMA_MISMATCH` | 분기 뒤 합류 지점에서 만나는 경로들의 출력 형식이 다름 |
+| `BRANCH_CONDITION_MISSING` · `BRANCH_EDGES_INVALID` | 분기 노드에 `condition`이 없음 · `when: true/false` 간선이 각각 하나가 아님 |
+| `OUTPUT_SCHEMA_MISMATCH` | `output.schema_id`가 종단 노드의 출력 형식과 다름 |
+| `LIMIT_EXCEEDED` | §5.6 상한 초과 (캔버스 8 · 전개 20 · 경로 8) |
+| `AGENT_BOUNDARY_VIOLATION` | 에이전트가 공개한 `output_schema_id`와 내부 종단 노드의 출력이 다름 |
+| `AGENT_NESTING_TOO_DEEP` · `AGENT_DEFINITION_MISSING` · `AGENT_EDGE_UNKNOWN_NODE` | 에이전트 안에 에이전트 · `agent.nodes` 없음 · 내부 엣지가 없는 노드를 가리킴 |
+
+**`warnings[].code` — 실행은 된다. 화면에 안내만**
+
+| code | 뜻 |
+| --- | --- |
+| `LONG_PATH` | 최장 경로 7 이상. 5분(PER-003)을 넘길 수 있다 |
+| `UNPRICED_NODES` | 단가 없는 노드가 있어 견적이 실제보다 낮다 |
+| `MERGE_INPUT_UNCHECKED` | 병합 노드는 입력이 `port`로 묶인 객체라 `input_schema_id`로 검증하지 않는다 |
+| `LEGACY_TEXT_NODE` | 출력 형식이 없는 자유 텍스트 노드(09-19 이전 정의). 새 워크플로우에서는 나오지 않아야 한다 |
 
 ### 7.6 `GET /v1/schemas` · `GET /v1/schemas/{schema_id}`
 
@@ -512,6 +579,17 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 | Premium Rate · 등급 | **백엔드** 배치 — `grading-formula.md` |
 | 실행 단가 · 선차감액 · 정산 | **백엔드** |
 | 실행된 노드 · 성공 여부 · 실패 책임 · 미실행 구간 | **Runtime** ← 이 문서가 주는 것 |
+
+**실측 원가(`cost_abc`)는 Runtime이 계산해 노드마다 · 실행 합계로 준다** (NOD-007 · EXE-013).
+
+```
+cost_abc = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1,000,000 × ABC 환산율
+```
+
+- 교정 재요청분 토큰까지 합산한다. 실패한 노드도 쓴 토큰은 기록한다(환원 여부는 §8.5).
+- 단가는 모델 공시가(`gemini-2.5-flash` 입력 0.30 · 출력 2.50 USD / 1M 토큰), 환산율은 **1 ABC = 0.001 USD(제안값 🔶)**. 셋 다 환경변수 `LLM_PRICE_IN` · `LLM_PRICE_OUT` · `ABC_PER_USD`로 덮어쓴다. 기획이 환산율을 확정하면 코드 수정 없이 바뀐다.
+- 실측 기준 노드 1회 약 3 ~ 5 ABC. `unit_price`(판매가)와의 차이가 판매자 마진이다.
+- mock 실행은 모델을 부르지 않으므로 `cost_abc: 0.0`이다.
 
 ### 8.2 요청에 담는 정산 필드 — 전부 선택이다
 
@@ -575,15 +653,18 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 
 ```jsonc
 { "detail": { "code": "INVALID_WORKFLOW", "message": "워크플로우 정의 오류",
-              "errors": ["nodes[0].prompt 가 비어 있습니다"] } }
+              "errors": [ { "code": "MISSING_PROMPT", "node_id": "n1", "message": "prompt 가 비어 있습니다" } ] } }
 ```
+
+`errors[]`의 코드는 §7.5 표와 같다 — 저장 시점 `validate`와 실행 요청이 **같은 검사기**를 쓴다.
 
 ### 9.1 요청 단계
 
 | HTTP | code | 의미 | 백엔드 처리 |
 | --- | --- | --- | --- |
 | 400 | `INVALID_WORKFLOW_JSON` | `workflow` 필드가 JSON이 아님 | 재시도 무의미 |
-| 400 | `INVALID_WORKFLOW` | 노드 · 엣지 정의 오류. `errors`에 상세 | 사용자에게 안내 |
+| 400 | `INVALID_WORKFLOW` | 노드 · 엣지 정의 오류. `errors[]`에 §7.5 코드 | 사용자에게 안내 |
+| 400 | `INVALID_INPUT_JSON` | `input` 필드가 JSON 객체가 아님 | 폼 직렬화 확인 |
 | 400 | `UNSUPPORTED_FILE_TYPE` | 허용 확장자 아님 | 사용자에게 안내 |
 | 400 | `FILE_TOO_LARGE` | 10MB 초과 | 사용자에게 안내 |
 | 401 | `UNAUTHORIZED` | 서비스 토큰 불일치 | 설정 확인 |
@@ -599,6 +680,7 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 | `BRANCH_CONDITION_INVALID` | 조건이 가리키는 payload 경로가 없음 | `consumer` | 미반영 | 무의미 |
 | `AGENT_BOUNDARY_VIOLATION` | 에이전트 종단 payload가 선언된 출력 스키마와 다름 | `supplier` | 반영 | 가능 |
 | `REF_FILE_REJECTED` | 참고 파일 mime · 크기 위반 | `supplier` | 미반영 | 무의미 |
+| `PROMPT_TEMPLATE_INVALID` | 판매자 프롬프트의 입력 틀(`{…}`)이 요구하는 값을 이 자리에서 받을 수 없음 | `supplier` | 미반영 | 무의미 |
 | `MODEL_TIMEOUT` | 노드 60초 초과 | `supplier` | 반영 | 가능 |
 | `MODEL_API_ERROR` | 모델 API 5xx 또는 기타 | `supplier` | 반영 | 가능 |
 | `FILE_PARSE_FAILED` | 업로드 파일을 읽지 못함 | `consumer` | 미반영 | 무의미 |
@@ -612,37 +694,58 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 
 ---
 
-## 10. 파트별 체크리스트
+## 10. 파트별 체크리스트 — 붙이는 순서
 
-### 백엔드
+### 백엔드 — 이 순서로 붙이면 된다
 
-| # | 할 일 |
-| --- | --- |
-| 1 | 노드에 `type` · `input/output_schema_id` · `ref_files` 저장 |
-| 2 | 워크플로우에 **`edges[]`(`port` · `when` 포함)** 저장 — 캔버스가 병합을 그리지 못해도 형식은 보존 |
-| 3 | 에이전트 노드는 **정의를 그대로 임베드**해 전달 |
-| 4 | 저장 버튼에서 `POST /v1/workflows/validate` 호출 |
-| 5 | 실행 시 multipart로 `workflow` · `input` · `file` · `ref_file_*` 전달 |
-| 6 | 2초 폴링. `(run_id, node_id)` 멱등 키로 적립 |
-| 7 | `contribution[]`으로 **다계정** 적립, `not_executed[]` · `refund_scope`로 환원 |
-| 8 | `/artifact`와 `/pdf`를 받아 스토리지에 저장하고 URL 발급 |
-| 9 | `GET /v1/schemas` 중계 |
+| # | 단계 | 부르는 것 | 응답에서 읽는 것 |
+| --- | --- | --- | --- |
+| 1 | 노드 저장 | — | `type` · `input_schema_id` · `output_schema_id` · `ref_files` · `owner_id` · `unit_price`를 그대로 저장 |
+| 2 | 워크플로우 저장 | **`POST /v1/workflows/validate`** | `valid`가 `false`면 `errors[]`를 사용자에게. `estimate.max_charge_abc`를 저장해 실행 화면에 표시 |
+| 3 | 에이전트 저장 | — | `agent.nodes` + `agent.edges`를 **그대로** 임베드. 평평하게 펴지 않는다 |
+| 4 | 실행 요청 | **`POST /v1/runs`** multipart — `workflow`(JSON 문자열) · `input`(폼 값 JSON 문자열) · `comment` · `file` · `ref_file_*` | 202 `run_id`. 선차감액은 `estimate.max_charge_abc` |
+| 5 | 폴링 | **`GET /v1/runs/{id}`** 2초 간격 | `progress`를 프론트에 중계. `nodes[].status`가 `succeeded`로 바뀐 노드는 `contribution[]`에 나타난다 → `(run_id, node_id)` 멱등 키로 **즉시 적립** |
+| 6 | 종료 | `status`가 `succeeded` · `failed` | `not_executed[]`의 `refund_abc` 환원, `failure.refund_scope`로 실패 구간 환원(§8.5) |
+| 7 | 결과 저장 | **`GET /v1/runs/{id}/artifact`** · `/pdf` | 봉투 JSON과 PDF를 스토리지에 저장해 URL 발급. Runtime은 재시작하면 잊는다 |
+| 8 | 중계 | `GET /v1/schemas` · `/{id}` | 프론트에 그대로 |
 
 **폴링 중단 조건을 반드시 둔다.** `succeeded` · `failed`면 멈추고, 추가로 `노드 수 × 40초 + 60초`를 넘도록 상태가 안 바뀌면 실패로 처리한다.
 
-### 프론트
+**정산에서 보는 필드는 셋뿐이다** — `contribution[]`(적립) · `not_executed[]`(미실행 환원) · `failure.refund_scope`(실패 환원). `nodes[].skip_reason`은 화면용이고 정산 근거로 쓰지 않는다.
 
-| # | 할 일 |
-| --- | --- |
-| 1 | 노드 편집 — `GET /v1/schemas` 목록에서 입출력 형식 선택, 참고 파일 업로드 |
-| 2 | 캔버스 — 연결 호환 판정(출력 ↔ 입력 `schema_id`), 분할 · 병합 · 분기 노드, `edges[]` 생성 |
-| 3 | 실행 폼 — 첫 노드 `input_schema_id`의 JSON Schema로 입력 폼 생성 |
-| 4 | 진행 화면 — `progress.percent` · `done`/`total` · `current_node_name` · `nodes[].status` |
-| 5 | 결과 — JSON 보기 · 다운로드, 템플릿 선택, PDF 다운로드 |
+### 프론트 — 이 순서로 붙이면 된다
+
+| # | 단계 | 쓰는 것 | 화면 |
+| --- | --- | --- | --- |
+| 1 | 노드 편집 | `GET /v1/schemas` 목록 | 입출력 형식 드롭다운(`title`이 한국어 이름). 참고 파일 업로드 |
+| 2 | 캔버스 연결 | 두 노드의 `output_schema_id` · `input_schema_id` | **완전히 같을 때만** 선이 그어진다. 분할(한 출력 → 여러 노드) · 병합(여러 입력 → `port` 이름) · 분기 노드(`condition` · `when: true/false` 두 간선) |
+| 3 | 저장 | (백엔드 경유) `validate` 응답 | `errors[]`는 해당 `node_id`에 빨간 표시. `warnings[]`는 노란 안내. `estimate.max_charge_abc`를 **"최대 N ABC"** 로, `unpriced_nodes`가 있으면 "단가 미정" |
+| 4 | 실행 폼 | 첫 노드 `input_schema_id`의 JSON Schema(`GET /v1/schemas/{id}`) | `properties`의 `title`이 입력란 이름, `enum`이 선택지, `required`가 필수 표시 |
+| 5 | 진행 | 폴링 응답 `progress` · `nodes[]` | `percent` · `current_node_name`. `type: branch`는 "판정 → 예/아니오"(`branch_taken`), `status: skipped`는 "건너뜀 — 분기로 선택되지 않음" |
+| 6 | 결과 | `result.artifact_url` · `pdf_url` | JSON 보기 · 다운로드, PDF 다운로드. `pdf_url`이 `null`이면 JSON만 |
+| 7 | 실패 | `error.message` · `error.hint` | 그대로 표시하면 된다. 한국어 문구 · 다음 행동 안내가 들어 있다(§9.2). `error.detail`은 표시하지 않는다 |
 
 **프론트는 AI Runtime을 직접 부르지 않는다.** 백엔드가 중계한다. 프론트 코드의 `/api/v1/executions/{id}/events`(SSE)는 백엔드가 폴링 결과를 중계하는 것이라 그대로 쓰면 된다.
 
----
+### 확인용 요청 — 서버에 붙이기 전에 손으로 한 번
+
+```bash
+# 1) 형식 목록
+curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/schemas | jq '.schemas[] | .schema_id'
+
+# 2) 저장 시점 검증 + 견적 (견본 워크플로우로)
+curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows/brand_agent \
+  | jq '{workflow: .}' \
+  | curl -s -H "X-ABC-Service-Token: $TOKEN" -H "Content-Type: application/json" -d @- \
+         http://127.0.0.1:8000/v1/workflows/validate | jq '.valid, .estimate'
+
+# 3) 실행 (mock) → 폴링 → 결과
+RUN=$(curl -s -H "X-ABC-Service-Token: $TOKEN" -F "workflow=$(curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows/brand_agent)" \
+  -F 'input={"brand_name":"초록소반","category":"간편식","target":"1인 가구 30대","price_tier":"중가","differentiator":"국내산 재료"}' \
+  -F "mock=true" http://127.0.0.1:8000/v1/runs | jq -r .run_id)
+curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN | jq '.status, .progress, .contribution, .not_executed'
+curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN/artifact | jq '.schema_id, .meta'
+```
 
 ## 11. 노드 사이에서 실제로 일어나는 일
 
@@ -681,15 +784,31 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 
 ## 13. 실측값 (참고)
 
-노드 2개, `gemini-2.5-flash`, 자유 텍스트 시절 기준이다. JSON 출력으로 바뀐 뒤 재측정은 09-22.
+`gemini-2.5-flash` · GMS 경유 · JSON 구조화 출력. **09-22 UC1(LLM 노드 4개 실행 + 분기 1) 실호출 2회** 기준이다.
+자유 텍스트 시절(09-09, 노드당 약 25초 · 실행당 토큰 약 5,800)보다 노드당 시간 · 토큰이 절반으로 줄었다 — 형식이 정해지니 모델이 짧게 답한다.
 
-| 항목 | 값 |
+| 항목 | 값 (2회 평균) |
 | --- | --- |
-| 노드 1개 평균 | 약 25초 |
-| 노드 2개 전체 | 약 41초 |
-| 실행당 토큰 | 입력 약 2,900 / 출력 약 2,900 |
-| 결과 PDF 크기 | 약 79KB |
-| `mock=true` | 1초 미만 |
+| 실행 전체 | **약 51초** (48.6 · 53.3) |
+| 노드 1개 | 9 ~ 16초 (평균 12.6초) |
+| 실행당 토큰 | 입력 약 4,700 / 출력 약 2,200 |
+| 실행당 원가 `totals.cost_abc` | **약 6.8 ABC** (7.00 · 6.64 ≈ 0.007 USD) |
+| 노드당 원가 | 1.3 ~ 2.1 ABC |
+| 교정 재요청 `repair_count` | 8노드 실행 중 **0회** |
+| 견적 `estimate.max_charge_abc` | 17.5 ABC (판매가 합) — 원가 6.8 대비 약 2.6배 |
+| `mock=true` | 0.3초, 원가 0 |
+
+노드별 (소소칫솔 · 밤길동무 순):
+
+| 노드 | 시간 | 입력 / 출력 토큰 | 원가 ABC |
+| --- | --- | --- | --- |
+| n1 시장 조사 | 13.6s · 16.3s | 867 / 633 · 872 / 564 | 1.84 · 1.67 |
+| n2 제품 분석 | 10.9s · 8.9s | 695 / 496 · 700 / 417 | 1.45 · 1.25 |
+| br1 분기 | 0s | 0 | 0 (코드 판정) |
+| n3a 차별화 전략 | 14.4s · 15.2s | 1,620 / 514 · 1,494 / 482 | 1.77 · 1.65 |
+| n4 보고서 | 9.3s · 12.5s | 1,607 / 584 · 1,575 / 635 | 1.94 · 2.06 |
+
+폴링 중단 기준(§10)의 "노드 수 × 40초"는 이 수치의 약 3배 여유다. 5분(PER-003)은 최장 경로 8노드에서도 넉넉하다.
 
 ---
 

@@ -36,6 +36,52 @@ def excel_to_markdown(path: str | Path, max_rows: int = MAX_ROWS) -> str:
     return f"### 표 요약\n{summarize(df)}\n\n### 표\n{table}{note}"
 
 
+def excel_to_common_table(path: str | Path, max_rows: int = MAX_ROWS) -> dict:
+    """엑셀 · CSV → `common.table@1` payload.
+
+    H2A 입력의 최소 경로다(계약 §5.4 · 범위표 5). 표의 **열 이름이 곧 라벨**이라
+    카탈로그의 한국어 라벨 규칙과 그대로 맞는다. 브랜딩 유즈케이스는 폼 입력을 쓰지만
+    엑셀 입력은 서비스 기능이라 남긴다.
+
+    키는 영문 snake_case 다. 한글 열 이름은 `col_1` 처럼 순번 키를 주고 원문은 라벨에 남긴다.
+    """
+    df = load_table(path).head(max_rows).fillna("")
+    keys = _keys_for(df.columns)
+    columns = [
+        {"key": key, "label": str(name),
+         "type": "number" if str(df[name].dtype).startswith(("int", "float")) else "string"}
+        for key, name in zip(keys, df.columns)
+    ]
+    rows = [
+        {key: _cell(row[name]) for key, name in zip(keys, df.columns)}
+        for _, row in df.iterrows()
+    ]
+    return {"title": Path(path).stem, "columns": columns, "rows": rows}
+
+
+def _keys_for(names) -> list[str]:
+    """열 이름마다 유일한 영문 키. 중복되면 순번을 붙인다."""
+    keys, seen = [], set()
+    for index, name in enumerate(names, start=1):
+        text = str(name).strip().lower().replace(" ", "_")
+        slug = "".join(ch for ch in text if ch.isascii() and (ch.isalnum() or ch == "_")).strip("_")
+        # 숫자로 시작하거나 알파벳이 없는 조각은 키로 쓰지 않는다(한글 열 이름이 여기 걸린다)
+        key = slug if slug[:1].isalpha() else f"col_{index}"
+        if key in seen:
+            key = f"{key}_{index}"
+        seen.add(key)
+        keys.append(key)
+    return keys
+
+
+def _cell(value: object) -> object:
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, (int, float)):
+        return float(value)
+    return str(value)
+
+
 if __name__ == "__main__":
     import sys
 

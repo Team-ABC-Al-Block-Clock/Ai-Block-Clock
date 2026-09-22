@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from . import catalog, runner
+from . import catalog, graph, runner
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -49,27 +49,40 @@ def auth(x_abc_service_token: str | None = Header(default=None)) -> None:
 
 
 def _public(run: dict, include_node_output: bool = False) -> dict:
-    """백엔드에 돌려줄 형태. 노드 출력 전문은 요청할 때만 포함한다."""
+    """백엔드에 돌려줄 형태 — 계약 §7.2 그대로. 노드 출력 전문은 요청할 때만 포함한다.
+
+    러너 내부 상태에는 프롬프트 · 마크다운 · 파일 경로가 있지만 밖으로는 내지 않는다.
+    필드를 더하면 계약 문서도 같은 MR 에서 고친다.
+    """
+    public_keys = ("id", "name", "type", "status", "schema_id", "agent_id", "owner_id",
+                   "started_at", "finished_at", "duration_ms", "input_tokens", "output_tokens",
+                   "retries", "repair_count", "cost_abc", "unit_price", "skip_reason", "branch_taken")
     nodes = []
     for n in run["nodes"]:
-        item = {k: n.get(k) for k in ("id", "name", "status", "context", "duration_ms",
-                                      "input_tokens", "output_tokens", "retries",
-                                      "owner_id", "unit_price")}
+        item = {k: n.get(k) for k in public_keys}
+        item["type"] = n.get("type") or ("branch" if n.get("branch_taken") is not None else "llm")
         if include_node_output:
-            item["output"] = n["output"]
+            item["output"] = n.get("output")
         nodes.append(item)
 
-    done = sum(1 for n in run["nodes"] if n["status"] == "succeeded")
-    total = len(run["nodes"])
+    # 진행률은 "돌아야 하는 LLM 노드" 기준이다 — 분기 노드와 건너뛴 노드는 세지 않는다(계약 §7.2)
+    countable = [n for n in run["nodes"]
+                 if n.get("type") != "branch" and n.get("branch_taken") is None
+                 and n.get("status") != "skipped"]
+    done = sum(1 for n in countable if n["status"] == "succeeded")
+    total = len(countable)
     current = next((i for i, n in enumerate(run["nodes"]) if n["status"] == "running"), None)
     cur_node = run["nodes"][current] if current is not None else None
 
     result = None
     if run.get("result"):
+        has_pdf = bool(run["result"].get("pdf"))
+        has_envelope = bool(run["result"].get("envelope"))
         result = {
-            "type": run["result"]["type"],
-            "markdown": run["result"]["markdown"],
-            "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if run["result"].get("pdf") else None,
+            "type": run["result"].get("type"),
+            "schema_id": run["result"].get("schema_id"),
+            "artifact_url": f"/v1/runs/{run['run_id']}/artifact" if has_envelope else None,
+            "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if has_pdf else None,
         }
 
     return {
@@ -90,7 +103,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
         "started_at": run["started_at"],
         "finished_at": run["finished_at"],
         "total_duration_ms": run["total_duration_ms"],
-        # 정산 입력값 (계약 문서 6장)
+        # 정산 근거 (계약 §8)
         "contribution": run.get("contribution", []),
         "not_executed": run.get("not_executed", []),
         "failure": run.get("failure"),
@@ -99,13 +112,15 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     }
 
 
-def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: bool) -> None:
+def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: bool,
+             input_payload: dict | None = None) -> None:
     try:
         # state 로 같은 dict 를 넘겨 러너가 제자리에서 갱신하게 한다.
         # 그래야 폴링으로 노드별 진행 상황이 실시간으로 보인다.
         with _lock:
             state = _runs[run_id]
-        runner.execute(wf, comment=comment, file_path=file_path, mock=mock, run_id=run_id, state=state)
+        runner.execute(wf, comment=comment, file_path=file_path, mock=mock, run_id=run_id,
+                       input_payload=input_payload, state=state)
     except Exception as e:  # 러너가 삼키지 못한 예외까지 방어
         with _lock:
             _runs[run_id]["status"] = "failed"
@@ -151,10 +166,26 @@ def get_workflow(workflow_id: str) -> dict:
         raise HTTPException(status_code=404, detail={"code": "WORKFLOW_NOT_FOUND", "message": workflow_id})
 
 
+@app.post("/v1/workflows/validate", summary="워크플로우 정의 검증 (실행하지 않음)",
+          dependencies=[Depends(auth)])
+def validate_workflow_definition(body: dict) -> dict:
+    """저장 버튼에서 부르면 상한 · 순환 · 스키마 호환 규칙을 백엔드가 복제하지 않아도 된다.
+
+    계약 §7.5. 실행하지 않고 판정만 돌려주므로 과금도 없다.
+    """
+    wf = body.get("workflow") if isinstance(body, dict) else None
+    if not isinstance(wf, dict):
+        raise HTTPException(status_code=400,
+                            detail={"code": "INVALID_REQUEST",
+                                    "message": "workflow 객체가 필요합니다"})
+    return graph.validate(wf)
+
+
 @app.post("/v1/runs", status_code=202, summary="워크플로우 실행 요청", dependencies=[Depends(auth)])
 async def create_run(
     background: BackgroundTasks,
     workflow: str = Form(..., description='워크플로우 정의 JSON 문자열. {"name":..., "nodes":[...], "output":{...}}'),
+    input: str = Form("", description="첫 노드 입력 payload 를 JSON 문자열로 (폼에서 받은 값)"),
     comment: str = Form("", description="사용자가 입력한 자연어 코멘트"),
     mock: bool = Form(False, description="true 면 LLM 을 호출하지 않고 파이프라인만 실행"),
     file: UploadFile | None = File(None, description="성적 엑셀 또는 CSV (선택)"),
@@ -164,9 +195,24 @@ async def create_run(
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW_JSON", "message": str(e)})
 
-    errors = runner.validate_workflow(wf)
-    if errors:
-        raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW", "message": "워크플로우 정의 오류", "errors": errors})
+    input_payload = None
+    if input.strip():
+        try:
+            input_payload = json.loads(input)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400,
+                                detail={"code": "INVALID_INPUT_JSON", "message": str(e)})
+        if not isinstance(input_payload, dict):
+            raise HTTPException(status_code=400,
+                                detail={"code": "INVALID_INPUT_JSON",
+                                        "message": "input 은 JSON 객체여야 합니다"})
+
+    # 정의 검증은 그래프 규칙 하나로 한다(계약 §5.7). 분기 · edges 도 여기서 걸린다
+    report = graph.validate(wf)
+    if not report["valid"]:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW",
+                                                     "message": "워크플로우 정의 오류",
+                                                     "errors": report["errors"]})
 
     saved_path: str | None = None
     if file and file.filename:
@@ -204,7 +250,7 @@ async def create_run(
             "result": None, "error": None,
         }
 
-    background.add_task(_execute, run_id, wf, comment, saved_path, mock)
+    background.add_task(_execute, run_id, wf, comment, saved_path, mock, input_payload)
     return JSONResponse(status_code=202, content={
         "run_id": run_id,
         "status": "queued",
@@ -221,6 +267,24 @@ def get_run(run_id: str, include_node_output: bool = False) -> dict:
     if not run:
         raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": run_id})
     return _public(run, include_node_output=include_node_output)
+
+
+@app.get("/v1/runs/{run_id}/artifact", summary="결과물 조회 (봉투 JSON)",
+         dependencies=[Depends(auth)])
+def get_artifact(run_id: str) -> dict:
+    """종단 노드의 봉투를 그대로 돌려준다(계약 §6.2 · §7.5).
+
+    템플릿이 붙으면 이 payload 가 PDF 로 렌더된다. 지금은 JSON 이 원본이다.
+    """
+    run = _runs.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": run_id})
+    envelope = (run.get("result") or {}).get("envelope")
+    if run.get("status") != "succeeded" or not envelope:
+        raise HTTPException(status_code=409, detail={
+            "code": "ARTIFACT_NOT_READY",
+            "message": f"실행 상태: {run.get('status')}"})
+    return envelope
 
 
 @app.get("/v1/runs/{run_id}/pdf", summary="결과 PDF 내려받기", response_class=FileResponse,

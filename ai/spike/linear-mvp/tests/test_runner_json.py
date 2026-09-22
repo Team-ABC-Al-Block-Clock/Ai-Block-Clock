@@ -1,6 +1,8 @@
-"""JSON 경로 통합 테스트 — 2노드가 봉투로 완주하는지, 실패 책임이 갈리는지.
+"""JSON 경로 통합 테스트 — UC1 이 봉투로 완주하는지, 실패 책임이 갈리는지.
 
-여기가 오늘의 관문이다(로드맵 v5.0 §2 09-19). 기존 텍스트 경로 회귀도 함께 지킨다.
+09-19 관문(2노드 JSON 완주)을 09-22 에 UC1 5노드로 옮겼다 — 트랙 B 프롬프트는 5노드 사슬을
+전제로 쓰여서(04 는 전략 초안을 받는다) 2노드 축소판이 성립하지 않기 때문이다.
+기존 텍스트 경로 회귀도 함께 지킨다.
 """
 from __future__ import annotations
 
@@ -20,17 +22,19 @@ BRIEF = {
 }
 
 
-def _run(input_payload=BRIEF, workflow="brand_2node"):
+def _run(input_payload=BRIEF, workflow="brand_agent"):
     return runner.execute(runner.load_workflow(workflow), comment="테스트",
                           mock=True, input_payload=input_payload)
 
 
 # --- JSON 경로 --------------------------------------------------------------
 
-def test_2노드가_JSON_으로_완주하고_봉투가_나온다():
+def test_UC1_이_JSON_으로_완주하고_봉투가_나온다():
     run = _run()
     assert run["status"] == "succeeded"
-    assert [n["schema_id"] for n in run["nodes"]] == ["biz.market_research@1", "biz.brand_strategy@1"]
+    assert [n["schema_id"] for n in run["nodes"]] == [
+        "biz.market_research@1", "biz.product_analysis@1", None,
+        "biz.strategy_draft@1", "biz.strategy_draft@1", "biz.brand_strategy@1"]
     env = run["result"]["envelope"]
     assert env["a2a_version"] == "1.0"
     assert env["schema_id"] == "biz.brand_strategy@1"
@@ -43,9 +47,9 @@ def test_발행일과_작성기관은_Runtime_이_채운다():
     assert payload["issued_on"].startswith("2026년")
 
 
-def test_노드마다_정산_기여가_쌓인다():
+def test_실행된_노드마다_정산_기여가_쌓인다():
     run = _run()
-    assert [c["node_id"] for c in run["contribution"]] == ["n1", "n4"]
+    assert [c["node_id"] for c in run["contribution"]] == ["n1", "n2", "n3a", "n4"]
     assert all(c["owner_id"] == "u_seller_a" for c in run["contribution"])
 
 
@@ -112,7 +116,7 @@ def test_실측_원가는_토큰과_단가에서_결정적으로_나온다():
 def test_봉투와_합계에_원가_자리가_채워진다():
     run = _run()
     assert run["totals"]["cost_abc"] == 0.0                   # mock 이라 0
-    assert all(n["cost_abc"] == 0.0 for n in run["nodes"])
+    assert all(n["cost_abc"] == 0.0 for n in run["nodes"] if n["status"] == "succeeded")
     assert run["result"]["envelope"]["meta"]["cost_abc"] == 0.0
 
 

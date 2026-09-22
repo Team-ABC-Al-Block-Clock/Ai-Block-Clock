@@ -1,0 +1,23 @@
+# 실행 엔진 이미지의 빌드 컨텍스트는 ai/ 다.
+#   cd ai/spike/linear-mvp && docker build -f Dockerfile ../..
+# 들어가는 것: spike/linear-mvp(엔진) · prompts/(공용 프롬프트, 트랙 B 작성)
+# 나머지는 전부 뺀다 — 추천 서비스 · 학습 산출물 · 문서는 이 이미지와 무관하다.
+
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/out/
+.git/
+.claude/
+recommend/
+demo/
+docs/
+schemas/
+runtime/
+spike/linear-mvp/poc/
+spike/linear-mvp/README.md

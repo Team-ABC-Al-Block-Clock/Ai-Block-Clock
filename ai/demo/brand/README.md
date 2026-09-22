@@ -43,7 +43,9 @@ competition_level == "low"   →  ③b 대중 공략 전략
 
 ```bash
 cd ai/demo
-python check_compliance_brand.py --brief brand/brief_high.json --runs 10
+python check_compliance_brand.py --node 01 --brief brand/brief_high.json --runs 10 --expected-level high
 ```
 
 `competition_level` 이 10회 중 10회 같은 값이어야 한다 (로드맵 §3 기준).
+
+설치·입력 형식·오프라인 검사·결과 해석은 [준수율 검사 안내](COMPLIANCE.md)를 참고한다.

@@ -6,6 +6,12 @@
 # 한글 폰트를 apt 로 설치한다. PDF 렌더러가 TTF 를 이미지 안에서 찾아야 하는데,
 # 폰트 파일(수 MB)을 저장소에 커밋하지 않으려는 것이다.
 # 경로는 src/pdf.py 의 FONT_CANDIDATES 첫 항목과 맞춰져 있다.
+#
+# 빌드 컨텍스트는 ai/ 다 (무시 목록은 ai/.dockerignore).
+#   cd ai/spike/linear-mvp && docker build -f Dockerfile -t ai-block-clock-ai-runtime ../..
+# 공용 프롬프트(ai/prompts, 트랙 B 작성)를 함께 넣기 위해서다. 견본 워크플로우가
+# `../../prompts/brand/…` 로 가리키는데, /app 의 두 단계 위는 / 이므로 /prompts 에 두면
+# 로컬(ai/spike/linear-mvp → ai/prompts)과 같은 상대 경로가 컨테이너에서도 맞는다.
 
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
@@ -18,10 +24,11 @@ RUN apt-get update \
 WORKDIR /app
 
 # 의존성만 먼저 설치해 레이어를 캐시한다. 소스가 바뀌어도 이 레이어는 재사용된다.
-COPY pyproject.toml uv.lock ./
+COPY spike/linear-mvp/pyproject.toml spike/linear-mvp/uv.lock ./
 RUN uv sync --frozen --no-install-project
 
-COPY . .
+COPY spike/linear-mvp/ ./
+COPY prompts/ /prompts/
 RUN uv sync --frozen
 
 # 실행 산출물 디렉터리. 컨테이너를 지우면 함께 사라진다.
