@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import { IMAGE_LIMITS } from '@/lib/imageFile'
 
 /**
  * 인증 · 계정 API.
@@ -73,35 +74,8 @@ export interface UpdatedProfile {
 export const PROFILE_LIMITS = {
   nickname: { min: 2, max: 20 },
   introduction: { max: 40 },
-  /** 프로필 이미지. 화면이 고르는 즉시 막아 5MB 를 올렸다가 거절당하는 왕복을 없앤다. */
-  image: {
-    maxBytes: 5 * 1024 * 1024,
-    types: ['image/png', 'image/jpeg'],
-    /** `File.type` 을 믿을 수 없을 때 보는 확장자 — 아래 `describeImageProblem` 참고 */
-    extensions: ['.png', '.jpg', '.jpeg'],
-  },
+  image: IMAGE_LIMITS,
 } as const
-
-/**
- * 고른 파일이 이미지 제약에 맞는지. 어긋나면 화면에 띄울 문구를, 맞으면 null 을 준다.
- *
- * 가입 화면과 내 정보 수정이 같은 규칙을 써야 한다 — 따로 두었더니 문구는 같은데
- * 판정이 갈릴 자리가 생겼다.
- *
- * `File.type` 만 보지 않는다. 플랫폼이 확장자를 매핑하지 못하면 빈 문자열이고,
- * 잘못 등록된 `.jpg` 는 `image/jpg` 로 온다. 그것까지 막으면 정상 이미지가 요청도
- * 못 나가고 서버 판정(USER_004)도 받지 못한 채 막힌다. 최종 판단은 서버가 한다.
- */
-export function describeImageProblem(file: File): string | null {
-  const { types, extensions, maxBytes } = PROFILE_LIMITS.image
-  const name = file.name.toLowerCase()
-  const looksLikeImage =
-    (types as readonly string[]).includes(file.type) || extensions.some((ext) => name.endsWith(ext))
-
-  if (!looksLikeImage) return 'PNG 또는 JPG 만 올릴 수 있습니다'
-  if (file.size > maxBytes) return '이미지는 5MB 이하여야 합니다'
-  return null
-}
 
 /**
  * PATCH /users/me — 보내지 않은 필드는 기존 값을 유지한다.
