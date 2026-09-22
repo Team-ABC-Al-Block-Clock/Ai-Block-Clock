@@ -1,8 +1,8 @@
 // 외부 시스템(SSAFY 토큰증권 API)에 붙는 어댑터다.
-// core-api 의 웹 스타터에 얹히지 않도록 RestClient 와 JSON 변환을 직접 선언한다.
+// core-api 의 웹 스타터에 얹히지 않도록 RestClient 가 있는 spring-web 만 직접 선언한다.
+// 응답이 값 하나(숫자·불리언·문자열)라 JSON 변환기는 필요 없다. 객체 응답을 받게 되면 그때 추가한다.
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.springframework.boot:spring-boot-starter-jackson'
     implementation 'org.springframework:spring-web'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

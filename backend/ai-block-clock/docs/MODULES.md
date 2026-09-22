@@ -111,7 +111,7 @@ graph TD
 | `:core:core-enum` | 없음 | - | 외부 라이브러리도 추가하지 않는다 |
 | `:support:logging` | 없음 | - | 리소스만 갖는다 |
 | `:support:monitoring` | 없음 (프로젝트 기준) | - | 액추에이터 라이브러리만 갖는다 |
-| `:client:blockchain` | `spring-web`, `spring-boot-starter-jackson` | `implementation` | `RestClient` 와 JSON 변환을 직접 선언한다. `core-api` 의 웹 스타터에 얹히지 않는다 |
+| `:client:blockchain` | `spring-web` | `implementation` | `RestClient` 를 직접 선언한다. `core-api` 의 웹 스타터에 얹히지 않는다. 응답이 스칼라라 JSON 변환기는 두지 않는다 |
 
 `support:*` 를 `runtimeOnly` 로 붙이는 이유는, 이 모듈들이 **설정만 제공**하고 애플리케이션 코드가 이들의 클래스를 직접 참조할 일이 없기 때문이다. `implementation` 으로 붙이면 컴파일 의존이 생겨 나중에 지우기 어려워진다.
 
@@ -250,8 +250,10 @@ client/blockchain/src/main/resources/
   (`INVALID_ADDRESS` · `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
   `REQUEST_FAILED` 만 체인 결과를 알 수 없는 상황이고, 나머지는 실패가 확인된 상황이다.
   `core-api` 는 `CoreException` 을 이 모듈에 내릴 수 없으므로(2.3 규칙 1) 호출 경계에서 변환한다 (RULE.md 7.1)
-- 의존성: `spring-web`, `spring-boot-starter-jackson`, `spring-boot-starter`.
-  서버 스타터(`spring-boot-starter-webmvc`)에 얹히지 않도록 클라이언트 쪽만 선언한다
+- 의존성: `spring-web`, `spring-boot-starter`.
+  서버 스타터(`spring-boot-starter-webmvc`)에 얹히지 않도록 클라이언트 쪽만 선언한다.
+  응답을 전부 `String` 으로 받아 직접 변환하므로 JSON 변환기(Jackson)는 선언하지 않는다.
+  객체 응답을 받는 조회가 생기면 그 변경에서 함께 추가한다
 - 프로파일 변형 파일을 두지 않는다. 환경별로 달라지는 값은 `${SSAFY_STO_BASE_URL:...}` 처럼
   환경 변수로 받는다
 - 외부 API 를 실제로 호출하는 테스트는 `@Tag("integration")` 과 환경 변수 가드를 함께 건다.
