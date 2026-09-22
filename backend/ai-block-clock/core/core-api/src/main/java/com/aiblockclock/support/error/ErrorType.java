@@ -51,9 +51,6 @@ public enum ErrorType {
     WORKFLOW_DEPTH_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_007,
             "연결 깊이가 허용 범위를 넘었습니다.", LogLevel.WARN),
 
-    WORKFLOW_SOURCE_OF_AGENT_VERSION(HttpStatus.CONFLICT, ErrorCode.WORKFLOW_009,
-            "에이전트 버전의 출처인 워크플로우는 삭제할 수 없습니다.", LogLevel.WARN),
-
     WORKFLOW_EXECUTION_IN_PROGRESS(HttpStatus.CONFLICT, ErrorCode.WORKFLOW_010,
             "실행이 진행 중인 워크플로우는 삭제할 수 없습니다.", LogLevel.WARN),
 

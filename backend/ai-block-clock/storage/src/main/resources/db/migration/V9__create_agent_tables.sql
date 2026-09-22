@@ -38,4 +38,3 @@ create table agent_version
 );
 
 create unique index uk_agent_version_no on agent_version (agent_id, version_no);
-create index idx_agent_version_source on agent_version (source_workflow_id);

@@ -46,10 +46,6 @@ public class WorkflowValidator {
         WorkflowEntity entity = lock(id);
         ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
-        if (usageView.isSourceOfAnyVersion(id)) {
-            throw new CoreException(ErrorType.WORKFLOW_SOURCE_OF_AGENT_VERSION);
-        }
-
         if (usageView.isExecuting(id)) {
             throw new CoreException(ErrorType.WORKFLOW_EXECUTION_IN_PROGRESS);
         }

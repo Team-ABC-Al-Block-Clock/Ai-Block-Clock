@@ -6,7 +6,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface AgentVersionRepository extends JpaRepository<AgentVersionEntity, UUID> {
-    boolean existsBySourceWorkflowId(UUID sourceWorkflowId);
-
     List<AgentVersionEntity> findByAgentIdOrderByVersionNoAsc(UUID agentId);
 }
