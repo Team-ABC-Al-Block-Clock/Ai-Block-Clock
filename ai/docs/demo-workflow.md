@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 목적 | 1단계(판매자 한 사람의 워크플로우)가 **나뉘고 · 합쳐지고 · 갈라지고 · 다시 만나는** 것을 한 실행으로 보여 준다 |
-| 정의 파일 | `ai/spike/linear-mvp/workflows/brand_agent.json` (2노드 축소판은 `brand_2node.json`) |
+| 정의 파일 | `ai/spike/linear-mvp/workflows/brand_agent.json` |
 | 입력 예시 | `ai/spike/linear-mvp/data/brand_brief.json` |
 | 계약 | `integration-guide.md` §5(워크플로우 정의) · §6(카탈로그 · 봉투) |
 
@@ -65,8 +65,9 @@ uv run python -c "import json;from src import graph,runner;print(graph.validate(
 
 ## 프롬프트
 
-`ai/spike/linear-mvp/prompts/brand/` 에 있다. **본문은 트랙 B(조유진) 담당**이고 현재는 형식
-관통 확인용 자리표시자다. 교체 시 출력 형식(카탈로그)은 바뀌지 않으므로 워크플로우 정의는 그대로 둔다.
+`ai/prompts/brand/01 ~ 07*.md` — **트랙 B(조유진) 작성.** 마커 3블록(`system` · `user` · `fewshot`)과
+자리표시자를 Runtime 이 해석한다(`src/prompts.py`). 견본 워크플로우는 이 파일을 `../../prompts/brand/…` 로 가리키며,
+컨테이너에서는 같은 상대 경로가 `/prompts/brand/…` 로 풀린다.
 
 ---
 

@@ -680,6 +680,7 @@ cost_abc = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | `BRANCH_CONDITION_INVALID` | 조건이 가리키는 payload 경로가 없음 | `consumer` | 미반영 | 무의미 |
 | `AGENT_BOUNDARY_VIOLATION` | 에이전트 종단 payload가 선언된 출력 스키마와 다름 | `supplier` | 반영 | 가능 |
 | `REF_FILE_REJECTED` | 참고 파일 mime · 크기 위반 | `supplier` | 미반영 | 무의미 |
+| `PROMPT_TEMPLATE_INVALID` | 판매자 프롬프트의 입력 틀(`{…}`)이 요구하는 값을 이 자리에서 받을 수 없음 | `supplier` | 미반영 | 무의미 |
 | `MODEL_TIMEOUT` | 노드 60초 초과 | `supplier` | 반영 | 가능 |
 | `MODEL_API_ERROR` | 모델 API 5xx 또는 기타 | `supplier` | 반영 | 가능 |
 | `FILE_PARSE_FAILED` | 업로드 파일을 읽지 못함 | `consumer` | 미반영 | 무의미 |
