@@ -49,7 +49,7 @@ const USED_AGENT_SORTS: readonly UsedAgentSort[] = ['LAST_EXECUTED', 'MOST_EXECU
 export const mypageHandlers = [
   /** 내 에이전트 목록 (판매 중) */
   http.get(`${API_BASE_URL}/agents`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const url = new URL(request.url)
@@ -70,7 +70,7 @@ export const mypageHandlers = [
    * 없는 ID 로 가고 목록에도 안 나와 흐름을 확인할 수 없다.
    */
   http.post(`${API_BASE_URL}/agents`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const body = (await request.json()) as Partial<CreateAgentRequest>
@@ -89,7 +89,7 @@ export const mypageHandlers = [
   }),
   /** 검색어도 정렬도 없다. 즐겨찾기한 시각 역순 고정. */
   http.get(`${API_BASE_URL}/users/me/favorites`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const url = new URL(request.url)
@@ -104,7 +104,7 @@ export const mypageHandlers = [
   }),
   /** 사용한 에이전트 목록 */
   http.get(`${API_BASE_URL}/users/me/used-agents`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const url = new URL(request.url)
@@ -123,7 +123,7 @@ export const mypageHandlers = [
   }),
   /** 내 워크플로우 목록 */
   http.get(`${API_BASE_URL}/workflows`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const url = new URL(request.url)
@@ -144,8 +144,8 @@ export const mypageHandlers = [
    * 픽스처에서 실제로 지운다 — 안 지우면 모달을 닫아도 목록이 그대로다.
    * 소유자 아님(WORKFLOW_003)은 만들지 않는다. 인증 연동 전이라 흉내 낼 근거가 없다.
    */
-  http.delete(`${API_BASE_URL}/workflows/:workflowId`, async ({ params }) => {
-    const forced = await scene()
+  http.delete(`${API_BASE_URL}/workflows/:workflowId`, async ({ params, request }) => {
+    const forced = await scene(request)
     if (forced) return forced
 
     const at = WORKFLOWS.findIndex((w) => w.workflowId === params.workflowId)
@@ -164,13 +164,13 @@ export const mypageHandlers = [
       deletedAt: new Date().toISOString(),
     })
   }),
-  http.get(`${API_BASE_URL}/credits/balance`, async () => {
-    const forced = await scene()
+  http.get(`${API_BASE_URL}/credits/balance`, async ({ request }) => {
+    const forced = await scene(request)
     if (forced) return forced
     return ok(CREDIT_BALANCE)
   }),
   http.get(`${API_BASE_URL}/credits/transactions`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     return cursorOk(new URL(request.url), CREDIT_TRANSACTIONS, (t) => t.transactionId)

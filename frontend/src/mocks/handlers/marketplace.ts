@@ -29,7 +29,7 @@ const published = () => [...AGENTS].sort(byNewest)
 
 export const marketplaceHandlers = [
   http.get(`${API_BASE_URL}/marketplace/agents`, async ({ request }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const url = new URL(request.url)
@@ -42,41 +42,50 @@ export const marketplaceHandlers = [
 
     return cursorOk(url, filtered, (a) => a.agentId, { cursorCode: 'MARKET_003' })
   }),
-  http.get(`${API_BASE_URL}/marketplace/agents/:agentId`, async ({ params }) => {
-    const forced = await scene()
+  http.get(`${API_BASE_URL}/marketplace/agents/:agentId`, async ({ params, request }) => {
+    const forced = await scene(request)
     if (forced) return forced
 
     const agent = find(params.agentId)
     return agent ? ok(agent) : notFound()
   }),
   /** 명세상 201 이다 */
-  http.post(`${API_BASE_URL}/marketplace/agents/:agentId/favorites`, async ({ params }) => {
-    const forced = await scene()
-    if (forced) return forced
+  http.post(
+    `${API_BASE_URL}/marketplace/agents/:agentId/favorites`,
+    async ({ params, request }) => {
+      const forced = await scene(request)
+      if (forced) return forced
 
-    const result = setFavorite(params.agentId, true)
-    return result ? ok(result, { status: 201 }) : notFound()
-  }),
+      const result = setFavorite(params.agentId, true)
+      return result ? ok(result, { status: 201 }) : notFound()
+    },
+  ),
   /** 즐겨찾기 해제 */
-  http.delete(`${API_BASE_URL}/marketplace/agents/:agentId/favorites`, async ({ params }) => {
-    const forced = await scene()
-    if (forced) return forced
+  http.delete(
+    `${API_BASE_URL}/marketplace/agents/:agentId/favorites`,
+    async ({ params, request }) => {
+      const forced = await scene(request)
+      if (forced) return forced
 
-    const result = setFavorite(params.agentId, false)
-    return result ? ok(result) : notFound()
-  }),
-  http.get(`${API_BASE_URL}/marketplace/agents/:agentId/provenance`, async ({ params }) => {
-    const forced = await scene()
-    if (forced) return forced
+      const result = setFavorite(params.agentId, false)
+      return result ? ok(result) : notFound()
+    },
+  ),
+  http.get(
+    `${API_BASE_URL}/marketplace/agents/:agentId/provenance`,
+    async ({ params, request }) => {
+      const forced = await scene(request)
+      if (forced) return forced
 
-    const agent = find(params.agentId)
-    if (!agent) return notFound()
+      const agent = find(params.agentId)
+      if (!agent) return notFound()
 
-    const provenance = provenanceOf(agent)
-    return provenance ? ok<AgentProvenance>(provenance) : noProvenance()
-  }),
+      const provenance = provenanceOf(agent)
+      return provenance ? ok<AgentProvenance>(provenance) : noProvenance()
+    },
+  ),
   http.get(`${API_BASE_URL}/marketplace/agents/:agentId/reviews`, async ({ request, params }) => {
-    const forced = await scene()
+    const forced = await scene(request)
     if (forced) return forced
 
     const agent = find(params.agentId)
