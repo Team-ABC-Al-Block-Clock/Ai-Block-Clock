@@ -2,18 +2,16 @@ package com.aiblockclock.client.blockchain;
 
 import java.math.BigInteger;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 @Component
+@RequiredArgsConstructor
 public class SsafyStoClient {
     private final RestClient queryRestClient;
-
-    public SsafyStoClient(RestClient queryRestClient) {
-        this.queryRestClient = queryRestClient;
-    }
 
     public boolean isHealthy() {
         return getBoolean("/health", "health");
