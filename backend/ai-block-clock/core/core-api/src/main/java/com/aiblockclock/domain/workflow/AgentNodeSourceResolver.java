@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ public class AgentNodeSourceResolver implements NodeSourceResolver {
     }
 
     @Override
-    public Optional<GraphNode> resolve(NodePlacement placement) {
+    public Optional<GraphNode> resolve(UserId requester, NodePlacement placement) {
         return Optional.empty();
     }
 }
