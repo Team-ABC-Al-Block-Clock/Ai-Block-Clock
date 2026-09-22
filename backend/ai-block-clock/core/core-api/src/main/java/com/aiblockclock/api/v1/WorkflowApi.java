@@ -97,10 +97,6 @@ public interface WorkflowApi {
             { "status": "FAIL", "data": null,
               "error": { "code": "WORKFLOW_005", "message": "노드 연결에 순환 구조가 존재합니다.", "data": null } }""";
 
-    String SOURCE_OF_VERSION_EXAMPLE = """
-            { "status": "FAIL", "data": null,
-              "error": { "code": "WORKFLOW_009", "message": "에이전트 버전의 출처인 워크플로우는 삭제할 수 없습니다.", "data": null } }""";
-
     String EXECUTING_EXAMPLE = """
             { "status": "FAIL", "data": null,
               "error": { "code": "WORKFLOW_010", "message": "실행이 진행 중인 워크플로우는 삭제할 수 없습니다.", "data": null } }""";
@@ -232,7 +228,8 @@ public interface WorkflowApi {
             description = """
                     워크플로우와 그 노드·연결선을 지운다. 배치의 원본이 된 노드와 에이전트는 지우지 않는다.
 
-                    에이전트 버전의 출처인 워크플로우(`WORKFLOW_009`)와 실행 중인 워크플로우(`WORKFLOW_010`)는 삭제할 수 없다.""")
+                    에이전트 버전은 그래프를 복사해 갖고 있으므로 출처 워크플로우를 지워도 그대로 실행된다.
+                    실행 중인 워크플로우(`WORKFLOW_010`)만 삭제할 수 없다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "삭제 완료"),
             @ApiResponse(responseCode = "403", description = "소유자가 아니다 (`WORKFLOW_003`)",
@@ -243,13 +240,10 @@ public interface WorkflowApi {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
                             examples = @ExampleObject(value = NOT_FOUND_EXAMPLE))),
-            @ApiResponse(responseCode = "409", description = "지울 수 없는 상태다",
+            @ApiResponse(responseCode = "409", description = "실행이 진행 중이다 (`WORKFLOW_010`)",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
-                            examples = {
-                                    @ExampleObject(name = "WORKFLOW_009 · 에이전트 버전의 출처",
-                                            value = SOURCE_OF_VERSION_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_010 · 실행 중", value = EXECUTING_EXAMPLE)}))})
+                            examples = @ExampleObject(value = EXECUTING_EXAMPLE)))})
     ApiResult<WorkflowDeleteResponse> delete(
             UserId owner,
             @Parameter(description = "삭제할 워크플로우 ID", required = true,

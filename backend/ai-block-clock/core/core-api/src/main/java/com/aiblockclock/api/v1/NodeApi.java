@@ -45,10 +45,10 @@ public interface NodeApi {
     ApiResult<NodeDetailResponse> update(UserId owner, UUID nodeId, @Valid NodeSaveRequest request);
 
     @Operation(summary = "노드 삭제",
-            description = "워크플로우에 놓여 있으면 삭제할 수 없다.")
+            description = "워크플로우나 에이전트 버전에 놓여 있으면 삭제할 수 없다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "삭제됨"),
-            @ApiResponse(responseCode = "409", description = "워크플로우에 배치되어 있다", content = @io.swagger.v3.oas.annotations.media.Content)
+            @ApiResponse(responseCode = "409", description = "워크플로우나 에이전트 버전에 배치되어 있다", content = @io.swagger.v3.oas.annotations.media.Content)
     })
     ApiResult<NodeDeleteResponse> delete(UserId owner, UUID nodeId);
 

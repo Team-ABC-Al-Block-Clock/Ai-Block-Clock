@@ -70,10 +70,12 @@ public final class AgentVersion {
         }
     }
 
-    public void ensureNotPublished() {
+    public AgentVersion publish() {
         if (isPublished()) {
             throw new CoreException(ErrorType.AGENT_VERSION_ALREADY_PUBLISHED);
         }
+
+        return new AgentVersion(id, agentId, number, source, snapshot, cost, tier, PublicationState.PUBLISHED);
     }
 
     public boolean isPublished() {

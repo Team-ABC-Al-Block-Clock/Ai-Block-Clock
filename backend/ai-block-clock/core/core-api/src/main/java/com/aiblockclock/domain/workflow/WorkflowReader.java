@@ -3,9 +3,9 @@ package com.aiblockclock.domain.workflow;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.WorkflowSort;
 import com.aiblockclock.storage.support.OffsetPageable;
-import com.aiblockclock.storage.workflow.WorkflowEdgeRepository;
+import com.aiblockclock.storage.graph.GraphEdgeRepository;
+import com.aiblockclock.storage.graph.GraphNodeRepository;
 import com.aiblockclock.storage.workflow.WorkflowEntity;
-import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -25,8 +25,8 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class WorkflowReader {
     private final WorkflowRepository workflowRepository;
-    private final WorkflowNodeRepository workflowNodeRepository;
-    private final WorkflowEdgeRepository workflowEdgeRepository;
+    private final GraphNodeRepository graphNodeRepository;
+    private final GraphEdgeRepository graphEdgeRepository;
 
     public Workflow read(WorkflowId id) {
         WorkflowEntity entity = workflowRepository.findById(id.value())
@@ -55,9 +55,8 @@ public class WorkflowReader {
     }
 
     private Workflow withGraph(WorkflowEntity entity) {
-        return WorkflowEntityConverter.toDomain(
-                entity,
-                workflowNodeRepository.findByWorkflowIdOrderByIdAsc(entity.getId()),
-                workflowEdgeRepository.findByWorkflowIdOrderByIdAsc(entity.getId()));
+        return WorkflowEntityConverter.toDomain(entity, GraphConverter.toGraph(
+                graphNodeRepository.findByGraphIdOrderByIdAsc(entity.getGraphId()),
+                graphEdgeRepository.findByGraphIdOrderByIdAsc(entity.getGraphId())));
     }
 }

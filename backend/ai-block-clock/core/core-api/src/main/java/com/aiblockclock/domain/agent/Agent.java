@@ -24,14 +24,14 @@ public final class Agent {
         return new Agent(id, owner, profile, publicVersion);
     }
 
-    public PublicVersion nextPublicVersion(UserId requester, AgentVersionId versionId, VersionNumber number) {
+    public Agent publish(UserId requester, AgentVersionId versionId, VersionNumber number) {
         ensureOwner(requester);
 
         if (publicVersion != null && !publicVersion.isOlderThan(number)) {
             throw new CoreException(ErrorType.AGENT_VERSION_NOT_NEWER);
         }
 
-        return new PublicVersion(versionId, number);
+        return new Agent(id, owner, profile, new PublicVersion(versionId, number));
     }
 
     public boolean isOwnedBy(UserId candidate) {

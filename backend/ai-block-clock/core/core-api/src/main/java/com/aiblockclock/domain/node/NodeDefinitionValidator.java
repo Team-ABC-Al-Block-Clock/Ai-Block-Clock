@@ -33,8 +33,8 @@ public class NodeDefinitionValidator {
         NodeDefinitionEntity entity = lock(id);
         ensureOwner(ownerOf(entity), requester);
 
-        if (usageReader.isPlacedInAnyWorkflow(id)) {
-            throw new CoreException(ErrorType.NODE_PLACED_IN_WORKFLOW);
+        if (usageReader.isPlacedInAnyGraph(id)) {
+            throw new CoreException(ErrorType.NODE_PLACED_IN_GRAPH);
         }
     }
 

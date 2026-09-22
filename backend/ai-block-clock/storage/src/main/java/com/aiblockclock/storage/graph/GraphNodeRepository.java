@@ -1,4 +1,4 @@
-package com.aiblockclock.storage.workflow;
+package com.aiblockclock.storage.graph;
 
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -12,22 +12,22 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-public interface WorkflowNodeRepository extends JpaRepository<WorkflowNodeEntity, Long> {
-    List<WorkflowNodeEntity> findByWorkflowIdOrderByIdAsc(UUID workflowId);
+public interface GraphNodeRepository extends JpaRepository<GraphNodeEntity, Long> {
+    List<GraphNodeEntity> findByGraphIdOrderByIdAsc(UUID graphId);
 
     boolean existsByReferenceId(UUID referenceId);
 
     @Modifying(flushAutomatically = true)
     @Query("""
-            update WorkflowNodeEntity n
+            update GraphNodeEntity n
                set n.sourceType = :sourceType,
                    n.referenceId = :referenceId,
                    n.versionId = :versionId,
                    n.inputSource = :inputSource
-             where n.workflowId = :workflowId
+             where n.graphId = :graphId
                and n.nodeKey = :nodeKey
             """)
-    int updatePlacement(@Param("workflowId") UUID workflowId,
+    int updatePlacement(@Param("graphId") UUID graphId,
                         @Param("nodeKey") String nodeKey,
                         @Param("sourceType") SourceType sourceType,
                         @Param("referenceId") UUID referenceId,
@@ -36,14 +36,14 @@ public interface WorkflowNodeRepository extends JpaRepository<WorkflowNodeEntity
 
     @Modifying(flushAutomatically = true)
     @Query("""
-            delete from WorkflowNodeEntity n
-             where n.workflowId = :workflowId
+            delete from GraphNodeEntity n
+             where n.graphId = :graphId
                and n.nodeKey not in :keptKeys
             """)
-    int deleteMissing(@Param("workflowId") UUID workflowId, @Param("keptKeys") Collection<String> keptKeys);
+    int deleteMissing(@Param("graphId") UUID graphId, @Param("keptKeys") Collection<String> keptKeys);
 
     // 자식 행은 같은 트랜잭션에서 다시 읽지 않는다. 그래서 셋 다 flushAutomatically 만 둔다.
     @Modifying(flushAutomatically = true)
-    @Query("delete from WorkflowNodeEntity n where n.workflowId = :workflowId")
-    int deleteAllByWorkflowId(@Param("workflowId") UUID workflowId);
+    @Query("delete from GraphNodeEntity n where n.graphId = :graphId")
+    int deleteAllByGraphId(@Param("graphId") UUID graphId);
 }

@@ -18,7 +18,6 @@ public enum ErrorCode {
     WORKFLOW_005,
     WORKFLOW_006,
     WORKFLOW_007,
-    WORKFLOW_009,
     WORKFLOW_010,
     WORKFLOW_013,
     WORKFLOW_014,

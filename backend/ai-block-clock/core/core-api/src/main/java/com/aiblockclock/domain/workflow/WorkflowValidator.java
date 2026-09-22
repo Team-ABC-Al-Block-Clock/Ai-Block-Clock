@@ -26,32 +26,35 @@ public class WorkflowValidator {
         }
     }
 
-    @Transactional
-    public GraphRevision ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
-        WorkflowEntity entity = lock(id);
-        ensureOwner(UserId.of(entity.getOwnerId()), requester);
-
-        Revision current = Revision.of(entity.getRevision());
+    public static void ensureRevision(Revision current, Revision expected) {
         if (!current.equals(expected)) {
             throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
                     Map.of("expectedRevision", expected.value(), "currentRevision", current.value()));
         }
-
-        return new GraphRevision(current.next(), ValidationStatus.NOT_VALIDATED);
     }
 
     @Transactional
-    public void ensureDeletable(WorkflowId id, UserId requester) {
+    public ReplaceTarget ensureReplaceable(WorkflowId id, UserId requester, Revision expected) {
         WorkflowEntity entity = lock(id);
         ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
-        if (usageView.isSourceOfAnyVersion(id)) {
-            throw new CoreException(ErrorType.WORKFLOW_SOURCE_OF_AGENT_VERSION);
-        }
+        Revision current = Revision.of(entity.getRevision());
+        ensureRevision(current, expected);
+
+        return new ReplaceTarget(GraphId.of(entity.getGraphId()),
+                new GraphRevision(current.next(), ValidationStatus.NOT_VALIDATED));
+    }
+
+    @Transactional
+    public GraphId ensureDeletable(WorkflowId id, UserId requester) {
+        WorkflowEntity entity = lock(id);
+        ensureOwner(UserId.of(entity.getOwnerId()), requester);
 
         if (usageView.isExecuting(id)) {
             throw new CoreException(ErrorType.WORKFLOW_EXECUTION_IN_PROGRESS);
         }
+
+        return GraphId.of(entity.getGraphId());
     }
 
     private WorkflowEntity lock(WorkflowId id) {

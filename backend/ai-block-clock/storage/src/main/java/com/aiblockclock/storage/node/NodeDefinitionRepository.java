@@ -21,6 +21,10 @@ public interface NodeDefinitionRepository extends JpaRepository<NodeDefinitionEn
     @Query("select n from NodeDefinitionEntity n where n.id = :id")
     Optional<NodeDefinitionEntity> findByIdForShare(@Param("id") UUID id);
 
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("select n from NodeDefinitionEntity n where n.id in :ids")
+    List<NodeDefinitionEntity> findAllByIdForShare(@Param("ids") List<UUID> ids);
+
     @Query("""
             select n from NodeDefinitionEntity n
             where n.ownerId = :ownerId

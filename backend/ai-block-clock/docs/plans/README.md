@@ -6,6 +6,7 @@
 | --- | --- |
 | [`agent-pipeline.md`](agent-pipeline.md) | 작업 노드 · 그래프 확장 · 에이전트 가격 · AI Runtime 실행 |
 | [`ai-runtime-questions.md`](ai-runtime-questions.md) | **AI 파트에 보내는 확인 요청.** 답이 오면 `agent-pipeline.md` 에 반영하고 걷어낸다 |
+| [`completed/`](completed/) | **구현이 끝나 걷어낸 장.** 왜 그 모양인지 되짚을 때만 본다. 현재 규칙의 원본이 아니다 |
 
 ## 다른 문서와의 경계
 

@@ -3,11 +3,12 @@ package com.aiblockclock.domain.workflow;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
-import com.aiblockclock.storage.workflow.WorkflowEdgeEntity;
-import com.aiblockclock.storage.workflow.WorkflowNodeEntity;
-import com.aiblockclock.storage.workflow.WorkflowEdgeRepository;
+import com.aiblockclock.storage.workflow.WorkflowRepository;
+import com.aiblockclock.storage.graph.GraphEdgeEntity;
+import com.aiblockclock.storage.graph.GraphNodeEntity;
+import com.aiblockclock.storage.graph.GraphEdgeRepository;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
-import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
+import com.aiblockclock.storage.graph.GraphNodeRepository;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
 import org.junit.jupiter.api.AfterEach;
@@ -36,10 +37,10 @@ class WorkflowGraphMergeIntegrationTest {
     private WorkflowService workflowService;
 
     @Autowired
-    private WorkflowNodeRepository workflowNodeRepository;
+    private GraphNodeRepository graphNodeRepository;
 
     @Autowired
-    private WorkflowEdgeRepository workflowEdgeRepository;
+    private GraphEdgeRepository graphEdgeRepository;
 
     @Autowired
     private NodeDefinitionRepository nodeRepository;
@@ -48,10 +49,10 @@ class WorkflowGraphMergeIntegrationTest {
     private WorkflowWriter workflowWriter;
 
     @Autowired
-    private WorkflowNodeWriter workflowNodeWriter;
+    private GraphWriter graphWriter;
 
     @Autowired
-    private WorkflowEdgeWriter workflowEdgeWriter;
+    private WorkflowRepository workflowRepository;
 
     private WorkflowId workflowId;
 
@@ -74,8 +75,7 @@ class WorkflowGraphMergeIntegrationTest {
     // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
-        workflowEdgeWriter.removeAll(workflowId);
-        workflowNodeWriter.removeAll(workflowId);
+        graphWriter.removeAll(graphIdOf(workflowId));
         workflowWriter.remove(workflowId);
     }
 
@@ -93,9 +93,9 @@ class WorkflowGraphMergeIntegrationTest {
                 List.of(placement("n1", replacedSource), placement("n3", addedSource)),
                 List.of(GraphFixtures.edge("e2", "n1", "n3")));
 
-        List<WorkflowNodeEntity> after = nodeRows();
+        List<GraphNodeEntity> after = nodeRows();
 
-        assertThat(after).extracting(WorkflowNodeEntity::getNodeKey)
+        assertThat(after).extracting(GraphNodeEntity::getNodeKey)
                 .containsExactlyInAnyOrder("n1", "n3");
         assertThat(rowIdOf(after, "n1"))
                 .as("n1 은 지웠다 다시 넣은 것이 아니라 같은 행이어야 한다")
@@ -118,7 +118,7 @@ class WorkflowGraphMergeIntegrationTest {
                 List.of(placement("n2", secondSource), placement("n1", firstSource)),
                 List.of(GraphFixtures.edge("e1", "n2", "n1")));
 
-        List<WorkflowEdgeEntity> after = edgeRows();
+        List<GraphEdgeEntity> after = edgeRows();
 
         assertThat(after).hasSize(1);
         assertThat(after.getFirst().getId()).isEqualTo(keptRowId);
@@ -126,23 +126,23 @@ class WorkflowGraphMergeIntegrationTest {
         assertThat(after.getFirst().getTargetNodeKey()).isEqualTo("n1");
     }
 
-    private List<WorkflowNodeEntity> nodeRows() {
-        return workflowNodeRepository.findByWorkflowIdOrderByIdAsc(workflowId.value());
+    private List<GraphNodeEntity> nodeRows() {
+        return graphNodeRepository.findByGraphIdOrderByIdAsc(graphIdOf(workflowId).value());
     }
 
-    private List<WorkflowEdgeEntity> edgeRows() {
-        return workflowEdgeRepository.findByWorkflowIdOrderByIdAsc(workflowId.value());
+    private List<GraphEdgeEntity> edgeRows() {
+        return graphEdgeRepository.findByGraphIdOrderByIdAsc(graphIdOf(workflowId).value());
     }
 
-    private static Long rowIdOf(List<WorkflowNodeEntity> nodes, String nodeKey) {
+    private static Long rowIdOf(List<GraphNodeEntity> nodes, String nodeKey) {
         return find(nodes, nodeKey).getId();
     }
 
-    private static UUID referenceOf(List<WorkflowNodeEntity> nodes, String nodeKey) {
+    private static UUID referenceOf(List<GraphNodeEntity> nodes, String nodeKey) {
         return find(nodes, nodeKey).getReferenceId();
     }
 
-    private static WorkflowNodeEntity find(List<WorkflowNodeEntity> nodes, String nodeKey) {
+    private static GraphNodeEntity find(List<GraphNodeEntity> nodes, String nodeKey) {
         return nodes.stream()
                 .filter(node -> node.getNodeKey().equals(nodeKey))
                 .findFirst()
@@ -151,5 +151,9 @@ class WorkflowGraphMergeIntegrationTest {
 
     private static NodePlacement placement(String nodeKey, UUID sourceId) {
         return new NodePlacement(NodeKey.of(nodeKey), SourceType.NODE, sourceId, InputSource.defaultSource());
+    }
+
+    private GraphId graphIdOf(WorkflowId id) {
+        return GraphId.of(workflowRepository.findById(id.value()).orElseThrow().getGraphId());
     }
 }

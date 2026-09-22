@@ -13,7 +13,6 @@ import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
@@ -73,11 +72,11 @@ class AgentVersionTest {
     }
 
     @Test
-    @DisplayName("공개한 뒤에는 손댈 수 없다")
+    @DisplayName("공개한 뒤에는 다시 공개할 수 없다")
     void publishedVersionIsFrozen() {
-        assertThatCode(() -> firstVersion().ensureNotPublished()).doesNotThrowAnyException();
+        assertThat(firstVersion().publish().isPublished()).isTrue();
 
-        assertThatThrownBy(() -> versionAt(Tier.TIER_4, PublicationState.PUBLISHED).ensureNotPublished())
+        assertThatThrownBy(() -> versionAt(Tier.TIER_4, PublicationState.PUBLISHED).publish())
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.AGENT_VERSION_ALREADY_PUBLISHED);

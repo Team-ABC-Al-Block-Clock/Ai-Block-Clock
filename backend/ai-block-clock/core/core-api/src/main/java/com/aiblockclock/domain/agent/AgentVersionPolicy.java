@@ -1,7 +1,7 @@
 package com.aiblockclock.domain.agent;
 
+import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
-import com.aiblockclock.domain.node.NodeDefinitionReader;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeReference;
 import com.aiblockclock.domain.workflow.Workflow;
@@ -11,33 +11,47 @@ import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.stereotype.Component;
+
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+@Component
 @RequiredArgsConstructor
-public final class AgentVersionPolicy {
-    private final AgentOwnershipView agentOwnershipView;
-    private final NodeDefinitionReader nodeReader;
+public class AgentVersionPolicy {
+    private final AgentReader agentReader;
 
-    public void ensureVersionable(Workflow workflow, UserId requester) {
+    public Map<NodeDefinitionId, NodeDefinition> ensureVersionable(
+            Workflow workflow, UserId requester, List<NodeDefinition> placedNodes) {
         WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
 
-        if (!workflow.isValidated()) {
-            throw new CoreException(ErrorType.AGENT_WORKFLOW_NOT_VALIDATED);
-        }
+        Map<NodeDefinitionId, NodeDefinition> loaded = placedNodes.stream()
+                .collect(Collectors.toMap(NodeDefinition::getId, Function.identity()));
 
         for (NodeReference reference : workflow.getGraph().baseNodeReferences()) {
             NodeDefinitionId nodeId = NodeDefinitionId.of(reference.referenceId());
-            if (!nodeReader.isOwnedBy(nodeId, requester)) {
+            NodeDefinition node = loaded.get(nodeId);
+
+            if (node == null) {
+                throw new CoreException(ErrorType.WORKFLOW_NODE_SOURCE_NOT_FOUND,
+                        Map.of("nodeId", nodeId.value()));
+            }
+
+            if (!node.getOwner().equals(requester)) {
                 throw new CoreException(ErrorType.AGENT_FOREIGN_NODE_INCLUDED,
                         Map.of("nodeId", nodeId.value()));
             }
         }
 
         for (AgentPlacement placement : AgentPlacement.in(workflow.getGraph())) {
-            if (!agentOwnershipView.isOwnedBy(placement.agentId(), requester)) {
+            if (!agentReader.isOwnedBy(placement.agentId(), requester)) {
                 throw new CoreException(ErrorType.AGENT_FOREIGN_NODE_INCLUDED,
                         Map.of("agentId", placement.agentId().value()));
             }
         }
+
+        return loaded;
     }
 }

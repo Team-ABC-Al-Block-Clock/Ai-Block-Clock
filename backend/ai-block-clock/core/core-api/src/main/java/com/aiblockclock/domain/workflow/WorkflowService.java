@@ -16,8 +16,7 @@ import java.util.List;
 public class WorkflowService {
     private final WorkflowReader workflowReader;
     private final WorkflowWriter workflowWriter;
-    private final WorkflowNodeWriter workflowNodeWriter;
-    private final WorkflowEdgeWriter workflowEdgeWriter;
+    private final GraphWriter graphWriter;
     private final WorkflowGraphAssembler workflowGraphAssembler;
     private final WorkflowValidator validator;
 
@@ -30,12 +29,11 @@ public class WorkflowService {
             List<GraphEdge> edges
     ) {
         WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
-        Workflow saved = workflowWriter.append(
-                Workflow.create(WorkflowId.newId(), requester, name, description, graph));
-        workflowNodeWriter.append(saved.getId(), graph.getNodes());
-        workflowEdgeWriter.append(saved.getId(), graph.getEdges());
+        GraphId graphId = GraphId.newId();
+        graphWriter.append(graphId, graph);
 
-        return saved;
+        return workflowWriter.append(
+                Workflow.create(WorkflowId.newId(), requester, name, description, graph), graphId);
     }
 
     public Workflow get(WorkflowId id, UserId requester) {
@@ -54,21 +52,19 @@ public class WorkflowService {
             List<NodePlacement> nodes,
             List<GraphEdge> edges
     ) {
-        GraphRevision revised = validator.ensureReplaceable(id, requester, expectedRevision);
+        ReplaceTarget target = validator.ensureReplaceable(id, requester, expectedRevision);
         WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
-        workflowNodeWriter.replace(id, graph.getNodes());
-        workflowEdgeWriter.replace(id, graph.getEdges());
+        graphWriter.replace(target.graphId(), graph);
 
-        return workflowWriter.revise(id, name, revised, graph);
+        return workflowWriter.revise(id, name, target.revised(), graph);
     }
 
     @Transactional
     public void delete(WorkflowId id, UserId requester) {
-        validator.ensureDeletable(id, requester);
+        GraphId graphId = validator.ensureDeletable(id, requester);
 
-        workflowEdgeWriter.removeAll(id);
-        workflowNodeWriter.removeAll(id);
         workflowWriter.remove(id);
+        graphWriter.removeAll(graphId);
     }
 
     public CursorPage<WorkflowSummary> findMine(

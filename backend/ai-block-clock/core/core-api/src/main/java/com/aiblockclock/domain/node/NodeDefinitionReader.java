@@ -27,6 +27,17 @@ public class NodeDefinitionReader {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
     }
 
+    @Transactional
+    public List<NodeDefinition> readAllForShare(List<NodeDefinitionId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        return nodeRepository.findAllByIdForShare(ids.stream().map(NodeDefinitionId::value).toList()).stream()
+                .map(NodeDefinitionEntityConverter::toDomain)
+                .toList();
+    }
+
     public boolean isOwnedBy(NodeDefinitionId id, UserId owner) {
         return nodeRepository.existsByIdAndOwnerId(id.value(), owner.value());
     }

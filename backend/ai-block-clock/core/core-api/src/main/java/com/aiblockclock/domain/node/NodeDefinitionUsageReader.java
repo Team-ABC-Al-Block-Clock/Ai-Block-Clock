@@ -1,6 +1,6 @@
 package com.aiblockclock.domain.node;
 
-import com.aiblockclock.storage.workflow.WorkflowNodeRepository;
+import com.aiblockclock.storage.graph.GraphNodeRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -11,9 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NodeDefinitionUsageReader {
-    private final WorkflowNodeRepository workflowNodeRepository;
+    private final GraphNodeRepository graphNodeRepository;
 
-    public boolean isPlacedInAnyWorkflow(NodeDefinitionId nodeId) {
-        return workflowNodeRepository.existsByReferenceId(nodeId.value());
+    public boolean isPlacedInAnyGraph(NodeDefinitionId nodeId) {
+        return graphNodeRepository.existsByReferenceId(nodeId.value());
     }
 }

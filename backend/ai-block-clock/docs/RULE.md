@@ -274,7 +274,7 @@ ApiResult<T>           성공·실패 공통 응답 봉투
 
 ### 7.2 새 실패 상황이 생기면
 
-1. Notion API 명세서에서 **에러 코드를 먼저 정한다** (`WORKFLOW_009` 같은).
+1. Notion API 명세서에서 **에러 코드를 먼저 정한다** (`WORKFLOW_010` 같은).
 2. `ErrorCode` 에 그 코드를 추가한다.
 3. `ErrorType` 에 상수를 하나 추가한다 — HTTP 상태, 방금 만든 `ErrorCode`, 메시지, 로그 레벨.
 4. 던지는 쪽에서는 `new CoreException(ErrorType.X, data)` 만 쓴다.
@@ -583,10 +583,10 @@ agent      ->  workflow, domain
 그래서 그래프를 `workflow` 안에 둬도 순환이 생기지 않는다.
 
 **건너오는 타입을 세어서 본다.** `agent` 가 `workflow` 에서 아는 것은 `Workflow` · `WorkflowGraph` ·
-`NodeReference` · `WorkflowId` · `Revision` 다섯뿐이다. `AgentNode` 같은 구체 노드 타입도,
-`ValidationStatus` 같은 enum 도 건너오지 않는다 — 전자는 `agentReferences()` 가, 후자는
-`Workflow.isValidated()` 가 막는다. **`instanceof` 로 남의 패키지 타입을 갈라 보고 있으면
-그쪽이 물음에 답해 주지 않고 있다는 뜻이다.**
+`NodeReference` · `WorkflowId` · `Revision` · `GraphId` 여섯뿐이다. `AgentNode` 같은 구체 노드
+타입은 건너오지 않는다 — `agentReferences()` 가 막는다. 상태 enum 을 꺼내 갈라 볼 일이 생기면
+`Workflow` 가 그 물음에 답하는 메서드를 내놓는다. **`instanceof` 나 enum 비교로 남의 패키지 타입을
+갈라 보고 있으면 그쪽이 물음에 답해 주지 않고 있다는 뜻이다.**
 
 테스트 소스셋도 같다. `workflow` 의 픽스처가 `AgentId` 를 받으면 main 에서 막아 둔 방향이
 테스트에서 뚫린다. 에이전트가 필요한 픽스처는 `agent` 쪽에 둔다 (`AgentGraphFixtures`).
@@ -597,17 +597,17 @@ agent      ->  workflow, domain
 도메인이 필요로 하는 조회는 인터페이스로 선언하고 구현은 바깥에 맡긴다.
 
 ```java
-public final class AgentVersionPolicy {        // 판정은 도메인에 남는다
-    private final AgentOwnershipView agentOwnershipView;
-    private final NodeDefinitionReader nodeReader;
+public class AgentVersionPolicy {              // 판정은 도메인에 남는다
+    private final AgentReader agentReader;
 
-    public void ensureVersionable(Workflow workflow, UserId requester) { ... }
+    public Map<NodeDefinitionId, NodeDefinition> ensureVersionable(
+            Workflow workflow, UserId requester, List<NodeDefinition> placedNodes) { ... }
 }
 ```
 
 협력자가 다른 애그리거트의 Reader 여도 된다. `domain -> implementation` 은 허용된 방향이므로
-(ARCHITECTURE 1.1) 물음 하나를 위해 인터페이스를 새로 만들지 않는다 (6장). `AgentOwnershipView`
-가 인터페이스로 남은 것은 `AgentReader` 가 아직 없기 때문이고, 생기면 걷는다.
+(ARCHITECTURE 1.1) 물음 하나를 위해 인터페이스를 새로 만들지 않는다 (6장). 소유권을 묻던
+`AgentOwnershipView` 는 `AgentReader` 가 생기면서 걷었다.
 
 애그리거트에 넣을 수도, 서비스로 흘릴 수도 없는 규칙이 여기로 온다.
 
@@ -619,11 +619,11 @@ public final class AgentVersionPolicy {        // 판정은 도메인에 남는�
 
 ### 11.5 연관 매핑과 자식 컬렉션 쓰기
 
-**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `workflow_node.reference_id` 는
+**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `graph_node.reference_id` 는
 `node_definition` 이나 `agent` 를 가리키지만 `@ManyToOne` 이 아니라 생 `UUID` 다. 다형 참조라
 매핑할 수도 없고, 매핑하면 워크플로우 하나 읽는 데 노드 정의가 딸려 온다.
 
-**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `workflow_node` · `workflow_edge` 는
+**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `graph_node` · `graph_edge` 는
 생명주기가 부모에 종속되지만 `@OneToMany` 로 들지 않는다. 자식은 전용 리포지토리로 직접 쓴다.
 
 **`cascade` · `orphanRemoval` 을 쓰지 않는다.** 무엇이 언제 지워지는지 코드에서 보이지 않게 된다.
@@ -676,8 +676,8 @@ private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
 | 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `ApiResult` 와 명세서 | `{status: SUCCESS/FAIL, data, error{code,message,data}}` | 명세서는 `{status: success/error, code, message}` 평면형 |
 | `AGENT_006`, `AGENT_007`, `AGENT_009` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. `AgentOwnershipView` 구현과 조립 위치가 함께 정해져야 한다 |
-| 출처 워크플로우 삭제 금지 | `WorkflowDeletionPolicy` 가 막는다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 출처 추적이 이유라면 삭제가 아니라 보존 표시가 맞다 |
+| 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. 소유권은 이제 `AgentReader` 로 물을 수 있고 조립 위치만 남았다 |
+| 출처 워크플로우 삭제 금지 (`WORKFLOW_009`) | 걷어냈다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 막으면 에이전트를 한 번 만든 워크플로우를 영영 못 지운다 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |
 
 ### `domain` 이 Spring 을 참조하는 문제

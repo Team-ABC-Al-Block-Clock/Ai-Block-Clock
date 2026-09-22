@@ -51,9 +51,6 @@ public enum ErrorType {
     WORKFLOW_DEPTH_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_007,
             "연결 깊이가 허용 범위를 넘었습니다.", LogLevel.WARN),
 
-    WORKFLOW_SOURCE_OF_AGENT_VERSION(HttpStatus.CONFLICT, ErrorCode.WORKFLOW_009,
-            "에이전트 버전의 출처인 워크플로우는 삭제할 수 없습니다.", LogLevel.WARN),
-
     WORKFLOW_EXECUTION_IN_PROGRESS(HttpStatus.CONFLICT, ErrorCode.WORKFLOW_010,
             "실행이 진행 중인 워크플로우는 삭제할 수 없습니다.", LogLevel.WARN),
 
@@ -90,14 +87,11 @@ public enum ErrorType {
     NODE_PROMPT_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.NODE_003,
             "프롬프트를 입력해야 합니다.", LogLevel.WARN),
 
-    NODE_PLACED_IN_WORKFLOW(HttpStatus.CONFLICT, ErrorCode.NODE_004,
-            "워크플로우에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
+    NODE_PLACED_IN_GRAPH(HttpStatus.CONFLICT, ErrorCode.NODE_004,
+            "워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
 
     AGENT_WORKFLOW_EMPTY(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
             "노드가 없는 워크플로우로는 에이전트를 만들 수 없습니다.", LogLevel.WARN),
-
-    AGENT_WORKFLOW_NOT_VALIDATED(HttpStatus.CONFLICT, ErrorCode.AGENT_001,
-            "검증이 완료되지 않은 워크플로우입니다.", LogLevel.WARN),
 
     AGENT_FOREIGN_NODE_INCLUDED(HttpStatus.FORBIDDEN, ErrorCode.AGENT_002,
             "타인 소유의 노드 또는 에이전트가 포함되어 있습니다.", LogLevel.WARN),

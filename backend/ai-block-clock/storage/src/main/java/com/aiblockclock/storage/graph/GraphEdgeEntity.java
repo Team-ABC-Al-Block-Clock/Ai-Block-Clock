@@ -1,4 +1,4 @@
-package com.aiblockclock.storage.workflow;
+package com.aiblockclock.storage.graph;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,18 +17,18 @@ import org.hibernate.type.SqlTypes;
 import java.util.UUID;
 
 @Entity
-@Table(name = "workflow_edge")
+@Table(name = "graph_edge")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class WorkflowEdgeEntity {
+public class GraphEdgeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(name = "workflow_id", length = 36, nullable = false, updatable = false)
-    private UUID workflowId;
+    @Column(name = "graph_id", length = 36, nullable = false, updatable = false)
+    private UUID graphId;
 
     @Column(name = "edge_key", length = 64, nullable = false)
     private String edgeKey;
@@ -39,8 +39,8 @@ public class WorkflowEdgeEntity {
     @Column(name = "target_node_key", length = 64, nullable = false)
     private String targetNodeKey;
 
-    public WorkflowEdgeEntity(UUID workflowId, String edgeKey, String sourceNodeKey, String targetNodeKey) {
-        this.workflowId = workflowId;
+    public GraphEdgeEntity(UUID graphId, String edgeKey, String sourceNodeKey, String targetNodeKey) {
+        this.graphId = graphId;
         this.edgeKey = edgeKey;
         this.sourceNodeKey = sourceNodeKey;
         this.targetNodeKey = targetNodeKey;

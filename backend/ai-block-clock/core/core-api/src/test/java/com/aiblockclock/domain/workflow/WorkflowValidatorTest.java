@@ -29,8 +29,7 @@ class WorkflowValidatorTest {
 
     private void locked(long revision) {
         given(workflowRepository.findByIdForUpdate(WORKFLOW_ID.value()))
-                .willReturn(Optional.of(new WorkflowEntity(WORKFLOW_ID.value(), OWNER.value(),
-                        "성적 분석", null, ValidationStatus.VALID, revision)));
+                .willReturn(Optional.of(new WorkflowEntity(WORKFLOW_ID.value(), OWNER.value(), UUID.randomUUID(), "성적 분석", null, ValidationStatus.VALID, revision)));
     }
 
     @Test
@@ -48,7 +47,7 @@ class WorkflowValidatorTest {
     void bumpsRevisionAndResetsValidation() {
         locked(1L);
 
-        GraphRevision revised = validator.ensureReplaceable(WORKFLOW_ID, OWNER, Revision.initial());
+        GraphRevision revised = validator.ensureReplaceable(WORKFLOW_ID, OWNER, Revision.initial()).revised();
 
         assertThat(revised.revision()).isEqualTo(Revision.of(2));
         assertThat(revised.validationStatus()).isEqualTo(ValidationStatus.NOT_VALIDATED);

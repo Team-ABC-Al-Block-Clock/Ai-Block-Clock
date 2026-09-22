@@ -48,10 +48,7 @@ class WorkflowConcurrentReplaceIntegrationTest {
     private WorkflowWriter workflowWriter;
 
     @Autowired
-    private WorkflowNodeWriter workflowNodeWriter;
-
-    @Autowired
-    private WorkflowEdgeWriter workflowEdgeWriter;
+    private GraphWriter graphWriter;
 
     private WorkflowId workflowId;
     private UUID seededNode;
@@ -66,8 +63,7 @@ class WorkflowConcurrentReplaceIntegrationTest {
     // workflowService.delete 로 치우던 방식은 정리부터 막힌다.
     @AfterEach
     void tearDown() {
-        workflowEdgeWriter.removeAll(workflowId);
-        workflowNodeWriter.removeAll(workflowId);
+        graphWriter.removeAll(graphIdOf(workflowId));
         workflowWriter.remove(workflowId);
     }
 
@@ -126,5 +122,9 @@ class WorkflowConcurrentReplaceIntegrationTest {
 
     private static List<GraphEdge> edges() {
         return List.of(GraphFixtures.edge("e1", "n1", "n2"));
+    }
+
+    private GraphId graphIdOf(WorkflowId id) {
+        return GraphId.of(workflowRepository.findById(id.value()).orElseThrow().getGraphId());
     }
 }
