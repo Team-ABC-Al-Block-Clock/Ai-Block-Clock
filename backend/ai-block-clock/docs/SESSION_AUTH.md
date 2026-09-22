@@ -19,7 +19,7 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 2. FE가 토큰을 `X-CSRF-TOKEN` 헤더에 넣어 `POST /api/v1/auth/wallet/message`로 서명 메시지를 받는다.
 3. FE가 지갑에 메시지 서명을 요청한다.
 4. FE가 같은 CSRF 헤더와 함께 지갑 주소와 서명값을 `POST /api/v1/auth/wallet/login`으로 보낸다.
-5. `WalletAuthService`가 메시지 만료·재사용 여부와 지갑 서명을 확인한다.
+5. `WalletAuthenticator`가 메시지 만료·재사용 여부와 지갑 서명을 확인하고 메시지를 사용 처리한다.
 6. 신규 지갑이면 사용자와 ABC 잔액 계정을 만든다.
 7. 사용자의 `UserId`로 Spring Security `Authentication`을 만든다.
 8. `ChangeSessionIdAuthenticationStrategy`가 세션 ID를 교체하고 `SecurityContext`를 만든다.
