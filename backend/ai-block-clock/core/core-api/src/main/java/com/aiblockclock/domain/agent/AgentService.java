@@ -37,21 +37,34 @@ public class AgentService {
         List<NodeDefinition> placedNodes = nodeReader.readAll(placedNodeIds(snapshot));
         versionPolicy.ensureVersionable(source, requester, placedNodes);
 
+        GraphId graphId = copyGraph(snapshot);
+        AgentRegistration registered = publishFirstVersion(
+                requester, source, profile, VersionCostAssembler.assemble(snapshot, placedNodes));
+
+        agentWriter.append(registered.agent());
+        agentVersionWriter.append(registered.version(), graphId);
+
+        return registered;
+    }
+
+    private GraphId copyGraph(WorkflowGraph snapshot) {
         GraphId graphId = GraphId.newId();
         graphWriter.append(graphId, snapshot);
 
+        return graphId;
+    }
+
+    private static AgentRegistration publishFirstVersion(
+            UserId requester, Workflow source, AgentProfile profile, VersionCost cost) {
         AgentId agentId = AgentId.newId();
         AgentVersion version = AgentVersion.first(
                 AgentVersionId.newId(),
                 agentId,
                 new SourceWorkflow(source.getId(), source.getRevision()),
-                snapshot,
-                VersionCostAssembler.assemble(snapshot, placedNodes)).publish();
+                source.getGraph(),
+                cost).publish();
         Agent agent = Agent.draft(agentId, requester, profile)
                 .publish(requester, version.getId(), version.getNumber());
-
-        agentWriter.append(agent);
-        agentVersionWriter.append(version, graphId);
 
         return new AgentRegistration(agent, version);
     }
