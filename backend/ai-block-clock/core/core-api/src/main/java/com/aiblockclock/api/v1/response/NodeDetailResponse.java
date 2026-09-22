@@ -28,10 +28,10 @@ public record NodeDetailResponse(
     public static NodeDetailResponse from(NodeDefinition node) {
         return new NodeDetailResponse(
                 node.getId().value().toString(),
-                node.getName(),
+                node.getSpec().name(),
                 node.getPrompt().value(),
-                node.getModel(),
-                node.getBaseCost().value().toPlainString(),
+                node.getSpec().model(),
+                node.getSpec().baseCost().value().toPlainString(),
                 AbcPricing.CURRENCY);
     }
 }

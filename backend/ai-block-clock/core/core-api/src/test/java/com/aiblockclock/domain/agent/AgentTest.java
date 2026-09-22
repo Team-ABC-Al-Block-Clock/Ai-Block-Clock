@@ -12,63 +12,49 @@ class AgentTest {
     private static final OwnerId OWNER = OwnerId.of(1L);
     private static final OwnerId OTHER = OwnerId.of(2L);
 
-    private static Agent agent() {
-        AgentProfile profile = new AgentProfile("성적 분석 에이전트", "성적을 분석한다",
+    private static AgentProfile profile() {
+        return new AgentProfile("성적 분석 에이전트", "성적을 분석한다",
                 "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다",
                 "성적표 엑셀을 올리면 분석 리포트가 나옵니다", "무엇을 분석할까요?", null);
+    }
 
-        return Agent.draft(AgentId.newId(), OWNER, profile);
+    private static Agent draft() {
+        return Agent.draft(AgentId.newId(), OWNER, profile());
+    }
+
+    private static Agent publishedAt(VersionNumber number) {
+        return Agent.restore(AgentId.newId(), OWNER, profile(),
+                new PublicVersion(AgentVersionId.newId(), number));
     }
 
     @Test
     @DisplayName("공개 버전은 뒤에 공개한 버전으로 옮겨간다")
     void publicVersionMovesForward() {
-        Agent agent = agent();
-        AgentVersionId first = AgentVersionId.newId();
         AgentVersionId second = AgentVersionId.newId();
 
-        agent.markVersionPublished(OWNER, first, VersionNumber.of(1));
-        agent.markVersionPublished(OWNER, second, VersionNumber.of(2));
+        PublicVersion moved = publishedAt(VersionNumber.of(1))
+                .nextPublicVersion(OWNER, second, VersionNumber.of(2));
 
-        assertThat(agent.getPublicVersion()).isEqualTo(new PublicVersion(second, VersionNumber.of(2)));
+        assertThat(moved).isEqualTo(new PublicVersion(second, VersionNumber.of(2)));
     }
 
     @Test
     @DisplayName("이미 공개된 버전보다 이전 버전은 공개할 수 없다")
     void publicVersionNeverMovesBackward() {
-        Agent agent = agent();
-        agent.markVersionPublished(OWNER, AgentVersionId.newId(), VersionNumber.of(2));
+        Agent agent = publishedAt(VersionNumber.of(2));
 
-        assertThatThrownBy(() -> agent.markVersionPublished(OWNER, AgentVersionId.newId(), VersionNumber.of(1)))
+        assertThatThrownBy(() -> agent.nextPublicVersion(OWNER, AgentVersionId.newId(), VersionNumber.of(1)))
                 .isInstanceOf(CoreException.class);
     }
 
     @Test
-    @DisplayName("공개 버전이 아직 없으면 남은 배치할 수 없다")
-    void notPlaceableBeforeFirstPublish() {
-        Agent agent = agent();
-
-        assertThat(agent.isPlaceableBy(OTHER)).isFalse();
-        assertThat(agent.isPlaceableBy(OWNER)).isTrue();
-    }
-
-    @Test
-    @DisplayName("버전을 공개하면 남도 배치할 수 있다")
-    void placeableByAnyoneAfterPublish() {
-        Agent agent = agent();
-        agent.markVersionPublished(OWNER, AgentVersionId.newId(), VersionNumber.first());
-
-        assertThat(agent.isPlaceableBy(OTHER)).isTrue();
-    }
-
-    @Test
-    @DisplayName("소유자가 아니면 프로필도 공개 버전도 바꿀 수 없다")
+    @DisplayName("소유자가 아니면 공개 버전을 옮길 수 없다")
     void onlyOwnerCanModify() {
-        Agent agent = agent();
+        Agent agent = draft();
 
-        assertThatThrownBy(() -> agent.updateProfile(OTHER, agent.getProfile()))
+        assertThatThrownBy(() -> agent.ensureOwner(OTHER))
                 .isInstanceOf(CoreException.class);
-        assertThatThrownBy(() -> agent.markVersionPublished(OTHER, AgentVersionId.newId(), VersionNumber.first()))
+        assertThatThrownBy(() -> agent.nextPublicVersion(OTHER, AgentVersionId.newId(), VersionNumber.first()))
                 .isInstanceOf(CoreException.class);
     }
 }

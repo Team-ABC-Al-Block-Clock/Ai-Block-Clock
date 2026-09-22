@@ -184,22 +184,25 @@ docker compose up -d --build
 - 테스트에서 조립하려고 `@Setter` · `@Builder` · 기본 생성자를 연다
 - `public` 이어야 할 이유가 테스트뿐인데 `private` 을 푼다
 
-**한다 — 협력자는 PSA 로 가르고, 가짜는 테스트가 갖는다**
+**한다 — 협력자는 목으로 뜬다**
 
-운영 코드가 필요한 것은 **인터페이스**까지다. 그 구현을 테스트가 자기 소스셋에서 만든다.
-[`AgentOwnershipView`](../core/core-api/src/main/java/com/aiblockclock/domain/agent/AgentOwnershipView.java)
-가 그 예다 — 도메인은 "소유 여부를 답해 주는 것" 만 알고, 저장소를 모른다.
-`AgentVersionPolicyTest` 는 그 인터페이스의 가짜를 테스트 안에서 만들어 쓴다.
+테스트를 위해 운영 코드에 인터페이스를 만들지 않는다. 구현이 하나뿐인 인터페이스는 설계가
+요구한 것이 아니라 테스트가 요구한 것이고, 그것은 이 장이 금지하는 바로 그 일이다.
+협력자가 클래스면 Mockito 로 목을 뜬다.
 
 ```java
-// 테스트 소스셋. 운영 코드는 이것의 존재를 모른다
-private static AgentOwnershipView ownedBy(Set<AgentId> owned) {
-    return new AgentOwnershipView() { ... };
-}
+NodeDefinitionReader nodeReader = mock(NodeDefinitionReader.class);
+given(nodeReader.isOwnedBy(any(), any())).willReturn(false);
 ```
 
-가짜가 여러 테스트에서 쓰이면 익명 클래스 대신 `FakeAgentOwnershipView` 처럼 이름을 주고
-테스트 소스셋에 둔다. 픽스처도 같다 — `GraphFixtures` 는 테스트에만 있다.
+인터페이스가 정당한 경우는 **구현이 실제로 갈릴 때**다. `NodeSourceResolver` 는 `NODE` 와
+`AGENT` 두 구현이 있고, `BaseCostCalculator` 는 지금 고정값을 내지만 AI 서버 구현으로 바뀐다.
+그때는 인터페이스가 테스트 때문이 아니라 설계 때문에 있는 것이다.
+
+`domain -> implementation` 은 허용된 방향이다(ARCHITECTURE 1.1). 정책이 Reader 를 직접 물어도
+규칙을 깨지 않으므로, 물음 하나를 위해 인터페이스를 새로 만들지 않는다.
+
+픽스처는 테스트 소스셋에 둔다 — `GraphFixtures` · `WorkflowFixtures` 가 그 예다.
 
 **단정을 운영 코드에 맞추지 말고, 물음을 바꾼다**
 
@@ -233,7 +236,7 @@ assertThat(version.getSnapshot()).isSameAs(original);
 | 객체만 조립하는가 | 단위 → 태그 없음 |
 | `build` 에 통합을 묶어도 되는가 | 안 된다. MR 이 느려진다 |
 | 통합 테스트 게이트는 어디인가 | `master` 로 들어가는 MR |
-| 테스트가 필요해서 운영 코드를 열어도 되는가 | 안 된다. 인터페이스까지만 두고 가짜는 테스트가 갖는다 |
+| 테스트가 필요해서 운영 코드를 열어도 되는가 | 안 된다. 협력자는 목으로 뜬다 |
 | 호출자가 테스트뿐인 `public` 멤버 | 근거를 MR 에 적거나 지운다 |
 
 ---
@@ -326,7 +329,9 @@ new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
 
 ---
 
-## 8. 검증을 어디서 하는가
+## 8. 검증과 변경을 어디서 하는가
+
+### 8.1 검증
 
 > **도메인에 남기는 검증은 컨트롤러가 알 수 없는 것뿐이다.**
 
@@ -348,6 +353,56 @@ new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
 
 `Objects.requireNonNull` 은 쓰지 않는다. 널이면 어차피 그 자리에서 드러나고,
 줄마다 붙으면 정작 중요한 규칙이 묻힌다.
+
+---
+
+### 8.2 변경 — 판정은 도메인이나 Validator 가, 쓰기는 Writer 가 한다
+
+애그리거트는 자기 상태를 바꾸지 않는다. 규칙을 검사하고 다음 값을 돌려주면, 그 결과를 행에
+반영하는 것은 Writer 가 한다. 규칙을 도메인에 두는 이유는 저장이 안 중요해서가 아니라
+**규칙을 DB 없이 검증할 수 있어야 하기 때문**이다.
+
+판정이 어디에 사는지는 **무엇을 읽어야 하는가**로 가른다.
+
+| 판정이 보는 것 | 어디 | 예 |
+| --- | --- | --- |
+| 도메인 구조를 순회하거나 여러 객체를 엮는다 | **`*Policy`** — 애그리거트를 받는다 | `AgentVersionPolicy.ensureVersionable` |
+| 컬럼 값 비교로 끝난다 | **`*Validator`** — id 로 잠그고 엔티티를 본다 | `WorkflowValidator.ensureReplaceable` |
+
+**응답을 만들려고 도메인 객체가 필요한 것은 근거로 치지 않는다.** 그것은 계층 규칙이지 판정의
+요구가 아니다. 컬럼 두 칸을 보려고 애그리거트를 조립하면 자식 테이블까지 읽고 버리게 된다.
+
+```java
+// Service — 흐름만 남는다
+GraphRevision revised = validator.ensureReplaceable(id, requester, expectedRevision);
+WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
+workflowNodeWriter.replace(id, graph.getNodes());
+workflowEdgeWriter.replace(id, graph.getEdges());
+
+return workflowWriter.revise(id, name, revised, graph);
+```
+
+Writer 는 테이블 하나씩 맡고 `requester` 를 받지 않는다. 잠금과 판정은 Validator 가 하고, 무엇을
+어느 순서로 쓰는지는 Service 가 정한다. 삭제 순서(자식 → 부모)도 Service 에 드러나야 한다.
+
+**규칙과 그 규칙이 지키는 변경을 떼어놓지 않는다.** 전제조건을 Service 에 적고 대입만 다른 곳에
+두면, 두 번째 호출 경로가 생길 때 검사를 복붙하게 되고 한쪽만 고치는 사고가 난다.
+
+### 8.3 읽고 쓰는 흐름은 한 트랜잭션에 둔다
+
+Reader 와 Writer 를 이어 부르는 Service · Manager 에 `@Transactional` 이 없으면 영속성 컨텍스트가
+갈린다. Writer 의 `findById` 가 1차 캐시를 타지 못해 SELECT 가 두 번 나가고, 그 사이에 남이 끼어든다.
+
+같은 행을 고치는 경로끼리는 **같은 락**을 쓴다. 한쪽만 `readForUpdate` 를 잡으면 막히지 않는다 —
+노드 삭제와 배치가 그랬다.
+
+**락을 거는 메서드는 이름으로 말한다.** `assembleWithSourceLock` 은 배치되는 원본 행에
+`for share` 를 걸고 트랜잭션이 끝날 때까지 쥔다. 그런 메서드에는
+`@Transactional(propagation = MANDATORY)` 를 걸어, 트랜잭션 없이 불렸을 때 락이 조용히 풀리는
+대신 그 자리에서 터지게 한다.
+
+낙관적 락으로 가는 것도 방법이다. `payment` 는 `@Version` 과 유니크 제약으로 경합을 다루고
+동시성 테스트로 고정한다. 무엇을 쓰든 **두 경로가 같은 전략을 써야 한다.**
 
 ---
 
@@ -375,25 +430,45 @@ new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
 
 ---
 
+### 9.1 같은 필드를 두 타입이 따로 선언하지 않는다
+
+필드 하나를 바꾸는 데 두 곳 이상 고쳐야 하면 잘못 나눈 것이다. 공통을 값 객체로 빼서 양쪽이
+그것을 품는다.
+
+```java
+public record NodeSpec(String name, AiModel model, AbcAmount baseCost) { }
+
+NodeDefinition        — id · owner · timestamps · spec · prompt
+NodeDefinitionSummary — id · spec · timestamps
+```
+
+같은 모양의 레코드를 도메인마다 복제하지 않는다. 주인이 없으면 `domain` 바로 밑에 하나만
+둔다 (11.2). `Timestamps` 가 그 예다 — 워크플로우용과 노드용을 따로 만들지 않는다.
+
+감사 컬럼이 아닌 것을 감사 묶음에 넣지 않는다. `lastExecutedAt` 은 워크플로우의 도메인 사실이고
+정렬 키로도 쓰므로 `Timestamps` 밖에 둔다.
+
+---
+
 ## 10. Lombok
 
 | 쓴다 | 안 쓴다 |
 | --- | --- |
-| `@Getter` (클래스 단위) | `@Setter` — 변경은 의미가 드러나는 메서드로 |
-| `@RequiredArgsConstructor` (정책·서비스) | `@Data` — 무엇이 생기는지 읽는 사람이 모른다 |
-| `@AllArgsConstructor(access = PRIVATE)` (애그리거트) | `@Builder` — 필수 값이 빠져도 컴파일된다 |
-| `@EqualsAndHashCode` + `@EqualsAndHashCode.Exclude` | |
+| `@Getter` (클래스 단위) | `@Setter` — 변경은 8.2 대로 Writer 가 한다 |
+| `@RequiredArgsConstructor` | `@Data` — 무엇이 생기는지 읽는 사람이 모른다 |
+| `@EqualsAndHashCode` + `@EqualsAndHashCode.Exclude` | `@Builder` — 필수 값이 빠져도 컴파일된다 |
+| | `@AllArgsConstructor` — 쓸 일이 없다 (아래) |
 
 **애그리거트의 생성자를 손으로 쓰지 않는다.** 접근을 `PRIVATE` 로 닫고 `create` · `restore` 같은
-정적 팩터리만 밖에 낸다. 둘 중 무엇을 붙일지는 **밖에서 받아야 하는 필드가 무엇인가**로 가른다.
+정적 팩터리만 밖에 낸다.
 
-| | 언제 | 예 |
-| --- | --- | --- |
-| `@RequiredArgsConstructor` | 변경되는 필드가 **생성 시 항상 같은 값으로 시작**할 때 | [`AgentVersion`](../core/core-api/src/main/java/com/aiblockclock/domain/agent/AgentVersion.java) — 단가와 공개 상태가 기본값에서 출발한다 |
-| `@AllArgsConstructor` | 변경되는 필드도 **밖에서 받아야** 할 때 | [`Workflow`](../core/core-api/src/main/java/com/aiblockclock/domain/workflow/Workflow.java) · [`Agent`](../core/core-api/src/main/java/com/aiblockclock/domain/agent/Agent.java) |
+애그리거트는 전부 불변이므로(8.2) 모든 필드가 `final` 이고,
+`@RequiredArgsConstructor(access = AccessLevel.PRIVATE)` 하나면 된다. `@AllArgsConstructor` 는
+변경되는 필드를 밖에서 받아야 할 때 쓰던 것인데, 그런 필드가 없어서 쓸 일이 없다.
 
-`@RequiredArgsConstructor` 는 `final` 이 아닌 필드를 파라미터에서 뺀다. 그래서 기본값으로 시작하는
-필드는 초기화식에 맡길 수 있고, `restore` 처럼 저장된 값을 되돌려 받아야 하면 쓸 수 없다.
+`create` 는 새로 만들 때, `restore` 는 저장된 값을 되돌려 받을 때다. 감사 값처럼 저장 후에만
+존재하는 것이 있으므로 둘 다 필요하다 — `Workflow` · `NodeDefinition` · `Agent` · `AgentVersion`
+이 모두 그 모양이다.
 
 `record` 는 게터가 이미 있으니 Lombok 을 붙이지 않는다.
 그래서 접근자가 두 모양으로 나뉜다 — `record` 는 `value()`, 클래스는 `getValue()`.
@@ -515,20 +590,69 @@ agent      ->  workflow, domain
 도메인이 필요로 하는 조회는 인터페이스로 선언하고 구현은 바깥에 맡긴다.
 
 ```java
-public interface AgentOwnershipView {          // domain 이 선언한다
-    boolean isOwnedBy(AgentId agentId, OwnerId owner);
-}
-
 public final class AgentVersionPolicy {        // 판정은 도메인에 남는다
+    private final AgentOwnershipView agentOwnershipView;
+    private final NodeDefinitionReader nodeReader;
+
     public void ensureVersionable(Workflow workflow, OwnerId requester) { ... }
 }
 ```
+
+협력자가 다른 애그리거트의 Reader 여도 된다. `domain -> implementation` 은 허용된 방향이므로
+(ARCHITECTURE 1.1) 물음 하나를 위해 인터페이스를 새로 만들지 않는다 (6장). `AgentOwnershipView`
+가 인터페이스로 남은 것은 `AgentReader` 가 아직 없기 때문이고, 생기면 걷는다.
 
 애그리거트에 넣을 수도, 서비스로 흘릴 수도 없는 규칙이 여기로 온다.
 
 **정책은 "더 많이 알아야 하는 쪽" 에 둔다.** `AgentVersionPolicy` 는 워크플로우를 판정하지만
 판단에 에이전트 소유 관계가 필요하므로 `agent` 에 있다. 반대로 두면 `workflow` 가 `agent` 를
 참조하게 되어 순환이 생긴다.
+
+---
+
+### 11.5 연관 매핑과 자식 컬렉션 쓰기
+
+**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `workflow_node.reference_id` 는
+`node_definition` 이나 `agent` 를 가리키지만 `@ManyToOne` 이 아니라 생 `UUID` 다. 다형 참조라
+매핑할 수도 없고, 매핑하면 워크플로우 하나 읽는 데 노드 정의가 딸려 온다.
+
+**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `workflow_node` · `workflow_edge` 는
+생명주기가 부모에 종속되지만 `@OneToMany` 로 들지 않는다. 자식은 전용 리포지토리로 직접 쓴다.
+
+**`cascade` · `orphanRemoval` 을 쓰지 않는다.** 무엇이 언제 지워지는지 코드에서 보이지 않게 된다.
+`orphanRemoval` 로 자식을 갈아끼우면 Hibernate 가 DELETE 보다 INSERT 를 먼저 내보내 유니크 키가
+터져서, `clear()` → `flush()` → `addAll()` 순서를 손으로 챙겨야 하기도 한다.
+
+**갈아끼울 때 지우고 다시 넣지 않는다.** 살아남는 행까지 지웠다 넣으면 바뀌지도 않은 행에 DELETE 와
+INSERT 가 나간다. 벌크 UPDATE 로 제자리에서 고치고, 사라진 키만 지우고, 새 키만 넣는다.
+
+```java
+private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
+    workflowNodeRepository.deleteMissing(
+            workflowId, nodes.stream().map(WorkflowNodeEntity::getNodeKey).toList());
+
+    for (WorkflowNodeEntity node : nodes) {
+        int updated = workflowNodeRepository.updatePlacement(workflowId, node.getNodeKey(), ...);
+
+        if (updated == 0) {
+            workflowNodeRepository.save(node);
+        }
+    }
+}
+```
+
+**무엇이 남았는지 알려고 조회하지 않는다.** `UPDATE` 의 영향 행 수가 그것을 말해 준다 — 0 이면
+없던 키이니 넣는다. 기존 행을 `SELECT` 해서 키를 대조하는 코드는 그래서 필요 없다.
+
+이것은 커넥터 기본값에 기댄다. Connector/J 는 `useAffectedRows=false` 라 MySQL 이 matched rows 를
+돌려주고, 값이 그대로인 행도 1 을 받는다. `useAffectedRows=true` 를 켜면 안 바뀐 행이 0 을 돌려주고
+곧장 `save()` 로 가서 유니크 키가 터진다. 이 옵션을 건드리지 않는다.
+
+**자식 쓰기의 `@Modifying` 에는 `flushAutomatically` 만 둔다.** 자식은 같은 트랜잭션에서 다시 읽지
+않으므로 `clearAutomatically` 가 필요 없다. 그것은 영속성 컨텍스트를 통째로 비워 같은 트랜잭션이
+들고 있던 부모까지 다시 읽게 만든다.
+
+부모를 통째로 지울 때는 다르다. 남길 것이 없으므로 자식을 벌크로 지우고 부모를 지운다.
 
 ---
 

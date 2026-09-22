@@ -1,34 +1,31 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.OwnerId;
+import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.enums.workflow.ValidationStatus;
-import com.aiblockclock.support.error.CoreException;
-import com.aiblockclock.support.error.ErrorType;
-
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
+import java.time.Instant;
 
 @Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Workflow {
     private final WorkflowId id;
     private final OwnerId owner;
-
-    private String name;
-    private String description;
-    private WorkflowGraph graph;
-    private ValidationStatus validationStatus;
-    private Revision revision;
-
-    private final WorkflowTimestamps timestamps;
+    private final String name;
+    private final String description;
+    private final WorkflowGraph graph;
+    private final ValidationStatus validationStatus;
+    private final Revision revision;
+    private final Timestamps timestamps;
+    private final Instant lastExecutedAt;
 
     public static Workflow create(
             WorkflowId id, OwnerId owner, String name, String description, WorkflowGraph graph) {
         return new Workflow(id, owner, name, description, graph,
-                ValidationStatus.NOT_VALIDATED, Revision.initial(), WorkflowTimestamps.unsaved());
+                ValidationStatus.NOT_VALIDATED, Revision.initial(), Timestamps.unsaved(), null);
     }
 
     public static Workflow restore(
@@ -39,48 +36,14 @@ public final class Workflow {
             WorkflowGraph graph,
             ValidationStatus validationStatus,
             Revision revision,
-            WorkflowTimestamps timestamps
+            Timestamps timestamps,
+            Instant lastExecutedAt
     ) {
-        return new Workflow(id, owner, name, description, graph, validationStatus, revision, timestamps);
-    }
-
-    public void rename(OwnerId requester, String name) {
-        ensureOwner(requester);
-        this.name = name;
-    }
-
-    public void replaceGraph(OwnerId requester, WorkflowGraph graph, Revision expected) {
-        ensureOwner(requester);
-        if (!revision.equals(expected)) {
-            throw new CoreException(ErrorType.WORKFLOW_REVISION_CONFLICT,
-                    Map.of("expectedRevision", expected.value(), "currentRevision", revision.value()));
-        }
-
-        this.graph = graph;
-
-        this.validationStatus = ValidationStatus.NOT_VALIDATED;
-        this.revision = revision.next();
-    }
-
-    public void markValidated() {
-        this.validationStatus = ValidationStatus.VALID;
-    }
-
-    public void markInvalid() {
-        this.validationStatus = ValidationStatus.INVALID;
+        return new Workflow(id, owner, name, description, graph, validationStatus, revision,
+                timestamps, lastExecutedAt);
     }
 
     public boolean isValidated() {
         return validationStatus == ValidationStatus.VALID;
-    }
-
-    public boolean isOwnedBy(OwnerId candidate) {
-        return owner.equals(candidate);
-    }
-
-    public void ensureOwner(OwnerId requester) {
-        if (!isOwnedBy(requester)) {
-            throw new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
-        }
     }
 }

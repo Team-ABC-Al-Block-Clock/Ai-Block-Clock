@@ -18,6 +18,8 @@ import java.util.UUID;
 
 class WorkflowEntityConverterTest {
     private static final UUID WORKFLOW_ID = UUID.randomUUID();
+    private static final WorkflowEntity WORKFLOW = new WorkflowEntity(
+            WORKFLOW_ID, 1L, "워크플로우", null, ValidationStatus.NOT_VALIDATED, 1L);
 
     @Test
     @DisplayName("판별자가 NODE 인 행은 기본 노드로 복원된다")
@@ -66,8 +68,6 @@ class WorkflowEntityConverterTest {
     }
 
     private static WorkflowGraph toDomain(WorkflowNodeEntity node) {
-        WorkflowEntity entity = new WorkflowEntity(
-                WORKFLOW_ID, 1L, "워크플로우", null, ValidationStatus.NOT_VALIDATED, 1L);
-        return WorkflowEntityConverter.toDomain(entity, List.of(node), List.of()).getGraph();
+        return WorkflowEntityConverter.toDomain(WORKFLOW, List.of(node), List.of()).getGraph();
     }
 }

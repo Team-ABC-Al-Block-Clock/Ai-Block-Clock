@@ -123,7 +123,7 @@ AI 가 끼어드는 자리는 셋뿐이다. **지금 붙이는 것은 실행 하
 사용자는 저장한 뒤 **이것을 팔 수 있는지** 알아야 한다. 그 필드가 원래 응답에 있었는데
 **응답 매퍼가 소유권을 볼 수 없어서** 걷어냈다.
 
-노드 쪽은 `NodeOwnershipView` 구현이 생겨 이제 볼 수 있다. 에이전트 쪽 구현이 붙으면 완전해지므로
+노드 쪽은 `NodeDefinitionReader.isOwnedBy` 로 이제 볼 수 있다. 에이전트 쪽 구현이 붙으면 완전해지므로
 **그때 되살린다.** 값은 "에이전트로 만들 수 있는가" 를 그대로 말하는 이름으로 한다.
 
 ---
@@ -494,16 +494,16 @@ execution  ->  agent, workflow, node, domain
 
 ### 9.2 애그리거트를 가로지르는 조회
 
-RULE.md 11.4 대로 **도메인이 인터페이스를 선언하고 구현은 바깥에 맡긴다.**
+협력자는 Reader 를 직접 문다 (RULE 11.4). 인터페이스는 **구현이 실제로 갈릴 때만** 둔다 (RULE 6장).
 
 | 인터페이스 | 선언 | 구현 | 무엇을 묻나 |
 | --- | --- | --- | --- |
-| `AgentOwnershipView` | `agent` | 아직 없음 | 이 에이전트가 이 사람 것인가 |
-| `NodeOwnershipView` | `agent` | `node` | 이 노드가 이 사람 것인가 |
 | `NodeSourceResolver` | `workflow` | `node` · `agent` | 이 참조가 실재하는가 |
-| `NodeUsageView` | `node` | `node` | 이 노드가 어딘가에 놓여 있나 |
 | `BaseCostCalculator` | `node` | `node` (고정값) | 이 프롬프트의 원가는 얼마인가 |
 | `AiRuntimeClient` | `execution` | 아직 없음 | 실행을 맡기고 상태를 묻는다 |
+
+`AgentOwnershipView` 는 `AgentReader` 가 생기면 걷는다. 노드 소유권 · 사용 여부를 묻던 두
+인터페이스는 이미 걷었고 정책이 `NodeDefinitionReader` 를 직접 문다.
 
 `BaseCostCalculator` 가 **PSA 의 본보기다.** 지금 구현은 파라미터를 무시하고 고정값을 내지만,
 시그니처가 이미 프롬프트와 모델을 받으므로 AI 서버 구현으로 바꿀 때 계약을 다시 안 고쳐도 된다.

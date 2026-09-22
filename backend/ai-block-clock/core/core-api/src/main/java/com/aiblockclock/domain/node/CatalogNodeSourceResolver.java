@@ -25,7 +25,7 @@ public class CatalogNodeSourceResolver implements NodeSourceResolver {
 
     @Override
     public Optional<GraphNode> resolve(NodePlacement placement) {
-        if (!nodeRepository.existsById(placement.sourceId())) {
+        if (nodeRepository.findByIdForShare(placement.sourceId()).isEmpty()) {
             return Optional.empty();
         }
 

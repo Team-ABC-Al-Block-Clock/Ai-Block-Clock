@@ -1,4 +1,4 @@
-# 결제 실제 MySQL 테스트
+# 실제 MySQL 테스트
 
 ## 실행
 
@@ -17,7 +17,9 @@ MySQL 검증을 건너뛴 결과를 통과로 취급하지 않는다.
 - `test`: integration 및 container 태그 제외.
 - `integrationTest`: integration 태그 선택, container 태그 제외.
 - `containerTest`: container 태그만 선택. build에는 포함하지 않는다.
-- `PaymentMySqlTest`는 테스트 공통 애노테이션이며 container 태그와 Spring 설정을 제공한다.
+- `PaymentMySqlTest` · `NodeMySqlTest`는 테스트 공통 애노테이션이며 container 태그와 Spring 설정을 제공한다.
+- 컨테이너 설정은 `testsupport.MySqlTestConfiguration` 하나뿐이다. 도메인마다 두면 컨텍스트가 갈려
+  MySQL 이 그 수만큼 뜬다.
 - Testcontainers가 새 MySQL을 생성한다. 서비스 DB 주소나 기존 Compose 볼륨은 사용하지 않는다.
 - Spring 테스트는 ServiceConnection으로 H2 설정보다 테스트 MySQL 접속 정보를 우선 적용한다.
 - 컨테이너는 Spring 컨텍스트 종료 시 정리된다. 마이그레이션 전용 컨테이너는 테스트 종료 시 정리된다.
@@ -25,6 +27,8 @@ MySQL 검증을 건너뛴 결과를 통과로 취급하지 않는다.
 - 충전 수량 테스트는 외부 트랜잭션 없이 Service를 호출한다.
 
 ## 검증 범위
+
+### 결제
 
 - 실제 MySQL 8.4, REPEATABLE READ 및 InnoDB 환경 확인.
 - 같은 거래 동시 생성의 동일 ID·한 행 저장 및 다른 사용자 거래 재사용 거부.
@@ -35,6 +39,12 @@ MySQL 검증을 건너뛴 결과를 통과로 취급하지 않는다.
 - 변환 정책의 소수 7자리 거부와 DB에 직접 쓴 소수 7자리의 반올림 동작 구분.
 - V1·V2 적용 후 기존 금액을 넣고 V2_1로 확장, 정수부 용량·소수 자리·양수 CHECK 검증.
 - Flyway validate와 Spring 시작 시 JPA ddl-auto=validate.
+
+### 노드
+
+- 삭제와 배치가 동시에 들어와도 지워진 노드를 가리키는 배치가 남지 않는다.
+- 한 라운드만 돌리면 커넥션 풀 초기화 · JIT 때문에 두 스레드가 겹치지 않아 락을 지워도 통과한다.
+  그래서 30 라운드를 반복한다.
 
 ## GitLab
 
