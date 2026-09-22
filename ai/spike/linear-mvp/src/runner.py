@@ -20,6 +20,7 @@ from typing import Callable
 from dotenv import load_dotenv
 
 from . import catalog, errors, pricing
+from . import expand as expand_mod
 from . import graph as graph_mod
 from . import nodes as node_runner
 from .excel_to_text import excel_to_common_table, excel_to_markdown
@@ -171,6 +172,11 @@ def execute(
     실행 도중에도 노드별 진행 상황을 실시간으로 읽을 수 있다.
     """
     wf = resolve_prompts(wf)
+    wf_canvas = wf                                      # 검증 · 상한은 사용자가 놓은 캔버스 기준으로 본다
+    try:
+        wf, _expand_stats = expand_mod.expand(wf)       # 실행은 펼친 그래프로 한다(계약 §5.2)
+    except expand_mod.ExpandError:
+        pass                                            # 아래 정의 검증이 같은 오류를 잡아 보고한다
     run_id = run_id or new_run_id()
     out_dir = OUT_ROOT / run_id
     (out_dir / "nodes").mkdir(parents=True, exist_ok=True)
@@ -193,6 +199,7 @@ def execute(
             {"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
              "context": n.get("context", "prev"), "duration_ms": None,
              "schema_id": n.get("output_schema_id"), "repair_count": 0, "cost_abc": None,
+             "agent_id": n.get("agent_id"),
              "input_tokens": None, "output_tokens": None, "retries": 0, "output": None,
              # 정산 입력값. 백엔드가 요청에 실어 보내면 그대로 되돌려준다
              "owner_id": n.get("owner_id"), "unit_price": n.get("unit_price"),
@@ -235,7 +242,7 @@ def execute(
     emit("run.started", {"run_id": run_id, "total": len(nodes)})
 
     # 정의 자체가 틀렸으면 실행하지 않는다(계약 §5.7). 순환 · 상한 · 스키마 호환까지 여기서 걸린다
-    report = graph_mod.validate(wf)
+    report = graph_mod.validate(wf_canvas)
     if not report["valid"]:
         first = report["errors"][0]
         result.update(status="failed", finished_at=_now(), total_duration_ms=0,
@@ -385,6 +392,14 @@ def execute(
                 entry.update(status="failed", finished_at=_now())
                 return fail(node_id, err["code"], err["message"], fault=err["fault"], index=index)
 
+            boundary = expand_mod.boundary_of(node)
+            if boundary:
+                violation = node_runner.check_input(boundary["schema_id"], nr.payload)
+                if violation:
+                    entry.update(status="failed", finished_at=_now())
+                    return fail(node_id, "AGENT_BOUNDARY_VIOLATION", violation,
+                                fault="supplier", index=index)
+
             entry.update(status="succeeded", finished_at=_now(),
                          output=json.dumps(nr.payload, ensure_ascii=False))
             payloads[node_id] = nr.payload
@@ -478,7 +493,8 @@ def _settlement(result: dict, failed_index: int | None, code: str | None,
     """
     nodes = result["nodes"]
     result["contribution"] = [
-        {"node_id": n["id"], "owner_id": n.get("owner_id"), "charged_abc": n.get("unit_price")}
+        {"node_id": n["id"], "owner_id": n.get("owner_id"), "agent_id": n.get("agent_id"),
+         "charged_abc": n.get("unit_price")}
         for n in nodes if n["status"] == "succeeded" and n.get("branch_taken") is None
     ]
     result["not_executed"] = [

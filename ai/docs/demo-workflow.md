@@ -67,3 +67,45 @@ uv run python -c "import json;from src import graph,runner;print(graph.validate(
 
 `ai/spike/linear-mvp/prompts/brand/` 에 있다. **본문은 트랙 B(조유진) 담당**이고 현재는 형식
 관통 확인용 자리표시자다. 교체 시 출력 형식(카탈로그)은 바뀌지 않으므로 워크플로우 정의는 그대로 둔다.
+
+---
+
+# 2단계 — 판매자 3명의 에이전트 조합
+
+| 항목 | 내용 |
+| --- | --- |
+| 정의 파일 | `ai/spike/linear-mvp/workflows/brand_campaign.json` |
+| 캔버스 노드 4개 → **전개 후 9개** · 최장 경로 6 · 중첩 깊이 1 | 상한은 캔버스 8 · 전개 20 · 경로 8 (계약 §5.6) |
+
+```
+[브리프]
+ → a1 [브랜딩 전략 에이전트 · 판매자 A]      (안에서 5노드 + 분기가 전개된다) ──▶ biz.brand_strategy@1
+      ├──▶ a2 [SNS 캠페인 기획 · 판매자 B] ──▶ biz.campaign_plan@1 ┐ 분할
+      └──▶ a3 [광고 카피 · 판매자 C]      ──▶ biz.ad_copy@1       ┘
+                                                                  │ 병합 { campaign, copy }
+ → a4 [통합 실행안 · 판매자 B] ──▶ biz.execution_plan@1
+ → [출력]
+```
+
+**사용자에게는 블록 네 개로 보이지만 실제로는 아홉 개가 돈다.** 에이전트 정의는 백엔드가 그대로
+끼워 보내고, 펼치는 것도 경계를 검사하는 것도 정산을 귀속하는 것도 Runtime 이 한다(계약 §5.2).
+
+- 내부 노드 id 에 `a1.` 접두가 붙는다. 내부 분기 조건(`n1.competition_level`)도 함께 바뀐다
+- 에이전트의 종단 payload 가 공개된 `output_schema_id` 를 만족하지 않으면 `AGENT_BOUNDARY_VIOLATION` · 공급자 책임
+- 정산은 내부 노드의 `owner_id` 로 귀속된다 — 에이전트 소유자를 물려받는다
+
+## 확인 방법
+
+```bash
+uv run python -m src.runner --workflow brand_campaign --input data/brand_brief.json --mock
+```
+
+## 기대 결과 (mock)
+
+| | 값 |
+| --- | --- |
+| 실행 노드 | `a1.n1` · `a1.n2` · `a1.br1` · `a1.n3a` · `a1.n4` · `a2.c1` · `a3.k1` · `a4.e1` |
+| 미실행 | `a1.n3b` / `branch_not_taken` (환원 4.5) |
+| 정산 | **판매자 A 17.5 · B 10.0 · C 3.6 ABC — 계정 3개** |
+| 견적 | 31.1 ABC (실제 과금 합계와 일치) |
+| 종단 | `biz.execution_plan@1` 봉투 → `GET /v1/runs/{id}/artifact` |
