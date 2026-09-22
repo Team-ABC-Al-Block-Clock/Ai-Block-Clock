@@ -1,6 +1,6 @@
 rootProject.name = 'ai-block-clock'
 
-// core, support 는 실제 소스를 갖지 않고 하위 모듈만 묶는 wrapper 모듈이다.
+// core, support, client 는 실제 소스를 갖지 않고 하위 모듈만 묶는 wrapper 모듈이다.
 include 'core'
 include 'core:core-api'
 include 'core:core-enum'
@@ -10,3 +10,6 @@ include 'storage'
 include 'support'
 include 'support:logging'
 include 'support:monitoring'
+
+include 'client'
+include 'client:blockchain'
