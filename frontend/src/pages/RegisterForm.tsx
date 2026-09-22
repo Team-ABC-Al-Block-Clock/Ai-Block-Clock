@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 
 import { createAgent } from '@/api/agents'
 import { ApiError } from '@/api/errors'
+import { describeImageProblem } from '@/lib/imageFile'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
@@ -25,6 +26,35 @@ function read(id: string) {
     : ''
 }
 
+type Picked = { file: File; url: string }
+
+const SHOT_SLOTS = [0, 1, 2, 3, 4]
+
+/** 화면이 길어 문제를 고른 자리 옆에 띄운다. */
+type ImageProblem = { where: 'icon' | 'in' | 'out'; text: string }
+
+const FAILED = '등록에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
+function describeRegisterError(error: unknown): string | null {
+  if (!error) return null
+  if (!(error instanceof ApiError)) return FAILED
+  if (error.code === 'COMMON_001') return '에이전트 이름과 한 줄 설명을 입력해 주세요'
+  // 워크플로우 하나는 에이전트 하나로만 등록된다 — 다시 시도해도 통과하지 않는다.
+  if (error.code === 'AGENT_003') return '이미 에이전트로 등록한 워크플로우입니다'
+  return FAILED
+}
+
+function ImageProblemLine({ text, top }: { text: string; top: number }) {
+  return (
+    <div
+      className="absolute text-right text-[13px] tracking-[-.005em]"
+      style={{ left: '272px', top: `${top}px`, width: '896px', color: 'rgba(255,196,214,.9)' }}
+    >
+      {text}
+    </div>
+  )
+}
+
 export default function RegisterForm() {
   /** 등록된 에이전트 ID. 완료 화면의 「상세 페이지 보기」가 이걸로 주소를 만든다 —
    *  별도 done 플래그를 두면 ID 없이 완료 화면이 뜨는 상태가 생긴다. */
@@ -41,7 +71,16 @@ export default function RegisterForm() {
     },
   })
 
-  const handleSubmit = () => {
+  /** 등록은 수정도 삭제도 되지 않아 한 번 더 묻는다. */
+  const [asking, setAsking] = useState<{ name: string } | null>(null)
+
+  const askSubmit = () => {
+    if (register.isPending) return
+    setAsking({ name: read(FIELD.name) })
+  }
+
+  const submit = () => {
+    setAsking(null)
     if (register.isPending) return
     register.mutate({
       name: read(FIELD.name),
@@ -52,46 +91,72 @@ export default function RegisterForm() {
     })
   }
 
-  const error = register.error
-  const errorMessage = !error
-    ? null
-    : error instanceof ApiError && error.code === 'COMMON_001'
-      ? '에이전트 이름과 한 줄 설명을 입력해 주세요'
-      : '등록에 실패했습니다. 잠시 후 다시 시도해 주세요'
+  const errorMessage = describeRegisterError(register.error)
 
-  const shots = [0, 1, 2, 3, 4].map((i) => ({ i }))
-
-  // 고른 이미지는 미리보기 URL 로만 들고 있다.
-  const [inShots, setInShots] = useState<string[]>([])
-  const [outShots, setOutShots] = useState<string[]>([])
-  const [iconUrl, setIconUrl] = useState<string | null>(null)
+  const [inShots, setInShots] = useState<Picked[]>([])
+  const [outShots, setOutShots] = useState<Picked[]>([])
+  const [icon, setIcon] = useState<Picked | null>(null)
+  const [imageProblem, setImageProblem] = useState<ImageProblem | null>(null)
   const iconFileRef = useRef<HTMLInputElement>(null)
   const inFileRef = useRef<HTMLInputElement>(null)
   const outFileRef = useRef<HTMLInputElement>(null)
 
+  const previewsRef = useRef<string[]>([])
   useEffect(() => {
-    return () => {
-      ;[...inShots, ...outShots, iconUrl].forEach((url) => url && URL.revokeObjectURL(url))
-    }
-  }, [inShots, outShots, iconUrl])
+    previewsRef.current = [...inShots, ...outShots, ...(icon ? [icon] : [])].map((p) => p.url)
+  }, [inShots, outShots, icon])
+  // 언마운트에서만 해제한다 — 목록을 의존성에 넣으면 한 장 더할 때 앞 장들의 URL 이 함께 풀린다.
+  useEffect(() => () => previewsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
 
-  const addShots =
-    (setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+  const pickShots =
+    (where: 'in' | 'out', list: Picked[], setter: React.Dispatch<React.SetStateAction<Picked[]>>) =>
     (ev: React.ChangeEvent<HTMLInputElement>) => {
-      const picked = Array.from(ev.target.files ?? []).map((file) => URL.createObjectURL(file))
-      setter((prev) => [...prev, ...picked].slice(0, shots.length))
+      const files = Array.from(ev.target.files ?? [])
       ev.target.value = ''
+      const problem = files.map((file) => describeImageProblem(file)).find(Boolean)
+      if (problem) {
+        setImageProblem({ where, text: problem })
+        return
+      }
+      const room = SHOT_SLOTS.length - list.length
+      setImageProblem(
+        files.length > room
+          ? { where, text: `스크린샷은 ${SHOT_SLOTS.length}장까지 올릴 수 있습니다` }
+          : null,
+      )
+      // 칸이 남은 만큼만 만든다 — 잘라낸 것의 URL 은 해제할 곳이 없다.
+      const picked = files.slice(0, room).map((file) => ({ file, url: URL.createObjectURL(file) }))
+      setter((prev) => [...prev, ...picked])
     }
-  const handleAddInShots = addShots(setInShots)
-  const handleAddOutShots = addShots(setOutShots)
+  const handleAddInShots = pickShots('in', inShots, setInShots)
+  const handleAddOutShots = pickShots('out', outShots, setOutShots)
   const openIconFile = () => iconFileRef.current?.click()
   const handlePickIcon = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const file = ev.target.files?.[0]
-    if (file) setIconUrl((prev) => (prev && URL.revokeObjectURL(prev), URL.createObjectURL(file)))
     ev.target.value = ''
+    if (!file) return
+    const problem = describeImageProblem(file)
+    setImageProblem(problem ? { where: 'icon', text: problem } : null)
+    if (problem) return
+    if (icon) URL.revokeObjectURL(icon.url)
+    setIcon({ file, url: URL.createObjectURL(file) })
   }
   const openInFiles = () => inFileRef.current?.click()
   const openOutFiles = () => outFileRef.current?.click()
+
+  const confirmRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = confirmRef.current
+    if (!el) return
+    const onConfirm = () => submit()
+    const onCancel = () => setAsking(null)
+    el.addEventListener('confirm', onConfirm)
+    el.addEventListener('cancel', onCancel)
+    return () => {
+      el.removeEventListener('confirm', onConfirm)
+      el.removeEventListener('cancel', onCancel)
+    }
+  })
 
   return (
     <>
@@ -196,8 +261,8 @@ export default function RegisterForm() {
               hidden
               onChange={handlePickIcon}
             />
-            {iconUrl ? (
-              <img src={iconUrl} alt="" className="h-full w-full object-cover" />
+            {icon ? (
+              <img src={icon.url} alt="" className="h-full w-full object-cover" />
             ) : (
               <div
                 className="text-[26px]"
@@ -213,6 +278,9 @@ export default function RegisterForm() {
           >
             권장 크기: 256×256px
           </div>
+          {imageProblem?.where === 'icon' && (
+            <ImageProblemLine text={imageProblem.text} top={400} />
+          )}
 
           <div
             className="absolute text-[18px] font-semibold tracking-[-.01em]"
@@ -383,11 +451,12 @@ export default function RegisterForm() {
           >
             입력 · 에이전트 실행 전 화면
           </div>
+          {imageProblem?.where === 'in' && <ImageProblemLine text={imageProblem.text} top={1018} />}
           <div
             className="absolute flex items-start"
             style={{ left: '272px', top: '1050px', width: '896px', gap: '12px' }}
           >
-            {shots.map((_s, i) => (
+            {SHOT_SLOTS.map((i) => (
               <Fragment key={i}>
                 <div className="flex flex-none flex-col" style={{ width: '128px', gap: '7px' }}>
                   <div
@@ -396,7 +465,7 @@ export default function RegisterForm() {
                   >
                     {inShots[i] ? (
                       <img
-                        src={inShots[i]}
+                        src={inShots[i].url}
                         alt=""
                         className="absolute inset-0 h-full w-full object-cover"
                       />
@@ -479,11 +548,14 @@ export default function RegisterForm() {
           >
             출력 · 에이전트 실행 후 화면
           </div>
+          {imageProblem?.where === 'out' && (
+            <ImageProblemLine text={imageProblem.text} top={1199} />
+          )}
           <div
             className="absolute flex items-start"
             style={{ left: '272px', top: '1231px', width: '896px', gap: '12px' }}
           >
-            {shots.map((_s, i) => (
+            {SHOT_SLOTS.map((i) => (
               <Fragment key={i}>
                 <div className="flex flex-none flex-col" style={{ width: '128px', gap: '7px' }}>
                   <div
@@ -492,7 +564,7 @@ export default function RegisterForm() {
                   >
                     {outShots[i] ? (
                       <img
-                        src={outShots[i]}
+                        src={outShots[i].url}
                         alt=""
                         className="absolute inset-0 h-full w-full object-cover"
                       />
@@ -619,8 +691,9 @@ export default function RegisterForm() {
           >
             취소하기
           </a>
-          <div
-            onClick={handleSubmit}
+          <button
+            type="button"
+            onClick={askSubmit}
             style={{
               left: '1008px',
               top: '1628px',
@@ -635,7 +708,7 @@ export default function RegisterForm() {
             className="absolute flex cursor-pointer items-center justify-center text-[16.5px] font-bold tracking-[-.005em] hover:-translate-y-[2px]"
           >
             {register.isPending ? '등록 중…' : '등록 완료'}
-          </div>
+          </button>
 
           {/* 실패를 조용히 넘기지 않는다. 토스트가 없어 버튼 위에 한 줄로 둔다. */}
           {errorMessage && (
@@ -731,6 +804,16 @@ export default function RegisterForm() {
           </div>
         </>
       )}
+
+      <confirm-dialog
+        ref={confirmRef}
+        open={asking ? '' : undefined}
+        heading="마켓에 등록하시겠습니까?"
+        body-text={'등록하면 수정도 삭제도 할 수 없습니다.\n소유권이 블록체인에 기록됩니다.'}
+        note-text={asking?.name || undefined}
+        confirm-label="등록하기"
+        cancel-label="취소"
+      />
     </>
   )
 }
