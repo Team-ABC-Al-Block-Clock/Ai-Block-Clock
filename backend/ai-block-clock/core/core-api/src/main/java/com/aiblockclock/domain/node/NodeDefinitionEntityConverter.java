@@ -14,6 +14,7 @@ public final class NodeDefinitionEntityConverter {
                 node.getId().value(),
                 node.getOwner().value(),
                 node.getSpec().name(),
+                node.getSpec().nodeType(),
                 node.getPrompt().value(),
                 node.getSpec().model(),
                 node.getSpec().baseCost().value());
@@ -33,7 +34,8 @@ public final class NodeDefinitionEntityConverter {
     }
 
     private static NodeSpec toSpec(NodeDefinitionEntity entity) {
-        return new NodeSpec(entity.getName(), entity.getModel(), AbcAmount.of(entity.getBaseCost()));
+        return new NodeSpec(entity.getName(), entity.getNodeType(), entity.getModel(),
+                AbcAmount.of(entity.getBaseCost()));
     }
 
     private static Timestamps toTimestamps(NodeDefinitionEntity entity) {
