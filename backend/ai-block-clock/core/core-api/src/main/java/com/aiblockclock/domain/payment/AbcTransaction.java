@@ -5,20 +5,20 @@ import com.aiblockclock.enums.payment.LedgerEventType;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record CreditTransaction(
+public record AbcTransaction(
         Long transactionId,
         LedgerEventType eventType,
         BigDecimal amount,
         Instant occurredAt
 ) {
 
-    public static CreditTransaction of(
+    public static AbcTransaction of(
             Long transactionId,
             LedgerEventType eventType,
             BigDecimal amount,
             Instant occurredAt
     ) {
-        return new CreditTransaction(
+        return new AbcTransaction(
                 transactionId,
                 eventType,
                 amount,

@@ -24,10 +24,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 @Transactional
-class CreditTransactionFilterIntegrationTest {
+class AbcTransactionFilterIntegrationTest {
 
     @Autowired
-    private CreditService creditService;
+    private AbcLedgerQueryService abcLedgerQueryService;
 
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
@@ -82,22 +82,22 @@ class CreditTransactionFilterIntegrationTest {
         LocalDate createdDate =
                 reserveTransaction.getCreatedAt().atOffset(ZoneOffset.UTC).toLocalDate();
 
-        CreditTransactionSearchCondition condition =
-                CreditTransactionSearchCondition.betweenDates(
+        AbcTransactionSearchCondition condition =
+                AbcTransactionSearchCondition.betweenDates(
                         1,
                         createdDate,
                         createdDate,
                         LedgerEventType.RESERVE
                 );
 
-        CreditTransactionPage transactionPage =
-                creditService.readTransactions(
+        AbcTransactionPage transactionPage =
+                abcLedgerQueryService.readTransactions(
                         "user-a",
                         condition
                 );
 
         assertThat(transactionPage.items())
-                .extracting(CreditTransaction::transactionId)
+                .extracting(AbcTransaction::transactionId)
                 .containsExactly(reserveTransaction.getId());
 
         assertThat(transactionPage.items().get(0).eventType())
@@ -135,16 +135,16 @@ class CreditTransactionFilterIntegrationTest {
                         .toLocalDate()
                         .minusDays(1);
 
-        CreditTransactionSearchCondition condition =
-                CreditTransactionSearchCondition.betweenDates(
+        AbcTransactionSearchCondition condition =
+                AbcTransactionSearchCondition.betweenDates(
                         1,
                         previousDate,
                         previousDate,
                         null
                 );
 
-        CreditTransactionPage transactionPage =
-                creditService.readTransactions(
+        AbcTransactionPage transactionPage =
+                abcLedgerQueryService.readTransactions(
                         "user-a",
                         condition
                 );

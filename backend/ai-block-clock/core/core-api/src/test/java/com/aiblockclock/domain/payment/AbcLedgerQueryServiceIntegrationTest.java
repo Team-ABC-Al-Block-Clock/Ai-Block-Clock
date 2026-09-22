@@ -23,10 +23,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 @Transactional
-class CreditServiceIntegrationTest {
+class AbcLedgerQueryServiceIntegrationTest {
 
     @Autowired
-    private CreditService creditService;
+    private AbcLedgerQueryService abcLedgerQueryService;
 
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
@@ -39,8 +39,8 @@ class CreditServiceIntegrationTest {
 
     @Test
     void 장부_계좌가_없으면_ABC_잔액은_0이다() {
-        CreditBalance balance =
-                creditService.readBalance("user-without-account");
+        AbcBalance balance =
+                abcLedgerQueryService.readBalance("user-without-account");
 
         assertThat(balance.amount())
                 .isEqualByComparingTo("0.000");
@@ -51,11 +51,11 @@ class CreditServiceIntegrationTest {
         saveAccount("user-a", "12.000");
         saveAccount("user-b", "99.000");
 
-        CreditBalance userABalance =
-                creditService.readBalance("user-a");
+        AbcBalance userABalance =
+                abcLedgerQueryService.readBalance("user-a");
 
-        CreditBalance userBBalance =
-                creditService.readBalance("user-b");
+        AbcBalance userBBalance =
+                abcLedgerQueryService.readBalance("user-b");
 
         assertThat(userABalance.amount())
                 .isEqualByComparingTo("12.000");
@@ -66,10 +66,10 @@ class CreditServiceIntegrationTest {
 
     @Test
     void 장부_계좌가_없으면_ABC_사용_내역은_비어_있다() {
-        CreditTransactionPage transactionPage =
-                creditService.readTransactions(
+        AbcTransactionPage transactionPage =
+                abcLedgerQueryService.readTransactions(
                         "user-without-account",
-                        CreditTransactionSearchCondition
+                        AbcTransactionSearchCondition
                                 .allDates(1, null)
                 );
 
@@ -134,23 +134,23 @@ class CreditServiceIntegrationTest {
                         "3.000"
                 );
 
-        List<CreditTransaction> transactions =
-                creditService.readTransactions(
+        List<AbcTransaction> transactions =
+                abcLedgerQueryService.readTransactions(
                                 "user-a",
-                                CreditTransactionSearchCondition
+                                AbcTransactionSearchCondition
                                         .allDates(1, null)
                         )
                         .items();
 
         assertThat(transactions)
-                .extracting(CreditTransaction::transactionId)
+                .extracting(AbcTransaction::transactionId)
                 .containsExactly(
                         userAReserve.getId(),
                         userACharge.getId()
                 );
 
         assertThat(transactions)
-                .extracting(CreditTransaction::eventType)
+                .extracting(AbcTransaction::eventType)
                 .containsExactly(
                         LedgerEventType.RESERVE,
                         LedgerEventType.CHARGE

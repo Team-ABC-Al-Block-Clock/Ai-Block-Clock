@@ -11,12 +11,12 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class CreditTransactionSearchConditionTest {
+class AbcTransactionSearchConditionTest {
 
     @Test
     void 페이지는_1부터_시작한다() {
         assertThatThrownBy(
-                () -> CreditTransactionSearchCondition
+                () -> AbcTransactionSearchCondition
                         .allDates(0, null)
         ).isInstanceOfSatisfying(CoreException.class,
                 exception -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_REQUEST));
@@ -24,8 +24,8 @@ class CreditTransactionSearchConditionTest {
 
     @Test
     void 종료일은_다음_날_0시_미만으로_변환한다() {
-        CreditTransactionSearchCondition condition =
-                CreditTransactionSearchCondition.betweenDates(
+        AbcTransactionSearchCondition condition =
+                AbcTransactionSearchCondition.betweenDates(
                         1,
                         LocalDate.of(2026, 9, 1),
                         LocalDate.of(2026, 9, 12),
@@ -45,7 +45,7 @@ class CreditTransactionSearchConditionTest {
     @Test
     void 시작일이_종료일보다_늦으면_거절한다() {
         assertThatThrownBy(
-                () -> CreditTransactionSearchCondition
+                () -> AbcTransactionSearchCondition
                         .betweenDates(
                                 1,
                                 LocalDate.of(2026, 9, 12),
@@ -58,8 +58,8 @@ class CreditTransactionSearchConditionTest {
 
     @Test
     void 기간을_생략하면_시작과_종료_시각이_없다() {
-        CreditTransactionSearchCondition condition =
-                CreditTransactionSearchCondition
+        AbcTransactionSearchCondition condition =
+                AbcTransactionSearchCondition
                         .allDates(
                                 1,
                                 LedgerEventType.CHARGE

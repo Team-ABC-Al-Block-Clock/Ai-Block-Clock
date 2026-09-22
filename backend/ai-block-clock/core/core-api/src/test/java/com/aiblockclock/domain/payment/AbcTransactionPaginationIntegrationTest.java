@@ -23,10 +23,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @SpringBootTest
 @Transactional
-class CreditTransactionPaginationIntegrationTest {
+class AbcTransactionPaginationIntegrationTest {
 
     @Autowired
-    private CreditService creditService;
+    private AbcLedgerQueryService abcLedgerQueryService;
 
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
@@ -64,22 +64,22 @@ class CreditTransactionPaginationIntegrationTest {
             transactionIds.add(transaction.getId());
         }
 
-        CreditTransactionPage firstPage =
-                creditService.readTransactions(
+        AbcTransactionPage firstPage =
+                abcLedgerQueryService.readTransactions(
                         "user-a",
-                        CreditTransactionSearchCondition
+                        AbcTransactionSearchCondition
                                 .allDates(1, null)
                 );
 
-        CreditTransactionPage secondPage =
-                creditService.readTransactions(
+        AbcTransactionPage secondPage =
+                abcLedgerQueryService.readTransactions(
                         "user-a",
-                        CreditTransactionSearchCondition
+                        AbcTransactionSearchCondition
                                 .allDates(2, null)
                 );
 
         assertThat(firstPage.items())
-                .extracting(CreditTransaction::transactionId)
+                .extracting(AbcTransaction::transactionId)
                 .containsExactlyElementsOf(
                         reversedRange(transactionIds, 2, 12)
                 );
@@ -92,7 +92,7 @@ class CreditTransactionPaginationIntegrationTest {
         assertThat(firstPage.hasNext()).isTrue();
 
         assertThat(secondPage.items())
-                .extracting(CreditTransaction::transactionId)
+                .extracting(AbcTransaction::transactionId)
                 .containsExactlyElementsOf(
                         reversedRange(transactionIds, 0, 2)
                 );

@@ -2,8 +2,8 @@ package com.aiblockclock.domain.payment;
 
 import java.util.List;
 
-public record CreditTransactionPage(
-        List<CreditTransaction> items,
+public record AbcTransactionPage(
+        List<AbcTransaction> items,
         int page,
         int size,
         long totalElements,
@@ -12,12 +12,12 @@ public record CreditTransactionPage(
         boolean hasNext
 ) {
 
-    public CreditTransactionPage {
+    public AbcTransactionPage {
         items = List.copyOf(items);
     }
 
-    public static CreditTransactionPage of(
-            List<CreditTransaction> items,
+    public static AbcTransactionPage of(
+            List<AbcTransaction> items,
             int page,
             int size,
             long totalElements,
@@ -25,7 +25,7 @@ public record CreditTransactionPage(
             boolean hasPrevious,
             boolean hasNext
     ) {
-        return new CreditTransactionPage(
+        return new AbcTransactionPage(
                 items,
                 page,
                 size,

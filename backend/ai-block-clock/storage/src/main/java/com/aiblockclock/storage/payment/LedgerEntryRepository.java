@@ -46,7 +46,7 @@ public interface LedgerEntryRepository
                      ledgerTransaction.id DESC
             """)
     Page<LedgerEntryEntity>
-    searchCreditTransactions(
+    searchAbcTransactions(
             @Param("accountType")
             LedgerAccountType accountType,
             @Param("referenceId")

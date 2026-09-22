@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Map;
 
-public record CreditTransactionSearchCondition(
+public record AbcTransactionSearchCondition(
         int page,
         Instant startAtInclusive,
         Instant endAtExclusive,
@@ -18,7 +18,7 @@ public record CreditTransactionSearchCondition(
     // 장부 시각은 서버 시계(ClockConfig, UTC)로 기록되므로 날짜 경계도 같은 기준으로 잡는다.
     private static final ZoneOffset LEDGER_ZONE = ZoneOffset.UTC;
 
-    public CreditTransactionSearchCondition {
+    public AbcTransactionSearchCondition {
         if (page < 1) {
             throw new CoreException(ErrorType.INVALID_REQUEST, Map.of("page", page));
         }
@@ -37,11 +37,11 @@ public record CreditTransactionSearchCondition(
         }
     }
 
-    public static CreditTransactionSearchCondition allDates(
+    public static AbcTransactionSearchCondition allDates(
             int page,
             LedgerEventType eventType
     ) {
-        return new CreditTransactionSearchCondition(
+        return new AbcTransactionSearchCondition(
                 page,
                 null,
                 null,
@@ -49,13 +49,13 @@ public record CreditTransactionSearchCondition(
         );
     }
 
-    public static CreditTransactionSearchCondition betweenDates(
+    public static AbcTransactionSearchCondition betweenDates(
             int page,
             LocalDate startDate,
             LocalDate endDate,
             LedgerEventType eventType
     ) {
-        return new CreditTransactionSearchCondition(
+        return new AbcTransactionSearchCondition(
                 page,
                 startDate.atStartOfDay(LEDGER_ZONE).toInstant(),
                 endDate.plusDays(1).atStartOfDay(LEDGER_ZONE).toInstant(),

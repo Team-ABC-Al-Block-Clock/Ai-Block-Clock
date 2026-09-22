@@ -13,7 +13,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
-public class CreditTransactionReader {
+public class AbcTransactionReader {
 
     private static final int FIRST_PAGE = 1;
     private static final int PAGE_SIZE = 10;
@@ -21,13 +21,13 @@ public class CreditTransactionReader {
     private final LedgerEntryRepository ledgerEntryRepository;
 
     @Transactional(readOnly = true)
-    public CreditTransactionPage readPage(
+    public AbcTransactionPage readPage(
             String userReferenceId,
-            CreditTransactionSearchCondition condition
+            AbcTransactionSearchCondition condition
     ) {
         Page<LedgerEntryEntity> entries =
                 ledgerEntryRepository
-                        .searchCreditTransactions(
+                        .searchAbcTransactions(
                                 LedgerAccountType.ABC_BALANCE,
                                 userReferenceId,
                                 condition.eventType(),
@@ -40,12 +40,12 @@ public class CreditTransactionReader {
                                 )
                         );
 
-        List<CreditTransaction> items = entries
+        List<AbcTransaction> items = entries
                 .stream()
-                .map(this::toCreditTransaction)
+                .map(this::toAbcTransaction)
                 .toList();
 
-        return CreditTransactionPage.of(
+        return AbcTransactionPage.of(
                 items,
                 entries.getNumber() + FIRST_PAGE,
                 entries.getSize(),
@@ -56,10 +56,10 @@ public class CreditTransactionReader {
         );
     }
 
-    private CreditTransaction toCreditTransaction(
+    private AbcTransaction toAbcTransaction(
             LedgerEntryEntity entry
     ) {
-        return CreditTransaction.of(
+        return AbcTransaction.of(
                 entry.getTransaction().getId(),
                 entry.getTransaction().getEventType(),
                 entry.getAmountDelta(),

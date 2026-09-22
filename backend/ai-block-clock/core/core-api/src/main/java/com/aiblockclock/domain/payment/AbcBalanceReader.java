@@ -9,19 +9,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
-public class CreditBalanceReader {
+public class AbcBalanceReader {
 
     private final LedgerAccountRepository ledgerAccountRepository;
 
     @Transactional(readOnly = true)
-    public CreditBalance read(String userReferenceId) {
+    public AbcBalance read(String userReferenceId) {
         return ledgerAccountRepository
                 .findByAccountTypeAndReferenceId(
                         LedgerAccountType.ABC_BALANCE,
                         userReferenceId
                 )
                 .map(LedgerAccountEntity::getBalance)
-                .map(CreditBalance::from)
-                .orElseGet(CreditBalance::zero);
+                .map(AbcBalance::from)
+                .orElseGet(AbcBalance::zero);
     }
 }
