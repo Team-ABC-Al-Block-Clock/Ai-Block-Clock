@@ -13,3 +13,4 @@ include 'support:monitoring'
 
 include 'client'
 include 'client:blockchain'
+include 'client:ai'
