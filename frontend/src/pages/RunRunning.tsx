@@ -17,6 +17,13 @@ import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/comp
 import StatusDot from '@/components/StatusDot'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
+/** 이보다 짧으면 카메라를 움직이지 않는다 — 한 화면에 다 들어온다. */
+const CAMERA_MIN_NODES = 5
+/** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
+const CAMERA_LEAD = 2
+/** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
+const CAMERA_STEP = 197
+
 /** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
 const EMPTY_NODES: CanvasNodeData[] = []
 const EMPTY_EDGES: CanvasEdge[] = []
@@ -95,6 +102,13 @@ export default function RunRunning() {
     stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
   const liveEdges = geometry.slice(0, Math.max(0, active))
+  /**
+   * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
+   *
+   * 앞의 두 자리는 그대로 두고 세 번째부터 밀어, 지금 도는 카드가 늘 화면 가운데쯤에 온다.
+   */
+  const camera =
+    defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
   const shown = Math.min(
     logLines.length,
     Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
@@ -209,7 +223,7 @@ export default function RunRunning() {
       <CanvasPane>
         <div style={glowStyle}></div>
 
-        {/* 패널은 유리라 뒤가 비친다. 카드와 선을 같은 선에서 자른다. */}
+        {/* 패널은 유리라 뒤가 비친다. 카드와 선을 같은 선에서 자르고, 카메라도 같이 민다. */}
         <div
           className="absolute top-0 left-0"
           style={{
@@ -217,6 +231,8 @@ export default function RunRunning() {
             height: `${PANE_HEIGHT}px`,
             clipPath: PANEL_CLIP,
             pointerEvents: 'none',
+            transform: `translateX(${camera}px)`,
+            transition: 'transform .6s cubic-bezier(.2,.8,.25,1)',
           }}
         >
           <CanvasEdgeLayer clip={false}>
