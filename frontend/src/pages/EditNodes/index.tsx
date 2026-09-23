@@ -1,4 +1,5 @@
-import { Fragment, type CSSProperties } from 'react'
+import { Fragment, useState, type CSSProperties } from 'react'
+import { useLocation } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -9,6 +10,7 @@ import StatusDot from '@/components/StatusDot'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { nodeTypeLabel } from '@/lib/format'
+import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
@@ -21,7 +23,11 @@ import NodePalettePanel from './NodePalettePanel'
  * 캔버스로 건너오는 놓기만 잇는다.
  */
 export default function EditNodes() {
-  const canvas = useCanvasWorkflow()
+  const { state } = useLocation()
+  // 한 번만 읽는다. 렌더마다 다시 만들면 캔버스가 첫 상태를 계산할 때 쓰는 값이
+  // 매번 새 배열이 된다.
+  const [seeds] = useState(() => seedsFrom(state))
+  const canvas = useCanvasWorkflow(seeds)
   const palette = useNodePalette()
 
   const {
@@ -123,7 +129,9 @@ export default function EditNodes() {
             animation: 'uiIn .8s .5s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          드래그하여 노드를 배치하고, 선으로 연결합니다
+          {seeds.length > 0
+            ? '선택한 에이전트들을 연결하세요'
+            : '드래그하여 노드를 배치하고, 선으로 연결합니다'}
         </div>
 
         {(selEdge || n) && (
