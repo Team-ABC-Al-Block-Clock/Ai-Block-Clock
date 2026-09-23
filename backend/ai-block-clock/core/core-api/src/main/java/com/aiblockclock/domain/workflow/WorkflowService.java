@@ -28,7 +28,7 @@ public class WorkflowService {
             List<NodePlacement> nodes,
             List<GraphEdge> edges
     ) {
-        WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
+        WorkflowGraph graph = workflowGraphAssembler.lockOrCreateSourcesAndAssemble(requester, nodes, edges);
         GraphId graphId = GraphId.newId();
         graphWriter.append(graphId, graph);
 
@@ -53,7 +53,7 @@ public class WorkflowService {
             List<GraphEdge> edges
     ) {
         ReplaceTarget target = validator.ensureReplaceable(id, requester, expectedRevision);
-        WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
+        WorkflowGraph graph = workflowGraphAssembler.lockOrCreateSourcesAndAssemble(requester, nodes, edges);
         graphWriter.replace(target.graphId(), graph);
 
         return workflowWriter.revise(id, name, target.revised(), graph);

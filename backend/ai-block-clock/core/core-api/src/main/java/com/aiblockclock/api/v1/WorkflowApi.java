@@ -33,8 +33,10 @@ public interface WorkflowApi {
               "name": "성적 분석 리포트",
               "description": "학생별 성적을 모아 리포트로 만든다",
               "nodes": [
-                { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13" },
-                { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "c0a8012e-5d31-4f0a-8b6d-77a1e9f3b210" }
+                { "nodeKey": "n1", "sourceType": "NODE", "nodeType": "LLM",
+                  "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13" },
+                { "nodeKey": "n2", "sourceType": "NODE", "nodeType": "LLM",
+                  "name": "가정통신문 작성", "prompt": "분석 결과로 가정통신문을 쓴다" }
               ],
               "edges": [
                 { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
@@ -121,6 +123,12 @@ public interface WorkflowApi {
               "error": { "code": "WORKFLOW_015", "message": "배치할 노드나 공개된 에이전트를 찾을 수 없습니다.",
                          "data": { "nodeKey": "n2", "sourceId": "b7e2d4c8-1f65-4a09-93de-5c0a8b2f7e41" } } }""";
 
+    String NODE_TYPE_MISMATCH_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_017", "message": "배치한 노드가 요청한 종류가 아닙니다.",
+                         "data": { "nodeKey": "n1", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13",
+                                   "nodeType": "TOOL" } } }""";
+
     String REVISION_CONFLICT_EXAMPLE = """
             { "status": "FAIL", "data": null,
               "error": { "code": "WORKFLOW_016", "message": "워크플로우가 다른 요청에 의해 수정되었습니다.",
@@ -131,9 +139,24 @@ public interface WorkflowApi {
             description = """
                     캔버스 구성을 새 워크플로우로 저장한다. `revision` 은 1 로 시작한다.
 
-                    노드는 실체가 아니라 배치 정보(`nodeKey` · `sourceType` · `sourceId`)만 보낸다.
-                    `AGENT` 는 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
-                    `NODE` 는 노드 카탈로그가 붙기 전까지 `sourceId` 를 검증하지 않고 그대로 저장한다.
+                    배치는 종류(`nodeType`)에 따라 보내는 것이 다르다.
+
+                    | `nodeType` | 보내는 것 | 서버가 하는 일 |
+                    | --- | --- | --- |
+                    | `LLM` | `sourceId` 또는 `name` · `prompt` (· `model`) | 가리키면 놓고, 실어 보내면 만들어 놓는다 |
+                    | `TRIGGER` · `TOOL` | `sourceId` | 미리 정의된 그 종류의 노드인지 보고 놓는다 |
+                    | 없음 (`sourceType: AGENT`) | `sourceId` | 공개된 에이전트를 참조한다 |
+
+                    `sourceId` 로 가리킨 노드가 밝힌 종류와 다르면 `WORKFLOW_017` 이다.
+                    `nodeType` 을 생략하고 `sourceId` 만 보내면 종류를 대조하지 않고 그 행을 그대로 놓는다.
+
+                    프롬프트를 그 자리에서 쓴 단계는 저장 시점에 아직 행이 아니라 본문을 실어 보낸다.
+                    같은 트랜잭션에서 만들므로 저장이 실패하면 노드도 남지 않는다.
+                    만들어진 `sourceId` 는 응답의 `nodes` 로 돌려준다. **다음 수정 요청에는 그 ID 를 보낸다.**
+
+                    `TRIGGER` · `TOOL` 은 아직 미리 정의된 것이 하나도 없어 `WORKFLOW_015` · `WORKFLOW_017` 로 거부된다 —
+                    AI 런타임 주문서에 노드 종류 칸이 없어 실행 경로가 없다.
+                    `AGENT` 도 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
 
                     구조 검사는 세 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
                     그리고 전체가 분기 없는 한 줄로 이어질 것. 분기·합류·단절은 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.""",
@@ -151,7 +174,9 @@ public interface WorkflowApi {
                                     @ExampleObject(name = "WORKFLOW_013 · 연결선이 빈 곳을 가리킨다",
                                             value = DANGLING_EDGE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_007 · 깊이 초과", value = DEPTH_LIMIT_EXAMPLE)})),
+                                    @ExampleObject(name = "WORKFLOW_007 · 깊이 초과", value = DEPTH_LIMIT_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_017 · 노드 종류가 다르다",
+                                            value = NODE_TYPE_MISMATCH_EXAMPLE)})),
             @ApiResponse(responseCode = "404", description = "배치할 원본 노드나 공개 에이전트가 없다",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
@@ -191,7 +216,8 @@ public interface WorkflowApi {
                     `revision` 에는 **수정 전에 읽은 값**을 넣는다. 그 사이 다른 요청이 먼저 수정했으면 `WORKFLOW_016` 으로 거부하고,
                     성공하면 `revision` 이 1 오른다. 응답의 `revision` 을 다음 수정에 다시 넣으면 된다.
 
-                    저장할 때와 같은 구조 검사를 거친다.""",
+                    저장할 때와 같은 구조 검사를 거치고, 새 단계를 본문으로 실어 보내는 것도 같다.
+                    이미 만들어진 노드에는 `sourceId` 를 보낸다. 본문을 다시 보내면 노드가 하나 더 만들어진다.""",
             requestBody = @RequestBody(required = true,
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(name = "노드 하나를 뒤에 붙인다", value = REPLACE_REQUEST_EXAMPLE))))
@@ -202,7 +228,9 @@ public interface WorkflowApi {
                             schema = @Schema(implementation = ApiResult.class),
                             examples = {
                                     @ExampleObject(name = "WORKFLOW_013 · 한 줄이 아니다", value = NOT_LINEAR_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE)})),
+                                    @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_017 · 노드 종류가 다르다",
+                                            value = NODE_TYPE_MISMATCH_EXAMPLE)})),
             @ApiResponse(responseCode = "403", description = "소유자가 아니다 (`WORKFLOW_003`)",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),

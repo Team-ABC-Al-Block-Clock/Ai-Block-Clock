@@ -14,11 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class NodeDefinitionService {
     private final NodeDefinitionReader nodeReader;
     private final NodeDefinitionWriter nodeWriter;
-    private final BaseCostCalculator baseCostCalculator;
+    private final NodeSpecAssembler specAssembler;
     private final NodeDefinitionValidator validator;
 
     public NodeDefinition create(UserId requester, String name, Prompt prompt, AiModel model) {
-        NodeSpec spec = new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model));
+        NodeSpec spec = specAssembler.assemble(name, prompt, model);
 
         return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt));
     }
@@ -38,7 +38,7 @@ public class NodeDefinitionService {
     public NodeDefinition update(NodeDefinitionId id, UserId requester, String name, Prompt prompt, AiModel model) {
         validator.ensureEditable(id, requester);
 
-        return nodeWriter.update(id, new NodeSpec(name, model, baseCostCalculator.calculate(prompt, model)), prompt);
+        return nodeWriter.update(id, specAssembler.assemble(name, prompt, model), prompt);
     }
 
     @Transactional

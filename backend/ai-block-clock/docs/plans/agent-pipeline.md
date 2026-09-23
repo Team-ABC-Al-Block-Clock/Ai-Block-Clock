@@ -34,7 +34,7 @@
 | `POST /agents` (등록 = 첫 버전 공개) | **들어감** |
 | 실행 단위 타입 — 에이전트 (`AgentUnit` · 재귀 조립) | 남음 (6장) |
 | 에이전트 배치 (`AgentNodeSourceResolver` 열기) | 남음 — 다음 브랜치 |
-| 새 작업 노드를 배치에 실어 받기 | 남음 (4.5) |
+| 새 작업 노드를 배치에 실어 받기 | **들어감** — `LLM` 배치만 본문을 싣고, `CatalogNodeSourceResolver` 가 만든다 |
 | 노드 팔레트 `GET /workflows/node-palette` | 남음 — FE 가 이미 부른다 (4.5) |
 | 노드 편집 화면 · 단계 초안 도우미 | 남음 (3장) |
 | 그래프 트리 확장 · 제어 노드 분기 | 남음 (5장 · 5.4) |
@@ -222,7 +222,7 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 | 응답 `nodeCount` · `edgeCount` | 있음 | **뺀다** | 요청에서 센다 |
 | 응답 `executeOnly` · `foreignNodeOrders` | 있음 | **넣지 않는다** | FE 가 이미 안다 — 4.5 |
 | 배치할 노드 | 기존 노드 id | **id 또는 새 노드 본문** | 4.5 |
-| 노드 종류 | 없음 | **`node_definition` 에 저장한다** | FE 팔레트가 `nodeType` 을 받아 쓴다 |
+| 노드 종류 | 없음 | **`node_definition.node_type` 에 저장한다** | FE 팔레트가 `nodeType` 을 받아 쓴다. 배치도 종류로 갈린다 — `LLM` 만 본문을 싣는다 |
 | HTTP | 201 | 200 → **201 로 고친다** | |
 | 좌표 | 안 받는다 | 안 받는다 | 같다 |
 

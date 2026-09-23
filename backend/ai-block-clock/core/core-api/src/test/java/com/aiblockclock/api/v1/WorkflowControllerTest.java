@@ -24,6 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -189,6 +190,166 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.data.nodes[2].nodeKey").value("n3"))
                 .andExpect(jsonPath("$.data.edges[0].edgeKey").value("e1"))
                 .andExpect(jsonPath("$.data.edges[1].edgeKey").value("e2"));
+    }
+
+    @Test
+    @DisplayName("본문으로 실어 보낸 단계는 노드로 만들어져 배치되고, 응답이 그 ID 를 알려준다")
+    void createsNodeCarriedByPlacement() throws Exception {
+        long before = nodeRepository.count();
+
+        MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "새 단계로 만든다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "nodeType": "LLM",
+                                      "name": "가정통신문 작성", "prompt": "분석 결과로 가정통신문을 쓴다" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
+                                  ]
+                                }
+                                """.formatted(nodeId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.nodes[0].sourceId").value(nodeId.toString()))
+                .andExpect(jsonPath("$.data.nodes[1].sourceId").isNotEmpty())
+                .andReturn();
+
+        String createdId = mapper.readTree(saved.getResponse().getContentAsString())
+                .get("data").get("nodes").get(1).get("sourceId").asText();
+
+        assertThat(nodeRepository.count()).isEqualTo(before + 1);
+        assertThat(nodeRepository.findById(UUID.fromString(createdId)).orElseThrow())
+                .satisfies(node -> {
+                    assertThat(node.getName()).isEqualTo("가정통신문 작성");
+                    assertThat(node.getOwnerId()).isEqualTo(owner);
+                });
+    }
+
+    @Test
+    @DisplayName("sourceId 와 새 노드 본문을 함께 보내면 400 이다")
+    void rejectsBothSourceAndDraft() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "둘 다 보낸다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "nodeType": "LLM", "sourceId": "%s",
+                                      "name": "가정통신문 작성", "prompt": "분석 결과로 가정통신문을 쓴다" }
+                                  ],
+                                  "edges": []
+                                }
+                                """.formatted(nodeId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("sourceId 도 본문도 없는 배치는 400 이다")
+    void rejectsPlacementWithoutSourceOrDraft() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "빈 배치",
+                                  "nodes": [ { "nodeKey": "n1", "sourceType": "NODE" } ],
+                                  "edges": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("에이전트 자리에는 새 노드 본문을 실을 수 없다")
+    void rejectsDraftOnAgentPlacement() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "에이전트 자리에 본문",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "AGENT",
+                                      "name": "가정통신문 작성", "prompt": "분석 결과로 가정통신문을 쓴다" }
+                                  ],
+                                  "edges": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("본문을 실으면서 종류를 LLM 으로 밝히지 않으면 400 이다")
+    void rejectsBodyWithoutLlmType() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "종류 없는 본문",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE",
+                                      "name": "가정통신문 작성", "prompt": "분석 결과로 가정통신문을 쓴다" }
+                                  ],
+                                  "edges": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("가리킨 노드가 밝힌 종류가 아니면 종류가 다르다고 거절한다")
+    void rejectsPlacementOfAnotherKind() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "도구로 놓는다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "nodeType": "TOOL", "sourceId": "%s" }
+                                  ],
+                                  "edges": []
+                                }
+                                """.formatted(nodeId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("WORKFLOW_017"))
+                .andExpect(jsonPath("$.error.data.nodeType").value("TOOL"));
+    }
+
+    @Test
+    @DisplayName("팔레트에서 끌어다 놓은 내 LLM 노드는 종류를 밝혀도 그대로 놓인다")
+    void placesExistingLlmNodeByReference() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "팔레트에서 끌어 놓는다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "nodeType": "LLM", "sourceId": "%s" }
+                                  ],
+                                  "edges": []
+                                }
+                                """.formatted(nodeId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.nodes[0].sourceId").value(nodeId.toString()));
     }
 
     @Test

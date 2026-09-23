@@ -1,6 +1,7 @@
 package com.aiblockclock.storage.node;
 
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.node.NodeType;
 import com.aiblockclock.storage.audit.BaseTimeEntity;
 
 import jakarta.persistence.Column;
@@ -36,6 +37,10 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
     @Column(name = "name", length = 40, nullable = false)
     private String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "node_type", length = 20, nullable = false)
+    private NodeType nodeType;
+
     @Column(name = "prompt", columnDefinition = "text", nullable = false)
     private String prompt;
 
@@ -46,10 +51,12 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
     @Column(name = "base_cost", precision = 41, scale = 6, nullable = false)
     private BigDecimal baseCost;
 
-    public NodeDefinitionEntity(UUID id, Long ownerId, String name, String prompt, AiModel model, BigDecimal baseCost) {
+    public NodeDefinitionEntity(UUID id, Long ownerId, String name, NodeType nodeType, String prompt,
+                                AiModel model, BigDecimal baseCost) {
         this.id = id;
         this.ownerId = ownerId;
         this.name = name;
+        this.nodeType = nodeType;
         this.prompt = prompt;
         this.model = model;
         this.baseCost = baseCost;

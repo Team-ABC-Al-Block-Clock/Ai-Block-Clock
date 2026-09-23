@@ -13,6 +13,7 @@ import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowFixtures;
 import com.aiblockclock.domain.workflow.WorkflowGraph;
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.node.NodeType;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -105,7 +106,8 @@ class AgentVersionPolicyTest {
                         NodeDefinitionId.of(id),
                         owner,
                         Timestamps.unsaved(),
-                        new NodeSpec("시드 노드", AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3"))),
+                        new NodeSpec("시드 노드", NodeType.LLM, AiModel.defaultModel(),
+                                AbcAmount.of(new BigDecimal("3"))),
                         Prompt.of("프롬프트 원문")))
                 .toList();
     }

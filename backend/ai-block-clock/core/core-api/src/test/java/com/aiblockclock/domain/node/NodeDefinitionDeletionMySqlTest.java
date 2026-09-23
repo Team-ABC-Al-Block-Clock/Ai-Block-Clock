@@ -5,13 +5,10 @@ import com.aiblockclock.domain.agent.AgentService;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphEdge;
 import com.aiblockclock.domain.workflow.GraphFixtures;
-import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
-import com.aiblockclock.enums.workflow.InputSource;
-import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.graph.GraphNodeRepository;
 import com.aiblockclock.support.error.CoreException;
@@ -143,8 +140,7 @@ class NodeDefinitionDeletionMySqlTest {
 
     private static List<NodePlacement> placements(UUID nodeId) {
         return List.of(
-                new NodePlacement(NodeKey.of("n1"), SourceType.NODE, nodeId, InputSource.defaultSource()),
-                new NodePlacement(NodeKey.of("n2"), SourceType.NODE, nodeId, InputSource.defaultSource()));
+                GraphFixtures.placement("n1", nodeId), GraphFixtures.placement("n2", nodeId));
     }
 
     private static List<GraphEdge> edges() {
