@@ -198,8 +198,11 @@ export default function RunRunning() {
     '%, rgba(255,255,255,.10) ' +
     pctR +
     '% 100%)'
-  const stepTitle = pctR >= 100 ? '결과 전달 완료' : defs[active].name + ' 중'
-  const stepMeta = (pctR >= 100 ? defs.length : active + 1) + ' / ' + defs.length + ' 단계'
+  // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
+  const stepTitle = pctR >= 100 ? '결과 전달 완료' : g ? `${g.name} 중` : '워크플로우를 불러오는 중'
+  const stepMeta = defs.length
+    ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
+    : ''
 
   useEffect(() => {
     if (startDone) return
