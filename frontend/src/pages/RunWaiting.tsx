@@ -126,7 +126,7 @@ export default function RunWaiting() {
 
         {/* 이전 단계로 돌아가 워크플로우를 수정할 수 있다. */}
         <a
-          href={paths.edit.nodes.withoutId}
+          href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
           title="워크플로우 수정"
           aria-label="워크플로우 수정"
           style={{

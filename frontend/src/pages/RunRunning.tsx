@@ -17,16 +17,16 @@ import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/comp
 import StatusDot from '@/components/StatusDot'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
+/** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
+const EMPTY_NODES: CanvasNodeData[] = []
+const EMPTY_EDGES: CanvasEdge[] = []
+
 /** 이보다 짧으면 카메라를 움직이지 않는다 — 한 화면에 다 들어온다. */
 const CAMERA_MIN_NODES = 5
 /** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
 const CAMERA_LEAD = 2
 /** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
 const CAMERA_STEP = 197
-
-/** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
-const EMPTY_NODES: CanvasNodeData[] = []
-const EMPTY_EDGES: CanvasEdge[] = []
 
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
@@ -454,7 +454,7 @@ export default function RunRunning() {
             </div>
 
             <a
-              href={paths.edit.nodes.withoutId}
+              href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
               style={{
                 left: `${PANEL_INSET}px`,
                 top: '576px',

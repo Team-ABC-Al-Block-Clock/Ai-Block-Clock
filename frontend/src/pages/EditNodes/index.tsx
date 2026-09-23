@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
 import { replaceWorkflow, saveWorkflow } from '@/api/workflows'
@@ -155,7 +155,19 @@ export default function EditNodes() {
         ? '워크플로우 이름을 적어 주세요'
         : null
   const canSave = !saveBlocked && !save.isPending && dirty
+  const canRun = !saveBlocked && !save.isPending
   const saveError = describeSaveError(save.error)
+
+  const navigate = useNavigate()
+  /** 저장하지 않았거나 바뀐 것이 있으면 먼저 저장하고 넘어간다. 실패하면 문구만 남기고 머문다. */
+  const runNow = async () => {
+    try {
+      const id = dirty ? (await save.mutateAsync()).workflowId : saved?.workflowId
+      if (id) navigate(`${paths.run.waiting.withoutId}?workflowId=${id}`)
+    } catch {
+      // 실패 문구는 `save.error` 가 이미 들고 있다. 화면에 머문다.
+    }
+  }
 
   // <empty-state> 의 '다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지 않아 직접 붙인다.
   const noticeRef = useRef<HTMLElement>(null)
@@ -701,29 +713,34 @@ export default function EditNodes() {
           </div>
         )}
 
-        {/* 저장한 뒤에는 그 워크플로우를 실어 보낸다 — 실행 화면이 같은 구성을 그린다. */}
-        <a
-          href={
-            saved
-              ? `${paths.run.waiting.withoutId}?workflowId=${saved.workflowId}`
-              : paths.run.waiting.withoutId
-          }
+        {/*
+          저장하지 않고 눌러도 넘어간다 — 먼저 저장하고 그 워크플로우로 실행 화면을 연다.
+          저장이 막힌 상태(빈 캔버스·갈래·이름 없음)면 저장 버튼과 같은 이유로 여기도 막힌다.
+        */}
+        <button
+          type="button"
+          onClick={() => void runNow()}
+          disabled={!canRun}
+          title={saveBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
             top: 'calc(943px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',
-            background: 'var(--color-accent)',
-            boxShadow: '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.6)',
-            color: 'var(--color-accent-ink)',
+            background: canRun ? 'var(--color-accent)' : 'rgba(255,255,255,.09)',
+            boxShadow: canRun
+              ? '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.6)'
+              : 'inset 0 1px 0 rgba(255,255,255,.12)',
+            color: canRun ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.42)',
+            cursor: canRun ? 'pointer' : 'not-allowed',
             transition: 'transform .18s,box-shadow .18s',
             animation: 'uiIn .7s .62s cubic-bezier(.2,.8,.25,1) both',
           }}
-          className="absolute flex cursor-pointer items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px] hover:shadow-[0_14px_32px_rgba(140,100,130,.28),inset_0_1px_0_rgba(255,255,255,.6)]"
+          className="absolute flex items-center justify-center border-0 text-[17px] font-bold tracking-[-.01em]"
         >
-          실행하기
-        </a>
+          {save.isPending ? '저장 중…' : '실행하기'}
+        </button>
       </CanvasPane>
 
       <SidePanel>
