@@ -9,6 +9,7 @@ import {
   updateMyProfile,
 } from '@/api/auth'
 import { API_BASE_URL, client } from '@/api/client'
+import { clearCsrfToken } from '@/api/csrf'
 import { ApiError } from '@/api/errors'
 
 /**
@@ -64,10 +65,16 @@ async function capturePartsOf(send: () => Promise<unknown>): Promise<FormData> {
   const previous = client.defaults.adapter
   let captured: FormData | undefined
 
+  // 쓰기라서 인터셉터가 CSRF 발급을 먼저 부른다. 그것도 이 어댑터를 타므로 토큰 모양을 맞춰 준다 —
+  // 빈 본문을 주면 발급이 실패해 본문이 어댑터까지 오지 못한다.
   const capture: AxiosAdapter = (config) => {
-    captured = config.data as FormData
+    const csrf = config.url?.endsWith('/auth/csrf')
+    if (!csrf) captured = config.data as FormData
     return Promise.resolve({
-      data: { status: 'success', data: {} },
+      data: {
+        status: 'SUCCESS',
+        data: csrf ? { headerName: 'X-CSRF-TOKEN', token: 'capture-token' } : {},
+      },
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -75,11 +82,13 @@ async function capturePartsOf(send: () => Promise<unknown>): Promise<FormData> {
     })
   }
 
+  clearCsrfToken()
   client.defaults.adapter = capture
   try {
     await send()
   } finally {
     client.defaults.adapter = previous
+    clearCsrfToken()
   }
 
   if (!captured) throw new Error('요청 본문을 가로채지 못했다')

@@ -18,7 +18,7 @@ const h = vi.hoisted(() => ({
   loginWithWallet: vi.fn<() => Promise<unknown>>(),
   logout: vi.fn<() => Promise<unknown>>(),
   /** 인터셉터가 회복 불가능한 401 을 알려 오는 자리 — 스토어가 등록한다 */
-  onAuthFailure: (() => {}) as (code?: string) => void,
+  onAuthFailure: (() => {}) as () => void,
   clearCache: vi.fn(),
 }))
 
@@ -236,7 +236,7 @@ describe('정상 경로', () => {
     await useAuthStore.getState().restore()
 
     h.logout.mockImplementation(() => {
-      h.onAuthFailure('AUTH_018')
+      h.onAuthFailure()
       return Promise.reject(new Error('401'))
     })
 
@@ -286,25 +286,18 @@ describe('세션이 끝난 이유를 남긴다', () => {
     expect(useAuthStore.getState().endedBy).toBe('account')
   })
 
-  it('회복 불가능한 401 은 기본이 expired 다', async () => {
+  // 서버는 쿠키 없음·만료·알 수 없는 세션을 전부 AUTH_005 하나로 답한다.
+  // 가를 코드가 없으니 401 은 전부 같은 사유로 남는다(`api/errors.ts`).
+  it('회복 불가능한 401 은 invalid 로 남는다', async () => {
     const useAuthStore = await authenticated()
-    useAuthStore.getState().clearSession()
-    expect(useAuthStore.getState().endedBy).toBe('expired')
+    h.onAuthFailure()
+    expect(useAuthStore.getState().endedBy).toBe('invalid')
   })
 
-  // 인터셉터가 코드를 넘겨 주지 않으면 스토어가 이유를 지어내고, 다른 곳에서
-  // 재로그인해 끊긴 세션도 "만료" 로 안내된다.
-  it.each([
-    ['AUTH_014', 'revoked'],
-    ['AUTH_005', 'invalid'],
-    ['AUTH_006', 'invalid'],
-    ['AUTH_018', 'invalid'],
-    ['AUTH_013', 'expired'],
-    [undefined, 'expired'],
-  ])('401 코드 %s 는 %s 로 남는다', async (code, reason) => {
+  it('사유를 주지 않은 clearSession 도 같은 자리로 온다', async () => {
     const useAuthStore = await authenticated()
-    h.onAuthFailure(code)
-    expect(useAuthStore.getState().endedBy).toBe(reason)
+    useAuthStore.getState().clearSession()
+    expect(useAuthStore.getState().endedBy).toBe('invalid')
   })
 
   it('인증된 적이 없으면 401 에 사유를 붙이지 않는다', async () => {
@@ -335,11 +328,11 @@ describe('세션이 끝난 이유를 남긴다', () => {
     // 아무 안내 없이 로그인 화면으로 떨어진다.
     const useAuthStore = await authenticated()
 
-    h.onAuthFailure('AUTH_013') // expired
-    h.onAuthFailure('AUTH_005') // 뒤따라 도착한 401
-    h.onAuthFailure('AUTH_005')
+    h.onAuthFailure()
+    h.onAuthFailure() // 뒤따라 도착한 401
+    h.onAuthFailure()
 
-    expect(useAuthStore.getState().endedBy).toBe('expired')
+    expect(useAuthStore.getState().endedBy).toBe('invalid')
   })
 
   it('로그아웃이 401 로 끝나도 밀려난 사유는 그대로 남는다', async () => {
@@ -347,7 +340,7 @@ describe('세션이 끝난 이유를 남긴다', () => {
     // 인터셉터가 먼저 `invalid` 를 남기지만, 사용자에게 보여야 할 이유는 지갑 쪽이다.
     const useAuthStore = await authenticated()
     h.logout.mockImplementation(() => {
-      h.onAuthFailure('AUTH_005')
+      h.onAuthFailure()
       return Promise.reject(new Error('401'))
     })
 

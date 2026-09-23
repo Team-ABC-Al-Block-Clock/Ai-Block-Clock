@@ -1,8 +1,12 @@
-/** `{ status: 'error', code, message }` */
+/** `{ status: 'FAIL', data: null, error: { code, message, data } }` — `support/response/ApiResult` */
 export interface ApiErrorBody {
-  status: 'error'
-  code: string
-  message: string
+  status: string
+  error: {
+    code: string
+    message: string
+    /** 오류를 짚어 주는 값. 응답마다 모양이 다르고 없으면 null — 아직 화면이 읽지 않는다 */
+    data?: unknown
+  }
 }
 
 /**
@@ -29,20 +33,20 @@ export class ApiError extends Error {
 }
 
 /**
- * 세션 쿠키 실패 코드. 다섯 가지 모두 회복 수단이 없다 — 지갑 서명 로그인부터 다시 한다.
- * 문구만 갈려서 `stores/authStore.ts` 의 `endReasonFromAuthCode` 가 사유로 옮긴다.
+ * 세션 인증 실패 코드. 이름은 서버의 `ErrorType` 을 그대로 따른다.
+ *
+ * 만료·폐기를 가르는 코드는 없다. 쿠키가 없든 세션이 만료됐든 알 수 없는 세션이든
+ * 서버는 `ApiAuthenticationEntryPoint` 에서 `AUTH_005` 하나로 답한다. 만료 판정을
+ * Spring Session 이 하고 만료된 세션은 조회조차 되지 않아 서버도 「없음」과 「만료」를
+ * 구분하지 않는다(백엔드 `docs/SESSION_AUTH.md`).
+ *
+ * 어느 쪽이든 회복 수단이 없다 — 지갑 서명 로그인부터 다시 한다.
  */
 export const AUTH_ERROR = {
-  /** sessionToken 쿠키 미전달 — 로그인 전이거나 쿠키가 저장되지 않았다 */
-  MISSING: 'AUTH_005',
-  /** 세션은 있으나 요청자를 특정할 수 없다 */
-  UNIDENTIFIABLE: 'AUTH_006',
-  /** 세션 만료 */
-  EXPIRED: 'AUTH_013',
-  /** 로그아웃했거나 다른 곳에서 재로그인해 이 세션이 종료됐다 */
-  ENDED: 'AUTH_014',
-  /** 알 수 없거나 잘못된 세션 토큰 */
-  INVALID: 'AUTH_018',
+  /** 쿠키가 없거나, 세션이 만료됐거나, 알 수 없는 세션이다 */
+  NOT_IDENTIFIED: 'AUTH_005',
+  /** 세션은 있으나 요청자를 특정할 수 없다 — 서버 `ErrorType` 에 선언만 있고 아직 던지는 곳이 없다 */
+  NOT_IDENTIFIABLE: 'AUTH_006',
 } as const
 
 /**
@@ -67,9 +71,19 @@ export const USER_ERROR = {
   IMAGE_CONFLICT: 'USER_007',
 } as const
 
-/** 응답 본문이 서버의 실패 봉투 모양인지 확인한다. */
+/**
+ * 응답 본문이 서버의 실패 봉투 모양인지 확인한다.
+ *
+ * `status` 값('FAIL')이 아니라 `error` 안에 code·message 가 있는지로 본다. 서버의 CSRF·인증
+ * 거절은 Spring 기본 오류 본문(`{ timestamp, status, error: 'Forbidden', path }`)으로 오는데,
+ * 거기도 `error` 키가 있지만 문자열이라 여기서 걸러진다.
+ *
+ * 이 판정이 틀리면 code 와 message 가 통째로 버려져 화면의 코드 분기와 401 사유가 사라진다.
+ */
 export function isApiErrorBody(body: unknown): body is ApiErrorBody {
   if (typeof body !== 'object' || body === null) return false
-  const b = body as Record<string, unknown>
-  return b.status === 'error' && typeof b.code === 'string' && typeof b.message === 'string'
+  const { error } = body as { error?: unknown }
+  if (typeof error !== 'object' || error === null) return false
+  const e = error as Record<string, unknown>
+  return typeof e.code === 'string' && typeof e.message === 'string'
 }

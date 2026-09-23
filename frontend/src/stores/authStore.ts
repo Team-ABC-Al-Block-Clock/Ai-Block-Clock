@@ -7,13 +7,12 @@ import {
   type UserProfile,
 } from '@/api/auth'
 import { setOnAuthFailure } from '@/api/client'
-import { AUTH_ERROR } from '@/api/errors'
 import { queryClient } from '@/lib/queryClient'
 
 /**
  * 인증 세션의 단일 소스.
  *
- * 세션은 `sessionToken` HttpOnly 쿠키라 JS 가 값을 읽을 수 없다. 그래서 스토어가
+ * 세션은 `SESSION` HttpOnly 쿠키라 JS 가 값을 읽을 수 없다. 그래서 스토어가
  * 들고 있는 것은 토큰이 아니라 「서버가 나를 알아보는가」의 결과뿐이다.
  */
 
@@ -23,32 +22,15 @@ export type AuthStatus = 'idle' | 'restoring' | 'authenticated' | 'unauthenticat
 /** 세션이 왜 끝났는지. 스스로 누른 로그아웃은 이유가 없다(`null`) —
  *  본인이 아는 일에 안내를 띄우면 사고처럼 보인다.
  *
+ *  서버가 끊은 경우는 `invalid` 하나다. 만료·폐기를 가르려면 서버가 코드를 나눠 줘야
+ *  하는데 401 이 전부 `AUTH_005` 라 가를 수가 없다(`api/errors.ts`). 나머지 둘은 지갑
+ *  쪽이라 화면이 아는 값이다.
+ *
  *  타입과 런타임 검사가 이 배열 하나에서 나온다. 따로 두었더니 `routes/access.ts` 가
- *  세 개만 통과시켜 `revoked`·`invalid` 안내가 화면에 닿지 못했다. */
-export const SESSION_END_REASONS = [
-  'expired',
-  'revoked',
-  'invalid',
-  'disconnected',
-  'account',
-] as const
+ *  일부만 통과시켜 안내가 화면에 닿지 못했다. */
+export const SESSION_END_REASONS = ['invalid', 'disconnected', 'account'] as const
 
 export type SessionEndReason = (typeof SESSION_END_REASONS)[number]
-
-/** 시간이 지나 끊긴 것과 서버가 끊은 것은 사용자가 할 일이 달라 문구를 나눈다. */
-export function endReasonFromAuthCode(code?: string): SessionEndReason {
-  switch (code) {
-    case AUTH_ERROR.ENDED:
-      return 'revoked'
-    case AUTH_ERROR.MISSING:
-    case AUTH_ERROR.UNIDENTIFIABLE:
-    case AUTH_ERROR.INVALID:
-      return 'invalid'
-    default:
-      // 만료와 코드를 못 읽은 경우.
-      return 'expired'
-  }
-}
 
 interface AuthState {
   status: AuthStatus
@@ -97,13 +79,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
    */
   const dropSession = (endedBy: SessionEndReason | null = null, { force = false } = {}) => {
     // `endedBy` 는 「쓰던 중 끊겼다」는 뜻이다. 인증된 적이 없으면 알릴 이유가 없다 —
-    // 첫 방문의 401 에 "세션이 만료되었습니다" 가 붙으면 사고처럼 보인다.
+    // 첫 방문의 401 에 "로그인이 풀렸습니다" 가 붙으면 사고처럼 보인다.
     const { status, endedBy: recorded } = get()
     const wasAuthenticated = status === 'authenticated'
     epoch += 1
     // 쿼리 캐시까지 비운다. 스토어만 비우면 staleTime(60초) 동안 마이페이지·잔액이
-    // 이전 계정 값을 보여 준다 — 쿠키 세션은 7일이라 같은 브라우저에서 지갑을
-    // 갈아타는 일이 흔하다. 세션을 끊는 길은 여기 하나뿐이라 호출부를 늘리지 않는다.
+    // 이전 계정 값을 보여 준다 — 같은 브라우저에서 지갑을 갈아타는 일이 흔하다.
+    // 세션을 끊는 길은 여기 하나뿐이라 호출부를 늘리지 않는다.
     //
     // 담긴 계정 데이터가 있을 때만 비운다. 비로그인 방문도 부팅 복구 401 로 여기를
     // 지나가는데, 그때 비우면 로그인과 무관한 공개 화면(상세·검색)의 쿼리까지 날아가
@@ -201,7 +183,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    clearSession: (endedBy = 'expired') => dropSession(endedBy),
+    clearSession: (endedBy = 'invalid') => dropSession(endedBy),
 
     setProfile: (patch) => {
       // 세션이 끝난 뒤 늦게 도착한 저장 응답이 화면을 되살리지 않게 한다.
@@ -213,6 +195,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
 })
 
 /** 상태만 비우고 화면 이동은 ProtectedRoute 가 한다 — api 계층은 라우터를 모른다. */
-setOnAuthFailure((code) => {
-  useAuthStore.getState().clearSession(endReasonFromAuthCode(code))
+setOnAuthFailure(() => {
+  useAuthStore.getState().clearSession()
 })

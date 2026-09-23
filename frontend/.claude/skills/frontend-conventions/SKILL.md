@@ -76,6 +76,6 @@ paths.agentDetail.withoutId // '/agent' — 해당 도메인 mock 핸들러 붙�
 `<ProtectedRoute>` 로 감싼다 — 화면 안에서 로그인 여부를 확인하지 않는다. 여기도
 `Record<ScreenKey, boolean>` 이라 화면을 추가하면 공개·보호를 정할 때까지 컴파일이 실패한다.
 
-세션은 `stores/authStore.ts` 하나가 들고 있다. `sessionToken` 은 HttpOnly 쿠키라 JS 가 값을
+세션은 `stores/authStore.ts` 하나가 들고 있다. `SESSION` 은 HttpOnly 쿠키라 JS 가 값을
 읽지 못하므로, 스토어가 들고 있는 것은 토큰이 아니라 「서버가 나를 알아보는가」의 결과다.
 자세한 것은 원본 4절·7절.
