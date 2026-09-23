@@ -40,7 +40,7 @@
 | 추천 색인 유지 (등록 시 · 기동 시 전체) | **들어감** — 색인은 우리 DB 에서 파생된 캐시다 (1.4) |
 | 배치 가능 목록 `GET /workflows/node-palette` | 남음 — FE 가 이미 부른다 (4.5). 마켓 목록과 조회를 나눠 쓴다 |
 | 노드 편집 화면 · 단계 초안 도우미 | 남음 (3장) |
-| 그래프 트리 확장 · 제어 노드 분기 | 남음 (5장 · 5.4) |
+| 그래프 트리 확장 · 제어 노드 분기 | **저장 · 조회까지 들어감** — 트리만 받는다. 분기가 있으면 실행 조립에서 `EXECUTION_005` 로 막는다. 실행은 노드 스키마가 붙은 뒤 연다 (5.4) |
 | 마켓 API | 남음 (4.4) |
 | 실행 시작 · 폴링 (`POST /runs` · `GET /runs/{id}`) | **들어감** — 펼친 단계를 맡기고 진행을 중계한다 |
 | 실행 결과 보관 (PDF · 봉투) · 이력 목록 | 남음 (8장) |
@@ -265,7 +265,7 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 
 **분기가 들어와도 형식은 안 바뀐다.** 같은 노드가 `sourceNodeKey` 로 두 번 나오면 갈라짐,
 `targetNodeKey` 로 두 번 나오면 합류다. 엣지 목록은 이미 어떤 DAG 든 표현한다. 바뀌는 것은
-검증뿐 — 한 줄 검증(`soleStart` · `WORKFLOW_GRAPH_NOT_LINEAR`)을 DAG 검증으로 되돌린다 (5장).
+검증뿐 — 한 줄 검증을 트리 검증(`WORKFLOW_GRAPH_NOT_TREE` · `WORKFLOW_BRANCH_EDGES_INVALID`)으로 바꿨다 (5장).
 
 합류에서만 엣지에 `inputOrder` 가 붙는다. 앞이 여럿일 때 어느 결과를 먼저 이어 붙일지는 연결만으로
 알 수 없기 때문이다. 배열 순서에 기대면 FE 가 정렬을 바꿀 때 결과가 바뀐다.
@@ -331,7 +331,7 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 
 | 지금 | 바꾼 뒤 |
 | --- | --- |
-| 나가는 선 1개 (`WORKFLOW_GRAPH_NOT_LINEAR`) | 분기 노드만 2개, 나머지는 1개 |
+| 나가는 선 1개 | 분기 노드만 2개(참 · 거짓 하나씩), 나머지는 1개 (`WORKFLOW_GRAPH_NOT_TREE`) |
 | 들어오는 선 1개 | **그대로** — 이것이 트리를 보장한다 |
 | `nodesInOrder()` 전순서 하나 | 경로가 여러 개. 전순서가 없다 |
 | `chainLength()` | `longestPathLength()` |
@@ -404,18 +404,18 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 **제어 노드는 `node_definition` 행을 만들지 않는다.** 그래서 "사용자 자산인 카탈로그에 시스템
 노드가 섞인다" 는 걱정이 생기지 않는다. `graph_node` 에만 존재하는 배치다.
 
-`graph_node` 는 `reference_id` 가 nullable 이 되고 `control_type` 이 붙는다. 도메인에는
-`BaseNode` · `AgentNode` 옆에 `ControlNode` 가 하나 는다.
+`graph_node` 는 `reference_id` 가 nullable 이 되고 `control_type` · `branch_condition` 이 붙는다 (V16).
+도메인에는 `BaseNode` · `AgentNode` 옆에 `ControlNode` 가 하나 는다.
 
 #### 조건은 노드가 들고, 엣지는 갈래를 가리킨다
 
-분기 노드가 조건식을 들고, 나가는 엣지가 **어느 갈래인지**만 말한다(`branch_label`).
+분기 노드가 조건식을 들고, 나가는 엣지가 **어느 갈래인지**만 말한다(`branch_when`).
 엣지마다 조건식을 달면 제어 노드를 둔 뜻이 없어지고, 갈래가 셋으로 늘 때 조건이 흩어진다.
 
 | | 어디에 |
 | --- | --- |
-| 조건식 (문자열, AI 가 평가) | `graph_node.condition` — 제어 노드 |
-| 어느 갈래인가 (`TRUE` · `FALSE` · …) | `graph_edge.branch_label` |
+| 조건식 `{left, operator, right}` (AI 가 평가) | `graph_node.branch_condition` — JSON 한 칸. `right` 가 숫자 · 문자열 · 불리언 · 배열 중 무엇이든 온다 |
+| 어느 갈래인가 (`true` · `false`) | `graph_edge.branch_when` — 계약의 `when` 과 같아 번역 없이 싣는다 |
 
 병합 노드가 생기면 **그 노드에서만** "들어오는 선 1개" 제약을 푼다. 나머지 노드는 그대로라
 트리가 유지된다. 합류에서 붙는 `inputOrder` 도 병합 노드로 들어오는 엣지에만 달린다.
@@ -425,6 +425,9 @@ Notion 「에이전트 등록」 명세가 있다. **그대로는 만들 수 없
 `baseNodeReferences()` · `agentReferences()` 가 제어 노드를 자연히 걸러낸다. 그래서 소유권 검사에
 걸리지 않고(주인이 없다), `VersionCost` 의 `promptNodeCount` 에도 들어가지 않는다. 5.2 의 상한은
 **실제로 도는 프롬프트 수**를 재는 것이므로 이것이 맞다.
+
+`GraphLimits` 는 다르다. 계약의 캔버스 상한이 **놓인 개수**를 세고 최장 경로도 분기 노드를 지나가므로,
+노드 수와 가장 긴 경로 둘 다 제어 노드를 센다.
 ---
 
 ## 6. 실행 단위 — 에이전트가 노드 자리를 대신한다
