@@ -17,7 +17,7 @@ import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { nodeTypeLabel } from '@/lib/format'
+import { nodeTypeLabel, priceLabel } from '@/lib/format'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { paths } from '@/routes/paths'
 
@@ -213,6 +213,7 @@ export default function EditNodes() {
         nodeType: item.nodeType,
         sourceType: item.itemType,
         sourceId: item.itemId,
+        price: item.price,
         mine: item.mine,
       },
       point,
@@ -345,7 +346,7 @@ export default function EditNodes() {
                 key={node.id}
                 index={chainAt?.get(node.id)}
                 name={node.name}
-                sublabel={nodeTypeLabel(node.nodeType)}
+                sublabel={node.price === null ? '—' : priceLabel(node.price)}
                 x={node.x}
                 y={node.y}
                 mine={node.mine}

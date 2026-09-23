@@ -49,6 +49,8 @@ export interface CanvasNodeData {
   sourceType: SourceType
   /** 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다 */
   sourceId: string
+  /** 팔레트 항목의 `price`. 팔레트에서 못 찾은 노드는 null 이다 */
+  price: string | null
   x: number
   y: number
   mine: boolean
@@ -76,6 +78,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'TRIGGER',
     sourceType: 'NODE',
     sourceId: 'node_001',
+    price: '4',
     x: 12,
     y: 400,
     mine: true,
@@ -88,6 +91,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_002',
+    price: '12',
     x: 209,
     y: 320,
     mine: true,
@@ -100,6 +104,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'TOOL',
     sourceType: 'NODE',
     sourceId: 'node_003',
+    price: '6',
     x: 406,
     y: 440,
     mine: true,
@@ -112,6 +117,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_004',
+    price: '15',
     x: 603,
     y: 330,
     mine: true,
@@ -124,6 +130,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     nodeType: 'TOOL',
     sourceType: 'NODE',
     sourceId: 'node_005',
+    price: '3',
     x: 800,
     y: 430,
     mine: true,
@@ -376,7 +383,10 @@ export function resolveOverlap(
 /** 팔레트에서 드래그해 온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
 export function placeNode(
   nodes: CanvasNodeData[],
-  seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'>,
+  seed: Pick<
+    CanvasNodeData,
+    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'mine'
+  >,
   x: number,
   y: number,
   bounds: CanvasBounds = NO_BOUNDS,
