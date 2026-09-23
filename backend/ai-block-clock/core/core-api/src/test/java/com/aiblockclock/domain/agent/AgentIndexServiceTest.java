@@ -28,12 +28,12 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 
-class AgentIndexerTest {
+class AgentIndexServiceTest {
     private static final UserId OWNER = UserId.of(9301L);
 
     private final RecommendClient recommendClient = mock(RecommendClient.class);
     private final AgentReader agentReader = mock(AgentReader.class);
-    private final AgentIndexer indexer = new AgentIndexer(recommendClient, agentReader);
+    private final AgentIndexService indexer = new AgentIndexService(recommendClient, agentReader);
 
     @Test
     @DisplayName("등록한 에이전트는 마켓에 공개되는 값만 색인에 실어 보낸다")
@@ -82,6 +82,14 @@ class AgentIndexerTest {
         then(recommendClient).should().rebuild(sent.capture());
         assertThat(sent.getValue()).extracting(IndexedAgent::name)
                 .containsExactly("성적 분석 에이전트", "가정통신문 작성기");
+    }
+
+    @Test
+    @DisplayName("기동 시 다시 넣기는 무엇이 터져도 기동을 막지 않는다")
+    void startupRebuildNeverBlocksBoot() {
+        willThrow(new IllegalStateException("db is down")).given(agentReader).readPublic();
+
+        assertThatCode(indexer::rebuildOnStartup).doesNotThrowAnyException();
     }
 
     private IndexedAgent sentRecord() {

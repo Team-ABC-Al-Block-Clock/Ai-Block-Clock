@@ -15,20 +15,15 @@ public class RecommendClient {
 
     private static final String INDEX_PATH = "/v1/index/agents";
     private static final String RECOMMEND_PATH = "/v1/recommend";
-    private static final String HEALTH_PATH = "/health";
 
     private final RestClient recommendRestClient;
 
     public IndexOutcome upsert(List<IndexedAgent> agents) {
-        return index(IndexOperation.UPSERT, agents, List.of());
+        return index(IndexOperation.UPSERT, agents);
     }
 
     public IndexOutcome rebuild(List<IndexedAgent> agents) {
-        return index(IndexOperation.REBUILD, agents, List.of());
-    }
-
-    public IndexOutcome remove(List<String> agentIds) {
-        return index(IndexOperation.REMOVE, List.of(), agentIds);
+        return index(IndexOperation.REBUILD, agents);
     }
 
     public List<RecommendedAgent> recommend(String query, int topK) {
@@ -38,23 +33,8 @@ public class RecommendClient {
                 .recommendations();
     }
 
-    public IndexHealth health() {
-        try {
-            return require(recommendRestClient.get()
-                    .uri(HEALTH_PATH)
-                    .retrieve()
-                    .body(IndexHealth.class), "health");
-        } catch (RestClientException exception) {
-            throw new RecommendClientException(RecommendClientError.REQUEST_FAILED,
-                    "recommend health request failed", exception);
-        }
-    }
-
-    private IndexOutcome index(IndexOperation op, List<IndexedAgent> agents, List<String> agentIds) {
-        Map<String, Object> body = Map.of(
-                "op", op.wireName(),
-                "agents", agents,
-                "agent_ids", agentIds);
+    private IndexOutcome index(IndexOperation op, List<IndexedAgent> agents) {
+        Map<String, Object> body = Map.of("op", op.wireName(), "agents", agents);
 
         return require(post(INDEX_PATH, body, IndexOutcome.class), "index outcome");
     }

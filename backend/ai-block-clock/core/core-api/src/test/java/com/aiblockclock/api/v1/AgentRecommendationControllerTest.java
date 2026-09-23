@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -125,6 +126,28 @@ class AgentRecommendationControllerTest {
         mockMvc.perform(get(RECOMMENDATIONS).param("query", "성적표").with(as(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items").isEmpty());
+    }
+
+    @Test
+    @DisplayName("검색어가 200자를 넘으면 추천 엔진에 보내지 않고 400 이다")
+    void rejectsTooLongQuery() throws Exception {
+        mockMvc.perform(get(RECOMMENDATIONS).param("query", "가".repeat(201)).with(as(owner)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        then(recommendClient).should(never()).recommend(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("검색어가 비었거나 개수가 범위를 벗어나면 400 이다")
+    void rejectsBlankQueryOrOutOfRangeSize() throws Exception {
+        mockMvc.perform(get(RECOMMENDATIONS).param("query", " ").with(as(owner)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        mockMvc.perform(get(RECOMMENDATIONS).param("query", "성적표").param("size", "21").with(as(owner)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
     }
 
     private String registerAgent() throws Exception {
