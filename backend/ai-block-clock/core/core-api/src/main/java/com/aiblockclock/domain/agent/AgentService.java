@@ -11,6 +11,8 @@ import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowGraph;
 import com.aiblockclock.domain.workflow.WorkflowValidator;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,10 +26,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AgentService {
     private final NodeDefinitionReader nodeReader;
+    private final AgentReader agentReader;
+    private final AgentVersionReader agentVersionReader;
     private final AgentVersionPolicy versionPolicy;
     private final GraphWriter graphWriter;
     private final AgentWriter agentWriter;
     private final AgentVersionWriter agentVersionWriter;
+    private final AgentVersionNodeWriter agentVersionNodeWriter;
 
     @Transactional
     public AgentRegistration register(
@@ -35,9 +40,7 @@ public class AgentService {
         WorkflowValidator.ensureRevision(source.getRevision(), expectedRevision);
 
         WorkflowGraph snapshot = source.getGraph();
-        List<NodeDefinition> locked = nodeReader.readAllForShare(placedNodeIds(snapshot));
-        Map<NodeDefinitionId, NodeDefinition> placedNodes =
-                versionPolicy.ensureVersionable(source, requester, locked);
+        Map<NodeDefinitionId, NodeDefinition> placedNodes = lockAndValidate(source, requester, snapshot);
 
         GraphId graphId = copyGraph(snapshot);
         AgentRegistration registered = publishFirstVersion(
@@ -45,8 +48,49 @@ public class AgentService {
 
         agentWriter.append(registered.agent());
         agentVersionWriter.append(registered.version(), graphId);
+        agentVersionNodeWriter.append(registered.version().getId(), VersionNode.freeze(snapshot, placedNodes));
 
         return registered;
+    }
+
+    @Transactional
+    public AgentRegistration update(
+            UserId requester, AgentId agentId, Workflow source, Revision expectedRevision, AgentProfile profile) {
+        WorkflowValidator.ensureRevision(source.getRevision(), expectedRevision);
+
+        Agent agent = agentReader.read(agentId);
+        agent.ensureOwner(requester);
+
+        AgentVersion published = publishedVersionOf(agent);
+        Agent described = agent.describedAs(profile);
+        SourceWorkflow frozen = new SourceWorkflow(source.getId(), source.getRevision());
+
+        if (frozen.equals(published.getSource())) {
+            agentWriter.append(described);
+
+            return new AgentRegistration(described, published);
+        }
+
+        WorkflowGraph snapshot = source.getGraph();
+        Map<NodeDefinitionId, NodeDefinition> placedNodes = lockAndValidate(source, requester, snapshot);
+
+        GraphId graphId = copyGraph(snapshot);
+        AgentVersion next = AgentVersion.next(published, AgentVersionId.newId(),
+                frozen, snapshot, VersionCostAssembler.assemble(snapshot, placedNodes)).publish();
+        Agent republished = described.publish(requester, next.getId(), next.getNumber());
+
+        agentWriter.append(republished);
+        agentVersionWriter.append(next, graphId);
+        agentVersionNodeWriter.append(next.getId(), VersionNode.freeze(snapshot, placedNodes));
+
+        return new AgentRegistration(republished, next);
+    }
+
+    private Map<NodeDefinitionId, NodeDefinition> lockAndValidate(
+            Workflow source, UserId requester, WorkflowGraph snapshot) {
+        List<NodeDefinition> locked = nodeReader.readAllForShare(placedNodeIds(snapshot));
+
+        return versionPolicy.ensureVersionable(source, requester, locked);
     }
 
     private GraphId copyGraph(WorkflowGraph snapshot) {
@@ -54,6 +98,15 @@ public class AgentService {
         graphWriter.append(graphId, snapshot);
 
         return graphId;
+    }
+
+    private AgentVersion publishedVersionOf(Agent agent) {
+        PublicVersion publicVersion = agent.getPublicVersion();
+        if (publicVersion == null) {
+            throw new CoreException(ErrorType.AGENT_NOT_FOUND);
+        }
+
+        return agentVersionReader.read(publicVersion.id());
     }
 
     private static AgentRegistration publishFirstVersion(
