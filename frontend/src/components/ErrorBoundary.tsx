@@ -59,9 +59,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </pre>
 
           <div className="mt-2 flex w-full gap-2">
+            {/*
+              `reset` 을 걸지 않는다. 같은 트리를 그대로 다시 그리면 렌더 예외는 결정적이라
+              곧장 다시 잡혀, 누르는 사람에게는 아무 일도 안 일어난 것으로 보인다.
+              화면을 새로 불러와야 스토어·쿼리 캐시까지 비워져 실제로 달라질 여지가 생긴다.
+              직접 폴백을 넘기는 쪽은 `reset` 을 그대로 받아 쓴다.
+            */}
             <button
               type="button"
-              onClick={this.reset}
+              onClick={() => location.reload()}
               className="bg-accent text-accent-ink h-11 flex-1 cursor-pointer rounded-xl text-[13px] font-bold transition-transform hover:-translate-y-px"
             >
               다시 시도
