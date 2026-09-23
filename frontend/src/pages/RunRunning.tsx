@@ -509,8 +509,15 @@ export default function RunRunning() {
             </a>
 
             {/* 워크플로우 전체 실행에 성공해야 마켓에 판매 등록 가능. */}
+            {/* 등록 화면에서 취소하면 여기로 돌아온다 — 워크플로우를 실어 보내야 빈 화면이 되지 않는다. */}
             <a
-              {...(canSell ? { href: paths.register } : {})}
+              {...(canSell
+                ? {
+                    href: workflowId
+                      ? `${paths.register}?workflowId=${workflowId}`
+                      : paths.register,
+                  }
+                : {})}
               title={
                 canSell ? undefined : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
               }
