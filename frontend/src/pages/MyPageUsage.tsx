@@ -152,12 +152,14 @@ export default function MyPageUsage() {
 
         {periodOpen && (
           <div
-            className="bg-surface-menu box-border flex flex-col overflow-hidden"
+            className="bg-surface-menu relative box-border flex flex-col overflow-hidden"
             style={{
               marginTop: '6px',
               width: '128px',
               borderRadius: '12px',
               padding: '4px',
+              // veil 보다 위에 와야 항목이 눌린다.
+              zIndex: 5,
               backdropFilter: 'blur(18px) saturate(115%)',
               WebkitBackdropFilter: 'blur(18px) saturate(115%)',
             }}
