@@ -10,6 +10,9 @@ final class UserEntityConverter {
         return new User(
                 UserId.of(entity.getId()),
                 entity.getWalletAddress(),
+                entity.getNickname(),
+                entity.getIntroduction(),
+                entity.getOnboardingCompletedAt(),
                 entity.getVersion(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()

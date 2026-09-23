@@ -2,6 +2,8 @@ package com.aiblockclock.domain.user;
 
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import jakarta.persistence.EntityManager;
 
@@ -71,6 +73,43 @@ class UserWriterIntegrationTest {
     }
 
     @Test
+    void 가입을_마치면_이름_소개와_동의_시각과_가입_완료_시각을_저장한다() {
+        User created = userWriter.create("0x9999999999999999999999999999999999999999");
+
+        User onboarded = userWriter.completeOnboarding(created.id(), signup("김싸피"));
+        entityManager.clear();
+
+        UserEntity persisted = userRepository.findById(created.id().value()).orElseThrow();
+
+        assertThat(onboarded.onboardingCompleted()).isTrue();
+        assertThat(persisted.getNickname()).isEqualTo("김싸피");
+        assertThat(persisted.getIntroduction()).isEqualTo("에이전트를 만듭니다");
+        assertThat(persisted.getOnboardingCompletedAt()).isNotNull();
+        assertThat(persisted.getTermsAgreedAt()).isEqualTo(persisted.getOnboardingCompletedAt());
+        assertThat(persisted.getRecoveryNoticeConfirmedAt()).isEqualTo(persisted.getOnboardingCompletedAt());
+    }
+
+    @Test
+    void 이미_가입한_사용자는_다시_가입할_수_없고_이름이_바뀌지_않는다() {
+        User created = userWriter.create("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        userWriter.completeOnboarding(created.id(), signup("김싸피"));
+
+        assertThatThrownBy(() -> userWriter.completeOnboarding(created.id(), signup("박싸피")))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_ONBOARDED));
+
+        entityManager.clear();
+        assertThat(userRepository.findById(created.id().value()).orElseThrow().getNickname()).isEqualTo("김싸피");
+    }
+
+    @Test
+    void 없는_사용자는_가입할_수_없다() {
+        assertThatThrownBy(() -> userWriter.completeOnboarding(UserId.of(Long.MAX_VALUE), signup("김싸피")))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.REQUESTER_NOT_IDENTIFIABLE));
+    }
+
+    @Test
     void 대소문자만_다른_같은_지갑으로_사용자를_중복_생성할_수_없다() {
         String walletAddress = "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359";
         userWriter.create(walletAddress);
@@ -85,5 +124,9 @@ class UserWriterIntegrationTest {
                     assertThat(cause.getConstraintName())
                             .containsIgnoringCase("uq_app_user_wallet_address");
                 });
+    }
+
+    private static UserSignup signup(String nickname) {
+        return new UserSignup(Nickname.of(nickname), Introduction.of("에이전트를 만듭니다"), true, true);
     }
 }

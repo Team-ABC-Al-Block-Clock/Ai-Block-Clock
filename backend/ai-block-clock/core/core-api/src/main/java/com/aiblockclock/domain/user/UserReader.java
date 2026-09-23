@@ -1,6 +1,8 @@
 package com.aiblockclock.domain.user;
 
 import com.aiblockclock.storage.user.UserRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -14,6 +16,13 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class UserReader {
     private final UserRepository userRepository;
+
+    // 세션은 남았는데 사용자 행이 없으면(DB 초기화 뒤 남은 쿠키) 다시 로그인하게 401 로 돌려보낸다.
+    public User read(UserId userId) {
+        return userRepository.findById(userId.value())
+                .map(UserEntityConverter::toDomain)
+                .orElseThrow(() -> new CoreException(ErrorType.REQUESTER_NOT_IDENTIFIABLE));
+    }
 
     public Optional<User> findByWalletAddress(String walletAddress) {
         return userRepository.findByWalletAddressIgnoreCase(walletAddress)
