@@ -1,8 +1,14 @@
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useRef, useState, useMemo } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 
-import { estimateCost } from '@/api/executions'
+import { ApiError } from '@/api/errors'
+import {
+  RUN_FILE_LIMITS,
+  describeRunFileProblem,
+  estimateCost,
+  startExecution,
+} from '@/api/executions'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
@@ -22,6 +28,9 @@ import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
+
+/** 서버가 받는 코멘트 길이. 넘겨 보내면 `COMMON_001` 이라 입력칸에서 먼저 막는다. */
+const COMMENT_MAX = 500
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
 /**
@@ -55,6 +64,26 @@ export default function RunWaiting() {
   const [prompt, setPrompt] = useState('')
   const filled = prompt.trim().length > 0
 
+  /** 첫 단계가 읽을 파일. 고르지 않아도 실행할 수 있다 — 파일 없이 도는 워크플로우가 있다. */
+  const [file, setFile] = useState<File | null>(null)
+  const [fileProblem, setFileProblem] = useState('')
+  const filePicker = useRef<HTMLInputElement>(null)
+
+  const handlePick = (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = ev.target.files?.[0] ?? null
+    // 같은 파일을 다시 고를 수 있어야 한다. 값을 비우지 않으면 change 가 두 번째부터 안 난다.
+    ev.target.value = ''
+    if (!picked) return
+    const problem = describeRunFileProblem(picked)
+    setFileProblem(problem ?? '')
+    setFile(problem ? null : picked)
+  }
+
+  const handleClearFile = () => {
+    setFile(null)
+    setFileProblem('')
+  }
+
   /**
    * 실행 전 견적. 계산만 하고 차감하지 않아 창을 떠난 사이 다른 실행이 잔액을 잡아 둘 수 있다
    * — 충전하고 돌아오는 길도 마찬가지라 돌아올 때마다 다시 받는다.
@@ -84,22 +113,44 @@ export default function RunWaiting() {
    */
   const blocked = cost ? !cost.executable : false
 
+  /**
+   * 실행 접수. 서버는 기다리지 않고 접수 번호만 주므로 성공하면 바로 진행 화면으로 넘긴다.
+   *
+   * 진행 응답에 그래프가 없어 `workflowId` 도 함께 넘긴다 — 진행 화면은 그 값으로 캔버스를
+   * 그리고, 받은 단계는 이름과 상태만 그 위에 얹는다.
+   */
+  const start = useMutation({
+    mutationFn: () => startExecution({ workflowId: workflowId!, comment: prompt, file }),
+    onSuccess: (started) =>
+      navigate(`${paths.run.running(started.executionId)}?workflowId=${workflowId}`),
+  })
+
   const handleRun = () => {
-    if (!filled || blocked) return
-    // 돌릴 워크플로우를 그대로 넘긴다. 없으면 자리표시자 그대로다.
-    navigate(
-      workflowId
-        ? `${paths.run.running.withoutId}?workflowId=${workflowId}`
-        : paths.run.running.withoutId,
-    )
+    if (!on) return
+    start.mutate()
   }
-  const on = filled && !blocked
+  /** 워크플로우가 없으면 돌릴 것이 없다. 견적도 못 받아 `blocked` 로는 걸러지지 않는다. */
+  const on = !!workflowId && filled && !blocked && !start.isPending
   const btnBg = on ? 'var(--color-accent)' : 'rgba(255,255,255,.09)'
   const btnColor = on ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.42)'
   const btnShadow = on
     ? '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.5)'
     : 'inset 0 1px 0 rgba(255,255,255,.12)'
   const btnCursor = on ? 'pointer' : 'not-allowed'
+
+  /**
+   * 버튼이 왜 안 눌리는지, 왜 실패했는지를 버튼 아래에 적는다.
+   *
+   * 접수 실패는 서버 문구를 그대로 쓴다 — 코드마다 화면 문구를 새로 지으면 서버가 코드를
+   * 늘릴 때마다 「알 수 없는 오류」가 된다. 응답을 못 받은 경우만 우리가 문구를 채운다.
+   */
+  const runNotice = start.error
+    ? start.error instanceof ApiError && !start.error.isNetworkError
+      ? start.error.message
+      : '실행을 맡기지 못했습니다. 잠시 뒤 다시 시도해 주세요'
+    : !workflowId
+      ? '저장된 워크플로우를 열어야 실행할 수 있습니다'
+      : ''
 
   /** 목록이 비어 보이는 이유를 자리에 적는다 — 빈 상자만 두면 노드가 없는 것처럼 읽힌다. */
   const itemsNotice = !workflowId
@@ -207,7 +258,7 @@ export default function RunWaiting() {
             left: `${PANEL_INSET}px`,
             top: '132px',
             width: `${PANEL_CONTENT_WIDTH}px`,
-            height: '180px',
+            height: '136px',
             borderRadius: '12px',
             background: 'var(--color-surface-inset)',
           }}
@@ -217,16 +268,70 @@ export default function RunWaiting() {
             id="runPrompt"
             value={prompt}
             onChange={(ev) => setPrompt(ev.target.value)}
+            maxLength={COMMENT_MAX}
             placeholder="예: 다운로드 폴더의 PDF를 주제별로 분류해줘"
             style={{
               left: '18px',
               top: '16px',
               width: '364px',
-              height: '148px',
+              height: '104px',
               resize: 'none',
               lineHeight: '1.55',
             }}
           ></textarea>
+        </div>
+
+        {/* 첫 단계가 읽을 파일. 상자를 누르면 고르는 창이 열린다. */}
+        <div
+          onClick={() => filePicker.current?.click()}
+          className="absolute flex cursor-pointer items-center justify-between"
+          style={{
+            left: `${PANEL_INSET}px`,
+            top: '280px',
+            width: `${PANEL_CONTENT_WIDTH}px`,
+            height: '44px',
+            padding: '0 8px 0 16px',
+            borderRadius: '11px',
+            background: 'var(--color-surface-inset)',
+          }}
+        >
+          <input
+            ref={filePicker}
+            type="file"
+            className="hidden"
+            accept={RUN_FILE_LIMITS.extensions.join(',')}
+            onChange={handlePick}
+          />
+          <div
+            className="truncate text-[14.5px]"
+            style={{
+              maxWidth: '280px',
+              color: fileProblem
+                ? 'rgba(255,190,209,.9)'
+                : file
+                  ? 'rgba(255,255,255,.9)'
+                  : 'rgba(255,255,255,.5)',
+            }}
+          >
+            {fileProblem || file?.name || '엑셀 또는 CSV 파일 (선택)'}
+          </div>
+          <div
+            onClick={(ev) => {
+              if (!file) return
+              // 상자를 누르면 고르는 창이 열린다. 지우기는 그 위에 있어 따로 끊어 준다.
+              ev.stopPropagation()
+              handleClearFile()
+            }}
+            style={{
+              height: '30px',
+              padding: '0 14px',
+              borderRadius: '8px',
+              background: 'rgba(255,255,255,.16)',
+            }}
+            className="flex flex-none items-center text-[12.5px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.28)]"
+          >
+            {file ? '지우기' : '찾기'}
+          </div>
         </div>
 
         <div
@@ -322,8 +427,22 @@ export default function RunWaiting() {
           }}
           className="absolute flex items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
         >
-          <span>실행하기</span>
+          <span>{start.isPending ? '실행을 맡기는 중…' : '실행하기'}</span>
         </div>
+
+        {runNotice && (
+          <div
+            className="absolute text-[13px] tracking-[-.005em]"
+            style={{
+              left: `${PANEL_INSET}px`,
+              top: '592px',
+              width: `${PANEL_CONTENT_WIDTH}px`,
+              color: start.error ? 'rgba(255,190,209,.9)' : 'rgba(255,236,246,.5)',
+            }}
+          >
+            {runNotice}
+          </div>
+        )}
 
         <div
           className="absolute text-[20px] font-semibold tracking-[-.01em]"
