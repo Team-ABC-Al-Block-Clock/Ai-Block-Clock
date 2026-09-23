@@ -15,6 +15,8 @@ import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
+import { queryClient } from '@/lib/queryClient'
+import { queryKeys } from '@/lib/queryKeys'
 import { nodeTypeLabel } from '@/lib/format'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { paths } from '@/routes/paths'
@@ -126,33 +128,47 @@ export default function EditNodes() {
   const dirty = savedShape !== pending
 
   const save = useMutation({
+    // 보낸 내용을 함께 돌려준다. `onSuccess` 에서 `pending` 을 다시 읽으면 요청이 나가는 동안
+    // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
     mutationFn: async () => {
       if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
-      return saved
-        ? replaceWorkflow(saved.workflowId, {
+      const shape = shapeOf(graph, trimmedName)
+      const result = saved
+        ? await replaceWorkflow(saved.workflowId, {
             ...graph,
             name: trimmedName,
             revision: saved.revision,
           })
-        : saveWorkflow({ ...graph, name: trimmedName })
+        : await saveWorkflow({ ...graph, name: trimmedName })
+      return { result, shape }
     },
-    onSuccess: (result) => {
+    onSuccess: ({ result, shape }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
-      setSavedShape(pending)
+      setSavedShape(shape)
+      // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.workflows.detail(result.workflowId),
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() })
       // 주소에 id 를 남겨 새로고침해도 돌아올 수 있게 한다. `navigate` 는 쓰지 않는다 —
       // 라우트 패턴이 갈려 화면이 새로 마운트되면 방금 배치한 좌표가 복원 배치로 바뀐다.
-      if (!workflowId) history.replaceState(null, '', paths.edit.nodes(result.workflowId))
+      // state 는 그대로 넘긴다. null 을 넣으면 라우터가 들고 있던 히스토리 index 가 날아간다.
+      if (!workflowId) {
+        history.replaceState(history.state, '', paths.edit.nodes(result.workflowId))
+      }
     },
   })
 
   /** 못 누르는 이유. 없으면 누를 수 있다 — 버튼을 죽여 두기만 하면 왜인지 알 길이 없다. */
-  const saveBlocked = !nodes.length
-    ? '노드를 하나 이상 놓아 주세요'
-    : !graph
-      ? '노드를 한 줄로 이어 주세요'
-      : !trimmedName
-        ? '워크플로우 이름을 적어 주세요'
-        : null
+  const saveBlocked = loaded.isPending
+    ? '워크플로우를 불러오는 중입니다'
+    : !nodes.length
+      ? '노드를 하나 이상 놓아 주세요'
+      : !graph
+        ? '노드를 한 줄로 이어 주세요'
+        : !trimmedName
+          ? '워크플로우 이름을 적어 주세요'
+          : null
   const canSave = !saveBlocked && !save.isPending && dirty
   const canRun = !saveBlocked && !save.isPending
   const saveError = describeSaveError(save.error)
@@ -161,7 +177,7 @@ export default function EditNodes() {
   /** 저장하지 않았거나 바뀐 것이 있으면 먼저 저장하고 넘어간다. 실패하면 문구만 남기고 머문다. */
   const runNow = async () => {
     try {
-      const id = dirty ? (await save.mutateAsync()).workflowId : saved?.workflowId
+      const id = dirty ? (await save.mutateAsync()).result.workflowId : saved?.workflowId
       if (id) navigate(`${paths.run.waiting.withoutId}?workflowId=${id}`)
     } catch {
       // 실패 문구는 `save.error` 가 이미 들고 있다. 화면에 머문다.
