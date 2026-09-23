@@ -68,6 +68,8 @@ export type CanvasAction =
   /** 미끄러짐까지 끝난 자리로 확정. 겹침은 부르는 쪽에서 이미 풀었다. */
   | { type: 'settleNode'; id: string; x: number; y: number }
   | { type: 'placeNode'; seed: PlacedSeed; x: number; y: number; bounds?: CanvasBounds }
+  /** 저장된 워크플로우를 불러와 캔버스를 통째로 갈아 끼운다. */
+  | { type: 'loadGraph'; nodes: CanvasNodeData[]; edges: CanvasEdge[] }
   /** 선택한 것을 지움. 노드면 거기 붙은 선도 함께. */
   | { type: 'removeSelected' }
   | { type: 'startLink'; from: LinkOrigin }
@@ -108,6 +110,19 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       return {
         ...state,
         nodes: placeNode(state.nodes, action.seed, action.x, action.y, action.bounds ?? NO_BOUNDS),
+      }
+
+    // 고르던 것과 끌던 것은 새 그래프에 없는 id 일 수 있다. 같이 비운다.
+    case 'loadGraph':
+      return {
+        ...state,
+        nodes: action.nodes,
+        edges: action.edges,
+        selId: null,
+        selEdge: null,
+        hovId: null,
+        dragId: null,
+        linkFrom: null,
       }
 
     case 'removeSelected': {

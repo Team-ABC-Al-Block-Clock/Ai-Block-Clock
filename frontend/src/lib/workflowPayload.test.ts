@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { CANVAS_EDGES, CANVAS_NODES, type CanvasEdge, type CanvasNodeData } from './canvasWorkflow'
-import { toWorkflowGraph } from './workflowPayload'
+import type { WorkflowDetail } from '@/api/workflows'
+
+import { toCanvasWorkflow, toWorkflowGraph } from './workflowPayload'
 
 const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData => ({
   id,
@@ -94,5 +96,85 @@ describe('toWorkflowGraph', () => {
       'node_005',
     ])
     expect(graph?.edges).toHaveLength(4)
+  })
+})
+
+describe('toCanvasWorkflow', () => {
+  const detail = (nodeCount: number): WorkflowDetail => ({
+    workflowId: 'wf-1',
+    name: '문서 정리',
+    description: null,
+    revision: 3,
+    nodes: Array.from({ length: nodeCount }, (_, i) => ({
+      nodeKey: `n${i + 1}`,
+      sourceType: 'NODE' as const,
+      sourceId: `node_00${i + 1}`,
+      versionId: null,
+      inputSource: 'PREV' as const,
+    })),
+    edges: Array.from({ length: Math.max(0, nodeCount - 1) }, (_, i) => ({
+      edgeKey: `e${i + 1}`,
+      sourceNodeKey: `n${i + 1}`,
+      targetNodeKey: `n${i + 2}`,
+    })),
+    estimatedCost: '0',
+    currency: 'ABC',
+    lastExecutedAt: null,
+    updatedAt: '2026-09-23T00:00:00Z',
+  })
+
+  const known = (sourceId: string) =>
+    sourceId === 'node_001'
+      ? { name: '파일 수집', nodeType: 'TRIGGER' as const, mine: true }
+      : undefined
+
+  it('순서대로 왼쪽부터 늘어놓는다', () => {
+    const canvas = toCanvasWorkflow(detail(3), known)
+
+    expect(canvas.nodes.map((n) => n.sourceId)).toEqual(['node_001', 'node_002', 'node_003'])
+    const xs = canvas.nodes.map((n) => n.x)
+    expect(xs[1] - xs[0]).toBe(xs[2] - xs[1])
+    expect(xs[0]).toBeLessThan(xs[1])
+    expect(new Set(canvas.nodes.map((n) => n.y)).size).toBe(1)
+  })
+
+  it('선은 새 id 로 다시 잇는다', () => {
+    const canvas = toCanvasWorkflow(detail(3), known)
+    const ids = canvas.nodes.map((n) => n.id)
+
+    expect(canvas.edges).toEqual([
+      { id: `${ids[0]}__${ids[1]}`, from: ids[0], to: ids[1] },
+      { id: `${ids[1]}__${ids[2]}`, from: ids[1], to: ids[2] },
+    ])
+  })
+
+  it('팔레트가 아는 노드는 이름과 종류를 채운다', () => {
+    const [first] = toCanvasWorkflow(detail(2), known).nodes
+
+    expect(first).toMatchObject({ name: '파일 수집', nodeType: 'TRIGGER', mine: true })
+  })
+
+  // 카드를 빼 버리면 저장된 구성이 조용히 바뀐다. 자리는 남기고 이름만 비운다.
+  it('모르는 노드도 자리를 남기고 남의 것으로 둔다', () => {
+    const nodes = toCanvasWorkflow(detail(2), known).nodes
+
+    expect(nodes).toHaveLength(2)
+    expect(nodes[1]).toMatchObject({ name: '알 수 없는 노드', mine: false })
+    expect(nodes[1].sourceId).toBe('node_002')
+  })
+
+  it('되돌린 캔버스를 그대로 다시 보낼 수 있다', () => {
+    const canvas = toCanvasWorkflow(detail(3), known)
+    const graph = toWorkflowGraph(canvas.nodes, canvas.edges)
+
+    expect(graph?.nodes.map((n) => n.sourceId)).toEqual(['node_001', 'node_002', 'node_003'])
+    expect(graph?.edges).toHaveLength(2)
+  })
+
+  it('노드 하나면 선이 없다', () => {
+    const canvas = toCanvasWorkflow(detail(1), known)
+
+    expect(canvas.nodes).toHaveLength(1)
+    expect(canvas.edges).toEqual([])
   })
 })

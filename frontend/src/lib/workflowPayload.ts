@@ -1,5 +1,5 @@
-import type { EdgePlacement, NodePlacement, WorkflowGraph } from '@/api/workflows'
-import { type CanvasEdge, type CanvasNodeData, linearOrder } from '@/lib/canvasWorkflow'
+import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
+import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/lib/canvasWorkflow'
 
 /**
  * 캔버스를 서버가 받는 그래프로 바꾼다. 한 줄이 아니면 `null`.
@@ -34,4 +34,57 @@ export function toWorkflowGraph(
   }))
 
   return { nodes: placements, edges: links }
+}
+
+/** 불러올 때 카드를 늘어놓는 간격. 자리표시자와 같은 보폭이다. */
+const RESTORE_STEP = NODE_SIZE + 29
+const RESTORE_X0 = 12
+const RESTORE_Y = 380
+
+/** 팔레트가 아는 표시용 정보. 서버 응답에 이름·종류가 없어 밖에서 채워 준다. */
+export interface NodeLabel {
+  name: string
+  nodeType: CanvasNodeData['nodeType']
+  mine: boolean
+}
+
+/**
+ * 저장된 워크플로우를 캔버스로 되돌린다.
+ *
+ * 서버는 좌표를 저장하지 않아 순서만 온다. 한 줄이라 왼쪽부터 같은 간격으로 늘어놓으면
+ * 원래 배치와 달라도 읽는 데는 지장이 없다.
+ *
+ * 이름·종류·내 것인지도 서버가 주지 않는다(`NodeResponse` 는 `sourceId` 까지다). 팔레트에서
+ * 찾아 넘겨받고, 못 찾으면 자리만 만들어 둔다 — 카드가 통째로 사라지면 저장된 구성이
+ * 바뀌어 버린다.
+ */
+export function toCanvasWorkflow(
+  detail: WorkflowDetail,
+  describe: (sourceId: string) => NodeLabel | undefined,
+): { nodes: CanvasNodeData[]; edges: CanvasEdge[] } {
+  const idOf = new Map(detail.nodes.map((node, i) => [node.nodeKey, `loaded-${i + 1}`]))
+
+  const nodes = detail.nodes.map((node, i) => {
+    const label = describe(node.sourceId)
+    return {
+      id: idOf.get(node.nodeKey)!,
+      name: label?.name ?? '알 수 없는 노드',
+      nodeType: label?.nodeType ?? (node.sourceType === 'AGENT' ? 'AGENT' : 'TOOL'),
+      sourceType: node.sourceType,
+      sourceId: node.sourceId,
+      x: RESTORE_X0 + i * RESTORE_STEP,
+      y: RESTORE_Y,
+      // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
+      mine: label?.mine ?? false,
+      floaty: '',
+    } satisfies CanvasNodeData
+  })
+
+  const edges = detail.edges.flatMap((edge) => {
+    const from = idOf.get(edge.sourceNodeKey)
+    const to = idOf.get(edge.targetNodeKey)
+    return from && to ? [{ id: `${from}__${to}`, from, to }] : []
+  })
+
+  return { nodes, edges }
 }
