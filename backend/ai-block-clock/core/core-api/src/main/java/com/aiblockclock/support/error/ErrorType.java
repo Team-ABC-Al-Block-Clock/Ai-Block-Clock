@@ -93,11 +93,35 @@ public enum ErrorType {
     NODE_PLACED_IN_GRAPH(HttpStatus.CONFLICT, ErrorCode.NODE_004,
             "워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
 
+    REF_FILE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.NODE_005,
+            "참고 자료를 찾을 수 없습니다.", LogLevel.WARN),
+
+    REF_FILE_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
+            "빈 파일은 붙일 수 없습니다.", LogLevel.WARN),
+
+    REF_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
+            "PDF · 텍스트 · 마크다운 · CSV · 이미지만 붙일 수 있습니다.", LogLevel.WARN),
+
+    REF_FILE_TOTAL_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.NODE_007,
+            "노드에 붙인 참고 자료의 합계가 10MB 를 넘습니다.", LogLevel.WARN),
+
     EXECUTION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
             "실행을 찾을 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ENGINE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.EXECUTION_002,
             "실행을 맡기지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
+
+    EXECUTION_FILE_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_003,
+            "빈 파일은 올릴 수 없습니다.", LogLevel.WARN),
+
+    EXECUTION_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_003,
+            "엑셀 또는 CSV 파일만 올릴 수 있습니다.", LogLevel.WARN),
+
+    EXECUTION_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.EXECUTION_004,
+            "파일 크기가 10MB 를 넘습니다.", LogLevel.WARN),
+
+    FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
+            "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),
 
     RECOMMEND_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.RECOMMEND_001,
             "추천을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),

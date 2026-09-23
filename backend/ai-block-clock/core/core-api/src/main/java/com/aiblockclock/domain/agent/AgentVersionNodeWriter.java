@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.agent;
 
+import com.aiblockclock.storage.agent.AgentVersionNodeRefFileRepository;
 import com.aiblockclock.storage.agent.AgentVersionNodeRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -13,11 +14,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AgentVersionNodeWriter {
     private final AgentVersionNodeRepository agentVersionNodeRepository;
+    private final AgentVersionNodeRefFileRepository agentVersionNodeRefFileRepository;
 
     @Transactional
     public void append(AgentVersionId versionId, List<VersionNode> nodes) {
         agentVersionNodeRepository.saveAll(nodes.stream()
                 .map(node -> AgentVersionNodeEntityConverter.toEntity(versionId, node))
+                .toList());
+
+        agentVersionNodeRefFileRepository.saveAll(nodes.stream()
+                .flatMap(node -> AgentVersionNodeEntityConverter.toRefFileEntities(versionId, node).stream())
                 .toList());
     }
 }

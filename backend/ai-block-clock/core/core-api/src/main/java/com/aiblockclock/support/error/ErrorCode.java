@@ -29,9 +29,16 @@ public enum ErrorCode {
     NODE_002,
     NODE_003,
     NODE_004,
+    NODE_005,
+    NODE_006,
+    NODE_007,
 
     EXECUTION_001,
     EXECUTION_002,
+    EXECUTION_003,
+    EXECUTION_004,
+
+    FILE_001,
 
     RECOMMEND_001,
 
