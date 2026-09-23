@@ -33,7 +33,7 @@
 | 에이전트 · 버전 저장 (`AgentWriter` · `AgentVersionWriter`) | **들어감** |
 | `POST /agents` (등록 = 첫 버전 공개) | **들어감** |
 | 실행 단위 타입 — 에이전트 (`AgentUnit` · 재귀 조립) | 남음 (6장) |
-| 에이전트 배치 (`AgentNodeSourceResolver` 열기) | 남음 — 다음 브랜치 |
+| 에이전트 배치 (공개 버전 고정) | **들어감** — `PublishedAgentSourceResolver` 가 공개 버전을 박는다 |
 | 새 작업 노드를 배치에 실어 받기 | **들어감** — `LLM` 배치만 본문을 싣고, `CatalogNodeSourceResolver` 가 만든다 |
 | 추천 중계 `GET /marketplace/agents/recommendations` | **들어감** — 자연어 한 줄로 공개 에이전트를 찾는다 (1.4) |
 | 추천 색인 유지 (등록 시 · 기동 시 전체) | **들어감** — 색인은 우리 DB 에서 파생된 캐시다 (1.4) |
