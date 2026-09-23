@@ -19,7 +19,7 @@ export interface CreditTransaction {
   /** 서버가 Long 이라 숫자다 */
   transactionId: number
   transactionType: CreditTransactionType
-  /** 부호를 포함한 변동액 — 화면이 부호를 만들지 않는다 */
+  /** 음수에만 부호가 붙는다. 양수는 그대로 — 화면이 부호를 만들지 않는다 */
   amount: string
   occurredAt: string
   /** 실행 때문에 생긴 줄만 값이 있다 */

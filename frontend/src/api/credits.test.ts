@@ -81,12 +81,14 @@ describe('getCreditTransactions', () => {
     expect(page.nextCursor).toBeNull()
   })
 
-  it('금액은 부호를 달고 온다 — 충전·환불 +, 선차감 -', async () => {
+  // 서버는 BigDecimal.toPlainString() 을 내보내 음수에만 부호가 붙는다(AbcControllerTest:120).
+  it('선차감만 음수고 충전·환불은 부호가 없다', async () => {
     const page = await getCreditTransactions({ size: 50 })
 
     for (const t of page.content) {
-      const sign = t.transactionType === 'RESERVE' ? '-' : '+'
-      expect(t.amount.startsWith(sign)).toBe(true)
+      const negative = t.amount.startsWith('-')
+      expect(negative).toBe(t.transactionType === 'RESERVE')
+      expect(t.amount.startsWith('+')).toBe(false)
     }
   })
 

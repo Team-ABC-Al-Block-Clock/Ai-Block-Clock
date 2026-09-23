@@ -5,7 +5,7 @@ import type { CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditTransactions } from '@/api/credits'
 import { paths } from '@/routes/paths'
 import StatusDot from '@/components/StatusDot'
-import { priceLabel, shortAddress, signedPriceLabel, timeLabel } from '@/lib/format'
+import { priceLabel, shortAddress, timeLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 
 /** 마켓(9)·마이페이지 목록(10)과 다르다. */
@@ -417,7 +417,7 @@ export default function MyPageUsage() {
                 >
                   {TYPE_LABELS[h.transactionType] ?? h.transactionType}
                 </div>
-                <div style={{ width: '160px' }}>{signedPriceLabel(h.amount)}</div>
+                <div style={{ width: '160px' }}>{priceLabel(h.amount)}</div>
                 {/* 실행 상세 화면이 생기면 링크를 붙인다. */}
                 <div style={{ width: '200px', color: 'rgba(255,255,255,.45)' }}>
                   {h.executionId ?? '—'}
