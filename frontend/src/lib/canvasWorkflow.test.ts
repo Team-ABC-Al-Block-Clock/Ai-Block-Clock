@@ -20,7 +20,14 @@ import {
   type CanvasNodeData,
 } from './canvasWorkflow'
 
-const seed = { id: 'p1', name: '번역', nodeType: 'LLM', mine: true } as const
+const seed = {
+  id: 'p1',
+  name: '번역',
+  nodeType: 'LLM',
+  sourceType: 'NODE',
+  sourceId: 'node_009',
+  mine: true,
+} as const
 
 // 아래 다섯은 구현에서 가져오지 않는다. 빌려 쓰면 구현이 틀릴 때 단언도 나란히 틀린다.
 const NODE_SIZE = 168
@@ -48,6 +55,8 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   id,
   name: id,
   nodeType: 'TOOL',
+  sourceType: 'NODE',
+  sourceId: `src-${id}`,
   x,
   y,
   mine: true,

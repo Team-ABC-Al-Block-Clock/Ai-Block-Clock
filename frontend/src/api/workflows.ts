@@ -38,12 +38,15 @@ export type NodeType = 'TRIGGER' | 'LLM' | 'TOOL'
 /** 검색 결과의 유형. 다른 사람의 에이전트는 내부 구성을 공개하지 않아 'AGENT' 로만 온다. */
 export type ItemNodeType = NodeType | 'AGENT'
 
+/** 캔버스에 놓은 것이 기본 노드인지 에이전트인지. 서버 `SourceType` 을 그대로 따른다. */
+export type SourceType = 'NODE' | 'AGENT'
+
 /** 편집 화면은 늘 ALL 로 불러온다. */
 export type PaletteScope = 'MINE' | 'ALL'
 
 export interface PlaceableItem {
   itemId: string
-  itemType: 'NODE' | 'AGENT'
+  itemType: SourceType
   name: string
   nodeType: ItemNodeType
   iconUrl: string | null

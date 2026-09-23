@@ -73,7 +73,17 @@ export default function EditNodes() {
     const item = palette.findItem(itemId)
     const point = item && canvas.toCanvasPoint(ev.clientX, ev.clientY)
     if (!item || !point) return
-    canvas.placeFromPalette({ name: item.name, nodeType: item.nodeType, mine: item.mine }, point)
+    // itemId·itemType 을 함께 싣는다 — 저장할 때 서버가 아는 원본을 가리킬 유일한 값이다.
+    canvas.placeFromPalette(
+      {
+        name: item.name,
+        nodeType: item.nodeType,
+        sourceType: item.itemType,
+        sourceId: item.itemId,
+        mine: item.mine,
+      },
+      point,
+    )
   }
 
   const n = nodes.find((node) => node.id === selId)

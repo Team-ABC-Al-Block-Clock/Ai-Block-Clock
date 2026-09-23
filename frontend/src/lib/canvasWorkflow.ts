@@ -1,4 +1,4 @@
-import type { ItemNodeType } from '@/api/workflows'
+import type { ItemNodeType, SourceType } from '@/api/workflows'
 
 import { roundedPath, routeEdge } from './edgeRoute'
 
@@ -49,6 +49,10 @@ export interface CanvasNodeData {
   id: string
   name: string
   nodeType: ItemNodeType
+  /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드와 에이전트를 가른다 */
+  sourceType: SourceType
+  /** 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다 */
+  sourceId: string
   x: number
   y: number
   mine: boolean
@@ -70,6 +74,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-1',
     name: '파일 수집',
     nodeType: 'TRIGGER',
+    sourceType: 'NODE',
+    sourceId: 'node_001',
     x: 12,
     y: 400,
     mine: true,
@@ -80,6 +86,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-2',
     name: '내용 분석',
     nodeType: 'LLM',
+    sourceType: 'NODE',
+    sourceId: 'node_002',
     x: 209,
     y: 320,
     mine: true,
@@ -90,6 +98,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-3',
     name: '분류 및 태깅',
     nodeType: 'TOOL',
+    sourceType: 'NODE',
+    sourceId: 'node_003',
     x: 406,
     y: 440,
     mine: true,
@@ -100,6 +110,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-4',
     name: '요약 생성',
     nodeType: 'LLM',
+    sourceType: 'NODE',
+    sourceId: 'node_004',
     x: 603,
     y: 330,
     mine: true,
@@ -110,6 +122,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-5',
     name: '결과 전달',
     nodeType: 'TOOL',
+    sourceType: 'NODE',
+    sourceId: 'node_005',
     x: 800,
     y: 430,
     mine: true,
@@ -308,7 +322,7 @@ export function resolveOverlap(
 /** 팔레트에서 드래그해 온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
 export function placeNode(
   nodes: CanvasNodeData[],
-  seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'mine'>,
+  seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'>,
   x: number,
   y: number,
   bounds: CanvasBounds = NO_BOUNDS,
