@@ -142,6 +142,10 @@ export default function EditNodes() {
         : await saveWorkflow({ ...graph, name: trimmedName })
       return { result, shape }
     },
+    // 회차가 어긋나면 들고 있던 값이 낡은 것이다. 다시 받아 두지 않으면 몇 번을 눌러도 같은 409 다.
+    onError: (error) => {
+      if (error instanceof ApiError && error.code === 'WORKFLOW_016') void loaded.refetch()
+    },
     onSuccess: ({ result, shape }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
       setSavedShape(shape)
