@@ -1,8 +1,9 @@
+import { AxiosError } from 'axios'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { logout } from '@/api/auth'
-import { API_BASE_URL, api } from '@/api/client'
+import { API_BASE_URL, api, client } from '@/api/client'
 import { clearCsrfToken } from '@/api/csrf'
 import { ApiError, AUTH_ERROR } from '@/api/errors'
 import { fail, ok } from '@/mocks/response'
@@ -95,6 +96,27 @@ describe('토큰이 죽었을 때', () => {
     expect(sent).toEqual(['token-1', 'token-2'])
   })
 
+  // 각자 버리고 각자 받으면 발급이 두 번 나간다. 세션 쿠키가 없을 때는 세션이 두 개 열리고
+  // 먼저 받은 쪽이 버려진 세션 토큰을 들게 되는데, 재시도 표시가 이미 서 있어 그대로 실패한다.
+  it('같은 토큰으로 동시에 403 을 받아도 새 토큰은 한 번만 받는다', async () => {
+    const sent: (string | null)[] = []
+    server.use(
+      http.post(PROBE, ({ request }) => {
+        const token = request.headers.get('X-CSRF-TOKEN')
+        sent.push(token)
+        return token === 'token-1' ? forbidden() : ok('saved')
+      }),
+    )
+
+    await expect(Promise.all([api.post('/probe'), api.post('/probe')])).resolves.toEqual([
+      'saved',
+      'saved',
+    ])
+
+    expect(issued).toEqual(['token-1', 'token-2'])
+    expect(sent.filter((t) => t === 'token-2')).toHaveLength(2)
+  })
+
   it('재시도까지 403 이면 그대로 실패한다 — 끝없이 돌지 않는다', async () => {
     let attempts = 0
     server.use(
@@ -106,6 +128,78 @@ describe('토큰이 죽었을 때', () => {
 
     await expect(api.post('/probe')).rejects.toBeInstanceOf(ApiError)
     expect(attempts).toBe(2)
+  })
+
+  // axios 는 이미 직렬화해 둔 본문을 들고 재시도하면서 transformRequest 를 한 번 더 돌린다.
+  // 지금은 문자열·FormData 모두 그대로 통과하지만, axios 를 올릴 때 조용히 깨질 자리다.
+  it('재시도에도 JSON 본문이 그대로 실린다', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.post(PROBE, async ({ request }) => {
+        bodies.push(await request.json())
+        return bodies.length === 1 ? forbidden() : ok('saved')
+      }),
+    )
+
+    await expect(api.post('/probe', { nickname: '한서윤', age: 3 })).resolves.toBe('saved')
+    expect(bodies).toEqual([
+      { nickname: '한서윤', age: 3 },
+      { nickname: '한서윤', age: 3 },
+    ])
+  })
+
+  // jsdom 은 multipart 를 직렬화하지 못해 MSW 까지 보낼 수 없다(`auth.test.ts` 의 같은 이유).
+  // 어댑터를 가로채 재시도가 같은 FormData 를 그대로 다시 들고 나가는지만 본다.
+  it('재시도에도 multipart 본문이 그대로 실린다', async () => {
+    const previous = client.defaults.adapter
+    const seen: unknown[] = []
+
+    client.defaults.adapter = (config) => {
+      if (config.url?.endsWith('/auth/csrf')) {
+        const token = `token-${issued.length + 1}`
+        issued.push(token)
+        return Promise.resolve({
+          data: { status: 'SUCCESS', data: { headerName: 'X-CSRF-TOKEN', token } },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        })
+      }
+
+      seen.push(config.data)
+      if (seen.length === 1) {
+        return Promise.reject(
+          new AxiosError('403', 'ERR_BAD_REQUEST', config, null, {
+            data: { timestamp: '', status: 403, error: 'Forbidden', path: '/probe' },
+            status: 403,
+            statusText: 'Forbidden',
+            headers: {},
+            config,
+          }),
+        )
+      }
+      return Promise.resolve({
+        data: { status: 'SUCCESS', data: 'saved' },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      })
+    }
+
+    const form = new FormData()
+    form.append('nickname', '한서윤')
+
+    try {
+      await expect(api.post('/probe', form)).resolves.toBe('saved')
+    } finally {
+      client.defaults.adapter = previous
+    }
+
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toBe(form)
+    expect((seen[1] as FormData).get('nickname')).toBe('한서윤')
   })
 
   it('오류 봉투가 붙은 403 은 권한 거절이라 재시도하지 않는다', async () => {
@@ -161,5 +255,70 @@ describe('세션이 갈릴 때', () => {
     await api.post('/probe-again')
 
     expect(issued).toEqual(['token-1', 'token-2'])
+  })
+
+  // 발급 진행 중에 세션이 갈리면, 늦게 도착한 토큰은 죽은 세션 것이다.
+  it('발급을 기다리는 사이 버렸으면 그 토큰은 캐시에 남기지 않는다', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      http.get(`${API_BASE_URL}/auth/csrf`, async () => {
+        const token = `token-${issued.length + 1}`
+        issued.push(token)
+        await held
+        return ok({ headerName: 'X-CSRF-TOKEN', token })
+      }),
+      http.post(PROBE, () => ok(null)),
+    )
+
+    const pending = api.post('/probe')
+    // 발급이 실제로 나간 뒤에 버려야 한다. 먼저 버리면 그냥 새로 받을 뿐이다.
+    await vi.waitFor(() => expect(issued).toHaveLength(1))
+    clearCsrfToken()
+    release()
+    await pending
+
+    await api.post('/probe')
+
+    expect(issued).toEqual(['token-1', 'token-2'])
+  })
+})
+
+describe('발급이 제대로 안 될 때', () => {
+  it('발급이 실패하면 요청을 보내지 않고 원인을 그대로 알린다', async () => {
+    let attempts = 0
+    server.use(
+      http.get(`${API_BASE_URL}/auth/csrf`, () => fail(500, 'COMMON_002', '서버 오류입니다.')),
+      http.post(PROBE, () => {
+        attempts += 1
+        return ok(null)
+      }),
+    )
+
+    // 인터셉터가 던진 ApiError 를 응답 인터셉터가 다시 싸면 code·status 가 지워진다.
+    await expect(api.post('/probe')).rejects.toMatchObject({
+      code: 'COMMON_002',
+      status: 500,
+      isNetworkError: false,
+    })
+    expect(attempts).toBe(0)
+  })
+
+  it('봉투는 맞는데 토큰이 비었으면 헤더 없이 내보내지 않는다', async () => {
+    let attempts = 0
+    server.use(
+      http.get(`${API_BASE_URL}/auth/csrf`, () => ok({})),
+      http.post(PROBE, () => {
+        attempts += 1
+        return ok(null)
+      }),
+    )
+
+    await expect(api.post('/probe')).rejects.toBeInstanceOf(ApiError)
+    expect(attempts).toBe(0)
+
+    // 캐시에 빈 값이 굳으면 새로고침 전까지 모든 쓰기가 헤더 없이 나간다.
+    await expect(api.post('/probe')).rejects.toBeInstanceOf(ApiError)
+    expect(attempts).toBe(0)
   })
 })
