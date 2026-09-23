@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
@@ -45,7 +45,12 @@ export default function RunWaiting() {
   const chainAt = useMemo(() => chainPositions(nodes, edgeList), [nodes, edgeList])
   // 에이전트 조회가 붙으면 여기로 들어온다. 최대 200자라 넘치면 줄바꿈된다.
   const onboardingMessage = ''
-  const [filled, setFilled] = useState(false)
+  /**
+   * 입력칸을 React 가 들고 있는다. DOM 리스너로 붙이면 안내를 거쳐 입력칸이 사라졌다 돌아올 때
+   * 리스너도 값도 어긋난다 — 빈 칸인데 실행이 켜져 있는 상태가 된다.
+   */
+  const [prompt, setPrompt] = useState('')
+  const filled = prompt.trim().length > 0
 
   const handleRun = () => {
     if (!filled) return
@@ -68,17 +73,6 @@ export default function RunWaiting() {
     { title: '영수증 분류', meta: '3일 전 · 파일 42개' },
     { title: '회의록 요약', meta: '지난주 · 파일 9개' },
   ]
-
-  // 불러오기가 실패하면 안내만 그려 입력칸이 없다. 다시 시도로 돌아왔을 때 리스너를 다시 건다 —
-  // 한 번만 붙이면 복구된 화면에서 입력해도 실행 버튼이 켜지지 않는다.
-  useEffect(() => {
-    const ta = document.getElementById('runPrompt') as HTMLTextAreaElement | null
-    if (!ta) return
-    // 같은 값이면 React 가 리렌더를 건너뛴다 — 직전 값을 따로 비교할 필요가 없다.
-    const onInput = () => setFilled(ta.value.trim().length > 0)
-    ta.addEventListener('input', onInput)
-    return () => ta.removeEventListener('input', onInput)
-  }, [loaded.error])
 
   // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
   if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
@@ -183,6 +177,8 @@ export default function RunWaiting() {
           <textarea
             className="absolute border-0 bg-transparent font-[inherit] text-[16.5px] tracking-[-.005em] text-white outline-0"
             id="runPrompt"
+            value={prompt}
+            onChange={(ev) => setPrompt(ev.target.value)}
             placeholder="예: 다운로드 폴더의 PDF를 주제별로 분류해줘"
             style={{
               left: '18px',
