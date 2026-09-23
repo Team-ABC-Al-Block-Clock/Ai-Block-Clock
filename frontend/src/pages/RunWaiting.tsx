@@ -69,6 +69,8 @@ export default function RunWaiting() {
     { title: '회의록 요약', meta: '지난주 · 파일 9개' },
   ]
 
+  // 불러오기가 실패하면 안내만 그려 입력칸이 없다. 다시 시도로 돌아왔을 때 리스너를 다시 건다 —
+  // 한 번만 붙이면 복구된 화면에서 입력해도 실행 버튼이 켜지지 않는다.
   useEffect(() => {
     const ta = document.getElementById('runPrompt') as HTMLTextAreaElement | null
     if (!ta) return
@@ -76,7 +78,7 @@ export default function RunWaiting() {
     const onInput = () => setFilled(ta.value.trim().length > 0)
     ta.addEventListener('input', onInput)
     return () => ta.removeEventListener('input', onInput)
-  }, [])
+  }, [loaded.error])
 
   // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
   if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
