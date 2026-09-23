@@ -17,12 +17,16 @@ public record RunStatus(
         Result result,
         Failure failure
 ) {
+    public RunState state() {
+        return RunState.from(status);
+    }
+
     public boolean isFinished() {
-        return isSucceeded() || "failed".equals(status);
+        return state().isFinished();
     }
 
     public boolean isSucceeded() {
-        return "succeeded".equals(status);
+        return state() == RunState.SUCCEEDED;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record RunAccepted(
         @JsonProperty("run_id") String runId,
         String status,
-        @JsonProperty("node_count") int nodeCount,
-        @JsonProperty("poll_interval_ms") int pollIntervalMs
+        @JsonProperty("node_count") Integer nodeCount,
+        @JsonProperty("poll_interval_ms") Integer pollIntervalMs
 ) {
 }

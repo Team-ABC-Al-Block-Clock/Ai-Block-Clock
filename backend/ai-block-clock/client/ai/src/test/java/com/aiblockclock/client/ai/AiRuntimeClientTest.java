@@ -1,13 +1,24 @@
 package com.aiblockclock.client.ai;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.RequestMatcher;
 import org.springframework.web.client.RestClient;
+
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,6 +30,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class AiRuntimeClientTest {
     private static final String BASE_URL = "http://ai-block-clock-ai-runtime:8000";
+    private static final Pattern FORM_PART =
+            Pattern.compile("Content-Disposition: form-data; name=\"([^\"]+)\"\\r\\n(?:[^\\r\\n]+\\r\\n)*\\r\\n(.*?)\\r\\n--", Pattern.DOTALL);
 
     private MockRestServiceServer server;
     private AiRuntimeClient client;
@@ -36,6 +49,8 @@ class AiRuntimeClientTest {
         server.expect(requestTo(BASE_URL + "/v1/runs"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(formParts(Map.of(
+                        "workflow", "{\"nodes\":[]}", "mock", "true", "input", "{\"text\":\"성적표\"}")))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).body("""
                         { "run_id": "20260919-100451-688", "status": "queued",
                           "node_count": 2, "poll_url": "/v1/runs/20260919-100451-688",
@@ -117,5 +132,132 @@ class AiRuntimeClientTest {
                 .extracting(e -> ((AiClientException) e).getError())
                 .isEqualTo(AiClientError.REQUEST_FAILED);
         server.verify();
+    }
+
+    @Test
+    @DisplayName("실행 번호는 인코딩해서 경로에 넣는다 — 다른 경로로 새지 않는다")
+    void encodesRunIdIntoPath() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/a%2F..%2Fhealth%3Fx%3D1"))
+                .andRespond(withSuccess("""
+                        { "run_id": "a/../health?x=1", "status": "running" }
+                        """, MediaType.APPLICATION_JSON));
+
+        client.read("a/../health?x=1");
+
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("모르는 실행 상태가 오면 끝난 실패로 본다 — 폴링이 끝나지 않는 것보다 낫다")
+    void treatsUnknownStateAsFinishedFailure() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1"))
+                .andRespond(withSuccess("""
+                        { "run_id": "run-1", "status": "partial" }
+                        """, MediaType.APPLICATION_JSON));
+
+        RunStatus status = client.read("run-1");
+
+        assertThat(status.state()).isEqualTo(RunState.UNKNOWN);
+        assertThat(status.isFinished()).isTrue();
+        assertThat(status.isSucceeded()).isFalse();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("실행 요청이 실패하면 요청 실패로 끊는다")
+    void failsWhenRunRequestFails() {
+        server.expect(requestTo(BASE_URL + "/v1/runs"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertError(() -> client.start(request()), AiClientError.REQUEST_FAILED);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("접수 응답 본문이 비어 오면 형식 오류다")
+    void failsWhenAcceptanceIsEmpty() {
+        server.expect(requestTo(BASE_URL + "/v1/runs"))
+                .andRespond(withStatus(HttpStatus.ACCEPTED));
+
+        assertError(() -> client.start(request()), AiClientError.MALFORMED_RESPONSE);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{ \"status\": \"queued\", \"poll_interval_ms\": 2000 }",
+            "{ \"run_id\": \" \", \"poll_interval_ms\": 2000 }",
+            "{ \"run_id\": \"run-1\" }",
+            "{ \"run_id\": \"run-1\", \"poll_interval_ms\": 0 }"})
+    @DisplayName("실행 번호나 폴링 간격이 빠진 접수 응답은 형식 오류다")
+    void failsWhenAcceptanceLacksRunIdOrInterval(String body) {
+        server.expect(requestTo(BASE_URL + "/v1/runs"))
+                .andRespond(withStatus(HttpStatus.ACCEPTED).body(body).contentType(MediaType.APPLICATION_JSON));
+
+        assertError(() -> client.start(request()), AiClientError.MALFORMED_RESPONSE);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("결과물은 봉투 JSON 을 문자열 그대로 받는다")
+    void readsArtifactAsIs() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1/artifact"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        { "schema_id": "common.document@1", "body": {} }""", MediaType.APPLICATION_JSON));
+
+        assertThat(client.readArtifact("run-1")).contains("common.document@1");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("결과물이 아직이면 요청 실패로 끊는다")
+    void failsWhenArtifactIsNotReady() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1/artifact"))
+                .andRespond(withStatus(HttpStatus.CONFLICT));
+
+        assertError(() -> client.readArtifact("run-1"), AiClientError.REQUEST_FAILED);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("건강 상태를 읽는다")
+    void readsHealth() {
+        server.expect(requestTo(BASE_URL + "/v1/health"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        { "status": "ok", "auth_required": true, "runs_in_memory": 0 }
+                        """, MediaType.APPLICATION_JSON));
+
+        RuntimeHealth health = client.health();
+
+        assertThat(health.status()).isEqualTo("ok");
+        assertThat(health.authRequired()).isTrue();
+        server.verify();
+    }
+
+    private static RunRequest request() {
+        return new RunRequest("{\"nodes\":[]}", null, null, true);
+    }
+
+    // 폼의 칸 이름과 값을 본문에서 직접 읽는다. 이름에 오타가 나면 여기서 걸린다.
+    private static RequestMatcher formParts(Map<String, String> expected) {
+        return request -> {
+            String body = ((MockClientHttpRequest) request).getBodyAsString(StandardCharsets.UTF_8);
+            Map<String, String> parts = new HashMap<>();
+            Matcher matcher = FORM_PART.matcher(body);
+            while (matcher.find()) {
+                parts.put(matcher.group(1), matcher.group(2));
+            }
+
+            assertThat(parts).isEqualTo(expected);
+        };
+    }
+
+    private static void assertError(ThrowingCallable call, AiClientError expected) {
+        assertThatThrownBy(call)
+                .isInstanceOf(AiClientException.class)
+                .extracting(e -> ((AiClientException) e).getError())
+                .isEqualTo(expected);
     }
 }

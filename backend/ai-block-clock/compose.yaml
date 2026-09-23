@@ -43,7 +43,8 @@ services:
       WALLET_AUTH_MESSAGE_TTL: ${WALLET_AUTH_MESSAGE_TTL:-5m}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       AI_RECOMMEND_BASE_URL: ${AI_RECOMMEND_BASE_URL:-http://ai-block-clock-recommend:8100}
-      AI_RECOMMEND_SERVICE_TOKEN: ${AI_RECOMMEND_SERVICE_TOKEN:-}
+      AI_RUNTIME_BASE_URL: ${AI_RUNTIME_BASE_URL:-http://ai-block-clock-ai-runtime:8000}
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-}
     ports:
       - "8080:8080"
     depends_on:
