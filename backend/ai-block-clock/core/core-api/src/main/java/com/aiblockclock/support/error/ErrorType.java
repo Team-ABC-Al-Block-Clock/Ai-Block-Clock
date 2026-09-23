@@ -36,6 +36,12 @@ public enum ErrorType {
     WALLET_AUTH_MESSAGE_NOT_FOUND(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_012,
             "지갑 인증 메시지가 없습니다. 먼저 메시지를 발급받아 주세요.", LogLevel.WARN),
 
+    USER_NICKNAME_LENGTH_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.USER_002,
+            "이름은 2~20자여야 합니다.", LogLevel.WARN),
+
+    USER_INTRODUCTION_TOO_LONG(HttpStatus.BAD_REQUEST, ErrorCode.USER_002,
+            "한 줄 소개는 40자를 넘을 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
