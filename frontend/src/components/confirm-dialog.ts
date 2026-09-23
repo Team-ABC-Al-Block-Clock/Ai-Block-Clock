@@ -62,11 +62,17 @@ export class ConfirmDialog extends BaseElement {
       this.removeAttribute('aria-label')
       this.root.innerHTML = ''
       if (changed) {
-        this.returnFocusTo?.focus()
+        const back = this.returnFocusTo
         this.returnFocusTo = null
+        this.later(() => back?.focus())
       }
       return
     }
+
+    // 아래에서 통째로 다시 그린다 — 포커스가 어디 있었는지 먼저 챙긴다.
+    const active =
+      this.root instanceof ShadowRoot ? this.root.activeElement : document.activeElement
+    const hadFocus = active instanceof HTMLElement ? (active.dataset.btn ?? null) : null
 
     const heading = this.str('heading', '계속하시겠습니까?')
     this.setAttribute('role', 'dialog')
@@ -101,8 +107,18 @@ export class ConfirmDialog extends BaseElement {
       el.addEventListener('click', () => this.emit(confirm ? 'confirm' : 'cancel'))
     })
 
-    // 되돌릴 수 없는 작업이라 물러나는 쪽에 포커스를 둔다.
-    if (changed) this.root.querySelector<HTMLElement>('[data-btn="cancel"]')?.focus()
+    // 열릴 때는 되돌릴 수 없는 작업이라 물러나는 쪽에. 다시 그린 것뿐이면 있던 자리로 돌려준다.
+    const target = changed ? 'cancel' : hadFocus
+    if (target)
+      this.later(() => {
+        if (this.bool('open'))
+          this.root.querySelector<HTMLElement>(`[data-btn="${target}"]`)?.focus()
+      })
+  }
+
+  /** React 는 커밋을 마치며 직전 포커스를 되돌린다 — 포커스는 그 뒤에 잡아야 남는다. */
+  private later(run: () => void): void {
+    queueMicrotask(run)
   }
 
   /** 제목·본문에 화면이 만든 문자열이 들어온다. */

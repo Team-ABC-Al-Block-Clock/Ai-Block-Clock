@@ -15,6 +15,9 @@ describe('confirm-dialog', () => {
     ...(el.shadowRoot?.querySelectorAll<HTMLButtonElement>('[data-btn]') ?? []),
   ]
 
+  /** 포커스는 마이크로태스크 뒤에 잡는다. */
+  const settled = () => Promise.resolve()
+
   beforeEach(() => {
     document.body.innerHTML = ''
   })
@@ -74,15 +77,41 @@ describe('confirm-dialog', () => {
     expect(fired).toEqual(['cancel', 'cancel'])
   })
 
-  it('닫으면 열기 전 포커스로 돌려준다', () => {
+  it('열린 뒤 문구가 바뀌어도 포커스를 잃지 않는다', async () => {
+    // React 는 open 과 note-text 를 따로 반영한다 — 두 번째 반영에서 다시 그리며 포커스가 날아갔었다.
+    const el = mount({ open: '' })
+    await settled()
+    expect(el.shadowRoot?.activeElement).toBe(buttons(el)[0])
+
+    el.setAttribute('note-text', '문서 정리')
+    await settled()
+
+    expect(el.shadowRoot?.activeElement).toBe(buttons(el)[0])
+  })
+
+  it('먼저 포커스를 뺏겨도 다시 잡는다', async () => {
+    // React 가 커밋 끝에 직전 포커스를 되돌린다 — 그 뒤에 잡지 않으면 대화상자가 포커스를 못 갖는다.
+    const opener = document.createElement('button')
+    document.body.appendChild(opener)
+
+    const el = mount({ open: '' })
+    opener.focus()
+    await settled()
+
+    expect(el.shadowRoot?.activeElement).toBe(buttons(el)[0])
+  })
+
+  it('닫으면 열기 전 포커스로 돌려준다', async () => {
     const opener = document.createElement('button')
     document.body.appendChild(opener)
     opener.focus()
 
     const el = mount({ open: '' })
+    await settled()
     expect(el.shadowRoot?.activeElement).toBe(buttons(el)[0])
 
     el.removeAttribute('open')
+    await settled()
     expect(document.activeElement).toBe(opener)
   })
 })

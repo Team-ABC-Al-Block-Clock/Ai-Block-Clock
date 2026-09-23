@@ -50,7 +50,7 @@ declare module 'react' {
         open?: string
         heading?: string
         'body-text'?: string
-        /** 강조할 한 줄. 산정된 판매가처럼 값이 있을 때만 넘긴다 */
+        /** 강조할 한 줄. 등록 확인의 에이전트 이름처럼 값이 있을 때만 넘긴다 */
         'note-text'?: string
         'confirm-label'?: string
         'cancel-label'?: string
