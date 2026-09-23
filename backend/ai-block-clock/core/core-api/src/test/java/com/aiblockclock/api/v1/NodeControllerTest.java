@@ -1,6 +1,7 @@
 package com.aiblockclock.api.v1;
 
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.storage.node.NodeRefFileRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
 
@@ -26,10 +27,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -55,6 +58,9 @@ class NodeControllerTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NodeRefFileRepository refFileRepository;
 
     private long owner;
 
@@ -149,6 +155,26 @@ class NodeControllerTest {
                         .with(as(other)).with(csrf().asHeader()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("NODE_002"));
+    }
+
+    @Test
+    @DisplayName("노드를 지우면 붙어 있던 자료 행도 지우고, 파일은 남긴다")
+    void removesRefFileRowsWithNode() throws Exception {
+        String nodeId = create("채점");
+
+        mockMvc.perform(multipart("/api/v1/nodes/{id}/ref-files", nodeId)
+                        .file(refFile("채점 기준표.pdf", "1등급은 90점"))
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        assertThat(refFileRepository.findByNodeDefinitionIdOrderByOrdinal(UUID.fromString(nodeId))).isEmpty();
+        try (var stored = Files.list(fileRoot.resolve("nodes").resolve(nodeId))) {
+            assertThat(stored).hasSize(1);
+        }
     }
 
     private static MockMultipartFile refFile(String filename, String content) {

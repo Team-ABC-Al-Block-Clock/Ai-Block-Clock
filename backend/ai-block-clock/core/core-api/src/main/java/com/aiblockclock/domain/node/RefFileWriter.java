@@ -34,6 +34,11 @@ public class RefFileWriter {
         refFileRepository.delete(target);
     }
 
+    @Transactional
+    public void removeAll(NodeDefinitionId nodeId) {
+        refFileRepository.deleteAllByNodeDefinitionId(nodeId.value());
+    }
+
     private int nextOrdinal(NodeDefinitionId nodeId) {
         List<NodeRefFileEntity> attached =
                 refFileRepository.findByNodeDefinitionIdOrderByOrdinal(nodeId.value());

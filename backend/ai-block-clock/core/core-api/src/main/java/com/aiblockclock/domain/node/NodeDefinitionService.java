@@ -73,6 +73,7 @@ public class NodeDefinitionService {
     public void delete(NodeDefinitionId id, UserId requester) {
         validator.ensureDeletable(id, requester);
 
+        refFileWriter.removeAll(id);
         nodeWriter.remove(id);
     }
 }
