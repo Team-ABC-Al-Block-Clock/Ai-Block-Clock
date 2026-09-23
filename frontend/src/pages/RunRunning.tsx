@@ -21,8 +21,11 @@ import StatusDot from '@/components/StatusDot'
 const EMPTY_NODES: CanvasNodeData[] = []
 const EMPTY_EDGES: CanvasEdge[] = []
 
-/** 이보다 짧으면 카메라를 움직이지 않는다 — 한 화면에 다 들어온다. */
-const CAMERA_MIN_NODES = 5
+/**
+ * 이보다 짧으면 카메라를 움직이지 않는다 — 다섯 칸까지는 한 화면에 다 들어온다.
+ * 마지막 카드의 오른쪽 끝이 968 이고 패널 앞 경계가 980 이다.
+ */
+const CAMERA_MIN_NODES = 6
 /** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
 const CAMERA_LEAD = 2
 /** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
