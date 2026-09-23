@@ -60,6 +60,27 @@ class WalletAuthPropertiesTest {
         }
     }
 
+    @Test
+    void 설정한_체인_ID로_네트워크_이름을_찾는다() {
+        contextRunner.withPropertyValues("spring.profiles.active=local").run(context -> {
+            WalletAuthProperties properties = context.getBean(WalletAuthProperties.class);
+
+            assertThat(properties.network()).isEqualTo(WalletNetwork.POLYGON_AMOY);
+        });
+    }
+
+    @Test
+    void 지원하지_않는_체인_ID이면_인증_설정을_등록하지_않는다() {
+        contextRunner.withPropertyValues(
+                "spring.profiles.active=local",
+                "wallet-auth.chain-id=137"
+        ).run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure())
+                    .hasStackTraceContaining("지갑 인증 체인 ID 는 지원하는 네트워크여야 합니다.");
+        });
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     @EnableConfigurationProperties(WalletAuthProperties.class)
     static class PropertiesTestConfiguration {

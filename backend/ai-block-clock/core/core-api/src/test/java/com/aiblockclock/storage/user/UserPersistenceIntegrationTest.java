@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -34,6 +36,42 @@ class UserPersistenceIntegrationTest {
         assertThat(found.getVersion()).isZero();
         assertThat(found.getCreatedAt()).isNotNull();
         assertThat(found.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void 가입_전_사용자는_프로필과_동의_시각이_비어_있다() {
+        UserEntity user = UserEntity.of("0x3333333333333333333333333333333333333333");
+        entityManager.persist(user);
+        entityManager.flush();
+        entityManager.clear();
+
+        UserEntity found = entityManager.find(UserEntity.class, user.getId());
+
+        assertThat(found.getNickname()).isNull();
+        assertThat(found.getIntroduction()).isNull();
+        assertThat(found.getTermsAgreedAt()).isNull();
+        assertThat(found.getRecoveryNoticeConfirmedAt()).isNull();
+        assertThat(found.getOnboardingCompletedAt()).isNull();
+    }
+
+    @Test
+    void 가입을_마치면_프로필과_동의_시각과_가입_완료_시각이_저장된다() {
+        UserEntity user = UserEntity.of("0x4444444444444444444444444444444444444444");
+        entityManager.persist(user);
+        entityManager.flush();
+
+        Instant completedAt = Instant.parse("2026-09-23T01:02:03.123456Z");
+        user.completeOnboarding("김싸피", "에이전트를 만듭니다", completedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        UserEntity found = entityManager.find(UserEntity.class, user.getId());
+
+        assertThat(found.getNickname()).isEqualTo("김싸피");
+        assertThat(found.getIntroduction()).isEqualTo("에이전트를 만듭니다");
+        assertThat(found.getTermsAgreedAt()).isEqualTo(completedAt);
+        assertThat(found.getRecoveryNoticeConfirmedAt()).isEqualTo(completedAt);
+        assertThat(found.getOnboardingCompletedAt()).isEqualTo(completedAt);
     }
 
     @Test

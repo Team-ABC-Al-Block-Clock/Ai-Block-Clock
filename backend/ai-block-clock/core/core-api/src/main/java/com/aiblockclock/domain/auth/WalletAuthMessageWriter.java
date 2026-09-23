@@ -23,7 +23,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class WalletAuthMessageWriter {
 
-    // V5의 지갑 주소 UNIQUE 제약과 연결되며, Writer 테스트가 실제 제약 이름을 확인한다.
+    // V7의 지갑 주소 UNIQUE 제약과 연결되며, Writer 테스트가 실제 제약 이름을 확인한다.
     private static final String WALLET_ADDRESS_UNIQUE_CONSTRAINT = "uq_wallet_auth_message_wallet_address";
 
     private final WalletAuthMessageRepository walletAuthMessageRepository;
