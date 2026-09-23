@@ -2,7 +2,10 @@ package com.aiblockclock.api.v1;
 
 import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.AgentRegisterRequest;
+import com.aiblockclock.api.v1.request.AgentUpdateRequest;
 import com.aiblockclock.api.v1.response.AgentRegisterResponse;
+import com.aiblockclock.api.v1.response.AgentUpdateResponse;
+import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.agent.AgentIndexService;
 import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
@@ -16,11 +19,15 @@ import com.aiblockclock.support.response.ApiResult;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/agents")
@@ -45,5 +52,22 @@ public class AgentController implements AgentApi {
         agentIndexService.index(registered);
 
         return ApiResult.success(AgentRegisterResponse.from(registered));
+    }
+
+    @Override
+    @PutMapping("/{agentId}")
+    public ApiResult<AgentUpdateResponse> update(
+            @CurrentUser UserId owner,
+            @PathVariable UUID agentId,
+            @RequestBody AgentUpdateRequest request
+    ) {
+        Workflow source = workflowService.get(WorkflowId.of(request.workflowId()), owner);
+
+        AgentRegistration updated = agentService.update(
+                owner, AgentId.of(agentId), source, Revision.of(request.revision()), request.toProfile());
+
+        agentIndexService.index(updated);
+
+        return ApiResult.success(AgentUpdateResponse.from(updated));
     }
 }

@@ -26,7 +26,7 @@ backend/ai-block-clock/
 │   └── monitoring/          모니터링 — monitoring.yml
 └── client/                  wrapper
     ├── blockchain/          SSAFY 토큰증권 API 연동 — blockchain.yml
-    └── ai/                  AI 파트 서비스 연동 (추천 엔진) — ai.yml
+    └── ai/                  AI 파트 서비스 연동 (추천 · 실행 엔진) — ai.yml
 ```
 
 각 모듈은 자기 관심사의 설정 파일을 직접 소유한다 (4장).
@@ -62,7 +62,7 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) { ... }
 | `:support:monitoring` | leaf | 액추에이터·메트릭 설정 | jar |
 | `:client` | wrapper | 외부 시스템 연동 모듈을 묶는다 | 없음 |
 | `:client:blockchain` | leaf | SSAFY 토큰증권 API 연동 (조회 전용) | jar |
-| `:client:ai` | leaf | AI 파트 서비스 연동. 지금은 추천 엔진뿐이다 | jar |
+| `:client:ai` | leaf | AI 파트 서비스 연동 (추천 엔진 · 실행 엔진) | jar |
 
 그룹·버전은 전 모듈 공통으로 `com.aiblockclock:0.0.1-SNAPSHOT` 이다.
 
@@ -271,16 +271,19 @@ client/blockchain/src/main/resources/
 ### 3.7 `:client:ai`
 
 AI 파트 서비스 어댑터다. 패키지는 `com.aiblockclock.client.ai` 이고, **접속 설정을 이 모듈이 소유한다.**
-지금은 추천 엔진만 붙어 있고, 실행 엔진도 이 모듈에 들어온다 (설정 `ai.runtime.*` 자리를 비워 뒀다).
+추천 엔진(`RecommendClient`, `ai.recommend.*`)과 실행 엔진(`AiRuntimeClient`, `ai.runtime.*`)은 다른 컨테이너이고
+계약도 다르다. 서비스 토큰(`ai.service-token`)만 둘이 나눠 쓴다.
 
 ```
 client/ai/src/main/resources/
-└── ai.yml                    추천 엔진 주소·서비스 토큰·제한 시간
+└── ai.yml                    추천·실행 엔진 주소·제한 시간, 공유 서비스 토큰
 ```
 
-- **색인 넣기(`upsert` · `rebuild`)와 추천만 한다.** 색인은 우리 DB 에서 파생된 사본이라
+- **추천 쪽은 색인 넣기(`upsert` · `rebuild`)와 추천만 한다.** 색인은 우리 DB 에서 파생된 사본이라
   원본을 바꾸는 동작이 없다. 쓰는 기능이 생기기 전까지 `remove` · `health` 는 두지 않는다
-- **예외는 `RecommendClientException` 하나다.** 사유는 `RecommendClientError` 로 가른다
+- **실행 쪽은 접수 · 상태 조회 · 결과물 조회다.** 접수는 폼(multipart)이고 접수 번호만 즉시 돌아온다.
+  상태는 `RunState` 로 읽고, 모르는 값은 끝난 실패로 본다
+- **예외는 두 클라이언트가 같이 쓰는 `AiClientException` 하나다.** 사유는 `AiClientError` 로 가른다
   (`INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
   `core-api` 는 호출 경계에서 이를 `CoreException` 으로 바꾼다 (RULE.md 7.1)
 - 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`.
@@ -352,8 +355,10 @@ spring:
 | `SSAFY_STO_CONNECT_TIMEOUT`, `SSAFY_STO_READ_TIMEOUT` | 전체 | 3s / 10s |
 | `SSAFY_TOKEN_CONTRACT_ADDRESS` | 전체 | 없음 (비어 있으면 온체인 조회 불가) |
 | `AI_RECOMMEND_BASE_URL` | 전체 | `http://ai-block-clock-recommend:8100` |
-| `AI_RECOMMEND_SERVICE_TOKEN` | 전체 | 없음 (비어 있으면 헤더 없이 붙고 기동 때 경고) |
 | `AI_RECOMMEND_CONNECT_TIMEOUT`, `AI_RECOMMEND_READ_TIMEOUT` | 전체 | 2s / 5s |
+| `AI_RUNTIME_BASE_URL` | 전체 | `http://ai-block-clock-ai-runtime:8000` |
+| `AI_RUNTIME_CONNECT_TIMEOUT`, `AI_RUNTIME_READ_TIMEOUT` | 전체 | 2s / 10s |
+| `AI_SERVICE_TOKEN` | 전체 | 없음 (비어 있으면 헤더 없이 붙고 기동 때 경고) |
 
 ---
 

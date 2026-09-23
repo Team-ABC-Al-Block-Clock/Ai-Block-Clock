@@ -108,6 +108,12 @@ public enum ErrorType {
     NODE_PLACED_IN_GRAPH(HttpStatus.CONFLICT, ErrorCode.NODE_004,
             "워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
 
+    EXECUTION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
+            "실행을 찾을 수 없습니다.", LogLevel.WARN),
+
+    EXECUTION_ENGINE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.EXECUTION_002,
+            "실행을 맡기지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
+
     RECOMMEND_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.RECOMMEND_001,
             "추천을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
 
@@ -116,6 +122,9 @@ public enum ErrorType {
 
     AGENT_FOREIGN_NODE_INCLUDED(HttpStatus.FORBIDDEN, ErrorCode.AGENT_002,
             "타인 소유의 노드 또는 에이전트가 포함되어 있습니다.", LogLevel.WARN),
+
+    AGENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.AGENT_003,
+            "공개된 에이전트를 찾을 수 없습니다.", LogLevel.WARN),
 
     AGENT_FORBIDDEN(HttpStatus.FORBIDDEN, ErrorCode.AGENT_006,
             "에이전트에 대한 권한이 없습니다.", LogLevel.WARN),

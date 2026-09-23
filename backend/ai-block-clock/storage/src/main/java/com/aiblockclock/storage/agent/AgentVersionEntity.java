@@ -8,7 +8,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
@@ -31,9 +34,9 @@ public class AgentVersionEntity extends BaseTimeEntity {
     @Column(name = "id", length = 36, nullable = false)
     private UUID id;
 
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(name = "agent_id", length = 36, nullable = false, updatable = false)
-    private UUID agentId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "agent_id", nullable = false, updatable = false)
+    private AgentEntity agent;
 
     @Column(name = "version_no", nullable = false)
     private Integer versionNo;
@@ -63,11 +66,11 @@ public class AgentVersionEntity extends BaseTimeEntity {
     @Column(name = "publication_state", length = 20, nullable = false)
     private PublicationState publicationState;
 
-    public AgentVersionEntity(UUID id, UUID agentId, Integer versionNo, UUID graphId, UUID sourceWorkflowId,
+    public AgentVersionEntity(UUID id, AgentEntity agent, Integer versionNo, UUID graphId, UUID sourceWorkflowId,
                               Long sourceRevision, Integer promptNodeCount, BigDecimal baseCost,
                               Tier tier, PublicationState publicationState) {
         this.id = id;
-        this.agentId = agentId;
+        this.agent = agent;
         this.graphId = graphId;
         this.versionNo = versionNo;
         this.sourceWorkflowId = sourceWorkflowId;

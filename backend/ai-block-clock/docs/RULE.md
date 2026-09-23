@@ -619,12 +619,18 @@ public class AgentVersionPolicy {              // 판정은 도메인에 남는�
 
 ### 11.5 연관 매핑과 자식 컬렉션 쓰기
 
-**매핑하지 않는다.** 애그리거트를 넘는 참조는 식별자로 든다. `graph_node.reference_id` 는
+**애그리거트를 넘는 참조는 매핑하지 않는다.** 식별자로 든다. `graph_node.reference_id` 는
 `node_definition` 이나 `agent` 를 가리키지만 `@ManyToOne` 이 아니라 생 `UUID` 다. 다형 참조라
 매핑할 수도 없고, 매핑하면 워크플로우 하나 읽는 데 노드 정의가 딸려 온다.
 
-**한 애그리거트 안의 자식 컬렉션도 매핑하지 않는다.** `graph_node` · `graph_edge` 는
-생명주기가 부모에 종속되지만 `@OneToMany` 로 들지 않는다. 자식은 전용 리포지토리로 직접 쓴다.
+**매핑과 `cascade` 는 다른 문제다.** 매핑은 읽기 관점의 연관이고 `cascade` 는 쓰기 전파 옵션이다.
+매핑해 두고 `cascade` 를 주지 않거나 `PERSIST` 로 제한하면 된다. 한 애그리거트 안의 관계를
+생 `UUID` 로 둘 이유는 없다 — `agent_version` 은 `agent` 를 `@ManyToOne(LAZY)` 으로 든다.
+
+**쓰기를 벌크로 하는 자식은 컬렉션으로 들지 않는다.** `graph_node` 는 사라진 키만 지우고 남은
+키는 `UPDATE` 로 덮는데, 이 연산이 영속성 컨텍스트를 거치지 않아 **매핑된 컬렉션이 낡은 채로
+남는다.** 같은 트랜잭션에서 다시 읽으면 옛 값이 나온다. 동기화를 손으로 챙길 바에 자식은 전용
+리포지토리로 직접 쓴다.
 
 **`cascade` · `orphanRemoval` 을 쓰지 않는다.** 무엇이 언제 지워지는지 코드에서 보이지 않게 된다.
 `orphanRemoval` 로 자식을 갈아끼우면 Hibernate 가 DELETE 보다 INSERT 를 먼저 내보내 유니크 키가

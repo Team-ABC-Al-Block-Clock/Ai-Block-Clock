@@ -2,8 +2,12 @@ package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.storage.agent.AgentEntity;
 import com.aiblockclock.storage.agent.AgentRepository;
-import com.aiblockclock.storage.agent.PublicAgentRow;
+import com.aiblockclock.storage.agent.AgentVersionEntity;
+import com.aiblockclock.storage.agent.AgentVersionRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -12,19 +16,32 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AgentReader {
     private final AgentRepository agentRepository;
+    private final AgentVersionRepository agentVersionRepository;
+
+    public Agent read(AgentId id) {
+        return AgentEntityConverter.toDomain(agentRepository.findById(id.value())
+                .orElseThrow(() -> new CoreException(ErrorType.AGENT_NOT_FOUND)));
+    }
 
     public boolean isOwnedBy(AgentId id, UserId owner) {
         return agentRepository.existsByIdAndOwnerId(id.value(), owner.value());
     }
 
+    public Optional<AgentVersionId> findPublicVersion(AgentId id) {
+        return agentRepository.findById(id.value())
+                .map(AgentEntity::getPublicVersionId)
+                .map(AgentVersionId::of);
+    }
+
     public List<PublicAgent> readPublic() {
-        return toPublicAgents(agentRepository.findPublic());
+        return toPublicAgents(agentVersionRepository.findPublic());
     }
 
     public List<PublicAgent> readPublic(Collection<AgentId> ids) {
@@ -32,18 +49,19 @@ public class AgentReader {
             return List.of();
         }
 
-        return toPublicAgents(agentRepository.findPublicByIds(ids.stream().map(AgentId::value).toList()));
+        return toPublicAgents(
+                agentVersionRepository.findPublicByAgentIds(ids.stream().map(AgentId::value).toList()));
     }
 
-    private static List<PublicAgent> toPublicAgents(List<PublicAgentRow> rows) {
-        return rows.stream()
-                .map(row -> new PublicAgent(
-                        AgentId.of(row.agentId()),
-                        UserId.of(row.ownerId()),
-                        row.name(),
-                        row.summary(),
-                        row.tier(),
-                        AbcAmount.of(row.baseCost())))
+    private static List<PublicAgent> toPublicAgents(List<AgentVersionEntity> versions) {
+        return versions.stream()
+                .map(version -> new PublicAgent(
+                        AgentId.of(version.getAgent().getId()),
+                        UserId.of(version.getAgent().getOwnerId()),
+                        version.getAgent().getName(),
+                        version.getAgent().getSummary(),
+                        version.getTier(),
+                        AbcAmount.of(version.getBaseCost())))
                 .toList();
     }
 }

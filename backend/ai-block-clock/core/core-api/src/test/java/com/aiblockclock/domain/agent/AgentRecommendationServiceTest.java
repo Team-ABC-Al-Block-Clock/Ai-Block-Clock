@@ -1,8 +1,8 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.client.ai.RecommendClient;
-import com.aiblockclock.client.ai.RecommendClientError;
-import com.aiblockclock.client.ai.RecommendClientException;
+import com.aiblockclock.client.ai.AiClientError;
+import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.client.ai.RecommendedAgent;
 import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
@@ -71,7 +71,7 @@ class AgentRecommendationServiceTest {
     @Test
     @DisplayName("추천 엔진에 닿지 못하면 추천을 못 가져왔다고 끊는다")
     void failsWhenTheEngineIsUnreachable() {
-        willThrow(new RecommendClientException(RecommendClientError.REQUEST_FAILED, "engine is down"))
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "engine is down"))
                 .given(recommendClient).recommend(anyString(), anyInt());
 
         assertThatThrownBy(() -> service.recommend("성적표", 8))
