@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
-import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
+import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import { CANVAS_EDGES, CANVAS_NODES, chainPositions, edgeGeometry } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
@@ -13,16 +15,35 @@ import StatusDot from '@/components/StatusDot'
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
-const EDGES = edgeGeometry(CANVAS_NODES)
+const SEED_EDGES = edgeGeometry(CANVAS_NODES)
 
 export default function RunWaiting() {
   const navigate = useNavigate()
+  // 어떤 워크플로우를 돌리는지. 편집 화면이 저장한 뒤 넘겨준다.
+  const [searchParams] = useSearchParams()
+  const workflowId = searchParams.get('workflowId') ?? undefined
+  const loaded = useSavedWorkflow(workflowId)
+
+  // 저장된 것이 있으면 그것을, 없으면 자리표시자를 그린다 — 상세 화면처럼 id 없이 들어오는 길이 있다.
+  const nodes = loaded.canvas?.nodes ?? CANVAS_NODES
+  const edgeList = loaded.canvas?.edges ?? CANVAS_EDGES
+  const geometry = useMemo(
+    () => (loaded.canvas ? edgeGeometry(nodes, edgeList) : SEED_EDGES),
+    [loaded.canvas, nodes, edgeList],
+  )
+  const chainAt = useMemo(() => chainPositions(nodes, edgeList), [nodes, edgeList])
   // 에이전트 조회가 붙으면 여기로 들어온다. 최대 200자라 넘치면 줄바꿈된다.
   const onboardingMessage = ''
   const [filled, setFilled] = useState(false)
 
   const handleRun = () => {
-    if (filled) navigate(paths.run.running.withoutId)
+    if (!filled) return
+    // 돌릴 워크플로우를 그대로 넘긴다. 없으면 자리표시자 그대로다.
+    navigate(
+      workflowId
+        ? `${paths.run.running.withoutId}?workflowId=${workflowId}`
+        : paths.run.running.withoutId,
+    )
   }
   const on = filled
   const btnBg = on ? 'var(--color-accent)' : 'rgba(255,255,255,.09)'
@@ -51,7 +72,7 @@ export default function RunWaiting() {
       <CanvasPane>
         <CanvasEdgeLayer>
           <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {EDGES.map((edge) => (
+            {geometry.map((edge) => (
               <path
                 key={edge.id}
                 d={edge.d}
@@ -63,10 +84,10 @@ export default function RunWaiting() {
           </g>
         </CanvasEdgeLayer>
 
-        {CANVAS_NODES.map((node, i) => (
+        {nodes.map((node) => (
           <CanvasNode
             key={node.id}
-            index={i}
+            index={chainAt?.get(node.id)}
             name={node.name}
             sublabel="대기"
             x={node.x}

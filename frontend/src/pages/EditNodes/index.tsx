@@ -701,8 +701,13 @@ export default function EditNodes() {
           </div>
         )}
 
+        {/* 저장한 뒤에는 그 워크플로우를 실어 보낸다 — 실행 화면이 같은 구성을 그린다. */}
         <a
-          href={paths.run.waiting.withoutId}
+          href={
+            saved
+              ? `${paths.run.waiting.withoutId}?workflowId=${saved.workflowId}`
+              : paths.run.waiting.withoutId
+          }
           style={{
             left: 'calc(800px + var(--edge, 0px))',
             top: 'calc(943px + var(--edge-y, 0px))',

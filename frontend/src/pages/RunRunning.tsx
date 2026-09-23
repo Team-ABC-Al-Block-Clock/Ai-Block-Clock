@@ -1,16 +1,23 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
-import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
+import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import {
+  CANVAS_EDGES,
+  CANVAS_NODES,
+  canSellWorkflow,
+  chainPositions,
+  edgeGeometry,
+} from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
-const EDGES = edgeGeometry(CANVAS_NODES)
+const SEED_EDGES = edgeGeometry(CANVAS_NODES)
 
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
@@ -19,12 +26,22 @@ export default function RunRunning() {
   const [pct, setPct] = useState(startDone ? 100 : 0)
   const [copied, setCopied] = useState(false)
 
-  const canSell = canSellWorkflow(CANVAS_NODES)
+  // 어떤 워크플로우를 돌리는지. 대기 화면이 넘겨준다. 없으면 자리표시자를 그린다.
+  const workflowId = searchParams.get('workflowId') ?? undefined
+  const loaded = useSavedWorkflow(workflowId)
+  const defs = loaded.canvas?.nodes ?? CANVAS_NODES
+  const edgeList = loaded.canvas?.edges ?? CANVAS_EDGES
+  const geometry = useMemo(
+    () => (loaded.canvas ? edgeGeometry(defs, edgeList) : SEED_EDGES),
+    [loaded.canvas, defs, edgeList],
+  )
+  const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
+
+  const canSell = canSellWorkflow(defs)
 
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const rafId = useRef<number>(undefined)
 
-  const defs = CANVAS_NODES
   const logLines = [
     '입력 파일 128개 수집 완료',
     'PDF 112개 · 이미지 16개 판별',
@@ -74,11 +91,11 @@ export default function RunRunning() {
       stateLabel: running ? '진행 중' : done ? '완료' : '대기',
     }
   })
-  const edges = EDGES.map((edge, i) => ({
+  const edges = geometry.map((edge, i) => ({
     ...edge,
     stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
-  const liveEdges = EDGES.slice(0, Math.max(0, active))
+  const liveEdges = geometry.slice(0, Math.max(0, active))
   const shown = Math.min(
     logLines.length,
     Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
@@ -213,10 +230,10 @@ export default function RunRunning() {
           </g>
         </CanvasEdgeLayer>
 
-        {nodes.map((n, i) => (
+        {nodes.map((n) => (
           <CanvasNode
             key={n.id}
-            index={i}
+            index={chainAt?.get(n.id)}
             name={n.name}
             sublabel={n.stateLabel}
             x={n.x}
@@ -243,7 +260,11 @@ export default function RunRunning() {
 
         {/* 이전 단계로 돌아가 프롬프트를 수정하여 재실행할 수 있다. */}
         <a
-          href={paths.run.waiting.withoutId}
+          href={
+            workflowId
+              ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
+              : paths.run.waiting.withoutId
+          }
           title="실행 재설정"
           aria-label="실행 재설정"
           style={{
