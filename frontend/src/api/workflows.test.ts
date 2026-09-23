@@ -18,7 +18,11 @@ import { resetWorkflows } from '@/mocks/fixtures/workflows'
  * 삭제는 픽스처에서 항목을 실제로 없애므로 매 테스트 뒤에 되돌린다 — 길이만 잘라내는
  * 방식으로는 중간에서 지운 건이 복구되지 않는다.
  */
-afterEach(() => resetWorkflows())
+afterEach(() => {
+  resetWorkflows()
+  // 저장 mock 이 localStorage 에 쌓인다. 비우지 않으면 테스트끼리 샌다.
+  localStorage.removeItem('mockWorkflows')
+})
 
 describe('getMyWorkflows', () => {
   it('명세 기본값 10건과 다음 커서를 준다', async () => {

@@ -200,14 +200,19 @@ export default function CanvasNode({
           </div>
         ))}
       {mine && <div style={MY_CHIP}>MY</div>}
-      {index !== undefined && (
-        <div
-          className="text-[14px] font-semibold"
-          style={{ color: numberColor, lineHeight: '1', opacity: 0.72, letterSpacing: '.04em' }}
-        >
-          {index + 1}
-        </div>
-      )}
+      {/* 번호가 사라져도 자리는 남긴다 — 빼 버리면 아래 이름과 유형이 위로 밀려 카드가 들썩인다. */}
+      <div
+        className="text-[14px] font-semibold"
+        style={{
+          color: numberColor,
+          lineHeight: '1',
+          opacity: 0.72,
+          letterSpacing: '.04em',
+          visibility: index === undefined ? 'hidden' : undefined,
+        }}
+      >
+        {(index ?? 0) + 1}
+      </div>
       <div
         className="text-[21px] font-bold tracking-[-.01em]"
         style={{ color: nameColor, textShadow: '0 2px 12px rgba(8,4,18,.55)' }}

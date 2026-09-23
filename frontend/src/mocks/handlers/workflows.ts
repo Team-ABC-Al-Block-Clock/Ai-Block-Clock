@@ -18,10 +18,36 @@ const isScope = (value: unknown): value is PaletteScope => value === 'MINE' || v
 const MAX_NODES = 20
 
 /**
- * 저장된 워크플로우. 새로고침하면 비워진다 — 쿠키 세션과 달리 되살릴 근거가 없다.
- * 화면이 확인할 것은 「저장 → 회차가 오른다 → 어긋나면 거절」 이 흐름이다.
+ * 저장된 워크플로우. localStorage 에 둔다 — 메모리에만 두면 주소창으로 들어가는 순간
+ * 새로고침이라 방금 저장한 것도 404 가 된다. 불러오기를 확인할 길이 아예 없어진다.
+ *
+ * 되돌리려면 `localStorage.removeItem('mockWorkflows')`.
  */
-const SAVED = new Map<string, WorkflowDetail>()
+const SAVED_KEY = 'mockWorkflows'
+
+function readSaved(): Record<string, WorkflowDetail> {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_KEY) ?? '{}') as Record<string, WorkflowDetail>
+  } catch {
+    return {}
+  }
+}
+
+function writeSaved(all: Record<string, WorkflowDetail>) {
+  try {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(all))
+  } catch {
+    /* 접근 불가 환경 */
+  }
+}
+
+const findSaved = (workflowId: string) => readSaved()[workflowId]
+
+function putSaved(detail: WorkflowDetail) {
+  const all = readSaved()
+  all[detail.workflowId] = detail
+  writeSaved(all)
+}
 
 const PLACEABLE = new Set(PLACEABLE_ITEMS.map((item) => item.itemId))
 
@@ -117,7 +143,7 @@ export const workflowsHandlers = [
     if (rejected) return rejected
 
     const detail = toDetail(crypto.randomUUID(), 1, body.name, body.description ?? null, body)
-    SAVED.set(detail.workflowId, detail)
+    putSaved(detail)
     return ok(saved(detail), { status: 201 })
   }),
 
@@ -126,7 +152,7 @@ export const workflowsHandlers = [
     if (forced) return forced
 
     const id = String(params.workflowId)
-    const before = SAVED.get(id)
+    const before = findSaved(id)
     if (!before) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
 
     const body = (await request.json()) as WorkflowGraph & { name: string; revision: number }
@@ -138,7 +164,7 @@ export const workflowsHandlers = [
 
     // 설명은 만들 때만 받는다 — 수정 요청에 자리가 없어 그대로 둔다.
     const after = toDetail(id, before.revision + 1, body.name, before.description, body)
-    SAVED.set(id, after)
+    putSaved(after)
     return ok(saved(after))
   }),
 
@@ -146,7 +172,7 @@ export const workflowsHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    const detail = SAVED.get(String(params.workflowId))
+    const detail = findSaved(String(params.workflowId))
     if (!detail) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
     return ok(detail)
   }),

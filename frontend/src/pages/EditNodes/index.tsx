@@ -152,6 +152,12 @@ export default function EditNodes() {
   const chainAt = useMemo(() => chainPositions(nodes, edges), [nodes, edges])
   const trimmedName = name.trim()
 
+  /** 지금 화면이 보낼 내용. 저장한 것과 글자로 비교해 「저장됨」을 되돌린다. */
+  const pending = useMemo(() => JSON.stringify({ graph, name: trimmedName }), [graph, trimmedName])
+  /** 마지막으로 저장에 성공한 내용. 한 글자라도 달라지면 다시 저장할 것이 있다. */
+  const [savedShape, setSavedShape] = useState<string | null>(null)
+  const dirty = savedShape !== pending
+
   const save = useMutation({
     mutationFn: async () => {
       if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
@@ -163,7 +169,10 @@ export default function EditNodes() {
           })
         : saveWorkflow({ ...graph, name: trimmedName })
     },
-    onSuccess: (result) => setSaved({ workflowId: result.workflowId, revision: result.revision }),
+    onSuccess: (result) => {
+      setSaved({ workflowId: result.workflowId, revision: result.revision })
+      setSavedShape(pending)
+    },
   })
 
   /** 못 누르는 이유. 없으면 누를 수 있다 — 버튼을 죽여 두기만 하면 왜인지 알 길이 없다. */
@@ -174,7 +183,7 @@ export default function EditNodes() {
       : !trimmedName
         ? '워크플로우 이름을 적어 주세요'
         : null
-  const canSave = !saveBlocked && !save.isPending
+  const canSave = !saveBlocked && !save.isPending && dirty
   const saveError = describeSaveError(save.error)
 
   // <empty-state> 의 '다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지 않아 직접 붙인다.
@@ -679,7 +688,14 @@ export default function EditNodes() {
           type="button"
           onClick={() => save.mutate()}
           disabled={!canSave}
-          title={saveBlocked ?? (saved ? '바뀐 구성으로 덮어씁니다' : '워크플로우를 저장합니다')}
+          title={
+            saveBlocked ??
+            (!dirty
+              ? '마지막으로 저장한 뒤로 바뀐 것이 없습니다'
+              : saved
+                ? '바뀐 구성으로 덮어씁니다'
+                : '워크플로우를 저장합니다')
+          }
           style={{
             left: 'calc(624px + var(--edge, 0px))',
             top: 'calc(943px + var(--edge-y, 0px))',
@@ -697,7 +713,7 @@ export default function EditNodes() {
           }}
           className="absolute flex items-center justify-center border-0 text-[17px] font-bold tracking-[-.01em]"
         >
-          {save.isPending ? '저장 중…' : saved ? '저장됨' : '저장'}
+          {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
         </button>
 
         {(saveError ?? saveBlocked) && (
