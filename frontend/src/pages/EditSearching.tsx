@@ -111,7 +111,7 @@ export default function EditSearching() {
 
   return (
     <>
-      <CanvasPane>
+      <CanvasPane view={previewView}>
         {searching ? (
           <div
             className="absolute top-0 left-0"
