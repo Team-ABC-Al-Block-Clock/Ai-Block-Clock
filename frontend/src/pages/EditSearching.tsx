@@ -95,6 +95,10 @@ export default function EditSearching() {
         : [...chosen, agent],
     )
 
+  /** 다시 찾으면 앞서 선택한 것이 목록에 없을 수 있다. 그때 무를 길은 미리보기뿐이다. */
+  const unpick = (agentId: string) =>
+    setPicked((chosen) => chosen.filter((it) => it.agentId !== agentId))
+
   const handleResearch = (ev: React.KeyboardEvent<HTMLInputElement>) => {
     if (ev.key !== 'Enter') return
     const next = draft.trim()
@@ -218,6 +222,8 @@ export default function EditSearching() {
                   enter={node.enter}
                   background="rgba(255,255,255,.11)"
                   sublabelColor="rgba(230,196,212,.85)"
+                  title="누르면 캔버스에서 내립니다"
+                  onSelect={() => unpick(node.id)}
                 />
               ))}
             </CanvasWorld>
