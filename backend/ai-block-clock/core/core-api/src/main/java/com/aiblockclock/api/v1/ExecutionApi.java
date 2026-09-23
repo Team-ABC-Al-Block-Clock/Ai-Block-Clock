@@ -30,7 +30,9 @@ public interface ExecutionApi {
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "202", description = "접수됨. 실행은 뒤에서 돈다"),
-            @ApiResponse(responseCode = "400", description = "요청 본문이 올바르지 않다 (`COMMON_001`)", content = @Content),
+            @ApiResponse(responseCode = "400",
+                    description = "요청 본문이 올바르지 않다 (`COMMON_001`) · 분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`)",
+                    content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 워크플로우다 (`WORKFLOW_003`)", content = @Content),
             @ApiResponse(responseCode = "404", description = "없는 워크플로우다 (`WORKFLOW_002`)", content = @Content),
             @ApiResponse(responseCode = "502", description = "실행 엔진에 맡기지 못했다 (`EXECUTION_002`)", content = @Content)

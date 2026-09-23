@@ -108,6 +108,16 @@ public interface WorkflowApi {
               "error": { "code": "WORKFLOW_013", "message": "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.",
                          "data": { "nodeKey": "n1" } } }""";
 
+    String BRANCH_EDGES_INVALID_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_013", "message": "분기 노드는 참 · 거짓 갈래를 하나씩 내고, 갈래 표시는 분기 노드에서 나가는 선에만 붙습니다.",
+                         "data": { "nodeKey": "br1" } } }""";
+
+    String BRANCH_CONDITION_INVALID_EXAMPLE = """
+            { "status": "FAIL", "data": null,
+              "error": { "code": "WORKFLOW_013", "message": "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
+                         "data": { "nodeKey": "br1", "left": "n9.x" } } }""";
+
     String DANGLING_EDGE_EXAMPLE = """
             { "status": "FAIL", "data": null,
               "error": { "code": "WORKFLOW_013", "message": "연결선이 존재하지 않는 노드를 가리킵니다.",
@@ -158,8 +168,10 @@ public interface WorkflowApi {
                     AI 런타임 주문서에 노드 종류 칸이 없어 실행 경로가 없다.
                     `AGENT` 도 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
 
-                    구조 검사는 세 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
-                    그리고 전체가 분기 없는 한 줄로 이어질 것. 분기·합류·단절은 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.""",
+                    구조 검사는 네 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
+                    전체가 시작점 하나에서 뻗는 트리일 것, 분기 노드(`sourceType: CONTROL`)는 참 · 거짓 갈래를 하나씩 내고
+                    조건이 그보다 앞에 놓인 작업 노드를 가리킬 것. 어기면 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.
+                    분기 뒤 합류는 아직 받지 않는다.""",
             requestBody = @RequestBody(required = true,
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(name = "노드 두 개를 한 줄로", value = SAVE_REQUEST_EXAMPLE))))
@@ -171,6 +183,10 @@ public interface WorkflowApi {
                             examples = {
                                     @ExampleObject(name = "WORKFLOW_014 · 노드가 없다", value = GRAPH_EMPTY_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 트리가 아니다", value = NOT_TREE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 분기 갈래가 맞지 않는다",
+                                            value = BRANCH_EDGES_INVALID_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 분기 조건이 앞 노드를 가리키지 않는다",
+                                            value = BRANCH_CONDITION_INVALID_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 연결선이 빈 곳을 가리킨다",
                                             value = DANGLING_EDGE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
@@ -228,6 +244,10 @@ public interface WorkflowApi {
                             schema = @Schema(implementation = ApiResult.class),
                             examples = {
                                     @ExampleObject(name = "WORKFLOW_013 · 트리가 아니다", value = NOT_TREE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 분기 갈래가 맞지 않는다",
+                                            value = BRANCH_EDGES_INVALID_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 분기 조건이 앞 노드를 가리키지 않는다",
+                                            value = BRANCH_CONDITION_INVALID_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_017 · 노드 종류가 다르다",
                                             value = NODE_TYPE_MISMATCH_EXAMPLE)})),
