@@ -97,18 +97,14 @@ const toDetail = (
   revision,
   nodes: graph.nodes.map((node) => ({ ...node, versionId: null, inputSource: 'PREV' })),
   edges: graph.edges ?? [],
-  estimatedCost: '0',
-  currency: 'ABC',
   lastExecutedAt: null,
   updatedAt: new Date().toISOString(),
 })
 
-const saved = ({ workflowId, name, revision, estimatedCost, currency }: WorkflowDetail) => ({
+const saved = ({ workflowId, name, revision }: WorkflowDetail) => ({
   workflowId,
   name,
   revision,
-  estimatedCost,
-  currency,
 })
 
 export const workflowsHandlers = [

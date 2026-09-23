@@ -117,8 +117,6 @@ describe('toCanvasWorkflow', () => {
       sourceNodeKey: `n${i + 1}`,
       targetNodeKey: `n${i + 2}`,
     })),
-    estimatedCost: '0',
-    currency: 'ABC',
     lastExecutedAt: null,
     updatedAt: '2026-09-23T00:00:00Z',
   })

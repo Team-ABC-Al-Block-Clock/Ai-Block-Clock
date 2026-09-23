@@ -49,14 +49,12 @@ export interface WorkflowGraph {
   edges: EdgePlacement[]
 }
 
+/** 예상 차감액은 여기 없다 — 실행 견적 API(`POST /executions/cost-estimates`)가 따로 준다. */
 export interface SavedWorkflow {
   workflowId: string
   name: string
   /** 다음 수정 요청에 그대로 넣는다. 어긋나면 `WORKFLOW_016` */
   revision: number
-  /** 단가 산정 전이라 지금은 늘 '0' */
-  estimatedCost: string
-  currency: string
 }
 
 /** 서버가 돌려주는 배치. `versionId` 는 에이전트 노드만 갖는다. */

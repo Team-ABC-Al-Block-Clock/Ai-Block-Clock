@@ -304,8 +304,8 @@ describe('saveWorkflow', () => {
     expect(result.revision).toBe(1)
     expect(result.name).toBe('문서 정리')
     expect(result.workflowId).toBeTruthy()
-    // 단가 산정 전이라 서버가 늘 0 을 준다. 화면이 계산하지 않는다.
-    expect(result).toMatchObject({ estimatedCost: '0', currency: 'ABC' })
+    // 예상 차감액은 저장 응답에 없다 — 실행 견적 API 가 따로 준다.
+    expect(result).not.toHaveProperty('estimatedCost')
   })
 
   it('노드 하나에 선이 없어도 저장된다', async () => {
