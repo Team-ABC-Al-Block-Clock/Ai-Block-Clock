@@ -48,16 +48,21 @@ export function useSavedWorkflow(workflowId: string | undefined) {
   })
 
   const canvas = useMemo(() => {
-    if (!detail.data || labels.isPending) return null
+    // 이름표가 「도착」해야 한다. 실패도 isPending 은 false 라, 그것만 보면 이름 없는 카드가 굳는다.
+    if (!detail.data || !labels.isSuccess) return null
     const found = new Map((labels.data ?? []).map((item) => [item.itemId, item]))
     return toCanvasWorkflow(detail.data, (sourceId) => found.get(sourceId))
-  }, [detail.data, labels.data, labels.isPending])
+  }, [detail.data, labels.data, labels.isSuccess])
 
   return {
     detail: detail.data,
     canvas,
     isPending: !!workflowId && (detail.isPending || labels.isPending),
-    error: detail.error,
-    refetch: detail.refetch,
+    // 이름표가 빠져도 카드가 통째로 이름을 잃는다. 같은 실패로 다룬다.
+    error: detail.error ?? labels.error,
+    refetch: () => {
+      void detail.refetch()
+      void labels.refetch()
+    },
   }
 }
