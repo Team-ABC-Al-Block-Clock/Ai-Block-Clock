@@ -6,7 +6,7 @@ import { env } from '@/lib/env'
 
 /** `{ status: 'SUCCESS', data }` — 값으로 분기하지 않고 봉투 모양만 본다. */
 interface ApiSuccessBody<T> {
-  status: string
+  status: 'SUCCESS' | 'FAIL'
   data: T
 }
 
@@ -66,6 +66,8 @@ client.interceptors.response.use(
   // 봉투를 벗겨 data 만 넘긴다 — 화면이 res.data.data 를 몰라도 된다.
   (response) => {
     const body = response.data
+    // 실패 봉투는 벗기지 않는다. 2xx 로 오면 `data: null` 이 성공값으로 둔갑한다.
+    if (isApiErrorBody(body)) return body
     if (typeof body === 'object' && body !== null && 'status' in body && 'data' in body) {
       return (body as ApiSuccessBody<unknown>).data
     }
