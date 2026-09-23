@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,7 +46,7 @@ public class AgentService {
 
         GraphId graphId = copyGraph(snapshot);
         AgentRegistration registered = publishFirstVersion(
-                requester, source, profile, VersionCostAssembler.assemble(snapshot, placedNodes));
+                requester, source, profile, assembleCost(snapshot, placedNodes));
 
         agentWriter.append(registered.agent());
         agentVersionWriter.append(registered.version(), graphId);
@@ -76,7 +78,7 @@ public class AgentService {
 
         GraphId graphId = copyGraph(snapshot);
         AgentVersion next = AgentVersion.next(published, AgentVersionId.newId(),
-                frozen, snapshot, VersionCostAssembler.assemble(snapshot, placedNodes)).publish();
+                frozen, snapshot, assembleCost(snapshot, placedNodes)).publish();
         Agent republished = described.publish(requester, next.getId(), next.getNumber());
 
         agentWriter.append(republished);
@@ -91,6 +93,14 @@ public class AgentService {
         List<NodeDefinition> locked = nodeReader.readAllForShare(placedNodeIds(snapshot));
 
         return versionPolicy.ensureVersionable(source, requester, locked);
+    }
+
+    private VersionCost assembleCost(WorkflowGraph snapshot, Map<NodeDefinitionId, NodeDefinition> placedNodes) {
+        Map<AgentVersionId, VersionCost> placedVersions = AgentPlacement.in(snapshot).stream()
+                .map(AgentPlacement::versionId)
+                .collect(Collectors.toMap(Function.identity(), id -> agentVersionReader.read(id).getCost()));
+
+        return VersionCostAssembler.assemble(snapshot, placedNodes, placedVersions);
     }
 
     private GraphId copyGraph(WorkflowGraph snapshot) {
