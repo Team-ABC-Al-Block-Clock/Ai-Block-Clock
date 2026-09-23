@@ -21,6 +21,12 @@ import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
+/**
+ * 진행 화면과 달리 카메라가 없다. 여섯 번째부터는 패널 앞에서 잘려 보이지 않는데, 여기서 할
+ * 일은 입력과 실행이지 구성 확인이 아니다 — 방금 편집기에서 만들고 온 것이고, 무엇이 도는지는
+ * 실행 견적 카드가 노드마다 이름과 단가로 보여 준다.
+ */
+
 /** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
 const EMPTY_NODES: CanvasNodeData[] = []
 const EMPTY_EDGES: CanvasEdge[] = []
