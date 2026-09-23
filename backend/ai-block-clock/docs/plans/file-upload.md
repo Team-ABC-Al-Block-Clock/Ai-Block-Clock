@@ -42,7 +42,7 @@
 | `POST /api/v1/runs` | JSON 본문 → **`multipart/form-data`**. **FE 가 함께 바뀌어야 한다** |
 | `client:ai` | `RunRequest.file` 이 보낼 파일의 경로를 받는다 |
 | `domain/execution` | `ExecutionFileValidator` · `ExecutionFileStore` |
-| `storage` | `execution` 에 입력 파일 컬럼 (V13) |
+| `storage` | `execution` 에 입력 파일 컬럼 (V14) |
 | 배포 | `execution-files` 볼륨과 `EXECUTION_FILE_ROOT` |
 
 ---
@@ -185,7 +185,7 @@ EXE-017 의 "실패 지점부터 재실행" 은 아예 성립하지 않는다.
 | 2 | 저장 — 쓰기 · 찾기 · 지우기, 경로 설정, 볼륨 | `ExecutionFileStore` · `EXECUTION_FILE_ROOT` · `execution-files` 볼륨 |
 | 3 | 검사 — 확장자 · 크기 · 빈 파일, multipart 상한 | `ExecutionFileValidator` · `spring.servlet.multipart` |
 | 4 | API — `POST /api/v1/runs` 를 multipart 로 | `@ModelAttribute ExecutionStartRequest` |
-| 5 | 이력 — `execution` 컬럼과 V13 | `input_file_key` · `input_file_name` · `input_file_size` |
+| 5 | 이력 — `execution` 컬럼과 V14 | `input_file_key` · `input_file_name` · `input_file_size` |
 | 6 | 통합 — 파일 실은 실행 | 보관 · 전달 · 거부 · 실패 시 되돌리기까지 통합 테스트로 |
 
 ---

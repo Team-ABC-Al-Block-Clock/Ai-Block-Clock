@@ -68,7 +68,7 @@
 | `domain/agent` | `VersionNode` 가 자료 목록까지 굳힌다 |
 | `domain/execution` | `PlannedPrompt` 가 자료를 들고 다닌다 |
 | `client:ai` | `RunRequest` 에 `ref_file_*` 파트 |
-| `storage` | `node_ref_file` · `agent_version_node_ref_file` (V14) |
+| `storage` | `node_ref_file` · `agent_version_node_ref_file` (V15) |
 | `api` | `POST` · `DELETE /api/v1/nodes/{nodeId}/ref-files` |
 
 저장은 [`file-upload.md`](file-upload.md) 에서 세운 것을 그대로 쓴다. **루트 · 볼륨 · 오류 코드가 이미
@@ -148,7 +148,7 @@ PlannedPrompt(자료 목록)  ──►  nodes[].ref_files 로 쓴다
 
 | | 무엇을 | 들어간 것 |
 | --- | --- | --- |
-| 1 | `RefFile` 값 · 검사 · 저장 · 테이블 | `RefFile` · `RefFileValidator` · `RefFileStore` · `node_ref_file` (V14) |
+| 1 | `RefFile` 값 · 검사 · 저장 · 테이블 | `RefFile` · `RefFileValidator` · `RefFileStore` · `node_ref_file` (V15) |
 | 2 | 굳히기 | `VersionNode.refFiles` · `agent_version_node_ref_file` |
 | 3 | 실어 보내기 | `PlannedPrompt.refFiles` → `RuntimeWorkflow` → `RunRequest.refFiles` |
 | 4 | 통합 | 자료를 바꿔도 공개한 버전이 옛 자료를 보는 것까지 |
