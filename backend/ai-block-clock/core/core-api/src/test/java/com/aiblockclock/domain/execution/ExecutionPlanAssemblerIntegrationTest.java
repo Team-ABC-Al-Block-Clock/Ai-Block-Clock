@@ -16,7 +16,14 @@ import com.aiblockclock.domain.workflow.GraphWriter;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.SourceType;
+import com.aiblockclock.domain.workflow.BranchCondition;
+import com.aiblockclock.domain.workflow.ConditionOperator;
+import com.aiblockclock.domain.workflow.NodePlacement;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +35,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("integration")
 @SpringBootTest
@@ -76,7 +84,7 @@ class ExecutionPlanAssemblerIntegrationTest {
                 List.of(
                         GraphFixtures.placement("n1", analyze.getId().value(), InputSource.USER),
                         GraphFixtures.placement("n2", letter.getId().value(), InputSource.PREV)),
-                List.of(new GraphEdge(EdgeKey.of("e1"), NodeKey.of("n1"), NodeKey.of("n2"))));
+                List.of(new GraphEdge(EdgeKey.of("e1"), NodeKey.of("n1"), NodeKey.of("n2"), null)));
         workflowId = workflow.getId();
 
         ExecutionPlan plan = executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER));
@@ -88,6 +96,32 @@ class ExecutionPlanAssemblerIntegrationTest {
                 .containsExactly(InputSource.USER, InputSource.PREV);
         assertThat(plan.prompts().get(0).prompt().value())
                 .isEqualTo("당신은 학원 성적 데이터 분석가입니다.");
+    }
+
+    @Test
+    @DisplayName("분기가 있으면 아직 펴지 않는다")
+    void refusesBranch() {
+        NodeDefinition step = nodeService.create(OWNER, "시장 조사",
+                Prompt.of("당신은 시장 조사 분석가입니다."), AiModel.defaultModel());
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+                InputSource.defaultSource(), null, ControlType.BRANCH,
+                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"));
+
+        Workflow workflow = workflowService.save(OWNER, "경쟁 강도로 가른다", null,
+                List.of(
+                        GraphFixtures.placement("n1", step.getId().value()),
+                        branch,
+                        GraphFixtures.placement("n2", step.getId().value()),
+                        GraphFixtures.placement("n3", step.getId().value())),
+                List.of(GraphFixtures.edge("e1", "n1", "br1"),
+                        GraphFixtures.branchEdge("e2", "br1", "n2", true),
+                        GraphFixtures.branchEdge("e3", "br1", "n3", false)));
+        workflowId = workflow.getId();
+
+        assertThatThrownBy(() -> executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER)))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
     }
 
     private GraphId graphIdOf(WorkflowId id) {

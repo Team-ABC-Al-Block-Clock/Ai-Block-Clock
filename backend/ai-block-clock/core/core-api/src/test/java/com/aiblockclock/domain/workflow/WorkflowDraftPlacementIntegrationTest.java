@@ -117,7 +117,8 @@ class WorkflowDraftPlacementIntegrationTest {
 
     private static NodePlacement draft(String key, String name) {
         return new NodePlacement(NodeKey.of(key), SourceType.NODE, NodeType.LLM, null,
-                InputSource.defaultSource(), new NodeDraft(name, "프롬프트 원문", AiModel.defaultModel()));
+                InputSource.defaultSource(), new NodeDraft(name, "프롬프트 원문", AiModel.defaultModel()),
+                null, null);
     }
 
     private static UUID referenceOf(Workflow workflow, String key) {

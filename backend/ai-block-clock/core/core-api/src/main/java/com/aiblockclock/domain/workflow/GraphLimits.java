@@ -28,12 +28,14 @@ public final class GraphLimits {
             throw new CoreException(ErrorType.WORKFLOW_GRAPH_EMPTY);
         }
 
-        int length = graph.chainLength();
+        int count = graph.nodeCount();
 
-        if (length > maxNodes) {
+        if (count > maxNodes) {
             throw new CoreException(ErrorType.WORKFLOW_NODE_LIMIT_EXCEEDED,
-                    Map.of("limit", maxNodes, "actual", length));
+                    Map.of("limit", maxNodes, "actual", count));
         }
+
+        int length = graph.longestPathLength();
 
         if (length > maxDepth) {
             throw new CoreException(ErrorType.WORKFLOW_DEPTH_LIMIT_EXCEEDED,

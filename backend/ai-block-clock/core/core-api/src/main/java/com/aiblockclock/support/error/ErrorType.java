@@ -66,8 +66,11 @@ public enum ErrorType {
     WORKFLOW_NODE_REFERENCE_MISMATCH(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
             "노드 종류와 참조 정보가 맞지 않습니다.", LogLevel.WARN),
 
-    WORKFLOW_GRAPH_NOT_LINEAR(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "노드는 한 줄로 이어져야 합니다.", LogLevel.WARN),
+    WORKFLOW_GRAPH_NOT_TREE(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.", LogLevel.WARN),
+
+    WORKFLOW_BRANCH_EDGES_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 노드는 참 · 거짓 갈래를 하나씩 내고, 갈래 표시는 분기 노드에서 나가는 선에만 붙습니다.", LogLevel.WARN),
 
     WORKFLOW_GRAPH_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_014,
             "노드를 하나 이상 놓아야 저장할 수 있습니다.", LogLevel.WARN),
@@ -98,6 +101,9 @@ public enum ErrorType {
 
     EXECUTION_ENGINE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.EXECUTION_002,
             "실행을 맡기지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
+
+    EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
+            "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     RECOMMEND_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.RECOMMEND_001,
             "추천을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),

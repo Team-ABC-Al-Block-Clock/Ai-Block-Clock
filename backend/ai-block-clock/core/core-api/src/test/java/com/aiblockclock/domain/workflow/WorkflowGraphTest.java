@@ -7,6 +7,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import static com.aiblockclock.domain.workflow.GraphFixtures.agent;
+import static com.aiblockclock.domain.workflow.GraphFixtures.branch;
+import static com.aiblockclock.domain.workflow.GraphFixtures.branchEdge;
 import static com.aiblockclock.domain.workflow.GraphFixtures.edge;
 import static com.aiblockclock.domain.workflow.GraphFixtures.node;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -156,54 +158,54 @@ class WorkflowGraphTest {
         }
 
         @Test
-        @DisplayName("한 줄로 이어지면 그 길이를 센다")
+        @DisplayName("한 줄로 이어지면 그 길이가 가장 긴 경로다")
         void measuresChainLength() {
-            assertThat(GraphFixtures.straightLine().chainLength()).isEqualTo(3);
+            assertThat(GraphFixtures.straightLine().longestPathLength()).isEqualTo(3);
         }
 
         @Test
-        @DisplayName("노드 하나뿐이어도 한 줄이다")
+        @DisplayName("노드 하나뿐이면 경로 길이는 1 이다")
         void countsSingleNode() {
-            assertThat(WorkflowGraph.of(List.of(node("n1")), List.of()).chainLength()).isEqualTo(1);
+            assertThat(WorkflowGraph.of(List.of(node("n1")), List.of()).longestPathLength()).isEqualTo(1);
         }
 
         @Test
-        @DisplayName("갈라지면 한 줄이 아니다")
+        @DisplayName("분기 노드가 아닌데 갈라지면 트리가 아니다")
         void rejectsFork() {
             WorkflowGraph graph = WorkflowGraph.of(
                     List.of(node("n1"), node("n2"), node("n3")),
                     List.of(edge("e1", "n1", "n2"), edge("e2", "n1", "n3")));
 
-            assertThatThrownBy(graph::chainLength)
+            assertThatThrownBy(graph::longestPathLength)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR);
+                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_TREE);
         }
 
         @Test
-        @DisplayName("합쳐져도 한 줄이 아니다")
+        @DisplayName("합쳐지면 트리가 아니다")
         void rejectsMerge() {
             WorkflowGraph graph = WorkflowGraph.of(
                     List.of(node("n1"), node("n2"), node("n3")),
                     List.of(edge("e1", "n1", "n3"), edge("e2", "n2", "n3")));
 
-            assertThatThrownBy(graph::chainLength)
+            assertThatThrownBy(graph::longestPathLength)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR);
+                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_TREE);
         }
 
         @Test
-        @DisplayName("끊겨 있으면 한 줄이 아니다")
+        @DisplayName("끊겨 있으면 트리가 아니다")
         void rejectsDisconnectedNode() {
             WorkflowGraph graph = WorkflowGraph.of(
                     List.of(node("n1"), node("n2"), node("n3")),
                     List.of(edge("e1", "n1", "n2")));
 
-            assertThatThrownBy(graph::chainLength)
+            assertThatThrownBy(graph::longestPathLength)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR);
+                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_TREE);
         }
 
         @Test
@@ -211,7 +213,7 @@ class WorkflowGraphTest {
         void detectsSelfLoopAsCycle() {
             WorkflowGraph graph = WorkflowGraph.of(List.of(node("n1")), List.of(edge("e1", "n1", "n1")));
 
-            assertThatThrownBy(graph::chainLength)
+            assertThatThrownBy(graph::longestPathLength)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.WORKFLOW_GRAPH_CYCLE);
@@ -224,7 +226,7 @@ class WorkflowGraphTest {
                     List.of(node("n1"), node("n2")),
                     List.of(edge("e1", "n1", "n2"), edge("e2", "n2", "n1")));
 
-            assertThatThrownBy(graph::chainLength)
+            assertThatThrownBy(graph::longestPathLength)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.WORKFLOW_GRAPH_CYCLE);
@@ -237,10 +239,108 @@ class WorkflowGraphTest {
                     List.of(node("n1"), node("n2"), node("n3")),
                     List.of(edge("e1", "n2", "n3"), edge("e2", "n3", "n2")));
 
-            assertThatThrownBy(graph::chainLength)
+            assertThatThrownBy(graph::longestPathLength)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.WORKFLOW_GRAPH_CYCLE);
+        }
+    }
+
+    @Nested
+    @DisplayName("분기를 따라간다")
+    class Branching {
+        @Test
+        @DisplayName("참 갈래를 끝까지 간 뒤에 거짓 갈래로 간다")
+        void walksTrueBranchFirst() {
+            WorkflowGraph graph = GraphFixtures.branched();
+
+            assertThat(graph.nodesInOrder()).extracting(n -> n.key().value())
+                    .containsExactly("n1", "br1", "n2", "n3", "n4");
+            assertThat(graph.edgesInOrder()).extracting(e -> e.key().value())
+                    .containsExactly("e1", "e2", "e3", "e4");
+        }
+
+        @Test
+        @DisplayName("거짓 갈래를 먼저 담아도 참 갈래부터 간다")
+        void ignoresStoredEdgeOrder() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1"), node("n2"), node("n3")),
+                    List.of(branchEdge("e3", "br1", "n3", false),
+                            branchEdge("e2", "br1", "n2", true),
+                            edge("e1", "n1", "br1")));
+
+            assertThat(graph.nodesInOrder()).extracting(n -> n.key().value())
+                    .containsExactly("n1", "br1", "n2", "n3");
+        }
+
+        @Test
+        @DisplayName("가장 긴 갈래로 경로 길이를 잰다")
+        void measuresLongestBranch() {
+            assertThat(GraphFixtures.branched().longestPathLength()).isEqualTo(4);
+        }
+
+        @Test
+        @DisplayName("분기 노드가 한 갈래만 내면 막는다")
+        void rejectsSingleBranch() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1"), node("n2")),
+                    List.of(edge("e1", "n1", "br1"), branchEdge("e2", "br1", "n2", true)));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_EDGES_INVALID);
+        }
+
+        @Test
+        @DisplayName("분기 노드의 두 갈래가 같은 쪽이면 막는다")
+        void rejectsSameSidedBranches() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1"), node("n2"), node("n3")),
+                    List.of(edge("e1", "n1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n3", true)));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_EDGES_INVALID);
+        }
+
+        @Test
+        @DisplayName("분기 노드가 아닌 곳에서 나가는 선에 갈래를 붙이면 막는다")
+        void rejectsWhenOutsideBranch() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), node("n2")),
+                    List.of(branchEdge("e1", "n1", "n2", true)));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_EDGES_INVALID);
+        }
+
+        @Test
+        @DisplayName("갈라진 갈래가 다시 만나면 트리가 아니다")
+        void rejectsRejoin() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1"), node("n2"), node("n3"), node("n4")),
+                    List.of(edge("e1", "n1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n3", false),
+                            edge("e4", "n2", "n4"),
+                            edge("e5", "n3", "n4")));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_TREE);
+        }
+
+        @Test
+        @DisplayName("제어 노드는 원본 노드로 세지 않는다")
+        void leavesControlNodeOutOfBaseNodes() {
+            assertThat(GraphFixtures.branched().baseNodeReferences()).hasSize(4);
         }
     }
 }

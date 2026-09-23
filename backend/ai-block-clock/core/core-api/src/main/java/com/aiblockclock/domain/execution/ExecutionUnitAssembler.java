@@ -34,6 +34,7 @@ public class ExecutionUnitAssembler {
                 yield new NodeUnit(placed.inputSource(), node.getSpec().name(), node.getPrompt());
             }
             case AGENT -> expand(placed);
+            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
         };
     }
 
@@ -55,6 +56,7 @@ public class ExecutionUnitAssembler {
                 yield new NodeUnit(placed.inputSource(), node.spec().name(), node.prompt());
             }
             case AGENT -> expand(placed);
+            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
         };
     }
 

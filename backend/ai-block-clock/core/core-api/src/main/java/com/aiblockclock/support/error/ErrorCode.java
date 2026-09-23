@@ -32,6 +32,7 @@ public enum ErrorCode {
 
     EXECUTION_001,
     EXECUTION_002,
+    EXECUTION_005,
 
     RECOMMEND_001,
 

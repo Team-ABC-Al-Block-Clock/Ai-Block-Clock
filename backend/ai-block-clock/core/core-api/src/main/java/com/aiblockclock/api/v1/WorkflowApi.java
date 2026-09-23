@@ -103,9 +103,9 @@ public interface WorkflowApi {
             { "status": "FAIL", "data": null,
               "error": { "code": "WORKFLOW_010", "message": "실행이 진행 중인 워크플로우는 삭제할 수 없습니다.", "data": null } }""";
 
-    String NOT_LINEAR_EXAMPLE = """
+    String NOT_TREE_EXAMPLE = """
             { "status": "FAIL", "data": null,
-              "error": { "code": "WORKFLOW_013", "message": "노드는 한 줄로 이어져야 합니다.",
+              "error": { "code": "WORKFLOW_013", "message": "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.",
                          "data": { "nodeKey": "n1" } } }""";
 
     String DANGLING_EDGE_EXAMPLE = """
@@ -170,7 +170,7 @@ public interface WorkflowApi {
                             schema = @Schema(implementation = ApiResult.class),
                             examples = {
                                     @ExampleObject(name = "WORKFLOW_014 · 노드가 없다", value = GRAPH_EMPTY_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_013 · 한 줄이 아니다", value = NOT_LINEAR_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 트리가 아니다", value = NOT_TREE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 연결선이 빈 곳을 가리킨다",
                                             value = DANGLING_EDGE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
@@ -227,7 +227,7 @@ public interface WorkflowApi {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
                             examples = {
-                                    @ExampleObject(name = "WORKFLOW_013 · 한 줄이 아니다", value = NOT_LINEAR_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 트리가 아니다", value = NOT_TREE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_017 · 노드 종류가 다르다",
                                             value = NODE_TYPE_MISMATCH_EXAMPLE)})),

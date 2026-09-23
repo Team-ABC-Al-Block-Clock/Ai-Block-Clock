@@ -1,5 +1,6 @@
 package com.aiblockclock.storage.graph;
 
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -43,7 +44,7 @@ public class GraphNodeEntity {
     private SourceType sourceType;
 
     @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(name = "reference_id", length = 36, nullable = false)
+    @Column(name = "reference_id", length = 36)
     private UUID referenceId;
 
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -54,13 +55,22 @@ public class GraphNodeEntity {
     @Column(name = "input_source", length = 20, nullable = false)
     private InputSource inputSource;
 
-    public GraphNodeEntity(UUID graphId, String nodeKey, SourceType sourceType,
-                              UUID referenceId, UUID versionId, InputSource inputSource) {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "control_type", length = 20)
+    private ControlType controlType;
+
+    @Column(name = "branch_condition", columnDefinition = "text")
+    private String branchCondition;
+
+    public GraphNodeEntity(UUID graphId, String nodeKey, SourceType sourceType, UUID referenceId, UUID versionId,
+                           InputSource inputSource, ControlType controlType, String branchCondition) {
         this.graphId = graphId;
         this.nodeKey = nodeKey;
         this.sourceType = sourceType;
         this.referenceId = referenceId;
         this.versionId = versionId;
         this.inputSource = inputSource;
+        this.controlType = controlType;
+        this.branchCondition = branchCondition;
     }
 }
