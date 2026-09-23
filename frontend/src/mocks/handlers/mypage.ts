@@ -1,6 +1,6 @@
 import { http } from 'msw'
 
-import type { AgentImage, CreatedAgent, MyAgentSort, UsedAgentSort } from '@/api/agents'
+import type { CreateAgentRequest, CreatedAgent, MyAgentSort, UsedAgentSort } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import type { DeletedWorkflow, WorkflowSort } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
@@ -16,25 +16,6 @@ import { scene } from '@/mocks/scenario'
 const PAGE_SIZE = 10
 
 const invalidQuery = () => fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
-
-/** jsdom 에는 createObjectURL 이 없다. */
-export function previewUrl(value: FormDataEntryValue | null): string | null {
-  if (!(value instanceof File)) return null
-  return typeof URL.createObjectURL === 'function'
-    ? URL.createObjectURL(value)
-    : `blob:mock/${value.name}`
-}
-
-/** 설명(`*ImageCaptions`)은 받아서 버린다 — 상세 응답에 담을 필드가 없다. */
-export function shots(form: FormData, type: 'INPUT' | 'OUTPUT'): AgentImage[] {
-  const key = type === 'INPUT' ? 'inputImageFiles' : 'outputImageFiles'
-  return form.getAll(key).map((file, order) => ({
-    imageId: crypto.randomUUID(),
-    type,
-    url: previewUrl(file) ?? '',
-    order,
-  }))
-}
 
 /**
  * 없으면 기본값, 있으면 유효해야 한다. 조용히 기본값으로 떨어뜨리면 화면이 잘못된 값을
@@ -92,22 +73,23 @@ export const mypageHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    const form = await request.formData()
-    const text = (name: string) => String(form.get(name) ?? '').trim()
-    // 빈 값을 통과시키면 목록에 이름 없는 카드가 생기고 검색에도 안 걸린다.
-    if (!text('name') || !text('summary'))
+    const body = (await request.json()) as Partial<CreateAgentRequest>
+    const text = (value: string | undefined) => (value ?? '').trim()
+    // 서버가 필수로 보는 셋. `workflowId` · `revision` 도 필수지만 화면이 아직 줄 수 없다.
+    if (!text(body.name) || !text(body.summary) || !text(body.description))
       return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
 
     const agent = addAgent({
-      name: text('name'),
-      summary: text('summary'),
-      description: text('description'),
-      usageExample: text('usageExample'),
-      onboardingMessage: text('onboardingMessage'),
-      iconUrl: previewUrl(form.get('iconFile')),
-      images: [...shots(form, 'INPUT'), ...shots(form, 'OUTPUT')],
+      name: text(body.name),
+      summary: text(body.summary),
+      description: text(body.description),
+      usageExample: text(body.usageExample),
+      onboardingMessage: text(body.onboardingMessage),
     })
-    return ok<CreatedAgent>({ agentId: agent.agentId }, { status: 201 })
+    return ok<CreatedAgent>(
+      { agentId: agent.agentId, name: agent.name, price: agent.price },
+      { status: 201 },
+    )
   }),
   /** 검색어도 정렬도 없다. 즐겨찾기한 시각 역순 고정. */
   http.get(`${API_BASE_URL}/users/me/favorites`, async ({ request }) => {

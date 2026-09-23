@@ -66,52 +66,47 @@ export interface AgentFavorite {
   favoriteCount: number
 }
 
-export interface AgentImageInput {
-  file: File
-  caption: string
-}
+/** 서버가 거절하는 길이. 넘겨 보내면 COMMON_001 하나로만 돌아와 어디가 문제인지 알 수 없다. */
+export const AGENT_LIMITS = {
+  name: { min: 2, max: 40 },
+  summary: { max: 80 },
+  description: { max: 2000 },
+  usageExample: { max: 500 },
+  onboardingMessage: { max: 20 },
+} as const
 
-/**
- * 등록 요청. 파일·설명 파트와 워크플로우 연결·가격 산정은 명세 전 추정이다 —
- * 명세가 오면 고칠 곳이 이 파일이다.
- */
+/** 등록 요청. JSON 이다 — 서버에 파일을 받는 자리가 없다. `revision` 이 어긋나면 `WORKFLOW_016`. */
 export interface CreateAgentRequest {
+  workflowId: string
+  revision: number
   name: string
   summary: string
   description: string
-  usageExample: string
-  onboardingMessage: string
-  iconFile?: File
-  inputImages?: AgentImageInput[]
-  outputImages?: AgentImageInput[]
+  /** 선택. 비면 보내지 않는다 */
+  usageExample?: string
+  /** 선택. 비면 보내지 않는다 */
+  onboardingMessage?: string
 }
 
-/** 화면이 상세로 이동하는 데 필요한 것은 ID 뿐이다. */
+/** 등록 결과. 단가는 서버가 산정한다 — 화면이 다시 계산하지 않는다. */
 export interface CreatedAgent {
   agentId: string
+  name: string
+  /** 실행 1회당 판매 단가. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다 */
+  price: string
 }
 
-/** 파일과 설명을 같은 순서로 하나씩 싣는다 — 설명이 비어도 자리를 비우지 않는다. */
-function appendImages(form: FormData, where: 'input' | 'output', images?: AgentImageInput[]) {
-  for (const image of images ?? []) {
-    form.append(`${where}ImageFiles`, image.file)
-    form.append(`${where}ImageCaptions`, image.caption)
-  }
-}
-
-/** Content-Type 은 지정하지 않는다 — 박으면 FormData 가 JSON 문자열로 나간다. */
-export const createAgent = (body: CreateAgentRequest) => {
-  const form = new FormData()
-  form.append('name', body.name)
-  form.append('summary', body.summary)
-  form.append('description', body.description)
-  form.append('usageExample', body.usageExample)
-  form.append('onboardingMessage', body.onboardingMessage)
-  if (body.iconFile) form.append('iconFile', body.iconFile)
-  appendImages(form, 'input', body.inputImages)
-  appendImages(form, 'output', body.outputImages)
-  return api.post<CreatedAgent>('/agents', form)
-}
+/** 선택 항목은 비면 키째 뺀다 — 빈 문자열과 미전송을 서버가 다르게 본다. */
+export const createAgent = (body: CreateAgentRequest) =>
+  api.post<CreatedAgent>('/agents', {
+    workflowId: body.workflowId,
+    revision: body.revision,
+    name: body.name,
+    summary: body.summary,
+    description: body.description,
+    ...(body.usageExample ? { usageExample: body.usageExample } : {}),
+    ...(body.onboardingMessage ? { onboardingMessage: body.onboardingMessage } : {}),
+  })
 
 /**
  * 판매 중인 내 에이전트. `AgentSummary` 를 확장하지 않는다 — 명세에 없는 평점·리뷰 수가

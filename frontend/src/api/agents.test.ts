@@ -1,5 +1,5 @@
 import type { AxiosAdapter } from 'axios'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   addAgentFavorite,
@@ -14,20 +14,9 @@ import {
   removeAgentFavorite,
 } from '@/api/agents'
 import type { AgentSummary } from '@/api/agents'
-import { API_BASE_URL, client } from '@/api/client'
+import { client } from '@/api/client'
 import { ApiError } from '@/api/errors'
 import type { CursorPage } from '@/api/page'
-
-/** jsdom 의 XHR 은 FormData 에 multipart Content-Type 을 붙이지 않는다 — mock 이 파트를 읽으려면 node 어댑터여야 한다. */
-const TRANSPORT = { adapter: client.defaults.adapter, baseURL: client.defaults.baseURL }
-beforeAll(() => {
-  client.defaults.adapter = 'http'
-  client.defaults.baseURL = `${location.origin}${API_BASE_URL}`
-})
-afterAll(() => {
-  client.defaults.adapter = TRANSPORT.adapter
-  client.defaults.baseURL = TRANSPORT.baseURL
-})
 
 /**
  * 마켓 목록 조회. api 레이어 + mock 핸들러 + 커서 모듈을 한 번에 통과시킨다.
@@ -286,6 +275,8 @@ describe('getAgentProvenance', () => {
 
   it('블록 번호는 UUID 로 등록한 건에서도 안전한 정수다', async () => {
     const created = await createAgent({
+      workflowId: '33567ab2-e08b-461b-a0f2-51a857df5ec7',
+      revision: 1,
       name: '증명 확인용',
       summary: '한 줄',
       description: '설명',
@@ -460,6 +451,9 @@ describe('즐겨찾기', () => {
  */
 describe('createAgent', () => {
   const INPUT = {
+    // 굳힐 워크플로우와 사용자가 보던 회차. 둘 다 서버가 필수로 받는다.
+    workflowId: '33567ab2-e08b-461b-a0f2-51a857df5ec7',
+    revision: 1,
     name: '테스트 등록',
     summary: '등록 직후 상태를 확인한다',
     description: '상세 설명',
@@ -495,7 +489,7 @@ describe('createAgent', () => {
     expect(agent.averageRating).toBeNull()
     expect(agent.reviewCount).toBe(0)
     expect(agent.favoriteCount).toBe(0)
-    // 아이콘·스크린샷 업로드는 등록 화면에서 아직 연결되지 않았다.
+    // 파일을 받는 자리가 서버에 없다 — 아이콘도 스크린샷도 비어 있다.
     expect(agent.iconUrl).toBeNull()
     expect(agent.images).toEqual([])
     // onboardingMessage 는 받아서 버린다 — 상세 응답에 없다.
@@ -526,16 +520,14 @@ describe('createAgent', () => {
     expect(times).toEqual([...times].sort((a, b) => b - a))
   })
 
-  const PNG = (name: string) => new File(['\u0089PNG'], name, { type: 'image/png' })
-
-  /** 파일 파트는 이 경로로만 볼 수 있다 — 실제로 보내면 follow-redirects 가 Blob 파트를 쓰지 못한다. */
-  const capturePartsOf = async (send: () => Promise<unknown>) => {
+  /** 나간 본문은 이 경로로만 볼 수 있다 — mock 핸들러는 읽고 나서 버린다. */
+  const capturedBodyOf = async (send: () => Promise<unknown>) => {
     const previous = client.defaults.adapter
-    let captured: FormData | undefined
+    let captured: unknown
     const capture: AxiosAdapter = (config) => {
-      captured = config.data as FormData
+      captured = JSON.parse(String(config.data))
       return Promise.resolve({
-        data: { status: 'success', data: { agentId: 'agt_new' } },
+        data: { status: 'success', data: { agentId: 'agt_new', name: '이름', price: '450' } },
         status: 201,
         statusText: 'Created',
         headers: {},
@@ -550,40 +542,47 @@ describe('createAgent', () => {
       client.defaults.adapter = previous
     }
 
-    if (!captured) throw new Error('요청 본문을 가로채지 못했다')
-    return captured
+    return captured as Record<string, unknown>
   }
 
-  it('파일과 설명을 같은 순서로 싣는다', async () => {
-    const parts = await capturePartsOf(() =>
-      createAgent({
-        ...INPUT,
-        iconFile: PNG('icon.png'),
-        inputImages: [
-          { file: PNG('in-1.png'), caption: '첫 장' },
-          { file: PNG('in-2.png'), caption: '' },
-        ],
-      }),
-    )
+  it('JSON 으로 워크플로우와 회차를 함께 보낸다', async () => {
+    const body = await capturedBodyOf(() => createAgent(INPUT))
 
-    expect(parts.get('name')).toBe(INPUT.name)
-    expect((parts.get('iconFile') as File).name).toBe('icon.png')
-    expect(parts.getAll('inputImageFiles').map((file) => (file as File).name)).toEqual([
-      'in-1.png',
-      'in-2.png',
-    ])
-    // 설명이 비어도 자리를 비우지 않는다 — 어긋나면 엉뚱한 사진에 붙는다.
-    expect(parts.getAll('inputImageCaptions')).toEqual(['첫 장', ''])
-    expect(parts.has('outputImageFiles')).toBe(false)
+    // 파일 업로드가 서버에 없다 — multipart 로 보내면 415 다.
+    expect(body).toEqual(INPUT)
   })
 
-  it('이름이나 한 줄 설명이 비면 COMMON_001', async () => {
+  it('선택 항목이 비면 키째 뺀다', async () => {
+    // 빈 문자열을 보내면 "보내지 않음" 과 달라진다 — 서버는 두 값을 nullable 로 둔다.
+    const body = await capturedBodyOf(() =>
+      createAgent({ ...INPUT, usageExample: '', onboardingMessage: '' }),
+    )
+
+    expect(body).not.toHaveProperty('usageExample')
+    expect(body).not.toHaveProperty('onboardingMessage')
+    expect(body.description).toBe(INPUT.description)
+  })
+
+  it('단가는 서버가 준 문자열 그대로다', async () => {
+    const created = await createAgent(INPUT)
+
+    // 갓 등록한 것은 최저 등급이라 프리미엄이 0 이다 — 화면이 다시 계산하지 않는다.
+    expect(created.price).toBe('450')
+    expect(created.name).toBe(INPUT.name)
+  })
+
+  it('이름 · 한 줄 설명 · 상세 설명이 비면 COMMON_001', async () => {
     // 목록 카드가 반드시 그리는 값이다. 통과시키면 이름 없는 카드가 생긴다.
     await expect(createAgent({ ...INPUT, name: '   ' })).rejects.toMatchObject({
       code: 'COMMON_001',
       status: 400,
     })
     await expect(createAgent({ ...INPUT, summary: '' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
+    })
+    // 상세 설명도 서버가 필수로 본다.
+    await expect(createAgent({ ...INPUT, description: '' })).rejects.toMatchObject({
       code: 'COMMON_001',
       status: 400,
     })

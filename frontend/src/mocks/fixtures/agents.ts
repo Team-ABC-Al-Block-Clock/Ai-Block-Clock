@@ -9,7 +9,6 @@ import type {
   UsedAgent,
 } from '@/api/agents'
 import iconUrl from '@/assets/logo.png'
-import { sellingPrice } from '@/lib/price'
 
 /**
  * 에이전트 픽스처 30건. 단가·성공률·즐겨찾기 수는 서버가 기록해 주는 값이라 그대로 적는다.
@@ -390,14 +389,12 @@ export interface NewAgentInput {
   description: string
   usageExample: string
   onboardingMessage: string
-  iconUrl: string | null
-  images: AgentImage[]
 }
 
-/** 화면이 넘기는 값만 받고 나머지는 서버가 채울 기본값을 흉내 낸다. */
-/** 임시 실행가. 등록 화면에 워크플로우가 연결되면 사라진다. */
-const MOCK_ESTIMATED_COST = '450'
+/** 속 노드 원가의 합. 서버가 워크플로우에서 계산하는 값이라 여기서는 고정값이다. */
+const MOCK_BASE_COST = '450'
 
+/** 화면이 넘기는 값만 받고 나머지는 서버가 채울 기본값을 흉내 낸다. */
 export function addAgent(input: NewAgentInput): AgentDetail {
   const owner = OWNERS[ME]
   const agent: AgentDetail = {
@@ -408,9 +405,11 @@ export function addAgent(input: NewAgentInput): AgentDetail {
     summary: input.summary,
     description: input.description,
     usageExample: input.usageExample || null,
-    iconUrl: input.iconUrl,
-    images: input.images,
-    price: sellingPrice(MOCK_ESTIMATED_COST) ?? '0',
+    // 파일을 받는 자리가 서버에 없다 — 등록 직후에는 비어 있다.
+    iconUrl: null,
+    images: [],
+    // 원가 × (1 + 등급 프리미엄). 갓 등록한 것은 최저 등급이라 프리미엄이 0 이다.
+    price: MOCK_BASE_COST,
     // 갓 등록한 것이라 실적이 없다. 상세 화면이 '—' 를 내야 한다.
     executionCount: 0,
     successRate: 0,
