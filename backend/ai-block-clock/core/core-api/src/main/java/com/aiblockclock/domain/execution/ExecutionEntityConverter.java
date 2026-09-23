@@ -15,7 +15,10 @@ public final class ExecutionEntityConverter {
                 execution.getRequester().value(),
                 execution.getRunId().value(),
                 execution.getStatus(),
-                execution.getPromptCount());
+                execution.getPromptCount(),
+                keyOf(execution.getInputFile()),
+                nameOf(execution.getInputFile()),
+                sizeOf(execution.getInputFile()));
     }
 
     public static Execution toDomain(ExecutionEntity entity) {
@@ -25,6 +28,28 @@ public final class ExecutionEntityConverter {
                 UserId.of(entity.getRequesterId()),
                 RunId.of(entity.getRunId()),
                 entity.getStatus(),
-                entity.getPromptCount());
+                entity.getPromptCount(),
+                inputFileOf(entity));
+    }
+
+    private static ExecutionFile inputFileOf(ExecutionEntity entity) {
+        if (entity.getInputFileKey() == null) {
+            return null;
+        }
+
+        return new ExecutionFile(
+                entity.getInputFileKey(), entity.getInputFileName(), entity.getInputFileSize());
+    }
+
+    private static String keyOf(ExecutionFile file) {
+        return file == null ? null : file.key();
+    }
+
+    private static String nameOf(ExecutionFile file) {
+        return file == null ? null : file.filename();
+    }
+
+    private static Long sizeOf(ExecutionFile file) {
+        return file == null ? null : file.size();
     }
 }

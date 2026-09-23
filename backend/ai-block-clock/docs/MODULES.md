@@ -359,6 +359,7 @@ spring:
 | `AI_RUNTIME_BASE_URL` | 전체 | `http://ai-block-clock-ai-runtime:8000` |
 | `AI_RUNTIME_CONNECT_TIMEOUT`, `AI_RUNTIME_READ_TIMEOUT` | 전체 | 2s / 10s |
 | `AI_SERVICE_TOKEN` | 전체 | 없음 (비어 있으면 헤더 없이 붙고 기동 때 경고) |
+| `FILE_STORE_ROOT` | 전체 | `/var/lib/ai-block-clock/files` (도커 이름 볼륨을 여기에 붙인다) |
 
 ---
 
