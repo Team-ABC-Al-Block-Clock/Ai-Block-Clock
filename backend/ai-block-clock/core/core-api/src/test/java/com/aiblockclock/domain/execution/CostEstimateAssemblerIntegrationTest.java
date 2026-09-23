@@ -16,7 +16,6 @@ import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +46,7 @@ class CostEstimateAssemblerIntegrationTest {
     private NodeDefinitionRepository nodeRepository;
 
     @Test
-    @DisplayName("내 노드만 놓으면 노드마다 원가를 적고 더한다")
-    void pricesPlacedNodesByBaseCost() {
+    void 내_노드만_놓으면_노드마다_원가를_적고_더한다() {
         Workflow workflow = save(nodePlacement("n1"), nodePlacement("n2"));
 
         CostEstimate estimate = costEstimateAssembler.assemble(workflow);
@@ -62,8 +60,7 @@ class CostEstimateAssemblerIntegrationTest {
     }
 
     @Test
-    @DisplayName("에이전트는 속을 펼치지 않고 박힌 버전의 판매가 한 줄로 적는다")
-    void pricesPlacedAgentByFinalPrice() {
+    void 에이전트는_속을_펼치지_않고_박힌_버전의_판매가_한_줄로_적는다() {
         AgentRegistration agent = registerAgent();
         Workflow workflow = save(nodePlacement("n1"), agentPlacement("n2", agent.agent().getId()));
 
@@ -77,8 +74,7 @@ class CostEstimateAssemblerIntegrationTest {
     }
 
     @Test
-    @DisplayName("같은 에이전트를 두 자리에 놓으면 두 줄로 적고 두 번 더한다")
-    void countsEveryPlacementOfTheSameAgent() {
+    void 같은_에이전트를_두_자리에_놓으면_두_줄로_적고_두_번_더한다() {
         AgentRegistration agent = registerAgent();
         Workflow workflow = save(agentPlacement("n1", agent.agent().getId()), agentPlacement("n2", agent.agent().getId()));
 
