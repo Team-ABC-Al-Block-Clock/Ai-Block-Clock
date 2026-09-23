@@ -46,14 +46,27 @@ public class ExecutionEntity extends BaseTimeEntity {
     @Column(name = "prompt_count", nullable = false)
     private int promptCount;
 
+    @Column(name = "input_file_key", length = 128)
+    private String inputFileKey;
+
+    @Column(name = "input_file_name", length = 255)
+    private String inputFileName;
+
+    @Column(name = "input_file_size")
+    private Long inputFileSize;
+
     public ExecutionEntity(UUID id, UUID workflowId, Long requesterId, String runId,
-                           ExecutionStatus status, int promptCount) {
+                           ExecutionStatus status, int promptCount,
+                           String inputFileKey, String inputFileName, Long inputFileSize) {
         this.id = id;
         this.workflowId = workflowId;
         this.requesterId = requesterId;
         this.runId = runId;
         this.status = status;
         this.promptCount = promptCount;
+        this.inputFileKey = inputFileKey;
+        this.inputFileName = inputFileName;
+        this.inputFileSize = inputFileSize;
     }
 
     public void moveTo(ExecutionStatus status) {

@@ -13,6 +13,10 @@ public enum ErrorCode {
     AUTH_011,
     AUTH_012,
 
+    USER_002,
+    USER_003,
+    USER_006,
+
     WORKFLOW_002,
     WORKFLOW_003,
     WORKFLOW_005,
@@ -29,10 +33,17 @@ public enum ErrorCode {
     NODE_002,
     NODE_003,
     NODE_004,
+    NODE_005,
+    NODE_006,
+    NODE_007,
 
     EXECUTION_001,
     EXECUTION_002,
+    EXECUTION_003,
+    EXECUTION_004,
     EXECUTION_005,
+
+    FILE_001,
 
     RECOMMEND_001,
 

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -56,6 +57,14 @@ public class ApiControllerAdvice {
 
         return ResponseEntity.status(ErrorType.INVALID_REQUEST.getStatus())
                 .body(ApiResult.fail(ErrorType.INVALID_REQUEST, fieldOf(e)));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResult<Void>> handleUploadTooLarge(MaxUploadSizeExceededException e) {
+        log.warn("올린 파일이 상한을 넘음: {}", e.getMessage());
+
+        return ResponseEntity.status(ErrorType.EXECUTION_FILE_TOO_LARGE.getStatus())
+                .body(ApiResult.fail(ErrorType.EXECUTION_FILE_TOO_LARGE, null));
     }
 
     @ExceptionHandler(Exception.class)

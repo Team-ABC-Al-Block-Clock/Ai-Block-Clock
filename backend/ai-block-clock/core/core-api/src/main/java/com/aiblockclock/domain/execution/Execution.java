@@ -17,15 +17,16 @@ public final class Execution {
     private final RunId runId;
     private final ExecutionStatus status;
     private final int promptCount;
+    private final ExecutionFile inputFile;
 
-    public static Execution started(
-            ExecutionId id, WorkflowId workflowId, UserId requester, RunId runId, int promptCount) {
-        return new Execution(id, workflowId, requester, runId, ExecutionStatus.QUEUED, promptCount);
+    public static Execution started(ExecutionId id, WorkflowId workflowId, UserId requester,
+                                    RunId runId, int promptCount, ExecutionFile inputFile) {
+        return new Execution(id, workflowId, requester, runId, ExecutionStatus.QUEUED, promptCount, inputFile);
     }
 
-    public static Execution restore(ExecutionId id, WorkflowId workflowId, UserId requester,
-                                    RunId runId, ExecutionStatus status, int promptCount) {
-        return new Execution(id, workflowId, requester, runId, status, promptCount);
+    public static Execution restore(ExecutionId id, WorkflowId workflowId, UserId requester, RunId runId,
+                                    ExecutionStatus status, int promptCount, ExecutionFile inputFile) {
+        return new Execution(id, workflowId, requester, runId, status, promptCount, inputFile);
     }
 
     public boolean isRequestedBy(UserId candidate) {

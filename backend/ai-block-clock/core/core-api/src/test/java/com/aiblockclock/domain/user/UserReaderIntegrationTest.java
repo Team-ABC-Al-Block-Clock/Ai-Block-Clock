@@ -2,6 +2,8 @@ package com.aiblockclock.domain.user;
 
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import jakarta.persistence.EntityManager;
 
@@ -11,10 +13,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("integration")
 @SpringBootTest
@@ -28,6 +32,44 @@ class UserReaderIntegrationTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Test
+    void 가입_전_사용자를_ID로_읽으면_이름이_비어_있고_가입_미완료다() {
+        UserEntity saved = userRepository.saveAndFlush(
+                UserEntity.of("0x6666666666666666666666666666666666666666"));
+        entityManager.clear();
+
+        User found = userReader.read(UserId.of(saved.getId()));
+
+        assertThat(found.id()).isEqualTo(UserId.of(saved.getId()));
+        assertThat(found.nickname()).isNull();
+        assertThat(found.introduction()).isNull();
+        assertThat(found.onboardingCompleted()).isFalse();
+    }
+
+    @Test
+    void 가입한_사용자를_ID로_읽으면_이름_소개와_가입_완료가_담긴다() {
+        UserEntity user = userRepository.saveAndFlush(
+                UserEntity.of("0x7777777777777777777777777777777777777777"));
+        Instant completedAt = Instant.parse("2026-09-23T01:02:03Z");
+        user.completeOnboarding("김싸피", "에이전트를 만듭니다", completedAt);
+        userRepository.flush();
+        entityManager.clear();
+
+        User found = userReader.read(UserId.of(user.getId()));
+
+        assertThat(found.nickname()).isEqualTo("김싸피");
+        assertThat(found.introduction()).isEqualTo("에이전트를 만듭니다");
+        assertThat(found.onboardingCompletedAt()).isEqualTo(completedAt);
+        assertThat(found.onboardingCompleted()).isTrue();
+    }
+
+    @Test
+    void 없는_사용자_ID를_읽으면_요청자_정보가_올바르지_않다는_예외를_던진다() {
+        assertThatThrownBy(() -> userReader.read(UserId.of(Long.MAX_VALUE)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.REQUESTER_NOT_IDENTIFIABLE));
+    }
 
     @Test
     void 지갑_주소로_사용자를_조회하면_도메인_모델을_반환한다() {

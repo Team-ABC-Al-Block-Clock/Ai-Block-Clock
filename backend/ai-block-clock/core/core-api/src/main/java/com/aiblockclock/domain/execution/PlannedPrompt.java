@@ -1,7 +1,13 @@
 package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.domain.node.Prompt;
+import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.enums.workflow.InputSource;
 
-public record PlannedPrompt(String name, Prompt prompt, InputSource inputSource) {
+import java.util.List;
+
+public record PlannedPrompt(String name, Prompt prompt, InputSource inputSource, List<RefFile> refFiles) {
+    public PlannedPrompt {
+        refFiles = List.copyOf(refFiles);
+    }
 }

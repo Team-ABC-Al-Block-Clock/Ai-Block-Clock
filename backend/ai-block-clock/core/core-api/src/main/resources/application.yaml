@@ -15,6 +15,10 @@ spring:
     timeout: ${AUTH_SESSION_TIMEOUT:2h}
     jdbc:
       initialize-schema: never
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 server:
   port: ${SERVER_PORT:8080}
@@ -30,6 +34,9 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     persist-authorization: true
+
+file-store:
+  root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
 
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
