@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -234,6 +235,103 @@ class AgentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(registerBody(UUID.randomUUID().toString(), 1)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("굳힌 원본을 고친 뒤 PUT 하면 200 과 오른 버전 번호가 나온다")
+    void raisesVersionOnUpdate() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+        String agentId = registerAgent(workflowId);
+        replaceWorkflow(workflowId, createNode("요약", "결과를 한 문단으로 줄입니다."));
+
+        mockMvc.perform(update(owner, agentId, updateBody(workflowId, 2, "성적 분석 에이전트")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.versionNo").value(2))
+                .andExpect(jsonPath("$.data.agentId").value(agentId));
+    }
+
+    @Test
+    @DisplayName("굳힌 그대로 이름만 바꿔 PUT 하면 버전은 1 그대로다")
+    void keepsVersionWhenOnlyNameChanges() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+        String agentId = registerAgent(workflowId);
+
+        mockMvc.perform(update(owner, agentId, updateBody(workflowId, 1, "이름만 바꾼 에이전트")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.versionNo").value(1))
+                .andExpect(jsonPath("$.data.name").value("이름만 바꾼 에이전트"));
+    }
+
+    @Test
+    @DisplayName("남의 에이전트를 PUT 하면 막힌다")
+    void rejectsUpdateByOtherOwner() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+        String agentId = registerAgent(workflowId);
+
+        mockMvc.perform(update(other, agentId, updateBody(workflowId, 1, "남이 고친다")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("WORKFLOW_003"));
+    }
+
+    @Test
+    @DisplayName("없는 에이전트를 PUT 하면 404 다")
+    void rejectsUpdateOfUnknownAgent() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+
+        mockMvc.perform(update(owner, UUID.randomUUID().toString(), updateBody(workflowId, 1, "없는 것을 고친다")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("AGENT_003"));
+    }
+
+    private String registerAgent(String workflowId) throws Exception {
+        MvcResult result = mockMvc.perform(register(owner, registerBody(workflowId, 1)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return mapper.readTree(result.getResponse().getContentAsString())
+                .get("data").get("agentId").asText();
+    }
+
+    private void replaceWorkflow(String workflowId, String replacingSecondNode) throws Exception {
+        mockMvc.perform(put("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "고친 원본",
+                                  "revision": 1,
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
+                                  ]
+                                }
+                                """.formatted(nodeId, replacingSecondNode)))
+                .andExpect(status().isOk());
+    }
+
+    private org.springframework.test.web.servlet.RequestBuilder update(
+            long userId, String agentId, String body) {
+        return put("/api/v1/agents/{agentId}", agentId)
+                .with(as(userId))
+                .with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+    }
+
+    private static String updateBody(String workflowId, long revision, String name) {
+        return """
+                {
+                  "workflowId": "%s",
+                  "revision": %d,
+                  "name": "%s",
+                  "summary": "성적을 분석한다",
+                  "description": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다"
+                }
+                """.formatted(workflowId, revision, name);
     }
 
     private org.springframework.test.web.servlet.RequestBuilder register(long userId, String body) {

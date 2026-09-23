@@ -19,7 +19,6 @@ public final class AgentVersion {
     private final AgentId agentId;
     private final VersionNumber number;
     private final SourceWorkflow source;
-    private final WorkflowGraph snapshot;
     private final VersionCost cost;
     private final Tier tier;
     private final PublicationState state;
@@ -33,7 +32,7 @@ public final class AgentVersion {
     ) {
         requireExecutable(snapshot);
 
-        return new AgentVersion(id, agentId, VersionNumber.first(), source, snapshot, cost,
+        return new AgentVersion(id, agentId, VersionNumber.first(), source, cost,
                 Tier.initial(), PublicationState.DRAFT);
     }
 
@@ -46,7 +45,7 @@ public final class AgentVersion {
     ) {
         requireExecutable(snapshot);
 
-        return new AgentVersion(id, previous.agentId, previous.number.next(), source, snapshot, cost,
+        return new AgentVersion(id, previous.agentId, previous.number.next(), source, cost,
                 Tier.initial(), PublicationState.DRAFT);
     }
 
@@ -55,12 +54,11 @@ public final class AgentVersion {
             AgentId agentId,
             VersionNumber number,
             SourceWorkflow source,
-            WorkflowGraph snapshot,
             VersionCost cost,
             Tier tier,
             PublicationState state
     ) {
-        return new AgentVersion(id, agentId, number, source, snapshot, cost, tier, state);
+        return new AgentVersion(id, agentId, number, source, cost, tier, state);
     }
 
     private static void requireExecutable(WorkflowGraph snapshot) {
@@ -74,7 +72,7 @@ public final class AgentVersion {
             throw new CoreException(ErrorType.AGENT_VERSION_ALREADY_PUBLISHED);
         }
 
-        return new AgentVersion(id, agentId, number, source, snapshot, cost, tier, PublicationState.PUBLISHED);
+        return new AgentVersion(id, agentId, number, source, cost, tier, PublicationState.PUBLISHED);
     }
 
     public boolean isPublished() {

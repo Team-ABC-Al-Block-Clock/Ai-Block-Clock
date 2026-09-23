@@ -108,6 +108,9 @@ public enum ErrorType {
     AGENT_FOREIGN_NODE_INCLUDED(HttpStatus.FORBIDDEN, ErrorCode.AGENT_002,
             "타인 소유의 노드 또는 에이전트가 포함되어 있습니다.", LogLevel.WARN),
 
+    AGENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.AGENT_003,
+            "공개된 에이전트를 찾을 수 없습니다.", LogLevel.WARN),
+
     AGENT_FORBIDDEN(HttpStatus.FORBIDDEN, ErrorCode.AGENT_006,
             "에이전트에 대한 권한이 없습니다.", LogLevel.WARN),
 

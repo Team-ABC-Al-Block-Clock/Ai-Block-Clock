@@ -35,7 +35,7 @@ class AgentVersionTest {
 
     private static AgentVersion versionAt(Tier tier, PublicationState state) {
         return AgentVersion.restore(AgentVersionId.newId(), AGENT_ID, VersionNumber.first(), source(1),
-                GraphFixtures.straightLine(), cost(2, "100"), tier, state);
+                cost(2, "100"), tier, state);
     }
 
     @Test
@@ -80,16 +80,6 @@ class AgentVersionTest {
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.AGENT_VERSION_ALREADY_PUBLISHED);
-    }
-
-    @Test
-    @DisplayName("원본 워크플로우가 바뀌어도 스냅샷은 그대로다")
-    void snapshotIsDetachedFromSource() {
-        WorkflowGraph original = GraphFixtures.straightLine();
-        AgentVersion version = AgentVersion.first(AgentVersionId.newId(), AGENT_ID, source(1),
-                original, cost(2, "100"));
-
-        assertThat(version.getSnapshot()).isSameAs(original);
     }
 
     @Test

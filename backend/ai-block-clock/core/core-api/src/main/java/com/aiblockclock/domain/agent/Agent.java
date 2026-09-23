@@ -34,6 +34,10 @@ public final class Agent {
         return new Agent(id, owner, profile, new PublicVersion(versionId, number));
     }
 
+    public Agent describedAs(AgentProfile changed) {
+        return new Agent(id, owner, changed, publicVersion);
+    }
+
     public boolean isOwnedBy(UserId candidate) {
         return owner.equals(candidate);
     }
