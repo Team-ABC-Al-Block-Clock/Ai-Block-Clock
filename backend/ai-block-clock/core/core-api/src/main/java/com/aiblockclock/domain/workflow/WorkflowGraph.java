@@ -171,6 +171,8 @@ public final class WorkflowGraph {
             throw new CoreException(ErrorType.WORKFLOW_GRAPH_CYCLE);
         }
 
+        nodes.forEach(this::ensureConditionReadsUpstream);
+
         return walked;
     }
 
@@ -233,6 +235,35 @@ public final class WorkflowGraph {
             throw new CoreException(ErrorType.WORKFLOW_BRANCH_EDGES_INVALID,
                     Map.of("nodeKey", node.key().value()));
         }
+    }
+
+    private void ensureConditionReadsUpstream(GraphNode node) {
+        if (!(node instanceof ControlNode branch)) {
+            return;
+        }
+
+        boolean readsUpstreamNode = branch.condition().source()
+                .filter(source -> upstreamOf(branch.key()).contains(source))
+                .flatMap(this::findNode)
+                .filter(source -> source.sourceType() == SourceType.NODE)
+                .isPresent();
+
+        if (!readsUpstreamNode) {
+            throw new CoreException(ErrorType.WORKFLOW_BRANCH_CONDITION_INVALID,
+                    Map.of("nodeKey", branch.key().value(), "left", branch.condition().left()));
+        }
+    }
+
+    private Set<NodeKey> upstreamOf(NodeKey key) {
+        Map<NodeKey, NodeKey> parents = new HashMap<>();
+        edges.forEach(edge -> parents.put(edge.targetNodeKey(), edge.sourceNodeKey()));
+
+        Set<NodeKey> upstream = new HashSet<>();
+        for (NodeKey current = parents.get(key); current != null; current = parents.get(current)) {
+            upstream.add(current);
+        }
+
+        return upstream;
     }
 
     private static boolean splitsTrueAndFalse(List<GraphEdge> next) {

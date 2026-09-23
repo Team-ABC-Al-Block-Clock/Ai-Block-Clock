@@ -30,8 +30,12 @@ public final class GraphFixtures {
     }
 
     public static ControlNode branch(String key) {
+        return branch(key, "n1.competition_level");
+    }
+
+    public static ControlNode branch(String key, String left) {
         return new ControlNode(NodeKey.of(key), ControlType.BRANCH,
-                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"));
+                new BranchCondition(left, ConditionOperator.EQ, "high"));
     }
 
     public static GraphEdge edge(String key, String source, String target) {

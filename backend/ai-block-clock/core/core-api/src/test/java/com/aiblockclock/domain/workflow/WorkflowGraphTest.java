@@ -338,6 +338,66 @@ class WorkflowGraphTest {
         }
 
         @Test
+        @DisplayName("분기 조건이 분기 뒤에 오는 노드를 읽으면 막는다")
+        void rejectsConditionReadingDownstream() {
+            assertRejectsCondition("n2.competition_level");
+        }
+
+        @Test
+        @DisplayName("분기 조건이 없는 노드를 읽으면 막는다")
+        void rejectsConditionReadingMissingNode() {
+            assertRejectsCondition("n9.competition_level");
+        }
+
+        @Test
+        @DisplayName("분기 조건이 결과 안의 경로 없이 노드만 가리키면 막는다")
+        void rejectsConditionWithoutPath() {
+            assertRejectsCondition("n1");
+        }
+
+        @Test
+        @DisplayName("분기 조건은 앞에 놓인 에이전트를 읽지 못한다")
+        void rejectsConditionReadingAgent() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(agent("a1", UUID.randomUUID(), UUID.randomUUID()), branch("br1", "a1.competition_level"),
+                            node("n2"), node("n3")),
+                    List.of(edge("e1", "a1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n3", false)));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_CONDITION_INVALID);
+        }
+
+        @Test
+        @DisplayName("분기 조건은 바로 앞이 아니어도 앞에 놓인 작업 노드면 읽는다")
+        void readsAnyUpstreamNode() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), node("n2"), branch("br1", "n1.competition_level"), node("n3"), node("n4")),
+                    List.of(edge("e1", "n1", "n2"),
+                            edge("e2", "n2", "br1"),
+                            branchEdge("e3", "br1", "n3", true),
+                            branchEdge("e4", "br1", "n4", false)));
+
+            assertThatCode(graph::nodesInOrder).doesNotThrowAnyException();
+        }
+
+        private void assertRejectsCondition(String left) {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1", left), node("n2"), node("n3")),
+                    List.of(edge("e1", "n1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n3", false)));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_CONDITION_INVALID);
+        }
+
+        @Test
         @DisplayName("제어 노드는 원본 노드로 세지 않는다")
         void leavesControlNodeOutOfBaseNodes() {
             assertThat(GraphFixtures.branched().baseNodeReferences()).hasSize(4);

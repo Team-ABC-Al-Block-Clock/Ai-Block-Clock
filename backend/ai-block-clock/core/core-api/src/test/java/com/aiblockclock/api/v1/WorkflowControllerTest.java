@@ -267,6 +267,59 @@ class WorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("분기 조건의 비교 방법과 값의 모양이 맞지 않으면 400 이다")
+    void rejectsConditionShapeMismatch() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(branchBody("{ \"left\": \"n1.tier\", \"operator\": \"IN\", \"right\": \"gold\" }")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(branchBody(
+                                "{ \"left\": \"n1.tier\", \"operator\": \"EQ\", \"right\": [\"gold\", \"silver\"] }")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("분기 조건이 분기 뒤의 노드를 읽으면 저장하지 않는다")
+    void rejectsConditionReadingDownstream() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(branchBody("{ \"left\": \"n2.tier\", \"operator\": \"EQ\", \"right\": \"gold\" }")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("WORKFLOW_013"))
+                .andExpect(jsonPath("$.error.data.left").value("n2.tier"));
+    }
+
+    private String branchBody(String condition) {
+        return """
+                {
+                  "name": "등급으로 가른다",
+                  "nodes": [
+                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                    { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH", "condition": %s },
+                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" },
+                    { "nodeKey": "n3", "sourceType": "NODE", "sourceId": "%s" }
+                  ],
+                  "edges": [
+                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "br1" },
+                    { "edgeKey": "e2", "sourceNodeKey": "br1", "targetNodeKey": "n2", "when": true },
+                    { "edgeKey": "e3", "sourceNodeKey": "br1", "targetNodeKey": "n3", "when": false }
+                  ]
+                }
+                """.formatted(nodeId, condition, nodeId, nodeId);
+    }
+
+    @Test
     @DisplayName("제어 노드에 조건이 없거나 원본을 가리키면 400 이다")
     void rejectsMalformedControlPlacement() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
