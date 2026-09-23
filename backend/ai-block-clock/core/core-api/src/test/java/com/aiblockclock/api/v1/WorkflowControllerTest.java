@@ -193,6 +193,168 @@ class WorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("분기 노드를 놓으면 조건과 갈래를 그대로 저장하고 참 갈래부터 돌려준다")
+    void savesBranch() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "경쟁 강도로 가른다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH",
+                                      "condition": { "left": "n1.competition_level", "operator": "EQ", "right": "high" } },
+                                    { "nodeKey": "n3b", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n3a", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e3", "sourceNodeKey": "br1", "targetNodeKey": "n3b", "when": false },
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "br1" },
+                                    { "edgeKey": "e2", "sourceNodeKey": "br1", "targetNodeKey": "n3a", "when": true }
+                                  ]
+                                }
+                                """.formatted(nodeId, nodeId, nodeId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.nodes[1].nodeKey").value("br1"))
+                .andExpect(jsonPath("$.data.nodes[1].sourceId").doesNotExist())
+                .andReturn();
+
+        String workflowId = mapper.readTree(created.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes[1].sourceType").value("CONTROL"))
+                .andExpect(jsonPath("$.data.nodes[1].controlType").value("BRANCH"))
+                .andExpect(jsonPath("$.data.nodes[1].condition.left").value("n1.competition_level"))
+                .andExpect(jsonPath("$.data.nodes[1].condition.operator").value("EQ"))
+                .andExpect(jsonPath("$.data.nodes[1].condition.right").value("high"))
+                .andExpect(jsonPath("$.data.nodes[2].nodeKey").value("n3a"))
+                .andExpect(jsonPath("$.data.nodes[3].nodeKey").value("n3b"))
+                .andExpect(jsonPath("$.data.edges[1].edgeKey").value("e2"))
+                .andExpect(jsonPath("$.data.edges[1].when").value(true))
+                .andExpect(jsonPath("$.data.edges[2].when").value(false))
+                .andExpect(jsonPath("$.data.edges[0].when").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("분기 노드가 한 갈래만 내면 저장하지 않는다")
+    void rejectsBranchWithOneSide() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "한 갈래뿐이다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH",
+                                      "condition": { "left": "n1.score", "operator": "GE", "right": 80 } },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "br1" },
+                                    { "edgeKey": "e2", "sourceNodeKey": "br1", "targetNodeKey": "n2", "when": true }
+                                  ]
+                                }
+                                """.formatted(nodeId, nodeId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("WORKFLOW_013"));
+    }
+
+    @Test
+    @DisplayName("분기 조건의 비교 방법과 값의 모양이 맞지 않으면 400 이다")
+    void rejectsConditionShapeMismatch() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(branchBody("{ \"left\": \"n1.tier\", \"operator\": \"IN\", \"right\": \"gold\" }")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(branchBody(
+                                "{ \"left\": \"n1.tier\", \"operator\": \"EQ\", \"right\": [\"gold\", \"silver\"] }")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("분기 조건이 분기 뒤의 노드를 읽으면 저장하지 않는다")
+    void rejectsConditionReadingDownstream() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(branchBody("{ \"left\": \"n2.tier\", \"operator\": \"EQ\", \"right\": \"gold\" }")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("WORKFLOW_013"))
+                .andExpect(jsonPath("$.error.data.left").value("n2.tier"));
+    }
+
+    private String branchBody(String condition) {
+        return """
+                {
+                  "name": "등급으로 가른다",
+                  "nodes": [
+                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                    { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH", "condition": %s },
+                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" },
+                    { "nodeKey": "n3", "sourceType": "NODE", "sourceId": "%s" }
+                  ],
+                  "edges": [
+                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "br1" },
+                    { "edgeKey": "e2", "sourceNodeKey": "br1", "targetNodeKey": "n2", "when": true },
+                    { "edgeKey": "e3", "sourceNodeKey": "br1", "targetNodeKey": "n3", "when": false }
+                  ]
+                }
+                """.formatted(nodeId, condition, nodeId, nodeId);
+    }
+
+    @Test
+    @DisplayName("제어 노드에 조건이 없거나 원본을 가리키면 400 이다")
+    void rejectsMalformedControlPlacement() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "조건 없는 분기",
+                                  "nodes": [ { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH" } ],
+                                  "edges": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "원본을 가리킨 분기",
+                                  "nodes": [
+                                    { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH", "sourceId": "%s",
+                                      "condition": { "left": "n1.score", "operator": "GE", "right": 80 } }
+                                  ],
+                                  "edges": []
+                                }
+                                """.formatted(nodeId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
     @DisplayName("본문으로 실어 보낸 단계는 노드로 만들어져 배치되고, 응답이 그 ID 를 알려준다")
     void createsNodeCarriedByPlacement() throws Exception {
         long before = nodeRepository.count();

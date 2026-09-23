@@ -81,8 +81,15 @@ public enum ErrorType {
     WORKFLOW_NODE_REFERENCE_MISMATCH(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
             "노드 종류와 참조 정보가 맞지 않습니다.", LogLevel.WARN),
 
-    WORKFLOW_GRAPH_NOT_LINEAR(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "노드는 한 줄로 이어져야 합니다.", LogLevel.WARN),
+    WORKFLOW_GRAPH_NOT_TREE(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.", LogLevel.WARN),
+
+    WORKFLOW_BRANCH_EDGES_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 노드는 참 · 거짓 갈래를 하나씩 내고, 갈래 표시는 분기 노드에서 나가는 선에만 붙습니다.", LogLevel.WARN),
+
+    WORKFLOW_BRANCH_CONDITION_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
+            LogLevel.WARN),
 
     WORKFLOW_GRAPH_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_014,
             "노드를 하나 이상 놓아야 저장할 수 있습니다.", LogLevel.WARN),
@@ -134,6 +141,9 @@ public enum ErrorType {
 
     EXECUTION_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.EXECUTION_004,
             "파일 크기가 10MB 를 넘습니다.", LogLevel.WARN),
+
+    EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
+            "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
             "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),

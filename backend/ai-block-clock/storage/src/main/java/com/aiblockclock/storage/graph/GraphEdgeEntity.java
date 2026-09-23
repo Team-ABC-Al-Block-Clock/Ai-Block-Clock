@@ -39,10 +39,15 @@ public class GraphEdgeEntity {
     @Column(name = "target_node_key", length = 64, nullable = false)
     private String targetNodeKey;
 
-    public GraphEdgeEntity(UUID graphId, String edgeKey, String sourceNodeKey, String targetNodeKey) {
+    @Column(name = "branch_when")
+    private Boolean branchWhen;
+
+    public GraphEdgeEntity(UUID graphId, String edgeKey, String sourceNodeKey, String targetNodeKey,
+                           Boolean branchWhen) {
         this.graphId = graphId;
         this.edgeKey = edgeKey;
         this.sourceNodeKey = sourceNodeKey;
         this.targetNodeKey = targetNodeKey;
+        this.branchWhen = branchWhen;
     }
 }

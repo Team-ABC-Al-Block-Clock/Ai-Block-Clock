@@ -36,7 +36,8 @@ public interface ExecutionApi {
             @ApiResponse(responseCode = "202", description = "접수됨. 실행은 뒤에서 돈다"),
             @ApiResponse(responseCode = "400", description = """
                     요청 본문이 올바르지 않다 (`COMMON_001`).
-                    빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`)""", content = @Content),
+                    빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`).
+                    분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`)""", content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 워크플로우다 (`WORKFLOW_003`)", content = @Content),
             @ApiResponse(responseCode = "404", description = "없는 워크플로우다 (`WORKFLOW_002`)", content = @Content),
             @ApiResponse(responseCode = "413", description = "파일이 10MB 를 넘는다 (`FILE_002`)", content = @Content),

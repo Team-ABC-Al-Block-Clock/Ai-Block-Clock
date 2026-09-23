@@ -146,7 +146,7 @@ class RefFileFreezeIntegrationTest {
 
     private static NodePlacement agentPlacement(AgentRegistration agent) {
         return new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, null,
-                agent.agent().getId().value(), InputSource.defaultSource(), null);
+                agent.agent().getId().value(), InputSource.defaultSource(), null, null, null);
     }
 
     private static UploadedFile upload(String filename, String content) {
