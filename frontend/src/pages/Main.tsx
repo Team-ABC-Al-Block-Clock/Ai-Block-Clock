@@ -236,13 +236,12 @@ export default function Main() {
             transition: 'opacity .22s ease',
           }}
         />
-        <a
-          href={paths.edit.searching}
-          onClick={(ev) => {
-            // 링크를 남겨 커서와 접근성은 그대로 두고, 이동만 가로채 적은 문장을 함께 싣는다.
-            ev.preventDefault()
-            startSearch()
-          }}
+        {/* 링크가 아니라 버튼이다 — 주소는 적은 문장에 따라 달라지는데, 링크로 두면
+            새 탭으로 열었을 때 검색어 없는 주소로 들어가 랜딩으로 되튕긴다. */}
+        <button
+          type="button"
+          aria-label="에이전트 찾기"
+          onClick={() => startSearch()}
           style={{
             left: '656px',
             top: '12px',
@@ -254,9 +253,8 @@ export default function Main() {
             transition: 'opacity .22s ease',
             background: 'var(--color-accent)',
             boxShadow: '0 6px 18px rgba(140,100,130,.26)',
-            textDecoration: 'none',
           }}
-          className="absolute flex cursor-pointer items-center justify-center hover:brightness-[1.05]"
+          className="absolute flex cursor-pointer items-center justify-center border-0 p-0 hover:brightness-[1.05]"
         >
           <svg
             width="18"
@@ -271,7 +269,7 @@ export default function Main() {
             <path d="M9 15V3.6" />
             <path d="M3.9 8.7 9 3.6l5.1 5.1" />
           </svg>
-        </a>
+        </button>
         {dragging && (
           <>
             <div
