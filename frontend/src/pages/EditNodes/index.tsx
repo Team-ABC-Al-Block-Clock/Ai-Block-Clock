@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import { replaceWorkflow, saveWorkflow } from '@/api/workflows'
+import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
@@ -25,6 +25,9 @@ import NodePalettePanel from './NodePalettePanel'
 const NAME_MAX = 40
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
+/** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
+const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
 
 /** 불러오기가 막혔을 때 놓을 자리. 캔버스를 덮는다 — 자리표시자를 남겨 두면 불러와진 줄 안다. */
 const NOTICE_BOX = { left: '180px', top: '380px', width: '620px' } as const
@@ -106,6 +109,9 @@ export default function EditNodes() {
 
   const loaded = useSavedWorkflow(workflowId)
 
+  /** 마지막으로 저장에 성공한(또는 불러온) 내용. 한 글자라도 달라지면 다시 저장할 것이 있다. */
+  const [savedShape, setSavedShape] = useState<string | null>(null)
+
   /** 한 번 옮기면 끝이다. 같은 응답으로 다시 덮지 않는다. */
   const applied = useRef<string | null>(null)
   useEffect(() => {
@@ -115,6 +121,11 @@ export default function EditNodes() {
     canvas.loadGraph(loadedCanvas)
     setName(detail.name)
     setSaved({ workflowId: detail.workflowId, revision: detail.revision })
+    // 불러온 그대로가 곧 「저장된 상태」다. 비워 두면 손대지 않았는데 「저장」으로 보이고,
+    // 실행하기가 바뀐 것 없이 PUT 을 한 번 더 보내 회차만 오른다.
+    setSavedShape(
+      shapeOf(toWorkflowGraph(loadedCanvas.nodes, loadedCanvas.edges), detail.name.trim()),
+    )
   }, [loaded, canvas])
 
   // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
@@ -124,9 +135,7 @@ export default function EditNodes() {
   const trimmedName = name.trim()
 
   /** 지금 화면이 보낼 내용. 저장한 것과 글자로 비교해 「저장됨」을 되돌린다. */
-  const pending = useMemo(() => JSON.stringify({ graph, name: trimmedName }), [graph, trimmedName])
-  /** 마지막으로 저장에 성공한 내용. 한 글자라도 달라지면 다시 저장할 것이 있다. */
-  const [savedShape, setSavedShape] = useState<string | null>(null)
+  const pending = useMemo(() => shapeOf(graph, trimmedName), [graph, trimmedName])
   const dirty = savedShape !== pending
 
   const save = useMutation({
