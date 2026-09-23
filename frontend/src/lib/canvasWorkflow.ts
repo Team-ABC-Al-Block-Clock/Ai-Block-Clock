@@ -244,6 +244,46 @@ export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
   return nodes.length > 0 && nodes.every((node) => node.mine)
 }
 
+/**
+ * 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`.
+ *
+ * 캔버스는 갈래를 만들 수 있게 두고(`canConnect`) 여기서 판정만 한다 — 서버가 아직 선형만
+ * 받으므로(`WORKFLOW_013`) 저장 버튼 옆에 가능 여부를 띄우는 데 쓴다. 서버가 갈래를 받게 되면
+ * 이 함수만 풀면 되고 편집 화면은 그대로다.
+ *
+ * 판정과 순서를 함께 낸다. 저장할 때 이 순서로 `n1…nN` 키를 매기기 때문에 두 번 훑을 이유가 없다.
+ */
+export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): CanvasNodeData[] | null {
+  if (nodes.length === 0) return null
+  // 한 줄이면 선은 노드보다 정확히 하나 적다. 남거나 모자라면 끊겼거나 겹친 것이다.
+  if (edges.length !== nodes.length - 1) return null
+
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const next = new Map<string, string>()
+  const incoming = new Map<string, number>()
+  for (const edge of edges) {
+    if (!byId.has(edge.from) || !byId.has(edge.to)) return null
+    if (next.has(edge.from)) return null
+    next.set(edge.from, edge.to)
+    const count = (incoming.get(edge.to) ?? 0) + 1
+    if (count > 1) return null
+    incoming.set(edge.to, count)
+  }
+
+  const heads = nodes.filter((node) => !incoming.has(node.id))
+  if (heads.length !== 1) return null
+
+  // 들어오는 선이 하나뿐이라 같은 노드를 두 번 밟지 않는다 — 고리에 갇히지 않는다.
+  const order: CanvasNodeData[] = []
+  let at: string | undefined = heads[0].id
+  while (at !== undefined) {
+    order.push(byId.get(at)!)
+    at = next.get(at)
+  }
+  // 따로 떨어진 덩어리가 있으면 머리에서 다 닿지 못한다.
+  return order.length === nodes.length ? order : null
+}
+
 /** 겹치는 카드가 하나라도 있는지. */
 function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
   return nodes.some(

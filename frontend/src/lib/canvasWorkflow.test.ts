@@ -11,6 +11,7 @@ import {
   disconnect,
   edgeGeometry,
   edgePath,
+  linearOrder,
   moveNodeTo,
   type CanvasBounds,
   placeNode,
@@ -158,6 +159,66 @@ describe('canSellWorkflow', () => {
 
   it('빈 캔버스는 등록할 것이 없다', () => {
     expect(canSellWorkflow([])).toBe(false)
+  })
+})
+
+describe('linearOrder', () => {
+  const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const ids = (order: CanvasNodeData[] | null) => order?.map((node) => node.id) ?? null
+
+  it('한 줄이면 머리부터 순서를 낸다', () => {
+    const order = linearOrder(chain('a', 'b', 'c'), [link('a', 'b'), link('b', 'c')])
+    expect(ids(order)).toEqual(['a', 'b', 'c'])
+  })
+
+  // 놓인 순서가 아니라 선을 따라간 순서여야 한다. 좌표나 배열 순서로 줄 세우면 뒤집힌다.
+  it('놓인 순서가 뒤죽박죽이어도 선을 따라간다', () => {
+    const nodes = [nodeAt('c', 0, 0), nodeAt('a', 0, 0), nodeAt('b', 0, 0)]
+    expect(ids(linearOrder(nodes, [link('a', 'b'), link('b', 'c')]))).toEqual(['a', 'b', 'c'])
+  })
+
+  it('노드 하나에 선이 없어도 한 줄이다', () => {
+    expect(ids(linearOrder(chain('a'), []))).toEqual(['a'])
+  })
+
+  it('빈 캔버스는 저장할 것이 없다', () => {
+    expect(linearOrder([], [])).toBeNull()
+  })
+
+  it('갈라지면 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(linearOrder(nodes, [link('a', 'b'), link('a', 'c')])).toBeNull()
+  })
+
+  it('합쳐져도 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(linearOrder(nodes, [link('a', 'c'), link('b', 'c')])).toBeNull()
+  })
+
+  it('따로 떨어진 노드가 있으면 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(linearOrder(nodes, [link('a', 'b')])).toBeNull()
+  })
+
+  it('선만 이어 두고 노드를 안 놓으면 한 줄이 아니다', () => {
+    expect(linearOrder(chain('a', 'b'), [link('a', 'b'), link('b', 'zzz')])).toBeNull()
+  })
+
+  // 머리가 없는 고리는 무한히 돌 수 있는 자리다. 개수로 먼저 걸러진다.
+  it('고리만 있으면 머리가 없어 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b')
+    expect(linearOrder(nodes, [link('a', 'b'), link('b', 'a')])).toBeNull()
+  })
+
+  it('자리표시자 워크플로우는 한 줄이다', () => {
+    expect(ids(linearOrder(CANVAS_NODES, CANVAS_EDGES))).toEqual([
+      'seed-1',
+      'seed-2',
+      'seed-3',
+      'seed-4',
+      'seed-5',
+    ])
   })
 })
 
