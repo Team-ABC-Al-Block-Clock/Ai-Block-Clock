@@ -1,15 +1,9 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import {
-  getNodePalette,
-  getWorkflow,
-  replaceWorkflow,
-  saveWorkflow,
-  type PlaceableItem,
-} from '@/api/workflows'
+import { replaceWorkflow, saveWorkflow } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
@@ -18,10 +12,10 @@ import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
+import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
 import { nodeTypeLabel } from '@/lib/format'
-import { queryKeys } from '@/lib/queryKeys'
-import { toCanvasWorkflow, toWorkflowGraph } from '@/lib/workflowPayload'
+import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
@@ -29,11 +23,6 @@ import NodePalettePanel from './NodePalettePanel'
 
 /** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
 const NAME_MAX = 40
-
-/** 이름표를 받아 오는 한 쪽 크기. 명세 최대가 30 이라 더 키우면 `COMMON_001` 로 거절된다. */
-const LABEL_PAGE = 30
-/** 넘길 쪽 수 상한. 저장된 노드가 뒤쪽에 있을 수 있어 넘기되, 끝없이 돌지는 않는다. */
-const LABEL_PAGES_MAX = 10
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
 
@@ -115,54 +104,18 @@ export default function EditNodes() {
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
-  const loaded = useQuery({
-    queryKey: queryKeys.workflows.detail(workflowId ?? ''),
-    queryFn: () => getWorkflow(workflowId!),
-    enabled: !!workflowId,
-    // 불러온 구성을 캔버스에 옮긴 뒤로는 화면이 원본이다. 다시 받아 덮으면 편집이 날아간다.
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  })
-
-  /**
-   * 불러온 노드의 이름표. 서버가 배치에 이름을 싣지 않아 따로 받는다(`NodeResponse` 는 `sourceId` 까지다).
-   *
-   * 옆 팔레트를 쓸 수 없다 — 그쪽은 검색어와 스크롤에 따라 일부만 들고 있어서, 저장된 노드가
-   * 거기 없을 수 있다. 여기서는 끝까지 넘겨 받아 표로 만든다. 한 쪽은 명세 최대인 30 이다.
-   */
-  const labels = useQuery({
-    queryKey: queryKeys.workflows.nodePalette.list({ scope: 'ALL', size: LABEL_PAGE, every: true }),
-    queryFn: async () => {
-      const all: PlaceableItem[] = []
-      let cursor: string | undefined
-      for (let page = 0; page < LABEL_PAGES_MAX; page++) {
-        const got = await getNodePalette({ scope: 'ALL', size: LABEL_PAGE, cursor })
-        all.push(...got.content)
-        if (!got.hasNext || !got.nextCursor) break
-        cursor = got.nextCursor
-      }
-      return all
-    },
-    enabled: !!workflowId,
-    staleTime: Infinity,
-  })
-
-  const labelOf = useMemo(() => {
-    const found = new Map((labels.data ?? []).map((item) => [item.itemId, item]))
-    return (sourceId: string) => found.get(sourceId)
-  }, [labels.data])
+  const loaded = useSavedWorkflow(workflowId)
 
   /** 한 번 옮기면 끝이다. 같은 응답으로 다시 덮지 않는다. */
   const applied = useRef<string | null>(null)
   useEffect(() => {
-    const detail = loaded.data
-    // 이름표를 기다렸다 한 번에 옮긴다. 먼저 옮기면 카드가 전부 「알 수 없는 노드」로 굳는다.
-    if (!detail || labels.isPending || applied.current === detail.workflowId) return
+    const { detail, canvas: loadedCanvas } = loaded
+    if (!detail || !loadedCanvas || applied.current === detail.workflowId) return
     applied.current = detail.workflowId
-    canvas.loadGraph(toCanvasWorkflow(detail, labelOf))
+    canvas.loadGraph(loadedCanvas)
     setName(detail.name)
     setSaved({ workflowId: detail.workflowId, revision: detail.revision })
-  }, [loaded.data, labels.isPending, labelOf, canvas])
+  }, [loaded, canvas])
 
   // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
   const graph = useMemo(() => toWorkflowGraph(nodes, edges), [nodes, edges])
@@ -285,7 +238,7 @@ export default function EditNodes() {
       />
     )
 
-  if (loaded.isError)
+  if (loaded.error)
     return (
       <empty-state
         ref={noticeRef}
