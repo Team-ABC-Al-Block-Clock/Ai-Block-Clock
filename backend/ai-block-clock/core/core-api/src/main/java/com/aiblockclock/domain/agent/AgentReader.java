@@ -4,6 +4,8 @@ import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.agent.AgentRepository;
 import com.aiblockclock.storage.agent.PublicAgentRow;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +21,11 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class AgentReader {
     private final AgentRepository agentRepository;
+
+    public Agent read(AgentId id) {
+        return AgentEntityConverter.toDomain(agentRepository.findById(id.value())
+                .orElseThrow(() -> new CoreException(ErrorType.AGENT_NOT_FOUND)));
+    }
 
     public boolean isOwnedBy(AgentId id, UserId owner) {
         return agentRepository.existsByIdAndOwnerId(id.value(), owner.value());

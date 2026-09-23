@@ -1,7 +1,10 @@
 package com.aiblockclock.domain.agent;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.workflow.GraphConverter;
+import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.WorkflowGraph;
+import com.aiblockclock.domain.workflow.WorkflowId;
 import com.aiblockclock.storage.agent.AgentVersionEntity;
 import com.aiblockclock.storage.agent.AgentVersionRepository;
 import com.aiblockclock.storage.graph.GraphEdgeRepository;
@@ -26,8 +29,24 @@ public class AgentVersionReader {
     private final GraphEdgeRepository graphEdgeRepository;
 
     public WorkflowGraph readGraph(AgentVersionId id) {
-        UUID graphId = entity(id).getGraphId();
+        return graphOf(entity(id).getGraphId());
+    }
 
+    public AgentVersion read(AgentVersionId id) {
+        AgentVersionEntity entity = entity(id);
+
+        return AgentVersion.restore(
+                AgentVersionId.of(entity.getId()),
+                AgentId.of(entity.getAgentId()),
+                VersionNumber.of(entity.getVersionNo()),
+                new SourceWorkflow(WorkflowId.of(entity.getSourceWorkflowId()),
+                        Revision.of(entity.getSourceRevision())),
+                new VersionCost(entity.getPromptNodeCount(), AbcAmount.of(entity.getBaseCost())),
+                entity.getTier(),
+                entity.getPublicationState());
+    }
+
+    private WorkflowGraph graphOf(UUID graphId) {
         return GraphConverter.toGraph(
                 graphNodeRepository.findByGraphIdOrderByIdAsc(graphId),
                 graphEdgeRepository.findByGraphIdOrderByIdAsc(graphId));
