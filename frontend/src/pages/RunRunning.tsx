@@ -221,8 +221,6 @@ export default function RunRunning() {
   return (
     <>
       <CanvasPane>
-        <div style={glowStyle}></div>
-
         {/*
           자르는 겹과 미는 겹을 나눈다. 한 요소에 같이 걸면 `clip-path` 가 `transform` 을 따라
           움직여 자르는 선까지 옆으로 밀린다 — 오른쪽에서 들어오는 카드가 미리 잘려 안 보인다.
@@ -246,6 +244,9 @@ export default function RunRunning() {
               transition: 'transform .6s cubic-bezier(.2,.8,.25,1)',
             }}
           >
+            {/* 빛은 노드 좌표에 그려진다 — 카메라 겹 안에 둬야 카드와 같이 밀린다. */}
+            <div style={glowStyle}></div>
+
             <CanvasEdgeLayer clip={false}>
               <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
                 {edges.map((e) => (
