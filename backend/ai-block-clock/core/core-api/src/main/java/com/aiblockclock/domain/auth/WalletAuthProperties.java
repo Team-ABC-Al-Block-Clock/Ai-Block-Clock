@@ -24,4 +24,13 @@ public record WalletAuthProperties(
     public boolean isMessageTtlPositive() {
         return messageTtl == null || messageTtl.isPositive();
     }
+
+    @AssertTrue(message = "지갑 인증 체인 ID 는 지원하는 네트워크여야 합니다.")
+    public boolean isChainIdSupported() {
+        return WalletNetwork.findByChainId(chainId).isPresent();
+    }
+
+    public WalletNetwork network() {
+        return WalletNetwork.findByChainId(chainId).orElseThrow();
+    }
 }
