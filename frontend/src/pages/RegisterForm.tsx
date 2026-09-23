@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
-import { createAgent } from '@/api/agents'
+import { AGENT_LIMITS, createAgent } from '@/api/agents'
 import { ApiError } from '@/api/errors'
 import { describeImageProblem } from '@/lib/imageFile'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
 /** 입력이 제어 컴포넌트가 아니라 제출할 때 한 번 읽는다.
- *
  *  JSX 도 이 맵으로 id 를 붙인다. 리터럴로 적어 두면 한쪽만 고쳐졌을 때 read() 가
  *  빈 문자열을 돌려주고, 설명은 조용히 사라지고 이름은 원인 모를 COMMON_001 이 된다. */
 const FIELD = {
@@ -26,9 +26,6 @@ function read(id: string) {
     : ''
 }
 
-/** 스크린샷 설명 칸 id. 파일과 같은 순서로 읽는다. */
-const captionId = (where: 'in' | 'out', i: number) => `regShotCaption-${where}-${i}`
-
 type Picked = { file: File; url: string }
 
 const SHOT_SLOTS = [0, 1, 2, 3, 4]
@@ -38,12 +35,18 @@ type ImageProblem = { where: 'icon' | 'in' | 'out'; text: string }
 
 const FAILED = '등록에 실패했습니다. 잠시 후 다시 시도해 주세요'
 
+/** 다시 눌러도 통과하지 않는 코드는 문구를 따로 가른다 — "잠시 후 다시" 로 뭉개면 계속 누른다. */
 function describeRegisterError(error: unknown): string | null {
   if (!error) return null
   if (!(error instanceof ApiError)) return FAILED
-  if (error.code === 'COMMON_001') return '에이전트 이름과 한 줄 설명을 입력해 주세요'
-  // 워크플로우 하나는 에이전트 하나로만 등록된다 — 다시 시도해도 통과하지 않는다.
-  if (error.code === 'AGENT_003') return '이미 에이전트로 등록한 워크플로우입니다'
+  if (error.code === 'COMMON_001') return '이름 · 한 줄 설명 · 상세 설명을 확인해 주세요'
+  // 사용자가 보던 회차와 굳히는 회차가 다르다. 편집 화면을 다시 열어야 한다.
+  if (error.code === 'WORKFLOW_016') return '워크플로우가 그 사이 수정되었습니다. 다시 열어 주세요'
+  if (error.code === 'AGENT_002' || error.code === 'WORKFLOW_003')
+    return '다른 사람의 노드가 섞여 있어 등록할 수 없습니다'
+  if (error.code === 'AGENT_001') return '노드가 없는 워크플로우는 등록할 수 없습니다'
+  if (error.code === 'WORKFLOW_002' || error.code === 'WORKFLOW_015')
+    return '워크플로우를 찾을 수 없습니다'
   return FAILED
 }
 
@@ -58,21 +61,166 @@ function ImageProblemLine({ text, top }: { text: string; top: number }) {
   )
 }
 
+/** 스크린샷 다섯 칸과 「사진 추가」. 입력·출력이 같은 모양이라 한 곳에 둔다. */
+function ShotRow({
+  top,
+  shots,
+  captionPlaceholder,
+  fileRef,
+  onPick,
+  onDrop,
+  label,
+}: {
+  top: number
+  shots: Picked[]
+  captionPlaceholder: string
+  fileRef: React.RefObject<HTMLInputElement | null>
+  onPick: (ev: React.ChangeEvent<HTMLInputElement>) => void
+  onDrop: (index: number) => void
+  label: string
+}) {
+  return (
+    <div
+      className="absolute flex items-start"
+      style={{ left: '272px', top: `${top}px`, width: '896px', gap: '12px' }}
+    >
+      {SHOT_SLOTS.map((i) => (
+        <Fragment key={i}>
+          <div className="flex flex-none flex-col" style={{ width: '128px', gap: '7px' }}>
+            <div
+              style={{ width: '128px', height: '84px', borderRadius: '10px' }}
+              className="relative flex-none overflow-hidden bg-[rgba(255,255,255,.09)]"
+            >
+              {shots[i] ? (
+                <>
+                  <img
+                    src={shots[i].url}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  {/* 잘못 고른 것을 무르는 길 */}
+                  <button
+                    type="button"
+                    aria-label={`${label} ${i + 1}번째 사진 지우기`}
+                    onClick={() => onDrop(i)}
+                    style={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '6px',
+                      width: '22px',
+                      height: '22px',
+                      border: '0',
+                      borderRadius: '11px',
+                      background: 'rgba(12,5,22,.62)',
+                      color: '#fff',
+                      lineHeight: '1',
+                    }}
+                    className="cursor-pointer text-[13px] transition-colors duration-[160ms] hover:bg-[rgba(12,5,22,.86)]"
+                  >
+                    ×
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="absolute"
+                    style={{
+                      left: '-20px',
+                      top: '41px',
+                      width: '168px',
+                      height: '1px',
+                      background: 'rgba(255,255,255,.16)',
+                      transform: 'rotate(33deg)',
+                    }}
+                  ></div>
+                  <div
+                    className="absolute"
+                    style={{
+                      left: '-20px',
+                      top: '41px',
+                      width: '168px',
+                      height: '1px',
+                      background: 'rgba(255,255,255,.16)',
+                      transform: 'rotate(-33deg)',
+                    }}
+                  ></div>
+                </>
+              )}
+            </div>
+            <input
+              className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
+              type="text"
+              placeholder={captionPlaceholder}
+              style={{
+                width: '128px',
+                height: '32px',
+                padding: '0 8px',
+                borderRadius: '9px',
+                background: 'rgba(255,255,255,.06)',
+              }}
+            />
+          </div>
+        </Fragment>
+      ))}
+      {/* 숨긴 칸은 여는 버튼 밖에 둔다 — 안에 두면 click() 이 버블링해 핸들러가 두 번 돈다. */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg"
+        multiple
+        hidden
+        onChange={onPick}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        style={{
+          width: '128px',
+          height: '123px',
+          border: '0',
+          borderRadius: '10px',
+          background: 'rgba(255,255,255,.05)',
+          gap: '5px',
+        }}
+        className="flex flex-none cursor-pointer flex-col items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
+      >
+        <div
+          className="text-[18px] font-semibold"
+          style={{ color: 'rgba(255,255,255,.72)', lineHeight: '1' }}
+        >
+          +
+        </div>
+        <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.76)' }}>
+          사진 추가
+        </div>
+      </button>
+    </div>
+  )
+}
+
 export default function RegisterForm() {
   /** 등록된 에이전트 ID. 완료 화면의 「상세 페이지 보기」가 이걸로 주소를 만든다 —
    *  별도 done 플래그를 두면 ID 없이 완료 화면이 뜨는 상태가 생긴다. */
   const [agentId, setAgentId] = useState<string | null>(null)
+  /** 서버가 산정한 판매 단가. 완료 화면이 그대로 보여 준다 — 화면은 계산하지 않는다. */
+  const [price, setPrice] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
   const register = useMutation({
     mutationFn: createAgent,
     onSuccess: (res) => {
       setAgentId(res.agentId)
+      setPrice(res.price)
       // 등록하면 마켓 목록과 마이페이지에 바로 보여야 한다.
       void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents.lists() })
     },
   })
+
+  // TODO: 굳힐 워크플로우와 보던 회차. 캔버스 저장이 붙을 때까지 비어 나간다.
+  const [searchParams] = useSearchParams()
+  const workflowId = searchParams.get('workflowId') ?? ''
+  const revision = Number(searchParams.get('revision') ?? 0)
 
   /** 등록은 수정도 삭제도 되지 않아 한 번 더 묻는다. */
   const [asking, setAsking] = useState<{ name: string } | null>(null)
@@ -82,21 +230,17 @@ export default function RegisterForm() {
     setAsking({ name: read(FIELD.name) })
   }
 
-  const withCaptions = (where: 'in' | 'out', list: Picked[]) =>
-    list.map((picked, i) => ({ file: picked.file, caption: read(captionId(where, i)) }))
-
   const submit = () => {
     setAsking(null)
     if (register.isPending) return
     register.mutate({
+      workflowId,
+      revision,
       name: read(FIELD.name),
       summary: read(FIELD.summary),
       description: read(FIELD.description),
       usageExample: read(FIELD.usageExample),
       onboardingMessage: read(FIELD.onboardingMessage),
-      iconFile: icon?.file,
-      inputImages: withCaptions('in', inShots),
-      outputImages: withCaptions('out', outShots),
     })
   }
 
@@ -117,28 +261,35 @@ export default function RegisterForm() {
   // 언마운트에서만 해제한다 — 목록을 의존성에 넣으면 한 장 더할 때 앞 장들의 URL 이 함께 풀린다.
   useEffect(() => () => previewsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
 
+  // 고른 그림은 아직 서버로 가지 않는다 — 파일을 받는 자리가 없다(`api/agents.ts`).
   const pickShots =
     (where: 'in' | 'out', list: Picked[], setter: React.Dispatch<React.SetStateAction<Picked[]>>) =>
     (ev: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(ev.target.files ?? [])
       ev.target.value = ''
-      const problem = files.map((file) => describeImageProblem(file)).find(Boolean)
-      if (problem) {
-        setImageProblem({ where, text: problem })
-        return
-      }
+      // 한 장이 어긋났다고 나머지까지 버리지 않는다.
+      const good = files.filter((file) => !describeImageProblem(file))
       const room = SHOT_SLOTS.length - list.length
-      setImageProblem(
-        files.length > room
-          ? { where, text: `스크린샷은 ${SHOT_SLOTS.length}장까지 올릴 수 있습니다` }
-          : null,
-      )
+      const text =
+        files.map((file) => describeImageProblem(file)).find(Boolean) ??
+        (good.length > room ? `스크린샷은 ${SHOT_SLOTS.length}장까지 올릴 수 있습니다` : null)
+      setImageProblem(text ? { where, text } : null)
       // 칸이 남은 만큼만 만든다 — 잘라낸 것의 URL 은 해제할 곳이 없다.
-      const picked = files.slice(0, room).map((file) => ({ file, url: URL.createObjectURL(file) }))
-      setter((prev) => [...prev, ...picked])
+      const picked = good.slice(0, room).map((file) => ({ file, url: URL.createObjectURL(file) }))
+      if (picked.length) setter((prev) => [...prev, ...picked])
     }
   const handleAddInShots = pickShots('in', inShots, setInShots)
   const handleAddOutShots = pickShots('out', outShots, setOutShots)
+  /** 잘못 고른 것을 무를 길. 등록은 되돌릴 수 없어 보내기 전에 지울 수 있어야 한다. */
+  const dropShot =
+    (list: Picked[], setter: React.Dispatch<React.SetStateAction<Picked[]>>) => (index: number) => {
+      const gone = list[index]
+      if (gone) URL.revokeObjectURL(gone.url)
+      setter((prev) => prev.filter((_, i) => i !== index))
+      setImageProblem(null)
+    }
+  const dropInShot = dropShot(inShots, setInShots)
+  const dropOutShot = dropShot(outShots, setOutShots)
   const openIconFile = () => iconFileRef.current?.click()
   const handlePickIcon = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const file = ev.target.files?.[0]
@@ -150,10 +301,9 @@ export default function RegisterForm() {
     if (icon) URL.revokeObjectURL(icon.url)
     setIcon({ file, url: URL.createObjectURL(file) })
   }
-  const openInFiles = () => inFileRef.current?.click()
-  const openOutFiles = () => outFileRef.current?.click()
 
   const confirmRef = useRef<HTMLElement>(null)
+  // 의존성 배열을 두지 않는다 — `[]` 로 묶으면 처음 렌더의 `submit` 이 굳는다.
   useEffect(() => {
     const el = confirmRef.current
     if (!el) return
@@ -250,26 +400,32 @@ export default function RegisterForm() {
           >
             에이전트 아이콘
           </div>
-          <div
+          {/* 숨긴 칸은 여는 버튼 밖에 둔다 — 안에 두면 click() 이 버블링해 핸들러가 두 번 돈다. */}
+          <input
+            ref={iconFileRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            hidden
+            onChange={handlePickIcon}
+          />
+          {/* div 가 아니라 button 이다 — 키보드로도 닿아야 한다. */}
+          <button
+            type="button"
+            aria-label={icon ? '에이전트 아이콘 바꾸기' : '에이전트 아이콘 고르기'}
             style={{
               left: '272px',
               top: '292px',
               width: '100px',
               height: '100px',
               borderRadius: '20px',
+              border: '0',
+              padding: '0',
               background: 'var(--color-surface-inset)',
               animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
             }}
             onClick={openIconFile}
             className="absolute flex cursor-pointer items-center justify-center overflow-hidden transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.13)]"
           >
-            <input
-              ref={iconFileRef}
-              type="file"
-              accept="image/png,image/jpeg"
-              hidden
-              onChange={handlePickIcon}
-            />
             {icon ? (
               <img src={icon.url} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -280,7 +436,7 @@ export default function RegisterForm() {
                 +
               </div>
             )}
-          </div>
+          </button>
           <div
             className="absolute text-[13px] tracking-[-.005em]"
             style={{ left: '272px', top: '400px', color: 'rgba(255,236,246,.68)' }}
@@ -311,6 +467,7 @@ export default function RegisterForm() {
               className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               type="text"
               id={FIELD.onboardingMessage}
+              maxLength={AGENT_LIMITS.onboardingMessage.max}
               placeholder="웰컴 메시지를 입력해주세요"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -351,11 +508,13 @@ export default function RegisterForm() {
               animation: 'rise .7s .16s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
+            {/* TODO: 워크플로우 이름을 그대로 쓴다. 지금은 자리표시자라 모두 같은 이름이 된다. */}
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] outline-0"
               type="text"
               id={FIELD.name}
               defaultValue="문서 정리"
+              maxLength={AGENT_LIMITS.name.max}
               readOnly
               style={{
                 left: '18px',
@@ -411,6 +570,7 @@ export default function RegisterForm() {
               className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               type="text"
               id={FIELD.summary}
+              maxLength={AGENT_LIMITS.summary.max}
               placeholder="예: 지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
@@ -435,6 +595,7 @@ export default function RegisterForm() {
             <textarea
               className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               id={FIELD.description}
+              maxLength={AGENT_LIMITS.description.max}
               placeholder="에이전트의 기능을 자세히 설명해주세요"
               style={{
                 left: '18px',
@@ -461,96 +622,15 @@ export default function RegisterForm() {
             입력 · 에이전트 실행 전 화면
           </div>
           {imageProblem?.where === 'in' && <ImageProblemLine text={imageProblem.text} top={1018} />}
-          <div
-            className="absolute flex items-start"
-            style={{ left: '272px', top: '1050px', width: '896px', gap: '12px' }}
-          >
-            {SHOT_SLOTS.map((i) => (
-              <Fragment key={i}>
-                <div className="flex flex-none flex-col" style={{ width: '128px', gap: '7px' }}>
-                  <div
-                    style={{ width: '128px', height: '84px', borderRadius: '10px' }}
-                    className="relative flex-none cursor-pointer overflow-hidden bg-[rgba(255,255,255,.09)] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
-                  >
-                    {inShots[i] ? (
-                      <img
-                        src={inShots[i].url}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    ) : (
-                      <>
-                        <div
-                          className="absolute"
-                          style={{
-                            left: '-20px',
-                            top: '41px',
-                            width: '168px',
-                            height: '1px',
-                            background: 'rgba(255,255,255,.16)',
-                            transform: 'rotate(33deg)',
-                          }}
-                        ></div>
-                        <div
-                          className="absolute"
-                          style={{
-                            left: '-20px',
-                            top: '41px',
-                            width: '168px',
-                            height: '1px',
-                            background: 'rgba(255,255,255,.16)',
-                            transform: 'rotate(-33deg)',
-                          }}
-                        ></div>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
-                    id={captionId('in', i)}
-                    type="text"
-                    placeholder="입력 예시 사진 설명"
-                    style={{
-                      width: '128px',
-                      height: '32px',
-                      padding: '0 8px',
-                      borderRadius: '9px',
-                      background: 'rgba(255,255,255,.06)',
-                    }}
-                  />
-                </div>
-              </Fragment>
-            ))}
-            <input
-              ref={inFileRef}
-              type="file"
-              accept="image/png,image/jpeg"
-              multiple
-              hidden
-              onChange={handleAddInShots}
-            />
-            <div
-              onClick={openInFiles}
-              style={{
-                width: '128px',
-                height: '123px',
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,.05)',
-                gap: '5px',
-              }}
-              className="flex flex-none cursor-pointer flex-col items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
-            >
-              <div
-                className="text-[18px] font-semibold"
-                style={{ color: 'rgba(255,255,255,.72)', lineHeight: '1' }}
-              >
-                +
-              </div>
-              <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.76)' }}>
-                사진 추가
-              </div>
-            </div>
-          </div>
+          <ShotRow
+            top={1050}
+            shots={inShots}
+            captionPlaceholder="입력 예시 사진 설명"
+            fileRef={inFileRef}
+            onPick={handleAddInShots}
+            onDrop={dropInShot}
+            label="입력"
+          />
 
           <div
             className="absolute text-[13.5px] tracking-[-.005em]"
@@ -561,96 +641,15 @@ export default function RegisterForm() {
           {imageProblem?.where === 'out' && (
             <ImageProblemLine text={imageProblem.text} top={1199} />
           )}
-          <div
-            className="absolute flex items-start"
-            style={{ left: '272px', top: '1231px', width: '896px', gap: '12px' }}
-          >
-            {SHOT_SLOTS.map((i) => (
-              <Fragment key={i}>
-                <div className="flex flex-none flex-col" style={{ width: '128px', gap: '7px' }}>
-                  <div
-                    style={{ width: '128px', height: '84px', borderRadius: '10px' }}
-                    className="relative flex-none cursor-pointer overflow-hidden bg-[rgba(255,255,255,.09)] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.16)]"
-                  >
-                    {outShots[i] ? (
-                      <img
-                        src={outShots[i].url}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    ) : (
-                      <>
-                        <div
-                          className="absolute"
-                          style={{
-                            left: '-20px',
-                            top: '41px',
-                            width: '168px',
-                            height: '1px',
-                            background: 'rgba(255,255,255,.16)',
-                            transform: 'rotate(33deg)',
-                          }}
-                        ></div>
-                        <div
-                          className="absolute"
-                          style={{
-                            left: '-20px',
-                            top: '41px',
-                            width: '168px',
-                            height: '1px',
-                            background: 'rgba(255,255,255,.16)',
-                            transform: 'rotate(-33deg)',
-                          }}
-                        ></div>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    className="box-border border-0 text-center font-[inherit] text-[13px] tracking-[-.005em] text-white outline-0"
-                    id={captionId('out', i)}
-                    type="text"
-                    placeholder="출력 예시 사진 설명"
-                    style={{
-                      width: '128px',
-                      height: '32px',
-                      padding: '0 8px',
-                      borderRadius: '9px',
-                      background: 'rgba(255,255,255,.06)',
-                    }}
-                  />
-                </div>
-              </Fragment>
-            ))}
-            <input
-              ref={outFileRef}
-              type="file"
-              accept="image/png,image/jpeg"
-              multiple
-              hidden
-              onChange={handleAddOutShots}
-            />
-            <div
-              onClick={openOutFiles}
-              style={{
-                width: '128px',
-                height: '123px',
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,.05)',
-                gap: '5px',
-              }}
-              className="flex flex-none cursor-pointer flex-col items-center justify-center transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.14)]"
-            >
-              <div
-                className="text-[18px] font-semibold"
-                style={{ color: 'rgba(255,255,255,.72)', lineHeight: '1' }}
-              >
-                +
-              </div>
-              <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.76)' }}>
-                사진 추가
-              </div>
-            </div>
-          </div>
+          <ShotRow
+            top={1231}
+            shots={outShots}
+            captionPlaceholder="출력 예시 사진 설명"
+            fileRef={outFileRef}
+            onPick={handleAddOutShots}
+            onDrop={dropOutShot}
+            label="출력"
+          />
 
           <div
             className="absolute text-[18px] font-semibold tracking-[-.01em]"
@@ -671,6 +670,7 @@ export default function RegisterForm() {
             <textarea
               className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0"
               id={FIELD.usageExample}
+              maxLength={AGENT_LIMITS.usageExample.max}
               placeholder="입력 프롬프트 예시를 입력해주세요"
               style={{
                 left: '18px',
@@ -791,6 +791,21 @@ export default function RegisterForm() {
               에이전트 올려줘서 ㄱㅅㄱㅅ!!
               <br />
             </div>
+            {/* 판매가는 등록해야 나온다 — 확인 팝업에는 띄울 수 없다. */}
+            {price && (
+              <div
+                className="text-[14.5px] font-semibold"
+                style={{
+                  marginTop: '16px',
+                  padding: '12px 14px',
+                  borderRadius: '11px',
+                  background: 'rgba(255,255,255,.06)',
+                  color: '#fff',
+                }}
+              >
+                실행 1회당 판매가 {price} ABC
+              </div>
+            )}
             <div className="flex" style={{ marginTop: '26px', gap: '12px' }}>
               <a
                 href={paths.my.agents}
