@@ -1,7 +1,9 @@
 package com.aiblockclock.api.v1.response;
 
 import com.aiblockclock.domain.workflow.GraphNode;
+import com.aiblockclock.domain.workflow.PlacedSource;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.domain.workflow.WorkflowDetail;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -43,9 +45,10 @@ public record WorkflowDetailResponse(
         @Schema(description = "마지막 수정 시각")
         Instant updatedAt
 ) {
-    public static WorkflowDetailResponse from(Workflow workflow) {
+    public static WorkflowDetailResponse from(WorkflowDetail detail) {
+        Workflow workflow = detail.workflow();
         List<NodeResponse> nodes = workflow.getGraph().nodesInOrder().stream()
-                .map(NodeResponse::from)
+                .map(node -> NodeResponse.from(node, detail.sourceOf(node.key())))
                 .toList();
         List<EdgeResponse> edges = workflow.getGraph().edgesInOrder().stream()
                 .map(edge -> new EdgeResponse(
@@ -82,15 +85,26 @@ public record WorkflowDetailResponse(
             String versionId,
 
             @Schema(description = "이 자리가 무엇을 입력으로 받나")
-            InputSource inputSource
+            InputSource inputSource,
+
+            @Schema(description = "배치된 노드 또는 에이전트의 표시 이름. 원본을 찾지 못하면 null",
+                    example = "성적 분석", nullable = true)
+            String name,
+
+            @Schema(description = """
+                    이 자리가 판매 등록을 막지 않는가. 모든 노드가 `true` 여야 워크플로우를 에이전트로 등록할 수 있다.
+                    판정은 서버가 한다 — 화면은 이 값을 그대로 접어 쓰면 된다.""", example = "true")
+            boolean mine
     ) {
-        static NodeResponse from(GraphNode node) {
+        static NodeResponse from(GraphNode node, PlacedSource source) {
             return new NodeResponse(
                     node.key().value(),
                     node.sourceType(),
                     node.reference().referenceId().toString(),
                     node.reference().hasVersion() ? node.reference().versionId().toString() : null,
-                    node.inputSource());
+                    node.inputSource(),
+                    source.name(),
+                    source.mine());
         }
     }
 
