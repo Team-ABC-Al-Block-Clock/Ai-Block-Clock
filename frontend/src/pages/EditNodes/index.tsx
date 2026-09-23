@@ -143,6 +143,9 @@ export default function EditNodes() {
     onSuccess: (result) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
       setSavedShape(pending)
+      // 주소에 id 를 남겨 새로고침해도 돌아올 수 있게 한다. `navigate` 는 쓰지 않는다 —
+      // 라우트 패턴이 갈려 화면이 새로 마운트되면 방금 배치한 좌표가 복원 배치로 바뀐다.
+      if (!workflowId) history.replaceState(null, '', paths.edit.nodes(result.workflowId))
     },
   })
 
