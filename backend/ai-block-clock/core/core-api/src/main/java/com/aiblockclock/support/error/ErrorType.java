@@ -42,6 +42,15 @@ public enum ErrorType {
     USER_INTRODUCTION_TOO_LONG(HttpStatus.BAD_REQUEST, ErrorCode.USER_002,
             "한 줄 소개는 40자를 넘을 수 없습니다.", LogLevel.WARN),
 
+    USER_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, ErrorCode.USER_003,
+            "이용약관 및 개인정보처리방침에 동의해야 합니다.", LogLevel.WARN),
+
+    USER_RECOVERY_NOTICE_NOT_CONFIRMED(HttpStatus.BAD_REQUEST, ErrorCode.USER_003,
+            "지갑을 분실하면 계정을 복구할 수 없다는 점을 확인해야 합니다.", LogLevel.WARN),
+
+    USER_ALREADY_ONBOARDED(HttpStatus.CONFLICT, ErrorCode.USER_006,
+            "이미 가입을 마쳤습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 

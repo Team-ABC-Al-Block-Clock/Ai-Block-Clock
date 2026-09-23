@@ -15,6 +15,11 @@ spring:
     timeout: ${AUTH_SESSION_TIMEOUT:2h}
     jdbc:
       initialize-schema: never
+  servlet:
+    # 가입 요청에 실려 오는 프로필 이미지(5MB 이하)가 기본 한도(1MB)에 먼저 막히지 않게 한다.
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   port: ${SERVER_PORT:8080}
