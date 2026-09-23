@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import { clearCsrfToken } from '@/api/csrf'
 import { IMAGE_LIMITS } from '@/lib/imageFile'
 
 /**
@@ -16,7 +17,7 @@ export interface WalletMessage {
   nonce: string
 }
 
-/** 로그인 응답. 토큰은 없다 — `sessionToken` 은 Set-Cookie 로만 온다. */
+/** 로그인 응답. 토큰은 없다 — 세션은 `SESSION` 쿠키로만 온다. */
 export interface WalletSession {
   /** 로그인 만료 시각. 화면에 만료를 보여줄 때만 쓴다 */
   expiresAt: string
@@ -49,13 +50,26 @@ export const requestWalletMessage = (walletAddress: string) =>
 
 /**
  * POST /auth/wallet/login — 서명을 검증하고 가입 또는 로그인한다.
- * 세션은 `sessionToken` HttpOnly 쿠키로 내려온다. 바디에 토큰은 없다.
+ * 세션은 `SESSION` HttpOnly 쿠키로 내려온다. 바디에 토큰은 없다.
+ *
+ * 성공하면 세션이 새로 열려 쓰던 CSRF 토큰이 죽는다. 스토어가 아니라 여기서 버리는 것은
+ * 로그인·로그아웃을 부르는 곳이 한 군데가 아니기 때문이다(`authStore` 의 버려진 로그인).
  */
-export const loginWithWallet = (params: { walletAddress: string; signature: string }) =>
-  api.post<WalletSession>('/auth/wallet/login', params)
+export const loginWithWallet = async (params: { walletAddress: string; signature: string }) => {
+  const session = await api.post<WalletSession>('/auth/wallet/login', params)
+  clearCsrfToken()
+  return session
+}
 
 /** 서버가 DB 세션을 끝내고 쿠키를 지운다 — 클라이언트만 비우면 새로고침에 되살아난다. */
-export const logout = () => api.post<void>('/auth/logout')
+export const logout = async () => {
+  try {
+    await api.post<void>('/auth/logout')
+  } finally {
+    // 실패해도 버린다. 세션은 끊겼는데 토큰만 남는 쪽이 더 나쁘다.
+    clearCsrfToken()
+  }
+}
 
 /** GET /users/me — 프로필과 연결된 지갑. 명세 확정(7절) */
 export const getMyProfile = () => api.get<UserProfile>('/users/me')

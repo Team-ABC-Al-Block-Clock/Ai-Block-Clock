@@ -3,6 +3,7 @@ import { http } from 'msw'
 import type { UpdatedProfile, UserProfile, WalletMessage, WalletSession } from '@/api/auth'
 import { PROFILE_LIMITS } from '@/api/auth'
 import { API_BASE_URL } from '@/api/client'
+import type { CsrfToken } from '@/api/csrf'
 import { AUTH_ERROR, USER_ERROR } from '@/api/errors'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
@@ -92,7 +93,7 @@ async function toDataUrl(file: File) {
 }
 
 /**
- * `sessionToken` 쿠키 대역. mock 은 HttpOnly 쿠키를 세팅할 수 없어 localStorage 로
+ * `SESSION` 쿠키 대역. mock 은 HttpOnly 쿠키를 세팅할 수 없어 localStorage 로
  * 흉내 낸다 — 그래야 새로고침 후에도 세션이 남는 경로를 확인할 수 있다.
  */
 const SESSION_KEY = 'mockWalletSession'
@@ -123,6 +124,15 @@ function issueSession() {
 }
 
 export const authHandlers = [
+  /**
+   * CSRF 토큰 발급. 이 핸들러만 `scene` 을 타지 않는다 —
+   * 여기가 강제 실패에 걸리면 모든 쓰기가 제 핸들러에 닿기도 전에 엉뚱한 코드로 죽는다.
+   * 검사는 하지 않는다. 403 재시도 경로는 `api/csrf.test.ts` 에서만 확인한다.
+   */
+  http.get(`${API_BASE_URL}/auth/csrf`, () =>
+    ok<CsrfToken>({ headerName: 'X-CSRF-TOKEN', token: crypto.randomUUID() }),
+  ),
+
   /** 서명할 nonce 발급 */
   http.post(`${API_BASE_URL}/auth/wallet/message`, async ({ request }) => {
     const forced = await scene(request)
@@ -173,7 +183,7 @@ export const authHandlers = [
     if (forced) return forced
 
     if (!readSession()) {
-      return fail(401, AUTH_ERROR.INVALID, '로그인 세션을 사용할 수 없습니다.')
+      return fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')
     }
 
     writeSession(null)
@@ -184,7 +194,7 @@ export const authHandlers = [
     if (forced) return forced
 
     const walletAddress = readSession()
-    if (!walletAddress) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+    if (!walletAddress) return fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')
 
     // 주소는 픽스처가 아니라 로그인한 세션에서 가져온다 — 픽스처 주소를 그대로
     // 돌려주면 어느 지갑으로 들어왔는지 화면에서 확인할 수 없다.
@@ -256,7 +266,7 @@ export const authHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    if (!readSession()) return fail(401, AUTH_ERROR.MISSING, '인증이 필요합니다.')
+    if (!readSession()) return fail(401, AUTH_ERROR.NOT_IDENTIFIED, '요청자를 확인할 수 없습니다.')
 
     const current = readProfile()
     if (current.onboardingCompleted) {
