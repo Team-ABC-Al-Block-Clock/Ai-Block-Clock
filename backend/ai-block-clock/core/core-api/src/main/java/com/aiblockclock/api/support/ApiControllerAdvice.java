@@ -63,8 +63,8 @@ public class ApiControllerAdvice {
     public ResponseEntity<ApiResult<Void>> handleUploadTooLarge(MaxUploadSizeExceededException e) {
         log.warn("올린 파일이 상한을 넘음: {}", e.getMessage());
 
-        return ResponseEntity.status(ErrorType.EXECUTION_FILE_TOO_LARGE.getStatus())
-                .body(ApiResult.fail(ErrorType.EXECUTION_FILE_TOO_LARGE, null));
+        return ResponseEntity.status(ErrorType.FILE_TOO_LARGE.getStatus())
+                .body(ApiResult.fail(ErrorType.FILE_TOO_LARGE, null));
     }
 
     @ExceptionHandler(Exception.class)

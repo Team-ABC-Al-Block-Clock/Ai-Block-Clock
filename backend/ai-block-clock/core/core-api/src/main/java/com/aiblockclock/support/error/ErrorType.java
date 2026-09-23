@@ -138,6 +138,9 @@ public enum ErrorType {
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
             "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),
 
+    FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.FILE_002,
+            "올린 파일이 10MB 를 넘습니다.", LogLevel.WARN),
+
     RECOMMEND_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.RECOMMEND_001,
             "추천을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
 

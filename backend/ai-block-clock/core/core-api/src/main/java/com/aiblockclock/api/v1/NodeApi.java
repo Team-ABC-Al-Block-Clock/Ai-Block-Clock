@@ -71,7 +71,9 @@ public interface NodeApi {
                     content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 노드다 (`NODE_002`)", content = @Content),
             @ApiResponse(responseCode = "404", description = "없는 노드다 (`NODE_001`)", content = @Content),
-            @ApiResponse(responseCode = "413", description = "합계가 10MB 를 넘는다 (`NODE_007`)", content = @Content)
+            @ApiResponse(responseCode = "413", description = """
+                    파일 하나가 10MB 를 넘는다 (`FILE_002`).
+                    이 노드에 붙인 자료의 합계가 10MB 를 넘는다 (`NODE_007`)""", content = @Content)
     })
     ApiResult<RefFileResponse> attachRefFile(
             UserId owner,

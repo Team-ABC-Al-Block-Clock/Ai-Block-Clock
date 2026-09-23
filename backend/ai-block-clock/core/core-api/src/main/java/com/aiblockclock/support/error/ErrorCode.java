@@ -43,6 +43,7 @@ public enum ErrorCode {
     EXECUTION_004,
 
     FILE_001,
+    FILE_002,
 
     RECOMMEND_001,
 

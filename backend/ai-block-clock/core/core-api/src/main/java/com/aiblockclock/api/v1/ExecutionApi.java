@@ -39,7 +39,7 @@ public interface ExecutionApi {
                     빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`)""", content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 워크플로우다 (`WORKFLOW_003`)", content = @Content),
             @ApiResponse(responseCode = "404", description = "없는 워크플로우다 (`WORKFLOW_002`)", content = @Content),
-            @ApiResponse(responseCode = "413", description = "파일이 10MB 를 넘는다 (`EXECUTION_004`)", content = @Content),
+            @ApiResponse(responseCode = "413", description = "파일이 10MB 를 넘는다 (`FILE_002`)", content = @Content),
             @ApiResponse(responseCode = "502", description = "실행 엔진에 맡기지 못했다 (`EXECUTION_002`)", content = @Content)
     })
     ApiResult<ExecutionStartResponse> start(UserId requester, @Valid ExecutionStartRequest request);
