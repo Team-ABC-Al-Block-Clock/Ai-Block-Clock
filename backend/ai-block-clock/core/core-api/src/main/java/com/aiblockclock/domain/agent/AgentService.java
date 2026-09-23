@@ -28,6 +28,7 @@ public class AgentService {
     private final GraphWriter graphWriter;
     private final AgentWriter agentWriter;
     private final AgentVersionWriter agentVersionWriter;
+    private final AgentVersionNodeWriter agentVersionNodeWriter;
 
     @Transactional
     public AgentRegistration register(
@@ -35,9 +36,7 @@ public class AgentService {
         WorkflowValidator.ensureRevision(source.getRevision(), expectedRevision);
 
         WorkflowGraph snapshot = source.getGraph();
-        List<NodeDefinition> locked = nodeReader.readAllForShare(placedNodeIds(snapshot));
-        Map<NodeDefinitionId, NodeDefinition> placedNodes =
-                versionPolicy.ensureVersionable(source, requester, locked);
+        Map<NodeDefinitionId, NodeDefinition> placedNodes = lockAndValidate(source, requester, snapshot);
 
         GraphId graphId = copyGraph(snapshot);
         AgentRegistration registered = publishFirstVersion(
@@ -45,8 +44,16 @@ public class AgentService {
 
         agentWriter.append(registered.agent());
         agentVersionWriter.append(registered.version(), graphId);
+        agentVersionNodeWriter.append(registered.version().getId(), VersionNode.freeze(snapshot, placedNodes));
 
         return registered;
+    }
+
+    private Map<NodeDefinitionId, NodeDefinition> lockAndValidate(
+            Workflow source, UserId requester, WorkflowGraph snapshot) {
+        List<NodeDefinition> locked = nodeReader.readAllForShare(placedNodeIds(snapshot));
+
+        return versionPolicy.ensureVersionable(source, requester, locked);
     }
 
     private GraphId copyGraph(WorkflowGraph snapshot) {

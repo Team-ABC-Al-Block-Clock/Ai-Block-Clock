@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 @Tag("integration")
 @SpringBootTest
@@ -49,10 +50,14 @@ class AgentExpansionIntegrationTest {
 
     private AgentRegistration agent;
 
+    private NodeDefinition soldNode;
+
     @BeforeEach
     void 프롬프트_둘짜리_에이전트를_굳혀_둔다() {
+        soldNode = nodeService.create(OWNER, "성적 분석", Prompt.of("점수를 비교한다"), AiModel.defaultModel());
+
         Workflow source = workflowService.save(OWNER, "굳힐 워크플로우", null,
-                List.of(node("n1", "성적 분석", "점수를 비교한다"),
+                List.of(GraphFixtures.placement("n1", soldNode.getId().value()),
                         node("n2", "가정통신문 작성", "가정통신문을 쓴다")),
                 List.of(GraphFixtures.edge("e1", "n1", "n2")));
 
@@ -95,6 +100,36 @@ class AgentExpansionIntegrationTest {
         assertThat(executionPlanAssembler.assemble(placed).prompts())
                 .extracting(PlannedPrompt::name)
                 .containsExactly("성적 분석", "가정통신문 작성");
+    }
+
+    @Test
+    @DisplayName("굳힌 뒤 노드를 고쳐도 판 버전은 판 내용을 그대로 펼친다")
+    void keepsTheSoldPromptsWhenTheNodeIsEdited() {
+        Workflow placed = workflowService.save(OWNER, "에이전트를 품었다", null,
+                List.of(agentPlacement("a1")), List.of());
+
+        nodeService.update(soldNode.getId(), OWNER, "완전히 다른 이름",
+                Prompt.of("완전히 다른 일을 한다"), AiModel.defaultModel());
+
+        assertThat(executionPlanAssembler.assemble(placed).prompts())
+                .extracting(PlannedPrompt::name, prompt -> prompt.prompt().value())
+                .containsExactly(
+                        tuple("성적 분석", "점수를 비교한다"),
+                        tuple("가정통신문 작성", "가정통신문을 쓴다"));
+    }
+
+    @Test
+    @DisplayName("캔버스에 그냥 놓은 노드는 고치면 따라 바뀐다")
+    void followsTheLiveNodeOutsideAnyVersion() {
+        Workflow placed = workflowService.save(OWNER, "노드만 놓았다", null,
+                List.of(GraphFixtures.placement("n1", soldNode.getId().value())), List.of());
+
+        nodeService.update(soldNode.getId(), OWNER, "고친 이름",
+                Prompt.of("고친 일을 한다"), AiModel.defaultModel());
+
+        assertThat(executionPlanAssembler.assemble(placed).prompts())
+                .extracting(PlannedPrompt::name, prompt -> prompt.prompt().value())
+                .containsExactly(tuple("고친 이름", "고친 일을 한다"));
     }
 
     private NodePlacement node(String key, String name, String prompt) {
