@@ -128,14 +128,24 @@ describe('toCanvasWorkflow', () => {
       ? { name: '파일 수집', nodeType: 'TRIGGER' as const, mine: true }
       : undefined
 
-  it('순서대로 왼쪽부터 늘어놓는다', () => {
+  it('순서대로 왼쪽부터 같은 보폭으로 늘어놓는다', () => {
     const canvas = toCanvasWorkflow(detail(3), known)
 
     expect(canvas.nodes.map((n) => n.sourceId)).toEqual(['node_001', 'node_002', 'node_003'])
     const xs = canvas.nodes.map((n) => n.x)
     expect(xs[1] - xs[0]).toBe(xs[2] - xs[1])
     expect(xs[0]).toBeLessThan(xs[1])
-    expect(new Set(canvas.nodes.map((n) => n.y)).size).toBe(1)
+  })
+
+  // 곧게 늘어놓으면 카드 사이 선이 짧은 수평선이라 어디로 가는지 보이지 않는다.
+  it('위아래로 엇갈리게 놓아 선이 드러나게 한다', () => {
+    const ys = toCanvasWorkflow(detail(4), known).nodes.map((n) => n.y)
+
+    expect(new Set(ys).size).toBe(2)
+    expect(ys[0]).not.toBe(ys[1])
+    // 한 칸 건너뛰면 같은 높이로 돌아온다.
+    expect(ys[2]).toBe(ys[0])
+    expect(ys[3]).toBe(ys[1])
   })
 
   it('선은 새 id 로 다시 잇는다', () => {

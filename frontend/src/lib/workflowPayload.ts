@@ -36,10 +36,16 @@ export function toWorkflowGraph(
   return { nodes: placements, edges: links }
 }
 
-/** 불러올 때 카드를 늘어놓는 간격. 자리표시자와 같은 보폭이다. */
+/**
+ * 불러올 때 카드를 늘어놓는 자리. 자리표시자와 같은 보폭·높낮이로 지그재그를 만든다.
+ *
+ * 한 줄로 곧게 놓으면 카드 사이 선이 짧은 수평선이라 잘 보이지 않는다. 위아래로 엇갈리게
+ * 두면 선이 휘어 어디서 어디로 가는지가 드러난다.
+ */
 const RESTORE_STEP = NODE_SIZE + 29
 const RESTORE_X0 = 12
-const RESTORE_Y = 380
+/** 짝수 번째는 아래, 홀수 번째는 위. */
+const RESTORE_Y = [430, 325] as const
 
 /** 팔레트가 아는 표시용 정보. 서버 응답에 이름·종류가 없어 밖에서 채워 준다. */
 export interface NodeLabel {
@@ -73,7 +79,7 @@ export function toCanvasWorkflow(
       sourceType: node.sourceType,
       sourceId: node.sourceId,
       x: RESTORE_X0 + i * RESTORE_STEP,
-      y: RESTORE_Y,
+      y: RESTORE_Y[i % RESTORE_Y.length],
       // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
       mine: label?.mine ?? false,
       floaty: '',
