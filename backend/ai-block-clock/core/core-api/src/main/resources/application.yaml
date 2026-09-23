@@ -31,6 +31,13 @@ springdoc:
     path: /swagger-ui.html
     persist-authorization: true
 
+execution:
+  polling:
+    workers: ${EXECUTION_POLL_WORKERS:4}
+    interval: ${EXECUTION_POLL_INTERVAL:2s}
+    per-step: ${EXECUTION_POLL_PER_STEP:40s}
+    grace: ${EXECUTION_POLL_GRACE:60s}
+
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
   uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}

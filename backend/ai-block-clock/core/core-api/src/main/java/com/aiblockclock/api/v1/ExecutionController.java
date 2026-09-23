@@ -1,5 +1,6 @@
 package com.aiblockclock.api.v1;
 
+import com.aiblockclock.api.batch.ExecutionProgressScheduler;
 import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.ExecutionStartRequest;
 import com.aiblockclock.api.v1.response.ExecutionProgressResponse;
@@ -16,6 +17,7 @@ import com.aiblockclock.support.response.ApiResult;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.UUID;
 
@@ -32,6 +35,8 @@ import java.util.UUID;
 public class ExecutionController implements ExecutionApi {
     private final WorkflowService workflowService;
     private final ExecutionService executionService;
+    private final ExecutionStreamBroadcaster executionStreamBroadcaster;
+    private final ExecutionProgressScheduler executionProgressScheduler;
 
     @Override
     @PostMapping
@@ -45,6 +50,8 @@ public class ExecutionController implements ExecutionApi {
         Execution started = executionService.start(
                 requester, workflow, request.comment(), request.mockOrDefault());
 
+        executionProgressScheduler.follow(started);
+
         return ApiResult.success(ExecutionStartResponse.from(started));
     }
 
@@ -56,5 +63,17 @@ public class ExecutionController implements ExecutionApi {
     ) {
         return ApiResult.success(ExecutionProgressResponse.from(
                 executionService.follow(ExecutionId.of(executionId), requester)));
+    }
+
+    @Override
+    @GetMapping(value = "/{executionId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(
+            @CurrentUser UserId requester,
+            @PathVariable UUID executionId
+    ) {
+        Execution execution = executionService.mine(ExecutionId.of(executionId), requester);
+
+        return executionStreamBroadcaster.subscribe(
+                execution.getId(), () -> executionService.progressOf(execution));
     }
 }
