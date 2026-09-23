@@ -155,6 +155,28 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.error.code").value("WORKFLOW_002"));
     }
 
+    // 예상 비용은 견적 API(POST /api/v1/executions/cost-estimates)가 알려 준다. 늘 0 이던 칸을 되살리지 않는다.
+    @Test
+    void 저장과_조회_응답에는_예상_비용과_통화_칸이_없다() throws Exception {
+        MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(chainBody("성적 분석 리포트")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.estimatedCost").doesNotExist())
+                .andExpect(jsonPath("$.data.currency").doesNotExist())
+                .andReturn();
+        String workflowId = mapper.readTree(saved.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.estimatedCost").doesNotExist())
+                .andExpect(jsonPath("$.data.currency").doesNotExist());
+    }
+
     @Test
     @DisplayName("뒤섞어 보낸 노드도 다시 읽으면 연결 순서대로 나온다")
     void returnsNodesInConnectedOrder() throws Exception {

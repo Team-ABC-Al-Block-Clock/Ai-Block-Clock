@@ -31,12 +31,6 @@ public record WorkflowDetailResponse(
         @Schema(description = "노드 연결선. 노드와 같은 연결 순서대로다")
         List<EdgeResponse> edges,
 
-        @Schema(description = "실행 예상 차감액. 단가 산정 전이라 지금은 항상 0 이다", example = "0")
-        String estimatedCost,
-
-        @Schema(description = "통화", example = "ABC")
-        String currency,
-
         @Schema(description = "마지막 실행 시각. 아직 실행하지 않았으면 null", nullable = true)
         Instant lastExecutedAt,
 
@@ -61,8 +55,6 @@ public record WorkflowDetailResponse(
                 workflow.getRevision().value(),
                 nodes,
                 edges,
-                AbcPricing.UNPRICED,
-                AbcPricing.CURRENCY,
                 workflow.getLastExecutedAt(),
                 workflow.getTimestamps().updatedAt());
     }

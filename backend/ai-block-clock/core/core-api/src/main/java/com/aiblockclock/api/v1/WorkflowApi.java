@@ -75,8 +75,6 @@ public interface WorkflowApi {
                 "edges": [
                   { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
                 ],
-                "estimatedCost": "0",
-                "currency": "ABC",
                 "lastExecutedAt": null,
                 "updatedAt": "2026-09-11T09:31:15.482Z"
               },

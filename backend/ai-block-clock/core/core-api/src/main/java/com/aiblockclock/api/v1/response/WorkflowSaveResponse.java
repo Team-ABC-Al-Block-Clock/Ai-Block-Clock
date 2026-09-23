@@ -23,13 +23,7 @@ public record WorkflowSaveResponse(
                 놓인 노드. 본문으로 실어 보낸 새 단계는 여기서 `sourceId` 를 받는다.
                 다음 수정 요청에는 그 ID 를 그대로 보내야 노드가 또 만들어지지 않는다.
                 """)
-        List<PlacedNodeResponse> nodes,
-
-        @Schema(description = "실행 예상 차감액. 단가 산정 전이라 지금은 항상 0 이다", example = "0")
-        String estimatedCost,
-
-        @Schema(description = "통화", example = "ABC")
-        String currency
+        List<PlacedNodeResponse> nodes
 ) {
     public static WorkflowSaveResponse from(Workflow workflow) {
         List<PlacedNodeResponse> nodes = workflow.getGraph().nodesInOrder().stream()
@@ -40,9 +34,7 @@ public record WorkflowSaveResponse(
                 workflow.getId().value().toString(),
                 workflow.getName(),
                 workflow.getRevision().value(),
-                nodes,
-                AbcPricing.UNPRICED,
-                AbcPricing.CURRENCY);
+                nodes);
     }
 
     @Schema(description = "놓인 노드")
