@@ -407,3 +407,30 @@ describe('getWorkflow', () => {
     })
   })
 })
+
+describe('mock 이 실서버와 같은 선에서 거절한다', () => {
+  it('고리는 한 줄이 아니다 — 개수만으로는 걸러지지 않는다', async () => {
+    const cyclic = {
+      nodes: line('node_001', 'node_002', 'node_003').nodes,
+      // 개수는 맞는다: 선 2개, 드나드는 키도 2개씩. 그래도 n1 은 아무도 닿지 못한다.
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 'n2', targetNodeKey: 'n3' },
+        { edgeKey: 'e2', sourceNodeKey: 'n3', targetNodeKey: 'n2' },
+      ],
+    }
+
+    await expect(saveWorkflow({ ...cyclic, name: '고리' })).rejects.toMatchObject({
+      code: 'WORKFLOW_013',
+      status: 400,
+    })
+  })
+
+  // 목록이 거는 편집 링크가 전부 404 면 mock 으로 화면을 확인할 수 없다.
+  it('픽스처 워크플로우도 단건 조회가 된다', async () => {
+    const detail = await getWorkflow('wf_001')
+
+    expect(detail.workflowId).toBe('wf_001')
+    expect(detail.nodes.length).toBeGreaterThan(0)
+    expect(detail.edges).toHaveLength(detail.nodes.length - 1)
+  })
+})

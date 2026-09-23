@@ -4,6 +4,7 @@ import { API_BASE_URL } from '@/api/client'
 import type { PaletteScope, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { PLACEABLE_ITEMS, byMineThenUsed } from '@/mocks/fixtures/nodePalette'
+import { WORKFLOWS } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -41,7 +42,31 @@ function writeSaved(all: Record<string, WorkflowDetail>) {
   }
 }
 
-const findSaved = (workflowId: string) => readSaved()[workflowId]
+/**
+ * 픽스처 워크플로우는 저장소에 없다. 마이페이지 목록이 거는 편집 링크가 전부 404 가 되지 않게
+ * 구성을 지어 준다 — 목록에는 이름뿐이라 내 기본 노드로 한 줄을 만든다.
+ */
+function fixtureDetail(workflowId: string): WorkflowDetail | undefined {
+  const flow = WORKFLOWS.find((item) => item.workflowId === workflowId)
+  if (!flow) return undefined
+
+  const picks = PLACEABLE_ITEMS.filter((item) => item.itemType === 'NODE' && item.mine).slice(0, 3)
+  const graph: WorkflowGraph = {
+    nodes: picks.map((item, i) => ({
+      nodeKey: `n${i + 1}`,
+      sourceType: item.itemType,
+      sourceId: item.itemId,
+    })),
+    edges: picks.slice(1).map((_, i) => ({
+      edgeKey: `e${i + 1}`,
+      sourceNodeKey: `n${i + 1}`,
+      targetNodeKey: `n${i + 2}`,
+    })),
+  }
+  return toDetail(workflowId, 1, flow.name, flow.summary, graph)
+}
+
+const findSaved = (workflowId: string) => readSaved()[workflowId] ?? fixtureDetail(workflowId)
 
 function putSaved(detail: WorkflowDetail) {
   const all = readSaved()
@@ -75,11 +100,21 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   // 한 줄이면 선이 노드보다 하나 적고, 드나드는 선이 저마다 하나뿐이다.
   const outs = new Set(edges.map((edge) => edge.sourceNodeKey))
   const ins = new Set(edges.map((edge) => edge.targetNodeKey))
-  const linear =
-    edges.length === graph.nodes.length - 1 &&
-    outs.size === edges.length &&
-    ins.size === edges.length
-  if (!linear) return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
+  if (
+    edges.length !== graph.nodes.length - 1 ||
+    outs.size !== edges.length ||
+    ins.size !== edges.length
+  ) {
+    return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
+  }
+  // 개수만으로는 고리를 못 거른다 — A→B, B→A 도 위를 통과한다. 머리에서 끝까지 닿는지 본다.
+  const next = new Map(edges.map((edge) => [edge.sourceNodeKey, edge.targetNodeKey]))
+  const heads = [...keys].filter((key) => !ins.has(key))
+  if (heads.length !== 1) return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
+  let walked = 0
+  for (let at: string | undefined = heads[0]; at !== undefined; at = next.get(at)) walked += 1
+  if (walked !== graph.nodes.length)
+    return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
 
   return null
 }
