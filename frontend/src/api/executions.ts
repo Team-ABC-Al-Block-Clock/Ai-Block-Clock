@@ -39,3 +39,57 @@ export interface CostEstimate {
  */
 export const estimateCost = (workflowId: string) =>
   api.post<CostEstimate>('/executions/cost-estimates', { workflowId })
+
+/** 실행 전체의 상태. 서버 enum 그대로다. */
+export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+
+export interface StartedExecution {
+  executionId: string
+  status: ExecutionStatus
+  /** 펼친 프롬프트 수. 캔버스의 카드 수와 다를 수 있다 */
+  stepCount: number
+}
+
+/** 첫 단계가 읽을 파일. 서버는 확장자만 보고 가른다(`ExecutionFileValidator`). */
+export const RUN_FILE_LIMITS = {
+  maxBytes: 10 * 1024 * 1024,
+  extensions: ['.xlsx', '.xls', '.csv'],
+} as const
+
+/** 고른 파일이 제약에 맞는지 — 어긋나면 띄울 문구, 맞으면 null. */
+export function describeRunFileProblem(file: File): string | null {
+  const { extensions, maxBytes } = RUN_FILE_LIMITS
+  const name = file.name.toLowerCase()
+
+  if (!extensions.some((ext) => name.endsWith(ext))) return '엑셀 또는 CSV 파일만 올릴 수 있습니다'
+  if (file.size === 0) return '빈 파일은 올릴 수 없습니다'
+  if (file.size > maxBytes) return '파일은 10MB 이하여야 합니다'
+  return null
+}
+
+export interface StartExecutionInput {
+  workflowId: string
+  /** 첫 단계에 함께 전달된다. 500자까지 */
+  comment?: string
+  file?: File | null
+  /** 켜면 모델을 부르지 않고 파이프라인만 돈다 */
+  mock?: boolean
+}
+
+/**
+ * 실행 접수. 단계 하나가 25초쯤 걸려 서버는 기다리지 않고 접수 번호만 준다(202).
+ *
+ * 명세가 `multipart/form-data` 다 — 첫 단계가 읽을 파일을 같이 싣기 때문이다. `Content-Type` 은
+ * 손대지 않는다. FormData 를 주면 브라우저가 boundary 까지 붙여 준다(`api/client.ts`).
+ *
+ * 비어 있는 칸은 아예 넣지 않는다. 빈 문자열을 넣으면 서버가 「코멘트가 왔는데 비었다」로 받는다.
+ */
+export const startExecution = ({ workflowId, comment, file, mock }: StartExecutionInput) => {
+  const form = new FormData()
+  form.append('workflowId', workflowId)
+  if (comment?.trim()) form.append('comment', comment.trim())
+  if (file) form.append('file', file)
+  if (mock) form.append('mock', 'true')
+
+  return api.post<StartedExecution>('/runs', form)
+}
