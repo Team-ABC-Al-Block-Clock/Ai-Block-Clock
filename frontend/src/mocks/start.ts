@@ -3,7 +3,10 @@ import { env } from '@/lib/env'
 /** 워커가 안 붙어 새로 읽었다는 표시. 탭을 닫으면 사라진다. */
 const RELOADED_KEY = 'abc:mock-sw-reloaded'
 
-/** 사설 모드에서는 sessionStorage 접근 자체가 던진다. 표시가 없으면 한 번 더 읽을 뿐이다. */
+/**
+ * 사설 모드에서는 sessionStorage 접근 자체가 던진다. 그때는 이미 표시가 있는 것으로 본다 —
+ * 표시를 남길 수 없으니 새로 읽어도 같은 자리로 돌아와 새로고침이 끝없이 돈다.
+ */
 function reloadMark(): { taken: boolean; take: () => void; clear: () => void } {
   try {
     return {
@@ -47,4 +50,7 @@ export async function startMocks() {
   }
   mark.take()
   window.location.reload()
+  // 새로고침은 지금 이 작업을 멈추지 않는다. 그냥 두면 `main.tsx` 가 화면을 그리고
+  // 첫 요청들이 워커를 지나쳐 502 로 깜빡인다 — 문서가 바뀔 때까지 여기서 멈춘다.
+  await new Promise(() => undefined)
 }
