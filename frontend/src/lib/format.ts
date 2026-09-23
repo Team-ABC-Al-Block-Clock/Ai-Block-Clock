@@ -15,14 +15,19 @@ export function runLabel(n: number) {
 const AMOUNT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 })
 
 /**
- * '540.00' → '540 ABC', '1248.50' → '1,248.5 ABC'
+ * '540.00' → '540', '1248.50' → '1,248.5'. 단위를 따로 적는 자리에 쓴다.
  *
  * TS 가 문자열 오버로드를 `StringNumericLiteral` 로 타이핑해 API 의 `string` 은 단언이
  * 필요하다. 명세가 10진수 문자열로 확정했으니 여기 한 곳에서만 한다 — 값이 숫자가
- * 아니면 RangeError 로 터지는 편이 'abc ABC' 를 조용히 그리는 것보다 낫다.
+ * 아니면 RangeError 로 터지는 편이 'abc' 를 조용히 그리는 것보다 낫다.
  */
+export function amountLabel(amount: string | number) {
+  return AMOUNT.format(amount as Intl.StringNumericLiteral)
+}
+
+/** '540.00' → '540 ABC', '1248.50' → '1,248.5 ABC' */
 export function priceLabel(price: string | number) {
-  return `${AMOUNT.format(price as Intl.StringNumericLiteral)} ABC`
+  return `${amountLabel(price)} ABC`
 }
 
 /** 4.7 · 35 → '4.7 (35)', 리뷰 0건 → '—' */

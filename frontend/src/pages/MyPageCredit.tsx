@@ -28,23 +28,34 @@ export default function MyPageCredit() {
         { amount: available, note: '전액 출금' },
       ].map((p) => ({
         credit: p.amount.toLocaleString() + ' ABC',
-        price: p.note || '출금 후 ' + (available - p.amount).toLocaleString() + ' ABC',
+        // 잔액을 넘는 금액은 뺀 결과가 음수라 「출금 후 -260 ABC」 가 되어 버린다.
+        price:
+          p.amount > available
+            ? '잔액 부족'
+            : p.note || '출금 후 ' + (available - p.amount).toLocaleString() + ' ABC',
         amount: p.amount,
+        disabled: p.amount > available || p.amount <= 0,
       }))
     : [500, 1000, 2500, 5000].map((amount) => ({
         credit: amount.toLocaleString() + ' ABC',
         price: '예치 후 ' + (DEPOSITED + amount).toLocaleString() + ' ABC',
         amount,
+        disabled: false,
       }))
+  // 고른 칸이 잔액 부족이면 고를 수 있는 마지막 칸으로 내린다. 없으면 그대로 둔다.
+  const pickable = raw.findLastIndex((p) => !p.disabled)
+  const at = raw[pick]?.disabled && pickable >= 0 ? pickable : Math.min(pick, raw.length - 1)
   const presets = raw.map((p, i) => ({
     ...p,
-    bg: i === pick ? 'rgba(185,141,169,.32)' : 'var(--color-surface-card)',
+    bg: i === at ? 'rgba(185,141,169,.32)' : 'var(--color-surface-card)',
     ring: 'none',
-    fg: i === pick ? '#e6cbe0' : '#fff',
+    fg: p.disabled ? 'rgba(255,240,247,.38)' : i === at ? '#e6cbe0' : '#fff',
     anim: 'rise .7s ' + (0.2 + i * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
-    pick: () => setPick(i),
+    pick: () => {
+      if (!p.disabled) setPick(i)
+    },
   }))
-  const cur = raw[Math.min(pick, raw.length - 1)]
+  const cur = raw[at]
   const sumCredit = cur.amount.toLocaleString() + ' ABC'
   const handlePickDeposit = () => {
     setMode('deposit')
@@ -210,7 +221,7 @@ export default function MyPageCredit() {
                 transition: 'background .16s,box-shadow .16s',
                 animation: `${p.anim}`,
               }}
-              className="box-border flex-none cursor-pointer hover:bg-[rgba(255,255,255,.14)]"
+              className={`box-border flex-none ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
             >
               <div
                 className="text-[18px] font-semibold tracking-[-.01em]"

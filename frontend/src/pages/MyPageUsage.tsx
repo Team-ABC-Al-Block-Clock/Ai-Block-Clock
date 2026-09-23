@@ -1,11 +1,11 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import type { CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditTransactions } from '@/api/credits'
 import { paths } from '@/routes/paths'
 import StatusDot from '@/components/StatusDot'
-import { priceLabel, shortAddress, timeLabel } from '@/lib/format'
+import { amountLabel, priceLabel, shortAddress, timeLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 
 /** 마켓(9)·마이페이지 목록(10)과 다르다. */
@@ -76,6 +76,15 @@ export default function MyPageUsage() {
     setPeriodOpen(false)
   }
 
+  useEffect(() => {
+    if (!periodOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPeriodOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [periodOpen])
+
   return (
     <>
       <Sidebar active="usage" />
@@ -131,6 +140,15 @@ export default function MyPageUsage() {
             }}
           ></div>
         </button>
+
+        {/* 바깥을 덮어 어디를 눌러도 닫는다 — `profile-menu` 와 같은 방식이다. */}
+        {periodOpen && (
+          <div
+            className="fixed inset-0"
+            style={{ zIndex: 4 }}
+            onClick={() => setPeriodOpen(false)}
+          ></div>
+        )}
 
         {periodOpen && (
           <div
@@ -343,7 +361,7 @@ export default function MyPageUsage() {
               className="text-[22px] font-semibold tracking-[-.02em] text-white"
               style={{ lineHeight: '1.1' }}
             >
-              {available ? priceLabel(available).replace(' ABC', '') : '—'}
+              {available ? amountLabel(available) : '—'}
             </div>
             <div
               className="text-[10px]"
