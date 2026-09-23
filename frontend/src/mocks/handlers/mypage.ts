@@ -74,18 +74,22 @@ export const mypageHandlers = [
     if (forced) return forced
 
     const body = (await request.json()) as Partial<CreateAgentRequest>
-    // 빈 값을 통과시키면 목록에 이름 없는 카드가 생기고 검색에도 안 걸린다.
-    if (!body.name?.trim() || !body.summary?.trim())
+    const text = (value: string | undefined) => (value ?? '').trim()
+    // 서버가 필수로 보는 셋. `workflowId` · `revision` 도 필수지만 화면이 아직 줄 수 없다.
+    if (!text(body.name) || !text(body.summary) || !text(body.description))
       return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
 
     const agent = addAgent({
-      name: body.name.trim(),
-      summary: body.summary.trim(),
-      description: body.description?.trim() ?? '',
-      usageExample: body.usageExample?.trim() ?? '',
-      onboardingMessage: body.onboardingMessage?.trim() ?? '',
+      name: text(body.name),
+      summary: text(body.summary),
+      description: text(body.description),
+      usageExample: text(body.usageExample),
+      onboardingMessage: text(body.onboardingMessage),
     })
-    return ok<CreatedAgent>({ agentId: agent.agentId }, { status: 201 })
+    return ok<CreatedAgent>(
+      { agentId: agent.agentId, name: agent.name, price: agent.price },
+      { status: 201 },
+    )
   }),
   /** 검색어도 정렬도 없다. 즐겨찾기한 시각 역순 고정. */
   http.get(`${API_BASE_URL}/users/me/favorites`, async ({ request }) => {

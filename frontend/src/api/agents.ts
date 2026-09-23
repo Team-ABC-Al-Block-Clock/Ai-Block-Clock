@@ -66,24 +66,47 @@ export interface AgentFavorite {
   favoriteCount: number
 }
 
-/**
- * 등록 화면이 모으는 텍스트만 담았다. 아이콘·스크린샷 업로드와 워크플로우 연결,
- * 가격 산정은 명세가 오면 붙인다.
- */
+/** 서버가 거절하는 길이. 넘겨 보내면 COMMON_001 하나로만 돌아와 어디가 문제인지 알 수 없다. */
+export const AGENT_LIMITS = {
+  name: { min: 2, max: 40 },
+  summary: { max: 80 },
+  description: { max: 2000 },
+  usageExample: { max: 500 },
+  onboardingMessage: { max: 20 },
+} as const
+
+/** 등록 요청. JSON 이다 — 서버에 파일을 받는 자리가 없다. `revision` 이 어긋나면 `WORKFLOW_016`. */
 export interface CreateAgentRequest {
+  workflowId: string
+  revision: number
   name: string
   summary: string
   description: string
-  usageExample: string
-  onboardingMessage: string
+  /** 선택. 비면 보내지 않는다 */
+  usageExample?: string
+  /** 선택. 비면 보내지 않는다 */
+  onboardingMessage?: string
 }
 
-/** 화면이 상세로 이동하는 데 필요한 것은 ID 뿐이다. */
+/** 등록 결과. 단가는 서버가 산정한다 — 화면이 다시 계산하지 않는다. */
 export interface CreatedAgent {
   agentId: string
+  name: string
+  /** 실행 1회당 판매 단가. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다 */
+  price: string
 }
 
-export const createAgent = (body: CreateAgentRequest) => api.post<CreatedAgent>('/agents', body)
+/** 선택 항목은 비면 키째 뺀다 — 빈 문자열과 미전송을 서버가 다르게 본다. */
+export const createAgent = (body: CreateAgentRequest) =>
+  api.post<CreatedAgent>('/agents', {
+    workflowId: body.workflowId,
+    revision: body.revision,
+    name: body.name,
+    summary: body.summary,
+    description: body.description,
+    ...(body.usageExample ? { usageExample: body.usageExample } : {}),
+    ...(body.onboardingMessage ? { onboardingMessage: body.onboardingMessage } : {}),
+  })
 
 /**
  * 판매 중인 내 에이전트. `AgentSummary` 를 확장하지 않는다 — 명세에 없는 평점·리뷰 수가

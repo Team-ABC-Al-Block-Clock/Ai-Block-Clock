@@ -237,10 +237,14 @@ export const getMyProfile = () => api.get<UserProfile>('/users/me')
 
 ### 오류는 `ApiError` 로 정규화된다
 
-HTTP status 대신 **`code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `AGENT_003`(visibility 값 오류)이 섞여 있어 status 만으로는 무엇이 잘못됐는지 알 수 없다.
+HTTP status 대신 **`code` 로 분기한다.** 400 하나에도 `COMMON_001`(입력값 누락)과 `WORKFLOW_005`(순환 연결)이 섞여 있어 status 만으로는 무엇이 잘못됐는지 알 수 없다.
+
+**다시 시도해도 통과하지 않는 코드는 문구를 따로 가른다.** `WORKFLOW_016`(보던 회차와 어긋남)이나 `AGENT_002`(남의 노드가 섞임)를 "잠시 후 다시 시도해 주세요" 로 뭉개면 사용자가 몇 번을 눌러도 안 된다(`pages/RegisterForm.tsx`).
+
+**코드는 서버 `ErrorCode` 에 있는 것만 쓴다.** 없는 코드로 분기하면 그 줄은 영원히 타지 않고, 정작 오는 코드는 기본 문구로 떨어진다.
 
 ```ts
-if (e instanceof ApiError && e.code === 'AGENT_003') …
+if (e instanceof ApiError && e.code === 'WORKFLOW_016') …
 if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받음
 ```
 

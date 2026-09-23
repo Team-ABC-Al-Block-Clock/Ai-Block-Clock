@@ -45,6 +45,16 @@ declare module 'react' {
         'message-text'?: string
         'error-code'?: string
       }>
+      'confirm-dialog': El<{
+        /** 있으면 열린다. bool() 이 hasAttribute 라서 빈 문자열로 넘긴다 */
+        open?: string
+        heading?: string
+        'body-text'?: string
+        /** 강조할 한 줄. 등록 확인의 에이전트 이름처럼 값이 있을 때만 넘긴다 */
+        'note-text'?: string
+        'confirm-label'?: string
+        'cancel-label'?: string
+      }>
       'empty-state': El<{
         heading?: string
         body?: string
