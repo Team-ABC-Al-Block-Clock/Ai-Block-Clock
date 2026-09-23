@@ -27,6 +27,9 @@ export const queryKeys = {
       list: (params: ListParams) => [...queryKeys.marketplace.agents.lists(), params] as const,
       details: () => [...queryKeys.marketplace.agents.all, 'detail'] as const,
       detail: (agentId: string) => [...queryKeys.marketplace.agents.details(), agentId] as const,
+      /** 자연어 추천. 목록과 키를 나눈다 — 커서도 정렬도 없는 다른 조회다. */
+      recommendations: (params: ListParams) =>
+        [...queryKeys.marketplace.agents.all, 'recommendations', params] as const,
       provenance: (agentId: string) =>
         [...queryKeys.marketplace.agents.detail(agentId), 'provenance'] as const,
       reviews: {

@@ -1,6 +1,13 @@
 import { http } from 'msw'
 
-import type { AgentProvenance, AgentReview } from '@/api/agents'
+import type {
+  AgentDetail,
+  AgentProvenance,
+  AgentRecommendations,
+  AgentReview,
+  RecommendedAgent,
+} from '@/api/agents'
+import { RECOMMEND_LIMITS } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { AGENTS, byNewest, provenanceOf, setFavorite, toSummary } from '@/mocks/fixtures/agents'
@@ -19,7 +26,18 @@ const notFound = () => fail(404, 'MARKET_001', '에이전트를 찾을 수 없�
 const noProvenance = () =>
   fail(404, 'BLOCKCHAIN_003', '에이전트의 원본 증명 기록을 찾을 수 없습니다.')
 
+/** 검색어가 비었거나 길이·개수가 범위를 벗어났을 때. 서버는 셋을 가르지 않는다. */
+const invalidRequest = () => fail(400, 'COMMON_001', '요청이 올바르지 않습니다.')
+
 const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
+
+/** 추천은 네 칸만 내려준다. 마켓 목록 필드를 흘려보내면 화면이 없는 값을 몰래 쓴다. */
+const toRecommended = (agent: AgentDetail): RecommendedAgent => ({
+  agentId: agent.agentId,
+  name: agent.name,
+  summary: agent.summary,
+  price: agent.price,
+})
 
 /**
  * 등록 시각 역순. 상수가 아니라 함수다 — 모듈 로드 시점에 정렬해 두면 새로 등록한
@@ -107,6 +125,33 @@ export const marketplaceHandlers = [
       .map(toSummary)
 
     return cursorOk(url, filtered, (a) => a.agentId, { cursorCode: 'MARKET_003' })
+  }),
+  /**
+   * 자연어 추천. `:agentId` 보다 먼저 선언한다 — 뒤에 두면 'recommendations' 가 ID 로 잡힌다.
+   *
+   * 임베딩은 흉내 낼 수 없다. 단어가 겹치는 것을 앞에 두고 실행이 많은 순으로 뒤를 채운다 —
+   * '단어가 안 겹쳐도 무언가는 나온다' 는 실제 동작만 맞춘다.
+   */
+  http.get(`${API_BASE_URL}/marketplace/agents/recommendations`, async ({ request }) => {
+    const forced = await scene(request)
+    if (forced) return forced
+
+    const url = new URL(request.url)
+    const query = url.searchParams.get('query') ?? ''
+    const rawSize = url.searchParams.get('size')
+    const size = rawSize === null ? RECOMMEND_LIMITS.size.default : Number(rawSize)
+    if (!query.trim() || query.length > RECOMMEND_LIMITS.query.max) return invalidRequest()
+    if (!Number.isInteger(size) || size < RECOMMEND_LIMITS.size.min) return invalidRequest()
+    if (size > RECOMMEND_LIMITS.size.max) return invalidRequest()
+
+    const matched = published().filter((a) => matchKeyword(query, a.name, a.summary))
+    const rest = published()
+      .filter((a) => !matched.includes(a))
+      .sort((a, b) => b.executionCount - a.executionCount)
+
+    return ok<AgentRecommendations>({
+      items: [...matched, ...rest].slice(0, size).map(toRecommended),
+    })
   }),
   http.get(`${API_BASE_URL}/marketplace/agents/:agentId`, async ({ params, request }) => {
     const forced = await scene(request)
