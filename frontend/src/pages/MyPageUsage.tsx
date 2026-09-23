@@ -1,83 +1,80 @@
-import { Fragment } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import type { CreditTransactionType } from '@/api/credits'
+import { getCreditBalance, getCreditTransactions } from '@/api/credits'
 import { paths } from '@/routes/paths'
 import StatusDot from '@/components/StatusDot'
+import { priceLabel, shortAddress, signedPriceLabel, timeLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
+
+/** 마켓(9)·마이페이지 목록(10)과 다르다. */
+const PAGE_SIZE = 20
+
+/** 기간 필터. `days` 가 0 이면 조건을 안 붙인다 — from·to 는 한쪽만 보낼 수 없다. */
+const PERIODS = [
+  { label: '최근 7일', days: 7 },
+  { label: '최근 30일', days: 30 },
+  { label: '최근 90일', days: 90 },
+  { label: '전체 기간', days: 0 },
+]
+
+/** 서버가 UTC 날짜 경계로 자르므로 UTC 로 만든다. */
+const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+
+function rangeOf(days: number) {
+  if (days === 0) return {}
+  const now = Date.now()
+  return { from: utcDay(now - (days - 1) * 86_400_000), to: utcDay(now) }
+}
+
+const TYPE_LABELS: Record<CreditTransactionType, string> = {
+  CHARGE: '충전',
+  RESERVE: '사용',
+  REFUND: '환불',
+}
+
+/** 들어오는 것은 초록, 나가는 것은 분홍. */
+const TYPE_COLORS: Record<CreditTransactionType, string> = {
+  CHARGE: '#9ad0b4',
+  RESERVE: '#ffb0cd',
+  REFUND: '#9ad0b4',
+}
 
 export default function MyPageUsage() {
-  const history = [
-    {
-      time: '08.28 09:15',
-      agent: '문서 분석',
-      calls: '23',
-      tokens: '128K / 64K',
-      amount: '45.6 ABC',
-      status: '정산 완료',
-    },
-    {
-      time: '08.27 18:42',
-      agent: '리서치 요약',
-      calls: '18',
-      tokens: '96K / 48K',
-      amount: '36.8 ABC',
-      status: '정산 완료',
-    },
-    {
-      time: '08.27 14:10',
-      agent: '계약 검토',
-      calls: '31',
-      tokens: '156K / 82K',
-      amount: '59.2 ABC',
-      status: '정산 완료',
-    },
-    {
-      time: '08.26 21:33',
-      agent: '데이터 추출',
-      calls: '15',
-      tokens: '72K / 36K',
-      amount: '26.4 ABC',
-      status: '정산 대기',
-    },
-    {
-      time: '08.26 11:07',
-      agent: '이미지 캡션',
-      calls: '27',
-      tokens: '134K / 70K',
-      amount: '48.8 ABC',
-      status: '정산 완료',
-    },
-    {
-      time: '08.25 16:22',
-      agent: '코드 리뷰',
-      calls: '34',
-      tokens: '168K / 88K',
-      amount: '62.4 ABC',
-      status: '정산 완료',
-    },
-    {
-      time: '08.25 10:48',
-      agent: '문서 번역',
-      calls: '21',
-      tokens: '112K / 58K',
-      amount: '41.2 ABC',
-      status: '정산 완료',
-    },
-    {
-      time: '08.24 19:05',
-      agent: '표 추출',
-      calls: '12',
-      tokens: '58K / 30K',
-      amount: '22.8 ABC',
-      status: '정산 대기',
-    },
-    {
-      time: '08.24 08:31',
-      agent: '회의 요약',
-      calls: '29',
-      tokens: '142K / 74K',
-      amount: '52.6 ABC',
-      status: '정산 완료',
-    },
-  ].map((h) => ({ ...h, statusFg: h.status === '정산 완료' ? '#9ad0b4' : '#ffb0cd' }))
+  const [periodAt, setPeriodAt] = useState(1)
+  const [periodOpen, setPeriodOpen] = useState(false)
+
+  const period = PERIODS[periodAt]
+  const range = rangeOf(period.days)
+  const listParams = { ...range, size: PAGE_SIZE }
+
+  const balance = useQuery({
+    queryKey: queryKeys.credits.balance(),
+    queryFn: getCreditBalance,
+  })
+
+  const transactions = useInfiniteQuery({
+    queryKey: queryKeys.credits.transactions.list(listParams),
+    queryFn: ({ pageParam }) => getCreditTransactions({ ...listParams, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  })
+
+  const history = transactions.data?.pages.flatMap((page) => page.content) ?? []
+  // 불러오는 중을 빈 목록으로 보면 요청마다 '없음' 이 깜빡인다.
+  const isEmpty = !transactions.isPending && !transactions.isError && history.length === 0
+
+  const available = balance.data?.availableAmount
+  const reserved = balance.data?.reservedAmount
+  // 잔액이 0 이면 나눗셈이 NaN 이라 빈 고리로 둔다.
+  const total = Number(available ?? 0) + Number(reserved ?? 0)
+  const gaugeArc = total > 0 ? (452.39 * Number(available ?? 0)) / total : 0
+
+  const handlePickPeriod = (at: number) => {
+    setPeriodAt(at)
+    setPeriodOpen(false)
+  }
 
   return (
     <>
@@ -107,30 +104,65 @@ export default function MyPageUsage() {
         에이전트 사용량, 토큰 소비량과 블록체인 결제 내역을 확인합니다.
       </div>
 
-      <div
-        style={{
-          left: '1210px',
-          top: '160px',
-          width: '128px',
-          height: '38px',
-          borderRadius: '19px',
-          padding: '0 15px',
-          animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
-        }}
-        className="absolute box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
-      >
-        <div className="text-[12px]" style={{ color: 'rgba(255,240,247,.84)' }}>
-          최근 30일
-        </div>
-        <div
+      <div className="absolute" style={{ left: '1210px', top: '160px', width: '128px', zIndex: 5 }}>
+        {/* 등장 모션은 버튼에만 건다 — transform 이 걸린 조상 안에서는 아래 메뉴의 유리가 죽는다. */}
+        <button
+          type="button"
+          onClick={() => setPeriodOpen(!periodOpen)}
           style={{
-            width: '0',
-            height: '0',
-            borderLeft: '4px solid transparent',
-            borderRight: '4px solid transparent',
-            borderTop: '5px solid rgba(255,255,255,.6)',
+            width: '128px',
+            height: '38px',
+            borderRadius: '19px',
+            padding: '0 15px',
+            animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
           }}
-        ></div>
+          className="box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
+        >
+          <div className="text-[12px]" style={{ color: 'rgba(255,240,247,.84)' }}>
+            {period.label}
+          </div>
+          <div
+            style={{
+              width: '0',
+              height: '0',
+              borderLeft: '4px solid transparent',
+              borderRight: '4px solid transparent',
+              borderTop: '5px solid rgba(255,255,255,.6)',
+            }}
+          ></div>
+        </button>
+
+        {periodOpen && (
+          <div
+            className="bg-surface-menu box-border flex flex-col overflow-hidden"
+            style={{
+              marginTop: '6px',
+              width: '128px',
+              borderRadius: '12px',
+              padding: '4px',
+              backdropFilter: 'blur(18px) saturate(115%)',
+              WebkitBackdropFilter: 'blur(18px) saturate(115%)',
+            }}
+          >
+            {PERIODS.map((p, i) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => handlePickPeriod(i)}
+                style={{
+                  height: '32px',
+                  padding: '0 11px',
+                  borderRadius: '8px',
+                  color: i === periodAt ? '#f0dcea' : 'rgba(255,240,247,.78)',
+                  background: i === periodAt ? 'rgba(185,141,169,.28)' : 'transparent',
+                }}
+                className="flex cursor-pointer items-center text-[12px] hover:bg-[rgba(255,255,255,.12)]"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div
@@ -146,6 +178,7 @@ export default function MyPageUsage() {
         }}
       >
         <div className="text-[17px] font-semibold tracking-[-.01em] text-white">사용량 추이</div>
+        {/* 서버에 통계 API 가 없어 아래 꺾은선과 요약 문구는 임의 값이다. */}
         <div
           className="text-[11.5px] tracking-[-.01em]"
           style={{ marginTop: '5px', width: '534px', color: 'rgba(255,236,246,.6)' }}
@@ -300,7 +333,7 @@ export default function MyPageUsage() {
                 stroke="#c9a9dd"
                 strokeWidth="12"
                 strokeLinecap="round"
-                strokeDasharray="115.81 452.39"
+                strokeDasharray={`${gaugeArc} 452.39`}
                 style={{ animation: 'gaugeIn 1.1s .5s cubic-bezier(.3,.7,.2,1) both' }}
               />
             </g>
@@ -310,7 +343,7 @@ export default function MyPageUsage() {
               className="text-[22px] font-semibold tracking-[-.02em] text-white"
               style={{ lineHeight: '1.1' }}
             >
-              640
+              {available ? priceLabel(available).replace(' ABC', '') : '—'}
             </div>
             <div
               className="text-[10px]"
@@ -323,16 +356,16 @@ export default function MyPageUsage() {
         <div className="flex flex-col" style={{ marginTop: '14px', gap: '7px' }}>
           <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
             <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              예치금
-            </span>
-            <span className="text-[11.5px] font-semibold text-white">2,500 ABC</span>
-          </div>
-          <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              이번 달 사용
+              실행에 잠긴 코인
             </span>
             <span className="text-[11.5px] font-semibold" style={{ color: '#c9a9dd' }}>
-              1,204 ABC
+              {reserved ? priceLabel(reserved) : '—'}
+            </span>
+          </div>
+          {/* 예치금·이번 달 사용은 잔액 응답에 없다. */}
+          <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
+            <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+              잠긴 코인은 실행이 끝나면 정산되거나 되돌아옵니다
             </span>
           </div>
         </div>
@@ -355,16 +388,18 @@ export default function MyPageUsage() {
           className="flex text-[10.5px] font-semibold"
           style={{ marginTop: '14px', color: 'rgba(255,236,246,.55)' }}
         >
-          <div style={{ width: '120px' }}>날짜/시간</div>
-          <div style={{ width: '160px' }}>에이전트</div>
-          <div style={{ width: '90px' }}>요청 수</div>
-          <div style={{ width: '200px' }}>토큰(입력/출력)</div>
-          <div style={{ width: '130px' }}>사용 코인</div>
-          <div style={{ width: '80px' }}>상태</div>
+          <div style={{ width: '150px' }}>날짜/시간</div>
+          <div style={{ width: '110px' }}>유형</div>
+          <div style={{ width: '160px' }}>금액</div>
+          <div style={{ width: '200px' }}>실행</div>
+          <div style={{ width: '160px' }}>트랜잭션</div>
         </div>
-        <div className="flex flex-col" style={{ marginTop: '6px' }}>
-          {history.map((h, i) => (
-            <Fragment key={i}>
+        <div
+          className="flex flex-col overflow-y-auto"
+          style={{ marginTop: '6px', height: '214px' }}
+        >
+          {history.map((h) => (
+            <Fragment key={h.transactionId}>
               <div
                 style={{
                   height: '27px',
@@ -375,27 +410,55 @@ export default function MyPageUsage() {
                 }}
                 className="hover:bg-surface-inset flex flex-none items-center text-[11.5px]"
               >
-                <div style={{ width: '120px' }}>{h.time}</div>
-                <div style={{ width: '160px' }}>{h.agent}</div>
-                <div style={{ width: '90px' }}>{h.calls}</div>
-                <div style={{ width: '200px', color: 'rgba(255,255,255,.7)' }}>{h.tokens}</div>
-                <div style={{ width: '130px' }}>{h.amount}</div>
-                <div className="font-semibold" style={{ width: '80px', color: `${h.statusFg}` }}>
-                  {h.status}
+                <div style={{ width: '150px' }}>{timeLabel(h.occurredAt)}</div>
+                <div
+                  className="font-semibold"
+                  style={{ width: '110px', color: TYPE_COLORS[h.transactionType] }}
+                >
+                  {TYPE_LABELS[h.transactionType] ?? h.transactionType}
+                </div>
+                <div style={{ width: '160px' }}>{signedPriceLabel(h.amount)}</div>
+                {/* 실행 상세 화면이 생기면 링크를 붙인다. */}
+                <div style={{ width: '200px', color: 'rgba(255,255,255,.45)' }}>
+                  {h.executionId ?? '—'}
+                </div>
+                <div style={{ width: '160px', color: 'rgba(255,255,255,.7)' }}>
+                  {h.transactionHash ? shortAddress(h.transactionHash) : '—'}
                 </div>
               </div>
             </Fragment>
           ))}
+
+          {transactions.isPending && (
+            <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+              사용 내역을 불러오는 중입니다.
+            </div>
+          )}
+          {transactions.isError && (
+            <div className="text-[11.5px]" style={{ color: '#ffb0cd' }}>
+              사용 내역을 불러오지 못했습니다.
+            </div>
+          )}
+          {isEmpty && (
+            <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+              {period.label}에 사용 내역이 없습니다.
+            </div>
+          )}
         </div>
 
         <div className="flex" style={{ marginTop: '12px', justifyContent: 'flex-end' }}>
-          <div
-            style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
-            className="flex cursor-pointer items-center text-[11.5px] font-semibold hover:text-[#fff]"
-          >
-            전체 보기
-            <span className="text-[12px]">→</span>
-          </div>
+          {transactions.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => void transactions.fetchNextPage()}
+              disabled={transactions.isFetchingNextPage}
+              style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
+              className="flex cursor-pointer items-center text-[11.5px] font-semibold hover:text-[#fff]"
+            >
+              {transactions.isFetchingNextPage ? '불러오는 중' : '더 보기'}
+              <span className="text-[12px]">→</span>
+            </button>
+          )}
         </div>
       </div>
     </>

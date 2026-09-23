@@ -25,6 +25,12 @@ export function priceLabel(price: string | number) {
   return `${AMOUNT.format(price as Intl.StringNumericLiteral)} ABC`
 }
 
+/** '+21.000000' → '+21 ABC'. `Intl` 이 `+` 만 떨어뜨려(`-` 는 남는다) 도로 붙인다. */
+export function signedPriceLabel(amount: string) {
+  const label = priceLabel(amount)
+  return amount.startsWith('+') ? `+${label}` : label
+}
+
 /** 4.7 · 35 → '4.7 (35)', 리뷰 0건 → '—' */
 export function ratingLabel(averageRating: number | null, reviewCount: number) {
   if (averageRating === null || reviewCount === 0) return '—'

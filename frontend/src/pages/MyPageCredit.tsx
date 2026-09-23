@@ -1,23 +1,34 @@
+import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import { getCreditBalance } from '@/api/credits'
+import { priceLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
 
 export default function MyPageCredit() {
   const [pick, setPick] = useState(2)
   const [mode, setMode] = useState('deposit')
 
+  const balance = useQuery({
+    queryKey: queryKeys.credits.balance(),
+    queryFn: getCreditBalance,
+  })
+
+  // 예치금·지갑 잔액은 충전 API 가 열리면 붙인다.
   const DEPOSITED = 2500,
-    AVAILABLE = 640,
     WALLET = 3120
+  // 프리셋 계산에만 숫자를 쓴다. 표시는 서버 문자열 그대로다.
+  const available = Number(balance.data?.availableAmount ?? 0)
   const withdraw = mode === 'withdraw'
   const raw = withdraw
     ? [
         { amount: 100 },
         { amount: 200 },
         { amount: 400 },
-        { amount: AVAILABLE, note: '전액 출금' },
+        { amount: available, note: '전액 출금' },
       ].map((p) => ({
         credit: p.amount.toLocaleString() + ' ABC',
-        price: p.note || '출금 후 ' + (AVAILABLE - p.amount).toLocaleString() + ' ABC',
+        price: p.note || '출금 후 ' + (available - p.amount).toLocaleString() + ' ABC',
         amount: p.amount,
       }))
     : [500, 1000, 2500, 5000].map((amount) => ({
@@ -48,10 +59,16 @@ export default function MyPageCredit() {
   const bgWithdraw = withdraw ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)'
   const fgWithdraw = withdraw ? '#3a1030' : 'rgba(255,240,247,.78)'
   const bannerLabel = withdraw ? '출금 가능 코인' : '현재 사용 가능 코인'
-  const bannerValue = AVAILABLE.toLocaleString() + ' ABC'
-  const bannerNote = withdraw
-    ? '출금은 연결된 MetaMask 지갑으로 전송됩니다'
-    : '예치한 코인은 언제든 출금할 수 있습니다'
+  // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
+  const bannerValue = balance.data ? priceLabel(balance.data.availableAmount) : '—'
+  const reserved = balance.data?.reservedAmount
+  const reservedNote =
+    reserved && Number(reserved) > 0 ? `실행에 잠긴 코인 ${priceLabel(reserved)} · ` : ''
+  const bannerNote = balance.isError
+    ? '잔액을 불러오지 못했습니다'
+    : withdraw
+      ? reservedNote + '출금은 연결된 MetaMask 지갑으로 전송됩니다'
+      : reservedNote + '예치한 코인은 언제든 출금할 수 있습니다'
   const pickerTitle = withdraw ? '출금 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
     ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 코인은 출금할 수 없습니다'
