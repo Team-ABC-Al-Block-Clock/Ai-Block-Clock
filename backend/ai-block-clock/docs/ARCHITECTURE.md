@@ -312,7 +312,7 @@ public class MemberWithdrawManager {
 | `implementation` | `com.aiblockclock.domain.{도메인}` | `:core:core-api` | 생성됨 — **도메인 패키지 안에 함께 둔다** |
 | `storage` | `com.aiblockclock.storage` | `:storage` | 생성됨 |
 | (계층 아님) | `com.aiblockclock.support` | `:core:core-api` | 생성됨 — 계층을 가로지르는 공통 코드 |
-| (계층 아님) | `com.aiblockclock.client` | `:client:blockchain` | 생성됨 — 외부 시스템 어댑터 |
+| (계층 아님) | `com.aiblockclock.client` | `:client:blockchain`, `:client:ai` | 생성됨 — 외부 시스템 어댑터 |
 
 `domain` 과 `implementation` 계층을 담을 모듈은 아직 정하지 않았다. 결정 전까지 이 문서의 규칙은 패키지 단위로 적용한다.
 

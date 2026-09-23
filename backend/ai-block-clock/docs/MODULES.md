@@ -25,7 +25,8 @@ backend/ai-block-clock/
 │   ├── logging/             로깅 — logback-spring.xml
 │   └── monitoring/          모니터링 — monitoring.yml
 └── client/                  wrapper
-    └── blockchain/          SSAFY 토큰증권 API 연동 — blockchain.yml
+    ├── blockchain/          SSAFY 토큰증권 API 연동 — blockchain.yml
+    └── ai/                  AI 파트 서비스 연동 (추천 엔진) — ai.yml
 ```
 
 각 모듈은 자기 관심사의 설정 파일을 직접 소유한다 (4장).
@@ -61,6 +62,7 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) { ... }
 | `:support:monitoring` | leaf | 액추에이터·메트릭 설정 | jar |
 | `:client` | wrapper | 외부 시스템 연동 모듈을 묶는다 | 없음 |
 | `:client:blockchain` | leaf | SSAFY 토큰증권 API 연동 (조회 전용) | jar |
+| `:client:ai` | leaf | AI 파트 서비스 연동. 지금은 추천 엔진뿐이다 | jar |
 
 그룹·버전은 전 모듈 공통으로 `com.aiblockclock:0.0.1-SNAPSHOT` 이다.
 
@@ -78,6 +80,7 @@ graph TD
     logging[":support:logging"]
     monitoring[":support:monitoring"]
     blockchain[":client:blockchain"]
+    ai[":client:ai"]
     jpa["spring-boot-starter-data-jpa"]
     session["spring-boot-starter-session-jdbc"]
     web["spring-web"]
@@ -86,11 +89,13 @@ graph TD
     api -->|implementation| enums
     api -->|implementation| session
     api -->|implementation| blockchain
+    api -->|implementation| ai
     api -.->|runtimeOnly| logging
     api -.->|runtimeOnly| monitoring
     storage -->|implementation| enums
     storage ==>|api| jpa
     blockchain -->|implementation| web
+    ai -->|implementation| web
 ```
 
 의존은 **항상 한 방향**이다. `core-api` 는 모든 모듈을 알고, `core-enum` 은 아무도 모른다.
@@ -104,6 +109,7 @@ graph TD
 | `:core:core-api` | `spring-boot-starter-session-jdbc` | `implementation` | HttpSession을 기존 MySQL에 저장하고 여러 요청에서 인증 상태를 복원한다 |
 | `:core:core-api` | `:core:core-enum` | `implementation` | 공통 enum 을 참조한다 |
 | `:core:core-api` | `:client:blockchain` | `implementation` | 온체인 상태를 조회한다 |
+| `:core:core-api` | `:client:ai` | `implementation` | 추천 색인을 유지하고 추천을 중계한다 |
 | `:core:core-api` | `:support:logging` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:core:core-api` | `:support:monitoring` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:storage` | `:core:core-enum` | `implementation` | 엔티티에서 공통 enum 을 쓴다 |
@@ -112,6 +118,7 @@ graph TD
 | `:support:logging` | 없음 | - | 리소스만 갖는다 |
 | `:support:monitoring` | 없음 (프로젝트 기준) | - | 액추에이터 라이브러리만 갖는다 |
 | `:client:blockchain` | `spring-web` | `implementation` | `RestClient` 를 직접 선언한다. `core-api` 의 웹 스타터에 얹히지 않는다. 응답이 스칼라라 JSON 변환기는 두지 않는다 |
+| `:client:ai` | `spring-web`, `spring-boot-starter-json` | `implementation` | `RestClient` 를 직접 선언한다. 요청·응답이 객체라 JSON 변환기(Jackson)를 둔다 |
 
 `support:*` 를 `runtimeOnly` 로 붙이는 이유는, 이 모듈들이 **설정만 제공**하고 애플리케이션 코드가 이들의 클래스를 직접 참조할 일이 없기 때문이다. `implementation` 으로 붙이면 컴파일 의존이 생겨 나중에 지우기 어려워진다.
 
@@ -261,6 +268,28 @@ client/blockchain/src/main/resources/
 
 `core` · `storage` · `support` 와 나란한 최상위 wrapper `:client` 아래에 둔다. 외부 시스템 어댑터는 계층을 가로지르는 공통 헬퍼가 아니므로 `com.aiblockclock.support` 에 두지 않는다 (ARCHITECTURE.md 5장). 다른 외부 연동(AI API 등)이 생기면 `:client` 아래에 leaf 를 하나 더 만든다.
 
+### 3.7 `:client:ai`
+
+AI 파트 서비스 어댑터다. 패키지는 `com.aiblockclock.client.ai` 이고, **접속 설정을 이 모듈이 소유한다.**
+지금은 추천 엔진만 붙어 있고, 실행 엔진도 이 모듈에 들어온다 (설정 `ai.runtime.*` 자리를 비워 뒀다).
+
+```
+client/ai/src/main/resources/
+└── ai.yml                    추천 엔진 주소·서비스 토큰·제한 시간
+```
+
+- **색인 넣기(`upsert` · `rebuild`)와 추천만 한다.** 색인은 우리 DB 에서 파생된 사본이라
+  원본을 바꾸는 동작이 없다. 쓰는 기능이 생기기 전까지 `remove` · `health` 는 두지 않는다
+- **예외는 `RecommendClientException` 하나다.** 사유는 `RecommendClientError` 로 가른다
+  (`INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
+  `core-api` 는 호출 경계에서 이를 `CoreException` 으로 바꾼다 (RULE.md 7.1)
+- 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`.
+  `:client:blockchain` 과 달리 요청·응답이 객체라 JSON 변환기를 선언한다
+- `RestClient` 를 빈으로 내놓지 않는다. 어댑터마다 제 것을 들고 있어야 타입 주입이 섞이지 않는다
+- 서비스 토큰이 비어 있으면 헤더 없이 붙고 기동 때 경고를 남긴다. 추천은 없어도 서비스가 도는
+  기능이라 기동을 막지 않는다
+- 프로파일 변형 파일을 두지 않는다. 환경별 값은 환경 변수로 받는다 (4.4)
+
 ---
 
 ## 4. 설정 소유 규칙
@@ -292,6 +321,7 @@ spring:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
       - classpath:blockchain.yml   # :client:blockchain
+      - classpath:ai.yml           # :client:ai
 ```
 
 `spring.config.import` 로 가져온 파일은 프로파일 변형(`db-prod.yml`)도 함께 로드된다. 별도로 import 하지 않는다.
@@ -304,6 +334,7 @@ spring:
 | `db.yml`, `db-{profile}.yml` | `:storage` | `spring.config.import` |
 | `monitoring.yml`, `monitoring-{profile}.yml` | `:support:monitoring` | `spring.config.import` |
 | `blockchain.yml` | `:client:blockchain` | `spring.config.import` |
+| `ai.yml` | `:client:ai` | `spring.config.import` |
 | `logback-spring.xml`, `logback/*.xml` | `:support:logging` | Spring Boot 가 클래스패스에서 탐색 |
 
 ### 4.4 프로파일
@@ -320,6 +351,9 @@ spring:
 | `SSAFY_STO_BASE_URL` | 전체 | `https://sto.ssafy.io` |
 | `SSAFY_STO_CONNECT_TIMEOUT`, `SSAFY_STO_READ_TIMEOUT` | 전체 | 3s / 10s |
 | `SSAFY_TOKEN_CONTRACT_ADDRESS` | 전체 | 없음 (비어 있으면 온체인 조회 불가) |
+| `AI_RECOMMEND_BASE_URL` | 전체 | `http://ai-block-clock-recommend:8100` |
+| `AI_RECOMMEND_SERVICE_TOKEN` | 전체 | 없음 (비어 있으면 헤더 없이 붙고 기동 때 경고) |
+| `AI_RECOMMEND_CONNECT_TIMEOUT`, `AI_RECOMMEND_READ_TIMEOUT` | 전체 | 2s / 5s |
 
 ---
 

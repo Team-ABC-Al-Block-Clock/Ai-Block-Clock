@@ -6,6 +6,7 @@ dependencies {
     implementation project(':core:core-enum')
     implementation project(':storage')
     implementation project(':client:blockchain')
+    implementation project(':client:ai')
     runtimeOnly project(':support:logging')
     runtimeOnly project(':support:monitoring')
 

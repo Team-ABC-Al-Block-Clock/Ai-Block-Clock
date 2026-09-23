@@ -10,6 +10,7 @@ spring:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
       - classpath:blockchain.yml   # :client:blockchain
+      - classpath:ai.yml           # :client:ai
   session:
     timeout: ${AUTH_SESSION_TIMEOUT:2h}
     jdbc:

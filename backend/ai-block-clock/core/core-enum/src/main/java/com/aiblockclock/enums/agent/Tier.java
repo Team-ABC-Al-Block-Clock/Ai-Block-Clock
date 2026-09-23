@@ -3,25 +3,33 @@ package com.aiblockclock.enums.agent;
 import java.math.BigDecimal;
 
 public enum Tier {
-    TIER_1("0.50"),
+    TIER_1("0.50", 1),
 
-    TIER_2("0.30"),
+    TIER_2("0.30", 2),
 
-    TIER_3("0.10"),
+    TIER_3("0.10", 3),
 
-    TIER_4("0.00");
+    TIER_4("0.00", 4);
 
     private final BigDecimal premiumRate;
 
-    Tier(String premiumRate) {
+    private final int level;
+
+    Tier(String premiumRate, int level) {
         this.premiumRate = new BigDecimal(premiumRate);
+        this.level = level;
     }
 
     public static Tier initial() {
         return TIER_4;
     }
 
-    public BigDecimal premiumRate() {
-        return premiumRate;
+    // 최종가 = 기본 비용 × (1 + 할증률). 할증 규칙은 여기 한 곳에만 둔다.
+    public BigDecimal priceMultiplier() {
+        return BigDecimal.ONE.add(premiumRate);
+    }
+
+    public int level() {
+        return level;
     }
 }
