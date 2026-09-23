@@ -1,6 +1,4 @@
 import {
-  CANVAS_EDGES,
-  CANVAS_NODES,
   NO_BOUNDS,
   connect,
   disconnect,
@@ -40,9 +38,9 @@ export interface CanvasState {
 }
 
 export const initialCanvasState: CanvasState = {
-  // 자리표시자를 첫 값으로만 쓴다.
-  nodes: CANVAS_NODES,
-  edges: CANVAS_EDGES,
+  // 빈 캔버스에서 시작한다. 자리표시자를 깔아 두면 사용자가 놓지 않은 것이 저장된다.
+  nodes: [],
+  edges: [],
   selId: null,
   selEdge: null,
   hovId: null,
@@ -51,7 +49,10 @@ export const initialCanvasState: CanvasState = {
 }
 
 /** 팔레트에서 끌어다 놓은 항목. 자리는 놓는 쪽이 정한다. */
-export type PlacedSeed = Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'mine'>
+export type PlacedSeed = Pick<
+  CanvasNodeData,
+  'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'
+>
 
 export type CanvasAction =
   /** 카드를 누름 — 선택은 누르는 즉시 옮겨간다. */
@@ -65,6 +66,8 @@ export type CanvasAction =
   /** 미끄러짐까지 끝난 자리로 확정. 겹침은 부르는 쪽에서 이미 풀었다. */
   | { type: 'settleNode'; id: string; x: number; y: number }
   | { type: 'placeNode'; seed: PlacedSeed; x: number; y: number; bounds?: CanvasBounds }
+  /** 저장된 워크플로우를 불러와 캔버스를 통째로 갈아 끼운다. */
+  | { type: 'loadGraph'; nodes: CanvasNodeData[]; edges: CanvasEdge[] }
   /** 선택한 것을 지움. 노드면 거기 붙은 선도 함께. */
   | { type: 'removeSelected' }
   | { type: 'startLink'; from: LinkOrigin }
@@ -105,6 +108,19 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       return {
         ...state,
         nodes: placeNode(state.nodes, action.seed, action.x, action.y, action.bounds ?? NO_BOUNDS),
+      }
+
+    // 고르던 것과 끌던 것은 새 그래프에 없는 id 일 수 있다. 같이 비운다.
+    case 'loadGraph':
+      return {
+        ...state,
+        nodes: action.nodes,
+        edges: action.edges,
+        selId: null,
+        selEdge: null,
+        hovId: null,
+        dragId: null,
+        linkFrom: null,
       }
 
     case 'removeSelected': {

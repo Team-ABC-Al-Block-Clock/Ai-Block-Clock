@@ -55,8 +55,8 @@ const CARD_MODE = {
 } as const
 
 export interface CanvasNodeProps {
-  /** 0 부터. 원 안에는 +1 로 보인다 */
-  index: number
+  /** 0 부터. 원 안에는 +1 로 보인다. 차례를 정할 수 없으면(갈래) 비워 두고 감춘다 */
+  index?: number
   name: string
   /** 노드 유형(편집) 또는 진행 상태(실행) */
   sublabel: string
@@ -76,13 +76,13 @@ export interface CanvasNodeProps {
   title?: string
   /** 드래그 중. 모션과 호버를 멈춰 손끝을 따라오게 한다. */
   dragging?: boolean
-  onSelect?: (index: number) => void
+  onSelect?: () => void
   onPointerDown?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove?: (ev: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp?: (ev: React.PointerEvent<HTMLDivElement>) => void
   /** 브라우저가 손짓을 가져갔을 때. 받지 않으면 끌던 상태가 그대로 갇힌다. */
   onPointerCancel?: (ev: React.PointerEvent<HTMLDivElement>) => void
-  onHover?: (index: number) => void
+  onHover?: () => void
   onHoverOut?: () => void
   /** 주면 좌우에 연결 점이 생긴다. */
   onPortDown?: (side: 'in' | 'out', ev: React.PointerEvent<HTMLDivElement>) => void
@@ -138,8 +138,8 @@ export default function CanvasNode({
     <div
       data-node={nodeId}
       title={title}
-      onClick={clickable ? () => onSelect(index) : undefined}
-      onMouseEnter={onHover ? () => onHover(index) : undefined}
+      onClick={clickable ? () => onSelect() : undefined}
+      onMouseEnter={onHover ? () => onHover() : undefined}
       onMouseLeave={onHoverOut}
       onPointerDown={handlePointerDown}
       onPointerMove={onPointerMove}
@@ -200,11 +200,18 @@ export default function CanvasNode({
           </div>
         ))}
       {mine && <div style={MY_CHIP}>MY</div>}
+      {/* 번호가 사라져도 자리는 남긴다 — 빼 버리면 아래 이름과 유형이 위로 밀려 카드가 들썩인다. */}
       <div
         className="text-[14px] font-semibold"
-        style={{ color: numberColor, lineHeight: '1', opacity: 0.72, letterSpacing: '.04em' }}
+        style={{
+          color: numberColor,
+          lineHeight: '1',
+          opacity: 0.72,
+          letterSpacing: '.04em',
+          visibility: index === undefined ? 'hidden' : undefined,
+        }}
       >
-        {index + 1}
+        {(index ?? 0) + 1}
       </div>
       <div
         className="text-[21px] font-bold tracking-[-.01em]"

@@ -1,16 +1,36 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
-import CanvasPane from '@/components/CanvasPane'
-import { CANVAS_NODES, canSellWorkflow, edgeGeometry } from '@/lib/canvasWorkflow'
+import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
+import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import {
+  canSellWorkflow,
+  chainPositions,
+  edgeGeometry,
+  type CanvasEdge,
+  type CanvasNodeData,
+} from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
-const EDGES = edgeGeometry(CANVAS_NODES)
+/** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
+const EMPTY_NODES: CanvasNodeData[] = []
+const EMPTY_EDGES: CanvasEdge[] = []
+
+/**
+ * 이보다 짧으면 카메라를 움직이지 않는다 — 다섯 칸까지는 한 화면에 다 들어온다.
+ * 마지막 카드의 오른쪽 끝이 968 이고 패널 앞 경계가 980 이다.
+ */
+const CAMERA_MIN_NODES = 6
+/** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
+const CAMERA_LEAD = 2
+/** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
+const CAMERA_STEP = 197
 
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
@@ -19,12 +39,19 @@ export default function RunRunning() {
   const [pct, setPct] = useState(startDone ? 100 : 0)
   const [copied, setCopied] = useState(false)
 
-  const canSell = canSellWorkflow(CANVAS_NODES)
+  // 어떤 워크플로우를 돌리는지. 대기 화면이 넘겨준다. 없으면 자리표시자를 그린다.
+  const workflowId = searchParams.get('workflowId') ?? undefined
+  const loaded = useSavedWorkflow(workflowId)
+  const defs = loaded.canvas?.nodes ?? EMPTY_NODES
+  const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
+  const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
+  const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
+
+  const canSell = canSellWorkflow(defs)
 
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const rafId = useRef<number>(undefined)
 
-  const defs = CANVAS_NODES
   const logLines = [
     '입력 파일 128개 수집 완료',
     'PDF 112개 · 이미지 16개 판별',
@@ -35,11 +62,12 @@ export default function RunRunning() {
     '요약 생성 대기',
   ]
   const pctR = Math.round(pct)
-  const per = 100 / defs.length
+  // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
+  const per = 100 / Math.max(1, defs.length)
   const active = Math.min(defs.length - 1, Math.floor(pctR / per))
-  const g = defs[active]
+  const g: CanvasNodeData | undefined = defs[active]
   const glowStyle: CSSProperties =
-    pctR < 100
+    g && pctR < 100
       ? {
           position: 'absolute',
           left: `${g.x - 10}px`,
@@ -74,11 +102,18 @@ export default function RunRunning() {
       stateLabel: running ? '진행 중' : done ? '완료' : '대기',
     }
   })
-  const edges = EDGES.map((edge, i) => ({
+  const edges = geometry.map((edge, i) => ({
     ...edge,
     stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
-  const liveEdges = EDGES.slice(0, Math.max(0, active))
+  const liveEdges = geometry.slice(0, Math.max(0, active))
+  /**
+   * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
+   *
+   * 앞의 두 자리는 그대로 두고 세 번째부터 밀어, 지금 도는 카드가 늘 화면 가운데쯤에 온다.
+   */
+  const camera =
+    defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
   const shown = Math.min(
     logLines.length,
     Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
@@ -163,8 +198,11 @@ export default function RunRunning() {
     '%, rgba(255,255,255,.10) ' +
     pctR +
     '% 100%)'
-  const stepTitle = pctR >= 100 ? '결과 전달 완료' : defs[active].name + ' 중'
-  const stepMeta = (pctR >= 100 ? defs.length : active + 1) + ' / ' + defs.length + ' 단계'
+  // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
+  const stepTitle = pctR >= 100 ? '결과 전달 완료' : g ? `${g.name} 중` : '워크플로우를 불러오는 중'
+  const stepMeta = defs.length
+    ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
+    : ''
 
   useEffect(() => {
     if (startDone) return
@@ -188,49 +226,78 @@ export default function RunRunning() {
   // 이펙트가 먼저 빠져나가 정리가 등록되지 않는다 — 그 경로가 실제로 쓰인다.
   useEffect(() => () => clearTimeout(copyTimer.current), [])
 
+  // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
+  if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
+
   return (
     <>
       <CanvasPane>
-        <div style={glowStyle}></div>
+        {/*
+          자르는 겹과 미는 겹을 나눈다. 한 요소에 같이 걸면 `clip-path` 가 `transform` 을 따라
+          움직여 자르는 선까지 옆으로 밀린다 — 오른쪽에서 들어오는 카드가 미리 잘려 안 보인다.
+          바깥은 패널 앞에 고정해 자르고, 안쪽만 카메라로 민다.
+        */}
+        <div
+          className="absolute top-0 left-0"
+          style={{
+            width: `${PANE_WIDTH}px`,
+            height: `${PANE_HEIGHT}px`,
+            clipPath: PANEL_CLIP,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            className="absolute top-0 left-0"
+            style={{
+              width: `${PANE_WIDTH}px`,
+              height: `${PANE_HEIGHT}px`,
+              transform: `translateX(${camera}px)`,
+              transition: 'transform .6s cubic-bezier(.2,.8,.25,1)',
+            }}
+          >
+            {/* 빛은 노드 좌표에 그려진다 — 카메라 겹 안에 둬야 카드와 같이 밀린다. */}
+            <div style={glowStyle}></div>
 
-        <CanvasEdgeLayer>
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edges.map((e) => (
-              <path key={e.id} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
-            ))}
-            {liveEdges.map((e) => (
-              <path
-                key={e.id}
-                d={e.d}
-                fill="none"
-                stroke="rgba(255,224,238,.85)"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-                strokeDasharray="3 18"
-                style={{ animation: 'dash 1.5s linear infinite' }}
+            <CanvasEdgeLayer clip={false}>
+              <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+                {edges.map((e) => (
+                  <path key={e.id} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
+                ))}
+                {liveEdges.map((e) => (
+                  <path
+                    key={e.id}
+                    d={e.d}
+                    fill="none"
+                    stroke="rgba(255,224,238,.85)"
+                    strokeWidth="3.4"
+                    strokeLinecap="round"
+                    strokeDasharray="3 18"
+                    style={{ animation: 'dash 1.5s linear infinite' }}
+                  />
+                ))}
+              </g>
+            </CanvasEdgeLayer>
+
+            {nodes.map((n) => (
+              <CanvasNode
+                key={n.id}
+                index={chainAt?.get(n.id)}
+                name={n.name}
+                sublabel={n.stateLabel}
+                x={n.x}
+                y={n.y}
+                mine={n.mine}
+                floaty={n.floaty}
+                enter={n.enter}
+                background={n.background}
+                numberColor={n.numberColor}
+                nameColor={n.nameColor}
+                sublabelColor={n.sublabelColor}
+                glass
               />
             ))}
-          </g>
-        </CanvasEdgeLayer>
-
-        {nodes.map((n, i) => (
-          <CanvasNode
-            key={n.id}
-            index={i}
-            name={n.name}
-            sublabel={n.stateLabel}
-            x={n.x}
-            y={n.y}
-            mine={n.mine}
-            floaty={n.floaty}
-            enter={n.enter}
-            background={n.background}
-            numberColor={n.numberColor}
-            nameColor={n.nameColor}
-            sublabelColor={n.sublabelColor}
-            glass
-          />
-        ))}
+          </div>
+        </div>
       </CanvasPane>
 
       <SidePanel>
@@ -243,7 +310,11 @@ export default function RunRunning() {
 
         {/* 이전 단계로 돌아가 프롬프트를 수정하여 재실행할 수 있다. */}
         <a
-          href={paths.run.waiting.withoutId}
+          href={
+            workflowId
+              ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
+              : paths.run.waiting.withoutId
+          }
           title="실행 재설정"
           aria-label="실행 재설정"
           style={{
@@ -407,7 +478,7 @@ export default function RunRunning() {
             </div>
 
             <a
-              href={paths.edit.nodes.withoutId}
+              href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
               style={{
                 left: `${PANEL_INSET}px`,
                 top: '576px',
@@ -438,8 +509,15 @@ export default function RunRunning() {
             </a>
 
             {/* 워크플로우 전체 실행에 성공해야 마켓에 판매 등록 가능. */}
+            {/* 등록 화면에서 취소하면 여기로 돌아온다 — 워크플로우를 실어 보내야 빈 화면이 되지 않는다. */}
             <a
-              {...(canSell ? { href: paths.register } : {})}
+              {...(canSell
+                ? {
+                    href: workflowId
+                      ? `${paths.register}?workflowId=${workflowId}`
+                      : paths.register,
+                  }
+                : {})}
               title={
                 canSell ? undefined : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
               }

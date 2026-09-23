@@ -221,6 +221,10 @@ export default function RegisterForm() {
   const [searchParams] = useSearchParams()
   const workflowId = searchParams.get('workflowId') ?? ''
   const revision = Number(searchParams.get('revision') ?? 0)
+  /** 취소하고 돌아갈 실행 결과 화면. 워크플로우를 잃으면 빈 캔버스가 뜬다. */
+  const backToRun = workflowId
+    ? `${paths.run.running.withoutId}?workflowId=${workflowId}&done=1`
+    : `${paths.run.running.withoutId}?done=1`
 
   /** 등록은 수정도 삭제도 되지 않아 한 번 더 묻는다. */
   const [asking, setAsking] = useState<{ name: string } | null>(null)
@@ -347,7 +351,7 @@ export default function RegisterForm() {
 
           {/* 완료 화면에서 들어온다. '취소하기' 와 같은 곳으로 되돌린다. */}
           <a
-            href={`${paths.run.running.withoutId}?done=1`}
+            href={backToRun}
             style={{
               left: '272px',
               top: '94px',
@@ -689,7 +693,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href={`${paths.run.running.withoutId}?done=1`}
+            href={backToRun}
             style={{
               left: '832px',
               top: '1628px',

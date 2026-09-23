@@ -1,4 +1,4 @@
-import type { ItemNodeType } from '@/api/workflows'
+import type { ItemNodeType, SourceType } from '@/api/workflows'
 
 import { roundedPath, routeEdge } from './edgeRoute'
 
@@ -39,16 +39,16 @@ export function clampToBounds(
   }
 }
 
-/**
- * 편집·대기·실행 화면이 함께 그리는 워크플로우.
- *
- * 워크플로우 저장·조회 API 가 아직 없어 자리표시자를 한 곳에 두고 세 화면이 같이 읽는다.
- */
+/** 편집·대기·실행 화면이 함께 그리는 워크플로우의 노드. */
 export interface CanvasNodeData {
   /** 같은 항목을 두 번 놓을 수 있어 이름으로는 가를 수 없다. */
   id: string
   name: string
   nodeType: ItemNodeType
+  /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드와 에이전트를 가른다 */
+  sourceType: SourceType
+  /** 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다 */
+  sourceId: string
   x: number
   y: number
   mine: boolean
@@ -65,11 +65,17 @@ export interface CanvasNodeData {
 /** 놓인 노드에 주는 모션. 자리를 잡은 뒤라 등장 모션은 주지 않는다. */
 const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
 
+/**
+ * 다섯 칸짜리 예시 구성. **화면 초기값으로 쓰지 않는다** — 캔버스는 빈 상태로 연다.
+ * 그래프 함수를 검사할 때 손으로 짜는 대신 쓰는 표본이다.
+ */
 export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-1',
     name: '파일 수집',
     nodeType: 'TRIGGER',
+    sourceType: 'NODE',
+    sourceId: 'node_001',
     x: 12,
     y: 400,
     mine: true,
@@ -80,6 +86,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-2',
     name: '내용 분석',
     nodeType: 'LLM',
+    sourceType: 'NODE',
+    sourceId: 'node_002',
     x: 209,
     y: 320,
     mine: true,
@@ -90,6 +98,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-3',
     name: '분류 및 태깅',
     nodeType: 'TOOL',
+    sourceType: 'NODE',
+    sourceId: 'node_003',
     x: 406,
     y: 440,
     mine: true,
@@ -100,6 +110,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-4',
     name: '요약 생성',
     nodeType: 'LLM',
+    sourceType: 'NODE',
+    sourceId: 'node_004',
     x: 603,
     y: 330,
     mine: true,
@@ -110,6 +122,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     id: 'seed-5',
     name: '결과 전달',
     nodeType: 'TOOL',
+    sourceType: 'NODE',
+    sourceId: 'node_005',
     x: 800,
     y: 430,
     mine: true,
@@ -213,7 +227,7 @@ export function edgePath(
 /** 선 목록 → 그릴 좌표. 양 끝 중 하나라도 없으면 버린다. */
 export function edgeGeometry(
   nodes: CanvasNodeData[],
-  edges: CanvasEdge[] = CANVAS_EDGES,
+  edges: CanvasEdge[],
 ): { id: string; from: string; to: string; d: string }[] {
   // 제 카드도 가로지르면 안 된다. 포트에서 나가는 짧은 구간만 예외.
   const avoid = nodes.map((node) => ({ x: node.x + NODE_SIZE / 2, y: node.y + NODE_SIZE / 2 }))
@@ -228,6 +242,60 @@ export function edgeGeometry(
 /** 다른 사람의 에이전트가 하나라도 섞이면 팔 수 없다. 빈 캔버스도 등록할 것이 없다. */
 export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
   return nodes.length > 0 && nodes.every((node) => node.mine)
+}
+
+/**
+ * 카드에 박는 순번. 한 줄이 아니면 `null` — 그때는 번호를 감춘다.
+ *
+ * 놓은 순서로 매기면 선과 어긋난 번호가 박혀 "이 차례로 실행된다" 고 잘못 읽힌다.
+ * 갈래가 있으면 차례라는 것이 아예 없으므로 지어내지 않는다.
+ */
+export function chainPositions(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+): Map<string, number> | null {
+  const order = linearOrder(nodes, edges)
+  return order && new Map(order.map((node, i) => [node.id, i]))
+}
+
+/**
+ * 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`.
+ *
+ * 캔버스는 갈래를 만들 수 있게 두고(`canConnect`) 여기서 판정만 한다 — 서버가 아직 선형만
+ * 받으므로(`WORKFLOW_013`) 저장 버튼 옆에 가능 여부를 띄우는 데 쓴다. 서버가 갈래를 받게 되면
+ * 이 함수만 풀면 되고 편집 화면은 그대로다.
+ *
+ * 판정과 순서를 함께 낸다. 저장할 때 이 순서로 `n1…nN` 키를 매기기 때문에 두 번 훑을 이유가 없다.
+ */
+export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): CanvasNodeData[] | null {
+  if (nodes.length === 0) return null
+  // 한 줄이면 선은 노드보다 정확히 하나 적다. 남거나 모자라면 끊겼거나 겹친 것이다.
+  if (edges.length !== nodes.length - 1) return null
+
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const next = new Map<string, string>()
+  const incoming = new Map<string, number>()
+  for (const edge of edges) {
+    if (!byId.has(edge.from) || !byId.has(edge.to)) return null
+    if (next.has(edge.from)) return null
+    next.set(edge.from, edge.to)
+    const count = (incoming.get(edge.to) ?? 0) + 1
+    if (count > 1) return null
+    incoming.set(edge.to, count)
+  }
+
+  const heads = nodes.filter((node) => !incoming.has(node.id))
+  if (heads.length !== 1) return null
+
+  // 들어오는 선이 하나뿐이라 같은 노드를 두 번 밟지 않는다 — 고리에 갇히지 않는다.
+  const order: CanvasNodeData[] = []
+  let at: string | undefined = heads[0].id
+  while (at !== undefined) {
+    order.push(byId.get(at)!)
+    at = next.get(at)
+  }
+  // 따로 떨어진 덩어리가 있으면 머리에서 다 닿지 못한다.
+  return order.length === nodes.length ? order : null
 }
 
 /** 겹치는 카드가 하나라도 있는지. */
@@ -308,7 +376,7 @@ export function resolveOverlap(
 /** 팔레트에서 드래그해 온 항목을 목록 끝에 놓는다. 좌표는 카드의 왼쪽 위. */
 export function placeNode(
   nodes: CanvasNodeData[],
-  seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'mine'>,
+  seed: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'>,
   x: number,
   y: number,
   bounds: CanvasBounds = NO_BOUNDS,

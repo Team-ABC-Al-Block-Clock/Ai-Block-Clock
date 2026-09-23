@@ -9,6 +9,8 @@ import {
 } from '@/lib/canvasReducer'
 import {
   NODE_SIZE,
+  type CanvasEdge,
+  type CanvasNodeData,
   canConnect,
   canSellWorkflow,
   edgeGeometry,
@@ -443,6 +445,11 @@ export function useCanvasWorkflow() {
 
   return {
     nodes,
+    // 저장할 때 노드와 함께 직렬화한다(`lib/workflowPayload.ts`).
+    edges,
+    /** 불러온 워크플로우로 캔버스를 통째로 갈아 끼운다. */
+    loadGraph: (next: { nodes: CanvasNodeData[]; edges: CanvasEdge[] }) =>
+      dispatch({ type: 'loadGraph', nodes: next.nodes, edges: next.edges }),
     geometry,
     selId,
     hovId,

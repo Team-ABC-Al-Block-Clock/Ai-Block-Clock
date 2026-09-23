@@ -147,7 +147,7 @@ export default function NodeInfoPanel({
         color: 'rgba(255,236,246,.66)',
       }}
     >
-      캔버스에서 노드를 선택하면 여기서 살펴봅니다
+      캔버스에서 노드를 선택하면 상세 정보를 조회할 수 있습니다
     </div>
   )
 }

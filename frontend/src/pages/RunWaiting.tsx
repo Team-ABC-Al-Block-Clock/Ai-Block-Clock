@@ -1,28 +1,65 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
-import CanvasPane from '@/components/CanvasPane'
-import { CANVAS_NODES, edgeGeometry } from '@/lib/canvasWorkflow'
+import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
+import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import {
+  chainPositions,
+  edgeGeometry,
+  type CanvasEdge,
+  type CanvasNodeData,
+} from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
-const EDGES = edgeGeometry(CANVAS_NODES)
+/**
+ * 진행 화면과 달리 카메라가 없다. 여섯 번째부터는 패널 앞에서 잘려 보이지 않는데, 여기서 할
+ * 일은 입력과 실행이지 구성 확인이 아니다 — 방금 편집기에서 만들고 온 것이고, 무엇이 도는지는
+ * 실행 견적 카드가 노드마다 이름과 단가로 보여 준다.
+ */
+
+/** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
+const EMPTY_NODES: CanvasNodeData[] = []
+const EMPTY_EDGES: CanvasEdge[] = []
 
 export default function RunWaiting() {
   const navigate = useNavigate()
+  // 어떤 워크플로우를 돌리는지. 편집 화면이 저장한 뒤 넘겨준다.
+  const [searchParams] = useSearchParams()
+  const workflowId = searchParams.get('workflowId') ?? undefined
+  const loaded = useSavedWorkflow(workflowId)
+
+  // 저장된 것이 있으면 그것을, 없으면 자리표시자를 그린다 — 상세 화면처럼 id 없이 들어오는 길이 있다.
+  const nodes = loaded.canvas?.nodes ?? EMPTY_NODES
+  const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
+  const geometry = useMemo(() => edgeGeometry(nodes, edgeList), [nodes, edgeList])
+  const chainAt = useMemo(() => chainPositions(nodes, edgeList), [nodes, edgeList])
   // 에이전트 조회가 붙으면 여기로 들어온다. 최대 200자라 넘치면 줄바꿈된다.
   const onboardingMessage = ''
-  const [filled, setFilled] = useState(false)
+  /**
+   * 입력칸을 React 가 들고 있는다. DOM 리스너로 붙이면 안내를 거쳐 입력칸이 사라졌다 돌아올 때
+   * 리스너도 값도 어긋난다 — 빈 칸인데 실행이 켜져 있는 상태가 된다.
+   */
+  const [prompt, setPrompt] = useState('')
+  const filled = prompt.trim().length > 0
 
   const handleRun = () => {
-    if (filled) navigate(paths.run.running.withoutId)
+    if (!filled) return
+    // 돌릴 워크플로우를 그대로 넘긴다. 없으면 자리표시자 그대로다.
+    navigate(
+      workflowId
+        ? `${paths.run.running.withoutId}?workflowId=${workflowId}`
+        : paths.run.running.withoutId,
+    )
   }
   const on = filled
   const btnBg = on ? 'var(--color-accent)' : 'rgba(255,255,255,.09)'
@@ -37,47 +74,52 @@ export default function RunWaiting() {
     { title: '회의록 요약', meta: '지난주 · 파일 9개' },
   ]
 
-  useEffect(() => {
-    const ta = document.getElementById('runPrompt') as HTMLTextAreaElement | null
-    if (!ta) return
-    // 같은 값이면 React 가 리렌더를 건너뛴다 — 직전 값을 따로 비교할 필요가 없다.
-    const onInput = () => setFilled(ta.value.trim().length > 0)
-    ta.addEventListener('input', onInput)
-    return () => ta.removeEventListener('input', onInput)
-  }, [])
+  // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
+  if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
 
   return (
     <>
       <CanvasPane>
-        <CanvasEdgeLayer>
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {EDGES.map((edge) => (
-              <path
-                key={edge.id}
-                d={edge.d}
-                fill="none"
-                stroke="rgba(255,255,255,.26)"
-                strokeWidth="3.4"
-              />
-            ))}
-          </g>
-        </CanvasEdgeLayer>
+        {/* 패널은 유리라 뒤가 비친다. 카드와 선을 같은 선에서 자른다. */}
+        <div
+          className="absolute top-0 left-0"
+          style={{
+            width: `${PANE_WIDTH}px`,
+            height: `${PANE_HEIGHT}px`,
+            clipPath: PANEL_CLIP,
+            pointerEvents: 'none',
+          }}
+        >
+          <CanvasEdgeLayer clip={false}>
+            <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+              {geometry.map((edge) => (
+                <path
+                  key={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke="rgba(255,255,255,.26)"
+                  strokeWidth="3.4"
+                />
+              ))}
+            </g>
+          </CanvasEdgeLayer>
 
-        {CANVAS_NODES.map((node, i) => (
-          <CanvasNode
-            key={node.id}
-            index={i}
-            name={node.name}
-            sublabel="대기"
-            x={node.x}
-            y={node.y}
-            mine={node.mine}
-            floaty={node.floaty}
-            enter={node.enter}
-            background="rgba(255,255,255,.075)"
-            numberColor="rgba(255,255,255,.9)"
-          />
-        ))}
+          {nodes.map((node) => (
+            <CanvasNode
+              key={node.id}
+              index={chainAt?.get(node.id)}
+              name={node.name}
+              sublabel="대기"
+              x={node.x}
+              y={node.y}
+              mine={node.mine}
+              floaty={node.floaty}
+              enter={node.enter}
+              background="rgba(255,255,255,.075)"
+              numberColor="rgba(255,255,255,.9)"
+            />
+          ))}
+        </div>
       </CanvasPane>
 
       <SidePanel>
@@ -90,7 +132,7 @@ export default function RunWaiting() {
 
         {/* 이전 단계로 돌아가 워크플로우를 수정할 수 있다. */}
         <a
-          href={paths.edit.nodes.withoutId}
+          href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
           title="워크플로우 수정"
           aria-label="워크플로우 수정"
           style={{
@@ -135,6 +177,8 @@ export default function RunWaiting() {
           <textarea
             className="absolute border-0 bg-transparent font-[inherit] text-[16.5px] tracking-[-.005em] text-white outline-0"
             id="runPrompt"
+            value={prompt}
+            onChange={(ev) => setPrompt(ev.target.value)}
             placeholder="예: 다운로드 폴더의 PDF를 주제별로 분류해줘"
             style={{
               left: '18px',
