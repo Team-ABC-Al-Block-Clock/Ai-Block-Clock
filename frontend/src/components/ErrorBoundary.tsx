@@ -49,8 +49,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <h1 className="text-body text-[18px] font-semibold tracking-[-0.01em]">
             문제가 발생했어요
           </h1>
-          <p className="text-muted text-[13px] leading-[1.6]">
-            화면을 그리는 중 오류가 발생했습니다.\n 다시 시도하거나 홈으로 돌아가 주세요.
+          {/* JSX 본문의 `\n` 은 이스케이프가 아니라 글자 그대로다. 문자열로 넘기고 `pre-line` 으로 접는다. */}
+          <p className="text-muted text-[13px] leading-[1.6] whitespace-pre-line">
+            {'화면을 그리는 중 오류가 발생했습니다.\n다시 시도하거나 홈으로 돌아가 주세요.'}
           </p>
 
           <pre className="bg-surface-inset text-faint scroll-thin mt-1 max-h-28 w-full rounded-[10px] px-3 py-2 text-left text-[11px] leading-[1.5] whitespace-pre-wrap">
