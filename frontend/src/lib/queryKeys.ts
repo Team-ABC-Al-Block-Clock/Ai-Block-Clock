@@ -83,6 +83,9 @@ export const queryKeys = {
     detail: (executionId: string) => [...queryKeys.executions.details(), executionId] as const,
     nodeLogs: (executionId: string, nodeId: string) =>
       [...queryKeys.executions.detail(executionId), 'nodes', nodeId, 'logs'] as const,
+    /** 실행 전 견적. 워크플로우가 기준이라 실행 id 아래가 아니다. */
+    costEstimate: (workflowId: string) =>
+      [...queryKeys.executions.all, 'cost-estimate', workflowId] as const,
   },
 
   /** /credits */
