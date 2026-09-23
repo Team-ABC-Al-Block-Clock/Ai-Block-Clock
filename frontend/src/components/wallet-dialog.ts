@@ -1,3 +1,5 @@
+import { env } from '@/lib/env'
+
 import { BaseElement, define } from './base'
 
 /** 지갑 서명 대화상자 — 서명 대기 → 거절.
@@ -29,6 +31,9 @@ export class WalletDialog extends BaseElement {
   /** 마지막으로 그린 단계. 포커스는 단계가 바뀔 때만 옮긴다 —
    *  `message-text` 가 늦게 붙어 다시 그릴 때마다 옮기면 포커스를 빼앗는다. */
   private drawn: WalletPhase = 'idle'
+
+  /** 원문을 펼쳐 뒀는지. 다시 그릴 때마다 `<details>` 가 새로 만들어져 스스로 기억하지 못한다. */
+  private rawOpen = false
 
   private onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') this.emit('cancel')
@@ -105,6 +110,7 @@ export class WalletDialog extends BaseElement {
       this.removeAttribute('aria-modal')
       this.removeAttribute('aria-label')
       this.root.innerHTML = ''
+      this.rawOpen = false
       if (changed) {
         this.returnFocusTo?.focus()
         this.returnFocusTo = null
@@ -136,6 +142,9 @@ export class WalletDialog extends BaseElement {
 
     const veil = this.root.querySelector('[data-veil]') as HTMLElement
     veil.addEventListener('click', () => this.emit('cancel'))
+
+    const raw = this.root.querySelector<HTMLDetailsElement>('.wd-raw')
+    raw?.addEventListener('toggle', () => (this.rawOpen = raw.open))
 
     this.root.querySelectorAll<HTMLElement>('[data-btn]').forEach((el) => {
       const kind = el.dataset.btn
@@ -180,7 +189,10 @@ export class WalletDialog extends BaseElement {
         // 그렇다고 원문을 감추지는 않는다. 지갑 서명은 보이는 것을 승인하는 일이라,
         // 요약만 두면 MetaMask 창과 대조해 확인할 길이 사라진다. 요약은 우리가 지어낸
         // 문장이고 실제로 서명되는 것은 아래 원문이다.
-        this.note(['ABC 로그인 서명', `서명 계정: ${this.str('address', '0x0000…0000')}`]) +
+        this.note([
+          `${env.appName} 로그인 서명`,
+          `서명 계정: ${this.str('address', '0x0000…0000')}`,
+        ]) +
         this.rawMessage() +
         // 승인·거절은 MetaMask 창이 받는다. 여기에는 물러날 길만 둔다.
         this.actions([{ label: '취소', kind: 'cancel' }])
@@ -230,7 +242,9 @@ export class WalletDialog extends BaseElement {
     const text = this.str('message-text')
     if (!text) return ''
     return (
-      '<details class="wd-raw"><summary>서명할 원문 보기</summary><pre>' +
+      '<details class="wd-raw"' +
+      (this.rawOpen ? ' open' : '') +
+      '><summary>서명할 원문 보기</summary><pre>' +
       this.esc(text) +
       '</pre></details>'
     )
