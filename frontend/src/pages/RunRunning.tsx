@@ -58,11 +58,12 @@ export default function RunRunning() {
     '요약 생성 대기',
   ]
   const pctR = Math.round(pct)
-  const per = 100 / defs.length
+  // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
+  const per = 100 / Math.max(1, defs.length)
   const active = Math.min(defs.length - 1, Math.floor(pctR / per))
-  const g = defs[active]
+  const g: CanvasNodeData | undefined = defs[active]
   const glowStyle: CSSProperties =
-    pctR < 100
+    g && pctR < 100
       ? {
           position: 'absolute',
           left: `${g.x - 10}px`,
