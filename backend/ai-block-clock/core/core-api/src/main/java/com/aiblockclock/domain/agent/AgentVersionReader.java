@@ -37,7 +37,7 @@ public class AgentVersionReader {
 
         return AgentVersion.restore(
                 AgentVersionId.of(entity.getId()),
-                AgentId.of(entity.getAgentId()),
+                AgentId.of(entity.getAgent().getId()),
                 VersionNumber.of(entity.getVersionNo()),
                 new SourceWorkflow(WorkflowId.of(entity.getSourceWorkflowId()),
                         Revision.of(entity.getSourceRevision())),

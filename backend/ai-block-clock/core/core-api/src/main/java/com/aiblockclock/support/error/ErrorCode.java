@@ -30,6 +30,9 @@ public enum ErrorCode {
     NODE_003,
     NODE_004,
 
+    EXECUTION_001,
+    EXECUTION_002,
+
     RECOMMEND_001,
 
     AGENT_001,

@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.workflow.GraphId;
+import com.aiblockclock.storage.agent.AgentRepository;
 import com.aiblockclock.storage.agent.AgentVersionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -12,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AgentVersionWriter {
     private final AgentVersionRepository agentVersionRepository;
+    private final AgentRepository agentRepository;
 
     @Transactional
     public void append(AgentVersion version, GraphId graphId) {
-        agentVersionRepository.save(AgentVersionEntityConverter.toEntity(version, graphId));
+        agentVersionRepository.save(AgentVersionEntityConverter.toEntity(
+                version, agentRepository.getReferenceById(version.getAgentId().value()), graphId));
     }
 }
