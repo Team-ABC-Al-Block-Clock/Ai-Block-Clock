@@ -32,6 +32,8 @@ const needsCsrf = (config: AxiosRequestConfig) =>
 /** 재시도는 한 번뿐이다. 표시가 없으면 403 이 끝없이 돈다. */
 interface RetriedConfig extends InternalAxiosRequestConfig {
   csrfRetried?: boolean
+  /** 실제로 실어 보낸 토큰. 403 을 받았을 때 이 값만 버린다 — 둘 다 문자열이라 재시도 병합을 탄다 */
+  csrfSent?: string
 }
 
 /**
@@ -45,6 +47,7 @@ client.interceptors.request.use(async (config) => {
   if (!needsCsrf(config)) return config
   const { headerName, token } = await getCsrfToken()
   config.headers.set(headerName, token)
+  ;(config as RetriedConfig).csrfSent = token
   return config
 })
 
@@ -70,6 +73,9 @@ client.interceptors.response.use(
   },
 
   (error: unknown) => {
+    // 요청 인터셉터(CSRF 발급)가 던진 것은 이미 우리 오류다. 다시 싸면 code·status 가 지워진다.
+    if (error instanceof ApiError) throw error
+
     if (!(error instanceof AxiosError)) {
       throw new ApiError('알 수 없는 오류가 발생했습니다.', { cause: error })
     }
@@ -104,7 +110,7 @@ client.interceptors.response.use(
       !config.csrfRetried
     ) {
       config.csrfRetried = true
-      clearCsrfToken()
+      clearCsrfToken(config.csrfSent)
       return client.request(config)
     }
 
