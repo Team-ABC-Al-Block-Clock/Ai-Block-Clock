@@ -66,7 +66,9 @@ function fixtureDetail(workflowId: string): WorkflowDetail | undefined {
   return toDetail(workflowId, 1, flow.name, flow.summary, graph)
 }
 
-const findSaved = (workflowId: string) => readSaved()[workflowId] ?? fixtureDetail(workflowId)
+/** 저장된 것이 없으면 픽스처로 지어 준다. 실행 견적 mock 도 같은 저장소를 읽는다. */
+export const findWorkflowDetail = (workflowId: string) =>
+  readSaved()[workflowId] ?? fixtureDetail(workflowId)
 
 function putSaved(detail: WorkflowDetail) {
   const all = readSaved()
@@ -183,7 +185,7 @@ export const workflowsHandlers = [
     if (forced) return forced
 
     const id = String(params.workflowId)
-    const before = findSaved(id)
+    const before = findWorkflowDetail(id)
     if (!before) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
 
     const body = (await request.json()) as WorkflowGraph & { name: string; revision: number }
@@ -203,7 +205,7 @@ export const workflowsHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    const detail = findSaved(String(params.workflowId))
+    const detail = findWorkflowDetail(String(params.workflowId))
     if (!detail) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
     return ok(detail)
   }),
