@@ -10,6 +10,7 @@ import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
@@ -28,20 +29,6 @@ const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 �
 
 /** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
 const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
-
-/** 불러오기가 막혔을 때 놓을 자리. 캔버스를 덮는다 — 자리표시자를 남겨 두면 불러와진 줄 안다. */
-const NOTICE_BOX = { left: '180px', top: '380px', width: '620px' } as const
-
-/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다(`components/types.ts` 의 EmptyAction). */
-const GONE_ACTIONS = JSON.stringify([
-  { label: '새 워크플로우 만들기', href: paths.edit.nodes.withoutId, primary: true },
-  { label: '내 워크플로우로', href: paths.my.agents },
-])
-
-const LOAD_ERROR_ACTIONS = JSON.stringify([
-  { label: '다시 시도', event: 'retry', primary: true },
-  { label: '내 워크플로우로', href: paths.my.agents },
-])
 
 /** 다시 눌러도 통과하지 않는 코드는 문구를 가른다 — "잠시 후 다시" 로 뭉개면 계속 누른다. */
 function describeSaveError(error: unknown): string | null {
@@ -181,15 +168,6 @@ export default function EditNodes() {
     }
   }
 
-  // <empty-state> 의 '다시 시도'. React 는 커스텀 이벤트를 on* 으로 받지 않아 직접 붙인다.
-  const noticeRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const node = noticeRef.current
-    if (!node) return
-    const onRetry = () => void loaded.refetch()
-    node.addEventListener('retry', onRetry)
-    return () => node.removeEventListener('retry', onRetry)
-  }, [loaded])
   const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
   const { isFetchNextPageError, isFetchingNextPage, handleRetryNextPage } = palette
 
@@ -248,34 +226,7 @@ export default function EditNodes() {
 
   // 없거나 남의 워크플로우다. 여기서 끊지 않으면 자리표시자 다섯 개가 그대로 떠 있어
   // 무언가 불러와진 것처럼 보이고, 거기서 저장하면 엉뚱한 새 워크플로우가 하나 더 생긴다.
-  const loadError = loaded.error instanceof ApiError ? loaded.error : null
-  const forbidden = loadError?.code === 'WORKFLOW_003'
-  if (loadError && (forbidden || loadError.code === 'WORKFLOW_002'))
-    return (
-      <empty-state
-        style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
-        heading={forbidden ? '이 워크플로우를 열 수 없습니다' : '워크플로우를 찾을 수 없습니다'}
-        body={
-          forbidden ? '다른 사람이 만든 워크플로우입니다.' : '삭제되었거나 주소가 잘못되었습니다.'
-        }
-        actions={GONE_ACTIONS}
-      />
-    )
-
-  if (loaded.error)
-    return (
-      <empty-state
-        ref={noticeRef}
-        style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
-        heading="워크플로우를 불러오지 못했습니다"
-        body={
-          loadError?.isNetworkError
-            ? '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.'
-            : '잠시 후 다시 시도해 주세요.'
-        }
-        actions={LOAD_ERROR_ACTIONS}
-      />
-    )
+  if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
 
   return (
     <>

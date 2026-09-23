@@ -15,6 +15,7 @@ import {
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
 /** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
@@ -221,6 +222,9 @@ export default function RunRunning() {
   // 복사 타이머는 진행률과 무관하다. 위에 얹으면 `?done=1` 로 들어왔을 때
   // 이펙트가 먼저 빠져나가 정리가 등록되지 않는다 — 그 경로가 실제로 쓰인다.
   useEffect(() => () => clearTimeout(copyTimer.current), [])
+
+  // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
+  if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
 
   return (
     <>

@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
@@ -70,6 +71,9 @@ export default function RunWaiting() {
     ta.addEventListener('input', onInput)
     return () => ta.removeEventListener('input', onInput)
   }, [])
+
+  // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
+  if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
 
   return (
     <>
