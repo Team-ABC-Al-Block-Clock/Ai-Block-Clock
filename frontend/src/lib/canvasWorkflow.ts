@@ -245,6 +245,20 @@ export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
 }
 
 /**
+ * 카드에 박는 순번. 한 줄이 아니면 `null` — 그때는 번호를 감춘다.
+ *
+ * 놓은 순서로 매기면 선과 어긋난 번호가 박혀 "이 차례로 실행된다" 고 잘못 읽힌다.
+ * 갈래가 있으면 차례라는 것이 아예 없으므로 지어내지 않는다.
+ */
+export function chainPositions(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+): Map<string, number> | null {
+  const order = linearOrder(nodes, edges)
+  return order && new Map(order.map((node, i) => [node.id, i]))
+}
+
+/**
  * 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`.
  *
  * 캔버스는 갈래를 만들 수 있게 두고(`canConnect`) 여기서 판정만 한다 — 서버가 아직 선형만

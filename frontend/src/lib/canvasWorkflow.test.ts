@@ -5,6 +5,7 @@ import {
   CANVAS_NODES,
   NO_BOUNDS,
   canConnect,
+  chainPositions,
   clampToBounds,
   canSellWorkflow,
   connect,
@@ -219,6 +220,35 @@ describe('linearOrder', () => {
       'seed-4',
       'seed-5',
     ])
+  })
+})
+
+describe('chainPositions', () => {
+  const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+
+  it('놓은 순서가 아니라 이어진 차례로 번호를 준다', () => {
+    // c 를 먼저 놓았지만 선으로는 맨 끝이다.
+    const nodes = [nodeAt('c', 0, 0), nodeAt('a', 0, 0), nodeAt('b', 0, 0)]
+    const at = chainPositions(nodes, [link('a', 'b'), link('b', 'c')])
+
+    expect(at?.get('a')).toBe(0)
+    expect(at?.get('b')).toBe(1)
+    expect(at?.get('c')).toBe(2)
+  })
+
+  // 갈래가 있으면 차례라는 것이 없다. 지어내면 "이 순서로 실행된다" 로 잘못 읽힌다.
+  it('갈라지면 차례가 없다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(chainPositions(nodes, [link('a', 'b'), link('a', 'c')])).toBeNull()
+  })
+
+  it('따로 떨어져 있어도 차례가 없다', () => {
+    expect(chainPositions(chain('a', 'b', 'c'), [link('a', 'b')])).toBeNull()
+  })
+
+  it('노드 하나는 첫 번째다', () => {
+    expect(chainPositions(chain('a'), [])?.get('a')).toBe(0)
   })
 })
 

@@ -12,6 +12,7 @@ import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
+import { chainPositions } from '@/lib/canvasWorkflow'
 import { nodeTypeLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { toCanvasWorkflow, toWorkflowGraph } from '@/lib/workflowPayload'
@@ -133,6 +134,8 @@ export default function EditNodes() {
 
   // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
   const graph = useMemo(() => toWorkflowGraph(nodes, edges), [nodes, edges])
+  // 카드 순번. 갈래가 있으면 차례가 없으므로 번호를 감춘다.
+  const chainAt = useMemo(() => chainPositions(nodes, edges), [nodes, edges])
   const trimmedName = name.trim()
 
   const save = useMutation({
@@ -307,10 +310,10 @@ export default function EditNodes() {
           <div className="pointer-events-none absolute inset-0">
             <div ref={glowRef} style={selRing}></div>
 
-            {nodes.map((node, i) => (
+            {nodes.map((node) => (
               <CanvasNode
                 key={node.id}
-                index={i}
+                index={chainAt?.get(node.id)}
                 name={node.name}
                 sublabel={nodeTypeLabel(node.nodeType)}
                 x={node.x}
