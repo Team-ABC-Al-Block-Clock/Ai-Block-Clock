@@ -1,10 +1,10 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.client.ai.RunState;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 
 import java.util.List;
-import java.util.Locale;
 
 public record ExecutionProgress(
         ExecutionId id,
@@ -20,7 +20,7 @@ public record ExecutionProgress(
 
         return new ExecutionProgress(
                 id,
-                toStatus(run.status()),
+                toStatus(run.state()),
                 progress == null ? 0 : progress.done(),
                 progress == null ? promptCount : progress.total(),
                 progress == null ? 0 : progress.percent(),
@@ -28,8 +28,13 @@ public record ExecutionProgress(
                 run.nodes() == null ? List.of() : run.nodes().stream().map(Step::of).toList());
     }
 
-    public static ExecutionStatus toStatus(String runStatus) {
-        return ExecutionStatus.valueOf(runStatus.toUpperCase(Locale.ROOT));
+    public static ExecutionStatus toStatus(RunState state) {
+        return switch (state) {
+            case QUEUED -> ExecutionStatus.QUEUED;
+            case RUNNING -> ExecutionStatus.RUNNING;
+            case SUCCEEDED -> ExecutionStatus.SUCCEEDED;
+            case FAILED, UNKNOWN -> ExecutionStatus.FAILED;
+        };
     }
 
     public record Step(String name, String status) {

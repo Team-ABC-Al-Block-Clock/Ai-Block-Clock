@@ -42,7 +42,7 @@ public class ExecutionService {
         }
 
         RunStatus run = read(execution);
-        ExecutionStatus reported = ExecutionProgress.toStatus(run.status());
+        ExecutionStatus reported = ExecutionProgress.toStatus(run.state());
 
         if (reported != execution.getStatus()) {
             executionWriter.moveTo(id, reported);
