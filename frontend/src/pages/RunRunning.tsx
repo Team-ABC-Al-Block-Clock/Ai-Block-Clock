@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
-import CanvasPane from '@/components/CanvasPane'
+import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
   canSellWorkflow,
@@ -209,44 +209,55 @@ export default function RunRunning() {
       <CanvasPane>
         <div style={glowStyle}></div>
 
-        <CanvasEdgeLayer>
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {edges.map((e) => (
-              <path key={e.id} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
-            ))}
-            {liveEdges.map((e) => (
-              <path
-                key={e.id}
-                d={e.d}
-                fill="none"
-                stroke="rgba(255,224,238,.85)"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-                strokeDasharray="3 18"
-                style={{ animation: 'dash 1.5s linear infinite' }}
-              />
-            ))}
-          </g>
-        </CanvasEdgeLayer>
+        {/* 패널은 유리라 뒤가 비친다. 카드와 선을 같은 선에서 자른다. */}
+        <div
+          className="absolute top-0 left-0"
+          style={{
+            width: `${PANE_WIDTH}px`,
+            height: `${PANE_HEIGHT}px`,
+            clipPath: PANEL_CLIP,
+            pointerEvents: 'none',
+          }}
+        >
+          <CanvasEdgeLayer clip={false}>
+            <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+              {edges.map((e) => (
+                <path key={e.id} d={e.d} fill="none" stroke={e.stroke} strokeWidth="3.4" />
+              ))}
+              {liveEdges.map((e) => (
+                <path
+                  key={e.id}
+                  d={e.d}
+                  fill="none"
+                  stroke="rgba(255,224,238,.85)"
+                  strokeWidth="3.4"
+                  strokeLinecap="round"
+                  strokeDasharray="3 18"
+                  style={{ animation: 'dash 1.5s linear infinite' }}
+                />
+              ))}
+            </g>
+          </CanvasEdgeLayer>
 
-        {nodes.map((n) => (
-          <CanvasNode
-            key={n.id}
-            index={chainAt?.get(n.id)}
-            name={n.name}
-            sublabel={n.stateLabel}
-            x={n.x}
-            y={n.y}
-            mine={n.mine}
-            floaty={n.floaty}
-            enter={n.enter}
-            background={n.background}
-            numberColor={n.numberColor}
-            nameColor={n.nameColor}
-            sublabelColor={n.sublabelColor}
-            glass
-          />
-        ))}
+          {nodes.map((n) => (
+            <CanvasNode
+              key={n.id}
+              index={chainAt?.get(n.id)}
+              name={n.name}
+              sublabel={n.stateLabel}
+              x={n.x}
+              y={n.y}
+              mine={n.mine}
+              floaty={n.floaty}
+              enter={n.enter}
+              background={n.background}
+              numberColor={n.numberColor}
+              nameColor={n.nameColor}
+              sublabelColor={n.sublabelColor}
+              glass
+            />
+          ))}
+        </div>
       </CanvasPane>
 
       <SidePanel>

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
-import CanvasPane from '@/components/CanvasPane'
+import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
   chainPositions,
@@ -74,35 +74,46 @@ export default function RunWaiting() {
   return (
     <>
       <CanvasPane>
-        <CanvasEdgeLayer>
-          <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-            {geometry.map((edge) => (
-              <path
-                key={edge.id}
-                d={edge.d}
-                fill="none"
-                stroke="rgba(255,255,255,.26)"
-                strokeWidth="3.4"
-              />
-            ))}
-          </g>
-        </CanvasEdgeLayer>
+        {/* 패널은 유리라 뒤가 비친다. 카드와 선을 같은 선에서 자른다. */}
+        <div
+          className="absolute top-0 left-0"
+          style={{
+            width: `${PANE_WIDTH}px`,
+            height: `${PANE_HEIGHT}px`,
+            clipPath: PANEL_CLIP,
+            pointerEvents: 'none',
+          }}
+        >
+          <CanvasEdgeLayer clip={false}>
+            <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+              {geometry.map((edge) => (
+                <path
+                  key={edge.id}
+                  d={edge.d}
+                  fill="none"
+                  stroke="rgba(255,255,255,.26)"
+                  strokeWidth="3.4"
+                />
+              ))}
+            </g>
+          </CanvasEdgeLayer>
 
-        {nodes.map((node) => (
-          <CanvasNode
-            key={node.id}
-            index={chainAt?.get(node.id)}
-            name={node.name}
-            sublabel="대기"
-            x={node.x}
-            y={node.y}
-            mine={node.mine}
-            floaty={node.floaty}
-            enter={node.enter}
-            background="rgba(255,255,255,.075)"
-            numberColor="rgba(255,255,255,.9)"
-          />
-        ))}
+          {nodes.map((node) => (
+            <CanvasNode
+              key={node.id}
+              index={chainAt?.get(node.id)}
+              name={node.name}
+              sublabel="대기"
+              x={node.x}
+              y={node.y}
+              mine={node.mine}
+              floaty={node.floaty}
+              enter={node.enter}
+              background="rgba(255,255,255,.075)"
+              numberColor="rgba(255,255,255,.9)"
+            />
+          ))}
+        </div>
       </CanvasPane>
 
       <SidePanel>
