@@ -23,7 +23,7 @@
 | `input` | 선택 | **항상 `null` 로 보내는 중** |
 | `comment` | 선택 | 보내는 중 |
 | `file` | 선택 | **보내는 중** — `.xlsx` · `.xls` · `.csv`, 최대 10MB |
-| `ref_file_<node_id>_<n>` | 선택 | 없음 — 범위 밖 (9장) |
+| `ref_file_<node_id>_<n>` | 선택 | **보내는 중** — 같은 MR 에서 붙였다 ([`node-ref-files.md`](node-ref-files.md)) |
 | `mock` | 선택 | 보내는 중 |
 
 **Runtime 은 파일을 보관하지 않는다.** 실행이 끝나면 사라지고, 재배포하면 `run_id` 조회조차 404 다.
@@ -41,9 +41,10 @@
 | --- | --- |
 | `POST /api/v1/runs` | JSON 본문 → **`multipart/form-data`**. **FE 가 함께 바뀌어야 한다** |
 | `client:ai` | `RunRequest.file` 이 보낼 파일의 경로를 받는다 |
+| `domain/file` | `FileStore` — 디스크 입출력. 실행 파일과 노드 참고 자료가 나눠 쓴다 |
 | `domain/execution` | `ExecutionFileValidator` · `ExecutionFileStore` |
 | `storage` | `execution` 에 입력 파일 컬럼 (V14) |
-| 배포 | `execution-files` 볼륨과 `EXECUTION_FILE_ROOT` |
+| 배포 | `file-store` 볼륨과 `FILE_STORE_ROOT` |
 
 ---
 
@@ -63,12 +64,12 @@
 ```yaml
 # compose.yaml
     volumes:
-      - execution-files:/var/lib/ai-block-clock/files
+      - file-store:/var/lib/ai-block-clock/files
 volumes:
-  execution-files:
+  file-store:
 ```
 
-경로는 `EXECUTION_FILE_ROOT` 로 받고 기본값을 둔다. 키는 `{executionId}/{저장 이름}` 으로 만들어
+경로는 `FILE_STORE_ROOT` 로 받고 기본값을 둔다. 키는 `executions/{executionId}/input{확장자}` 로 만들어
 실행 하나가 폴더 하나를 갖게 한다. **원래 파일명을 경로에 쓰지 않는다** — 사용자가 지은 이름이라
 `../` 이 들어올 수 있다. 원래 이름은 DB 컬럼에만 남기고 내려줄 때 쓴다.
 
@@ -118,8 +119,16 @@ Runtime 도 `UNSUPPORTED_FILE_TYPE` · `FILE_TOO_LARGE` 로 막지만, **우리�
 | 크기 | 10MB |
 | 빈 파일 | 거부한다 |
 
-Spring 의 multipart 상한(`spring.servlet.multipart.max-file-size`)도 10MB 로 맞춘다. 이것이 더 크면
-우리 검사에 닿기 전에 톰캣이 다른 오류를 낸다. 더 작으면 우리 오류 문구가 안 나온다.
+Spring 의 multipart 상한(`spring.servlet.multipart.max-file-size`)도 10MB 로 맞춘다. 상한이 우리 검사보다
+**작으면** 톰캣이 먼저 막아 우리 검사에 닿지 않고, 크면 우리 검사가 먼저 본다.
+
+같은 값으로 맞췄으므로 10MB 를 넘는 파일은 실제로는 톰캣이 먼저 막는다. 그 예외(`MaxUploadSizeExceededException`)는
+어느 API 에서 났는지 모르므로 공통 코드 `FILE_002` 로 답한다. 실행 파일 · 노드 참고 자료 · 가입 요청이 모두
+multipart 라 한쪽 코드를 쓰면 다른 API 에 엉뚱한 코드가 나간다. 검사기가 내는 `EXECUTION_004` 는 상한을
+바꿀 때를 위한 것으로 남긴다.
+
+운영 nginx 도 `client_max_body_size 11m` 로 맞췄다 (`docs/cicd.md` 4장). 기본값 1MB 이면 Spring 에 닿기 전에
+nginx 가 HTML 413 으로 끊는다.
 
 ---
 
@@ -158,7 +167,6 @@ EXE-017 의 "실패 지점부터 재실행" 은 아예 성립하지 않는다.
 
 | | 언제 |
 | --- | --- |
-| `ref_files` — 판매자가 노드에 붙이는 참고 자료 | 노드 편집 화면과 함께 |
 | 결과 PDF · artifact 보관 | 실행 결과 항목에서. **저장소는 이번에 세우므로 얹기만 하면 된다** |
 | `input` — 첫 노드 입력 payload | 시작 · 끝 노드 항목에서 함께 정한다 (10장) |
 | 이미지 입력 (NOD-012) | v2 |
@@ -182,7 +190,7 @@ EXE-017 의 "실패 지점부터 재실행" 은 아예 성립하지 않는다.
 | | 무엇을 | 들어간 것 |
 | --- | --- | --- |
 | 1 | `client:ai` — `RunRequest` 에 파일 파트 | `RunRequest.file` 이 `Path` 를 받고 `file` 파트로 나간다 |
-| 2 | 저장 — 쓰기 · 찾기 · 지우기, 경로 설정, 볼륨 | `ExecutionFileStore` · `EXECUTION_FILE_ROOT` · `execution-files` 볼륨 |
+| 2 | 저장 — 쓰기 · 찾기 · 지우기, 경로 설정, 볼륨 | `FileStore` · `ExecutionFileStore` · `FILE_STORE_ROOT` · `file-store` 볼륨 |
 | 3 | 검사 — 확장자 · 크기 · 빈 파일, multipart 상한 | `ExecutionFileValidator` · `spring.servlet.multipart` |
 | 4 | API — `POST /api/v1/runs` 를 multipart 로 | `@ModelAttribute ExecutionStartRequest` |
 | 5 | 이력 — `execution` 컬럼과 V14 | `input_file_key` · `input_file_name` · `input_file_size` |
