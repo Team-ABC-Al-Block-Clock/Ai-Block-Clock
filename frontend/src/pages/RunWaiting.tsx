@@ -5,7 +5,12 @@ import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
-import { CANVAS_EDGES, CANVAS_NODES, chainPositions, edgeGeometry } from '@/lib/canvasWorkflow'
+import {
+  chainPositions,
+  edgeGeometry,
+  type CanvasEdge,
+  type CanvasNodeData,
+} from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
@@ -15,7 +20,9 @@ import StatusDot from '@/components/StatusDot'
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
-const SEED_EDGES = edgeGeometry(CANVAS_NODES)
+/** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
+const EMPTY_NODES: CanvasNodeData[] = []
+const EMPTY_EDGES: CanvasEdge[] = []
 
 export default function RunWaiting() {
   const navigate = useNavigate()
@@ -25,12 +32,9 @@ export default function RunWaiting() {
   const loaded = useSavedWorkflow(workflowId)
 
   // 저장된 것이 있으면 그것을, 없으면 자리표시자를 그린다 — 상세 화면처럼 id 없이 들어오는 길이 있다.
-  const nodes = loaded.canvas?.nodes ?? CANVAS_NODES
-  const edgeList = loaded.canvas?.edges ?? CANVAS_EDGES
-  const geometry = useMemo(
-    () => (loaded.canvas ? edgeGeometry(nodes, edgeList) : SEED_EDGES),
-    [loaded.canvas, nodes, edgeList],
-  )
+  const nodes = loaded.canvas?.nodes ?? EMPTY_NODES
+  const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
+  const geometry = useMemo(() => edgeGeometry(nodes, edgeList), [nodes, edgeList])
   const chainAt = useMemo(() => chainPositions(nodes, edgeList), [nodes, edgeList])
   // 에이전트 조회가 붙으면 여기로 들어온다. 최대 200자라 넘치면 줄바꿈된다.
   const onboardingMessage = ''

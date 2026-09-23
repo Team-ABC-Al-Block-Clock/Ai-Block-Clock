@@ -1,6 +1,4 @@
 import {
-  CANVAS_EDGES,
-  CANVAS_NODES,
   NO_BOUNDS,
   connect,
   disconnect,
@@ -40,9 +38,9 @@ export interface CanvasState {
 }
 
 export const initialCanvasState: CanvasState = {
-  // 자리표시자를 첫 값으로만 쓴다.
-  nodes: CANVAS_NODES,
-  edges: CANVAS_EDGES,
+  // 빈 캔버스에서 시작한다. 자리표시자를 깔아 두면 사용자가 놓지 않은 것이 저장된다.
+  nodes: [],
+  edges: [],
   selId: null,
   selEdge: null,
   hovId: null,

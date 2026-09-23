@@ -6,18 +6,20 @@ import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
-  CANVAS_EDGES,
-  CANVAS_NODES,
   canSellWorkflow,
   chainPositions,
   edgeGeometry,
+  type CanvasEdge,
+  type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
-const SEED_EDGES = edgeGeometry(CANVAS_NODES)
+/** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
+const EMPTY_NODES: CanvasNodeData[] = []
+const EMPTY_EDGES: CanvasEdge[] = []
 
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
@@ -29,12 +31,9 @@ export default function RunRunning() {
   // 어떤 워크플로우를 돌리는지. 대기 화면이 넘겨준다. 없으면 자리표시자를 그린다.
   const workflowId = searchParams.get('workflowId') ?? undefined
   const loaded = useSavedWorkflow(workflowId)
-  const defs = loaded.canvas?.nodes ?? CANVAS_NODES
-  const edgeList = loaded.canvas?.edges ?? CANVAS_EDGES
-  const geometry = useMemo(
-    () => (loaded.canvas ? edgeGeometry(defs, edgeList) : SEED_EDGES),
-    [loaded.canvas, defs, edgeList],
-  )
+  const defs = loaded.canvas?.nodes ?? EMPTY_NODES
+  const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
+  const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
 
   const canSell = canSellWorkflow(defs)

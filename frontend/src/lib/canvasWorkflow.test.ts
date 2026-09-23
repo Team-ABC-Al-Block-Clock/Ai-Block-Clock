@@ -373,7 +373,7 @@ describe('edgePath', () => {
 
 describe('edgeGeometry', () => {
   it('선이 포트에서 포트로 이어진다', () => {
-    for (const edge of edgeGeometry(CANVAS_NODES)) {
+    for (const edge of edgeGeometry(CANVAS_NODES, CANVAS_EDGES)) {
       const from = CANVAS_NODES.find((n) => n.id === edge.from)!
       const to = CANVAS_NODES.find((n) => n.id === edge.to)!
       const 시작 = portPoint(from, 'out')
@@ -384,15 +384,15 @@ describe('edgeGeometry', () => {
   })
 
   it('노드를 옮기면 선이 따라온다', () => {
-    const 전 = edgeGeometry(CANVAS_NODES)[0].d
-    const 후 = edgeGeometry(moveNodeTo(CANVAS_NODES, 'seed-1', 12, 700))[0].d
+    const 전 = edgeGeometry(CANVAS_NODES, CANVAS_EDGES)[0].d
+    const 후 = edgeGeometry(moveNodeTo(CANVAS_NODES, 'seed-1', 12, 700), CANVAS_EDGES)[0].d
     expect(후).not.toBe(전)
     expect(후.startsWith('M180 784')).toBe(true)
   })
 
   it('한쪽 노드가 없는 선은 버린다', () => {
     const 없앰 = CANVAS_NODES.filter((n) => n.id !== 'seed-1')
-    expect(edgeGeometry(없앰).map((e) => e.id)).toEqual([
+    expect(edgeGeometry(없앰, CANVAS_EDGES).map((e) => e.id)).toEqual([
       edgeId('seed-2', 'seed-3'),
       edgeId('seed-3', 'seed-4'),
       edgeId('seed-4', 'seed-5'),

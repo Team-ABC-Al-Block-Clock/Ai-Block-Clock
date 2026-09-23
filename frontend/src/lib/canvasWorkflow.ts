@@ -39,11 +39,7 @@ export function clampToBounds(
   }
 }
 
-/**
- * 편집·대기·실행 화면이 함께 그리는 워크플로우.
- *
- * 워크플로우 저장·조회 API 가 아직 없어 자리표시자를 한 곳에 두고 세 화면이 같이 읽는다.
- */
+/** 편집·대기·실행 화면이 함께 그리는 워크플로우의 노드. */
 export interface CanvasNodeData {
   /** 같은 항목을 두 번 놓을 수 있어 이름으로는 가를 수 없다. */
   id: string
@@ -69,6 +65,10 @@ export interface CanvasNodeData {
 /** 놓인 노드에 주는 모션. 자리를 잡은 뒤라 등장 모션은 주지 않는다. */
 const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
 
+/**
+ * 다섯 칸짜리 예시 구성. **화면 초기값으로 쓰지 않는다** — 캔버스는 빈 상태로 연다.
+ * 그래프 함수를 검사할 때 손으로 짜는 대신 쓰는 표본이다.
+ */
 export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-1',
@@ -227,7 +227,7 @@ export function edgePath(
 /** 선 목록 → 그릴 좌표. 양 끝 중 하나라도 없으면 버린다. */
 export function edgeGeometry(
   nodes: CanvasNodeData[],
-  edges: CanvasEdge[] = CANVAS_EDGES,
+  edges: CanvasEdge[],
 ): { id: string; from: string; to: string; d: string }[] {
   // 제 카드도 가로지르면 안 된다. 포트에서 나가는 짧은 구간만 예외.
   const avoid = nodes.map((node) => ({ x: node.x + NODE_SIZE / 2, y: node.y + NODE_SIZE / 2 }))
