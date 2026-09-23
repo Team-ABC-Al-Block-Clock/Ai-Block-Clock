@@ -1,5 +1,8 @@
-import { Fragment, type CSSProperties } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 
+import { ApiError } from '@/api/errors'
+import { replaceWorkflow, saveWorkflow } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
@@ -9,16 +12,37 @@ import StatusDot from '@/components/StatusDot'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { nodeTypeLabel } from '@/lib/format'
+import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
 
+/** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
+const NAME_MAX = 40
+
+const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
+/** 다시 눌러도 통과하지 않는 코드는 문구를 가른다 — "잠시 후 다시" 로 뭉개면 계속 누른다. */
+function describeSaveError(error: unknown): string | null {
+  if (!error) return null
+  if (!(error instanceof ApiError)) return SAVE_FAILED
+  if (error.code === 'WORKFLOW_016')
+    return '다른 곳에서 먼저 수정되었습니다. 화면을 다시 열어 주세요'
+  if (error.code === 'WORKFLOW_006') return '노드는 20개까지 이을 수 있습니다'
+  if (error.code === 'WORKFLOW_007') return '연결이 너무 깁니다. 10단계까지 이을 수 있습니다'
+  if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
+  if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
+  if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
+  if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
+  return SAVE_FAILED
+}
+
 /**
  * 노드 편집 화면.
  *
  * 캔버스와 팔레트는 각자 훅이 들고 있다. 여기는 그 둘을 그리고, 팔레트에서
- * 캔버스로 건너오는 놓기만 잇는다.
+ * 캔버스로 건너오는 놓기와 저장을 잇는다.
  */
 export default function EditNodes() {
   const canvas = useCanvasWorkflow()
@@ -26,6 +50,7 @@ export default function EditNodes() {
 
   const {
     nodes,
+    edges,
     geometry,
     selId,
     hovId,
@@ -55,6 +80,39 @@ export default function EditNodes() {
     zoomOut,
   } = canvas
   const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
+
+  const [name, setName] = useState('문서 정리')
+  /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
+  const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
+
+  // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
+  const graph = useMemo(() => toWorkflowGraph(nodes, edges), [nodes, edges])
+  const trimmedName = name.trim()
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
+      return saved
+        ? replaceWorkflow(saved.workflowId, {
+            ...graph,
+            name: trimmedName,
+            revision: saved.revision,
+          })
+        : saveWorkflow({ ...graph, name: trimmedName })
+    },
+    onSuccess: (result) => setSaved({ workflowId: result.workflowId, revision: result.revision }),
+  })
+
+  /** 못 누르는 이유. 없으면 누를 수 있다 — 버튼을 죽여 두기만 하면 왜인지 알 길이 없다. */
+  const saveBlocked = !nodes.length
+    ? '노드를 하나 이상 놓아 주세요'
+    : !graph
+      ? '노드를 한 줄로 이어 주세요'
+      : !trimmedName
+        ? '워크플로우 이름을 적어 주세요'
+        : null
+  const canSave = !saveBlocked && !save.isPending
+  const saveError = describeSaveError(save.error)
   const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
   const { isFetchNextPageError, isFetchingNextPage, handleRetryNextPage } = palette
 
@@ -512,6 +570,46 @@ export default function EditNodes() {
           </div>
         )}
 
+        {/* 실행하기 왼쪽. 주 버튼과 경쟁하지 않게 유리 패널 차림으로 둔다. */}
+        <button
+          type="button"
+          onClick={() => save.mutate()}
+          disabled={!canSave}
+          title={saveBlocked ?? (saved ? '바뀐 구성으로 덮어씁니다' : '워크플로우를 저장합니다')}
+          style={{
+            left: 'calc(624px + var(--edge, 0px))',
+            top: 'calc(943px + var(--edge-y, 0px))',
+            width: '160px',
+            height: '52px',
+            borderRadius: '26px',
+            background: 'rgba(30,14,46,.78)',
+            boxShadow: `inset 0 0 0 1px rgba(255,255,255,${canSave ? '.22' : '.08'})`,
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            color: canSave ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.38)',
+            cursor: canSave ? 'pointer' : 'not-allowed',
+            transition: 'box-shadow .18s',
+            animation: 'uiIn .7s .62s cubic-bezier(.2,.8,.25,1) both',
+          }}
+          className="absolute flex items-center justify-center border-0 text-[17px] font-bold tracking-[-.01em]"
+        >
+          {save.isPending ? '저장 중…' : saved ? '저장됨' : '저장'}
+        </button>
+
+        {(saveError ?? saveBlocked) && (
+          <div
+            className="absolute text-center text-[13px] tracking-[-.005em]"
+            style={{
+              left: 'calc(560px + var(--edge, 0px))',
+              top: 'calc(1000px + var(--edge-y, 0px))',
+              width: '400px',
+              color: saveError ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
+            }}
+          >
+            {saveError ?? saveBlocked}
+          </div>
+        )}
+
         <a
           href={paths.run.waiting.withoutId}
           style={{
@@ -587,7 +685,9 @@ export default function EditNodes() {
         >
           <input
             className="absolute rounded-md border-0 bg-transparent font-[inherit] text-[17px] font-semibold tracking-[-.005em] text-white outline-0 transition-colors duration-[160ms] hover:bg-white/10 focus:bg-white/14"
-            defaultValue="문서 정리"
+            value={name}
+            onChange={(ev) => setName(ev.target.value)}
+            maxLength={NAME_MAX}
             aria-label="워크플로우 이름"
             style={{ left: '14px', top: '9px', width: '245px', height: '28px', padding: '0 6px' }}
           />

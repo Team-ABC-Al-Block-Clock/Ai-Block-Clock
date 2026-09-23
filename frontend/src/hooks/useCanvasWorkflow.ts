@@ -443,6 +443,8 @@ export function useCanvasWorkflow() {
 
   return {
     nodes,
+    // 저장할 때 노드와 함께 직렬화한다(`lib/workflowPayload.ts`).
+    edges,
     geometry,
     selId,
     hovId,
