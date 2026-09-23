@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { useParams, useSearchParams } from 'react-router-dom'
 
+import { getExecutionProgress, type StepStatus } from '@/api/executions'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
@@ -12,6 +14,7 @@ import {
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
+import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
@@ -32,6 +35,18 @@ const CAMERA_LEAD = 2
 /** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
 const CAMERA_STEP = 197
 
+/** 명세가 정한 조회 간격. */
+const POLL_MS = 2_000
+
+/** 단계 상태는 실행 엔진이 보낸 소문자가 그대로 온다. */
+const STEP_LABEL: Record<StepStatus, string> = {
+  pending: '대기',
+  running: '진행 중',
+  succeeded: '완료',
+  failed: '실패',
+  skipped: '건너뜀',
+}
+
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
   const [searchParams] = useSearchParams()
@@ -41,6 +56,28 @@ export default function RunRunning() {
 
   // 어떤 워크플로우를 돌리는지. 대기 화면이 넘겨준다. 없으면 자리표시자를 그린다.
   const workflowId = searchParams.get('workflowId') ?? undefined
+
+  /**
+   * 실제 진행 상황. 접수 번호가 있을 때만 따라간다 — 번호 없이 들어오는 길(`?done=1`,
+   * 주소창)에서는 아래의 흉내 진행이 그대로 돈다.
+   *
+   * 끝나면 `refetchInterval` 이 false 가 되어 멈춘다. 화면을 떠나면 쿼리가 비활성이 되어
+   * 타이머도 같이 걷힌다 — 따로 정리할 것이 없다.
+   */
+  const { executionId } = useParams()
+  const live = useQuery({
+    queryKey: queryKeys.executions.detail(executionId ?? ''),
+    queryFn: () => getExecutionProgress(executionId!),
+    enabled: !!executionId,
+    staleTime: 0,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === 'SUCCEEDED' || status === 'FAILED' ? false : POLL_MS
+    },
+    // 탭을 덮어 두어도 실행은 서버에서 계속 돈다. 기본값이면 여기서 멈춰 돌아왔을 때 진행이 얼어 있다.
+    refetchIntervalInBackground: true,
+  })
+  const progress = live.data
   const loaded = useSavedWorkflow(workflowId)
   const defs = loaded.canvas?.nodes ?? EMPTY_NODES
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
@@ -52,7 +89,8 @@ export default function RunRunning() {
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const rafId = useRef<number>(undefined)
 
-  const logLines = [
+  /** 접수 번호 없이 들어왔을 때 쓰는 표본. 실제 실행에서는 서버가 준 단계 이름이 들어온다. */
+  const SAMPLE_LOG_LINES = [
     '입력 파일 128개 수집 완료',
     'PDF 112개 · 이미지 16개 판별',
     '문서 본문 추출 및 정규화',
@@ -61,10 +99,21 @@ export default function RunRunning() {
     '분류 결과 검증',
     '요약 생성 대기',
   ]
-  const pctR = Math.round(pct)
+  const failed = progress?.status === 'FAILED'
+  /** 진행을 물어보지도 못한 상태. 흉내 진행도 꺼져 있어 그냥 두면 0% 에서 「도는 중」으로 굳는다. */
+  const lost = !!live.error
+  const pctR = progress ? progress.percent : Math.round(pct)
   // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
   const per = 100 / Math.max(1, defs.length)
-  const active = Math.min(defs.length - 1, Math.floor(pctR / per))
+  const active = progress
+    ? Math.min(defs.length - 1, progress.done)
+    : Math.min(defs.length - 1, Math.floor(pctR / per))
+  /**
+   * 단계를 카드에 짝짓는다. `steps` 에 nodeKey 가 없어 순서로만 맞출 수 있는데,
+   * 에이전트 자리는 안의 단계 수만큼 펼쳐져 나온다 — 수가 어긋나면 짝짓기를 포기하고
+   * 진행률로만 칠한다. 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
+   */
+  const aligned = progress && progress.steps.length === defs.length ? progress.steps : null
   const g: CanvasNodeData | undefined = defs[active]
   const glowStyle: CSSProperties =
     g && pctR < 100
@@ -83,23 +132,38 @@ export default function RunRunning() {
         }
       : { display: 'none' }
   const nodes = defs.map((d, i) => {
-    const done = i < active || pctR >= 100
-    const running = i === active && pctR < 100
+    const step = aligned?.[i]
+    // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 는 0 이라 첫 카드가 켜져 버린다.
+    const stepDone = step ? step.status === 'succeeded' : !lost && (i < active || pctR >= 100)
+    const stepRunning = step ? step.status === 'running' : !lost && i === active && pctR < 100
+    const stepFailed = step?.status === 'failed'
     return {
       ...d,
-      background: running
+      background: stepRunning
         ? 'rgba(255,255,255,.17)'
-        : done
+        : stepDone || stepFailed
           ? 'rgba(255,255,255,.115)'
           : 'rgba(255,255,255,.06)',
-      numberColor: running ? '#fff' : done ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.5)',
-      nameColor: running ? '#fff' : done ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.55)',
-      sublabelColor: running
-        ? 'rgba(230,196,212,.85)'
-        : done
-          ? 'rgba(154,208,180,.85)'
-          : 'rgba(255,236,246,.4)',
-      stateLabel: running ? '진행 중' : done ? '완료' : '대기',
+      numberColor: stepRunning
+        ? '#fff'
+        : stepDone
+          ? 'rgba(255,255,255,.9)'
+          : 'rgba(255,255,255,.5)',
+      nameColor: stepRunning ? '#fff' : stepDone ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.55)',
+      sublabelColor: stepFailed
+        ? 'rgba(255,170,194,.9)'
+        : stepRunning
+          ? 'rgba(230,196,212,.85)'
+          : stepDone
+            ? 'rgba(154,208,180,.85)'
+            : 'rgba(255,236,246,.4)',
+      stateLabel: step
+        ? STEP_LABEL[step.status]
+        : stepRunning
+          ? '진행 중'
+          : stepDone
+            ? '완료'
+            : '대기',
     }
   })
   const edges = geometry.map((edge, i) => ({
@@ -114,10 +178,11 @@ export default function RunRunning() {
    */
   const camera =
     defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
-  const shown = Math.min(
-    logLines.length,
-    Math.max(1, Math.round((pctR / 100) * logLines.length) + 1),
-  )
+  // 펼친 단계를 그대로 적는다 — 카드와 수가 달라도 여기서는 순서만 맞으면 된다.
+  const logLines = progress ? progress.steps.map((step) => step.name) : SAMPLE_LOG_LINES
+  const shown = progress
+    ? Math.min(logLines.length, progress.done + 1)
+    : Math.min(logLines.length, Math.max(1, Math.round((pctR / 100) * logLines.length) + 1))
   const logs = logLines.slice(0, shown).map((text, i) => {
     const last = i === shown - 1 && pctR < 100
     return {
@@ -189,8 +254,8 @@ export default function RunRunning() {
   const copyLabel = copied ? '복사됨' : '복사'
   const copyBg = copied ? 'rgba(154,208,180,.26)' : 'rgba(255,255,255,.1)'
   const copyFg = copied ? '#a8ddc0' : 'rgba(255,255,255,.82)'
-  const running = pctR < 100
-  const done = pctR >= 100
+  const running = !failed && !lost && pctR < 100
+  const done = !failed && !lost && pctR >= 100
   const pctLabel = pctR + '%'
   const gaugeBg =
     'conic-gradient(from 0deg, var(--color-accent) 0 ' +
@@ -199,13 +264,39 @@ export default function RunRunning() {
     pctR +
     '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
-  const stepTitle = pctR >= 100 ? '결과 전달 완료' : g ? `${g.name} 중` : '워크플로우를 불러오는 중'
-  const stepMeta = defs.length
-    ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
-    : ''
+  /**
+   * 실패 사유는 아직 진행 응답에 없다(BE !84 범위). 어느 단계에서 멈췄는지만 짚어 준다 —
+   * 「알 수 없는 오류」보다 다시 손댈 자리를 알려 주는 쪽이 낫다.
+   */
+  const failedStep = progress?.steps.find((step) => step.status === 'failed')
+  const failureNotice = lost
+    ? '잠시 뒤 다시 열어 보시거나, 워크플로우를 확인해 주세요'
+    : failedStep
+      ? `${failedStep.name} 단계에서 멈췄습니다. 입력과 노드 설정을 확인해 주세요`
+      : '실행 엔진이 사유를 알려 주지 않았습니다. 입력과 노드 설정을 확인해 주세요'
+
+  const stepTitle = lost
+    ? '진행 상황을 알 수 없습니다'
+    : failed
+      ? '실행이 중단되었습니다'
+      : done
+        ? '결과 전달 완료'
+        : progress
+          ? (progress.currentStepName ?? '실행을 준비하는 중')
+          : g
+            ? `${g.name} 중`
+            : '워크플로우를 불러오는 중'
+  const stepMeta = lost
+    ? ''
+    : progress
+      ? `${progress.done} / ${progress.total} 단계`
+      : defs.length
+        ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
+        : ''
 
   useEffect(() => {
-    if (startDone) return
+    // 실제 진행을 따라가는 중이면 흉내를 내지 않는다. 두 값이 다투면 게이지가 되돌아간다.
+    if (startDone || executionId) return
     const t0 = performance.now()
     const tick = (now: number) => {
       const p = Math.min(100, ((now - t0) / 1000) * 5.2) // 약 19초에 완주
@@ -220,7 +311,7 @@ export default function RunRunning() {
     return () => {
       if (rafId.current) cancelAnimationFrame(rafId.current)
     }
-  }, [startDone])
+  }, [startDone, executionId])
 
   // 복사 타이머는 진행률과 무관하다. 위에 얹으면 `?done=1` 로 들어왔을 때
   // 이펙트가 먼저 빠져나가 정리가 등록되지 않는다 — 그 경로가 실제로 쓰인다.
@@ -374,6 +465,42 @@ export default function RunRunning() {
         >
           {stepMeta}
         </div>
+
+        {(failed || lost) && (
+          <div
+            className="bg-surface-card absolute box-border flex flex-col"
+            style={{
+              left: `${PANEL_INSET}px`,
+              top: '400px',
+              width: `${PANEL_CONTENT_WIDTH}px`,
+              padding: '18px 20px',
+              borderRadius: '12px',
+              gap: '8px',
+              animation: 'uiIn .6s cubic-bezier(.2,.8,.25,1) both',
+            }}
+          >
+            <div className="text-[16px] font-semibold" style={{ color: 'rgba(255,190,209,.95)' }}>
+              {lost ? '진행 상황을 불러오지 못했습니다' : '실행이 실패했습니다'}
+            </div>
+            <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.7)' }}>
+              {failureNotice}
+            </div>
+            <a
+              href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
+              style={{
+                marginTop: '4px',
+                height: '38px',
+                padding: '0 16px',
+                borderRadius: '10px',
+                background: 'rgba(255,255,255,.12)',
+                alignSelf: 'flex-start',
+              }}
+              className="flex cursor-pointer items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
+            >
+              워크플로우 수정하기
+            </a>
+          </div>
+        )}
 
         {running && (
           <>
