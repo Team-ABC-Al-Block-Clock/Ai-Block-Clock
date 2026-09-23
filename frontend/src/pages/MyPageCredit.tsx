@@ -1,39 +1,61 @@
+import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import { getCreditBalance } from '@/api/credits'
+import { priceLabel } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
 
 export default function MyPageCredit() {
   const [pick, setPick] = useState(2)
   const [mode, setMode] = useState('deposit')
 
+  const balance = useQuery({
+    queryKey: queryKeys.credits.balance(),
+    queryFn: getCreditBalance,
+  })
+
+  // 예치금·지갑 잔액은 충전 API 가 열리면 붙인다.
   const DEPOSITED = 2500,
-    AVAILABLE = 640,
     WALLET = 3120
+  // 프리셋 계산에만 숫자를 쓴다. 표시는 서버 문자열 그대로다.
+  const available = Number(balance.data?.availableAmount ?? 0)
   const withdraw = mode === 'withdraw'
   const raw = withdraw
     ? [
         { amount: 100 },
         { amount: 200 },
         { amount: 400 },
-        { amount: AVAILABLE, note: '전액 출금' },
+        { amount: available, note: '전액 출금' },
       ].map((p) => ({
         credit: p.amount.toLocaleString() + ' ABC',
-        price: p.note || '출금 후 ' + (AVAILABLE - p.amount).toLocaleString() + ' ABC',
+        // 잔액을 넘는 금액은 뺀 결과가 음수라 「출금 후 -260 ABC」 가 되어 버린다.
+        price:
+          p.amount > available
+            ? '잔액 부족'
+            : p.note || '출금 후 ' + (available - p.amount).toLocaleString() + ' ABC',
         amount: p.amount,
+        disabled: p.amount > available || p.amount <= 0,
       }))
     : [500, 1000, 2500, 5000].map((amount) => ({
         credit: amount.toLocaleString() + ' ABC',
         price: '예치 후 ' + (DEPOSITED + amount).toLocaleString() + ' ABC',
         amount,
+        disabled: false,
       }))
+  // 고른 칸이 잔액 부족이면 고를 수 있는 마지막 칸으로 내린다. 없으면 그대로 둔다.
+  const pickable = raw.findLastIndex((p) => !p.disabled)
+  const at = raw[pick]?.disabled && pickable >= 0 ? pickable : Math.min(pick, raw.length - 1)
   const presets = raw.map((p, i) => ({
     ...p,
-    bg: i === pick ? 'rgba(185,141,169,.32)' : 'var(--color-surface-card)',
+    bg: i === at ? 'rgba(185,141,169,.32)' : 'var(--color-surface-card)',
     ring: 'none',
-    fg: i === pick ? '#e6cbe0' : '#fff',
+    fg: p.disabled ? 'rgba(255,240,247,.38)' : i === at ? '#e6cbe0' : '#fff',
     anim: 'rise .7s ' + (0.2 + i * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
-    pick: () => setPick(i),
+    pick: () => {
+      if (!p.disabled) setPick(i)
+    },
   }))
-  const cur = raw[Math.min(pick, raw.length - 1)]
+  const cur = raw[at]
   const sumCredit = cur.amount.toLocaleString() + ' ABC'
   const handlePickDeposit = () => {
     setMode('deposit')
@@ -48,10 +70,16 @@ export default function MyPageCredit() {
   const bgWithdraw = withdraw ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)'
   const fgWithdraw = withdraw ? '#3a1030' : 'rgba(255,240,247,.78)'
   const bannerLabel = withdraw ? '출금 가능 코인' : '현재 사용 가능 코인'
-  const bannerValue = AVAILABLE.toLocaleString() + ' ABC'
-  const bannerNote = withdraw
-    ? '출금은 연결된 MetaMask 지갑으로 전송됩니다'
-    : '예치한 코인은 언제든 출금할 수 있습니다'
+  // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
+  const bannerValue = balance.data ? priceLabel(balance.data.availableAmount) : '—'
+  const reserved = balance.data?.reservedAmount
+  const reservedNote =
+    reserved && Number(reserved) > 0 ? `실행에 잠긴 코인 ${priceLabel(reserved)} · ` : ''
+  const bannerNote = balance.isError
+    ? '잔액을 불러오지 못했습니다'
+    : withdraw
+      ? reservedNote + '출금은 연결된 MetaMask 지갑으로 전송됩니다'
+      : reservedNote + '예치한 코인은 언제든 출금할 수 있습니다'
   const pickerTitle = withdraw ? '출금 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
     ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 코인은 출금할 수 없습니다'
@@ -193,7 +221,7 @@ export default function MyPageCredit() {
                 transition: 'background .16s,box-shadow .16s',
                 animation: `${p.anim}`,
               }}
-              className="box-border flex-none cursor-pointer hover:bg-[rgba(255,255,255,.14)]"
+              className={`box-border flex-none ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
             >
               <div
                 className="text-[18px] font-semibold tracking-[-.01em]"

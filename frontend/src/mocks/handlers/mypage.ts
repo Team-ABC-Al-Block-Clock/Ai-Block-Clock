@@ -5,7 +5,6 @@ import { API_BASE_URL } from '@/api/client'
 import type { DeletedWorkflow, WorkflowSort } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { addAgent, byNewest, favoriteAgents, myAgents, usedAgents } from '@/mocks/fixtures/agents'
-import { CREDIT_BALANCE, CREDIT_TRANSACTIONS } from '@/mocks/fixtures/user'
 import { WORKFLOWS, toWorkflowSummary } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -167,16 +166,5 @@ export const mypageHandlers = [
       workflowId: workflow.workflowId,
       deletedAt: new Date().toISOString(),
     })
-  }),
-  http.get(`${API_BASE_URL}/credits/balance`, async ({ request }) => {
-    const forced = await scene(request)
-    if (forced) return forced
-    return ok(CREDIT_BALANCE)
-  }),
-  http.get(`${API_BASE_URL}/credits/transactions`, async ({ request }) => {
-    const forced = await scene(request)
-    if (forced) return forced
-
-    return cursorOk(new URL(request.url), CREDIT_TRANSACTIONS, (t) => t.transactionId)
   }),
 ]
