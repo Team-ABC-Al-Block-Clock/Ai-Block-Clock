@@ -92,9 +92,9 @@ class RecommendClientTest {
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
         assertThatThrownBy(() -> client.recommend("성적표", 8))
-                .isInstanceOf(RecommendClientException.class)
-                .extracting(e -> ((RecommendClientException) e).getError())
-                .isEqualTo(RecommendClientError.REQUEST_FAILED);
+                .isInstanceOf(AiClientException.class)
+                .extracting(e -> ((AiClientException) e).getError())
+                .isEqualTo(AiClientError.REQUEST_FAILED);
         server.verify();
     }
 }

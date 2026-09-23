@@ -3,8 +3,8 @@ package com.aiblockclock.domain.agent;
 import com.aiblockclock.client.ai.IndexOutcome;
 import com.aiblockclock.client.ai.IndexedAgent;
 import com.aiblockclock.client.ai.RecommendClient;
-import com.aiblockclock.client.ai.RecommendClientError;
-import com.aiblockclock.client.ai.RecommendClientException;
+import com.aiblockclock.client.ai.AiClientError;
+import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
@@ -63,7 +63,7 @@ class AgentIndexServiceTest {
     @Test
     @DisplayName("색인에 넣지 못해도 등록한 쪽으로 예외가 나가지 않는다")
     void swallowsIndexFailure() {
-        willThrow(new RecommendClientException(RecommendClientError.REQUEST_FAILED, "engine is down"))
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "engine is down"))
                 .given(recommendClient).upsert(anyList());
 
         assertThatCode(() -> indexer.index(registration())).doesNotThrowAnyException();
