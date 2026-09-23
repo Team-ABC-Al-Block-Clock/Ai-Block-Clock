@@ -127,6 +127,7 @@ export const authHandlers = [
   /**
    * CSRF 토큰 발급. 이 핸들러만 `scene` 을 타지 않는다 —
    * 여기가 강제 실패에 걸리면 모든 쓰기가 제 핸들러에 닿기도 전에 엉뚱한 코드로 죽는다.
+   * 검사는 하지 않는다. 403 재시도 경로는 `api/csrf.test.ts` 에서만 확인한다.
    */
   http.get(`${API_BASE_URL}/auth/csrf`, () =>
     ok<CsrfToken>({ headerName: 'X-CSRF-TOKEN', token: crypto.randomUUID() }),

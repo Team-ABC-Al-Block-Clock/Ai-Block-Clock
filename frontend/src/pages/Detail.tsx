@@ -46,7 +46,7 @@ const ERROR_ACTIONS = JSON.stringify([
   { label: '목록으로', href: paths.search },
 ])
 
-/** 즐겨찾기 실패 중 로그인 문제(`api/errors.ts`). */
+/** 즐겨찾기 실패 중 로그인 문제. 실제로 오는 것은 `AUTH_005` 뿐이다(`api/errors.ts`). */
 const AUTH_CODES: string[] = [AUTH_ERROR.NOT_IDENTIFIED, AUTH_ERROR.NOT_IDENTIFIABLE]
 
 /** 한 번에 불러오는 리뷰 개수. */

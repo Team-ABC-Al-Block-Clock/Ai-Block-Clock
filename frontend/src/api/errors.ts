@@ -45,7 +45,7 @@ export class ApiError extends Error {
 export const AUTH_ERROR = {
   /** 쿠키가 없거나, 세션이 만료됐거나, 알 수 없는 세션이다 */
   NOT_IDENTIFIED: 'AUTH_005',
-  /** 세션은 있으나 요청자를 특정할 수 없다 */
+  /** 세션은 있으나 요청자를 특정할 수 없다 — 서버 `ErrorType` 에 선언만 있고 아직 던지는 곳이 없다 */
   NOT_IDENTIFIABLE: 'AUTH_006',
 } as const
 
