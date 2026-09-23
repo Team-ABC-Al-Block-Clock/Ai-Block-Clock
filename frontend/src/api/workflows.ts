@@ -28,6 +28,75 @@ export interface DeletedWorkflow {
 export const getMyWorkflows = (params: WorkflowQuery = {}) =>
   api.get<CursorPage<WorkflowSummary>>('/workflows', { params })
 
+/** 무엇을 어디에 놓았는가. 좌표는 서버가 저장하지 않아 보내지 않는다(`lib/workflowPayload.ts`). */
+export interface NodePlacement {
+  /** 이 워크플로우 안에서만 통하는 키. 최대 64자 */
+  nodeKey: string
+  sourceType: SourceType
+  /** 원본 노드 또는 에이전트의 id */
+  sourceId: string
+}
+
+export interface EdgePlacement {
+  edgeKey: string
+  sourceNodeKey: string
+  targetNodeKey: string
+}
+
+/** 저장·수정이 함께 싣는 부분. 노드는 최소 하나, 노드가 하나면 선은 빈 배열이다. */
+export interface WorkflowGraph {
+  nodes: NodePlacement[]
+  edges: EdgePlacement[]
+}
+
+export interface SavedWorkflow {
+  workflowId: string
+  name: string
+  /** 다음 수정 요청에 그대로 넣는다. 어긋나면 `WORKFLOW_016` */
+  revision: number
+  /** 단가 산정 전이라 지금은 늘 '0' */
+  estimatedCost: string
+  currency: string
+}
+
+/** 서버가 돌려주는 배치. `versionId` 는 에이전트 노드만 갖는다. */
+export interface PlacedNode extends NodePlacement {
+  versionId: string | null
+  inputSource: 'USER' | 'PREV' | 'PREV_AND_USER'
+}
+
+export interface WorkflowDetail extends SavedWorkflow {
+  description: string | null
+  /** 선을 따라간 연결 순서대로 온다 — 캔버스는 이 순서로 다시 늘어놓는다 */
+  nodes: PlacedNode[]
+  edges: EdgePlacement[]
+  lastExecutedAt: string | null
+  updatedAt: string
+}
+
+/**
+ * 새 워크플로우를 만든다. 201 로 온다.
+ *
+ * `description` 은 만들 때만 반영된다 — 수정 요청에는 자리가 없다.
+ */
+export const saveWorkflow = (body: WorkflowGraph & { name: string; description?: string }) =>
+  api.post<SavedWorkflow>('/workflows', body)
+
+/**
+ * 저장된 구성을 통째로 갈아 끼운다.
+ *
+ * `revision` 은 마지막으로 읽은 회차다. 그 사이 다른 요청이 먼저 고쳤으면 `WORKFLOW_016` 으로
+ * 거절된다 — 화면은 다시 불러오게 안내한다.
+ */
+export const replaceWorkflow = (
+  workflowId: string,
+  body: WorkflowGraph & { name: string; revision: number },
+) => api.put<SavedWorkflow>(`/workflows/${workflowId}`, body)
+
+/** 캔버스를 복원할 때 읽는다. */
+export const getWorkflow = (workflowId: string) =>
+  api.get<WorkflowDetail>(`/workflows/${workflowId}`)
+
 /** 멱등이 아니다 — 에이전트로 등록됐거나 실행이 진행 중이면 409 로 거절된다. 화면은 `code` 로 갈라 다른 문구를 낸다. */
 export const deleteWorkflow = (workflowId: string) =>
   api.delete<DeletedWorkflow>(`/workflows/${workflowId}`)
