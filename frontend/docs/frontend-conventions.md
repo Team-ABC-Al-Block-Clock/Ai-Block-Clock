@@ -322,6 +322,14 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 편집·대기·진행 세 화면이 `hooks/useSavedWorkflow.ts` 로 같은 워크플로우를 읽는다. 대기·진행은 `?workflowId=` 로 받고, 없으면 빈 캔버스를 그린다.
 
+### 실행 견적
+
+실행 대기 화면의 「실행 예상 비용」은 `POST /executions/cost-estimates` 가 준 값이다. 금액은 서버와 같이 소수점 여섯 자리 문자열이라 숫자로 바꾸는 곳은 `Number()` 한 번뿐이고, 표시는 `lib/format.ts` 를 거친다.
+
+- **견적은 계산만 하고 차감하지 않는다.** 그 사이 다른 실행이 잔액을 잡을 수 있어 창에 돌아올 때마다 다시 받는다(`refetchOnWindowFocus`)
+- **`executable: false` 일 때만 실행을 막는다.** 견적을 못 받았다고 막지 않는다 — 최종 판정은 서버가 실행을 접수할 때 다시 하므로, 화면이 모른다는 이유로 멈추면 통과할 실행까지 못 하게 된다
+- **경로 앞 조각이 갈린다.** 견적은 `/executions`, 실행 시작·조회는 `/runs` 다. 서버가 이유를 밝힌 적이 없어 그대로 따르고 있다
+
 ---
 
 ## 8. mock 서버 — MSW
