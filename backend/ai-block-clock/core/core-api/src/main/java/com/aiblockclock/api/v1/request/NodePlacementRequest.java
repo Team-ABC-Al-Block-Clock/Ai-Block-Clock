@@ -31,7 +31,10 @@ public record NodePlacementRequest(
         @Schema(description = "배치한 것의 종류")
         @NotNull SourceType sourceType,
 
-        @Schema(description = "노드 종류. `sourceType` 이 `NODE` 일 때만 보낸다", nullable = true)
+        @Schema(description = """
+                노드 종류. `sourceType` 이 `NODE` 일 때만 보낸다.
+                `sourceId` 와 함께 보내면 그 노드가 이 종류인지 대조하고, 생략하면 대조하지 않는다.
+                """, nullable = true)
         NodeType nodeType,
 
         @Schema(description = "놓을 원본 노드 ID 또는 에이전트 ID. `LLM` 은 만들어 놓으므로 비운다",

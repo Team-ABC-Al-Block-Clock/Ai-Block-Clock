@@ -2,14 +2,10 @@ package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
-import com.aiblockclock.domain.workflow.NodePlacement;
-import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.agent.PublicationState;
-import com.aiblockclock.enums.workflow.InputSource;
-import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.agent.AgentEntity;
 import com.aiblockclock.storage.agent.AgentRepository;
 import com.aiblockclock.storage.agent.AgentVersionEntity;
@@ -156,12 +152,8 @@ class AgentRegistrationIntegrationTest {
                 OWNER,
                 "성적 분석",
                 null,
-                List.of(placement("n1", firstSource), placement("n2", secondSource)),
+                List.of(GraphFixtures.placement("n1", firstSource), GraphFixtures.placement("n2", secondSource)),
                 List.of(GraphFixtures.edge("e1", "n1", "n2")));
-    }
-
-    private static NodePlacement placement(String key, UUID sourceId) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE, sourceId, InputSource.defaultSource());
     }
 
     private static AgentProfile profile() {

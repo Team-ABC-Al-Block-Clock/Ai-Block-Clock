@@ -312,7 +312,7 @@ class WorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("미리 정의된 종류로 놓으려 해도 그 종류의 노드가 아니면 찾을 수 없다")
+    @DisplayName("가리킨 노드가 밝힌 종류가 아니면 종류가 다르다고 거절한다")
     void rejectsPlacementOfAnotherKind() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
@@ -327,8 +327,9 @@ class WorkflowControllerTest {
                                   "edges": []
                                 }
                                 """.formatted(nodeId)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("WORKFLOW_015"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("WORKFLOW_017"))
+                .andExpect(jsonPath("$.error.data.nodeType").value("TOOL"));
     }
 
     @Test

@@ -1,8 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.user.UserId;
-import com.aiblockclock.enums.workflow.InputSource;
-import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
 import com.aiblockclock.storage.graph.GraphEdgeEntity;
 import com.aiblockclock.storage.graph.GraphNodeEntity;
@@ -67,7 +65,7 @@ class WorkflowGraphMergeIntegrationTest {
                 OWNER,
                 "그래프 병합",
                 null,
-                List.of(placement("n1", firstSource), placement("n2", secondSource)),
+                List.of(GraphFixtures.placement("n1", firstSource), GraphFixtures.placement("n2", secondSource)),
                 List.of(GraphFixtures.edge("e1", "n1", "n2"))).getId();
     }
 
@@ -90,7 +88,7 @@ class WorkflowGraphMergeIntegrationTest {
                 OWNER,
                 "그래프 병합",
                 Revision.of(1L),
-                List.of(placement("n1", replacedSource), placement("n3", addedSource)),
+                List.of(GraphFixtures.placement("n1", replacedSource), GraphFixtures.placement("n3", addedSource)),
                 List.of(GraphFixtures.edge("e2", "n1", "n3")));
 
         List<GraphNodeEntity> after = nodeRows();
@@ -115,7 +113,7 @@ class WorkflowGraphMergeIntegrationTest {
                 OWNER,
                 "그래프 병합",
                 Revision.of(1L),
-                List.of(placement("n2", secondSource), placement("n1", firstSource)),
+                List.of(GraphFixtures.placement("n2", secondSource), GraphFixtures.placement("n1", firstSource)),
                 List.of(GraphFixtures.edge("e1", "n2", "n1")));
 
         List<GraphEdgeEntity> after = edgeRows();
@@ -147,10 +145,6 @@ class WorkflowGraphMergeIntegrationTest {
                 .filter(node -> node.getNodeKey().equals(nodeKey))
                 .findFirst()
                 .orElseThrow();
-    }
-
-    private static NodePlacement placement(String nodeKey, UUID sourceId) {
-        return new NodePlacement(NodeKey.of(nodeKey), SourceType.NODE, sourceId, InputSource.defaultSource());
     }
 
     private GraphId graphIdOf(WorkflowId id) {

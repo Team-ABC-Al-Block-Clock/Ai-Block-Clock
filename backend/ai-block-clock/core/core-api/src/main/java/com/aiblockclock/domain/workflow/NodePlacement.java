@@ -13,7 +13,4 @@ public record NodePlacement(
         UUID sourceId,
         InputSource inputSource,
         NodeDraft draft) {
-    public NodePlacement(NodeKey key, SourceType sourceType, UUID sourceId, InputSource inputSource) {
-        this(key, sourceType, null, sourceId, inputSource, null);
-    }
 }

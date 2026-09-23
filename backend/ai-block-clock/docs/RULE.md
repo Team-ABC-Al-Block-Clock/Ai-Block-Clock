@@ -380,7 +380,7 @@ new CoreException(ErrorType.WORKFLOW_FORBIDDEN);
 ```java
 // Service — 흐름만 남는다
 GraphRevision revised = validator.ensureReplaceable(id, requester, expectedRevision);
-WorkflowGraph graph = workflowGraphAssembler.assembleWithSourceLock(nodes, edges);
+WorkflowGraph graph = workflowGraphAssembler.lockOrCreateSourcesAndAssemble(requester, nodes, edges);
 workflowNodeWriter.replace(id, graph.getNodes());
 workflowEdgeWriter.replace(id, graph.getEdges());
 
@@ -401,8 +401,8 @@ Reader 와 Writer 를 이어 부르는 Service · Manager 에 `@Transactional` �
 같은 행을 고치는 경로끼리는 **같은 락**을 쓴다. 한쪽만 `readForUpdate` 를 잡으면 막히지 않는다 —
 노드 삭제와 배치가 그랬다.
 
-**락을 거는 메서드는 이름으로 말한다.** `assembleWithSourceLock` 은 배치되는 원본 행에
-`for share` 를 걸고 트랜잭션이 끝날 때까지 쥔다. 그런 메서드에는
+**락을 거는 메서드는 이름으로 말한다.** `lockOrCreateSourcesAndAssemble` 은 배치되는 원본 행에
+`for share` 를 걸고 트랜잭션이 끝날 때까지 쥔다. 실어 보낸 노드는 그 자리에서 만드므로 쓰기도 이름에 드러낸다. 그런 메서드에는
 `@Transactional(propagation = MANDATORY)` 를 걸어, 트랜잭션 없이 불렸을 때 락이 조용히 풀리는
 대신 그 자리에서 터지게 한다.
 
