@@ -43,6 +43,31 @@ export const estimateCost = (workflowId: string) =>
 /** 실행 전체의 상태. 서버 enum 그대로다. */
 export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
 
+/**
+ * 단계 하나의 상태. 실행 엔진이 보낸 소문자를 서버가 그대로 흘려 준다 —
+ * 실행 전체 상태와 집합이 다르다(`pending` 과 `skipped` 가 더 있고 `queued` 가 없다).
+ */
+export type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped'
+
+/** 단계 이름과 상태뿐이다. `nodeKey` 가 없어 캔버스와는 순서로 짝짓는다. */
+export interface ExecutionStep {
+  name: string
+  status: StepStatus
+}
+
+export interface ExecutionProgress {
+  executionId: string
+  status: ExecutionStatus
+  /** 끝난 단계 수 */
+  done: number
+  /** 돌아야 하는 단계 수. 에이전트는 안의 단계 수만큼 센다 */
+  total: number
+  percent: number
+  /** 끝났으면 null */
+  currentStepName: string | null
+  steps: ExecutionStep[]
+}
+
 export interface StartedExecution {
   executionId: string
   status: ExecutionStatus
@@ -93,3 +118,12 @@ export const startExecution = ({ workflowId, comment, file, mock }: StartExecuti
 
   return api.post<StartedExecution>('/runs', form)
 }
+
+/**
+ * 진행 상황. 2초 간격으로 부르고 `status` 가 끝나면 멈춘다.
+ *
+ * 그래프는 오지 않는다 — 캔버스는 `GET /workflows/{workflowId}` 로 따로 그리고 여기서는
+ * 단계의 이름과 상태만 얹는다.
+ */
+export const getExecutionProgress = (executionId: string) =>
+  api.get<ExecutionProgress>(`/runs/${executionId}`)

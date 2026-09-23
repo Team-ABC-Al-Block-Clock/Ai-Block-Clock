@@ -1,7 +1,7 @@
 import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
-import type { CostItem } from '@/api/executions'
+import type { CostItem, ExecutionStatus, ExecutionStep, StepStatus } from '@/api/executions'
 import { CREDIT_BALANCE } from '@/mocks/fixtures/credits'
 import { PLACEABLE_ITEMS } from '@/mocks/fixtures/nodePalette'
 import { fail, ok } from '@/mocks/response'
@@ -35,10 +35,22 @@ interface MockRun {
   stepNames: string[]
 }
 
+/** 한 단계에 쓰는 시간. 실서버는 25초쯤이지만 화면을 확인하려면 그만큼 기다릴 수 없다. */
+const STEP_MS = 2_500
+/** 접수 직후 잠깐은 QUEUED 다 — 화면이 그 상태를 그리는지 볼 자리가 필요하다. */
+const QUEUED_MS = 900
+
+function readRuns(): Record<string, MockRun> {
+  try {
+    return JSON.parse(localStorage.getItem(RUNS_KEY) ?? '{}') as Record<string, MockRun>
+  } catch {
+    return {}
+  }
+}
+
 function putRun(run: MockRun) {
   try {
-    const all = JSON.parse(localStorage.getItem(RUNS_KEY) ?? '{}') as Record<string, MockRun>
-    localStorage.setItem(RUNS_KEY, JSON.stringify({ ...all, [run.executionId]: run }))
+    localStorage.setItem(RUNS_KEY, JSON.stringify({ ...readRuns(), [run.executionId]: run }))
   } catch {
     /* 사용량 초과·프라이빗 모드 — 이번 실행만 못 따라간다 */
   }
@@ -54,6 +66,34 @@ const stepNamesOf = (detail: WorkflowDetail) =>
     (node) =>
       PLACEABLE_ITEMS.find((item) => item.itemId === node.sourceId)?.name ?? '이름 없는 단계',
   )
+
+/** 경과 시간으로 진행을 짓는다. 끝난 뒤에는 더 움직이지 않는다. */
+function progressOf(run: MockRun) {
+  const total = run.stepNames.length
+  const elapsed = Date.now() - run.startedAt
+  const done = Math.max(0, Math.min(total, Math.floor((elapsed - QUEUED_MS) / STEP_MS)))
+  const finished = done >= total
+  const status: ExecutionStatus = finished
+    ? 'SUCCEEDED'
+    : elapsed < QUEUED_MS
+      ? 'QUEUED'
+      : 'RUNNING'
+
+  const steps: ExecutionStep[] = run.stepNames.map((name, i) => {
+    const stepStatus: StepStatus = i < done ? 'succeeded' : i === done ? 'running' : 'pending'
+    return { name, status: finished ? 'succeeded' : status === 'QUEUED' ? 'pending' : stepStatus }
+  })
+
+  return {
+    executionId: run.executionId,
+    status,
+    done,
+    total,
+    percent: total ? Math.round((done / total) * 100) : 0,
+    currentStepName: finished || status === 'QUEUED' ? null : (run.stepNames[done] ?? null),
+    steps,
+  }
+}
 
 export const executionHandlers = [
   http.post(`${API_BASE_URL}/runs`, async ({ request }) => {
@@ -94,6 +134,16 @@ export const executionHandlers = [
       { executionId: run.executionId, status: 'QUEUED', stepCount: run.stepNames.length },
       { status: 202 },
     )
+  }),
+
+  http.get(`${API_BASE_URL}/runs/:executionId`, async ({ request, params }) => {
+    const forced = await scene(request)
+    if (forced) return forced
+
+    const run = readRuns()[String(params.executionId)]
+    if (!run) return fail(404, 'EXECUTION_001', '실행을 찾을 수 없습니다.')
+
+    return ok(progressOf(run))
   }),
 
   http.post(`${API_BASE_URL}/executions/cost-estimates`, async ({ request }) => {
