@@ -1,11 +1,14 @@
 package com.aiblockclock.client.ai;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+@Slf4j
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(RecommendProperties.class)
 public class RecommendConfiguration {
@@ -18,6 +21,7 @@ public class RecommendConfiguration {
 
     // 토큰은 두 서버가 나눠 갖는 비밀값이다. 비어 있으면 헤더를 붙이지 않는다 —
     // 추천 엔진도 값이 없으면 검사하지 않으므로 로컬에서는 설정 없이 붙는다.
+    // 추천은 없어도 서비스가 도는 기능이라 빠뜨렸다고 기동을 막지는 않고, 알아챌 수 있게 경고만 남긴다.
     private static RestClient restClient(RecommendProperties properties) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(properties.connectTimeout());
@@ -29,6 +33,8 @@ public class RecommendConfiguration {
 
         if (properties.hasServiceToken()) {
             builder.defaultHeader(RecommendClient.SERVICE_TOKEN_HEADER, properties.serviceToken());
+        } else {
+            log.warn("ai.recommend.service-token 이 비어 있어 추천 엔진에 서비스 토큰 없이 붙는다");
         }
 
         return builder.build();

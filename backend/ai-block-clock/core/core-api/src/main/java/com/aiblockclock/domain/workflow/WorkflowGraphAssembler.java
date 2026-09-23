@@ -24,8 +24,10 @@ public class WorkflowGraphAssembler {
                 .collect(Collectors.toUnmodifiableMap(NodeSourceResolver::sourceType, Function.identity()));
     }
 
+    // 가리킨 원본은 for share 로 잠그고, 실어 보낸 노드는 여기서 node_definition 에 만든다.
+    // 둘 다 호출한 쪽 트랜잭션에 묶여야 하므로 MANDATORY 다.
     @Transactional(propagation = Propagation.MANDATORY)
-    public WorkflowGraph assembleWithSourceLock(
+    public WorkflowGraph lockOrCreateSourcesAndAssemble(
             UserId requester, List<NodePlacement> nodes, List<GraphEdge> edges) {
         WorkflowGraph graph =
                 WorkflowGraph.of(nodes.stream().map(node -> resolve(requester, node)).toList(), edges);

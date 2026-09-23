@@ -11,7 +11,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.Getter;
 
-import java.math.BigDecimal;
 
 @Getter
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -83,6 +82,6 @@ public final class AgentVersion {
     }
 
     public AbcAmount finalPrice() {
-        return cost.baseCost().multiply(BigDecimal.ONE.add(tier.premiumRate()));
+        return cost.baseCost().multiply(tier.priceMultiplier());
     }
 }

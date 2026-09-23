@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 @Tag(name = "마켓", description = "공개된 에이전트를 찾는다.")
 public interface AgentRecommendationApi {
@@ -28,15 +29,15 @@ public interface AgentRecommendationApi {
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "찾은 순서대로. 없으면 빈 목록"),
-            @ApiResponse(responseCode = "400", description = "검색어가 비었거나 개수가 범위를 벗어났다 (`COMMON_001`)",
+            @ApiResponse(responseCode = "400", description = "검색어가 비었거나 200자를 넘었거나, 개수가 범위를 벗어났다 (`COMMON_001`)",
                     content = @Content),
             @ApiResponse(responseCode = "502", description = "추천 엔진에 닿지 못했다 (`RECOMMEND_001`)",
                     content = @Content)
     })
     ApiResult<AgentRecommendationResponse> recommend(
-            @Parameter(description = "하고 싶은 일을 적은 문장", required = true,
+            @Parameter(description = "하고 싶은 일을 적은 문장. 최대 200자", required = true,
                     example = "학원 성적을 분석해서 학부모에게 보낼 리포트를 만들고 싶어")
-            @NotBlank String query,
+            @NotBlank @Size(max = 200) String query,
 
             @Parameter(description = "받을 개수. 최대 20", example = "8")
             @Positive @Max(20) int size);

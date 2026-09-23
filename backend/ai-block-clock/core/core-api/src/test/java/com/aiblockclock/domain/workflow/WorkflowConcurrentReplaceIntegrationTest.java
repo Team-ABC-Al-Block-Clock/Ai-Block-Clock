@@ -1,8 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.user.UserId;
-import com.aiblockclock.enums.workflow.InputSource;
-import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.workflow.WorkflowRepository;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
@@ -116,8 +114,7 @@ class WorkflowConcurrentReplaceIntegrationTest {
 
     private List<NodePlacement> placements() {
         return List.of(
-                new NodePlacement(NodeKey.of("n1"), SourceType.NODE, seededNode, InputSource.defaultSource()),
-                new NodePlacement(NodeKey.of("n2"), SourceType.NODE, seededNode, InputSource.defaultSource()));
+                GraphFixtures.placement("n1", seededNode), GraphFixtures.placement("n2", seededNode));
     }
 
     private static List<GraphEdge> edges() {

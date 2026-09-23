@@ -7,8 +7,8 @@ import com.aiblockclock.domain.node.NodeDefinitionService;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphEdge;
+import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodeKey;
-import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.EdgeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
@@ -17,7 +17,6 @@ import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
-import com.aiblockclock.enums.workflow.SourceType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -75,10 +74,8 @@ class ExecutionPlanAssemblerIntegrationTest {
 
         Workflow workflow = workflowService.save(OWNER, "성적 리포트", null,
                 List.of(
-                        new NodePlacement(NodeKey.of("n1"), SourceType.NODE,
-                                analyze.getId().value(), InputSource.USER),
-                        new NodePlacement(NodeKey.of("n2"), SourceType.NODE,
-                                letter.getId().value(), InputSource.PREV)),
+                        GraphFixtures.placement("n1", analyze.getId().value(), InputSource.USER),
+                        GraphFixtures.placement("n2", letter.getId().value(), InputSource.PREV)),
                 List.of(new GraphEdge(EdgeKey.of("e1"), NodeKey.of("n1"), NodeKey.of("n2"))));
         workflowId = workflow.getId();
 

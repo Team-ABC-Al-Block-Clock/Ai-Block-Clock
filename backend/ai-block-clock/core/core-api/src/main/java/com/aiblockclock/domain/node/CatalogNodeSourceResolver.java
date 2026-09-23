@@ -9,11 +9,14 @@ import com.aiblockclock.domain.workflow.NodeSourceResolver;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionEntity;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,7 +24,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CatalogNodeSourceResolver implements NodeSourceResolver {
     private final NodeDefinitionRepository nodeRepository;
-    private final NodeDefinitionService nodeService;
+    private final NodeDefinitionWriter nodeWriter;
+    private final NodeSpecAssembler specAssembler;
 
     @Override
     public SourceType sourceType() {
@@ -35,16 +39,28 @@ public class CatalogNodeSourceResolver implements NodeSourceResolver {
         }
 
         return nodeRepository.findByIdForShare(placement.sourceId())
-                .filter(defined -> placement.nodeType() == null || defined.getNodeType() == placement.nodeType())
-                .map(NodeDefinitionEntity::getId)
+                .map(defined -> ensureDeclaredType(placement, defined))
                 .map(sourceId -> place(placement, sourceId));
     }
 
     private UUID create(UserId requester, NodeDraft draft) {
-        NodeDefinition created =
-                nodeService.create(requester, draft.name(), Prompt.of(draft.prompt()), draft.model());
+        Prompt prompt = Prompt.of(draft.prompt());
+        NodeSpec spec = specAssembler.assemble(draft.name(), prompt, draft.model());
 
-        return created.getId().value();
+        return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt))
+                .getId().value();
+    }
+
+    // 종류를 밝히지 않은 배치는 행이 가진 종류를 그대로 따른다.
+    private static UUID ensureDeclaredType(NodePlacement placement, NodeDefinitionEntity defined) {
+        if (placement.nodeType() != null && defined.getNodeType() != placement.nodeType()) {
+            throw new CoreException(ErrorType.WORKFLOW_NODE_TYPE_MISMATCH, Map.of(
+                    "nodeKey", placement.key().value(),
+                    "sourceId", placement.sourceId(),
+                    "nodeType", placement.nodeType()));
+        }
+
+        return defined.getId();
     }
 
     private static GraphNode place(NodePlacement placement, UUID sourceId) {

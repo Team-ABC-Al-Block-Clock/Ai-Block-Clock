@@ -3,7 +3,7 @@ package com.aiblockclock.api.v1;
 import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.AgentRegisterRequest;
 import com.aiblockclock.api.v1.response.AgentRegisterResponse;
-import com.aiblockclock.domain.agent.AgentIndexer;
+import com.aiblockclock.domain.agent.AgentIndexService;
 import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
 import com.aiblockclock.domain.user.UserId;
@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentController implements AgentApi {
     private final WorkflowService workflowService;
     private final AgentService agentService;
-    private final AgentIndexer agentIndexer;
+    private final AgentIndexService agentIndexService;
 
     @Override
     @PostMapping
@@ -42,7 +42,7 @@ public class AgentController implements AgentApi {
         AgentRegistration registered = agentService.register(
                 owner, source, Revision.of(request.revision()), request.toProfile());
 
-        agentIndexer.index(registered);
+        agentIndexService.index(registered);
 
         return ApiResult.success(AgentRegisterResponse.from(registered));
     }

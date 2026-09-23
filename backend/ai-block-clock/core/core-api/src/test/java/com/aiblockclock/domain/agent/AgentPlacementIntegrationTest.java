@@ -96,18 +96,17 @@ class AgentPlacementIntegrationTest {
         UUID node = NodeDefinitionSeeder.seed(nodeRepository, owner.value());
 
         return workflowService.save(owner, "굳힐 워크플로우", null,
-                List.of(new NodePlacement(NodeKey.of("n1"), SourceType.NODE, node, InputSource.defaultSource()),
-                        new NodePlacement(NodeKey.of("n2"), SourceType.NODE, node, InputSource.defaultSource())),
+                List.of(GraphFixtures.placement("n1", node), GraphFixtures.placement("n2", node)),
                 List.of(GraphFixtures.edge("e1", "n1", "n2")));
     }
 
     private NodePlacement nodePlacement(String key) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE,
-                NodeDefinitionSeeder.seed(nodeRepository, OWNER.value()), InputSource.defaultSource());
+        return GraphFixtures.placement(key, NodeDefinitionSeeder.seed(nodeRepository, OWNER.value()));
     }
 
     private static NodePlacement agentPlacement(String key, AgentId agentId) {
-        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, agentId.value(), InputSource.defaultSource());
+        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
+                agentId.value(), InputSource.defaultSource(), null);
     }
 
     private static AgentProfile profile() {

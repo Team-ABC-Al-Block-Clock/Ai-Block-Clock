@@ -24,8 +24,9 @@ public enum Tier {
         return TIER_4;
     }
 
-    public BigDecimal premiumRate() {
-        return premiumRate;
+    // 최종가 = 기본 비용 × (1 + 할증률). 할증 규칙은 여기 한 곳에만 둔다.
+    public BigDecimal priceMultiplier() {
+        return BigDecimal.ONE.add(premiumRate);
     }
 
     public int level() {

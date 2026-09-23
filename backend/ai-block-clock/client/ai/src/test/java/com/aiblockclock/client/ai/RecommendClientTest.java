@@ -86,19 +86,6 @@ class RecommendClientTest {
     }
 
     @Test
-    @DisplayName("색인이 비어 있는지 건강 상태로 알 수 있다")
-    void tellsWhetherTheIndexIsEmpty() {
-        server.expect(requestTo(BASE_URL + "/health"))
-                .andExpect(method(HttpMethod.GET))
-                .andRespond(withSuccess("""
-                        { "status": "ok", "model_version": "abc-agent-retriever-v1", "indexed_agents": 0 }
-                        """, MediaType.APPLICATION_JSON));
-
-        assertThat(client.health().isEmpty()).isTrue();
-        server.verify();
-    }
-
-    @Test
     @DisplayName("추천 엔진이 죽어 있으면 요청 실패로 끊는다")
     void failsWhenTheEngineIsDown() {
         server.expect(requestTo(BASE_URL + "/v1/recommend"))

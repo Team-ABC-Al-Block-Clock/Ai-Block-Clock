@@ -112,7 +112,7 @@ class WorkflowDraftPlacementIntegrationTest {
     }
 
     private NodePlacement existing(String key) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE, seededNode, InputSource.defaultSource());
+        return GraphFixtures.placement(key, seededNode);
     }
 
     private static NodePlacement draft(String key, String name) {
