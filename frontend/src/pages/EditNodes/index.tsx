@@ -35,7 +35,8 @@ const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 �
 function describeNodeCreateError(error: unknown): string {
   if (!(error instanceof ApiError)) return '노드를 만들지 못했습니다'
   if (error.code === 'NODE_003') return '프롬프트를 입력해 주세요'
-  if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
+  // 서버 빈 검증은 이름·프롬프트를 한 코드로 묶어 답한다. 한쪽을 지목하지 않는다.
+  if (error.code === 'COMMON_001') return '입력한 값을 확인해 주세요'
   return '노드를 만들지 못했습니다'
 }
 
@@ -127,6 +128,12 @@ export default function EditNodes() {
 
   /** 마지막으로 저장에 성공한(또는 불러온) 내용. 한 글자라도 달라지면 다시 저장할 것이 있다. */
   const [savedShape, setSavedShape] = useState<string | null>(null)
+  /**
+   * 저장본에 들어간 원본 id. 서버가 이런 노드의 삭제를 `NODE_004` 로 막는다.
+   *
+   * 화면 단위로 「저장했는가」만 보면 저장 뒤에 새로 만든 노드까지 잠긴다.
+   */
+  const [savedSources, setSavedSources] = useState<ReadonlySet<string>>(new Set())
 
   /** 한 번 옮기면 끝이다. 같은 응답으로 다시 덮지 않는다. */
   const applied = useRef<string | null>(null)
@@ -142,6 +149,7 @@ export default function EditNodes() {
     setSavedShape(
       shapeOf(toWorkflowGraph(loadedCanvas.nodes, loadedCanvas.edges), detail.name.trim()),
     )
+    setSavedSources(new Set(loadedCanvas.nodes.map((node) => node.sourceId)))
   }, [loaded, canvas])
 
   // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
@@ -176,6 +184,7 @@ export default function EditNodes() {
     onSuccess: ({ result, shape }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
       setSavedShape(shape)
+      setSavedSources(new Set(nodes.map((node) => node.sourceId)))
       // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workflows.detail(result.workflowId),
@@ -834,8 +843,8 @@ export default function EditNodes() {
           typeLabel={selTypeLabel}
           nodeId={selNodeId}
           summary={n?.summary}
-          // 저장된 워크플로우에 놓인 노드는 서버가 삭제를 막는다(`NODE_004`).
-          deletable={!saved}
+          // 저장본에 들어간 노드는 서버가 삭제를 막는다(`NODE_004`).
+          deletable={!!selNodeId && !savedSources.has(selNodeId)}
           onRenamed={renameBySource}
           onDeleted={removeBySource}
         />
