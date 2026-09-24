@@ -42,6 +42,11 @@ function describeSaveError(error: unknown): string | null {
   if (error.code === 'WORKFLOW_006') return '노드는 20개까지 이을 수 있습니다'
   if (error.code === 'WORKFLOW_007') return '연결이 너무 깁니다. 10단계까지 이을 수 있습니다'
   if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
+  // 서버가 그래프를 물리는 나머지 갈래. 빠져 있으면 고칠 곳을 모른 채 같은 저장만 되풀이한다.
+  if (error.code === 'WORKFLOW_005') return '연결이 고리를 이룹니다. 돌아오는 선을 지워 주세요'
+  if (error.code === 'WORKFLOW_013') return '연결이 규칙에 맞지 않습니다. 한 줄로 이어 주세요'
+  if (error.code === 'WORKFLOW_014') return '노드를 하나 이상 놓아야 저장할 수 있습니다'
+  if (error.code === 'WORKFLOW_017') return '놓인 노드의 종류가 서버와 다릅니다. 다시 놓아 주세요'
   if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
   if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
   if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
@@ -77,6 +82,7 @@ export default function EditNodes() {
     dragId,
     linkFrom,
     canSell,
+    removeSelected,
     portOpen,
     onHover,
     onSelectEdge,
@@ -249,6 +255,8 @@ export default function EditNodes() {
       }
     : { display: 'none' }
   const hasSelection = !!n
+  // 에이전트는 원본을 열지 않는다 — 남의 내부 구성이고, 내 것이라도 노드가 아니다.
+  const selNodeId = n && n.sourceType === 'NODE' && n.mine ? n.sourceId : undefined
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
   const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
@@ -750,6 +758,8 @@ export default function EditNodes() {
           name={selName}
           initial={selInitial}
           typeLabel={selTypeLabel}
+          nodeId={selNodeId}
+          onDeleted={removeSelected}
         />
 
         <NodePalettePanel

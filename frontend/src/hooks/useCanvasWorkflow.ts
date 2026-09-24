@@ -465,6 +465,8 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     dragId,
     linkFrom,
     canSell: canSellWorkflow(nodes),
+    /** 고른 것을 캔버스에서 내린다. 원본은 그대로다. */
+    removeSelected: () => dispatch({ type: 'removeSelected' }),
     portOpen,
     view,
     zoomLabel: `${zoomPercent(view)}%`,
