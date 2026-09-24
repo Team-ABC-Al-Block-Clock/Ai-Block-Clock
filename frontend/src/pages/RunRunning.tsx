@@ -39,9 +39,8 @@ const CAMERA_STEP = 197
 const POLL_MS = 2_000
 
 /**
- * 단계 상태는 실행 엔진이 보낸 소문자가 그대로 온다 — 서버가 `String` 으로 흘려 주기만 하고
- * 값을 대조하지 않아(`ExecutionProgress.Step`) 우리가 모르는 값이 올 수 있다. 그래서 `Record<string>`
- * 이고, 못 찾으면 대기로 둔다. 빈 칸으로 두면 카드 아래 한 줄이 통째로 사라진다.
+ * 실행 엔진이 보낸 소문자가 그대로 온다 — 서버가 대조하지 않아 모르는 값이 올 수 있다.
+ * 못 찾으면 대기로 둔다. 빈 칸이면 카드 아래 한 줄이 통째로 사라진다.
  */
 const STEP_LABEL: Record<string, string> = {
   pending: '대기',
@@ -63,11 +62,8 @@ export default function RunRunning() {
   const workflowId = searchParams.get('workflowId') ?? undefined
 
   /**
-   * 실제 진행 상황. 접수 번호가 있을 때만 따라간다 — 번호 없이 들어오는 길(`?done=1`,
-   * 주소창)에서는 아래의 흉내 진행이 그대로 돈다.
-   *
-   * 끝나면 `refetchInterval` 이 false 가 되어 멈춘다. 화면을 떠나면 쿼리가 비활성이 되어
-   * 타이머도 같이 걷힌다 — 따로 정리할 것이 없다.
+   * 실제 진행. 접수 번호가 있을 때만 따라간다 — 없으면 아래 흉내 진행이 돈다.
+   * 끝나면 `refetchInterval` 이 멈추고, 화면을 떠나면 쿼리와 함께 타이머도 걷힌다.
    */
   const { executionId } = useParams()
   const live = useQuery({
@@ -106,11 +102,8 @@ export default function RunRunning() {
   ]
   const failed = progress?.status === 'FAILED'
   /**
-   * 진행을 **한 번도** 못 받은 상태. 흉내 진행도 꺼져 있어 그냥 두면 0% 에서 「도는 중」으로 굳는다.
-   *
-   * 앞서 받아 둔 값이 있으면 실패로 보지 않는다 — 폴링 한 번이 502 로 넘어져도(엔진이 자주 낸다)
-   * 쿼리는 지난 데이터를 그대로 들고 있다. 그때 실패 화면으로 바꾸면 멀쩡히 도는 실행을 두고
-   * 「워크플로우를 수정하라」고 말한 뒤 2초 뒤 되돌아온다.
+   * 진행을 한 번도 못 받은 상태. 앞서 받아 둔 값이 있으면 실패로 보지 않는다 —
+   * 폴링 한 번이 넘어져도 쿼리는 지난 값을 들고 있어, 도는 실행이 잠깐 실패로 보인다.
    */
   const lost = !!live.error && !progress
   const pctR = progress ? progress.percent : Math.round(pct)
@@ -120,15 +113,13 @@ export default function RunRunning() {
     ? Math.min(defs.length - 1, progress.done)
     : Math.min(defs.length - 1, Math.floor(pctR / per))
   /**
-   * 단계를 카드에 짝짓는다. `steps` 에 nodeKey 가 없어 순서로만 맞출 수 있는데,
-   * 에이전트 자리는 안의 단계 수만큼 펼쳐져 나온다 — 수가 어긋나면 짝짓기를 포기하고
-   * 진행률로만 칠한다. 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
+   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
+   * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
    */
   const aligned = progress && progress.steps.length === defs.length ? progress.steps : null
   /**
-   * 끝났는지는 진행률이 아니라 상태로 가른다. `percent` 는 엔진이 준 값이라 마지막 단계가 끝나고
-   * 상태가 넘어가기 전 한 번은 `percent: 100, status: 'RUNNING'` 으로 온다 — 진행률로 가르면
-   * 그 한 틱 동안 카드와 결과 화면이 먼저 넘어간다.
+   * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
+   * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
    */
   const finished = progress ? progress.status === 'SUCCEEDED' : pctR >= 100
   const g: CanvasNodeData | undefined = defs[active]
@@ -150,7 +141,7 @@ export default function RunRunning() {
       : { display: 'none' }
   const nodes = defs.map((d, i) => {
     const step = aligned?.[i]
-    // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 는 0 이라 첫 카드가 켜져 버린다.
+    // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
     const stepDone = step ? step.status === 'succeeded' : !lost && (i < active || finished)
     const stepRunning = step ? step.status === 'running' : !lost && i === active && !finished
     const stepFailed = step?.status === 'failed'
@@ -281,10 +272,7 @@ export default function RunRunning() {
     pctR +
     '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
-  /**
-   * 실패 사유는 아직 진행 응답에 없다(BE !84 범위). 어느 단계에서 멈췄는지만 짚어 준다 —
-   * 「알 수 없는 오류」보다 다시 손댈 자리를 알려 주는 쪽이 낫다.
-   */
+  /** 실패 사유는 아직 진행 응답에 없다(BE !84 범위). 멈춘 단계만 짚어 준다. */
   const failedStep = progress?.steps.find((step) => step.status === 'failed')
   const failureNotice = lost
     ? '잠시 뒤 다시 열어 보시거나, 워크플로우를 확인해 주세요'

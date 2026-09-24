@@ -2,11 +2,8 @@ import { api } from '@/api/client'
 import type { SourceType } from '@/api/workflows'
 
 /**
- * 실행 도메인 API. 금액은 소수점 오차를 피하려고 전부 문자열이다(`api/credits.ts` 와 같은 규칙).
- *
- * 견적은 `/executions` 아래, 실행 시작·조회는 `/runs` 아래다 — 같은 도메인인데 앞 조각이
- * 갈린다. 서버가 이유를 밝힌 적은 없고 두 갈래를 각각 다른 MR 이 열었다. 물어보기 전까지는
- * 그대로 따른다.
+ * 실행 도메인 API. 금액은 소수점 오차를 피하려고 전부 문자열이다.
+ * 견적은 `/executions`, 시작·조회는 `/runs` 다 — 서버가 이유를 밝힌 적 없어 그대로 따른다.
  */
 
 /** 견적의 한 줄. 에이전트는 속을 펼치지 않고 판매가 하나로 온다. */
@@ -32,10 +29,8 @@ export interface CostEstimate {
 }
 
 /**
- * 실행 전 예상 차감액. 조회지만 명세가 POST 라 CSRF 토큰이 붙는다(`api/client.ts` 가 알아서 한다).
- *
- * 계산만 하고 차감하지 않는다 — 실제 차단은 실행을 접수할 때 서버가 한 번 더 본다.
- * 그래서 화면이 막는 것은 안내이지 최종 판정이 아니다.
+ * 실행 전 예상 차감액. 조회지만 명세가 POST 라 CSRF 토큰이 붙는다.
+ * 계산만 하고 차감하지 않는다 — 화면이 막는 것은 안내이지 최종 판정이 아니다.
  */
 export const estimateCost = (workflowId: string) =>
   api.post<CostEstimate>('/executions/cost-estimates', { workflowId })
@@ -43,10 +38,7 @@ export const estimateCost = (workflowId: string) =>
 /** 실행 전체의 상태. 서버 enum 그대로다. */
 export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
 
-/**
- * 단계 하나의 상태. 실행 엔진이 보낸 소문자를 서버가 그대로 흘려 준다 —
- * 실행 전체 상태와 집합이 다르다(`pending` 과 `skipped` 가 더 있고 `queued` 가 없다).
- */
+/** 단계 하나의 상태. 실행 전체 상태와 집합이 다르다 — 소문자이고 `skipped` 가 있다. */
 export type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped'
 
 /** 단계 이름과 상태뿐이다. `nodeKey` 가 없어 캔버스와는 순서로 짝짓는다. */
@@ -94,10 +86,7 @@ export function describeRunFileProblem(file: File): string | null {
 
 export interface StartExecutionInput {
   workflowId: string
-  /**
-   * 이 「누름」을 가리키는 UUID. 같은 누름을 다시 보낼 때는 같은 값이어야 한다 —
-   * 서버가 새로 차감하지 않고 앞서 접수한 실행을 그대로 돌려준다(`EXECUTION_ALREADY_REQUESTED`).
-   */
+  /** 이 누름을 가리키는 UUID. 같은 값이 다시 오면 서버가 앞서 접수한 실행을 돌려준다. */
   requestId: string
   /** 첫 단계에 함께 전달된다. 500자까지 */
   comment?: string
@@ -107,15 +96,11 @@ export interface StartExecutionInput {
 }
 
 /**
- * 실행 접수. 단계 하나가 25초쯤 걸려 서버는 기다리지 않고 접수 번호만 준다(202).
+ * 실행 접수. 서버는 기다리지 않고 접수 번호만 준다(202). 그 순간 견적만큼 ABC 가 빠지고,
+ * 모자라면 `PAYMENT_008`(402) 이다.
  *
- * 접수되는 순간 견적만큼 ABC 가 **바로 빠진다**(`mock` 실행도 같다). 잔액이 모자라면
- * `PAYMENT_008`(402) 이고, 엔진에 맡기지 못하면 서버가 떼어 둔 금액을 알아서 되돌린다.
- *
- * 명세가 `multipart/form-data` 다 — 첫 단계가 읽을 파일을 같이 싣기 때문이다. `Content-Type` 은
- * 손대지 않는다. FormData 를 주면 브라우저가 boundary 까지 붙여 준다(`api/client.ts`).
- *
- * 비어 있는 칸은 아예 넣지 않는다. 빈 문자열을 넣으면 서버가 「코멘트가 왔는데 비었다」로 받는다.
+ * 명세가 multipart 다 — 첫 단계가 읽을 파일을 같이 싣는다. `Content-Type` 은 손대지 않는다.
+ * 빈 칸은 아예 넣지 않는다. 빈 문자열을 넣으면 서버가 「값이 왔는데 비었다」로 받는다.
  */
 export const startExecution = ({
   workflowId,
@@ -136,9 +121,7 @@ export const startExecution = ({
 
 /**
  * 진행 상황. 2초 간격으로 부르고 `status` 가 끝나면 멈춘다.
- *
- * 그래프는 오지 않는다 — 캔버스는 `GET /workflows/{workflowId}` 로 따로 그리고 여기서는
- * 단계의 이름과 상태만 얹는다.
+ * 그래프는 오지 않는다 — 캔버스는 따로 그리고 여기서는 단계 이름과 상태만 얹는다.
  */
 export const getExecutionProgress = (executionId: string) =>
   api.get<ExecutionProgress>(`/runs/${executionId}`)

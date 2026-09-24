@@ -32,15 +32,12 @@ const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 /** 서버가 받는 코멘트 길이. 넘겨 보내면 `COMMON_001` 이라 입력칸에서 먼저 막는다. */
 const COMMENT_MAX = 500
 
-/** 잔액이 모자라 접수가 막혔다. 같은 금액이 위 카드에 이미 떠 있어 문구만 쓰고 금액은 읽지 않는다. */
+/** 잔액 부족. 금액은 위 카드에 이미 있어 문구만 쓴다. */
 const INSUFFICIENT = 'PAYMENT_008'
 
 /**
- * 서버가 **떼어 두기 전에** 끊은 것이 확실한 코드. 이때만 요청 식별자를 버린다.
- *
- * 나머지는 전부 지킨다 — 특히 프록시가 낸 502·504 는 `code` 조차 없고, 앱이 이미 접수하고
- * 차감한 뒤일 수 있다. 거기서 새 값을 만들면 두 번 빠진다. 반대로 값을 지켜서 손해 보는 경우는
- * 없다. 서버가 그 값을 기록해 두었으면 앞서 접수한 실행을 돌려줄 뿐이다.
+ * 떼어 두기 전에 끊긴 것이 확실한 코드. 이때만 요청 식별자를 버린다 —
+ * 502·504 는 code 조차 없고 이미 차감된 뒤일 수 있어, 새 값을 만들면 두 번 빠진다.
  */
 const BEFORE_RESERVE = new Set([
   'COMMON_001',
@@ -105,20 +102,10 @@ export default function RunWaiting() {
     setFileProblem('')
   }
 
-  /**
-   * 이 「누름」을 가리키는 값. 접수되는 순간 돈이 빠지므로 재시도에 새 값을 만들면 두 번 빠진다.
-   *
-   * 그래서 보내는 내용이 같은 동안에는 같은 값을 계속 쓴다 — 응답을 못 받고 다시 눌러도 서버가
-   * 앞서 접수한 실행을 돌려준다. 코멘트나 파일을 고치면 다른 실행이니 새로 만든다. 옛 값을
-   * 그대로 보내면 고친 내용이 아니라 이전 실행이 돌아온다.
-   */
+  /** 이 누름을 가리키는 값. 보낼 내용이 같으면 그대로 쓴다 — 새로 만들면 두 번 빠진다. */
   const attempt = useRef<{ key: string; requestId: string } | null>(null)
   const requestIdFor = () => {
-    /**
-     * 열쇠는 **실제로 보내는 값**과 같아야 한다. 코멘트는 다듬어 보내므로 여기서도 다듬는다 —
-     * 끝에 공백 하나를 더하면 보낼 내용은 그대로인데 새 값이 나가 두 번 빠진다.
-     * 파일은 이름·크기가 같아도 다른 파일일 수 있어 고친 시각까지 본다.
-     */
+    // 열쇠는 실제로 보내는 값과 같아야 한다. 코멘트는 다듬어 보내고, 파일은 이름·크기가 같아도 다를 수 있다.
     const key = [
       workflowId ?? '',
       prompt.trim(),
@@ -130,10 +117,7 @@ export default function RunWaiting() {
     return attempt.current.requestId
   }
 
-  /**
-   * 실행 전 견적. 계산만 하고 차감하지 않아 창을 떠난 사이 다른 실행이 잔액을 잡아 둘 수 있다
-   * — 충전하고 돌아오는 길도 마찬가지라 돌아올 때마다 다시 받는다.
-   */
+  /** 실행 전 견적. 그사이 잔액이 바뀔 수 있어 창에 돌아올 때마다 다시 받는다. */
   const estimate = useQuery({
     queryKey: queryKeys.executions.costEstimate(workflowId ?? ''),
     queryFn: () => estimateCost(workflowId!),
@@ -153,18 +137,10 @@ export default function RunWaiting() {
         : 0
     : 0
 
-  /**
-   * 견적을 못 받았을 때는 막지 않는다. 최종 판정은 서버가 실행을 접수할 때 다시 한다 —
-   * 화면이 모른다는 이유로 멈추면 서버가 통과시킬 실행까지 못 하게 된다.
-   */
+  /** 견적을 못 받았을 때는 막지 않는다. 최종 판정은 서버가 접수할 때 다시 한다. */
   const blocked = cost ? !cost.executable : false
 
-  /**
-   * 실행 접수. 서버는 기다리지 않고 접수 번호만 주므로 성공하면 바로 진행 화면으로 넘긴다.
-   *
-   * 진행 응답에 그래프가 없어 `workflowId` 도 함께 넘긴다 — 진행 화면은 그 값으로 캔버스를
-   * 그리고, 받은 단계는 이름과 상태만 그 위에 얹는다.
-   */
+  /** 실행 접수. 진행 응답에 그래프가 없어 `workflowId` 도 함께 넘긴다. */
   const queryClient = useQueryClient()
   const start = useMutation({
     mutationFn: () =>
@@ -197,18 +173,10 @@ export default function RunWaiting() {
     : 'inset 0 1px 0 rgba(255,255,255,.12)'
   const btnCursor = on ? 'pointer' : 'not-allowed'
 
-  /**
-   * 버튼이 왜 안 눌리는지, 왜 실패했는지를 버튼 아래에 적는다.
-   *
-   * 접수 실패는 서버 문구를 그대로 쓴다 — 코드마다 화면 문구를 새로 지으면 서버가 코드를
-   * 늘릴 때마다 「알 수 없는 오류」가 된다. 응답을 못 받은 경우만 우리가 문구를 채운다.
-   */
   const startCode = start.error instanceof ApiError ? start.error.code : undefined
   /**
-   * 접수 실패는 감추지 않는다. `EXECUTION_006` 을 조용히 넘기려 했지만, 같은 탭 연타는
-   * `start.isPending` 이 이미 막고 있어 실제로는 **다른 탭이나 새로고침**에서 온다 — 그쪽에는
-   * 넘겨 줄 요청이 없어 화면이 아무 말도 없이 멈춘 것처럼 보인다. 서버가 실행 번호를 실어
-   * 보내지 않아 그 실행으로 데려다줄 수도 없으므로, 적어도 무슨 일인지는 적는다.
+   * 버튼 아래 한 줄. 서버 문구를 그대로 쓴다 — 코드마다 지어내면 새 코드가 「알 수 없는 오류」가 된다.
+   * 409 도 감추지 않는다. 같은 탭 연타는 isPending 이 막으므로 실제로는 다른 탭·새로고침에서 온다.
    */
   const runNotice = start.error
     ? start.error instanceof ApiError && !start.error.isNetworkError

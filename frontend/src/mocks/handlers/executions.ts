@@ -10,21 +10,16 @@ import { findWorkflowDetail } from '@/mocks/handlers/workflows'
 import type { WorkflowDetail } from '@/api/workflows'
 
 /**
- * 실행 도메인 mock.
- *
- * 견적은 저장된 워크플로우를 읽어 자리마다 팔레트 단가를 매긴다 — 손으로 픽스처를 두면
- * 캔버스를 고쳐도 금액이 그대로라 「바뀐 게 반영 안 된다」로 보인다.
+ * 실행 도메인 mock. 견적은 저장된 워크플로우를 읽어 자리마다 팔레트 단가를 매긴다 —
+ * 픽스처를 손으로 두면 캔버스를 고쳐도 금액이 그대로다.
  */
 
 /** 금액은 서버와 같이 소수 여섯 자리 문자열로 맞춘다. */
 const money = (value: number) => value.toFixed(6)
 
 /**
- * 접수된 실행. 시작 시각만 적어 두고 진행률은 조회할 때 경과 시간으로 계산한다 —
- * 타이머를 돌리면 탭을 옮긴 사이 멈춰 버려 돌아왔을 때 진행이 얼어 있다.
- *
- * localStorage 에 둔다. 메모리면 진행 화면에서 새로고침하는 순간 없는 실행이 된다.
- * 되돌리려면 `localStorage.removeItem('mockExecutions')`.
+ * 접수된 실행. 시작 시각만 적고 진행률은 조회할 때 경과 시간으로 짓는다 — 타이머를 돌리면
+ * 탭을 옮긴 사이 멈춘다. localStorage 에 둔다(새로고침하면 없는 실행이 되지 않게).
  */
 const RUNS_KEY = 'mockExecutions'
 
@@ -62,10 +57,7 @@ function putRun(run: MockRun) {
 const FILE_EXTENSIONS = ['.xlsx', '.xls', '.csv']
 const FILE_MAX_BYTES = 10 * 1024 * 1024
 
-/**
- * 견적. 접수와 견적 조회가 같은 값을 써야 한다 — 따로 계산하면 카드에 6 이 떠 있는데
- * 접수는 7 로 막는 일이 생긴다.
- */
+/** 견적. 접수와 조회가 같은 값을 써야 한다 — 따로 계산하면 카드와 막는 금액이 어긋난다. */
 function quoteOf(detail: WorkflowDetail) {
   const items: CostItem[] = detail.nodes.map((node) => {
     const item = PLACEABLE_ITEMS.find((it) => it.itemId === node.sourceId)
@@ -170,14 +162,11 @@ export const executionHandlers = [
 
     // 분기(`CONTROL`)는 여기서 EXECUTION_005 로 끊긴다. 화면이 아직 분기를 만들지 못해 생략한다.
 
-    // 빈 그래프는 저장에서 이미 막혀 서버는 이 자리에 응답이 없다. 0단계 실행을 만들지 않으려는 방어다.
+    // 빈 그래프는 저장에서 막혀 서버에는 이 응답이 없다. 0단계 실행을 만들지 않으려는 방어다.
     if (!detail.nodes.length)
       return fail(400, 'WORKFLOW_014', '노드를 하나 이상 놓아야 실행할 수 있습니다.')
 
-    /**
-     * 선차감. 실제로 잔액을 깎지는 않는다 — 픽스처가 상수라 깎으면 새로고침에 되살아나
-     * 「깎였다 안 깎였다」 하는 쪽이 더 헷갈린다. 막는 자리와 실어 보내는 금액만 서버와 맞춘다.
-     */
+    // 선차감. 잔액을 실제로 깎지는 않는다 — 픽스처가 상수라 새로고침에 되살아난다.
     const quote = quoteOf(detail)
     if (!quote.executable)
       return fail(402, 'PAYMENT_008', 'ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.', {
