@@ -1,7 +1,11 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.enums.workflow.ControlType;
+import com.aiblockclock.enums.workflow.InputFieldType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.IoType;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import java.nio.charset.StandardCharsets;
@@ -26,7 +30,34 @@ public final class GraphFixtures {
     }
 
     public static NodePlacement placement(String key, UUID sourceId, InputSource inputSource) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE, null, sourceId, inputSource, null, null, null);
+        return new NodePlacement(NodeKey.of(key), SourceType.NODE, null, sourceId, inputSource,
+                null, null, null, null, null, null, null);
+    }
+
+    public static IoNode start(String key) {
+        return new IoNode(NodeKey.of(key), IoType.START, List.of(field("brand_name")), null, null);
+    }
+
+    public static IoNode freeStart(String key) {
+        return new IoNode(NodeKey.of(key), IoType.START, List.of(), null, null);
+    }
+
+    public static IoNode end(String key) {
+        return new IoNode(NodeKey.of(key), IoType.END, List.of(), ResultShape.DOCUMENT, ResultFormat.PDF);
+    }
+
+    public static InputField field(String key) {
+        return new InputField(key, "브랜드명", InputFieldType.TEXT, true, List.of());
+    }
+
+    public static NodePlacement startPlacement(String key, List<InputField> fields) {
+        return new NodePlacement(NodeKey.of(key), SourceType.IO, null, null, InputSource.defaultSource(),
+                null, null, null, IoType.START, fields, null, null);
+    }
+
+    public static NodePlacement endPlacement(String key, ResultShape shape, ResultFormat format) {
+        return new NodePlacement(NodeKey.of(key), SourceType.IO, null, null, InputSource.defaultSource(),
+                null, null, null, IoType.END, null, shape, format);
     }
 
     public static ControlNode branch(String key) {

@@ -91,6 +91,12 @@ public enum ErrorType {
             "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
             LogLevel.WARN),
 
+    WORKFLOW_IO_NODE_DUPLICATED(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "시작 노드와 끝 노드는 각각 하나만 놓을 수 있습니다.", LogLevel.WARN),
+
+    WORKFLOW_IO_NODE_EDGE_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "시작 노드로는 선이 들어올 수 없고, 끝 노드에서는 선이 나갈 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_GRAPH_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_014,
             "노드를 하나 이상 놓아야 저장할 수 있습니다.", LogLevel.WARN),
 
@@ -141,6 +147,9 @@ public enum ErrorType {
 
     EXECUTION_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.EXECUTION_004,
             "파일 크기가 10MB 를 넘습니다.", LogLevel.WARN),
+
+    EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
+            "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),

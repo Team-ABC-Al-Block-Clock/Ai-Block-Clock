@@ -23,17 +23,26 @@ public final class GraphConverter {
     }
 
     public static List<GraphNodeEntity> toNodeEntities(GraphId graphId, List<GraphNode> nodes) {
-        return nodes.stream()
-                .map(node -> new GraphNodeEntity(
-                        graphId.value(),
-                        node.key().value(),
-                        node.sourceType(),
-                        node.reference().referenceId(),
-                        node.reference().versionId(),
-                        node.inputSource(),
-                        node instanceof ControlNode control ? control.controlType() : null,
-                        node instanceof ControlNode control ? MAPPER.writeValueAsString(control.condition()) : null))
-                .toList();
+        return nodes.stream().map(node -> toNodeEntity(graphId, node)).toList();
+    }
+
+    private static GraphNodeEntity toNodeEntity(GraphId graphId, GraphNode node) {
+        ControlNode control = node instanceof ControlNode placed ? placed : null;
+        IoNode io = node instanceof IoNode placed ? placed : null;
+
+        return new GraphNodeEntity(
+                graphId.value(),
+                node.key().value(),
+                node.sourceType(),
+                node.reference().referenceId(),
+                node.reference().versionId(),
+                node.inputSource(),
+                control == null ? null : control.controlType(),
+                control == null ? null : MAPPER.writeValueAsString(control.condition()),
+                io == null ? null : io.ioType(),
+                io == null || io.fields().isEmpty() ? null : MAPPER.writeValueAsString(io.fields()),
+                io == null ? null : io.resultShape(),
+                io == null ? null : io.resultFormat());
     }
 
     public static List<GraphEdgeEntity> toEdgeEntities(GraphId graphId, List<GraphEdge> edges) {
@@ -62,7 +71,13 @@ public final class GraphConverter {
             case AGENT -> new AgentNode(key, node.getReferenceId(), node.getVersionId(), node.getInputSource());
             case CONTROL -> new ControlNode(key, node.getControlType(),
                     MAPPER.readValue(node.getBranchCondition(), BranchCondition.class));
+            case IO -> new IoNode(key, node.getIoType(), toFields(node.getIoFields()),
+                    node.getResultShape(), node.getResultFormat());
         };
+    }
+
+    private static List<InputField> toFields(String json) {
+        return json == null ? List.of() : List.of(MAPPER.readValue(json, InputField[].class));
     }
 
     private static GraphEdge toEdge(GraphEdgeEntity edge) {

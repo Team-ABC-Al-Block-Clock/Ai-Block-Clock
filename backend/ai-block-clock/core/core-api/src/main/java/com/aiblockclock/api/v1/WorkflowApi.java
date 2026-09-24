@@ -154,6 +154,7 @@ public interface WorkflowApi {
                     | `LLM` | `sourceId` 또는 `name` · `prompt` (· `model`) | 가리키면 놓고, 실어 보내면 만들어 놓는다 |
                     | `TRIGGER` · `TOOL` | `sourceId` | 미리 정의된 그 종류의 노드인지 보고 놓는다 |
                     | 없음 (`sourceType: AGENT`) | `sourceId` | 공개된 에이전트를 참조한다 |
+                    | 없음 (`sourceType: IO`) | `ioType` 과 그 종류가 드는 값 | 원본 없이 그 자리에 둔다 |
 
                     `sourceId` 로 가리킨 노드가 밝힌 종류와 다르면 `WORKFLOW_017` 이다.
                     `nodeType` 을 생략하고 `sourceId` 만 보내면 종류를 대조하지 않고 그 행을 그대로 놓는다.
@@ -166,9 +167,15 @@ public interface WorkflowApi {
                     AI 런타임 주문서에 노드 종류 칸이 없어 실행 경로가 없다.
                     `AGENT` 도 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
 
-                    구조 검사는 네 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
+                    `sourceType: IO` 는 캔버스 양 끝에 서는 자리다. 시작 노드(`ioType: START`)는 실행할 때 사용자가
+                    채울 `fields` 를 들고, 비우면 실행 화면이 자유 입력란 하나를 그린다. 끝 노드(`ioType: END`)는
+                    결과를 어떤 구조로 낼지(`resultShape`)와 어떤 형식으로 받을지(`resultFormat`)를 든다.
+                    **아직 실행에 싣지 않는다** — 놓으면 실행과 견적이 `EXECUTION_005` 로 막힌다.
+
+                    구조 검사는 다섯 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
                     전체가 시작점 하나에서 뻗는 트리일 것, 분기 노드(`sourceType: CONTROL`)는 참 · 거짓 갈래를 하나씩 내고
-                    조건이 그보다 앞에 놓인 작업 노드를 가리킬 것. 어기면 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.
+                    조건이 그보다 앞에 놓인 작업 노드를 가리킬 것, 시작 노드와 끝 노드는 각각 하나뿐이고 시작으로는 선이
+                    들어오지 않으며 끝에서는 선이 나가지 않을 것. 어기면 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.
                     분기 뒤 합류는 아직 받지 않는다.""",
             requestBody = @RequestBody(required = true,
                     content = @Content(mediaType = "application/json",

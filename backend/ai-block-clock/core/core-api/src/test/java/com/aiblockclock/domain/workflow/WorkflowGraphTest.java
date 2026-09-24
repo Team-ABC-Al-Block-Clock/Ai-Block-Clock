@@ -10,7 +10,9 @@ import static com.aiblockclock.domain.workflow.GraphFixtures.agent;
 import static com.aiblockclock.domain.workflow.GraphFixtures.branch;
 import static com.aiblockclock.domain.workflow.GraphFixtures.branchEdge;
 import static com.aiblockclock.domain.workflow.GraphFixtures.edge;
+import static com.aiblockclock.domain.workflow.GraphFixtures.end;
 import static com.aiblockclock.domain.workflow.GraphFixtures.node;
+import static com.aiblockclock.domain.workflow.GraphFixtures.start;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -401,6 +403,80 @@ class WorkflowGraphTest {
         @DisplayName("제어 노드는 원본 노드로 세지 않는다")
         void leavesControlNodeOutOfBaseNodes() {
             assertThat(GraphFixtures.branched().baseNodeReferences()).hasSize(4);
+        }
+    }
+
+    @Nested
+    @DisplayName("시작 노드와 끝 노드는 양 끝에 선다")
+    class IoNodes {
+        @Test
+        @DisplayName("시작에서 끝까지 이어 놓으면 그대로 돌아본다")
+        void walksFromStartToEnd() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(start("s1"), node("n1"), end("e1")),
+                    List.of(edge("g1", "s1", "n1"), edge("g2", "n1", "e1")));
+
+            assertThat(graph.nodesInOrder())
+                    .extracting(placed -> placed.key().value())
+                    .containsExactly("s1", "n1", "e1");
+        }
+
+        @Test
+        @DisplayName("시작 노드를 둘 놓으면 만들어지지 않는다")
+        void rejectsTwoStartNodes() {
+            assertThatThrownBy(() -> WorkflowGraph.of(
+                    List.of(start("s1"), start("s2"), node("n1")),
+                    List.of(edge("g1", "s1", "n1"), edge("g2", "s2", "n1"))))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_IO_NODE_DUPLICATED);
+        }
+
+        @Test
+        @DisplayName("끝 노드를 둘 놓으면 만들어지지 않는다")
+        void rejectsTwoEndNodes() {
+            assertThatThrownBy(() -> WorkflowGraph.of(
+                    List.of(node("n1"), end("e1"), end("e2")),
+                    List.of(edge("g1", "n1", "e1"), edge("g2", "n1", "e2"))))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_IO_NODE_DUPLICATED);
+        }
+
+        @Test
+        @DisplayName("시작 노드로 선이 들어오면 막는다")
+        void rejectsEdgeIntoStartNode() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), start("s1")),
+                    List.of(edge("g1", "n1", "s1")));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_IO_NODE_EDGE_INVALID);
+        }
+
+        @Test
+        @DisplayName("끝 노드에서 선이 나가면 막는다")
+        void rejectsEdgeOutOfEndNode() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(start("s1"), end("e1"), node("n1")),
+                    List.of(edge("g1", "s1", "e1"), edge("g2", "e1", "n1")));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_IO_NODE_EDGE_INVALID);
+        }
+
+        @Test
+        @DisplayName("입출력 노드는 원본 노드로 세지 않는다")
+        void leavesIoNodeOutOfBaseNodes() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(start("s1"), node("n1"), end("e1")),
+                    List.of(edge("g1", "s1", "n1"), edge("g2", "n1", "e1")));
+
+            assertThat(graph.baseNodeReferences()).hasSize(1);
         }
     }
 }

@@ -3,9 +3,15 @@ package com.aiblockclock.api.v1.response;
 import com.aiblockclock.domain.workflow.ConditionOperator;
 import com.aiblockclock.domain.workflow.ControlNode;
 import com.aiblockclock.domain.workflow.GraphNode;
+import com.aiblockclock.domain.workflow.InputField;
+import com.aiblockclock.domain.workflow.IoNode;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.enums.workflow.ControlType;
+import com.aiblockclock.enums.workflow.InputFieldType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.IoType;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -85,10 +91,23 @@ public record WorkflowDetailResponse(
             ControlType controlType,
 
             @Schema(description = "분기 조건. 분기 노드가 아니면 null", nullable = true)
-            ConditionResponse condition
+            ConditionResponse condition,
+
+            @Schema(description = "입출력 노드 종류. 입출력 노드가 아니면 null", nullable = true)
+            IoType ioType,
+
+            @Schema(description = "실행할 때 사용자가 채울 입력 항목. 시작 노드가 아니면 빈 배열")
+            List<InputFieldResponse> fields,
+
+            @Schema(description = "결과를 어떤 구조로 낼지. 끝 노드가 아니면 null", nullable = true)
+            ResultShape resultShape,
+
+            @Schema(description = "결과를 어떤 형식으로 받을지. 끝 노드가 아니면 null", nullable = true)
+            ResultFormat resultFormat
     ) {
         static NodeResponse from(GraphNode node) {
             ControlNode control = node instanceof ControlNode placed ? placed : null;
+            IoNode io = node instanceof IoNode placed ? placed : null;
 
             return new NodeResponse(
                     node.key().value(),
@@ -98,7 +117,34 @@ public record WorkflowDetailResponse(
                     node.inputSource(),
                     control == null ? null : control.controlType(),
                     control == null ? null : new ConditionResponse(
-                            control.condition().left(), control.condition().operator(), control.condition().right()));
+                            control.condition().left(), control.condition().operator(), control.condition().right()),
+                    io == null ? null : io.ioType(),
+                    io == null ? List.of() : io.fields().stream().map(InputFieldResponse::from).toList(),
+                    io == null ? null : io.resultShape(),
+                    io == null ? null : io.resultFormat());
+        }
+    }
+
+    @Schema(description = "실행할 때 사용자가 채울 입력 항목")
+    public record InputFieldResponse(
+            @Schema(description = "채운 값을 담을 키", example = "brand_name")
+            String key,
+
+            @Schema(description = "입력란에 보일 이름", example = "브랜드명")
+            String label,
+
+            @Schema(description = "입력란의 종류")
+            InputFieldType type,
+
+            @Schema(description = "반드시 채워야 하나")
+            boolean required,
+
+            @Schema(description = "고를 수 있는 값. `CHOICE` 가 아니면 빈 배열")
+            List<String> choices
+    ) {
+        static InputFieldResponse from(InputField field) {
+            return new InputFieldResponse(
+                    field.key(), field.label(), field.type(), field.required(), field.choices());
         }
     }
 
