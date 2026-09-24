@@ -7,6 +7,7 @@ import {
   moveNodeTo,
   placeNode,
   removeNode,
+  chainEdges,
   seedCanvasNodes,
   type CanvasBounds,
   type CanvasEdge,
@@ -58,11 +59,12 @@ export type PlacedSeed = Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'mine
  * 추천에서 선택한 것을 안고 들어왔을 때의 첫 상태.
  *
  * 자리표시자는 쓰지 않는다 — 선택한 적 없는 데모 노드가 섞이면 무엇을 내가 선택했는지 알 수 없다.
- * 선택한 순서대로 가로 한 줄로 편다. 왼쪽에서 오른쪽으로 잇는 것이 곧 실행 순서다.
+ * 선택한 순서대로 가로 한 줄로 펴고 그 순서대로 잇는다. 선택한 순서가 곧 실행 순서다.
  */
 export function seededCanvasState(seeds?: PlacedSeed[]): CanvasState {
   if (!seeds?.length) return initialCanvasState
-  return { ...initialCanvasState, nodes: seedCanvasNodes(seeds, 'row'), edges: [] }
+  const nodes = seedCanvasNodes(seeds, 'row')
+  return { ...initialCanvasState, nodes, edges: chainEdges(nodes) }
 }
 
 export type CanvasAction =

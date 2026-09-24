@@ -361,8 +361,8 @@ function seedPoint(layout: SeedLayout, i: number): { x: number; y: number } {
 /**
  * 추천에서 선택한 에이전트를 캔버스 첫 상태로 늘어놓는다.
  *
- * 선은 잇지 않는다 — 이을 수 있는 짝인지는 스키마가 정하고, 우리가 임의로 이어 두면
- * 사용자가 지우는 일부터 하게 된다.
+ * 자리만 정한다. 잇는 것은 `chainEdges` 가 따로 맡는다 — 미리보기는 모아 보여주기만 하고
+ * 편집 화면만 이어서 열기 때문이다.
  *
  * 한 줄 배치는 작업면 폭(980)을 넘길 수 있다. 다섯 장까지 그대로 들어가고, 그 뒤로는
  * 화면이 통째로 축소돼 다 보인다 — 줄을 접으면 어디까지가 순서인지 흐려진다.
@@ -379,6 +379,19 @@ export function seedCanvasNodes(
     ...node,
     enter: `uiIn .7s ${(0.18 + i * 0.08).toFixed(2)}s cubic-bezier(.2,.8,.25,1) backwards`,
   }))
+}
+
+/**
+ * 놓인 순서대로 앞에서 뒤로 잇는다. 한 장뿐이면 이을 곳이 없다.
+ *
+ * 이을 수 있는 짝인지는 스키마가 정하지만, 그 판정은 저장·실행 시점에 AI 가 한다.
+ * 선택한 순서가 곧 실행 순서라 먼저 이어 두는 편이 손이 덜 간다 — 아니면 사용자가
+ * 매번 같은 선을 손으로 긋는다. 틀린 순서는 선을 눌러 지우면 된다.
+ */
+export function chainEdges(nodes: CanvasNodeData[]): CanvasEdge[] {
+  return nodes
+    .slice(1)
+    .reduce<CanvasEdge[]>((edges, node, i) => connect(edges, nodes[i].id, node.id), [])
 }
 
 /** 이미 정해진 자리에 그대로 놓는다. 겹침은 부르는 쪽에서 이미 풀었다. */

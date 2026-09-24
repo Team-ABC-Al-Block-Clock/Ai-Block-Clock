@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canvasReducer,
   initialCanvasState,
+  seededCanvasState,
   type CanvasAction,
   type CanvasState,
 } from './canvasReducer'
@@ -288,5 +289,36 @@ describe('원본을 건드리지 않는다', () => {
     expect(before.edges).toBe(edges)
     expect(nodes).toHaveLength(2)
     expect(edges).toHaveLength(0)
+  })
+})
+
+describe('seededCanvasState', () => {
+  const seeds = ['ag_1', 'ag_2', 'ag_3'].map((id, i) => ({
+    id,
+    name: `에이전트 ${i}`,
+    nodeType: 'AGENT' as const,
+    mine: false,
+  }))
+
+  it('선택한 것만 올리고 선택한 순서대로 잇는다', () => {
+    const state = seededCanvasState(seeds)
+
+    expect(state.nodes.map((n) => n.id)).toEqual(['ag_1', 'ag_2', 'ag_3'])
+    expect(state.edges.map((e) => [e.from, e.to])).toEqual([
+      ['ag_1', 'ag_2'],
+      ['ag_2', 'ag_3'],
+    ])
+  })
+
+  it('자리표시자가 섞이지 않는다', () => {
+    // 선택한 적 없는 데모 노드가 남으면 무엇을 선택했는지 알 수 없다.
+    const state = seededCanvasState(seeds)
+
+    expect(state.nodes.some((n) => n.id.startsWith('seed-'))).toBe(false)
+  })
+
+  it('선택한 것이 없으면 자리표시자로 시작한다', () => {
+    expect(seededCanvasState([])).toBe(initialCanvasState)
+    expect(seededCanvasState()).toBe(initialCanvasState)
   })
 })

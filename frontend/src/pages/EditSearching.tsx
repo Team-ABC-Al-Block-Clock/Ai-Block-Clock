@@ -204,7 +204,7 @@ export default function EditSearching() {
               }}
             >
               {picked.length > 0
-                ? '선택한 에이전트입니다. 편집 화면에서 선으로 연결합니다'
+                ? '선택한 순서대로 이어 편집 화면에서 엽니다'
                 : '오른쪽에서 카드를 누르면 여기에 올라갑니다'}
             </div>
 

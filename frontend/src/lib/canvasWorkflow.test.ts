@@ -14,6 +14,7 @@ import {
   disconnect,
   edgeGeometry,
   edgePath,
+  chainEdges,
   moveNodeTo,
   nodesBounds,
   seedCanvasNodes,
@@ -559,5 +560,49 @@ describe('한 줄 배치와 첫 배율', () => {
         expect((node.y + NODE_SIZE) * view.k + view.ty).toBeLessThanOrEqual(PANE_HEIGHT + 0.001)
       }
     }
+  })
+})
+
+describe('chainEdges', () => {
+  const nodes = (count: number) =>
+    seedCanvasNodes(
+      Array.from({ length: count }, (_, i) => ({
+        id: `ag_${i}`,
+        name: `에이전트 ${i}`,
+        nodeType: 'AGENT' as const,
+        mine: false,
+      })),
+    )
+
+  it('놓인 순서대로 앞에서 뒤로 잇는다', () => {
+    const edges = chainEdges(nodes(4))
+
+    expect(edges.map((e) => [e.from, e.to])).toEqual([
+      ['ag_0', 'ag_1'],
+      ['ag_1', 'ag_2'],
+      ['ag_2', 'ag_3'],
+    ])
+  })
+
+  it('이은 것이 그래프 규칙을 지킨다 — 입력은 하나뿐이고 고리가 없다', () => {
+    const list = nodes(5)
+    const edges = chainEdges(list)
+
+    // 들어오는 선이 둘인 노드가 없다.
+    const incoming = edges.map((e) => e.to)
+    expect(new Set(incoming).size).toBe(incoming.length)
+    // 끝에서 처음으로 되돌아가는 선은 이을 수 없다.
+    expect(canConnect(edges, 'ag_4', 'ag_0')).toBe(false)
+  })
+
+  it('한 장이거나 없으면 이을 곳이 없다', () => {
+    expect(chainEdges(nodes(1))).toEqual([])
+    expect(chainEdges([])).toEqual([])
+  })
+
+  it('그린 선이 양 끝을 모두 찾는다', () => {
+    const list = nodes(3)
+
+    expect(edgeGeometry(list, chainEdges(list))).toHaveLength(2)
   })
 })
