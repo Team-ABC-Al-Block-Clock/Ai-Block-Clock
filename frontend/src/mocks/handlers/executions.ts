@@ -131,6 +131,8 @@ export const executionHandlers = [
     if (forced) return forced
 
     const form = await request.formData()
+
+    // 순서를 서버와 맞춘다. 검증(요청 본문) → 워크플로우 → 멱등 → 파일 → 분기 → 선차감.
     const workflowId = form.get('workflowId')
     if (typeof workflowId !== 'string' || !workflowId)
       return fail(400, 'COMMON_001', '워크플로우를 지정해 주세요.')
@@ -139,21 +141,24 @@ export const executionHandlers = [
     if (typeof requestId !== 'string' || !requestId)
       return fail(400, 'COMMON_001', '실행 요청 식별자를 보내 주세요.')
 
+    const comment = form.get('comment')
+    if (typeof comment === 'string' && comment.length > 500)
+      return fail(400, 'COMMON_001', '코멘트는 500자까지 보낼 수 있습니다.')
+
+    const detail = findWorkflowDetail(workflowId)
+    if (!detail) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
+
     // 같은 누름이 다시 왔다. 새로 차감하지 않고 앞서 접수한 실행을 그대로 돌려준다.
     const already = Object.values(readRuns()).find((run) => run.requestId === requestId)
     if (already)
       return ok(
         {
           executionId: already.executionId,
-          status: 'QUEUED',
+          status: progressOf(already).status,
           stepCount: already.stepNames.length,
         },
         { status: 202 },
       )
-
-    const comment = form.get('comment')
-    if (typeof comment === 'string' && comment.length > 500)
-      return fail(400, 'COMMON_001', '코멘트는 500자까지 보낼 수 있습니다.')
 
     const file = form.get('file')
     if (file instanceof File) {
@@ -163,11 +168,11 @@ export const executionHandlers = [
       if (file.size > FILE_MAX_BYTES) return fail(413, 'FILE_002', '파일이 10MB 를 넘습니다.')
     }
 
-    const detail = findWorkflowDetail(workflowId)
-    if (!detail) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
+    // 분기(`CONTROL`)는 여기서 EXECUTION_005 로 끊긴다. 화면이 아직 분기를 만들지 못해 생략한다.
+
+    // 빈 그래프는 저장에서 이미 막혀 서버는 이 자리에 응답이 없다. 0단계 실행을 만들지 않으려는 방어다.
     if (!detail.nodes.length)
       return fail(400, 'WORKFLOW_014', '노드를 하나 이상 놓아야 실행할 수 있습니다.')
-    // 분기(`CONTROL`)는 여기서 EXECUTION_005 로 끊긴다. 화면이 아직 분기를 만들지 못해 생략한다.
 
     /**
      * 선차감. 실제로 잔액을 깎지는 않는다 — 픽스처가 상수라 깎으면 새로고침에 되살아나
