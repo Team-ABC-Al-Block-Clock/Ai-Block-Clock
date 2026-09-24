@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api/errors'
-import { deleteWorkflow, getMyWorkflows, getNodePalette } from '@/api/workflows'
+import {
+  deleteWorkflow,
+  getMyWorkflows,
+  getNodePalette,
+  getWorkflow,
+  replaceWorkflow,
+  saveWorkflow,
+  type WorkflowGraph,
+} from '@/api/workflows'
 import { resetWorkflows } from '@/mocks/fixtures/workflows'
 
 /**
@@ -10,7 +18,11 @@ import { resetWorkflows } from '@/mocks/fixtures/workflows'
  * 삭제는 픽스처에서 항목을 실제로 없애므로 매 테스트 뒤에 되돌린다 — 길이만 잘라내는
  * 방식으로는 중간에서 지운 건이 복구되지 않는다.
  */
-afterEach(() => resetWorkflows())
+afterEach(() => {
+  resetWorkflows()
+  // 저장 mock 이 localStorage 에 쌓인다. 비우지 않으면 테스트끼리 샌다.
+  localStorage.removeItem('mockWorkflows')
+})
 
 describe('getMyWorkflows', () => {
   it('명세 기본값 10건과 다음 커서를 준다', async () => {
@@ -262,5 +274,163 @@ describe('getNodePalette', () => {
     } finally {
       localStorage.removeItem('abc:mock-scenario')
     }
+  })
+})
+
+/**
+ * 워크플로우 저장 왕복. api 레이어 + mock 핸들러 + 응답 인터셉터를 한 번에 통과시킨다.
+ *
+ * 회차와 거절 코드는 화면 분기가 그대로 읽는 값이라, 서버와 같은 코드로 돌아오는지까지 본다.
+ */
+const line = (...sourceIds: string[]): WorkflowGraph => ({
+  nodes: sourceIds.map((sourceId, i) => ({
+    nodeKey: `n${i + 1}`,
+    sourceType: 'NODE' as const,
+    sourceId,
+  })),
+  edges: sourceIds.slice(1).map((_, i) => ({
+    edgeKey: `e${i + 1}`,
+    sourceNodeKey: `n${i + 1}`,
+    targetNodeKey: `n${i + 2}`,
+  })),
+})
+
+const TWO = () => line('node_001', 'node_002')
+
+describe('saveWorkflow', () => {
+  it('처음 저장하면 회차 1로 돌아온다', async () => {
+    const result = await saveWorkflow({ ...TWO(), name: '문서 정리' })
+
+    expect(result.revision).toBe(1)
+    expect(result.name).toBe('문서 정리')
+    expect(result.workflowId).toBeTruthy()
+    // 예상 차감액은 저장 응답에 없다 — 실행 견적 API 가 따로 준다.
+    expect(result).not.toHaveProperty('estimatedCost')
+  })
+
+  it('노드 하나에 선이 없어도 저장된다', async () => {
+    await expect(saveWorkflow({ ...line('node_001'), name: '한 개' })).resolves.toMatchObject({
+      revision: 1,
+    })
+  })
+
+  it('빈 캔버스는 WORKFLOW_014 로 거절한다', async () => {
+    await expect(saveWorkflow({ nodes: [], edges: [], name: '빈 것' })).rejects.toMatchObject({
+      code: 'WORKFLOW_014',
+      status: 400,
+    })
+  })
+
+  it('한 줄이 아니면 WORKFLOW_013 으로 거절한다', async () => {
+    const branched: WorkflowGraph = {
+      nodes: line('node_001', 'node_002', 'node_003').nodes,
+      // n1 에서 둘로 갈라진다.
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 'n1', targetNodeKey: 'n2' },
+        { edgeKey: 'e2', sourceNodeKey: 'n1', targetNodeKey: 'n3' },
+      ],
+    }
+
+    await expect(saveWorkflow({ ...branched, name: '갈래' })).rejects.toMatchObject({
+      code: 'WORKFLOW_013',
+      status: 400,
+    })
+  })
+
+  it('없는 노드를 놓으면 WORKFLOW_015 로 거절한다', async () => {
+    await expect(saveWorkflow({ ...line('없는노드'), name: '유령' })).rejects.toMatchObject({
+      code: 'WORKFLOW_015',
+      status: 404,
+    })
+  })
+
+  it('이름이 비면 COMMON_001 로 거절한다', async () => {
+    await expect(saveWorkflow({ ...TWO(), name: '   ' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+  })
+})
+
+describe('replaceWorkflow', () => {
+  it('같은 회차로 보내면 회차가 오른다', async () => {
+    const first = await saveWorkflow({ ...TWO(), name: '문서 정리' })
+
+    const second = await replaceWorkflow(first.workflowId, {
+      ...line('node_001', 'node_002', 'node_003'),
+      name: '문서 정리 v2',
+      revision: first.revision,
+    })
+
+    expect(second.revision).toBe(2)
+    expect(second.name).toBe('문서 정리 v2')
+  })
+
+  // 화면이 들고 있던 회차가 낡으면 덮어쓰지 않고 거절한다. 다시 열라고 안내할 근거다.
+  it('회차가 어긋나면 WORKFLOW_016 으로 거절한다', async () => {
+    const first = await saveWorkflow({ ...TWO(), name: '문서 정리' })
+    await replaceWorkflow(first.workflowId, { ...TWO(), name: '먼저', revision: 1 })
+
+    const error = await replaceWorkflow(first.workflowId, {
+      ...TWO(),
+      name: '나중',
+      revision: 1,
+    }).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ code: 'WORKFLOW_016', status: 409 })
+  })
+
+  it('없는 워크플로우는 WORKFLOW_002 다', async () => {
+    await expect(
+      replaceWorkflow('없는아이디', { ...TWO(), name: '유령', revision: 1 }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_002', status: 404 })
+  })
+})
+
+describe('getWorkflow', () => {
+  it('저장한 구성을 연결 순서 그대로 돌려준다', async () => {
+    const graph = line('node_001', 'node_002', 'node_003')
+    const { workflowId } = await saveWorkflow({ ...graph, name: '문서 정리' })
+
+    const detail = await getWorkflow(workflowId)
+
+    expect(detail.nodes.map((node) => node.sourceId)).toEqual(['node_001', 'node_002', 'node_003'])
+    expect(detail.edges).toEqual(graph.edges)
+    // 고르는 화면이 없어 보내지 않았다 — 서버 기본값으로 돌아온다.
+    expect(detail.nodes.every((node) => node.inputSource === 'PREV')).toBe(true)
+  })
+
+  it('없는 워크플로우는 WORKFLOW_002 다', async () => {
+    await expect(getWorkflow('없는아이디')).rejects.toMatchObject({
+      code: 'WORKFLOW_002',
+      status: 404,
+    })
+  })
+})
+
+describe('mock 이 실서버와 같은 선에서 거절한다', () => {
+  it('고리는 한 줄이 아니다 — 개수만으로는 걸러지지 않는다', async () => {
+    const cyclic = {
+      nodes: line('node_001', 'node_002', 'node_003').nodes,
+      // 개수는 맞는다: 선 2개, 드나드는 키도 2개씩. 그래도 n1 은 아무도 닿지 못한다.
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 'n2', targetNodeKey: 'n3' },
+        { edgeKey: 'e2', sourceNodeKey: 'n3', targetNodeKey: 'n2' },
+      ],
+    }
+
+    await expect(saveWorkflow({ ...cyclic, name: '고리' })).rejects.toMatchObject({
+      code: 'WORKFLOW_013',
+      status: 400,
+    })
+  })
+
+  // 목록이 거는 편집 링크가 전부 404 면 mock 으로 화면을 확인할 수 없다.
+  it('픽스처 워크플로우도 단건 조회가 된다', async () => {
+    const detail = await getWorkflow('wf_001')
+
+    expect(detail.workflowId).toBe('wf_001')
+    expect(detail.nodes.length).toBeGreaterThan(0)
+    expect(detail.edges).toHaveLength(detail.nodes.length - 1)
   })
 })

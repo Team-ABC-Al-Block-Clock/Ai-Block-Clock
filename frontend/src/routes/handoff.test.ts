@@ -43,7 +43,15 @@ describe('seedsFrom', () => {
     const seeds = seedsFrom({ agents: [agent, { ...agent, agentId: 'ag_2', name: '요약기' }] })
 
     expect(seeds.map((s) => s.id)).toEqual(['ag_1', 'ag_2'])
-    expect(seeds[0]).toEqual({ id: 'ag_1', name: '성적 분석기', nodeType: 'AGENT', mine: false })
+    expect(seeds[0]).toEqual({
+      id: 'ag_1',
+      name: '성적 분석기',
+      nodeType: 'AGENT',
+      // 저장할 때 서버가 찾을 원본. 화면용 id 와 값은 같지만 쓰임이 다르다.
+      sourceType: 'AGENT',
+      sourceId: 'ag_1',
+      mine: false,
+    })
   })
 
   it('추천에는 소유자가 없어 전부 남의 것으로 둔다', () => {

@@ -19,6 +19,8 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   id,
   name: id,
   nodeType: 'TOOL',
+  sourceType: 'NODE',
+  sourceId: `src-${id}`,
   x,
   y,
   mine: true,
@@ -36,7 +38,14 @@ const stateOf = (over: Partial<CanvasState> = {}): CanvasState => ({
 /** 액션을 차례로 먹인다. 한 손짓이 여러 액션으로 갈리는 경우가 많다. */
 const run = (state: CanvasState, ...actions: CanvasAction[]) => actions.reduce(canvasReducer, state)
 
-const seed = { id: 'p1', name: '번역', nodeType: 'LLM', mine: true } as const
+const seed = {
+  id: 'p1',
+  name: '번역',
+  nodeType: 'LLM',
+  sourceType: 'NODE',
+  sourceId: 'node_009',
+  mine: true,
+} as const
 const idsOf = (state: CanvasState) => state.nodes.map((n) => n.id)
 const edgeIdsOf = (state: CanvasState) => state.edges.map((e) => e.id)
 
@@ -297,6 +306,8 @@ describe('seededCanvasState', () => {
     id,
     name: `에이전트 ${i}`,
     nodeType: 'AGENT' as const,
+    sourceType: 'AGENT' as const,
+    sourceId: id,
     mine: false,
   }))
 

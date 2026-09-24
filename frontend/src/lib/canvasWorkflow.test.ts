@@ -8,6 +8,7 @@ import {
   CANVAS_NODES,
   NO_BOUNDS,
   canConnect,
+  chainPositions,
   clampToBounds,
   canSellWorkflow,
   connect,
@@ -15,6 +16,7 @@ import {
   edgeGeometry,
   edgePath,
   chainEdges,
+  linearOrder,
   moveNodeTo,
   nodesBounds,
   seedCanvasNodes,
@@ -26,7 +28,14 @@ import {
   type CanvasNodeData,
 } from './canvasWorkflow'
 
-const seed = { id: 'p1', name: '번역', nodeType: 'LLM', mine: true } as const
+const seed = {
+  id: 'p1',
+  name: '번역',
+  nodeType: 'LLM',
+  sourceType: 'NODE',
+  sourceId: 'node_009',
+  mine: true,
+} as const
 
 // 아래 다섯은 구현에서 가져오지 않는다. 빌려 쓰면 구현이 틀릴 때 단언도 나란히 틀린다.
 const NODE_SIZE = 168
@@ -54,6 +63,8 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   id,
   name: id,
   nodeType: 'TOOL',
+  sourceType: 'NODE',
+  sourceId: `src-${id}`,
   x,
   y,
   mine: true,
@@ -155,6 +166,95 @@ describe('canSellWorkflow', () => {
 
   it('빈 캔버스는 등록할 것이 없다', () => {
     expect(canSellWorkflow([])).toBe(false)
+  })
+})
+
+describe('linearOrder', () => {
+  const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const ids = (order: CanvasNodeData[] | null) => order?.map((node) => node.id) ?? null
+
+  it('한 줄이면 머리부터 순서를 낸다', () => {
+    const order = linearOrder(chain('a', 'b', 'c'), [link('a', 'b'), link('b', 'c')])
+    expect(ids(order)).toEqual(['a', 'b', 'c'])
+  })
+
+  // 놓인 순서가 아니라 선을 따라간 순서여야 한다. 좌표나 배열 순서로 줄 세우면 뒤집힌다.
+  it('놓인 순서가 뒤죽박죽이어도 선을 따라간다', () => {
+    const nodes = [nodeAt('c', 0, 0), nodeAt('a', 0, 0), nodeAt('b', 0, 0)]
+    expect(ids(linearOrder(nodes, [link('a', 'b'), link('b', 'c')]))).toEqual(['a', 'b', 'c'])
+  })
+
+  it('노드 하나에 선이 없어도 한 줄이다', () => {
+    expect(ids(linearOrder(chain('a'), []))).toEqual(['a'])
+  })
+
+  it('빈 캔버스는 저장할 것이 없다', () => {
+    expect(linearOrder([], [])).toBeNull()
+  })
+
+  it('갈라지면 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(linearOrder(nodes, [link('a', 'b'), link('a', 'c')])).toBeNull()
+  })
+
+  it('합쳐져도 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(linearOrder(nodes, [link('a', 'c'), link('b', 'c')])).toBeNull()
+  })
+
+  it('따로 떨어진 노드가 있으면 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(linearOrder(nodes, [link('a', 'b')])).toBeNull()
+  })
+
+  it('선만 이어 두고 노드를 안 놓으면 한 줄이 아니다', () => {
+    expect(linearOrder(chain('a', 'b'), [link('a', 'b'), link('b', 'zzz')])).toBeNull()
+  })
+
+  // 머리가 없는 고리는 무한히 돌 수 있는 자리다. 개수로 먼저 걸러진다.
+  it('고리만 있으면 머리가 없어 한 줄이 아니다', () => {
+    const nodes = chain('a', 'b')
+    expect(linearOrder(nodes, [link('a', 'b'), link('b', 'a')])).toBeNull()
+  })
+
+  it('자리표시자 워크플로우는 한 줄이다', () => {
+    expect(ids(linearOrder(CANVAS_NODES, CANVAS_EDGES))).toEqual([
+      'seed-1',
+      'seed-2',
+      'seed-3',
+      'seed-4',
+      'seed-5',
+    ])
+  })
+})
+
+describe('chainPositions', () => {
+  const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+
+  it('놓은 순서가 아니라 이어진 차례로 번호를 준다', () => {
+    // c 를 먼저 놓았지만 선으로는 맨 끝이다.
+    const nodes = [nodeAt('c', 0, 0), nodeAt('a', 0, 0), nodeAt('b', 0, 0)]
+    const at = chainPositions(nodes, [link('a', 'b'), link('b', 'c')])
+
+    expect(at?.get('a')).toBe(0)
+    expect(at?.get('b')).toBe(1)
+    expect(at?.get('c')).toBe(2)
+  })
+
+  // 갈래가 있으면 차례라는 것이 없다. 지어내면 "이 순서로 실행된다" 로 잘못 읽힌다.
+  it('갈라지면 차례가 없다', () => {
+    const nodes = chain('a', 'b', 'c')
+    expect(chainPositions(nodes, [link('a', 'b'), link('a', 'c')])).toBeNull()
+  })
+
+  it('따로 떨어져 있어도 차례가 없다', () => {
+    expect(chainPositions(chain('a', 'b', 'c'), [link('a', 'b')])).toBeNull()
+  })
+
+  it('노드 하나는 첫 번째다', () => {
+    expect(chainPositions(chain('a'), [])?.get('a')).toBe(0)
   })
 })
 
@@ -279,7 +379,7 @@ describe('edgePath', () => {
 
 describe('edgeGeometry', () => {
   it('선이 포트에서 포트로 이어진다', () => {
-    for (const edge of edgeGeometry(CANVAS_NODES)) {
+    for (const edge of edgeGeometry(CANVAS_NODES, CANVAS_EDGES)) {
       const from = CANVAS_NODES.find((n) => n.id === edge.from)!
       const to = CANVAS_NODES.find((n) => n.id === edge.to)!
       const 시작 = portPoint(from, 'out')
@@ -290,15 +390,15 @@ describe('edgeGeometry', () => {
   })
 
   it('노드를 옮기면 선이 따라온다', () => {
-    const 전 = edgeGeometry(CANVAS_NODES)[0].d
-    const 후 = edgeGeometry(moveNodeTo(CANVAS_NODES, 'seed-1', 12, 700))[0].d
+    const 전 = edgeGeometry(CANVAS_NODES, CANVAS_EDGES)[0].d
+    const 후 = edgeGeometry(moveNodeTo(CANVAS_NODES, 'seed-1', 12, 700), CANVAS_EDGES)[0].d
     expect(후).not.toBe(전)
     expect(후.startsWith('M180 784')).toBe(true)
   })
 
   it('한쪽 노드가 없는 선은 버린다', () => {
     const 없앰 = CANVAS_NODES.filter((n) => n.id !== 'seed-1')
-    expect(edgeGeometry(없앰).map((e) => e.id)).toEqual([
+    expect(edgeGeometry(없앰, CANVAS_EDGES).map((e) => e.id)).toEqual([
       edgeId('seed-2', 'seed-3'),
       edgeId('seed-3', 'seed-4'),
       edgeId('seed-4', 'seed-5'),
@@ -441,6 +541,8 @@ describe('seedCanvasNodes', () => {
     id: `ag_${i}`,
     name: `에이전트 ${i}`,
     nodeType: 'AGENT' as const,
+    sourceType: 'AGENT' as const,
+    sourceId: `ag_${i}`,
     mine: false,
   }))
 
@@ -518,6 +620,8 @@ describe('한 줄 배치와 첫 배율', () => {
       id: `ag_${i}`,
       name: `에이전트 ${i}`,
       nodeType: 'AGENT' as const,
+      sourceType: 'AGENT' as const,
+      sourceId: `ag_${i}`,
       mine: false,
     }))
 
@@ -570,6 +674,8 @@ describe('chainEdges', () => {
         id: `ag_${i}`,
         name: `에이전트 ${i}`,
         nodeType: 'AGENT' as const,
+        sourceType: 'AGENT' as const,
+        sourceId: `ag_${i}`,
         mine: false,
       })),
     )

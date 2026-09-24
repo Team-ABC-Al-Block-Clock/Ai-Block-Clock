@@ -1,26 +1,58 @@
-import { Fragment, useState, type CSSProperties } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router'
 
+import { ApiError } from '@/api/errors'
+import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
+import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
+import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import { chainPositions } from '@/lib/canvasWorkflow'
+import { queryClient } from '@/lib/queryClient'
+import { queryKeys } from '@/lib/queryKeys'
 import { nodeTypeLabel } from '@/lib/format'
+import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
 
+/** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
+const NAME_MAX = 40
+
+const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
+/** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
+const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
+
+/** 다시 눌러도 통과하지 않는 코드는 문구를 가른다 — "잠시 후 다시" 로 뭉개면 계속 누른다. */
+function describeSaveError(error: unknown): string | null {
+  if (!error) return null
+  if (!(error instanceof ApiError)) return SAVE_FAILED
+  if (error.code === 'WORKFLOW_016')
+    return '다른 곳에서 먼저 수정되었습니다. 화면을 다시 열어 주세요'
+  if (error.code === 'WORKFLOW_006') return '노드는 20개까지 이을 수 있습니다'
+  if (error.code === 'WORKFLOW_007') return '연결이 너무 깁니다. 10단계까지 이을 수 있습니다'
+  if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
+  if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
+  if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
+  if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
+  return SAVE_FAILED
+}
+
 /**
  * 노드 편집 화면.
  *
  * 캔버스와 팔레트는 각자 훅이 들고 있다. 여기는 그 둘을 그리고, 팔레트에서
- * 캔버스로 건너오는 놓기만 잇는다.
+ * 캔버스로 건너오는 놓기와 저장을 잇는다.
  */
 export default function EditNodes() {
   const { state } = useLocation()
@@ -32,6 +64,7 @@ export default function EditNodes() {
 
   const {
     nodes,
+    edges,
     geometry,
     selId,
     hovId,
@@ -61,6 +94,105 @@ export default function EditNodes() {
     zoomOut,
   } = canvas
   const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
+
+  const { workflowId } = useParams()
+
+  const [name, setName] = useState('문서 정리')
+  /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
+  const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
+
+  const loaded = useSavedWorkflow(workflowId)
+
+  /** 마지막으로 저장에 성공한(또는 불러온) 내용. 한 글자라도 달라지면 다시 저장할 것이 있다. */
+  const [savedShape, setSavedShape] = useState<string | null>(null)
+
+  /** 한 번 옮기면 끝이다. 같은 응답으로 다시 덮지 않는다. */
+  const applied = useRef<string | null>(null)
+  useEffect(() => {
+    const { detail, canvas: loadedCanvas } = loaded
+    if (!detail || !loadedCanvas || applied.current === detail.workflowId) return
+    applied.current = detail.workflowId
+    canvas.loadGraph(loadedCanvas)
+    setName(detail.name)
+    setSaved({ workflowId: detail.workflowId, revision: detail.revision })
+    // 불러온 그대로가 곧 「저장된 상태」다. 비워 두면 손대지 않았는데 「저장」으로 보이고,
+    // 실행하기가 바뀐 것 없이 PUT 을 한 번 더 보내 회차만 오른다.
+    setSavedShape(
+      shapeOf(toWorkflowGraph(loadedCanvas.nodes, loadedCanvas.edges), detail.name.trim()),
+    )
+  }, [loaded, canvas])
+
+  // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
+  const graph = useMemo(() => toWorkflowGraph(nodes, edges), [nodes, edges])
+  // 카드 순번. 갈래가 있으면 차례가 없으므로 번호를 감춘다.
+  const chainAt = useMemo(() => chainPositions(nodes, edges), [nodes, edges])
+  const trimmedName = name.trim()
+
+  /** 지금 화면이 보낼 내용. 저장한 것과 글자로 비교해 「저장됨」을 되돌린다. */
+  const pending = useMemo(() => shapeOf(graph, trimmedName), [graph, trimmedName])
+  const dirty = savedShape !== pending
+
+  const save = useMutation({
+    // 보낸 내용을 함께 돌려준다. `onSuccess` 에서 `pending` 을 다시 읽으면 요청이 나가는 동안
+    // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
+    mutationFn: async () => {
+      if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
+      const shape = shapeOf(graph, trimmedName)
+      const result = saved
+        ? await replaceWorkflow(saved.workflowId, {
+            ...graph,
+            name: trimmedName,
+            revision: saved.revision,
+          })
+        : await saveWorkflow({ ...graph, name: trimmedName })
+      return { result, shape }
+    },
+    // 회차가 어긋나면 들고 있던 값이 낡은 것이다. 다시 받아 두지 않으면 몇 번을 눌러도 같은 409 다.
+    onError: (error) => {
+      if (error instanceof ApiError && error.code === 'WORKFLOW_016') void loaded.refetch()
+    },
+    onSuccess: ({ result, shape }) => {
+      setSaved({ workflowId: result.workflowId, revision: result.revision })
+      setSavedShape(shape)
+      // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.workflows.detail(result.workflowId),
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() })
+      // 주소에 id 를 남겨 새로고침해도 돌아올 수 있게 한다. `navigate` 는 쓰지 않는다 —
+      // 라우트 패턴이 갈려 화면이 새로 마운트되면 방금 배치한 좌표가 복원 배치로 바뀐다.
+      // state 는 그대로 넘긴다. null 을 넣으면 라우터가 들고 있던 히스토리 index 가 날아간다.
+      if (!workflowId) {
+        history.replaceState(history.state, '', paths.edit.nodes(result.workflowId))
+      }
+    },
+  })
+
+  /** 못 누르는 이유. 없으면 누를 수 있다 — 버튼을 죽여 두기만 하면 왜인지 알 길이 없다. */
+  const saveBlocked = loaded.isPending
+    ? '워크플로우를 불러오는 중입니다'
+    : !nodes.length
+      ? '노드를 하나 이상 놓아 주세요'
+      : !graph
+        ? '노드를 한 줄로 이어 주세요'
+        : !trimmedName
+          ? '워크플로우 이름을 적어 주세요'
+          : null
+  const canSave = !saveBlocked && !save.isPending && dirty
+  const canRun = !saveBlocked && !save.isPending
+  const saveError = describeSaveError(save.error)
+
+  const navigate = useNavigate()
+  /** 저장하지 않았거나 바뀐 것이 있으면 먼저 저장하고 넘어간다. 실패하면 문구만 남기고 머문다. */
+  const runNow = async () => {
+    try {
+      const id = dirty ? (await save.mutateAsync()).result.workflowId : saved?.workflowId
+      if (id) navigate(`${paths.run.waiting.withoutId}?workflowId=${id}`)
+    } catch {
+      // 실패 문구는 `save.error` 가 이미 들고 있다. 화면에 머문다.
+    }
+  }
+
   const { panelOpen, q, cards, isEmpty, isError, handleTogglePanel, handleSearch } = palette
   const { isFetchNextPageError, isFetchingNextPage, handleRetryNextPage } = palette
 
@@ -79,7 +211,17 @@ export default function EditNodes() {
     const item = palette.findItem(itemId)
     const point = item && canvas.toCanvasPoint(ev.clientX, ev.clientY)
     if (!item || !point) return
-    canvas.placeFromPalette({ name: item.name, nodeType: item.nodeType, mine: item.mine }, point)
+    // itemId·itemType 을 함께 싣는다 — 저장할 때 서버가 아는 원본을 가리킬 유일한 값이다.
+    canvas.placeFromPalette(
+      {
+        name: item.name,
+        nodeType: item.nodeType,
+        sourceType: item.itemType,
+        sourceId: item.itemId,
+        mine: item.mine,
+      },
+      point,
+    )
   }
 
   const n = nodes.find((node) => node.id === selId)
@@ -106,6 +248,10 @@ export default function EditNodes() {
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
   const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
+
+  // 없거나 남의 워크플로우다. 여기서 끊지 않으면 자리표시자 다섯 개가 그대로 떠 있어
+  // 무언가 불러와진 것처럼 보이고, 거기서 저장하면 엉뚱한 새 워크플로우가 하나 더 생긴다.
+  if (loaded.error) return <WorkflowLoadNotice error={loaded.error} onRetry={loaded.refetch} />
 
   return (
     <>
@@ -201,10 +347,10 @@ export default function EditNodes() {
           <div className="pointer-events-none absolute inset-0">
             <div ref={glowRef} style={selRing}></div>
 
-            {nodes.map((node, i) => (
+            {nodes.map((node) => (
               <CanvasNode
                 key={node.id}
-                index={i}
+                index={chainAt?.get(node.id)}
                 name={node.name}
                 sublabel={nodeTypeLabel(node.nodeType)}
                 x={node.x}
@@ -510,24 +656,81 @@ export default function EditNodes() {
           </div>
         )}
 
-        <a
-          href={paths.run.waiting.withoutId}
+        {/* 실행하기 왼쪽. 주 버튼과 경쟁하지 않게 유리 패널 차림으로 둔다. */}
+        <button
+          type="button"
+          onClick={() => save.mutate()}
+          disabled={!canSave}
+          title={
+            saveBlocked ??
+            (!dirty
+              ? '마지막으로 저장한 뒤로 바뀐 것이 없습니다'
+              : saved
+                ? '바뀐 구성으로 덮어씁니다'
+                : '워크플로우를 저장합니다')
+          }
+          style={{
+            left: 'calc(624px + var(--edge, 0px))',
+            top: 'calc(943px + var(--edge-y, 0px))',
+            width: '160px',
+            height: '52px',
+            borderRadius: '26px',
+            background: 'rgba(30,14,46,.78)',
+            boxShadow: `inset 0 0 0 1px rgba(255,255,255,${canSave ? '.22' : '.08'})`,
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            color: canSave ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.38)',
+            cursor: canSave ? 'pointer' : 'not-allowed',
+            transition: 'box-shadow .18s',
+            animation: 'uiIn .7s .62s cubic-bezier(.2,.8,.25,1) both',
+          }}
+          className="absolute flex items-center justify-center border-0 text-[17px] font-bold tracking-[-.01em]"
+        >
+          {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
+        </button>
+
+        {(saveError ?? saveBlocked) && (
+          <div
+            className="absolute text-center text-[13px] tracking-[-.005em]"
+            style={{
+              left: 'calc(560px + var(--edge, 0px))',
+              top: 'calc(1000px + var(--edge-y, 0px))',
+              width: '400px',
+              color: saveError ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
+            }}
+          >
+            {saveError ?? saveBlocked}
+          </div>
+        )}
+
+        {/*
+          저장하지 않고 눌러도 넘어간다 — 먼저 저장하고 그 워크플로우로 실행 화면을 연다.
+          저장이 막힌 상태(빈 캔버스·갈래·이름 없음)면 저장 버튼과 같은 이유로 여기도 막힌다.
+        */}
+        <button
+          type="button"
+          onClick={() => void runNow()}
+          disabled={!canRun}
+          title={saveBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
             top: 'calc(943px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',
-            background: 'var(--color-accent)',
-            boxShadow: '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.6)',
-            color: 'var(--color-accent-ink)',
+            background: canRun ? 'var(--color-accent)' : 'rgba(255,255,255,.09)',
+            boxShadow: canRun
+              ? '0 10px 26px rgba(140,100,130,.24),inset 0 1px 0 rgba(255,255,255,.6)'
+              : 'inset 0 1px 0 rgba(255,255,255,.12)',
+            color: canRun ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.42)',
+            cursor: canRun ? 'pointer' : 'not-allowed',
             transition: 'transform .18s,box-shadow .18s',
             animation: 'uiIn .7s .62s cubic-bezier(.2,.8,.25,1) both',
           }}
-          className="absolute flex cursor-pointer items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px] hover:shadow-[0_14px_32px_rgba(140,100,130,.28),inset_0_1px_0_rgba(255,255,255,.6)]"
+          className="absolute flex items-center justify-center border-0 text-[17px] font-bold tracking-[-.01em]"
         >
-          실행하기
-        </a>
+          {save.isPending ? '저장 중…' : '실행하기'}
+        </button>
       </CanvasPane>
 
       <SidePanel>
@@ -585,7 +788,9 @@ export default function EditNodes() {
         >
           <input
             className="absolute rounded-md border-0 bg-transparent font-[inherit] text-[17px] font-semibold tracking-[-.005em] text-white outline-0 transition-colors duration-[160ms] hover:bg-white/10 focus:bg-white/14"
-            defaultValue="문서 정리"
+            value={name}
+            onChange={(ev) => setName(ev.target.value)}
+            maxLength={NAME_MAX}
             aria-label="워크플로우 이름"
             style={{ left: '14px', top: '9px', width: '245px', height: '28px', padding: '0 6px' }}
           />
