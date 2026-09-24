@@ -124,7 +124,16 @@ export const executionHandlers = [
 
     const form = await request.formData()
 
-    // 순서를 서버와 맞춘다. 검증(요청 본문) → 워크플로우 → 멱등 → 파일 → 분기 → 선차감.
+    /**
+     * 순서를 서버와 맞춘다. 상한 → 검증(요청 본문) → 워크플로우 → 멱등 → 파일 → 분기 → 선차감.
+     *
+     * 상한이 맨 앞인 것은 multipart 설정(10MB)이 컨트롤러 앞에서 잡기 때문이다. 그래서 다른
+     * 무엇이 잘못됐든 `FILE_002` 가 먼저 나가고, 같은 상한을 쓰는 `EXECUTION_004` 는 닿지 않는다.
+     */
+    const file = form.get('file')
+    if (file instanceof File && file.size > FILE_MAX_BYTES)
+      return fail(413, 'FILE_002', '올린 파일이 10MB 를 넘습니다.')
+
     const workflowId = form.get('workflowId')
     if (typeof workflowId !== 'string' || !workflowId)
       return fail(400, 'COMMON_001', '워크플로우를 지정해 주세요.')
@@ -152,12 +161,10 @@ export const executionHandlers = [
         { status: 202 },
       )
 
-    const file = form.get('file')
     if (file instanceof File) {
-      const name = file.name.toLowerCase()
-      if (!FILE_EXTENSIONS.some((ext) => name.endsWith(ext)) || file.size === 0)
+      if (file.size === 0) return fail(400, 'EXECUTION_003', '빈 파일은 올릴 수 없습니다.')
+      if (!FILE_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext)))
         return fail(400, 'EXECUTION_003', '엑셀 또는 CSV 파일만 올릴 수 있습니다.')
-      if (file.size > FILE_MAX_BYTES) return fail(413, 'FILE_002', '파일이 10MB 를 넘습니다.')
     }
 
     // 분기(`CONTROL`)는 여기서 EXECUTION_005 로 끊긴다. 화면이 아직 분기를 만들지 못해 생략한다.
