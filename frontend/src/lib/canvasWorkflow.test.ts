@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT } from '@/components/CanvasPane'
-import { fitViewport } from '@/lib/viewport'
+import { ZOOM_MIN, fitViewport } from '@/lib/viewport'
 
 import {
   CANVAS_EDGES,
@@ -664,6 +664,15 @@ describe('한 줄 배치와 첫 배율', () => {
         expect((node.y + NODE_SIZE) * view.k + view.ty).toBeLessThanOrEqual(PANE_HEIGHT + 0.001)
       }
     }
+  })
+
+  it('스물한 장부터는 축소가 바닥에 걸려 오른쪽이 넘어간다 — 그래서 고르는 쪽에서 자른다', () => {
+    const view = fitFor(21)
+    const nodes = seedCanvasNodes(pick(21))
+    const right = (Math.max(...nodes.map((n) => n.x)) + NODE_SIZE) * view.k + view.tx
+
+    expect(view.k).toBe(ZOOM_MIN)
+    expect(right).toBeGreaterThan(PANE_CONTENT_WIDTH)
   })
 })
 

@@ -39,6 +39,9 @@ const PREVIEW_ENTER = 'uiIn .5s cubic-bezier(.2,.8,.25,1) backwards'
 /** 작업면 한가운데. 안내와 검색 중 표시가 같은 축에 선다. */
 const PANE_TEXT_WIDTH = 980
 
+/** 한 줄로 펴서 작업면에 들어가는 최대. 서버도 `WORKFLOW_006` 으로 같은 수에서 자른다. */
+const MAX_PICKED = 20
+
 export default function EditSearching() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -67,6 +70,7 @@ export default function EditSearching() {
   // 재시도를 기다리는 동안은 부르는 중이 아니다. `isFetching` 만 보면 그 틈에
   // 「찾지 못했습니다」가 잠깐 뜬다 — 아직 답을 받지 못한 것이지 없는 것이 아니다.
   const searching = status === 'pending' || isFetching || settledFor !== query
+  const atLimit = picked.length >= MAX_PICKED
   const failed = status === 'error' && !searching
   const isEmpty = status === 'success' && !searching && items.length === 0
 
@@ -89,11 +93,12 @@ export default function EditSearching() {
   }, [preview])
 
   const toggle = (agent: RecommendedAgent) =>
-    setPicked((chosen) =>
-      chosen.some((it) => it.agentId === agent.agentId)
-        ? chosen.filter((it) => it.agentId !== agent.agentId)
-        : [...chosen, agent],
-    )
+    setPicked((chosen) => {
+      const without = chosen.filter((it) => it.agentId !== agent.agentId)
+      if (without.length !== chosen.length) return without
+      // 넘겨 받으면 편집 화면의 한 줄이 `ZOOM_MIN` 에 걸려 패널 뒤로 넘어간다.
+      return chosen.length >= MAX_PICKED ? chosen : [...chosen, agent]
+    })
 
   /** 다시 찾으면 앞서 선택한 것이 목록에 없을 수 있다. 그때 무를 길은 미리보기뿐이다. */
   const unpick = (agentId: string) =>
@@ -336,6 +341,8 @@ export default function EditSearching() {
                   type="button"
                   onClick={() => toggle(agent)}
                   aria-pressed={chosen}
+                  disabled={atLimit && !chosen}
+                  title={atLimit && !chosen ? `${MAX_PICKED}개까지 선택할 수 있습니다` : undefined}
                   style={{
                     // 폭은 주지 않고 그리드 열을 그대로 채운다.
                     height: '176px',
@@ -344,7 +351,7 @@ export default function EditSearching() {
                     boxShadow: chosen ? 'inset 0 0 0 1.5px rgba(255,190,220,.75)' : 'none',
                     transition: 'background .18s,transform .18s,box-shadow .18s',
                   }}
-                  className="relative cursor-pointer border-0 p-0 text-left font-[inherit] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)]"
+                  className="relative cursor-pointer border-0 p-0 text-left font-[inherit] hover:-translate-y-[2px] hover:bg-[rgba(255,255,255,.17)] disabled:cursor-default disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[rgba(255,255,255,.09)]"
                 >
                   <div
                     className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
@@ -440,7 +447,7 @@ export default function EditSearching() {
         >
           {picked.length > 0 && (
             <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.7)' }}>
-              {picked.length}개 선택됨
+              {atLimit ? `${MAX_PICKED}개까지 선택됨` : `${picked.length}개 선택됨`}
             </div>
           )}
           <button

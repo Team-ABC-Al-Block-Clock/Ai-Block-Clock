@@ -434,6 +434,9 @@ function seedPoint(layout: SeedLayout, i: number): { x: number; y: number } {
  *
  * 한 줄 배치는 작업면 폭(980)을 넘길 수 있다. 다섯 장까지 그대로 들어가고, 그 뒤로는
  * 화면이 통째로 축소돼 다 보인다 — 줄을 접으면 어디까지가 순서인지 흐려진다.
+ *
+ * 축소가 먹히는 것은 스무 장까지다. 그 뒤로는 `ZOOM_MIN` 에 걸려 오른쪽이 패널 뒤로
+ * 넘어가므로, 부르는 쪽에서 개수를 자른다 (`EditSearching` 의 `MAX_PICKED`).
  */
 export function seedCanvasNodes(
   seeds: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'>[],
