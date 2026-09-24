@@ -34,8 +34,24 @@ const COMMENT_MAX = 500
 
 /** 잔액이 모자라 접수가 막혔다. 같은 금액이 위 카드에 이미 떠 있어 문구만 쓰고 금액은 읽지 않는다. */
 const INSUFFICIENT = 'PAYMENT_008'
-/** 같은 누름이 아직 처리 중. 앞서 보낸 요청이 곧 진행 화면으로 넘겨 주므로 오류로 보이면 안 된다. */
-const ALREADY_REQUESTED = 'EXECUTION_006'
+
+/**
+ * 서버가 **떼어 두기 전에** 끊은 것이 확실한 코드. 이때만 요청 식별자를 버린다.
+ *
+ * 나머지는 전부 지킨다 — 특히 프록시가 낸 502·504 는 `code` 조차 없고, 앱이 이미 접수하고
+ * 차감한 뒤일 수 있다. 거기서 새 값을 만들면 두 번 빠진다. 반대로 값을 지켜서 손해 보는 경우는
+ * 없다. 서버가 그 값을 기록해 두었으면 앞서 접수한 실행을 돌려줄 뿐이다.
+ */
+const BEFORE_RESERVE = new Set([
+  'COMMON_001',
+  'WORKFLOW_002',
+  'WORKFLOW_003',
+  'WORKFLOW_014',
+  'EXECUTION_003',
+  'EXECUTION_004',
+  'EXECUTION_005',
+  INSUFFICIENT,
+])
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
 /**
@@ -98,7 +114,18 @@ export default function RunWaiting() {
    */
   const attempt = useRef<{ key: string; requestId: string } | null>(null)
   const requestIdFor = () => {
-    const key = `${prompt}\u0000${file?.name ?? ''}\u0000${file?.size ?? 0}`
+    /**
+     * 열쇠는 **실제로 보내는 값**과 같아야 한다. 코멘트는 다듬어 보내므로 여기서도 다듬는다 —
+     * 끝에 공백 하나를 더하면 보낼 내용은 그대로인데 새 값이 나가 두 번 빠진다.
+     * 파일은 이름·크기가 같아도 다른 파일일 수 있어 고친 시각까지 본다.
+     */
+    const key = [
+      workflowId ?? '',
+      prompt.trim(),
+      file?.name ?? '',
+      file?.size ?? 0,
+      file?.lastModified ?? 0,
+    ].join('\u0000')
     if (attempt.current?.key !== key) attempt.current = { key, requestId: crypto.randomUUID() }
     return attempt.current.requestId
   }
@@ -143,16 +170,9 @@ export default function RunWaiting() {
     mutationFn: () =>
       startExecution({ workflowId: workflowId!, requestId: requestIdFor(), comment: prompt, file }),
     onError: (error) => {
-      /**
-       * 서버가 답을 준 실패는 접수되지 않았거나(402·400) 서버가 이미 되돌린 것이다(502).
-       * 같은 값으로 다시 보내면 지난 실패가 돌아올 수 있어 버린다. 값을 지켜야 하는 것은
-       * 응답을 못 받아 접수 여부를 모르는 경우뿐이다.
-       *
-       * 409 는 앞서 보낸 같은 누름이 아직 도는 중이라는 뜻이라 그대로 둔다.
-       */
-      const answered = error instanceof ApiError && !error.isNetworkError
-      const inFlight = error instanceof ApiError && error.code === ALREADY_REQUESTED
-      if (answered && !inFlight) attempt.current = null
+      // 떼어 두기 전에 끊긴 것이 확실할 때만 버린다. 그 밖에는 접수 여부를 알 수 없으므로 지킨다.
+      const code = error instanceof ApiError ? error.code : undefined
+      if (code && BEFORE_RESERVE.has(code)) attempt.current = null
     },
     onSuccess: (started) => {
       // 접수되는 순간 견적만큼 빠진다. 잔액과 견적이 둘 다 옛 값이 된다.
@@ -184,16 +204,19 @@ export default function RunWaiting() {
    * 늘릴 때마다 「알 수 없는 오류」가 된다. 응답을 못 받은 경우만 우리가 문구를 채운다.
    */
   const startCode = start.error instanceof ApiError ? start.error.code : undefined
-  /** 연타가 거의 동시에 갔을 뿐이다. 먼저 간 요청이 진행 화면으로 넘겨 준다. */
-  const pressedTwice = startCode === ALREADY_REQUESTED
-  const runNotice =
-    start.error && !pressedTwice
-      ? start.error instanceof ApiError && !start.error.isNetworkError
-        ? start.error.message
-        : '실행을 맡기지 못했습니다. 잠시 뒤 다시 시도해 주세요'
-      : !workflowId
-        ? '저장된 워크플로우를 열어야 실행할 수 있습니다'
-        : ''
+  /**
+   * 접수 실패는 감추지 않는다. `EXECUTION_006` 을 조용히 넘기려 했지만, 같은 탭 연타는
+   * `start.isPending` 이 이미 막고 있어 실제로는 **다른 탭이나 새로고침**에서 온다 — 그쪽에는
+   * 넘겨 줄 요청이 없어 화면이 아무 말도 없이 멈춘 것처럼 보인다. 서버가 실행 번호를 실어
+   * 보내지 않아 그 실행으로 데려다줄 수도 없으므로, 적어도 무슨 일인지는 적는다.
+   */
+  const runNotice = start.error
+    ? start.error instanceof ApiError && !start.error.isNetworkError
+      ? start.error.message
+      : '실행을 맡기지 못했습니다. 잠시 뒤 다시 시도해 주세요'
+    : !workflowId
+      ? '저장된 워크플로우를 열어야 실행할 수 있습니다'
+      : ''
 
   /** 목록이 비어 보이는 이유를 자리에 적는다 — 빈 상자만 두면 노드가 없는 것처럼 읽힌다. */
   const itemsNotice = !workflowId
