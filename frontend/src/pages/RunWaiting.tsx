@@ -92,9 +92,9 @@ export default function RunWaiting() {
   /**
    * 이 「누름」을 가리키는 값. 접수되는 순간 돈이 빠지므로 재시도에 새 값을 만들면 두 번 빠진다.
    *
-   * 그래서 보내는 내용이 같은 동안에는 같은 값을 계속 쓴다 — 시간이 걸려 한 번 더 누르거나
-   * 실패 뒤 다시 눌러도 서버가 앞서 접수한 실행을 돌려준다. 코멘트나 파일을 고치면 다른 실행이니
-   * 새로 만든다. 옛 값을 그대로 보내면 고친 내용이 아니라 이전 실행이 돌아온다.
+   * 그래서 보내는 내용이 같은 동안에는 같은 값을 계속 쓴다 — 응답을 못 받고 다시 눌러도 서버가
+   * 앞서 접수한 실행을 돌려준다. 코멘트나 파일을 고치면 다른 실행이니 새로 만든다. 옛 값을
+   * 그대로 보내면 고친 내용이 아니라 이전 실행이 돌아온다.
    */
   const attempt = useRef<{ key: string; requestId: string } | null>(null)
   const requestIdFor = () => {
@@ -142,6 +142,18 @@ export default function RunWaiting() {
   const start = useMutation({
     mutationFn: () =>
       startExecution({ workflowId: workflowId!, requestId: requestIdFor(), comment: prompt, file }),
+    onError: (error) => {
+      /**
+       * 서버가 답을 준 실패는 접수되지 않았거나(402·400) 서버가 이미 되돌린 것이다(502).
+       * 같은 값으로 다시 보내면 지난 실패가 돌아올 수 있어 버린다. 값을 지켜야 하는 것은
+       * 응답을 못 받아 접수 여부를 모르는 경우뿐이다.
+       *
+       * 409 는 앞서 보낸 같은 누름이 아직 도는 중이라는 뜻이라 그대로 둔다.
+       */
+      const answered = error instanceof ApiError && !error.isNetworkError
+      const inFlight = error instanceof ApiError && error.code === ALREADY_REQUESTED
+      if (answered && !inFlight) attempt.current = null
+    },
     onSuccess: (started) => {
       // 접수되는 순간 견적만큼 빠진다. 잔액과 견적이 둘 다 옛 값이 된다.
       void queryClient.invalidateQueries({ queryKey: queryKeys.credits.balance() })
