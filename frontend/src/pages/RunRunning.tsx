@@ -38,14 +38,19 @@ const CAMERA_STEP = 197
 /** 명세가 정한 조회 간격. */
 const POLL_MS = 2_000
 
-/** 단계 상태는 실행 엔진이 보낸 소문자가 그대로 온다. */
-const STEP_LABEL: Record<StepStatus, string> = {
+/**
+ * 단계 상태는 실행 엔진이 보낸 소문자가 그대로 온다 — 서버가 `String` 으로 흘려 주기만 하고
+ * 값을 대조하지 않아(`ExecutionProgress.Step`) 우리가 모르는 값이 올 수 있다. 그래서 `Record<string>`
+ * 이고, 못 찾으면 대기로 둔다. 빈 칸으로 두면 카드 아래 한 줄이 통째로 사라진다.
+ */
+const STEP_LABEL: Record<string, string> = {
   pending: '대기',
   running: '진행 중',
   succeeded: '완료',
   failed: '실패',
   skipped: '건너뜀',
 }
+const labelOf = (status: StepStatus) => STEP_LABEL[status] ?? '대기'
 
 export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
@@ -100,8 +105,14 @@ export default function RunRunning() {
     '요약 생성 대기',
   ]
   const failed = progress?.status === 'FAILED'
-  /** 진행을 물어보지도 못한 상태. 흉내 진행도 꺼져 있어 그냥 두면 0% 에서 「도는 중」으로 굳는다. */
-  const lost = !!live.error
+  /**
+   * 진행을 **한 번도** 못 받은 상태. 흉내 진행도 꺼져 있어 그냥 두면 0% 에서 「도는 중」으로 굳는다.
+   *
+   * 앞서 받아 둔 값이 있으면 실패로 보지 않는다 — 폴링 한 번이 502 로 넘어져도(엔진이 자주 낸다)
+   * 쿼리는 지난 데이터를 그대로 들고 있다. 그때 실패 화면으로 바꾸면 멀쩡히 도는 실행을 두고
+   * 「워크플로우를 수정하라」고 말한 뒤 2초 뒤 되돌아온다.
+   */
+  const lost = !!live.error && !progress
   const pctR = progress ? progress.percent : Math.round(pct)
   // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
   const per = 100 / Math.max(1, defs.length)
@@ -114,9 +125,15 @@ export default function RunRunning() {
    * 진행률로만 칠한다. 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
    */
   const aligned = progress && progress.steps.length === defs.length ? progress.steps : null
+  /**
+   * 끝났는지는 진행률이 아니라 상태로 가른다. `percent` 는 엔진이 준 값이라 마지막 단계가 끝나고
+   * 상태가 넘어가기 전 한 번은 `percent: 100, status: 'RUNNING'` 으로 온다 — 진행률로 가르면
+   * 그 한 틱 동안 카드와 결과 화면이 먼저 넘어간다.
+   */
+  const finished = progress ? progress.status === 'SUCCEEDED' : pctR >= 100
   const g: CanvasNodeData | undefined = defs[active]
   const glowStyle: CSSProperties =
-    g && pctR < 100
+    g && !finished
       ? {
           position: 'absolute',
           left: `${g.x - 10}px`,
@@ -134,8 +151,8 @@ export default function RunRunning() {
   const nodes = defs.map((d, i) => {
     const step = aligned?.[i]
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 는 0 이라 첫 카드가 켜져 버린다.
-    const stepDone = step ? step.status === 'succeeded' : !lost && (i < active || pctR >= 100)
-    const stepRunning = step ? step.status === 'running' : !lost && i === active && pctR < 100
+    const stepDone = step ? step.status === 'succeeded' : !lost && (i < active || finished)
+    const stepRunning = step ? step.status === 'running' : !lost && i === active && !finished
     const stepFailed = step?.status === 'failed'
     return {
       ...d,
@@ -158,7 +175,7 @@ export default function RunRunning() {
             ? 'rgba(154,208,180,.85)'
             : 'rgba(255,236,246,.4)',
       stateLabel: step
-        ? STEP_LABEL[step.status]
+        ? labelOf(step.status)
         : stepRunning
           ? '진행 중'
           : stepDone
@@ -184,7 +201,7 @@ export default function RunRunning() {
     ? Math.min(logLines.length, progress.done + 1)
     : Math.min(logLines.length, Math.max(1, Math.round((pctR / 100) * logLines.length) + 1))
   const logs = logLines.slice(0, shown).map((text, i) => {
-    const last = i === shown - 1 && pctR < 100
+    const last = i === shown - 1 && !finished
     return {
       text,
       dot: last ? 'rgba(255,194,216,.9)' : 'rgba(154,208,180,.7)',
@@ -254,8 +271,8 @@ export default function RunRunning() {
   const copyLabel = copied ? '복사됨' : '복사'
   const copyBg = copied ? 'rgba(154,208,180,.26)' : 'rgba(255,255,255,.1)'
   const copyFg = copied ? '#a8ddc0' : 'rgba(255,255,255,.82)'
-  const running = !failed && !lost && pctR < 100
-  const done = !failed && !lost && pctR >= 100
+  const running = !failed && !lost && !finished
+  const done = !failed && !lost && finished
   const pctLabel = pctR + '%'
   const gaugeBg =
     'conic-gradient(from 0deg, var(--color-accent) 0 ' +
@@ -279,7 +296,7 @@ export default function RunRunning() {
     ? '진행 상황을 알 수 없습니다'
     : failed
       ? '실행이 중단되었습니다'
-      : done
+      : finished
         ? '결과 전달 완료'
         : progress
           ? (progress.currentStepName ?? '실행을 준비하는 중')
@@ -291,7 +308,7 @@ export default function RunRunning() {
     : progress
       ? `${progress.done} / ${progress.total} 단계`
       : defs.length
-        ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
+        ? `${finished ? defs.length : active + 1} / ${defs.length} 단계`
         : ''
 
   useEffect(() => {
