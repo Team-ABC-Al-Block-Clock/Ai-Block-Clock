@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,6 +108,9 @@ class CostEstimateAssemblerIntegrationTest {
         CostEstimate estimate = costEstimateAssembler.assemble(workflow);
 
         assertThat(estimate.items().get(1).price().value()).isEqualByComparingTo("9.000000");
+        assertThat(estimate.items()).extracting(CostItem::priceMultiplier)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(BigDecimal.ONE, new BigDecimal("1.50"));
     }
 
     @Test
@@ -119,6 +123,7 @@ class CostEstimateAssemblerIntegrationTest {
 
         assertThat(estimate.items().get(1).price().value()).isEqualByComparingTo("6.000000");
         assertThat(estimate.total().value()).isEqualByComparingTo("9.000000");
+        assertThat(estimate.items().get(1).priceMultiplier()).isEqualByComparingTo("1");
     }
 
     @Test

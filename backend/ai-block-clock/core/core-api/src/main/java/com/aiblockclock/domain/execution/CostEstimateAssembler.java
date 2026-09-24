@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
 @RequiredArgsConstructor
 public class CostEstimateAssembler {
@@ -43,14 +45,15 @@ public class CostEstimateAssembler {
             case NODE -> {
                 NodeDefinition node = nodeReader.read(NodeDefinitionId.of(placed.reference().referenceId()));
 
-                yield new CostItem(placed.key(), SourceType.NODE, node.getSpec().name(), node.getSpec().baseCost());
+                yield new CostItem(placed.key(), SourceType.NODE, node.getSpec().name(), node.getSpec().baseCost(),
+                        BigDecimal.ONE);
             }
             case AGENT -> {
                 Agent agent = agentReader.read(AgentId.of(placed.reference().referenceId()));
                 AgentVersion version = agentVersionReader.read(AgentVersionId.of(placed.reference().versionId()));
 
                 yield new CostItem(placed.key(), SourceType.AGENT, agent.getProfile().name(),
-                        priceFor(payer, agent, version));
+                        priceFor(payer, agent, version), multiplierFor(payer, agent, version));
             }
             // 분기는 아직 실행하지 못한다. 실행 조립(ExecutionUnitAssembler)과 같은 규칙으로 견적도 내지 않는다.
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
@@ -60,5 +63,9 @@ public class CostEstimateAssembler {
     // 할증은 판매자 몫이라, 자기 에이전트를 자기가 쓰면 원가만 낸다.
     private static AbcAmount priceFor(UserId payer, Agent agent, AgentVersion version) {
         return agent.isOwnedBy(payer) ? version.getCost().baseCost() : version.finalPrice();
+    }
+
+    private static BigDecimal multiplierFor(UserId payer, Agent agent, AgentVersion version) {
+        return agent.isOwnedBy(payer) ? BigDecimal.ONE : version.getTier().priceMultiplier();
     }
 }

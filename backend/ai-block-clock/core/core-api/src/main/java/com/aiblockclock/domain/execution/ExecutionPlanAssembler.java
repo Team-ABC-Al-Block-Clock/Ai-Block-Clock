@@ -15,8 +15,7 @@ public class ExecutionPlanAssembler {
 
     public ExecutionPlan assemble(Workflow workflow) {
         List<PlannedPrompt> prompts = workflow.getGraph().nodesInOrder().stream()
-                .map(executionUnitAssembler::assemble)
-                .flatMap(unit -> unit.flatten().stream())
+                .flatMap(placed -> executionUnitAssembler.assemble(placed).flatten(placed.key()).stream())
                 .toList();
 
         return new ExecutionPlan(prompts);
