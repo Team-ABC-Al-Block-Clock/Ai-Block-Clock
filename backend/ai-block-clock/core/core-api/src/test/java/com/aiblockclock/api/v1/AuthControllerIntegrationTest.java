@@ -27,6 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
@@ -36,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -250,12 +252,127 @@ class AuthControllerIntegrationTest {
         assertThat(root.path("security").get(0).has(SESSION_COOKIE)).isTrue();
     }
 
+    @Test
+    void 처음_로그인한_지갑은_가입을_마치고_로그아웃_뒤_다시_로그인해도_같은_계정을_쓴다() throws Exception {
+        ECKeyPair wallet = newWallet();
+        Cookie firstSession = login(wallet).getResponse().getCookie(SESSION_COOKIE);
+
+        MvcResult beforeSignup = mvc.perform(get("/api/v1/users/me").cookie(firstSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.wallet.address").value(address(wallet)))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andReturn();
+        String userId = mapper.readTree(beforeSignup.getResponse().getContentAsString())
+                .path("data").path("userId").asString();
+
+        // 처음 로그인할 때 ABC 장부 계정도 함께 만들어졌다는 증거다.
+        mvc.perform(get("/api/v1/credits/balance").cookie(firstSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableAmount").value("0.000000"));
+
+        mvc.perform(multipart("/api/v1/users/me/signup")
+                        .param("nickname", "김싸피")
+                        .param("termsAgreed", "true")
+                        .param("recoveryNoticeConfirmed", "true")
+                        .with(csrf().asHeader())
+                        .cookie(firstSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true));
+
+        mvc.perform(post(ROOT + "/logout").with(csrf().asHeader()).cookie(firstSession))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/users/me").cookie(firstSession))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_005"));
+
+        Cookie secondSession = login(wallet).getResponse().getCookie(SESSION_COOKIE);
+
+        mvc.perform(get("/api/v1/users/me").cookie(secondSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(userId))
+                .andExpect(jsonPath("$.data.nickname").value("김싸피"))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true));
+    }
+
+    @Test
+    void 다른_지갑의_키로_서명하면_로그인할_수_없다() throws Exception {
+        String walletAddress = address(newWallet());
+        String message = issueMessage(walletAddress);
+
+        mvc.perform(loginRequest(walletAddress, sign(message, newWallet())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_008"));
+    }
+
+    @Test
+    void 유효_시간이_지난_메시지로는_로그인할_수_없다() throws Exception {
+        ECKeyPair wallet = newWallet();
+        String message = issueMessage(address(wallet));
+        when(clock.instant()).thenReturn(NOW.plus(Duration.ofMinutes(6)));
+
+        mvc.perform(loginRequest(address(wallet), sign(message, wallet)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_009"));
+    }
+
+    @Test
+    void 한_번_로그인에_쓴_서명으로_다시_로그인할_수_없다() throws Exception {
+        ECKeyPair wallet = newWallet();
+        String signature = sign(issueMessage(address(wallet)), wallet);
+        mvc.perform(loginRequest(address(wallet), signature))
+                .andExpect(status().isOk());
+
+        mvc.perform(loginRequest(address(wallet), signature))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_010"));
+    }
+
+    @Test
+    void 메시지를_발급받지_않은_지갑은_로그인할_수_없다() throws Exception {
+        ECKeyPair wallet = newWallet();
+
+        mvc.perform(loginRequest(address(wallet), sign("발급받지 않은 메시지", wallet)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_012"));
+    }
+
+    @Test
+    void 지갑_주소나_서명_형식이_틀리면_요청_값_오류로_거절한다() throws Exception {
+        ECKeyPair wallet = newWallet();
+        String signature = sign("아무 메시지", wallet);
+
+        mvc.perform(loginRequest("0x123", signature))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        mvc.perform(loginRequest(address(wallet), "hello"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
     private MvcResult login(ECKeyPair wallet) throws Exception {
         return login(wallet, null);
     }
 
     private MvcResult login(ECKeyPair wallet, Cookie currentSession) throws Exception {
         String walletAddress = address(wallet);
+        String message = issueMessage(walletAddress, currentSession);
+
+        MockHttpServletRequestBuilder loginRequest = loginRequest(walletAddress, sign(message, wallet));
+        if (currentSession != null) {
+            loginRequest.cookie(currentSession);
+        }
+
+        return mvc.perform(loginRequest)
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                .andReturn();
+    }
+
+    private String issueMessage(String walletAddress) throws Exception {
+        return issueMessage(walletAddress, null);
+    }
+
+    private String issueMessage(String walletAddress, Cookie currentSession) throws Exception {
         MockHttpServletRequestBuilder messageRequest = post(ROOT + "/wallet/message")
                 .with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -270,21 +387,17 @@ class AuthControllerIntegrationTest {
                 .path("data").path("message").asString();
         assertThat(message).isEqualTo(messageRepository.findByWalletAddress(walletAddress).orElseThrow().getMessage());
 
-        MockHttpServletRequestBuilder loginRequest = post(ROOT + "/wallet/login")
+        return message;
+    }
+
+    private MockHttpServletRequestBuilder loginRequest(String walletAddress, String signature) throws Exception {
+        return post(ROOT + "/wallet/login")
                 .with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(Map.of(
                         "walletAddress", walletAddress,
-                        "signature", sign(message, wallet)
+                        "signature", signature
                 )));
-        if (currentSession != null) {
-            loginRequest.cookie(currentSession);
-        }
-
-        return mvc.perform(loginRequest)
-                .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
-                .andReturn();
     }
 
     private int sessionCount(Cookie cookie) {

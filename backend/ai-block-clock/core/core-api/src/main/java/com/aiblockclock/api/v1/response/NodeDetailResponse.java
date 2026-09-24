@@ -1,9 +1,12 @@
 package com.aiblockclock.api.v1.response;
 
 import com.aiblockclock.domain.node.NodeDefinition;
+import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.enums.node.AiModel;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.util.List;
 
 @Schema(description = "작업 노드 상세")
 public record NodeDetailResponse(
@@ -23,15 +26,19 @@ public record NodeDetailResponse(
         String baseCost,
 
         @Schema(description = "통화", example = "ABC")
-        String currency
+        String currency,
+
+        @Schema(description = "붙여 둔 참고 자료. 실행할 때 이 노드와 함께 나간다")
+        List<RefFileResponse> refFiles
 ) {
-    public static NodeDetailResponse from(NodeDefinition node) {
+    public static NodeDetailResponse from(NodeDefinition node, List<RefFile> refFiles) {
         return new NodeDetailResponse(
                 node.getId().value().toString(),
                 node.getSpec().name(),
                 node.getPrompt().value(),
                 node.getSpec().model(),
                 node.getSpec().baseCost().value().toPlainString(),
-                AbcPricing.CURRENCY);
+                AbcPricing.CURRENCY,
+                RefFileResponse.from(refFiles));
     }
 }

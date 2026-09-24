@@ -35,7 +35,7 @@ class AiRuntimeClientE2eTest {
 
         assertThat(client.health().status()).isEqualTo("ok");
 
-        RunAccepted accepted = client.start(new RunRequest(WORKFLOW, null, null, true));
+        RunAccepted accepted = client.start(RunRequest.of(WORKFLOW, null, null, true));
 
         assertThat(accepted.runId()).isNotBlank();
         assertThat(accepted.nodeCount()).isEqualTo(2);

@@ -36,6 +36,21 @@ public enum ErrorType {
     WALLET_AUTH_MESSAGE_NOT_FOUND(HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_012,
             "지갑 인증 메시지가 없습니다. 먼저 메시지를 발급받아 주세요.", LogLevel.WARN),
 
+    USER_NICKNAME_LENGTH_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.USER_002,
+            "이름은 2~20자여야 합니다.", LogLevel.WARN),
+
+    USER_INTRODUCTION_TOO_LONG(HttpStatus.BAD_REQUEST, ErrorCode.USER_002,
+            "한 줄 소개는 40자를 넘을 수 없습니다.", LogLevel.WARN),
+
+    USER_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, ErrorCode.USER_003,
+            "이용약관 및 개인정보처리방침에 동의해야 합니다.", LogLevel.WARN),
+
+    USER_RECOVERY_NOTICE_NOT_CONFIRMED(HttpStatus.BAD_REQUEST, ErrorCode.USER_003,
+            "지갑을 분실하면 계정을 복구할 수 없다는 점을 확인해야 합니다.", LogLevel.WARN),
+
+    USER_ALREADY_ONBOARDED(HttpStatus.CONFLICT, ErrorCode.USER_006,
+            "이미 가입을 마쳤습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
@@ -66,8 +81,15 @@ public enum ErrorType {
     WORKFLOW_NODE_REFERENCE_MISMATCH(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
             "노드 종류와 참조 정보가 맞지 않습니다.", LogLevel.WARN),
 
-    WORKFLOW_GRAPH_NOT_LINEAR(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "노드는 한 줄로 이어져야 합니다.", LogLevel.WARN),
+    WORKFLOW_GRAPH_NOT_TREE(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.", LogLevel.WARN),
+
+    WORKFLOW_BRANCH_EDGES_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 노드는 참 · 거짓 갈래를 하나씩 내고, 갈래 표시는 분기 노드에서 나가는 선에만 붙습니다.", LogLevel.WARN),
+
+    WORKFLOW_BRANCH_CONDITION_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
+            LogLevel.WARN),
 
     WORKFLOW_GRAPH_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_014,
             "노드를 하나 이상 놓아야 저장할 수 있습니다.", LogLevel.WARN),
@@ -93,11 +115,41 @@ public enum ErrorType {
     NODE_PLACED_IN_GRAPH(HttpStatus.CONFLICT, ErrorCode.NODE_004,
             "워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.", LogLevel.WARN),
 
+    REF_FILE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.NODE_005,
+            "참고 자료를 찾을 수 없습니다.", LogLevel.WARN),
+
+    REF_FILE_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
+            "빈 파일은 붙일 수 없습니다.", LogLevel.WARN),
+
+    REF_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
+            "PDF · 텍스트 · 마크다운 · CSV · 이미지만 붙일 수 있습니다.", LogLevel.WARN),
+
+    REF_FILE_TOTAL_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.NODE_007,
+            "노드에 붙인 참고 자료의 합계가 10MB 를 넘습니다.", LogLevel.WARN),
+
     EXECUTION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
             "실행을 찾을 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ENGINE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.EXECUTION_002,
             "실행을 맡기지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),
+
+    EXECUTION_FILE_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_003,
+            "빈 파일은 올릴 수 없습니다.", LogLevel.WARN),
+
+    EXECUTION_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_003,
+            "엑셀 또는 CSV 파일만 올릴 수 있습니다.", LogLevel.WARN),
+
+    EXECUTION_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.EXECUTION_004,
+            "파일 크기가 10MB 를 넘습니다.", LogLevel.WARN),
+
+    EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
+            "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
+
+    FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
+            "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),
+
+    FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.FILE_002,
+            "올린 파일이 10MB 를 넘습니다.", LogLevel.WARN),
 
     RECOMMEND_UNAVAILABLE(HttpStatus.BAD_GATEWAY, ErrorCode.RECOMMEND_001,
             "추천을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.", LogLevel.WARN),

@@ -59,4 +59,11 @@ class GraphLimitsTest {
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.WORKFLOW_DEPTH_LIMIT_EXCEEDED);
     }
+
+    @Test
+    @DisplayName("깊이는 노드 수가 아니라 가장 긴 갈래로 잰다")
+    void measuresDepthByLongestBranch() {
+        assertThatCode(() -> new GraphLimits(20, 4).ensureWithin(GraphFixtures.branched()))
+                .doesNotThrowAnyException();
+    }
 }

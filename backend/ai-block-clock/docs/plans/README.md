@@ -5,6 +5,9 @@
 | 문서 | 범위 |
 | --- | --- |
 | [`agent-pipeline.md`](agent-pipeline.md) | 작업 노드 · 그래프 확장 · 에이전트 가격 · AI Runtime 실행 |
+| [`file-upload.md`](file-upload.md) | **수요자**가 실행할 때 올리는 파일을 받아 검사 · 보관하고 Runtime 에 싣는다 |
+| [`node-ref-files.md`](node-ref-files.md) | **공급자**가 노드에 붙여 두는 참고 자료. 굳힌 버전이 제 것을 들고 있다 |
+| [`ai-runtime-contract-gap.md`](ai-runtime-contract-gap.md) | **AI Runtime 계약과 우리 코드가 어긋난 자리.** 저장 구조 · 실어 보내는 값 · 받는 값 |
 | [`ai-runtime-questions.md`](ai-runtime-questions.md) | **AI 파트에 보내는 확인 요청.** 답이 오면 `agent-pipeline.md` 에 반영하고 걷어낸다 |
 | [`completed/`](completed/) | **구현이 끝나 걷어낸 장.** 왜 그 모양인지 되짚을 때만 본다. 현재 규칙의 원본이 아니다 |
 

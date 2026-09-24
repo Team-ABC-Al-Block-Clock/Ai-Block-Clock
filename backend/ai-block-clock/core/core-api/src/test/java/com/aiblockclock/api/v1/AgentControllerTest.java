@@ -120,8 +120,8 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("분기가 있는 그래프는 아직 저장 단계에서 막힌다")
-    void doesNotAcceptBranchingYet() throws Exception {
+    @DisplayName("분기 노드 없이 갈라지는 그래프는 저장 단계에서 막힌다")
+    void rejectsForkWithoutBranchNode() throws Exception {
         String node = createNode("성적 분석", "당신은 학원 성적 데이터 분석가입니다.");
 
         mockMvc.perform(post("/api/v1/workflows")

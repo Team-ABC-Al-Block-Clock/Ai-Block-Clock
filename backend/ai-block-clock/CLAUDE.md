@@ -21,7 +21,7 @@ private NodeKey soleStart() {
     }
 
     if (starts.size() > 1) {
-        throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR,
+        throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_TREE,
                 Map.of("startCount", starts.size()));
     }
 
@@ -41,7 +41,7 @@ private NodeKey soleStart() {
         throw new CoreException(ErrorType.WORKFLOW_GRAPH_CYCLE);
     }
     if (starts.size() > 1) {
-        throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR,
+        throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_TREE,
                 Map.of("startCount", starts.size()));
     }
     return starts.get(0);

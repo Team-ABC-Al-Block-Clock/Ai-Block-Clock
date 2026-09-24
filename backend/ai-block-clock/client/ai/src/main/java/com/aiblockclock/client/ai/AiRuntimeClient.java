@@ -2,11 +2,16 @@ package com.aiblockclock.client.ai;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
 @RequiredArgsConstructor
 public class AiRuntimeClient {
@@ -23,6 +28,8 @@ public class AiRuntimeClient {
         form.add("mock", String.valueOf(request.mock()));
         addIfPresent(form, "input", request.input());
         addIfPresent(form, "comment", request.comment());
+        addIfPresent(form, request.file());
+        addRefFiles(form, request.refFiles());
 
         try {
             return ensureUsable(require(runtimeRestClient.post()
@@ -77,6 +84,22 @@ public class AiRuntimeClient {
         if (value != null && !value.isBlank()) {
             form.add(name, value);
         }
+    }
+
+    private static void addIfPresent(MultiValueMap<String, Object> form, Path file) {
+        if (file == null) {
+            return;
+        }
+
+        form.add("file", new FileSystemResource(file));
+    }
+
+    private static void addRefFiles(MultiValueMap<String, Object> form, Map<String, List<Path>> refFiles) {
+        refFiles.forEach((nodeId, files) -> {
+            for (int index = 0; index < files.size(); index++) {
+                form.add("ref_file_" + nodeId + "_" + index, new FileSystemResource(files.get(index)));
+            }
+        });
     }
 
     private static <T> T require(T response, String what) {
