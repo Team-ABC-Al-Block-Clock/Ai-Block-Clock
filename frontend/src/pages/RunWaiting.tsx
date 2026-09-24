@@ -55,10 +55,7 @@ export default function RunWaiting() {
   const [prompt, setPrompt] = useState('')
   const filled = prompt.trim().length > 0
 
-  /**
-   * 실행 전 견적. 계산만 하고 차감하지 않아 창을 떠난 사이 다른 실행이 잔액을 잡아 둘 수 있다
-   * — 충전하고 돌아오는 길도 마찬가지라 돌아올 때마다 다시 받는다.
-   */
+  /** 실행 전 견적. 그사이 잔액이 바뀔 수 있어 창에 돌아올 때마다 다시 받는다. */
   const estimate = useQuery({
     queryKey: queryKeys.executions.costEstimate(workflowId ?? ''),
     queryFn: () => estimateCost(workflowId!),
@@ -78,10 +75,7 @@ export default function RunWaiting() {
         : 0
     : 0
 
-  /**
-   * 견적을 못 받았을 때는 막지 않는다. 최종 판정은 서버가 실행을 접수할 때 다시 한다 —
-   * 화면이 모른다는 이유로 멈추면 서버가 통과시킬 실행까지 못 하게 된다.
-   */
+  /** 견적을 못 받았을 때는 막지 않는다. 최종 판정은 서버가 접수할 때 다시 한다. */
   const blocked = cost ? !cost.executable : false
 
   const handleRun = () => {

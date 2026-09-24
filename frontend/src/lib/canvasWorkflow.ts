@@ -68,7 +68,7 @@ export interface CanvasNodeData {
 const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
 
 /**
- * 다섯 칸짜리 예시 구성. **화면 초기값으로 쓰지 않는다** — 캔버스는 빈 상태로 연다.
+ * 다섯 칸짜리 예시 구성. 화면 초기값으로 쓰지 않는다 — 캔버스는 빈 상태로 연다.
  * 그래프 함수를 검사할 때 손으로 짜는 대신 쓰는 표본이다.
  */
 export const CANVAS_NODES: CanvasNodeData[] = [
