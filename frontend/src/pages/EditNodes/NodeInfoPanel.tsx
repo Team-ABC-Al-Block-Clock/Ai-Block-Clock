@@ -18,7 +18,8 @@ function messageOf(error: unknown, fallback: string) {
   if (error.code === 'NODE_002') return '이 노드를 고칠 권한이 없습니다'
   if (error.code === 'NODE_003') return '프롬프트를 입력해 주세요'
   if (error.code === 'NODE_004') return '워크플로우에 배치된 노드는 지울 수 없습니다'
-  if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
+  // 서버 빈 검증은 이름·프롬프트를 한 코드로 묶어 답한다. 한쪽을 지목하지 않는다.
+  if (error.code === 'COMMON_001') return '입력한 값을 확인해 주세요'
   return fallback
 }
 

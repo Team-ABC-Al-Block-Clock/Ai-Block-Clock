@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api/errors'
 import { createNode, deleteNode, getNode, updateNode } from '@/api/nodes'
-import { getNodePalette } from '@/api/workflows'
+import { getWorkflow, getNodePalette, saveWorkflow } from '@/api/workflows'
 import { NODE_DETAILS, OTHERS_NODE_ID, PLACED_NODE_IDS } from '@/mocks/fixtures/nodes'
 
 /** api 레이어 + mock 핸들러를 한 번에 통과시킨다. */
@@ -63,15 +63,16 @@ describe('updateNode', () => {
     expect(saved.model).toBe('GEMINI_2_5_FLASH')
   })
 
-  it('빈 프롬프트는 NODE_003', async () => {
+  // 빈 값·길이는 서버에서 빈 검증이 먼저 잡는다. NODE_003 은 그 뒤 도메인에서만 난다.
+  it('빈 프롬프트는 COMMON_001 — 도메인의 NODE_003 앞에서 빈 검증이 먼저 잡는다', async () => {
     await expect(
       updateNode(anyNode().nodeId, { name: '이름', prompt: '   ' }),
-    ).rejects.toMatchObject({ code: 'NODE_003' })
+    ).rejects.toMatchObject({ code: 'COMMON_001' })
   })
 
-  it('이름이 상한을 넘으면 COMMON_001 — 프롬프트보다 먼저 걸린다', async () => {
+  it('이름이 상한을 넘어도 COMMON_001', async () => {
     await expect(
-      updateNode(anyNode().nodeId, { name: 'ㄱ'.repeat(41), prompt: '' }),
+      updateNode(anyNode().nodeId, { name: 'ㄱ'.repeat(41), prompt: '할 일' }),
     ).rejects.toMatchObject({ code: 'COMMON_001' })
   })
 })
@@ -114,5 +115,27 @@ describe('deleteNode', () => {
     const page = await getNodePalette({ scope: 'ALL', size: 30 })
 
     expect(page.content.some((item) => item.itemId === target.nodeId)).toBe(false)
+  })
+})
+
+/** 만든 노드를 캔버스에 놓고 저장했다가 다시 여는 길. 팔레트에 없어 개별 조회로 메운다. */
+describe('만든 노드의 저장 왕복', () => {
+  it('저장에 통과하고 다시 열면 개별 조회로 이름을 되찾는다', async () => {
+    const made = await createNode({ name: '왕복할 노드', prompt: '할 일' })
+
+    const saved = await saveWorkflow({
+      name: '왕복 검증',
+      nodes: [{ nodeKey: 'n1', sourceType: 'NODE', sourceId: made.nodeId }],
+      edges: [],
+    })
+    const detail = await getWorkflow(saved.workflowId)
+    expect(detail.nodes.map((node) => node.sourceId)).toEqual([made.nodeId])
+
+    // 팔레트에는 없다 — 이름표는 여기서 못 찾는다.
+    const page = await getNodePalette({ scope: 'ALL', size: 30 })
+    expect(page.content.some((item) => item.itemId === made.nodeId)).toBe(false)
+
+    // 개별 조회가 이름을 들고 있다.
+    expect((await getNode(made.nodeId)).name).toBe('왕복할 노드')
   })
 })

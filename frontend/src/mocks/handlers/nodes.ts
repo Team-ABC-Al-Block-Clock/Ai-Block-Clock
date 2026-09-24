@@ -38,13 +38,23 @@ const findNode = (nodeId: string) =>
 const notFound = () => fail(404, 'NODE_001', '노드를 찾을 수 없습니다.')
 const forbidden = () => fail(403, 'NODE_002', '노드에 대한 권한이 없습니다.')
 
-/** 서버 검증 순서를 그대로 따른다 — 여기서 뭉개면 화면이 mock 에서만 통과한다. */
+/**
+ * 서버 검증 순서를 그대로 따른다 — 여기서 뭉개면 화면이 mock 에서만 통과한다.
+ *
+ * 빈 값·길이는 `@NotBlank`·`@Size` 가 먼저 잡아 `COMMON_001` 로 나가고, 어긋난 필드를
+ * `data` 에 싣는다. `NODE_003` 은 그 뒤 도메인에서만 나므로 여기서는 낼 수 없다.
+ */
 function rejectBody(body: NodeSaveBody) {
-  if (typeof body?.name !== 'string' || !body.name.trim() || body.name.length > NODE_NAME_MAX)
-    return fail(400, 'COMMON_001', '노드 이름이 올바르지 않습니다.')
+  const violations: Record<string, string> = {}
+  if (typeof body?.name !== 'string' || !body.name.trim())
+    violations.name = '이름을 입력해야 합니다.'
+  else if (body.name.length > NODE_NAME_MAX)
+    violations.name = `이름은 ${NODE_NAME_MAX}자까지 가능합니다.`
   if (typeof body?.prompt !== 'string' || !body.prompt.trim())
-    return fail(400, 'NODE_003', '프롬프트를 입력해야 합니다.')
-  return null
+    violations.prompt = '프롬프트를 입력해야 합니다.'
+
+  if (!Object.keys(violations).length) return null
+  return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', violations)
 }
 
 let created = 0
