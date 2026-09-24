@@ -431,7 +431,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
       // 글자를 지우는 중일 수 있다.
       const target = ev.target as HTMLElement | null
-      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
       if (!selEdge && !nodes.some((n) => n.id === selId)) return
       ev.preventDefault()
       dispatch({ type: 'removeSelected' })
@@ -465,8 +465,11 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     dragId,
     linkFrom,
     canSell: canSellWorkflow(nodes),
-    /** 고른 것을 캔버스에서 내린다. 원본은 그대로다. */
-    removeSelected: () => dispatch({ type: 'removeSelected' }),
+    /** 지워진 원본을 쓰던 카드를 전부 내린다. 남겨 두면 저장이 `WORKFLOW_015` 로 막힌다. */
+    removeBySource: (sourceId: string) => dispatch({ type: 'removeBySource', sourceId }),
+    /** 원본 이름이 바뀌면 놓인 카드도 따라간다. */
+    renameBySource: (sourceId: string, name: string) =>
+      dispatch({ type: 'renameBySource', sourceId, name }),
     portOpen,
     view,
     zoomLabel: `${zoomPercent(view)}%`,

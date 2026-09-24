@@ -1,9 +1,16 @@
 import { useState } from 'react'
 
 import { ApiError } from '@/api/errors'
-import { NODE_NAME_MAX, type AiModel, type NodeDetail } from '@/api/nodes'
+import { NODE_NAME_MAX, type AiModel, type NodeSaveBody } from '@/api/nodes'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import { useNodeDetail } from '@/hooks/useNodeDetail'
+
+/**
+ * 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리.
+ *
+ * 세로는 424px 까지다. 그 아래는 팔레트가 쓴다(`NodePalettePanel`) — 같은 `SidePanel` 안에
+ * 절대 배치라, 넘치면 팔레트가 위를 덮어 버튼이 눌리지 않는다.
+ */
 
 /** 서버가 아는 모델. 늘어나면 여기만 고친다. */
 const MODELS: { value: AiModel; label: string }[] = [
@@ -26,26 +33,47 @@ const labelStyle = (top: string) => ({
   color: 'rgba(255,255,255,.92)',
 })
 
-type EditorProps = {
-  node: NodeDetail
-  save: ReturnType<typeof useNodeDetail>['save']
-  remove: ReturnType<typeof useNodeDetail>['remove']
-  onDeleted?: () => void
+const rowStyle = (top: string) => ({
+  left: `${PANEL_INSET}px`,
+  top,
+  width: `${PANEL_CONTENT_WIDTH}px`,
+})
+
+type FormValues = { name: string; prompt: string; model: AiModel }
+
+type NodeFormProps = {
+  initial: FormValues
+  /** 만들 때는 비어 있어도 보낼 수 있다. 고칠 때는 달라진 것이 있어야 한다. */
+  requireChange: boolean
+  submitLabel: string
+  busyLabel: string
+  busy: boolean
+  status: string
+  isError: boolean
+  onSubmit: (body: NodeSaveBody) => void
+  /** 오른쪽에 붙는 버튼 — 고칠 때는 삭제, 만들 때는 취소. */
+  trailing: React.ReactNode
 }
 
-/**
- * 고친 내용을 담는 자리. 부르는 쪽이 `key` 에 노드 id 를 주어 노드를 바꿀 때마다 새로 만든다 —
- * 그래야 옆 노드를 눌렀을 때 앞 노드의 프롬프트가 남지 않는다.
- */
-function NodeEditor({ node, save, remove, onDeleted }: EditorProps) {
-  const [name, setName] = useState(node.name)
-  const [prompt, setPrompt] = useState(node.prompt)
-  const [model, setModel] = useState<AiModel>(node.model)
+/** 이름·프롬프트·모델을 담는 자리. 고치기와 만들기가 같은 모양을 쓴다. */
+function NodeForm({
+  initial,
+  requireChange,
+  submitLabel,
+  busyLabel,
+  busy,
+  status,
+  isError,
+  onSubmit,
+  trailing,
+}: NodeFormProps) {
+  const [name, setName] = useState(initial.name)
+  const [prompt, setPrompt] = useState(initial.prompt)
+  const [model, setModel] = useState<AiModel>(initial.model)
 
-  const dirty = name !== node.name || prompt !== node.prompt || model !== node.model
-  const busy = save.isPending || remove.isPending
-  const canSave = dirty && !!name.trim() && !!prompt.trim() && !busy
-  const error = save.error ?? remove.error
+  const changed = name !== initial.name || prompt !== initial.prompt || model !== initial.model
+  const filled = !!name.trim() && !!prompt.trim()
+  const canSubmit = filled && !busy && (!requireChange || changed)
 
   return (
     <>
@@ -55,7 +83,9 @@ function NodeEditor({ node, save, remove, onDeleted }: EditorProps) {
         maxLength={NODE_NAME_MAX}
         onChange={(ev) => setName(ev.target.value)}
         placeholder="노드 이름"
-        style={{ left: '96px', top: '76px', width: '236px', height: '26px' }}
+        aria-label="노드 이름"
+        // 머리 카드의 글자 칸과 같은 자리에 선다 — 30(inset) + 16(padding) + 48(아이콘) + 16(gap).
+        style={{ left: '110px', top: '81px', width: '224px', height: '24px' }}
       />
 
       <textarea
@@ -63,29 +93,27 @@ function NodeEditor({ node, save, remove, onDeleted }: EditorProps) {
         value={prompt}
         onChange={(ev) => setPrompt(ev.target.value)}
         placeholder="이 노드가 할 일을 적어 주세요"
+        aria-label="프롬프트"
         style={{
-          left: `${PANEL_INSET}px`,
-          top: '196px',
-          width: `${PANEL_CONTENT_WIDTH}px`,
-          height: '108px',
+          ...rowStyle('192px'),
+          height: '80px',
           borderRadius: '10px',
           background: 'var(--color-surface-inset)',
-          padding: '12px 14px',
+          padding: '10px 14px',
         }}
       />
 
-      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('326px')}>
+      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('282px')}>
         모델
       </div>
       <select
         className="absolute cursor-pointer border-0 font-[inherit] text-[15.5px] text-white outline-0"
         value={model}
         onChange={(ev) => setModel(ev.target.value as AiModel)}
+        aria-label="모델"
         style={{
-          left: `${PANEL_INSET}px`,
-          top: '350px',
-          width: `${PANEL_CONTENT_WIDTH}px`,
-          height: '44px',
+          ...rowStyle('302px'),
+          height: '36px',
           borderRadius: '10px',
           padding: '0 14px',
           background: 'var(--color-surface-inset)',
@@ -99,123 +127,157 @@ function NodeEditor({ node, save, remove, onDeleted }: EditorProps) {
       </select>
 
       <div
-        className="absolute text-[13px] leading-[1.6]"
+        className="absolute truncate text-[12.5px]"
         style={{
-          left: `${PANEL_INSET}px`,
-          top: '404px',
-          width: `${PANEL_CONTENT_WIDTH}px`,
-          minHeight: '20px',
-          color: error ? 'rgba(255,196,214,.95)' : 'rgba(255,236,246,.6)',
+          ...rowStyle('346px'),
+          color: isError ? 'rgba(255,196,214,.95)' : 'rgba(255,236,246,.55)',
         }}
       >
-        {error
-          ? messageOf(error, '저장하지 못했습니다')
-          : `1회 실행 원가 ${node.baseCost} ${node.currency}`}
+        {status}
       </div>
 
-      <div
-        className="absolute flex items-center"
-        style={{ left: `${PANEL_INSET}px`, top: '430px', gap: '8px' }}
-      >
+      <div className="absolute flex items-center" style={{ ...rowStyle('370px'), gap: '8px' }}>
         <button
           type="button"
-          disabled={!canSave}
-          onClick={() => save.mutate({ name: name.trim(), prompt: prompt.trim(), model })}
+          disabled={!canSubmit}
+          onClick={() => onSubmit({ name: name.trim(), prompt: prompt.trim(), model })}
           className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
           style={{
-            height: '38px',
+            height: '34px',
             padding: '0 18px',
-            borderRadius: '19px',
+            borderRadius: '17px',
             background: 'var(--color-accent)',
             color: 'var(--color-accent-ink)',
-            cursor: canSave ? 'pointer' : 'default',
+            cursor: canSubmit ? 'pointer' : 'default',
           }}
         >
-          {save.isPending ? '저장 중' : '저장'}
+          {busy ? busyLabel : submitLabel}
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => remove.mutate(undefined, { onSuccess: () => onDeleted?.() })}
-          className="border-0 font-[inherit] text-[14px] disabled:cursor-default disabled:opacity-45"
-          style={{
-            height: '38px',
-            padding: '0 16px',
-            borderRadius: '19px',
-            background: 'rgba(255,255,255,.12)',
-            color: 'rgba(255,236,246,.9)',
-            cursor: busy ? 'default' : 'pointer',
-          }}
-        >
-          원본 삭제
-        </button>
-      </div>
-      <div
-        className="absolute text-[12.5px] leading-[1.6]"
-        style={{
-          left: `${PANEL_INSET}px`,
-          top: '476px',
-          width: `${PANEL_CONTENT_WIDTH}px`,
-          color: 'rgba(255,236,246,.5)',
-        }}
-      >
-        캔버스에서 내리는 것과 다릅니다 — 원본을 지우면 다른 워크플로우에서도 사라집니다
+        {trailing}
       </div>
     </>
   )
 }
 
+type EditProps = {
+  nodeId: string
+  /** 저장된 워크플로우에 놓인 노드는 서버가 삭제를 막는다(`NODE_004`). */
+  deletable: boolean
+  onRenamed: (sourceId: string, name: string) => void
+  onDeleted: (sourceId: string) => void
+}
+
+/**
+ * 원본 하나를 읽고 고치는 자리.
+ *
+ * `key` 에 노드 id 를 받아 노드를 바꿀 때마다 새로 만든다 — 앞 노드의 프롬프트도,
+ * 앞 노드에서 난 오류도 따라오지 않는다.
+ */
+function NodeSource({ nodeId, deletable, onRenamed, onDeleted }: EditProps) {
+  const { detail, save, remove } = useNodeDetail(nodeId)
+  const node = detail.data
+
+  if (!node)
+    return (
+      <div
+        className="absolute text-[14px] leading-[1.7]"
+        style={{ ...rowStyle('192px'), color: 'rgba(255,236,246,.66)' }}
+      >
+        {detail.isPending ? '불러오는 중' : messageOf(detail.error, '노드를 불러오지 못했습니다')}
+      </div>
+    )
+
+  const error = save.error ?? remove.error
+  const busy = save.isPending || remove.isPending
+
+  return (
+    <NodeForm
+      key={node.nodeId}
+      initial={{ name: node.name, prompt: node.prompt, model: node.model }}
+      requireChange
+      submitLabel="저장"
+      busyLabel="저장 중"
+      busy={busy}
+      isError={!!error}
+      status={
+        error
+          ? messageOf(error, '저장하지 못했습니다')
+          : deletable
+            ? '삭제하면 다른 워크플로우에서도 사라집니다'
+            : '저장된 워크플로우에 놓여 있어 원본을 지울 수 없습니다'
+      }
+      onSubmit={(body) =>
+        save.mutate(body, { onSuccess: (saved) => onRenamed(node.nodeId, saved.name) })
+      }
+      trailing={
+        <button
+          type="button"
+          disabled={busy || !deletable}
+          onClick={() => remove.mutate(undefined, { onSuccess: () => onDeleted(node.nodeId) })}
+          title={
+            deletable
+              ? '캔버스에서 내리는 것과 다릅니다 — 원본이 사라집니다'
+              : '저장된 워크플로우에 놓인 노드는 지울 수 없습니다'
+          }
+          className="border-0 font-[inherit] text-[14px] disabled:cursor-default disabled:opacity-45"
+          style={{
+            height: '34px',
+            padding: '0 16px',
+            borderRadius: '17px',
+            background: 'rgba(255,255,255,.12)',
+            color: 'rgba(255,236,246,.9)',
+            cursor: busy || !deletable ? 'default' : 'pointer',
+          }}
+        >
+          원본 삭제
+        </button>
+      }
+    />
+  )
+}
+
 type NodeInfoPanelProps = {
-  /** 캔버스에서 고른 노드가 있는가. 없으면 안내 문구만 보여준다. */
+  /** 캔버스에서 고른 노드가 있는가. */
   hasSelection: boolean
   name: string
   /** 이름 첫 글자. 아이콘이 아직 없어 이것으로 대신한다. */
   initial: string
   typeLabel: string
-  /**
-   * 고른 것이 내 기본 노드일 때만 원본 id. 에이전트나 남의 것이면 undefined —
-   * 그때는 예전처럼 읽기만 한다.
-   */
+  /** 고른 것이 내 기본 노드일 때만 원본 id. 에이전트나 남의 것이면 undefined. */
   nodeId?: string
-  /** 원본이 지워졌다. 캔버스에서도 내려야 한다. */
-  onDeleted?: () => void
+  deletable: boolean
+  onRenamed: (sourceId: string, name: string) => void
+  onDeleted: (sourceId: string) => void
 }
 
-/** 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리. */
 export default function NodeInfoPanel({
   hasSelection,
   name,
   initial,
   typeLabel,
   nodeId,
+  deletable,
+  onRenamed,
   onDeleted,
 }: NodeInfoPanelProps) {
-  const { detail, save, remove } = useNodeDetail(nodeId)
-  const loaded = detail.data
-
   if (!hasSelection)
     return (
       <div
         className="absolute text-[15.5px]"
-        style={{
-          left: `${PANEL_INSET}px`,
-          top: '64px',
-          width: `${PANEL_CONTENT_WIDTH}px`,
-          color: 'rgba(255,236,246,.66)',
-        }}
+        style={{ ...rowStyle('64px'), color: 'rgba(255,236,246,.66)' }}
       >
         캔버스에서 노드를 선택하면 상세 정보를 조회할 수 있습니다
       </div>
     )
+
+  const editing = !!nodeId
 
   return (
     <>
       <div
         className="absolute box-border flex items-center"
         style={{
-          left: `${PANEL_INSET}px`,
-          top: '58px',
-          width: `${PANEL_CONTENT_WIDTH}px`,
+          ...rowStyle('58px'),
           height: '104px',
           borderRadius: '12px',
           background: 'rgba(255,255,255,.11)',
@@ -238,7 +300,7 @@ export default function NodeInfoPanel({
           {/* 고칠 수 있을 때는 이름 입력이 이 자리를 덮는다. */}
           <div
             className="truncate text-[18px] font-semibold tracking-[-.005em] text-white"
-            style={{ visibility: nodeId && loaded ? 'hidden' : 'visible' }}
+            style={{ visibility: editing ? 'hidden' : 'visible' }}
           >
             {name}
           </div>
@@ -248,33 +310,24 @@ export default function NodeInfoPanel({
         </div>
       </div>
 
-      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('172px')}>
+      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('168px')}>
         노드 개요
       </div>
 
-      {nodeId && loaded ? (
-        <NodeEditor
-          key={loaded.nodeId}
-          node={loaded}
-          save={save}
-          remove={remove}
+      {nodeId ? (
+        <NodeSource
+          key={nodeId}
+          nodeId={nodeId}
+          deletable={deletable}
+          onRenamed={onRenamed}
           onDeleted={onDeleted}
         />
       ) : (
         <div
           className="absolute text-[14px] leading-[1.7]"
-          style={{
-            left: `${PANEL_INSET}px`,
-            top: '196px',
-            width: `${PANEL_CONTENT_WIDTH}px`,
-            color: 'rgba(255,236,246,.66)',
-          }}
+          style={{ ...rowStyle('192px'), color: 'rgba(255,236,246,.66)' }}
         >
-          {nodeId
-            ? detail.isPending
-              ? '불러오는 중'
-              : messageOf(detail.error, '노드를 불러오지 못했습니다')
-            : '에이전트는 내부 구성을 열 수 없습니다'}
+          에이전트는 내부 구성을 열 수 없습니다
         </div>
       )}
     </>

@@ -84,6 +84,10 @@ export type CanvasAction =
   | { type: 'loadGraph'; nodes: CanvasNodeData[]; edges: CanvasEdge[] }
   /** 선택한 것을 지움. 노드면 거기 붙은 선도 함께. */
   | { type: 'removeSelected' }
+  /** 원본이 지워졌다. 같은 원본을 두 번 놓았을 수 있어 전부 내린다. */
+  | { type: 'removeBySource'; sourceId: string }
+  /** 원본 이름이 바뀌었다. 놓인 카드가 옛 이름을 붙들지 않게 맞춘다. */
+  | { type: 'renameBySource'; sourceId: string; name: string }
   | { type: 'startLink'; from: LinkOrigin }
   /** 포트가 아닌 곳에서 손을 뗌. */
   | { type: 'cancelLink' }
@@ -146,6 +150,34 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       if (after.nodes === state.nodes) return state
       // 끄는 중인 선의 출발점이 방금 지운 노드일 수 있다. 남겨 두면 없는 노드에서 선이 나간다.
       return { ...state, ...after, selId: null, hovId: null, linkFrom: null }
+    }
+
+    case 'removeBySource': {
+      const targets = state.nodes.filter((node) => node.sourceId === action.sourceId)
+      if (!targets.length) return state
+      // 한 장씩 내린다. 선까지 같이 걷어 내는 규칙이 `removeNode` 한 곳에만 있어야 한다.
+      const after = targets.reduce((acc, node) => removeNode(acc.nodes, acc.edges, node.id), {
+        nodes: state.nodes,
+        edges: state.edges,
+      })
+      const gone = new Set(targets.map((node) => node.id))
+      return {
+        ...state,
+        ...after,
+        selId: state.selId && gone.has(state.selId) ? null : state.selId,
+        hovId: state.hovId && gone.has(state.hovId) ? null : state.hovId,
+        linkFrom: state.linkFrom && gone.has(state.linkFrom.id) ? null : state.linkFrom,
+      }
+    }
+
+    case 'renameBySource': {
+      if (!state.nodes.some((node) => node.sourceId === action.sourceId)) return state
+      return {
+        ...state,
+        nodes: state.nodes.map((node) =>
+          node.sourceId === action.sourceId ? { ...node, name: action.name } : node,
+        ),
+      }
     }
 
     case 'startLink':
