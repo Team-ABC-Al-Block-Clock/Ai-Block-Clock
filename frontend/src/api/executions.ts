@@ -34,3 +34,94 @@ export interface CostEstimate {
  */
 export const estimateCost = (workflowId: string) =>
   api.post<CostEstimate>('/executions/cost-estimates', { workflowId })
+
+/** 실행 전체의 상태. 서버 enum 그대로다. */
+export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+
+/** 단계 하나의 상태. 실행 전체 상태와 집합이 다르다 — 소문자이고 `skipped` 가 있다. */
+export type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped'
+
+/** 단계 이름과 상태뿐이다. `nodeKey` 가 없어 캔버스와는 순서로 짝짓는다. */
+export interface ExecutionStep {
+  name: string
+  status: StepStatus
+}
+
+export interface ExecutionProgress {
+  executionId: string
+  status: ExecutionStatus
+  /** 끝난 단계 수 */
+  done: number
+  /** 돌아야 하는 단계 수. 에이전트는 안의 단계 수만큼 센다 */
+  total: number
+  percent: number
+  /** 끝났으면 null */
+  currentStepName: string | null
+  steps: ExecutionStep[]
+}
+
+export interface StartedExecution {
+  executionId: string
+  status: ExecutionStatus
+  /** 펼친 프롬프트 수. 캔버스의 카드 수와 다를 수 있다 */
+  stepCount: number
+}
+
+/** 첫 단계가 읽을 파일. 서버는 확장자만 보고 가른다(`ExecutionFileValidator`). */
+export const RUN_FILE_LIMITS = {
+  maxBytes: 10 * 1024 * 1024,
+  extensions: ['.xlsx', '.xls', '.csv'],
+} as const
+
+/** 고른 파일이 제약에 맞는지 — 어긋나면 띄울 문구, 맞으면 null. */
+export function describeRunFileProblem(file: File): string | null {
+  const { extensions, maxBytes } = RUN_FILE_LIMITS
+  const name = file.name.toLowerCase()
+
+  if (!extensions.some((ext) => name.endsWith(ext))) return '엑셀 또는 CSV 파일만 올릴 수 있습니다'
+  if (file.size === 0) return '빈 파일은 올릴 수 없습니다'
+  if (file.size > maxBytes) return '파일은 10MB 이하여야 합니다'
+  return null
+}
+
+export interface StartExecutionInput {
+  workflowId: string
+  /** 이 누름을 가리키는 UUID. 같은 값이 다시 오면 서버가 앞서 접수한 실행을 돌려준다. */
+  requestId: string
+  /** 첫 단계에 함께 전달된다. 500자까지 */
+  comment?: string
+  file?: File | null
+  /** 켜면 모델을 부르지 않고 파이프라인만 돈다 */
+  mock?: boolean
+}
+
+/**
+ * 실행 접수. 서버는 기다리지 않고 접수 번호만 준다(202). 그 순간 견적만큼 ABC 가 빠지고,
+ * 모자라면 `PAYMENT_008`(402) 이다.
+ *
+ * 명세가 multipart 다 — 첫 단계가 읽을 파일을 같이 싣는다. `Content-Type` 은 손대지 않는다.
+ * 빈 칸은 아예 넣지 않는다. 빈 문자열을 넣으면 서버가 「값이 왔는데 비었다」로 받는다.
+ */
+export const startExecution = ({
+  workflowId,
+  requestId,
+  comment,
+  file,
+  mock,
+}: StartExecutionInput) => {
+  const form = new FormData()
+  form.append('workflowId', workflowId)
+  form.append('requestId', requestId)
+  if (comment?.trim()) form.append('comment', comment.trim())
+  if (file) form.append('file', file)
+  if (mock) form.append('mock', 'true')
+
+  return api.post<StartedExecution>('/runs', form)
+}
+
+/**
+ * 진행 상황. 2초 간격으로 부르고 `status` 가 끝나면 멈춘다.
+ * 그래프는 오지 않는다 — 캔버스는 따로 그리고 여기서는 단계 이름과 상태만 얹는다.
+ */
+export const getExecutionProgress = (executionId: string) =>
+  api.get<ExecutionProgress>(`/runs/${executionId}`)

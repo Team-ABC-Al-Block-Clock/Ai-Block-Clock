@@ -1,7 +1,14 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { client } from '@/api/client'
 
 import { ApiError } from '@/api/errors'
-import { estimateCost } from '@/api/executions'
+import {
+  describeRunFileProblem,
+  estimateCost,
+  getExecutionProgress,
+  startExecution,
+} from '@/api/executions'
 import { saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import { CREDIT_BALANCE } from '@/mocks/fixtures/credits'
 
@@ -9,7 +16,14 @@ import { CREDIT_BALANCE } from '@/mocks/fixtures/credits'
 
 afterEach(() => {
   localStorage.removeItem('mockWorkflows')
+  localStorage.removeItem('mockExecutions')
 })
+
+const excel = (name = '성적.xlsx', size = 1024) =>
+  new File([new Uint8Array(size)], name, { type: '' })
+
+/** 접수에는 누름마다 새로 만드는 UUID 가 필요하다. 값 자체는 무엇이든 된다. */
+const REQUEST_ID = '5d3f9c1e-7b2a-4e8f-9a61-2c4b8d0e1f37'
 
 /** `agt_001` 이 150 이라 다섯 개면 750 — 잔액 640 을 넘긴다. */
 const chainOf = (sourceId: string, count: number): WorkflowGraph => ({
@@ -83,5 +97,145 @@ describe('estimateCost', () => {
   it('없는 워크플로우는 WORKFLOW_002 다', async () => {
     await expect(estimateCost('wf_999')).rejects.toMatchObject({ code: 'WORKFLOW_002' })
     await expect(estimateCost('wf_999')).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+describe('describeRunFileProblem', () => {
+  it('엑셀과 CSV 만 통과시킨다', () => {
+    expect(describeRunFileProblem(excel('성적.xlsx'))).toBeNull()
+    expect(describeRunFileProblem(excel('성적.CSV'))).toBeNull()
+    expect(describeRunFileProblem(excel('성적.pdf'))).not.toBeNull()
+    // 서버도 이름 끝만 본다 — 앞에 허용 확장자가 섞여도 통과시키지 않는다.
+    expect(describeRunFileProblem(excel('성적.xlsx.exe'))).not.toBeNull()
+  })
+
+  it('빈 파일과 10MB 초과를 막는다', () => {
+    expect(describeRunFileProblem(excel('성적.csv', 0))).not.toBeNull()
+    expect(describeRunFileProblem(excel('성적.xlsx', 10 * 1024 * 1024 + 1))).not.toBeNull()
+    // 서버가 10MB 까지는 받는다. 경계에서 화면이 먼저 막으면 안 된다.
+    expect(describeRunFileProblem(excel('성적.xlsx', 10 * 1024 * 1024))).toBeNull()
+  })
+})
+
+/**
+ * 접수는 폼 조립까지만 확인한다. jsdom 의 `FormData` 는 undici 의 것과 달라 요청에 실리지
+ * 못하고 `[object FormData]` 라는 문자열로 나간다 — 핸들러까지 가지 못하는 것은 환경 탓이라
+ * 여기서 흉내 내 봐야 서로 다른 것을 검사하게 된다. 접수 경로 자체는 브라우저에서 확인한다.
+ */
+describe('startExecution', () => {
+  const sentForm = async (input: Parameters<typeof startExecution>[0]) => {
+    const post = vi.spyOn(client, 'post').mockResolvedValue({} as never)
+    await startExecution(input)
+    const form = post.mock.calls[0][1] as FormData
+    post.mockRestore()
+    return form
+  }
+
+  it('워크플로우·누름 식별자·코멘트·파일을 폼에 담는다', async () => {
+    const file = excel()
+    const form = await sentForm({
+      workflowId: 'wf_001',
+      requestId: REQUEST_ID,
+      comment: '난이도가 높았습니다',
+      file,
+    })
+
+    expect(form.get('workflowId')).toBe('wf_001')
+    expect(form.get('requestId')).toBe(REQUEST_ID)
+    expect(form.get('comment')).toBe('난이도가 높았습니다')
+    expect(form.get('file')).toBe(file)
+  })
+
+  it('빈 코멘트와 고르지 않은 파일은 아예 넣지 않는다', async () => {
+    const form = await sentForm({
+      workflowId: 'wf_001',
+      requestId: REQUEST_ID,
+      comment: '   ',
+      file: null,
+    })
+
+    expect(form.has('comment')).toBe(false)
+    expect(form.has('file')).toBe(false)
+    // 서버는 값이 온 칸만 본다. 빈 문자열을 넣으면 「코멘트가 왔는데 비었다」가 된다.
+    expect([...form.keys()].sort()).toEqual(['requestId', 'workflowId'])
+  })
+
+  it('mock 은 켰을 때만 싣는다', async () => {
+    const base = { workflowId: 'wf_001', requestId: REQUEST_ID }
+
+    expect((await sentForm(base)).has('mock')).toBe(false)
+    expect((await sentForm({ ...base, mock: true })).get('mock')).toBe('true')
+  })
+
+  it('경로는 /executions 가 아니라 /runs 다', async () => {
+    const post = vi.spyOn(client, 'post').mockResolvedValue({} as never)
+    await startExecution({ workflowId: 'wf_001', requestId: REQUEST_ID })
+
+    expect(post.mock.calls[0][0]).toBe('/runs')
+    post.mockRestore()
+  })
+})
+
+/** 접수를 거치지 않고 실행을 심는다. mock 핸들러가 읽는 저장소와 같은 모양이다. */
+const seedRun = (executionId: string, stepNames: string[], agoMs = 0) => {
+  localStorage.setItem(
+    'mockExecutions',
+    JSON.stringify({ [executionId]: { executionId, startedAt: Date.now() - agoMs, stepNames } }),
+  )
+}
+
+/** 접수 직후 QUEUED 로 두는 시간과 한 단계에 쓰는 시간. 핸들러와 맞춘다. */
+const QUEUED_MS = 900
+const STEP_MS = 2_500
+
+describe('getExecutionProgress', () => {
+  it('접수 직후에는 QUEUED 에 진행률 0 이다', async () => {
+    seedRun('exe_1', ['파일 수집', '내용 분석', '분류 및 태깅'])
+
+    const progress = await getExecutionProgress('exe_1')
+
+    expect(progress.status).toBe('QUEUED')
+    expect(progress.done).toBe(0)
+    expect(progress.percent).toBe(0)
+    expect(progress.currentStepName).toBeNull()
+    expect(progress.steps.every((step) => step.status === 'pending')).toBe(true)
+  })
+
+  it('도는 동안에는 끝난 단계·도는 단계·남은 단계가 갈린다', async () => {
+    seedRun('exe_2', ['파일 수집', '내용 분석', '분류 및 태깅'], QUEUED_MS + STEP_MS + 100)
+
+    const progress = await getExecutionProgress('exe_2')
+
+    expect(progress.status).toBe('RUNNING')
+    expect(progress.done).toBe(1)
+    expect(progress.total).toBe(3)
+    expect(progress.currentStepName).toBe('내용 분석')
+    expect(progress.steps.map((step) => step.status)).toEqual(['succeeded', 'running', 'pending'])
+  })
+
+  it('끝나면 SUCCEEDED 에 100% 이고 모든 단계가 완료다', async () => {
+    seedRun('exe_3', ['파일 수집', '내용 분석'], QUEUED_MS + STEP_MS * 2 + 100)
+
+    const progress = await getExecutionProgress('exe_3')
+
+    expect(progress.status).toBe('SUCCEEDED')
+    expect(progress.percent).toBe(100)
+    expect(progress.done).toBe(progress.total)
+    expect(progress.currentStepName).toBeNull()
+    expect(progress.steps.every((step) => step.status === 'succeeded')).toBe(true)
+  })
+
+  it('한참 지나도 끝난 지점을 넘지 않는다', async () => {
+    seedRun('exe_4', ['파일 수집', '내용 분석'], QUEUED_MS + STEP_MS * 50)
+
+    const progress = await getExecutionProgress('exe_4')
+
+    expect(progress.done).toBe(2)
+    expect(progress.percent).toBe(100)
+  })
+
+  it('없는 실행은 EXECUTION_001 이다', async () => {
+    await expect(getExecutionProgress('exe_999')).rejects.toBeInstanceOf(ApiError)
+    await expect(getExecutionProgress('exe_999')).rejects.toMatchObject({ code: 'EXECUTION_001' })
   })
 })
