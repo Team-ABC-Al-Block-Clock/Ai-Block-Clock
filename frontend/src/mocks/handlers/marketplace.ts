@@ -1,7 +1,6 @@
 import { http } from 'msw'
 
 import type {
-  AgentDetail,
   AgentProvenance,
   AgentRecommendations,
   AgentReview,
@@ -9,8 +8,10 @@ import type {
 } from '@/api/agents'
 import { RECOMMEND_LIMITS } from '@/api/agents'
 import { API_BASE_URL } from '@/api/client'
+import type { PlaceableItem } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { AGENTS, byNewest, provenanceOf, setFavorite, toSummary } from '@/mocks/fixtures/agents'
+import { PLACEABLE_ITEMS } from '@/mocks/fixtures/nodePalette'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -31,12 +32,13 @@ const invalidRequest = () => fail(400, 'COMMON_001', '요청이 올바르지 않
 
 const find = (agentId: unknown) => AGENTS.find((a) => a.agentId === agentId)
 
-/** 추천은 네 칸만 내려준다. 마켓 목록 필드를 흘려보내면 화면이 없는 값을 몰래 쓴다. */
-const toRecommended = (agent: AgentDetail): RecommendedAgent => ({
-  agentId: agent.agentId,
-  name: agent.name,
-  summary: agent.summary,
-  price: agent.price,
+/** 추천은 네 칸만 내려준다. 목록 필드를 흘려보내면 화면이 없는 값을 몰래 쓴다. */
+const toRecommended = (item: PlaceableItem): RecommendedAgent => ({
+  agentId: item.itemId,
+  name: item.name,
+  // 한 줄 소개를 안 적은 에이전트가 있다. 추천 응답에는 빈 문자열로 내려간다.
+  summary: item.summary ?? '',
+  price: item.price,
 })
 
 /**
@@ -131,6 +133,10 @@ export const marketplaceHandlers = [
    *
    * 임베딩은 흉내 낼 수 없다. 단어가 겹치는 것을 앞에 두고 실행이 많은 순으로 뒤를 채운다 —
    * '단어가 안 겹쳐도 무언가는 나온다' 는 실제 동작만 맞춘다.
+   *
+   * ★ 대상은 마켓 픽스처가 아니라 팔레트의 에이전트다. 추천으로 올린 노드는 그대로 저장되고
+   *   다시 불러올 때 팔레트에서 이름을 찾으므로, 두 곳의 ID 가 같아야 한다 — 실서버에서도
+   *   한 에이전트는 ID 가 하나다. 마켓 픽스처를 쓰면 저장이 `WORKFLOW_015` 로 막힌다.
    */
   http.get(`${API_BASE_URL}/marketplace/agents/recommendations`, async ({ request }) => {
     const forced = await scene(request)
@@ -144,9 +150,10 @@ export const marketplaceHandlers = [
     if (!Number.isInteger(size) || size < RECOMMEND_LIMITS.size.min) return invalidRequest()
     if (size > RECOMMEND_LIMITS.size.max) return invalidRequest()
 
-    const matched = published().filter((a) => matchKeyword(query, a.name, a.summary))
-    const rest = published()
-      .filter((a) => !matched.includes(a))
+    const agents = PLACEABLE_ITEMS.filter((item) => item.itemType === 'AGENT')
+    const matched = agents.filter((item) => matchKeyword(query, item.name, item.summary ?? ''))
+    const rest = agents
+      .filter((item) => !matched.includes(item))
       .sort((a, b) => b.executionCount - a.executionCount)
 
     return ok<AgentRecommendations>({
