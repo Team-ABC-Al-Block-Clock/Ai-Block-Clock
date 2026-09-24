@@ -640,8 +640,9 @@ export default function RunRunning() {
             <a
               {...(canSell
                 ? {
+                    // 접수 번호도 함께 넘긴다. 돌아올 때 이 실행으로 되돌아와야 결과를 잃지 않는다.
                     href: workflowId
-                      ? `${paths.register}?workflowId=${workflowId}`
+                      ? `${paths.register}?workflowId=${workflowId}${executionId ? `&executionId=${executionId}` : ''}`
                       : paths.register,
                   }
                 : {})}
