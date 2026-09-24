@@ -1,5 +1,6 @@
 import { authHandlers } from '@/mocks/handlers/auth'
 import { creditHandlers } from '@/mocks/handlers/credits'
+import { executionHandlers } from '@/mocks/handlers/executions'
 import { marketplaceHandlers } from '@/mocks/handlers/marketplace'
 import { mypageHandlers } from '@/mocks/handlers/mypage'
 import { workflowsHandlers } from '@/mocks/handlers/workflows'
@@ -8,6 +9,7 @@ import { workflowsHandlers } from '@/mocks/handlers/workflows'
 export const handlers = [
   ...authHandlers,
   ...creditHandlers,
+  ...executionHandlers,
   ...marketplaceHandlers,
   ...mypageHandlers,
   ...workflowsHandlers,

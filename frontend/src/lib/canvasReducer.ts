@@ -51,7 +51,7 @@ export const initialCanvasState: CanvasState = {
 /** 팔레트에서 끌어다 놓은 항목. 자리는 놓는 쪽이 정한다. */
 export type PlacedSeed = Pick<
   CanvasNodeData,
-  'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'
+  'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'mine'
 >
 
 export type CanvasAction =

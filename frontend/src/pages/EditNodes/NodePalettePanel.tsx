@@ -216,10 +216,6 @@ export default function NodePalettePanel({
                   <span className="font-semibold text-white">{item.uses}</span>
                 </div>
                 <div className="flex justify-between text-[13px]">
-                  <span style={{ color: 'rgba(255,236,246,.72)' }}>실행 단가</span>
-                  <span className="font-semibold text-white">{item.unit}</span>
-                </div>
-                <div className="flex justify-between text-[13px]">
                   <span style={{ color: 'rgba(255,236,246,.72)' }}>만든 사람</span>
                   <span className="font-semibold text-white">{item.owner.nickname}</span>
                 </div>

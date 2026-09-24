@@ -147,6 +147,22 @@ describe('followRun', () => {
     expect(onBroken).toHaveBeenCalledTimes(1)
   })
 
+  // 서버에 닿지도 못하면 readyState 가 CLOSED 가 아니라 CONNECTING 이라, 상한이 없으면
+  // 화면이 0% 인 채 아무 말도 없이 끝없이 다시 붙는다.
+  it('끝내 붙지 못하면 되붙는 중이라도 포기한다', () => {
+    const onBroken = vi.fn()
+    followRun('e-1', { onProgress: vi.fn(), onBroken })
+
+    latest().fail(false)
+    latest().fail(false)
+    expect(onBroken).not.toHaveBeenCalled()
+
+    latest().fail(false)
+
+    expect(onBroken).toHaveBeenCalledTimes(1)
+    expect(latest().closed).toBe(true)
+  })
+
   it('그만 보겠다고 하면 닫고, 그 뒤에 끊겨도 알리지 않는다', () => {
     const onBroken = vi.fn()
     const stop = followRun('e-1', { onProgress: vi.fn(), onBroken })

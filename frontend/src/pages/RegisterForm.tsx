@@ -221,10 +221,16 @@ export default function RegisterForm() {
   const [searchParams] = useSearchParams()
   const workflowId = searchParams.get('workflowId') ?? ''
   const revision = Number(searchParams.get('revision') ?? 0)
-  /** 취소하고 돌아갈 실행 결과 화면. 워크플로우를 잃으면 빈 캔버스가 뜬다. */
-  const backToRun = workflowId
-    ? `${paths.run.running.withoutId}?workflowId=${workflowId}&done=1`
-    : `${paths.run.running.withoutId}?done=1`
+  /**
+   * 취소하고 돌아갈 실행 결과 화면. 워크플로우를 잃으면 빈 캔버스가 뜨고, 접수 번호를 잃으면
+   * 진행을 다시 물어보지 못해 흉내 진행으로 되돌아간다.
+   */
+  const executionId = searchParams.get('executionId') ?? ''
+  const backToRun = executionId
+    ? `${paths.run.running(executionId)}?workflowId=${workflowId}&done=1`
+    : workflowId
+      ? `${paths.run.running.withoutId}?workflowId=${workflowId}&done=1`
+      : `${paths.run.running.withoutId}?done=1`
 
   /** 등록은 수정도 삭제도 되지 않아 한 번 더 묻는다. */
   const [asking, setAsking] = useState<{ name: string } | null>(null)
