@@ -52,6 +52,7 @@ export interface NodeLabel {
   name: string
   nodeType: CanvasNodeData['nodeType']
   price: string
+  summary: string | null
   mine: boolean
 }
 
@@ -81,6 +82,7 @@ export function toCanvasWorkflow(
       sourceId: node.sourceId,
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,
+      summary: label?.summary ?? null,
       x: RESTORE_X0 + i * RESTORE_STEP,
       y: RESTORE_Y[i % RESTORE_Y.length],
       // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.

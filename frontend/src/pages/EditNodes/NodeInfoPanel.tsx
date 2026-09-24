@@ -240,6 +240,8 @@ type NodeInfoPanelProps = {
   typeLabel: string
   /** 고른 것이 내 기본 노드일 때만 원본 id. 에이전트나 남의 것이면 undefined. */
   nodeId?: string
+  /** 에이전트는 내부 구성을 열 수 없다. 대신 팔레트가 준 한 줄 설명을 보여준다. */
+  summary?: string | null
   deletable: boolean
   onRenamed: (sourceId: string, name: string) => void
   onDeleted: (sourceId: string) => void
@@ -251,6 +253,7 @@ export default function NodeInfoPanel({
   initial,
   typeLabel,
   nodeId,
+  summary,
   deletable,
   onRenamed,
   onDeleted,
@@ -306,7 +309,7 @@ export default function NodeInfoPanel({
       </div>
 
       <div className="absolute text-[15.5px] font-semibold" style={labelStyle('168px')}>
-        노드 개요
+        {nodeId ? '노드 개요' : '설명'}
       </div>
 
       {nodeId ? (
@@ -319,10 +322,14 @@ export default function NodeInfoPanel({
         />
       ) : (
         <div
-          className="absolute text-[14px] leading-[1.7]"
-          style={{ ...rowStyle('192px'), color: 'rgba(255,236,246,.66)' }}
+          className="scroll-thin absolute text-[14px] leading-[1.7]"
+          style={{
+            ...rowStyle('192px'),
+            maxHeight: '212px',
+            color: summary ? 'rgba(255,240,248,.82)' : 'rgba(255,236,246,.5)',
+          }}
         >
-          에이전트는 내부 구성을 열 수 없습니다
+          {summary ?? '설명이 없습니다'}
         </div>
       )}
     </>

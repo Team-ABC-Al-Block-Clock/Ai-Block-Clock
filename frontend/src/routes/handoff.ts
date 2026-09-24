@@ -54,6 +54,7 @@ export function seedsFrom(state: unknown): PlacedSeed[] {
       sourceType: 'AGENT' as const,
       sourceId: agent.agentId,
       price: agent.price,
+      summary: agent.summary,
       mine: false,
     }))
 }

@@ -35,6 +35,7 @@ const seed = {
   sourceType: 'NODE',
   sourceId: 'node_009',
   price: '11',
+  summary: null,
   mine: true,
 } as const
 
@@ -67,6 +68,7 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   sourceType: 'NODE',
   sourceId: `src-${id}`,
   price: '1',
+  summary: null,
   x,
   y,
   mine: true,
@@ -546,6 +548,7 @@ describe('seedCanvasNodes', () => {
     sourceType: 'AGENT' as const,
     sourceId: `ag_${i}`,
     price: '10',
+    summary: null,
     mine: false,
   }))
 
@@ -626,6 +629,7 @@ describe('한 줄 배치와 첫 배율', () => {
       sourceType: 'AGENT' as const,
       sourceId: `ag_${i}`,
       price: '10',
+      summary: null,
       mine: false,
     }))
 
@@ -690,6 +694,7 @@ describe('chainEdges', () => {
         sourceType: 'AGENT' as const,
         sourceId: `ag_${i}`,
         price: '10',
+        summary: null,
         mine: false,
       })),
     )

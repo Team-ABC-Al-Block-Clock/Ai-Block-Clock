@@ -241,6 +241,7 @@ export default function EditNodes() {
         sourceType: item.itemType,
         sourceId: item.itemId,
         price: item.price,
+        summary: item.summary,
         mine: item.mine,
       },
       point,
@@ -294,6 +295,8 @@ export default function EditNodes() {
             sourceType: 'NODE',
             sourceId: made.nodeId,
             price: made.baseCost,
+            // 내 노드는 설명 대신 프롬프트를 보여준다. 패널이 원본을 따로 읽어 채운다.
+            summary: null,
             mine: true,
           })
           closeAddPanel()
@@ -830,6 +833,7 @@ export default function EditNodes() {
           initial={selInitial}
           typeLabel={selTypeLabel}
           nodeId={selNodeId}
+          summary={n?.summary}
           // 저장된 워크플로우에 놓인 노드는 서버가 삭제를 막는다(`NODE_004`).
           deletable={!saved}
           onRenamed={renameBySource}

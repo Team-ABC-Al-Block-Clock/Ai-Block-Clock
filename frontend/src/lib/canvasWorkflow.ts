@@ -52,6 +52,8 @@ export interface CanvasNodeData {
   sourceId: string
   /** 팔레트 항목의 `price`. 팔레트에서 못 찾은 노드는 null 이다 */
   price: string | null
+  /** 팔레트 항목의 `summary`. 에이전트는 내부 구성 대신 이것을 보여준다 */
+  summary: string | null
   x: number
   y: number
   mine: boolean
@@ -80,6 +82,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceType: 'NODE',
     sourceId: 'node_001',
     price: '4',
+    summary: null,
     x: 12,
     y: 400,
     mine: true,
@@ -93,6 +96,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceType: 'NODE',
     sourceId: 'node_002',
     price: '12',
+    summary: null,
     x: 209,
     y: 320,
     mine: true,
@@ -106,6 +110,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceType: 'NODE',
     sourceId: 'node_003',
     price: '6',
+    summary: null,
     x: 406,
     y: 440,
     mine: true,
@@ -119,6 +124,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceType: 'NODE',
     sourceId: 'node_004',
     price: '15',
+    summary: null,
     x: 603,
     y: 330,
     mine: true,
@@ -132,6 +138,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceType: 'NODE',
     sourceId: 'node_005',
     price: '3',
+    summary: null,
     x: 800,
     y: 430,
     mine: true,
@@ -397,7 +404,7 @@ export function placeNode(
   nodes: CanvasNodeData[],
   seed: Pick<
     CanvasNodeData,
-    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'mine'
+    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'summary' | 'mine'
   >,
   x: number,
   y: number,
@@ -451,7 +458,7 @@ function seedPoint(layout: SeedLayout, i: number): { x: number; y: number } {
 export function seedCanvasNodes(
   seeds: Pick<
     CanvasNodeData,
-    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'mine'
+    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'summary' | 'mine'
   >[],
   layout: SeedLayout = 'row',
 ): CanvasNodeData[] {
