@@ -5,6 +5,8 @@ import com.aiblockclock.domain.agent.AgentProfile;
 import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.domain.workflow.BranchCondition;
+import com.aiblockclock.domain.workflow.ConditionOperator;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
@@ -12,9 +14,12 @@ import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.agent.Tier;
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 import com.aiblockclock.testsupport.NodeDefinitionSeeder;
 
 import jakarta.persistence.EntityManager;
@@ -28,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 @Tag("integration")
@@ -115,6 +121,23 @@ class CostEstimateAssemblerIntegrationTest {
         assertThat(estimate.total().value()).isEqualByComparingTo("9.000000");
     }
 
+    @Test
+    void 분기가_있으면_실행과_같이_견적도_내지_않는다() {
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+                InputSource.defaultSource(), null, ControlType.BRANCH,
+                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"));
+        Workflow workflow = workflowService.save(OWNER, "경쟁 강도로 가른다", null,
+                List.of(nodePlacement("n1", OWNER), branch, nodePlacement("n2", OWNER), nodePlacement("n3", OWNER)),
+                List.of(GraphFixtures.edge("e1", "n1", "br1"),
+                        GraphFixtures.branchEdge("e2", "br1", "n2", true),
+                        GraphFixtures.branchEdge("e3", "br1", "n3", false)));
+
+        assertThatThrownBy(() -> costEstimateAssembler.assemble(workflow))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+    }
+
     // 노드 두 개라 원가는 3 + 3 = 6 ABC 다. 새 버전은 Tier 4(+0%) 라 판매가도 6 이다.
     private AgentRegistration registerAgent(UserId seller) {
         Workflow source = save(seller, nodePlacement("n1", seller), nodePlacement("n2", seller));
@@ -145,6 +168,6 @@ class CostEstimateAssemblerIntegrationTest {
 
     private static NodePlacement agentPlacement(String key, AgentId agentId) {
         return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agentId.value(), InputSource.defaultSource(), null);
+                agentId.value(), InputSource.defaultSource(), null, null, null);
     }
 }

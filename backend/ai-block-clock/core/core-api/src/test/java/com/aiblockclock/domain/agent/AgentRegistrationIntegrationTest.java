@@ -191,7 +191,7 @@ class AgentRegistrationIntegrationTest {
 
     private static NodePlacement agentPlacement(String key, AgentId agentId) {
         return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agentId.value(), InputSource.defaultSource(), null);
+                agentId.value(), InputSource.defaultSource(), null, null, null);
     }
 
     private static AgentProfile profile() {

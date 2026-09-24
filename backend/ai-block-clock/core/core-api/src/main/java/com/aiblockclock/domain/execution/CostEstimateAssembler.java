@@ -14,6 +14,8 @@ import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.enums.workflow.SourceType;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,6 +52,8 @@ public class CostEstimateAssembler {
                 yield new CostItem(placed.key(), SourceType.AGENT, agent.getProfile().name(),
                         priceFor(payer, agent, version));
             }
+            // 분기는 아직 실행하지 못한다. 실행 조립(ExecutionUnitAssembler)과 같은 규칙으로 견적도 내지 않는다.
+            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
         };
     }
 
