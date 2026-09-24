@@ -1,10 +1,17 @@
 package com.aiblockclock.api.v1.request;
 
+import com.aiblockclock.domain.file.UploadedFile;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 import java.util.UUID;
 
 @Schema(description = "실행 요청")
@@ -18,9 +25,24 @@ public record ExecutionStartRequest(
 
         @Schema(description = "true 면 모델을 부르지 않고 파이프라인만 돈다. 비우면 false",
                 example = "false", nullable = true)
-        Boolean mock
+        Boolean mock,
+
+        @Schema(description = "첫 단계가 읽을 파일. 엑셀 또는 CSV, 10MB 까지", format = "binary", nullable = true)
+        MultipartFile file
 ) {
     public boolean mockOrDefault() {
         return Boolean.TRUE.equals(mock);
+    }
+
+    public UploadedFile uploadedFile() {
+        if (file == null) {
+            return null;
+        }
+
+        try {
+            return new UploadedFile(file.getOriginalFilename(), file.getBytes());
+        } catch (IOException exception) {
+            throw new CoreException(ErrorType.FILE_NOT_STORED);
+        }
     }
 }

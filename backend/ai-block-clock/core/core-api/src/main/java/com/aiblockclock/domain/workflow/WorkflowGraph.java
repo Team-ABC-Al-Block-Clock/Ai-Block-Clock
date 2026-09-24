@@ -7,7 +7,10 @@ import com.aiblockclock.support.error.ErrorType;
 import lombok.AccessLevel;
 import lombok.Getter;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -15,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Getter
 public final class WorkflowGraph {
@@ -121,48 +125,62 @@ public final class WorkflowGraph {
                 .toList();
     }
 
-    public int chainLength() {
-        return isEmpty() ? 0 : chain().size();
+    public int longestPathLength() {
+        if (isEmpty()) {
+            return 0;
+        }
+
+        return depthFrom(walk().get(0));
     }
 
-    /** 저장한 연결 순서대로 줄 세운 노드. 한 줄 그래프라 답은 하나뿐이다. */
     public List<GraphNode> nodesInOrder() {
         if (isEmpty()) {
             return List.of();
         }
 
-        return chain().stream().map(nodeIndex::get).toList();
+        return walk().stream().map(nodeIndex::get).toList();
     }
 
-    /** 위 노드 순서를 따라가며 지나친 연결선. 마지막 노드는 나가는 연결선이 없다. */
     public List<GraphEdge> edgesInOrder() {
         if (isEmpty()) {
             return List.of();
         }
 
-        List<NodeKey> walked = chain();
-
-        return walked.stream()
-                .limit(walked.size() - 1L)
-                .map(this::outgoingEdgeOf)
-                .toList();
+        return walk().stream().flatMap(key -> branchesOf(key).stream()).toList();
     }
 
-    private List<NodeKey> chain() {
-        NodeKey current = soleStart();
-        List<NodeKey> walked = new ArrayList<>();
-        walked.add(current);
+    private List<NodeKey> walk() {
+        NodeKey start = soleStart();
+        nodes.forEach(this::ensureOutgoingShape);
 
-        while (hasSuccessor(current)) {
-            current = outgoingEdgeOf(current).targetNodeKey();
+        List<NodeKey> walked = new ArrayList<>();
+        Deque<NodeKey> pending = new ArrayDeque<>();
+        pending.push(start);
+
+        while (!pending.isEmpty()) {
+            NodeKey current = pending.pop();
             walked.add(current);
+
+            List<GraphEdge> next = branchesOf(current);
+            for (int index = next.size() - 1; index >= 0; index--) {
+                pending.push(next.get(index).targetNodeKey());
+            }
         }
 
         if (walked.size() != nodes.size()) {
             throw new CoreException(ErrorType.WORKFLOW_GRAPH_CYCLE);
         }
 
+        nodes.forEach(this::ensureConditionReadsUpstream);
+
         return walked;
+    }
+
+    private int depthFrom(NodeKey key) {
+        return 1 + outgoing.get(key).stream()
+                .mapToInt(edge -> depthFrom(edge.targetNodeKey()))
+                .max()
+                .orElse(0);
     }
 
     private NodeKey soleStart() {
@@ -177,7 +195,7 @@ public final class WorkflowGraph {
         }
 
         if (starts.size() > 1) {
-            throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR,
+            throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_TREE,
                     Map.of("startCount", starts.size()));
         }
 
@@ -188,7 +206,7 @@ public final class WorkflowGraph {
         Set<NodeKey> targeted = new HashSet<>();
         for (GraphEdge edge : edges) {
             if (!targeted.add(edge.targetNodeKey())) {
-                throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR,
+                throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_TREE,
                         Map.of("nodeKey", edge.targetNodeKey().value()));
             }
         }
@@ -196,17 +214,66 @@ public final class WorkflowGraph {
         return targeted;
     }
 
-    private boolean hasSuccessor(NodeKey key) {
-        return !outgoing.get(key).isEmpty();
-    }
+    private void ensureOutgoingShape(GraphNode node) {
+        List<GraphEdge> next = outgoing.get(node.key());
 
-    private GraphEdge outgoingEdgeOf(NodeKey key) {
-        List<GraphEdge> next = outgoing.get(key);
-        if (next.size() > 1) {
-            throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_LINEAR,
-                    Map.of("nodeKey", key.value()));
+        if (node.sourceType() == SourceType.CONTROL) {
+            if (!splitsTrueAndFalse(next)) {
+                throw new CoreException(ErrorType.WORKFLOW_BRANCH_EDGES_INVALID,
+                        Map.of("nodeKey", node.key().value()));
+            }
+
+            return;
         }
 
-        return next.get(0);
+        if (next.size() > 1) {
+            throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_TREE,
+                    Map.of("nodeKey", node.key().value()));
+        }
+
+        if (next.stream().anyMatch(edge -> edge.when() != null)) {
+            throw new CoreException(ErrorType.WORKFLOW_BRANCH_EDGES_INVALID,
+                    Map.of("nodeKey", node.key().value()));
+        }
+    }
+
+    private void ensureConditionReadsUpstream(GraphNode node) {
+        if (!(node instanceof ControlNode branch)) {
+            return;
+        }
+
+        boolean readsUpstreamNode = branch.condition().source()
+                .filter(source -> upstreamOf(branch.key()).contains(source))
+                .flatMap(this::findNode)
+                .filter(source -> source.sourceType() == SourceType.NODE)
+                .isPresent();
+
+        if (!readsUpstreamNode) {
+            throw new CoreException(ErrorType.WORKFLOW_BRANCH_CONDITION_INVALID,
+                    Map.of("nodeKey", branch.key().value(), "left", branch.condition().left()));
+        }
+    }
+
+    private Set<NodeKey> upstreamOf(NodeKey key) {
+        Map<NodeKey, NodeKey> parents = new HashMap<>();
+        edges.forEach(edge -> parents.put(edge.targetNodeKey(), edge.sourceNodeKey()));
+
+        Set<NodeKey> upstream = new HashSet<>();
+        for (NodeKey current = parents.get(key); current != null; current = parents.get(current)) {
+            upstream.add(current);
+        }
+
+        return upstream;
+    }
+
+    private static boolean splitsTrueAndFalse(List<GraphEdge> next) {
+        return next.size() == 2
+                && next.stream().map(GraphEdge::when).collect(Collectors.toSet()).equals(Set.of(true, false));
+    }
+
+    private List<GraphEdge> branchesOf(NodeKey key) {
+        return outgoing.get(key).stream()
+                .sorted(Comparator.comparing(edge -> !Boolean.TRUE.equals(edge.when())))
+                .toList();
     }
 }

@@ -28,7 +28,8 @@ public class GraphEdgeWriter {
 
         for (GraphEdgeEntity row : rows) {
             int updated = graphEdgeRepository.updateEnds(
-                    graphId.value(), row.getEdgeKey(), row.getSourceNodeKey(), row.getTargetNodeKey());
+                    graphId.value(), row.getEdgeKey(), row.getSourceNodeKey(), row.getTargetNodeKey(),
+                    row.getBranchWhen());
 
             if (updated == 0) {
                 graphEdgeRepository.save(row);

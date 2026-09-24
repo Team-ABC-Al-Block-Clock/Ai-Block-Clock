@@ -1,14 +1,17 @@
 package com.aiblockclock.api.v1;
 
 import com.aiblockclock.api.v1.request.NodeSaveRequest;
+import com.aiblockclock.api.v1.request.RefFileAttachRequest;
 import com.aiblockclock.api.v1.response.NodeDeleteResponse;
 import com.aiblockclock.api.v1.response.NodeDetailResponse;
 import com.aiblockclock.api.v1.response.NodePageResponse;
+import com.aiblockclock.api.v1.response.RefFileResponse;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.response.ApiResult;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,6 +54,47 @@ public interface NodeApi {
             @ApiResponse(responseCode = "409", description = "워크플로우나 에이전트 버전에 배치되어 있다", content = @io.swagger.v3.oas.annotations.media.Content)
     })
     ApiResult<NodeDeleteResponse> delete(UserId owner, UUID nodeId);
+
+    @Operation(summary = "참고 자료 붙이기",
+            description = """
+                    노드가 기대는 자료를 붙여 둔다. 채점 기준표 · 양식처럼 프롬프트가 참조하는 것들이다.
+
+                    **실행할 때마다 이 노드와 함께 실행 엔진으로 나간다.** 수요자가 실행할 때 올리는
+                    파일과는 다르다.
+
+                    PDF · 텍스트 · 마크다운 · CSV · 이미지만 받고, **한 노드에 붙인 자료의 합계가 10MB**
+                    를 넘을 수 없다. 이미 공개한 에이전트 버전은 공개 시점의 자료를 계속 본다.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "붙었다"),
+            @ApiResponse(responseCode = "400", description = "빈 파일이거나 받지 않는 형식이다 (`NODE_006`)",
+                    content = @Content),
+            @ApiResponse(responseCode = "403", description = "남의 노드다 (`NODE_002`)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "없는 노드다 (`NODE_001`)", content = @Content),
+            @ApiResponse(responseCode = "413", description = """
+                    파일 하나가 10MB 를 넘는다 (`FILE_002`).
+                    이 노드에 붙인 자료의 합계가 10MB 를 넘는다 (`NODE_007`)""", content = @Content)
+    })
+    ApiResult<RefFileResponse> attachRefFile(
+            UserId owner,
+            @Parameter(description = "노드 ID", required = true) UUID nodeId,
+            @Valid RefFileAttachRequest request);
+
+    @Operation(summary = "참고 자료 떼기",
+            description = """
+                    노드에서 자료를 뗀다. **이미 공개한 에이전트 버전은 영향을 받지 않는다** —
+                    그 버전은 공개 시점의 자료를 따로 들고 있다.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "뗐다"),
+            @ApiResponse(responseCode = "403", description = "남의 노드다 (`NODE_002`)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "없는 노드이거나 없는 자료다 (`NODE_001` · `NODE_005`)",
+                    content = @Content)
+    })
+    ApiResult<Void> detachRefFile(
+            UserId owner,
+            @Parameter(description = "노드 ID", required = true) UUID nodeId,
+            @Parameter(description = "자료 ID", required = true) UUID refFileId);
 
     @Operation(summary = "내 노드 목록", description = "최근 만든 순. 프롬프트 원문은 담지 않는다.")
     ApiResult<NodePageResponse> findMine(

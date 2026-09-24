@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -12,5 +13,7 @@ public record NodePlacement(
         NodeType nodeType,
         UUID sourceId,
         InputSource inputSource,
-        NodeDraft draft) {
+        NodeDraft draft,
+        ControlType controlType,
+        BranchCondition condition) {
 }

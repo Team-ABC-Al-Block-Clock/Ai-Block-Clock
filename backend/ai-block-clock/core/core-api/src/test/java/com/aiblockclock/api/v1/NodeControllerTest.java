@@ -1,6 +1,7 @@
 package com.aiblockclock.api.v1;
 
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.storage.node.NodeRefFileRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
 
@@ -10,21 +11,28 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -35,13 +43,24 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @AutoConfigureMockMvc
 @Transactional
 class NodeControllerTest {
+    @org.junit.jupiter.api.io.TempDir
+    static java.nio.file.Path fileRoot;
+
     private final JsonMapper mapper = JsonMapper.builder().build();
+
+    @DynamicPropertySource
+    static void 파일은_임시_폴더에_쌓는다(DynamicPropertyRegistry registry) {
+        registry.add("file-store.root", () -> fileRoot);
+    }
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NodeRefFileRepository refFileRepository;
 
     private long owner;
 
@@ -85,6 +104,82 @@ class NodeControllerTest {
 
         return mapper.readTree(result.getResponse().getContentAsString())
                 .get("data").get("nodeId").asText();
+    }
+
+    @Test
+    @DisplayName("자료를 붙이면 노드 상세에 딸려 나오고, 떼면 사라진다")
+    void attachesAndDetachesRefFiles() throws Exception {
+        String nodeId = create("채점");
+
+        MvcResult attached = mockMvc.perform(multipart("/api/v1/nodes/{id}/ref-files", nodeId)
+                        .file(refFile("채점 기준표.pdf", "1등급은 90점"))
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.filename").value("채점 기준표.pdf"))
+                .andReturn();
+
+        String refFileId = mapper.readTree(attached.getResponse().getContentAsString())
+                .get("data").get("refFileId").asText();
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.refFiles[0].filename").value("채점 기준표.pdf"));
+
+        mockMvc.perform(delete("/api/v1/nodes/{id}/ref-files/{refFileId}", nodeId, refFileId)
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
+                .andExpect(jsonPath("$.data.refFiles").isEmpty());
+    }
+
+    @Test
+    @DisplayName("계약이 받지 않는 형식은 붙일 때 막는다")
+    void refusesARefFileTheEngineWouldReject() throws Exception {
+        String nodeId = create("채점");
+
+        mockMvc.perform(multipart("/api/v1/nodes/{id}/ref-files", nodeId)
+                        .file(refFile("기준표.xlsx", "점수"))
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("NODE_006"));
+    }
+
+    @Test
+    @DisplayName("남의 노드에는 자료를 붙일 수 없다")
+    void refusesToAttachToSomeoneElsesNode() throws Exception {
+        String nodeId = create("채점");
+
+        mockMvc.perform(multipart("/api/v1/nodes/{id}/ref-files", nodeId)
+                        .file(refFile("기준표.pdf", "점수"))
+                        .with(as(other)).with(csrf().asHeader()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("NODE_002"));
+    }
+
+    @Test
+    @DisplayName("노드를 지우면 붙어 있던 자료 행도 지우고, 파일은 남긴다")
+    void removesRefFileRowsWithNode() throws Exception {
+        String nodeId = create("채점");
+
+        mockMvc.perform(multipart("/api/v1/nodes/{id}/ref-files", nodeId)
+                        .file(refFile("채점 기준표.pdf", "1등급은 90점"))
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/v1/nodes/{id}", nodeId)
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        assertThat(refFileRepository.findByNodeDefinitionIdOrderByOrdinal(UUID.fromString(nodeId))).isEmpty();
+        try (var stored = Files.list(fileRoot.resolve("nodes").resolve(nodeId))) {
+            assertThat(stored).hasSize(1);
+        }
+    }
+
+    private static MockMultipartFile refFile(String filename, String content) {
+        return new MockMultipartFile("file", filename,
+                MediaType.APPLICATION_OCTET_STREAM_VALUE, content.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test

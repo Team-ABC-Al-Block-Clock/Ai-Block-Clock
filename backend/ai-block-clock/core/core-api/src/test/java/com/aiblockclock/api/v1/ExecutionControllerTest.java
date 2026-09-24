@@ -23,16 +23,27 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,10 +52,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -56,6 +69,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @TestPropertySource(properties = "execution.polling.interval=1h")
 class ExecutionControllerTest {
+    private static final Path FILE_ROOT = createTempDirectory();
+
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @Autowired
@@ -79,8 +94,14 @@ class ExecutionControllerTest {
 
     private String workflowId;
 
+    @DynamicPropertySource
+    static void 파일은_임시_폴더에_쌓는다(DynamicPropertyRegistry registry) {
+        registry.add("file-store.root", () -> FILE_ROOT);
+    }
+
     @BeforeEach
     void 워크플로우를_하나_저장해_둔다() throws Exception {
+        clearFileRoot();
         requester = createUser();
         other = createUser();
         given(aiRuntimeClient.start(any())).willReturn(new RunAccepted("20260919-1", "queued", 2, 2000));
@@ -282,19 +303,91 @@ class ExecutionControllerTest {
         willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "engine is down"))
                 .given(aiRuntimeClient).start(any());
 
-        mockMvc.perform(post("/api/v1/runs")
-                        .with(as(requester)).with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"workflowId\":\"%s\"}".formatted(workflowId)))
+        mockMvc.perform(run().with(as(requester)).with(csrf().asHeader()))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error.code").value("EXECUTION_002"));
     }
 
+    @Test
+    @DisplayName("올린 파일을 보관하고 실행 엔진에 함께 실어 보낸다")
+    void storesTheUploadedFileAndSendsItAlong() throws Exception {
+        MvcResult accepted = mockMvc.perform(run().file(excel("2학기 성적.xlsx", "점수"))
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted())
+                .andReturn();
+
+        String executionId = mapper.readTree(accepted.getResponse().getContentAsString())
+                .get("data").get("executionId").asText();
+
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow())
+                .satisfies(execution -> {
+                            assertThat(execution.getInputFileKey()).isEqualTo("executions/" + executionId + "/input.xlsx");
+                    assertThat(execution.getInputFileName()).isEqualTo("2학기 성적.xlsx");
+                    assertThat(execution.getInputFileSize()).isEqualTo(6);
+                });
+
+        ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
+        then(aiRuntimeClient).should().start(sent.capture());
+
+        assertThat(sent.getValue().file()).isNotNull()
+                .satisfies(path -> assertThat(Files.readString(path)).isEqualTo("점수"));
+    }
+
+    @Test
+    @DisplayName("엑셀도 CSV 도 아니면 실행 엔진을 부르지 않는다")
+    void refusesAFileTheEngineWouldReject() throws Exception {
+        mockMvc.perform(run().file(excel("성적.pdf", "점수"))
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_003"));
+
+        then(aiRuntimeClient).should(never()).start(any());
+    }
+
+    @Test
+    @DisplayName("접수에 실패하면 저장한 파일을 남기지 않는다")
+    void erasesTheStoredFileWhenTheEngineRefuses() throws Exception {
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "engine is down"))
+                .given(aiRuntimeClient).start(any());
+
+        mockMvc.perform(run().file(excel("성적.csv", "점수"))
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadGateway());
+
+        assertThat(FILE_ROOT.resolve("executions")).isEmptyDirectory();
+    }
+
+    @Test
+    @DisplayName("워크플로우를 고르지 않으면 400 이다")
+    void refusesARequestWithoutAWorkflow() throws Exception {
+        mockMvc.perform(multipart("/api/v1/runs").with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    @Test
+    @DisplayName("파일 없이도 실행한다")
+    void startsWithoutAFile() throws Exception {
+        start();
+
+        ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
+        then(aiRuntimeClient).should().start(sent.capture());
+
+        assertThat(sent.getValue().file()).isNull();
+    }
+
+    private MockMultipartHttpServletRequestBuilder run() {
+        return (MockMultipartHttpServletRequestBuilder) multipart("/api/v1/runs")
+                .param("workflowId", workflowId);
+    }
+
+    private static MockMultipartFile excel(String filename, String content) {
+        return new MockMultipartFile("file", filename,
+                MediaType.APPLICATION_OCTET_STREAM_VALUE, content.getBytes(StandardCharsets.UTF_8));
+    }
+
     private String start() throws Exception {
-        MvcResult accepted = mockMvc.perform(post("/api/v1/runs")
-                        .with(as(requester)).with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"workflowId\":\"%s\"}".formatted(workflowId)))
+        MvcResult accepted = mockMvc.perform(run().with(as(requester)).with(csrf().asHeader()))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.data.status").value("QUEUED"))
                 .andExpect(jsonPath("$.data.stepCount").value(2))
@@ -333,6 +426,22 @@ class ExecutionControllerTest {
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, null, null, null)),
                 List.of(), List.of(), null,
                 new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier"));
+    }
+
+    private static Path createTempDirectory() {
+        try {
+            return Files.createTempDirectory("execution-files");
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    private static void clearFileRoot() throws IOException {
+        try (Stream<Path> paths = Files.walk(FILE_ROOT)) {
+            paths.sorted(Comparator.reverseOrder())
+                    .filter(path -> !path.equals(FILE_ROOT))
+                    .forEach(path -> path.toFile().delete());
+        }
     }
 
     private long createUser() {

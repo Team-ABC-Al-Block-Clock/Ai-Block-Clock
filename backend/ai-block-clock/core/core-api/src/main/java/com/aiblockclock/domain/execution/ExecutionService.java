@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.file.UploadedFile;
+import com.aiblockclock.domain.node.RefFileStore;
 import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
@@ -15,27 +17,45 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExecutionService {
     private final ExecutionPlanAssembler executionPlanAssembler;
+    private final ExecutionFileValidator executionFileValidator;
+    private final ExecutionFileStore executionFileStore;
+    private final RefFileStore refFileStore;
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
     private final ExecutionProgressStore progressStore;
     private final ExecutionMonitor executionMonitor;
 
-    public Execution start(UserId requester, Workflow workflow, String comment, boolean mock) {
+    public Execution start(
+            UserId requester, Workflow workflow, String comment, boolean mock, UploadedFile upload) {
+        if (upload != null) {
+            executionFileValidator.validate(upload);
+        }
+
         ExecutionPlan plan = executionPlanAssembler.assemble(workflow);
-        RunAccepted accepted = accept(RuntimeWorkflow.toJson(workflow, plan), comment, mock);
+        ExecutionId id = ExecutionId.newId();
+        ExecutionFile inputFile = upload == null ? null : executionFileStore.write(id, upload);
 
-        Execution started = executionWriter.append(
-                Execution.started(ExecutionId.newId(), workflow.getId(), requester,
-                RunId.of(accepted.runId()), plan.promptCount())
-        );
+        try {
+            RunAccepted accepted = accept(RuntimeWorkflow.of(workflow, plan), comment, mock, inputFile);
 
-        return started;
+            return executionWriter.append(Execution.started(
+                    id, workflow.getId(), requester, RunId.of(accepted.runId()), plan.promptCount(), inputFile));
+        } catch (RuntimeException exception) {
+            executionFileStore.erase(inputFile);
+
+            throw exception;
+        }
     }
 
     public void beginWatching(Execution execution) {
@@ -93,14 +113,26 @@ public class ExecutionService {
         }
     }
 
-    private RunAccepted accept(String workflowJson, String comment, boolean mock) {
+    private RunAccepted accept(
+            RuntimeWorkflow runtime, String comment, boolean mock, ExecutionFile inputFile) {
         try {
-            return aiRuntimeClient.start(new RunRequest(workflowJson, null, comment, mock));
+            return aiRuntimeClient.start(new RunRequest(runtime.json(), null, comment,
+                    pathOf(inputFile), refFilePathsOf(runtime), mock));
         } catch (AiClientException exception) {
             log.warn("실행을 맡기지 못했다: {}", exception.getMessage(), exception);
 
             throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
         }
+    }
+
+    private Path pathOf(ExecutionFile inputFile) {
+        return inputFile == null ? null : executionFileStore.locate(inputFile);
+    }
+
+    private Map<String, List<Path>> refFilePathsOf(RuntimeWorkflow runtime) {
+        return runtime.refFiles().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        entry -> entry.getValue().stream().map(refFileStore::locate).toList()));
     }
 
     private RunStatus read(Execution execution) {

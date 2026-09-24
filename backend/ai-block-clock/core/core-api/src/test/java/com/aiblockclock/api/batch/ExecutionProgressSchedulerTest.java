@@ -32,7 +32,7 @@ class ExecutionProgressSchedulerTest {
     private static final Instant NOW = Instant.parse("2026-09-19T01:00:00Z");
     private static final ExecutionId ID = ExecutionId.of(UUID.randomUUID());
     private static final Execution EXECUTION = Execution.restore(ID, WorkflowId.of(UUID.randomUUID()),
-            UserId.of(1L), RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2);
+            UserId.of(1L), RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2, null);
     private static final ExecutionPollingProperties PROPERTIES = new ExecutionPollingProperties(
             1, Duration.ofSeconds(2), Duration.ofSeconds(40), Duration.ofSeconds(60));
 

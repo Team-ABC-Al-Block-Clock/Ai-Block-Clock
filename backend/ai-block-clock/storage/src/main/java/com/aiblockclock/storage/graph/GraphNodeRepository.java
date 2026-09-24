@@ -1,5 +1,6 @@
 package com.aiblockclock.storage.graph;
 
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -23,7 +24,9 @@ public interface GraphNodeRepository extends JpaRepository<GraphNodeEntity, Long
                set n.sourceType = :sourceType,
                    n.referenceId = :referenceId,
                    n.versionId = :versionId,
-                   n.inputSource = :inputSource
+                   n.inputSource = :inputSource,
+                   n.controlType = :controlType,
+                   n.branchCondition = :branchCondition
              where n.graphId = :graphId
                and n.nodeKey = :nodeKey
             """)
@@ -32,7 +35,9 @@ public interface GraphNodeRepository extends JpaRepository<GraphNodeEntity, Long
                         @Param("sourceType") SourceType sourceType,
                         @Param("referenceId") UUID referenceId,
                         @Param("versionId") UUID versionId,
-                        @Param("inputSource") InputSource inputSource);
+                        @Param("inputSource") InputSource inputSource,
+                        @Param("controlType") ControlType controlType,
+                        @Param("branchCondition") String branchCondition);
 
     @Modifying(flushAutomatically = true)
     @Query("""

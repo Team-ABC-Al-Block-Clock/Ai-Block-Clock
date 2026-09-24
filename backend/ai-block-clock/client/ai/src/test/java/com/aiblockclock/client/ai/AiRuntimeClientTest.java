@@ -4,6 +4,7 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
@@ -15,7 +16,10 @@ import org.springframework.test.web.client.RequestMatcher;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,11 +61,49 @@ class AiRuntimeClientTest {
                           "poll_interval_ms": 2000 }
                         """).contentType(MediaType.APPLICATION_JSON));
 
-        RunAccepted accepted = client.start(new RunRequest("{\"nodes\":[]}", "{\"text\":\"성적표\"}", null, true));
+        RunAccepted accepted = client.start(new RunRequest("{\"nodes\":[]}", "{\"text\":\"성적표\"}", null, null, Map.of(), true));
 
         assertThat(accepted.runId()).isEqualTo("20260919-100451-688");
         assertThat(accepted.nodeCount()).isEqualTo(2);
         assertThat(accepted.pollIntervalMs()).isEqualTo(2000);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("파일은 확장자가 남은 이름으로 실어 보낸다")
+    void sendsTheStoredFileAsAFilePart(@TempDir Path directory) throws Exception {
+        Path stored = Files.write(directory.resolve("input.xlsx"), "점수".getBytes(StandardCharsets.UTF_8));
+
+        server.expect(requestTo(BASE_URL + "/v1/runs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(filePart("input.xlsx", "점수"))
+                .andRespond(withStatus(HttpStatus.ACCEPTED).body("""
+                        { "run_id": "run-1", "status": "queued", "node_count": 1,
+                          "poll_url": "/v1/runs/run-1", "poll_interval_ms": 2000 }
+                        """).contentType(MediaType.APPLICATION_JSON));
+
+        client.start(RunRequest.of("{\"nodes\":[]}", null, stored, true));
+
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("참고 자료는 단계 번호를 붙인 칸으로 나간다")
+    void sendsRefFilesUnderTheirNodeId(@TempDir Path directory) throws Exception {
+        Path first = Files.write(directory.resolve("0.pdf"), "기준표".getBytes(StandardCharsets.UTF_8));
+        Path second = Files.write(directory.resolve("1.md"), "양식".getBytes(StandardCharsets.UTF_8));
+
+        server.expect(requestTo(BASE_URL + "/v1/runs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(partNames("ref_file_n1_0", "ref_file_n1_1", "ref_file_n2_0"))
+                .andRespond(withStatus(HttpStatus.ACCEPTED).body("""
+                        { "run_id": "run-1", "status": "queued", "node_count": 2,
+                          "poll_url": "/v1/runs/run-1", "poll_interval_ms": 2000 }
+                        """).contentType(MediaType.APPLICATION_JSON));
+
+        client.start(new RunRequest("{\"nodes\":[]}", null, null, null,
+                Map.of("n1", List.of(first, second), "n2", List.of(first)), true));
+
         server.verify();
     }
 
@@ -261,10 +303,31 @@ class AiRuntimeClientTest {
     }
 
     private static RunRequest request() {
-        return new RunRequest("{\"nodes\":[]}", null, null, true);
+        return RunRequest.of("{\"nodes\":[]}", null, null, true);
     }
 
     // 폼의 칸 이름과 값을 본문에서 직접 읽는다. 이름에 오타가 나면 여기서 걸린다.
+    private static RequestMatcher partNames(String... expected) {
+        return request -> {
+            String body = ((MockClientHttpRequest) request).getBodyAsString(StandardCharsets.UTF_8);
+
+            for (String name : expected) {
+                assertThat(body).contains("name=\"" + name + "\"");
+            }
+        };
+    }
+
+    private static RequestMatcher filePart(String expectedName, String expectedContent) {
+        return request -> {
+            String body = ((MockClientHttpRequest) request).getBodyAsString(StandardCharsets.UTF_8);
+
+            assertThat(body)
+                    .contains("name=\"file\"")
+                    .contains("filename=\"" + expectedName + "\"")
+                    .contains(expectedContent);
+        };
+    }
+
     private static RequestMatcher formParts(Map<String, String> expected) {
         return request -> {
             String body = ((MockClientHttpRequest) request).getBodyAsString(StandardCharsets.UTF_8);

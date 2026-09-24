@@ -20,14 +20,21 @@ public record EdgePlacementRequest(
         @NotBlank @Size(max = 64) String sourceNodeKey,
 
         @Schema(description = "도착 노드의 nodeKey", example = "n2", maxLength = 64)
-        @NotBlank @Size(max = 64) String targetNodeKey
+        @NotBlank @Size(max = 64) String targetNodeKey,
+
+        @Schema(description = """
+                분기 노드에서 나가는 선이 어느 갈래인가. 조건이 참이면 `true` 선으로 간다.
+                분기 노드에서 나가는 선에만 붙이고, 나머지 선은 비운다.
+                """, nullable = true)
+        Boolean when
 ) {
     public static List<GraphEdge> toEdges(List<EdgePlacementRequest> edges) {
         return edges.stream()
                 .map(edge -> new GraphEdge(
                         EdgeKey.of(edge.edgeKey()),
                         NodeKey.of(edge.sourceNodeKey()),
-                        NodeKey.of(edge.targetNodeKey())))
+                        NodeKey.of(edge.targetNodeKey()),
+                        edge.when()))
                 .toList();
     }
 }

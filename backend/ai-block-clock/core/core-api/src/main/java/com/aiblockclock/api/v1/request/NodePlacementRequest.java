@@ -5,11 +5,13 @@ import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,6 +24,7 @@ import java.util.UUID;
         노드 배치. 종류에 따라 보내는 것이 다르다.
         `LLM` 은 그 자리에서 쓴 프롬프트라 `name` · `prompt` 를 실어 보내고 저장할 때 노드가 만들어진다.
         `TRIGGER` · `TOOL` 과 에이전트는 미리 정의된 것을 `sourceId` 로 가리킨다.
+        `CONTROL` 은 가리킬 원본이 없다. `controlType` 과 `condition` 만 보낸다.
         """)
 public record NodePlacementRequest(
         @Schema(description = "이 워크플로우 안에서 노드를 가리키는 키. 연결선이 이 값을 참조한다",
@@ -57,18 +60,39 @@ public record NodePlacementRequest(
                 USER 는 사용자가 올린 원본, PREV 는 앞 노드 결과, PREV_AND_USER 는 둘 다.
                 비우면 PREV 다. 맨 앞 노드는 앞이 없으므로 값과 무관하게 원본을 받는다.
                 """, nullable = true)
-        InputSource inputSource
+        InputSource inputSource,
+
+        @Schema(description = "제어 노드 종류. `sourceType` 이 `CONTROL` 일 때만 보낸다", nullable = true)
+        ControlType controlType,
+
+        @Schema(description = """
+                분기 조건. `controlType` 이 `BRANCH` 일 때만 보낸다.
+                참이면 `when: true` 선으로, 거짓이면 `when: false` 선으로 간다.
+                """, nullable = true)
+        @Valid BranchConditionRequest condition
 ) {
     public static List<NodePlacement> toPlacements(List<NodePlacementRequest> nodes) {
         return nodes.stream()
                 .map(node -> new NodePlacement(NodeKey.of(node.nodeKey()), node.sourceType(), node.nodeType(),
-                        node.sourceId(), node.inputSourceOrDefault(), node.toDraft()))
+                        node.sourceId(), node.inputSourceOrDefault(), node.toDraft(), node.controlType(),
+                        node.condition() == null ? null : node.condition().toCondition()))
                 .toList();
     }
 
     @Schema(hidden = true)
-    @AssertTrue(message = "LLM 은 name 과 prompt 를 실어 보내고, 나머지 종류는 sourceId 로 가리켜야 합니다.")
+    @AssertTrue(message = """
+            LLM 은 name 과 prompt 를 실어 보내고, CONTROL 은 controlType 과 condition 만 보내고, \
+            나머지 종류는 sourceId 로 가리켜야 합니다.""")
     public boolean isPlaceable() {
+        if (sourceType == SourceType.CONTROL) {
+            return controlType != null && condition != null
+                    && nodeType == null && sourceId == null && !carriesBody();
+        }
+
+        if (controlType != null || condition != null) {
+            return false;
+        }
+
         if (carriesBody()) {
             return sourceType == SourceType.NODE && nodeType == NodeType.LLM
                     && sourceId == null && hasText(name) && hasText(prompt);
