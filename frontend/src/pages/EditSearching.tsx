@@ -67,9 +67,10 @@ export default function EditSearching() {
   }, [query])
 
   const items = data?.items ?? []
-  // 재시도를 기다리는 동안은 부르는 중이 아니다. `isFetching` 만 보면 그 틈에
-  // 「찾지 못했습니다」가 잠깐 뜬다 — 아직 답을 받지 못한 것이지 없는 것이 아니다.
-  const searching = status === 'pending' || isFetching || settledFor !== query
+  // 첫 답을 받기 전만 「검색 중」이다. `status` 는 재시도를 기다리는 동안에도 `pending` 이라
+  // 그 틈에 「찾지 못했습니다」가 뜨지 않는다. 뒤에서 다시 부르는 것은 여기 넣지 않는다 —
+  // 화면을 통째로 되돌리면 목록 스크롤과 작업면에 올려 둔 선택이 같이 날아간다.
+  const searching = status === 'pending' || settledFor !== query
   const atLimit = picked.length >= MAX_PICKED
   const failed = status === 'error' && !searching
   const isEmpty = status === 'success' && !searching && items.length === 0
@@ -269,7 +270,7 @@ export default function EditSearching() {
           className="absolute text-right text-[13px]"
           style={{ right: `${PANEL_INSET}px`, top: '90px', color: 'rgba(255,236,246,.6)' }}
         >
-          {searching ? '찾는 중' : failed ? '' : `${items.length}개`}
+          {searching || isFetching ? '찾는 중' : failed ? '' : `${items.length}개`}
         </div>
 
         {failed && (
@@ -287,12 +288,14 @@ export default function EditSearching() {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="mt-[14px] block cursor-pointer border-0 font-[inherit] text-[13px] text-white"
+              disabled={isFetching}
+              className="mt-[14px] block border-0 font-[inherit] text-[13px] text-white disabled:cursor-default disabled:opacity-60"
               style={{
                 height: '34px',
                 padding: '0 16px',
                 borderRadius: '17px',
                 background: 'rgba(255,255,255,.14)',
+                cursor: isFetching ? 'default' : 'pointer',
               }}
             >
               다시 시도
@@ -453,7 +456,10 @@ export default function EditSearching() {
           <button
             type="button"
             onClick={handleStart}
-            className="ml-auto cursor-pointer border-0 font-[inherit] text-[14px] font-semibold hover:brightness-[1.05]"
+            // 검색 중에는 고른 것이 없다. 그때 눌리면 빈 편집 화면으로 가고,
+            // 뒤로 오면 선택은 이 화면과 함께 사라진 뒤다.
+            disabled={searching}
+            className="ml-auto border-0 font-[inherit] text-[14px] font-semibold hover:brightness-[1.05] disabled:cursor-default disabled:opacity-50 disabled:hover:brightness-100"
             style={{
               height: '46px',
               padding: '0 22px',
@@ -461,6 +467,7 @@ export default function EditSearching() {
               background: 'var(--color-accent)',
               color: 'var(--color-accent-ink)',
               boxShadow: '0 6px 18px rgba(140,100,130,.26)',
+              cursor: searching ? 'default' : 'pointer',
             }}
           >
             시작
