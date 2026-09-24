@@ -39,7 +39,7 @@ describe('seedsFrom', () => {
     price: '6.000000',
   }
 
-  it('선택한 순서를 지켜 캔버스 씨앗으로 바꾼다', () => {
+  it('선택한 순서를 지켜 캔버스 시드로 바꾼다', () => {
     const seeds = seedsFrom({ agents: [agent, { ...agent, agentId: 'ag_2', name: '요약기' }] })
 
     expect(seeds.map((s) => s.id)).toEqual(['ag_1', 'ag_2'])
@@ -50,6 +50,8 @@ describe('seedsFrom', () => {
       // 저장할 때 서버가 찾을 원본. 화면용 id 와 값은 같지만 쓰임이 다르다.
       sourceType: 'AGENT',
       sourceId: 'ag_1',
+      // 추천이 들고 온 단가를 그대로 넘긴다 — 버리면 캔버스 카드가 값을 잃는다.
+      price: '6.000000',
       mine: false,
     })
   })
