@@ -140,7 +140,7 @@ class AgentExpansionIntegrationTest {
 
     private NodePlacement agentPlacement(String key) {
         return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agent.agent().getId().value(), InputSource.defaultSource(), null);
+                agent.agent().getId().value(), InputSource.defaultSource(), null, null, null);
     }
 
     private static AgentProfile profile() {

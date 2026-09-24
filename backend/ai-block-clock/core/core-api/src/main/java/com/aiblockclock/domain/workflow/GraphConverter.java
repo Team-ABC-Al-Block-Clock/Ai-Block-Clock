@@ -8,7 +8,11 @@ import com.aiblockclock.support.error.ErrorType;
 import java.util.List;
 import java.util.Map;
 
+import tools.jackson.databind.json.JsonMapper;
+
 public final class GraphConverter {
+    private static final JsonMapper MAPPER = JsonMapper.builder().build();
+
     private GraphConverter() {
     }
 
@@ -26,7 +30,9 @@ public final class GraphConverter {
                         node.sourceType(),
                         node.reference().referenceId(),
                         node.reference().versionId(),
-                        node.inputSource()))
+                        node.inputSource(),
+                        node instanceof ControlNode control ? control.controlType() : null,
+                        node instanceof ControlNode control ? MAPPER.writeValueAsString(control.condition()) : null))
                 .toList();
     }
 
@@ -36,7 +42,8 @@ public final class GraphConverter {
                         graphId.value(),
                         edge.key().value(),
                         edge.sourceNodeKey().value(),
-                        edge.targetNodeKey().value()))
+                        edge.targetNodeKey().value(),
+                        edge.when()))
                 .toList();
     }
 
@@ -53,6 +60,8 @@ public final class GraphConverter {
                 yield new BaseNode(key, node.getReferenceId(), node.getInputSource());
             }
             case AGENT -> new AgentNode(key, node.getReferenceId(), node.getVersionId(), node.getInputSource());
+            case CONTROL -> new ControlNode(key, node.getControlType(),
+                    MAPPER.readValue(node.getBranchCondition(), BranchCondition.class));
         };
     }
 
@@ -60,6 +69,7 @@ public final class GraphConverter {
         return new GraphEdge(
                 EdgeKey.of(edge.getEdgeKey()),
                 NodeKey.of(edge.getSourceNodeKey()),
-                NodeKey.of(edge.getTargetNodeKey()));
+                NodeKey.of(edge.getTargetNodeKey()),
+                edge.getBranchWhen());
     }
 }

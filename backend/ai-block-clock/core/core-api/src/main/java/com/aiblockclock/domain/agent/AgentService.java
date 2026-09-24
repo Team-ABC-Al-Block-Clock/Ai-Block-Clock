@@ -3,6 +3,8 @@ package com.aiblockclock.domain.agent;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
+import com.aiblockclock.domain.node.RefFile;
+import com.aiblockclock.domain.node.RefFileReader;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphId;
 import com.aiblockclock.domain.workflow.GraphWriter;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AgentService {
     private final NodeDefinitionReader nodeReader;
+    private final RefFileReader refFileReader;
     private final AgentReader agentReader;
     private final AgentVersionReader agentVersionReader;
     private final AgentVersionPolicy versionPolicy;
@@ -50,7 +53,8 @@ public class AgentService {
 
         agentWriter.append(registered.agent());
         agentVersionWriter.append(registered.version(), graphId);
-        agentVersionNodeWriter.append(registered.version().getId(), VersionNode.freeze(snapshot, placedNodes));
+        agentVersionNodeWriter.append(registered.version().getId(),
+                VersionNode.freeze(snapshot, placedNodes, refFilesOf(placedNodes)));
 
         return registered;
     }
@@ -83,9 +87,15 @@ public class AgentService {
 
         agentWriter.append(republished);
         agentVersionWriter.append(next, graphId);
-        agentVersionNodeWriter.append(next.getId(), VersionNode.freeze(snapshot, placedNodes));
+        agentVersionNodeWriter.append(next.getId(),
+                VersionNode.freeze(snapshot, placedNodes, refFilesOf(placedNodes)));
 
         return new AgentRegistration(republished, next);
+    }
+
+    private Map<NodeDefinitionId, List<RefFile>> refFilesOf(
+            Map<NodeDefinitionId, NodeDefinition> placedNodes) {
+        return refFileReader.readAll(List.copyOf(placedNodes.keySet()));
     }
 
     private Map<NodeDefinitionId, NodeDefinition> lockAndValidate(

@@ -45,6 +45,9 @@ services:
       AI_RECOMMEND_BASE_URL: ${AI_RECOMMEND_BASE_URL:-http://ai-block-clock-recommend:8100}
       AI_RUNTIME_BASE_URL: ${AI_RUNTIME_BASE_URL:-http://ai-block-clock-ai-runtime:8000}
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-}
+      FILE_STORE_ROOT: ${FILE_STORE_ROOT:-/var/lib/ai-block-clock/files}
+    volumes:
+      - file-store:/var/lib/ai-block-clock/files
     ports:
       - "8080:8080"
     depends_on:
@@ -61,6 +64,7 @@ services:
 
 volumes:
   mysql-data:
+  file-store:
 
 networks:
   ai-block-clock-network:

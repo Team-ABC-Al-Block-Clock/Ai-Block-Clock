@@ -45,13 +45,14 @@ public record WorkflowSaveResponse(
             @Schema(description = "배치한 것의 종류")
             SourceType sourceType,
 
-            @Schema(description = "놓인 원본 노드 ID 또는 에이전트 ID",
-                    example = "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13")
+            @Schema(description = "놓인 원본 노드 ID 또는 에이전트 ID. 제어 노드면 null",
+                    example = "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13", nullable = true)
             String sourceId
     ) {
         static PlacedNodeResponse from(GraphNode node) {
             return new PlacedNodeResponse(
-                    node.key().value(), node.sourceType(), node.reference().referenceId().toString());
+                    node.key().value(), node.sourceType(),
+                    node.reference().referenceId() == null ? null : node.reference().referenceId().toString());
         }
     }
 }

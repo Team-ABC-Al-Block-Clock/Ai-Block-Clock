@@ -23,6 +23,10 @@ public interface ExecutionApi {
             description = """
                     저장된 워크플로우를 실행 엔진에 맡긴다. **에이전트 자리는 그 버전의 단계들로 펼쳐** 보낸다.
 
+                    **`multipart/form-data` 로 보낸다.** 첫 단계가 읽을 파일을 함께 싣기 때문이다.
+                    파일은 엑셀(`.xlsx` · `.xls`) 또는 CSV 이고 10MB 까지다. 없이 보내도 된다.
+                    올린 원본은 우리가 보관해 재실행에 다시 쓴다.
+
                     단계 하나가 25초쯤 걸려 기다리지 않는다. 접수 번호만 즉시 돌려주고,
                     진행 상황은 `GET /runs/{executionId}` 를 2초 간격으로 물어 가져간다.
 
@@ -30,9 +34,13 @@ public interface ExecutionApi {
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "202", description = "접수됨. 실행은 뒤에서 돈다"),
-            @ApiResponse(responseCode = "400", description = "요청 본문이 올바르지 않다 (`COMMON_001`)", content = @Content),
+            @ApiResponse(responseCode = "400", description = """
+                    요청 본문이 올바르지 않다 (`COMMON_001`).
+                    빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`).
+                    분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`)""", content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 워크플로우다 (`WORKFLOW_003`)", content = @Content),
             @ApiResponse(responseCode = "404", description = "없는 워크플로우다 (`WORKFLOW_002`)", content = @Content),
+            @ApiResponse(responseCode = "413", description = "파일이 10MB 를 넘는다 (`FILE_002`)", content = @Content),
             @ApiResponse(responseCode = "502", description = "실행 엔진에 맡기지 못했다 (`EXECUTION_002`)", content = @Content)
     })
     ApiResult<ExecutionStartResponse> start(UserId requester, @Valid ExecutionStartRequest request);

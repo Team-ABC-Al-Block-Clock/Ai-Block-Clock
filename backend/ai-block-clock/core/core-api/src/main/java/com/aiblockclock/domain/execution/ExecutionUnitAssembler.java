@@ -7,6 +7,7 @@ import com.aiblockclock.domain.agent.VersionNode;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
+import com.aiblockclock.domain.node.RefFileReader;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.support.error.CoreException;
@@ -22,6 +23,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ExecutionUnitAssembler {
     private final NodeDefinitionReader nodeReader;
+    private final RefFileReader refFileReader;
     private final AgentVersionReader agentVersionReader;
     private final AgentVersionNodeReader agentVersionNodeReader;
 
@@ -29,11 +31,14 @@ public class ExecutionUnitAssembler {
     public ExecutionUnit assemble(GraphNode placed) {
         return switch (placed.sourceType()) {
             case NODE -> {
-                NodeDefinition node = nodeReader.read(NodeDefinitionId.of(placed.reference().referenceId()));
+                NodeDefinitionId nodeId = NodeDefinitionId.of(placed.reference().referenceId());
+                NodeDefinition node = nodeReader.read(nodeId);
 
-                yield new NodeUnit(placed.inputSource(), node.getSpec().name(), node.getPrompt());
+                yield new NodeUnit(placed.inputSource(), node.getSpec().name(), node.getPrompt(),
+                        refFileReader.read(nodeId));
             }
             case AGENT -> expand(placed);
+            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
         };
     }
 
@@ -52,9 +57,10 @@ public class ExecutionUnitAssembler {
             case NODE -> {
                 VersionNode node = require(frozen, placed.key());
 
-                yield new NodeUnit(placed.inputSource(), node.spec().name(), node.prompt());
+                yield new NodeUnit(placed.inputSource(), node.spec().name(), node.prompt(), node.refFiles());
             }
             case AGENT -> expand(placed);
+            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
         };
     }
 

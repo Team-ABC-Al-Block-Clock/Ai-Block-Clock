@@ -16,14 +16,16 @@ public interface GraphEdgeRepository extends JpaRepository<GraphEdgeEntity, Long
     @Query("""
             update GraphEdgeEntity e
                set e.sourceNodeKey = :sourceNodeKey,
-                   e.targetNodeKey = :targetNodeKey
+                   e.targetNodeKey = :targetNodeKey,
+                   e.branchWhen = :branchWhen
              where e.graphId = :graphId
                and e.edgeKey = :edgeKey
             """)
     int updateEnds(@Param("graphId") UUID graphId,
                    @Param("edgeKey") String edgeKey,
                    @Param("sourceNodeKey") String sourceNodeKey,
-                   @Param("targetNodeKey") String targetNodeKey);
+                   @Param("targetNodeKey") String targetNodeKey,
+                   @Param("branchWhen") Boolean branchWhen);
 
     @Modifying(flushAutomatically = true)
     @Query("""

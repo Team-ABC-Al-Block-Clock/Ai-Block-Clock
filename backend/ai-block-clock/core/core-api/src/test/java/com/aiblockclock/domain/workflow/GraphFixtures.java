@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
+import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -25,11 +26,33 @@ public final class GraphFixtures {
     }
 
     public static NodePlacement placement(String key, UUID sourceId, InputSource inputSource) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE, null, sourceId, inputSource, null);
+        return new NodePlacement(NodeKey.of(key), SourceType.NODE, null, sourceId, inputSource, null, null, null);
+    }
+
+    public static ControlNode branch(String key) {
+        return branch(key, "n1.competition_level");
+    }
+
+    public static ControlNode branch(String key, String left) {
+        return new ControlNode(NodeKey.of(key), ControlType.BRANCH,
+                new BranchCondition(left, ConditionOperator.EQ, "high"));
     }
 
     public static GraphEdge edge(String key, String source, String target) {
-        return new GraphEdge(EdgeKey.of(key), NodeKey.of(source), NodeKey.of(target));
+        return new GraphEdge(EdgeKey.of(key), NodeKey.of(source), NodeKey.of(target), null);
+    }
+
+    public static GraphEdge branchEdge(String key, String source, String target, boolean when) {
+        return new GraphEdge(EdgeKey.of(key), NodeKey.of(source), NodeKey.of(target), when);
+    }
+
+    public static WorkflowGraph branched() {
+        return WorkflowGraph.of(
+                List.of(node("n1"), branch("br1"), node("n2"), node("n3"), node("n4")),
+                List.of(edge("e1", "n1", "br1"),
+                        branchEdge("e2", "br1", "n2", true),
+                        branchEdge("e3", "br1", "n4", false),
+                        edge("e4", "n2", "n3")));
     }
 
     public static WorkflowGraph straightLine() {
