@@ -24,4 +24,8 @@ public final class NodeDefinition {
             NodeDefinitionId id, UserId owner, Timestamps timestamps, NodeSpec spec, Prompt prompt) {
         return new NodeDefinition(id, owner, timestamps, spec, prompt);
     }
+
+    public boolean isOwnedBy(UserId candidate) {
+        return owner.equals(candidate);
+    }
 }
