@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 
 import { ApiError } from '@/api/errors'
@@ -31,6 +31,11 @@ const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
 
 /** 서버가 받는 코멘트 길이. 넘겨 보내면 `COMMON_001` 이라 입력칸에서 먼저 막는다. */
 const COMMENT_MAX = 500
+
+/** 잔액이 모자라 접수가 막혔다. 같은 금액이 위 카드에 이미 떠 있어 문구만 쓰고 금액은 읽지 않는다. */
+const INSUFFICIENT = 'PAYMENT_008'
+/** 같은 누름이 아직 처리 중. 앞서 보낸 요청이 곧 진행 화면으로 넘겨 주므로 오류로 보이면 안 된다. */
+const ALREADY_REQUESTED = 'EXECUTION_006'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 렌더마다 다시 찾지 않는다.
 /**
@@ -85,6 +90,20 @@ export default function RunWaiting() {
   }
 
   /**
+   * 이 「누름」을 가리키는 값. 접수되는 순간 돈이 빠지므로 재시도에 새 값을 만들면 두 번 빠진다.
+   *
+   * 그래서 보내는 내용이 같은 동안에는 같은 값을 계속 쓴다 — 시간이 걸려 한 번 더 누르거나
+   * 실패 뒤 다시 눌러도 서버가 앞서 접수한 실행을 돌려준다. 코멘트나 파일을 고치면 다른 실행이니
+   * 새로 만든다. 옛 값을 그대로 보내면 고친 내용이 아니라 이전 실행이 돌아온다.
+   */
+  const attempt = useRef<{ key: string; requestId: string } | null>(null)
+  const requestIdFor = () => {
+    const key = `${prompt}\u0000${file?.name ?? ''}\u0000${file?.size ?? 0}`
+    if (attempt.current?.key !== key) attempt.current = { key, requestId: crypto.randomUUID() }
+    return attempt.current.requestId
+  }
+
+  /**
    * 실행 전 견적. 계산만 하고 차감하지 않아 창을 떠난 사이 다른 실행이 잔액을 잡아 둘 수 있다
    * — 충전하고 돌아오는 길도 마찬가지라 돌아올 때마다 다시 받는다.
    */
@@ -119,10 +138,18 @@ export default function RunWaiting() {
    * 진행 응답에 그래프가 없어 `workflowId` 도 함께 넘긴다 — 진행 화면은 그 값으로 캔버스를
    * 그리고, 받은 단계는 이름과 상태만 그 위에 얹는다.
    */
+  const queryClient = useQueryClient()
   const start = useMutation({
-    mutationFn: () => startExecution({ workflowId: workflowId!, comment: prompt, file }),
-    onSuccess: (started) =>
-      navigate(`${paths.run.running(started.executionId)}?workflowId=${workflowId}`),
+    mutationFn: () =>
+      startExecution({ workflowId: workflowId!, requestId: requestIdFor(), comment: prompt, file }),
+    onSuccess: (started) => {
+      // 접수되는 순간 견적만큼 빠진다. 잔액과 견적이 둘 다 옛 값이 된다.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.credits.balance() })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.executions.costEstimate(workflowId!),
+      })
+      navigate(`${paths.run.running(started.executionId)}?workflowId=${workflowId}`)
+    },
   })
 
   const handleRun = () => {
@@ -144,13 +171,17 @@ export default function RunWaiting() {
    * 접수 실패는 서버 문구를 그대로 쓴다 — 코드마다 화면 문구를 새로 지으면 서버가 코드를
    * 늘릴 때마다 「알 수 없는 오류」가 된다. 응답을 못 받은 경우만 우리가 문구를 채운다.
    */
-  const runNotice = start.error
-    ? start.error instanceof ApiError && !start.error.isNetworkError
-      ? start.error.message
-      : '실행을 맡기지 못했습니다. 잠시 뒤 다시 시도해 주세요'
-    : !workflowId
-      ? '저장된 워크플로우를 열어야 실행할 수 있습니다'
-      : ''
+  const startCode = start.error instanceof ApiError ? start.error.code : undefined
+  /** 연타가 거의 동시에 갔을 뿐이다. 먼저 간 요청이 진행 화면으로 넘겨 준다. */
+  const pressedTwice = startCode === ALREADY_REQUESTED
+  const runNotice =
+    start.error && !pressedTwice
+      ? start.error instanceof ApiError && !start.error.isNetworkError
+        ? start.error.message
+        : '실행을 맡기지 못했습니다. 잠시 뒤 다시 시도해 주세요'
+      : !workflowId
+        ? '저장된 워크플로우를 열어야 실행할 수 있습니다'
+        : ''
 
   /** 목록이 비어 보이는 이유를 자리에 적는다 — 빈 상자만 두면 노드가 없는 것처럼 읽힌다. */
   const itemsNotice = !workflowId
@@ -441,6 +472,14 @@ export default function RunWaiting() {
             }}
           >
             {runNotice}
+            {startCode === INSUFFICIENT && (
+              <a
+                href={paths.my.credit}
+                style={{ marginLeft: '8px', color: '#d7bce8', textDecoration: 'underline' }}
+              >
+                충전하러 가기
+              </a>
+            )}
           </div>
         )}
 
