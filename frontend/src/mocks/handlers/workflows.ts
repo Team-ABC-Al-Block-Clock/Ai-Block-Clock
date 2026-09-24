@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/api/client'
 import type { PaletteScope, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { PLACEABLE_ITEMS, byMineThenUsed } from '@/mocks/fixtures/nodePalette'
-import { createdItems, removedNodeIds } from '@/mocks/handlers/nodes'
+import { createdNodeIds, removedNodeIds } from '@/mocks/handlers/nodes'
 import { WORKFLOWS } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -77,9 +77,9 @@ function putSaved(detail: WorkflowDetail) {
   writeSaved(all)
 }
 
+/** 팔레트에 실리지 않아도 서버는 방금 만든 노드를 안다. */
 const isPlaceable = (sourceId: string) =>
-  PLACEABLE_ITEMS.some((item) => item.itemId === sourceId) ||
-  createdItems.some((item) => item.itemId === sourceId)
+  PLACEABLE_ITEMS.some((item) => item.itemId === sourceId) || createdNodeIds.has(sourceId)
 
 /**
  * 서버가 그래프를 받아 줄지. 거절하면 오류 응답을, 통과하면 null 을 준다.
@@ -158,8 +158,7 @@ export const workflowsHandlers = [
     if (!isScope(scope)) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
     const keyword = url.searchParams.get('keyword') ?? ''
-    const items = [...createdItems, ...PLACEABLE_ITEMS]
-      .filter((item) => scope === 'ALL' || item.mine)
+    const items = PLACEABLE_ITEMS.filter((item) => scope === 'ALL' || item.mine)
       // 지운 원본은 목록에서 뺀다. 남겨 두면 다시 끌어다 놓을 수 있고 그 카드의 상세는 404 다.
       .filter((item) => !removedNodeIds.has(item.itemId))
       // 명세상 검색 대상은 이름뿐이다. 한 줄 설명은 보지 않는다.

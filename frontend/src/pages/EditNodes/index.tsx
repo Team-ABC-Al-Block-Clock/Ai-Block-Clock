@@ -275,12 +275,30 @@ export default function EditNodes() {
     handleTogglePanel()
   }
 
-  // 만들고 나면 팔레트에 들어간다. 캔버스에 놓는 것은 여느 항목과 같이 끌어다 놓는다.
+  /**
+   * 만든 노드를 팔레트에 넣고 캔버스에도 바로 놓는다.
+   *
+   * 팔레트에만 넣으면 찾을 수 없다 — 실행 이력이 없어 정렬 맨 뒤로 가고 다음 쪽으로 밀린다.
+   * 만들자마자 쓰는 것이 이 자리의 목적이라 한가운데 올려 준다.
+   */
   const handleCreate = () => {
     if (!draftFilled || create.isPending) return
     create.mutate(
       { name: draft.name.trim(), prompt: draft.prompt.trim(), model: draft.model },
-      { onSuccess: closeAddPanel },
+      {
+        onSuccess: (made) => {
+          canvas.placeAtCenter({
+            name: made.name,
+            // 서버는 만든 노드를 늘 LLM 으로 둔다(`NodeDefinition.create`). 상세 응답에는 종류가 없다.
+            nodeType: 'LLM',
+            sourceType: 'NODE',
+            sourceId: made.nodeId,
+            price: made.baseCost,
+            mine: true,
+          })
+          closeAddPanel()
+        },
+      },
     )
   }
 

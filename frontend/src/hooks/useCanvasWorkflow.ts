@@ -426,6 +426,19 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     })
   }
 
+  /**
+   * 팔레트를 거치지 않고 방금 만든 것을 바로 놓는다.
+   *
+   * 새 노드는 실행 이력이 없어 팔레트 정렬(내 것 먼저 → 많이 쓰인 순)에서 맨 뒤로 가고,
+   * 한 쪽이 10건이라 다음 쪽으로 밀린다 — 만들고도 어디 갔는지 보이지 않는다.
+   */
+  const placeAtCenter = (seed: Omit<PlacedSeed, 'id'>) => {
+    placeFromPalette(seed, {
+      x: (PANE_CONTENT_WIDTH / 2 - view.tx) / view.k,
+      y: (PANE_HEIGHT / 2 - view.ty) / view.k,
+    })
+  }
+
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
@@ -477,6 +490,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     zoomOut: () => zoomBy('out'),
     refs: { paneRef, worldRef, gridRef, glowRef, tempRef },
     placeFromPalette,
+    placeAtCenter,
     toCanvasPoint,
     onHover: (id: string) => dispatch({ type: 'hover', id }),
     handleHoverOut: () => dispatch({ type: 'hover', id: null }),

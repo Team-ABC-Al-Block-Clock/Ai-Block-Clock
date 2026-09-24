@@ -2,7 +2,6 @@ import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
 import { NODE_NAME_MAX, type NodeDetail, type NodeSaveBody } from '@/api/nodes'
-import type { PlaceableItem } from '@/api/workflows'
 import { NODE_DETAILS, OTHERS_NODE_ID, PLACED_NODE_IDS } from '@/mocks/fixtures/nodes'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -21,8 +20,13 @@ const edited = new Map<string, NodeDetail>()
  */
 export const removedNodeIds = new Set<string>()
 
-/** 새로 만든 노드. 팔레트가 이어 붙여야 만들자마자 끌어다 놓을 수 있다. */
-export const createdItems: PlaceableItem[] = []
+/**
+ * 새로 만든 노드의 id.
+ *
+ * 팔레트에는 넣지 않는다 — 거기 실리는 것은 마켓 항목이다. 대신 저장 검증이 이 값을 알아야
+ * 캔버스에 놓인 새 노드가 `WORKFLOW_015` 로 되튕기지 않는다.
+ */
+export const createdNodeIds = new Set<string>()
 
 const DEFAULT_MODEL = 'GEMINI_2_5_FLASH' as const
 
@@ -76,18 +80,7 @@ export const nodeHandlers = [
       refFiles: [],
     }
     edited.set(node.nodeId, node)
-    createdItems.unshift({
-      itemId: node.nodeId,
-      itemType: 'NODE',
-      name: node.name,
-      nodeType: 'LLM',
-      iconUrl: null,
-      mine: true,
-      owner: { nickname: '이싸피' },
-      executionCount: 0,
-      price: node.baseCost,
-      summary: null,
-    })
+    createdNodeIds.add(node.nodeId)
     return ok(node, { status: 201 })
   }),
 

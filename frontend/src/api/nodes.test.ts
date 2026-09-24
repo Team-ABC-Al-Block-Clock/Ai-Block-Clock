@@ -84,11 +84,11 @@ describe('createNode', () => {
     expect(NODE_DETAILS.some((node) => node.nodeId === made.nodeId)).toBe(false)
   })
 
-  it('만든 노드는 곧바로 팔레트에 들어간다 — 안 그러면 만들고도 놓을 수 없다', async () => {
-    const made = await createNode({ name: '팔레트에 뜰 노드', prompt: '할 일' })
-    const page = await getNodePalette({ scope: 'MINE', size: 30 })
+  it('만든 노드는 팔레트에 들어가지 않는다 — 거기 실리는 것은 마켓 항목이다', async () => {
+    const made = await createNode({ name: '팔레트에 없을 노드', prompt: '할 일' })
+    const page = await getNodePalette({ scope: 'ALL', size: 30 })
 
-    expect(page.content.some((item) => item.itemId === made.nodeId)).toBe(true)
+    expect(page.content.some((item) => item.itemId === made.nodeId)).toBe(false)
   })
 })
 
@@ -109,10 +109,10 @@ describe('deleteNode', () => {
   })
 
   it('지운 노드는 팔레트에서도 빠진다 — 남으면 다시 놓을 수 있고 그 카드의 상세는 404 다', async () => {
-    const made = await createNode({ name: '사라질 노드', prompt: '할 일' })
-    await deleteNode(made.nodeId)
-    const page = await getNodePalette({ scope: 'MINE', size: 30 })
+    const target = NODE_DETAILS[NODE_DETAILS.length - 1]
+    await deleteNode(target.nodeId)
+    const page = await getNodePalette({ scope: 'ALL', size: 30 })
 
-    expect(page.content.some((item) => item.itemId === made.nodeId)).toBe(false)
+    expect(page.content.some((item) => item.itemId === target.nodeId)).toBe(false)
   })
 })
