@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   addAgentFavorite,
+  getAgentRecommendations,
   createAgent,
   getAgentProvenance,
   getAgentReviews,
@@ -860,6 +861,53 @@ describe('getUsedAgents', () => {
     ).rejects.toMatchObject({ code: 'COMMON_001' })
     await expect(getUsedAgents({ cursor: 'not-a-cursor' })).rejects.toMatchObject({
       code: 'MARKET_003',
+    })
+  })
+})
+
+/** 자연어 추천. 커서도 정렬도 없어 목록 조회와 검증할 것이 다르다. */
+describe('getAgentRecommendations', () => {
+  it('네 칸만 준다 — 목록 필드가 섞여 오지 않는다', async () => {
+    const { items } = await getAgentRecommendations({ query: '학원 성적을 정리하고 싶어' })
+
+    expect(items.length).toBeGreaterThan(0)
+    expect(Object.keys(items[0]).sort()).toEqual(['agentId', 'name', 'price', 'summary'])
+  })
+
+  it('기본 8개, size 를 주면 그만큼만 온다', async () => {
+    expect((await getAgentRecommendations({ query: '문서' })).items).toHaveLength(8)
+    expect((await getAgentRecommendations({ query: '문서', size: 3 })).items).toHaveLength(3)
+  })
+
+  it('단어가 겹치지 않아도 빈손으로 돌려보내지 않는다', async () => {
+    // 임베딩 검색의 핵심이다. 키워드 검색과 같아지면 이 화면을 만들 이유가 없다.
+    const { items } = await getAgentRecommendations({ query: '부모님께 보낼 안내문' })
+
+    expect(items.length).toBeGreaterThan(0)
+  })
+
+  it('단가는 숫자로 되돌리지 않은 문자열이다', async () => {
+    const [first] = (await getAgentRecommendations({ query: '요약' })).items
+
+    expect(typeof first.price).toBe('string')
+    expect(first.price).toMatch(/^\d+(\.\d+)?$/)
+  })
+
+  it('검색어가 비었거나 200자를 넘으면 COMMON_001', async () => {
+    await expect(getAgentRecommendations({ query: '   ' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+    await expect(getAgentRecommendations({ query: 'ㄱ'.repeat(201) })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+  })
+
+  it('개수가 범위를 벗어나면 COMMON_001', async () => {
+    await expect(getAgentRecommendations({ query: '요약', size: 0 })).rejects.toMatchObject({
+      code: 'COMMON_001',
+    })
+    await expect(getAgentRecommendations({ query: '요약', size: 21 })).rejects.toMatchObject({
+      code: 'COMMON_001',
     })
   })
 })

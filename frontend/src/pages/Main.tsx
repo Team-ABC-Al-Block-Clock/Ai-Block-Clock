@@ -1,13 +1,49 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { RECOMMEND_LIMITS } from '@/api/agents'
+import { searchPath } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
 const FULL_TITLE = '안녕하세요.\n어떤 워크플로우를 만들고 싶으신가요?'
+
+/**
+ * 입력창 아래 칩. 누르면 그 자리에서 찾기가 시작된다.
+ *
+ * 칩에 적힌 말과 찾을 때 보내는 말이 다르다 — 추천은 문장을 받아야 잘 찾는다.
+ * 짧은 이름은 칩에, 하고 싶은 일을 적은 문장은 질의에 둔다.
+ */
+const SUGGESTIONS = [
+  { label: '문서 정리', query: '문서를 항목별로 정리하고 싶어' },
+  { label: '일정 요약', query: '이번 주 일정을 한눈에 보게 요약하고 싶어' },
+  { label: '메일 초안', query: '받은 메일에 답장 초안을 써 주면 좋겠어' },
+  { label: '코드 리뷰', query: '우리 팀이 쓴 코드를 검토해 주면 좋겠어' },
+] as const
 
 export default function Main() {
   const navigate = useNavigate()
   const [dragging, setDragging] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  /** 빈 채로 엔터를 눌렀나. 한 글자라도 적으면 내린다. */
+  const [needsQuery, setNeedsQuery] = useState(false)
+
+  /** 찾기를 시작하는 유일한 경로. 엔터·버튼·칩이 같이 쓴다. */
+  const startSearch = useCallback(
+    (preset?: string) => {
+      const input = document.getElementById('agentInput')
+      const typed = input instanceof HTMLInputElement ? input.value.trim() : ''
+      // 칩은 적힌 것이 없어도 제 문장으로 찾는다.
+      const query = (preset ?? typed).trim()
+      // 빈 문장으로는 찾을 것이 없다(서버도 COMMON_001 로 거절한다). 조용히 넘기면
+      // 엔터가 고장 난 것처럼 보이므로, 무엇이 없는지 말하고 입력창으로 커서를 보낸다.
+      if (!query) {
+        setNeedsQuery(true)
+        input?.focus()
+        return
+      }
+      navigate(searchPath(paths.edit.searching, query))
+    },
+    [navigate],
+  )
 
   const drag = dragging
   const clipBg = uploadOpen ? 'rgba(255,255,255,.16)' : 'transparent'
@@ -77,7 +113,7 @@ export default function Main() {
 
     const input = document.getElementById('agentInput')
     const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') navigate(paths.edit.searching)
+      if (e.key === 'Enter') startSearch()
     }
     input?.addEventListener('keydown', onKeydown)
 
@@ -90,7 +126,7 @@ export default function Main() {
       window.removeEventListener('dragleave', _onLeave)
       window.removeEventListener('drop', _onDrop)
     }
-  }, [navigate])
+  }, [navigate, startSearch])
 
   return (
     <>
@@ -187,6 +223,8 @@ export default function Main() {
           className="absolute border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
           id="agentInput"
           type="text"
+          maxLength={RECOMMEND_LIMITS.query.max}
+          onChange={() => setNeedsQuery(false)}
           placeholder="만들고 싶은 에이전트를 설명해 주세요"
           style={{
             left: '64px',
@@ -198,8 +236,12 @@ export default function Main() {
             transition: 'opacity .22s ease',
           }}
         />
-        <a
-          href={paths.edit.searching}
+        {/* 링크가 아니라 버튼이다 — 주소는 적은 문장에 따라 달라지는데, 링크로 두면
+            새 탭으로 열었을 때 검색어 없는 주소로 들어가 랜딩으로 되튕긴다. */}
+        <button
+          type="button"
+          aria-label="에이전트 찾기"
+          onClick={() => startSearch()}
           style={{
             left: '656px',
             top: '12px',
@@ -211,9 +253,8 @@ export default function Main() {
             transition: 'opacity .22s ease',
             background: 'var(--color-accent)',
             boxShadow: '0 6px 18px rgba(140,100,130,.26)',
-            textDecoration: 'none',
           }}
-          className="absolute flex cursor-pointer items-center justify-center hover:brightness-[1.05]"
+          className="absolute flex cursor-pointer items-center justify-center border-0 p-0 hover:brightness-[1.05]"
         >
           <svg
             width="18"
@@ -228,7 +269,7 @@ export default function Main() {
             <path d="M9 15V3.6" />
             <path d="M3.9 8.7 9 3.6l5.1 5.1" />
           </svg>
-        </a>
+        </button>
         {dragging && (
           <>
             <div
@@ -281,62 +322,25 @@ export default function Main() {
         className="absolute flex"
         style={{ left: '502px', top: '656px', width: '420px', height: '41px', gap: '12px' }}
       >
-        <button
-          style={{
-            width: '96px',
-            height: '41px',
-            borderRadius: '100px',
-            background: 'rgba(30,10,40,.30)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            boxShadow: '0 4px 16px rgba(30,8,40,.28)',
-          }}
-          className="cursor-pointer border-0 font-[inherit] text-[14px] font-medium whitespace-nowrap text-white hover:bg-[rgba(30,10,40,.46)]"
-        >
-          문서 정리
-        </button>
-        <button
-          style={{
-            width: '96px',
-            height: '41px',
-            borderRadius: '100px',
-            background: 'rgba(30,10,40,.30)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            boxShadow: '0 4px 16px rgba(30,8,40,.28)',
-          }}
-          className="cursor-pointer border-0 font-[inherit] text-[14px] font-medium whitespace-nowrap text-white hover:bg-[rgba(30,10,40,.46)]"
-        >
-          일정 요약
-        </button>
-        <button
-          style={{
-            width: '96px',
-            height: '41px',
-            borderRadius: '100px',
-            background: 'rgba(30,10,40,.30)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            boxShadow: '0 4px 16px rgba(30,8,40,.28)',
-          }}
-          className="cursor-pointer border-0 font-[inherit] text-[14px] font-medium whitespace-nowrap text-white hover:bg-[rgba(30,10,40,.46)]"
-        >
-          메일 초안
-        </button>
-        <button
-          style={{
-            width: '96px',
-            height: '41px',
-            borderRadius: '100px',
-            background: 'rgba(30,10,40,.30)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            boxShadow: '0 4px 16px rgba(30,8,40,.28)',
-          }}
-          className="cursor-pointer border-0 font-[inherit] text-[14px] font-medium whitespace-nowrap text-white hover:bg-[rgba(30,10,40,.46)]"
-        >
-          코드 리뷰
-        </button>
+        {SUGGESTIONS.map((suggestion) => (
+          <button
+            key={suggestion.label}
+            type="button"
+            onClick={() => startSearch(suggestion.query)}
+            style={{
+              width: '96px',
+              height: '41px',
+              borderRadius: '100px',
+              background: 'rgba(30,10,40,.30)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 4px 16px rgba(30,8,40,.28)',
+            }}
+            className="cursor-pointer border-0 font-[inherit] text-[14px] font-medium whitespace-nowrap text-white hover:bg-[rgba(30,10,40,.46)]"
+          >
+            {suggestion.label}
+          </button>
+        ))}
       </div>
 
       {uploadOpen && (
@@ -421,18 +425,24 @@ export default function Main() {
         </>
       )}
 
-      <div
-        className="absolute text-center text-[13px] tracking-[-.01em]"
-        style={{
-          left: '220px',
-          top: '728px',
-          width: '1000px',
-          color: 'rgba(255,240,247,.9)',
-          textShadow: '0 1px 8px rgba(35,8,45,.7)',
-        }}
-      >
-        엔터를 누르면 에이전트 생성이 시작됩니다
-      </div>
+      {needsQuery && (
+        <div
+          className="absolute text-[13px] font-semibold tracking-[-.01em]"
+          style={{
+            // 입력창 바로 아래 — 아래쪽 추천 칩(656px)에 닿지 않는 자리다.
+            // 왼쪽 끝은 자리표시자 글자가 시작하는 자리(바 360 + 입력 64)에 맞춘다.
+            left: '424px',
+            top: '628px',
+            width: '656px',
+            color: 'rgba(255,226,240,1)',
+            // 배경이 밝은 하늘이라 그림자를 겹쳐 깔지 않으면 글자가 묻힌다.
+            textShadow: '0 1px 10px rgba(35,8,45,.95),0 0 20px rgba(35,8,45,.7)',
+            animation: 'uiInPop .35s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          하고 싶은 일을 먼저 적어 주세요
+        </div>
+      )}
     </>
   )
 }

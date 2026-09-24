@@ -3,7 +3,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
-  initialCanvasState,
+  seededCanvasState,
   type PlacedSeed,
   type PortSide,
 } from '@/lib/canvasReducer'
@@ -15,11 +15,13 @@ import {
   canSellWorkflow,
   edgeGeometry,
   edgePath,
+  nodesBounds,
   portPoint,
   resolveOverlap,
 } from '@/lib/canvasWorkflow'
 import {
   INITIAL_VIEWPORT,
+  fitViewport,
   gridPosition,
   gridSize,
   panBy,
@@ -95,10 +97,16 @@ interface Pan {
  * 포인터를 따라 DOM 을 직접 고치고(드래그 중 리렌더를 피한다), 언제 어떤 액션을
  * 낼지만 정한다. 좌표 변환은 `lib/viewport` 한 곳에 모여 있다.
  */
-export function useCanvasWorkflow() {
-  const [state, dispatch] = useReducer(canvasReducer, initialCanvasState)
+export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
+  // 첫 렌더에서만 읽는다. 뒤늦게 바뀌어도 이미 사용자가 손댄 캔버스를 되돌리지 않는다.
+  const [state, dispatch] = useReducer(canvasReducer, seeds, seededCanvasState)
   const { nodes, edges, selId, hovId, selEdge, dragId, linkFrom } = state
-  const [view, setView] = useState<Viewport>(INITIAL_VIEWPORT)
+  // 안고 들어온 것이 작업면을 넘치면 첫 화면부터 다 보이게 맞춘다. 들어가면 그대로 둔다.
+  const [view, setView] = useState<Viewport>(() => {
+    const bounds = seeds?.length ? nodesBounds(state.nodes) : null
+    if (!bounds) return INITIAL_VIEWPORT
+    return fitViewport(bounds, { width: PANE_CONTENT_WIDTH, height: PANE_HEIGHT })
+  })
 
   /** 화면에 고정된 상자. 배율을 재는 기준이다. */
   const paneRef = useRef<HTMLDivElement>(null)

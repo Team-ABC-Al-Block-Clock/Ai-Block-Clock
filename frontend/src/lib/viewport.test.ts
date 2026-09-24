@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  FIT_MARGIN,
   GRID,
   INITIAL_VIEWPORT,
   ZOOM_MAX,
   ZOOM_MIN,
   clampZoom,
+  fitViewport,
   gridPosition,
   gridSize,
   panBy,
@@ -151,5 +153,41 @@ describe('격자', () => {
 
   it('팬이 없으면 반 칸 밀린 자리에서 시작한다', () => {
     expect(gridPosition(INITIAL_VIEWPORT)).toBe(`${GRID / 2}px ${GRID / 2}px`)
+  })
+})
+
+describe('fitViewport', () => {
+  const pane = { width: 980, height: 1024 }
+
+  it('여백 안에 들어가면 배율도 자리도 그대로다', () => {
+    // 몇 개 안 되는데 축소된 화면으로 시작하면 사용자가 매번 되돌려야 한다.
+    const view = fitViewport({ minX: 12, minY: 428, maxX: 968, maxY: 596 }, pane)
+
+    expect(view.k).toBe(1)
+    expect(view.tx).toBeCloseTo(0)
+    expect(view.ty).toBeCloseTo(0)
+  })
+
+  it('가로로 넘치면 다 보이도록 줄인다', () => {
+    const view = fitViewport({ minX: 12, minY: 428, maxX: 1165, maxY: 596 }, pane)
+
+    expect(view.k).toBeLessThan(1)
+    // 줄인 뒤에는 여백 안에 들어와야 한다.
+    expect(12 * view.k + view.tx).toBeGreaterThanOrEqual(FIT_MARGIN - 0.001)
+    expect(1165 * view.k + view.tx).toBeLessThanOrEqual(pane.width - FIT_MARGIN + 0.001)
+  })
+
+  it('한가운데에 놓는다', () => {
+    const view = fitViewport({ minX: 100, minY: 200, maxX: 300, maxY: 400 }, pane)
+    const left = 100 * view.k + view.tx
+    const right = 300 * view.k + view.tx
+
+    expect(left).toBeCloseTo(pane.width - right)
+  })
+
+  it('아무리 넓어도 최소 배율 밑으로는 줄이지 않는다', () => {
+    const view = fitViewport({ minX: 0, minY: 0, maxX: 100_000, maxY: 200 }, pane)
+
+    expect(view.k).toBe(ZOOM_MIN)
   })
 })

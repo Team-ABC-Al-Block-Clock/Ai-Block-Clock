@@ -261,3 +261,46 @@ export const getMyFavorites = (params: CursorParams = {}) =>
 /** 내가 한 번이라도 실행한 에이전트 */
 export const getUsedAgents = (params: UsedAgentsQuery = {}) =>
   api.get<CursorPage<UsedAgent>>('/users/me/used-agents', { params })
+
+/**
+ * 자연어로 찾은 에이전트. 추천 엔진이 준 `score`·매칭 이유는 중계 단계에서 걸러져
+ * 내려오지 않는다 — 설명 줄은 우리 DB 의 한 줄 소개다.
+ *
+ * 소유자가 없다. 추천에서 바로 캔버스에 올릴 때 내 것인지 가를 수 없어 늘 남의 것으로 둔다.
+ */
+export interface RecommendedAgent {
+  agentId: string
+  name: string
+  /** 한 줄 설명 */
+  summary: string
+  /** 실행 1회당 단가. 소수점 오차를 막기 위해 문자열이다 — 숫자로 되돌리지 않는다 */
+  price: string
+}
+
+/** 커서가 없다 — 점수 상위 몇 개를 한 번에 받고 끝이다. */
+export interface AgentRecommendations {
+  items: RecommendedAgent[]
+}
+
+/** 서버가 거절하는 값. 넘겨 보내면 COMMON_001 하나로만 돌아와 어디가 문제인지 알 수 없다. */
+export const RECOMMEND_LIMITS = {
+  query: { max: 200 },
+  size: { min: 1, max: 20, default: 8 },
+} as const
+
+export interface AgentRecommendationQuery {
+  /** 하고 싶은 일을 적은 문장 */
+  query: string
+  /** 받을 개수. 기본 8, 최대 20 */
+  size?: number
+}
+
+/**
+ * 하고 싶은 일을 적으면 알맞은 공개 에이전트를 찾아 준다. 이름 검색과 다르다 —
+ * 단어가 겹치지 않아도 찾는다.
+ *
+ * 점수 순으로 이미 정렬돼 온다. 색인이 비었거나 추천된 것이 그 사이 비공개로 바뀌면
+ * 빈 목록이고 오류가 아니다. 추천 엔진에 닿지 못하면 502 `RECOMMEND_001` 이다.
+ */
+export const getAgentRecommendations = (params: AgentRecommendationQuery) =>
+  api.get<AgentRecommendations>('/marketplace/agents/recommendations', { params })

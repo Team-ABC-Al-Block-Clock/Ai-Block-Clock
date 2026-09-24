@@ -20,6 +20,27 @@ const MY_CHIP: CSSProperties = {
   boxShadow: 'inset 0 0 0 1px #a0758f',
 }
 
+/**
+ * 이름이 카드를 넘지 않게 가두는 규칙.
+ *
+ * 폭을 주지 않으면 글자가 원 밖으로 흘러나온다 — 'Market Predictor' 처럼 띄어쓰기가
+ * 있어도 접을 자리를 모르기 때문이다. 두 줄까지 접고, 그래도 넘치면 말줄임한다.
+ *
+ * `keep-all` 이 없으면 한국어가 글자 단위로 끊겨 '성적 분석 리포/트' 가 된다. 어절에서만
+ * 접고, 한 어절이 줄보다 길 때만 `anywhere` 가 중간을 끊는다.
+ */
+const NAME_FIT: CSSProperties = {
+  maxWidth: `${NODE_SIZE - 30}px`,
+  textAlign: 'center',
+  lineHeight: 1.15,
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 2,
+  overflow: 'hidden',
+}
+
 /** 선을 잇는 자리. */
 const PORT_DOT = 12
 const PORT_HIT = 24
@@ -215,7 +236,11 @@ export default function CanvasNode({
       </div>
       <div
         className="text-[21px] font-bold tracking-[-.01em]"
-        style={{ color: nameColor, textShadow: '0 2px 12px rgba(8,4,18,.55)' }}
+        style={{
+          color: nameColor,
+          textShadow: '0 2px 12px rgba(8,4,18,.55)',
+          ...NAME_FIT,
+        }}
       >
         {name}
       </div>

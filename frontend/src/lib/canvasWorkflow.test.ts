@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { PANE_CONTENT_WIDTH, PANE_HEIGHT } from '@/components/CanvasPane'
+import { ZOOM_MIN, fitViewport } from '@/lib/viewport'
+
 import {
   CANVAS_EDGES,
   CANVAS_NODES,
@@ -12,8 +15,11 @@ import {
   disconnect,
   edgeGeometry,
   edgePath,
+  chainEdges,
   linearOrder,
   moveNodeTo,
+  nodesBounds,
+  seedCanvasNodes,
   type CanvasBounds,
   placeNode,
   resolveOverlap,
@@ -529,5 +535,191 @@ describe('removeNode', () => {
     const after = removeNode(CANVAS_NODES, CANVAS_EDGES, 'zzz')
     expect(after.nodes).toBe(CANVAS_NODES)
     expect(after.edges).toBe(CANVAS_EDGES)
+  })
+})
+
+describe('seedCanvasNodes', () => {
+  const seeds = Array.from({ length: 8 }, (_, i) => ({
+    id: `ag_${i}`,
+    name: `에이전트 ${i}`,
+    nodeType: 'AGENT' as const,
+    sourceType: 'AGENT' as const,
+    sourceId: `ag_${i}`,
+    mine: false,
+  }))
+
+  it('선택한 순서대로 놓고 선은 잇지 않는다', () => {
+    const nodes = seedCanvasNodes(seeds)
+
+    expect(nodes.map((n) => n.id)).toEqual(seeds.map((s) => s.id))
+    // 선은 여기서 만들지 않는다 — 이을 수 있는 짝인지는 스키마가 정한다.
+    expect(edgeGeometry(nodes, [])).toEqual([])
+  })
+
+  it('어느 배치에서도 둘이 겹치지 않는다', () => {
+    for (const layout of ['row', 'grid'] as const) {
+      const nodes = seedCanvasNodes(seeds, layout)
+      for (const a of nodes) {
+        for (const b of nodes) {
+          if (a.id === b.id) continue
+          expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(NODE_SIZE)
+        }
+      }
+    }
+  })
+
+  it('가로로 한 줄 — 오른쪽으로만 가고 높이가 위아래로 엇갈린다', () => {
+    // 왼쪽에서 오른쪽으로 잇는 것이 곧 실행 순서다. 높이는 두 칸을 번갈아 쓸 뿐이다.
+    const nodes = seedCanvasNodes(seeds)
+
+    expect(nodes.map((n) => n.x)).toEqual([...nodes.map((n) => n.x)].sort((a, b) => a - b))
+    expect(new Set(nodes.map((n) => n.y)).size).toBe(2)
+    expect(nodes[0].y).toBe(nodes[2].y)
+    expect(nodes[0].y).not.toBe(nodes[1].y)
+  })
+
+  it('모아 보여줄 때는 작업면 안에 들어간다', () => {
+    // 찾기 화면의 미리보기는 팬·줌이 없다. 패널 뒤로 넘어가면 선택한 것이 보이지 않는다.
+    for (const node of seedCanvasNodes(seeds, 'grid')) {
+      expect(node.x).toBeGreaterThanOrEqual(0)
+      expect(node.x + NODE_SIZE).toBeLessThanOrEqual(980)
+      expect(node.y + NODE_SIZE).toBeLessThanOrEqual(1024)
+    }
+  })
+
+  it('등장 모션은 순서대로 조금씩 늦게 시작한다', () => {
+    const delays = seedCanvasNodes(seeds).map((node) =>
+      Number(node.enter?.match(/ ([\d.]+)s c/)?.[1]),
+    )
+
+    expect(delays).toEqual([...delays].sort((a, b) => a - b))
+    expect(new Set(delays).size).toBe(seeds.length)
+  })
+
+  it('빈 목록이면 빈 캔버스다', () => {
+    expect(seedCanvasNodes([])).toEqual([])
+  })
+})
+
+describe('nodesBounds', () => {
+  it('카드 크기까지 감싼다 — 좌표만 재면 오른쪽·아래가 잘린다', () => {
+    const bounds = nodesBounds(CANVAS_NODES)!
+
+    expect(bounds.minX).toBe(Math.min(...CANVAS_NODES.map((n) => n.x)))
+    expect(bounds.maxX).toBe(Math.max(...CANVAS_NODES.map((n) => n.x)) + NODE_SIZE)
+    expect(bounds.maxY).toBe(Math.max(...CANVAS_NODES.map((n) => n.y)) + NODE_SIZE)
+  })
+
+  it('빈 캔버스면 null — 맞출 것이 없다', () => {
+    expect(nodesBounds([])).toBeNull()
+  })
+})
+
+/** 선택한 것을 안고 편집 화면에 들어갔을 때 첫 화면에 다 보이는가. */
+describe('한 줄 배치와 첫 배율', () => {
+  const pick = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: `ag_${i}`,
+      name: `에이전트 ${i}`,
+      nodeType: 'AGENT' as const,
+      sourceType: 'AGENT' as const,
+      sourceId: `ag_${i}`,
+      mine: false,
+    }))
+
+  const fitFor = (count: number, layout: 'row' | 'grid' = 'row') =>
+    fitViewport(nodesBounds(seedCanvasNodes(pick(count), layout))!, {
+      width: PANE_CONTENT_WIDTH,
+      height: PANE_HEIGHT,
+    })
+
+  it('다섯 장까지는 화면을 건드리지 않는다', () => {
+    for (const count of [1, 3, 5]) expect(fitFor(count).k).toBe(1)
+  })
+
+  it('여섯 장부터 저절로 줄어든다', () => {
+    expect(fitFor(6).k).toBeLessThan(1)
+    expect(fitFor(20).k).toBeLessThan(fitFor(6).k)
+  })
+
+  it('모아 보여줄 때도 마지막 줄이 작업면 아래로 넘지 않는다', () => {
+    // 찾기 화면의 미리보기는 팬·줌이 없다. 넘치면 선택한 것이 잘려 보이지 않는다.
+    for (const count of [12, 16, 20]) {
+      const nodes = seedCanvasNodes(pick(count), 'grid')
+      const view = fitFor(count, 'grid')
+      const bottom = (Math.max(...nodes.map((n) => n.y)) + NODE_SIZE) * view.k + view.ty
+
+      expect(bottom).toBeLessThanOrEqual(PANE_HEIGHT + 0.001)
+    }
+  })
+
+  it('모든 장이 작업면 안에 있다', () => {
+    for (const count of [6, 12, 20]) {
+      const view = fitFor(count)
+
+      for (const node of seedCanvasNodes(pick(count))) {
+        expect(node.x * view.k + view.tx).toBeGreaterThanOrEqual(-0.001)
+        expect((node.x + NODE_SIZE) * view.k + view.tx).toBeLessThanOrEqual(
+          PANE_CONTENT_WIDTH + 0.001,
+        )
+        expect(node.y * view.k + view.ty).toBeGreaterThanOrEqual(-0.001)
+        expect((node.y + NODE_SIZE) * view.k + view.ty).toBeLessThanOrEqual(PANE_HEIGHT + 0.001)
+      }
+    }
+  })
+
+  it('스물한 장부터는 축소가 바닥에 걸려 오른쪽이 넘어간다 — 그래서 고르는 쪽에서 자른다', () => {
+    const view = fitFor(21)
+    const nodes = seedCanvasNodes(pick(21))
+    const right = (Math.max(...nodes.map((n) => n.x)) + NODE_SIZE) * view.k + view.tx
+
+    expect(view.k).toBe(ZOOM_MIN)
+    expect(right).toBeGreaterThan(PANE_CONTENT_WIDTH)
+  })
+})
+
+describe('chainEdges', () => {
+  const nodes = (count: number) =>
+    seedCanvasNodes(
+      Array.from({ length: count }, (_, i) => ({
+        id: `ag_${i}`,
+        name: `에이전트 ${i}`,
+        nodeType: 'AGENT' as const,
+        sourceType: 'AGENT' as const,
+        sourceId: `ag_${i}`,
+        mine: false,
+      })),
+    )
+
+  it('놓인 순서대로 앞에서 뒤로 잇는다', () => {
+    const edges = chainEdges(nodes(4))
+
+    expect(edges.map((e) => [e.from, e.to])).toEqual([
+      ['ag_0', 'ag_1'],
+      ['ag_1', 'ag_2'],
+      ['ag_2', 'ag_3'],
+    ])
+  })
+
+  it('이은 것이 그래프 규칙을 지킨다 — 입력은 하나뿐이고 고리가 없다', () => {
+    const list = nodes(5)
+    const edges = chainEdges(list)
+
+    // 들어오는 선이 둘인 노드가 없다.
+    const incoming = edges.map((e) => e.to)
+    expect(new Set(incoming).size).toBe(incoming.length)
+    // 끝에서 처음으로 되돌아가는 선은 이을 수 없다.
+    expect(canConnect(edges, 'ag_4', 'ag_0')).toBe(false)
+  })
+
+  it('한 장이거나 없으면 이을 곳이 없다', () => {
+    expect(chainEdges(nodes(1))).toEqual([])
+    expect(chainEdges([])).toEqual([])
+  })
+
+  it('그린 선이 양 끝을 모두 찾는다', () => {
+    const list = nodes(3)
+
+    expect(edgeGeometry(list, chainEdges(list))).toHaveLength(2)
   })
 })

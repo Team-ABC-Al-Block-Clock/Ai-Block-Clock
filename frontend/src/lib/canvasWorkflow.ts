@@ -1,6 +1,7 @@
 import type { ItemNodeType, SourceType } from '@/api/workflows'
 
 import { roundedPath, routeEdge } from './edgeRoute'
+import type { ContentBox } from './viewport'
 
 /** 노드 카드의 한 변(px). 좌표는 카드의 왼쪽 위 모서리이다. */
 export const NODE_SIZE = 168
@@ -246,6 +247,17 @@ export function edgeGeometry(
   })
 }
 
+/** 놓인 카드 전부를 감싸는 사각형. 빈 캔버스면 null — 맞출 것이 없다. */
+export function nodesBounds(nodes: CanvasNodeData[]): ContentBox | null {
+  if (nodes.length === 0) return null
+  return {
+    minX: Math.min(...nodes.map((node) => node.x)),
+    minY: Math.min(...nodes.map((node) => node.y)),
+    maxX: Math.max(...nodes.map((node) => node.x)) + NODE_SIZE,
+    maxY: Math.max(...nodes.map((node) => node.y)) + NODE_SIZE,
+  }
+}
+
 /** 다른 사람의 에이전트가 하나라도 섞이면 팔 수 없다. 빈 캔버스도 등록할 것이 없다. */
 export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
   return nodes.length > 0 && nodes.every((node) => node.mine)
@@ -395,6 +407,72 @@ export function placeNode(
     ...nodes,
     { ...seed, ...resolveOverlap(nodes, seed.id, x, y, bounds), floaty: PLACED_FLOATY },
   ]
+}
+
+/** 추천에서 선택한 것을 처음부터 놓아 둘 때의 보폭. 데모 배치와 같은 간격이다. */
+const SEED_STEP = 197
+/** 선택한 것을 모아 보여줄 때. 좁은 폭에 여러 장이 들어가야 한다. */
+const SEED_GRID = { x: 60, y: 300, perRow: 4 }
+/** 한 칸씩 어긋나게 둔다 — 격자로 세우면 잇지도 않은 것이 이미 이어진 순서처럼 보인다. */
+const SEED_GRID_STAGGER = 44
+/**
+ * 편집으로 넘어갔을 때. 왼쪽에서 오른쪽으로 잇는 순서가 곧 실행 순서다.
+ *
+ * 높이를 한 칸씩 엇갈린다 — 자리표시자 배치와 같은 결이고, 일직선보다 카드 사이
+ * 간격이 넓어져 선을 걸기 쉽다.
+ */
+const SEED_ROW = { x: 12, y: 388, zigzag: 84 }
+
+/** 선택한 것을 어떻게 늘어놓을지. 찾기 화면은 모아 보여주고, 편집 화면은 한 줄로 편다. */
+export type SeedLayout = 'grid' | 'row'
+
+function seedPoint(layout: SeedLayout, i: number): { x: number; y: number } {
+  if (layout === 'row') {
+    return { x: SEED_ROW.x + i * SEED_STEP, y: SEED_ROW.y + (i % 2) * SEED_ROW.zigzag }
+  }
+  return {
+    x: SEED_GRID.x + (i % SEED_GRID.perRow) * SEED_STEP,
+    y: SEED_GRID.y + Math.floor(i / SEED_GRID.perRow) * SEED_STEP + (i % 2) * SEED_GRID_STAGGER,
+  }
+}
+
+/**
+ * 추천에서 선택한 에이전트를 캔버스 첫 상태로 늘어놓는다.
+ *
+ * 자리만 정한다. 잇는 것은 `chainEdges` 가 따로 맡는다 — 미리보기는 모아 보여주기만 하고
+ * 편집 화면만 이어서 열기 때문이다.
+ *
+ * 한 줄 배치는 작업면 폭(980)을 넘길 수 있다. 다섯 장까지 그대로 들어가고, 그 뒤로는
+ * 화면이 통째로 축소돼 다 보인다 — 줄을 접으면 어디까지가 순서인지 흐려진다.
+ *
+ * 축소가 먹히는 것은 스무 장까지다. 그 뒤로는 `ZOOM_MIN` 에 걸려 오른쪽이 패널 뒤로
+ * 넘어가므로, 부르는 쪽에서 개수를 자른다 (`EditSearching` 의 `MAX_PICKED`).
+ */
+export function seedCanvasNodes(
+  seeds: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'>[],
+  layout: SeedLayout = 'row',
+): CanvasNodeData[] {
+  const placed = seeds.reduce<CanvasNodeData[]>((nodes, seed, i) => {
+    const { x, y } = seedPoint(layout, i)
+    return placeNode(nodes, seed, x, y)
+  }, [])
+  return placed.map((node, i) => ({
+    ...node,
+    enter: `uiIn .7s ${(0.18 + i * 0.08).toFixed(2)}s cubic-bezier(.2,.8,.25,1) backwards`,
+  }))
+}
+
+/**
+ * 놓인 순서대로 앞에서 뒤로 잇는다. 한 장뿐이면 이을 곳이 없다.
+ *
+ * 이을 수 있는 짝인지는 스키마가 정하지만, 그 판정은 저장·실행 시점에 AI 가 한다.
+ * 선택한 순서가 곧 실행 순서라 먼저 이어 두는 편이 손이 덜 간다 — 아니면 사용자가
+ * 매번 같은 선을 손으로 긋는다. 틀린 순서는 선을 눌러 지우면 된다.
+ */
+export function chainEdges(nodes: CanvasNodeData[]): CanvasEdge[] {
+  return nodes
+    .slice(1)
+    .reduce<CanvasEdge[]>((edges, node, i) => connect(edges, nodes[i].id, node.id), [])
 }
 
 /** 이미 정해진 자리에 그대로 놓는다. 겹침은 부르는 쪽에서 이미 풀었다. */
