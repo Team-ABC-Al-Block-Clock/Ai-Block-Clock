@@ -148,6 +148,18 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @DisplayName("정산이 귀속될 주인을 노드마다 실어 보낸다")
+    void sendsNodeOwnerForSettlement() throws Exception {
+        start();
+
+        ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
+        then(aiRuntimeClient).should().start(sent.capture());
+
+        assertThat(sent.getValue().workflow())
+                .contains("\"owner_id\":\"" + requester + "\"");
+    }
+
+    @Test
     @DisplayName("진행 상황을 중계하고 끝난 상태를 우리 쪽에도 남긴다")
     void relaysProgressAndKeepsTheFinalStatus() throws Exception {
         String executionId = start();
