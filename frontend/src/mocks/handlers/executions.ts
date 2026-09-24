@@ -30,6 +30,8 @@ const RUNS_KEY = 'mockExecutions'
 
 interface MockRun {
   executionId: string
+  /** 이 실행을 접수시킨 누름. 같은 값이 다시 오면 새로 접수하지 않는다 */
+  requestId: string
   startedAt: number
   /** 접수 때 굳힌다. 도는 도중에 워크플로우를 고쳐도 단계 목록이 바뀌지 않아야 한다 */
   stepNames: string[]
@@ -59,6 +61,34 @@ function putRun(run: MockRun) {
 /** 서버가 파일을 가르는 규칙(`ExecutionFileValidator`). 확장자만 보고 MIME 은 보지 않는다. */
 const FILE_EXTENSIONS = ['.xlsx', '.xls', '.csv']
 const FILE_MAX_BYTES = 10 * 1024 * 1024
+
+/**
+ * 견적. 접수와 견적 조회가 같은 값을 써야 한다 — 따로 계산하면 카드에 6 이 떠 있는데
+ * 접수는 7 로 막는 일이 생긴다.
+ */
+function quoteOf(detail: WorkflowDetail) {
+  const items: CostItem[] = detail.nodes.map((node) => {
+    const item = PLACEABLE_ITEMS.find((it) => it.itemId === node.sourceId)
+    return {
+      nodeKey: node.nodeKey,
+      sourceType: node.sourceType,
+      name: item?.name ?? '알 수 없는 노드',
+      price: money(Number(item?.price ?? 0)),
+    }
+  })
+
+  const estimated = items.reduce((sum, item) => sum + Number(item.price), 0)
+  const available = Number(CREDIT_BALANCE.availableAmount)
+  const shortage = Math.max(0, estimated - available)
+
+  return {
+    estimatedAmount: money(estimated),
+    availableAmount: money(available),
+    shortageAmount: money(shortage),
+    executable: shortage === 0,
+    items,
+  }
+}
 
 /** 접수 때 굳히는 단계 이름. 견적과 같은 자리를 읽어 금액과 단계가 어긋나지 않게 한다. */
 const stepNamesOf = (detail: WorkflowDetail) =>
@@ -105,6 +135,22 @@ export const executionHandlers = [
     if (typeof workflowId !== 'string' || !workflowId)
       return fail(400, 'COMMON_001', '워크플로우를 지정해 주세요.')
 
+    const requestId = form.get('requestId')
+    if (typeof requestId !== 'string' || !requestId)
+      return fail(400, 'COMMON_001', '실행 요청 식별자를 보내 주세요.')
+
+    // 같은 누름이 다시 왔다. 새로 차감하지 않고 앞서 접수한 실행을 그대로 돌려준다.
+    const already = Object.values(readRuns()).find((run) => run.requestId === requestId)
+    if (already)
+      return ok(
+        {
+          executionId: already.executionId,
+          status: 'QUEUED',
+          stepCount: already.stepNames.length,
+        },
+        { status: 202 },
+      )
+
     const comment = form.get('comment')
     if (typeof comment === 'string' && comment.length > 500)
       return fail(400, 'COMMON_001', '코멘트는 500자까지 보낼 수 있습니다.')
@@ -123,8 +169,21 @@ export const executionHandlers = [
       return fail(400, 'WORKFLOW_014', '노드를 하나 이상 놓아야 실행할 수 있습니다.')
     // 분기(`CONTROL`)는 여기서 EXECUTION_005 로 끊긴다. 화면이 아직 분기를 만들지 못해 생략한다.
 
+    /**
+     * 선차감. 실제로 잔액을 깎지는 않는다 — 픽스처가 상수라 깎으면 새로고침에 되살아나
+     * 「깎였다 안 깎였다」 하는 쪽이 더 헷갈린다. 막는 자리와 실어 보내는 금액만 서버와 맞춘다.
+     */
+    const quote = quoteOf(detail)
+    if (!quote.executable)
+      return fail(402, 'PAYMENT_008', 'ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.', {
+        estimatedAmount: quote.estimatedAmount,
+        availableAmount: quote.availableAmount,
+        shortageAmount: quote.shortageAmount,
+      })
+
     const run: MockRun = {
       executionId: `exe_${Date.now().toString(36)}`,
+      requestId,
       startedAt: Date.now(),
       stepNames: stepNamesOf(detail),
     }
@@ -156,26 +215,6 @@ export const executionHandlers = [
     const detail = findWorkflowDetail(workflowId)
     if (!detail) return fail(404, 'WORKFLOW_002', '워크플로우를 찾을 수 없습니다.')
 
-    const items: CostItem[] = detail.nodes.map((node) => {
-      const item = PLACEABLE_ITEMS.find((it) => it.itemId === node.sourceId)
-      return {
-        nodeKey: node.nodeKey,
-        sourceType: node.sourceType,
-        name: item?.name ?? '알 수 없는 노드',
-        price: money(Number(item?.price ?? 0)),
-      }
-    })
-
-    const estimated = items.reduce((sum, item) => sum + Number(item.price), 0)
-    const available = Number(CREDIT_BALANCE.availableAmount)
-    const shortage = Math.max(0, estimated - available)
-
-    return ok({
-      estimatedAmount: money(estimated),
-      availableAmount: money(available),
-      shortageAmount: money(shortage),
-      executable: shortage === 0,
-      items,
-    })
+    return ok(quoteOf(detail))
   }),
 ]

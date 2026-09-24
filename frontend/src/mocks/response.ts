@@ -16,10 +16,12 @@ export function ok<T>(data: T, init?: ResponseInit) {
  * 화면은 status 가 아니라 `code` 로 분기하므로 mock 도 실제 도메인 코드를 쓴다.
  * code·message 가 `error` 아래 중첩된 것까지 흉내 내야 한다 — 평평하게 두면
  * mock 에서만 오류 문구가 뜨고 실서버에서는 전부 빈 값이 된다.
+ *
+ * `data` 는 오류를 짚어 주는 값이다. 서버가 실어 보내는 응답만 채우고 나머지는 null 로 둔다.
  */
-export function fail(status: number, code: string, message: string) {
+export function fail(status: number, code: string, message: string, data: unknown = null) {
   return HttpResponse.json(
-    { status: 'FAIL', data: null, error: { code, message, data: null } },
+    { status: 'FAIL', data: null, error: { code, message, data } },
     { status },
   )
 }

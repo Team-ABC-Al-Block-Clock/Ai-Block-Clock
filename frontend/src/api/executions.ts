@@ -94,6 +94,11 @@ export function describeRunFileProblem(file: File): string | null {
 
 export interface StartExecutionInput {
   workflowId: string
+  /**
+   * 이 「누름」을 가리키는 UUID. 같은 누름을 다시 보낼 때는 같은 값이어야 한다 —
+   * 서버가 새로 차감하지 않고 앞서 접수한 실행을 그대로 돌려준다(`EXECUTION_ALREADY_REQUESTED`).
+   */
+  requestId: string
   /** 첫 단계에 함께 전달된다. 500자까지 */
   comment?: string
   file?: File | null
@@ -104,14 +109,24 @@ export interface StartExecutionInput {
 /**
  * 실행 접수. 단계 하나가 25초쯤 걸려 서버는 기다리지 않고 접수 번호만 준다(202).
  *
+ * 접수되는 순간 견적만큼 ABC 가 **바로 빠진다**(`mock` 실행도 같다). 잔액이 모자라면
+ * `PAYMENT_008`(402) 이고, 엔진에 맡기지 못하면 서버가 떼어 둔 금액을 알아서 되돌린다.
+ *
  * 명세가 `multipart/form-data` 다 — 첫 단계가 읽을 파일을 같이 싣기 때문이다. `Content-Type` 은
  * 손대지 않는다. FormData 를 주면 브라우저가 boundary 까지 붙여 준다(`api/client.ts`).
  *
  * 비어 있는 칸은 아예 넣지 않는다. 빈 문자열을 넣으면 서버가 「코멘트가 왔는데 비었다」로 받는다.
  */
-export const startExecution = ({ workflowId, comment, file, mock }: StartExecutionInput) => {
+export const startExecution = ({
+  workflowId,
+  requestId,
+  comment,
+  file,
+  mock,
+}: StartExecutionInput) => {
   const form = new FormData()
   form.append('workflowId', workflowId)
+  form.append('requestId', requestId)
   if (comment?.trim()) form.append('comment', comment.trim())
   if (file) form.append('file', file)
   if (mock) form.append('mock', 'true')
