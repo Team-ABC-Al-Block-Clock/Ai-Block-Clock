@@ -19,7 +19,7 @@ type NodePalettePanelProps = {
   refs: Palette['refs']
 }
 
-/** 패널 아래쪽 — 캔버스로 끌어다 놓을 노드를 찾는 자리. */
+/** 패널 아래쪽 — 캔버스로 끌어다 놓을 마켓 에이전트를 찾는 자리. */
 export default function NodePalettePanel({
   q,
   cards,

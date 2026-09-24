@@ -9,7 +9,7 @@ import { queryKeys } from '@/lib/queryKeys'
 const PAGE_SIZE = 10
 /** 입력이 멈춘 뒤에만 검색한다. */
 const DEBOUNCE_MS = 300
-/** 내 노드와 마켓 에이전트를 한 목록으로 본다. 등록 가능 여부는 조회가 아니라 놓인 구성(`canSell`)이 정한다. */
+/** 남의 것까지 받아 마켓 에이전트를 채운다. 등록 가능 여부는 놓인 구성(`canSell`)이 정한다. */
 const SCOPE = 'ALL' as const
 
 /** 드래그로 주고받는 것은 팔레트 항목 id 하나뿐이다. 브라우저가 소문자로만 받는다. */
@@ -57,7 +57,9 @@ export function useNodePalette() {
     placeholderData: keepPreviousData,
   })
 
-  const items = data?.pages.flatMap((page) => page.content) ?? []
+  // 팔레트에 세우는 것은 마켓 에이전트뿐이다. 내 노드는 「노드 추가」로 캔버스에 바로 놓는다.
+  const items =
+    data?.pages.flatMap((page) => page.content).filter((item) => item.itemType === 'AGENT') ?? []
   // placeholder 는 아직 이번 검색의 결과가 아니다. isPending 만 보면 한 글자마다 깜빡인다.
   const isSettled = !isPending && !isPlaceholderData
   const isEmpty = isSettled && !isError && items.length === 0
