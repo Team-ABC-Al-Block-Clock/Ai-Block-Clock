@@ -22,6 +22,9 @@ afterEach(() => {
 const excel = (name = '성적.xlsx', size = 1024) =>
   new File([new Uint8Array(size)], name, { type: '' })
 
+/** 접수에는 누름마다 새로 만드는 UUID 가 필요하다. 값 자체는 무엇이든 된다. */
+const REQUEST_ID = '5d3f9c1e-7b2a-4e8f-9a61-2c4b8d0e1f37'
+
 /** `agt_001` 이 150 이라 다섯 개면 750 — 잔액 640 을 넘긴다. */
 const chainOf = (sourceId: string, count: number): WorkflowGraph => ({
   nodes: Array.from({ length: count }, (_, i) => ({
@@ -128,32 +131,45 @@ describe('startExecution', () => {
     return form
   }
 
-  it('워크플로우·코멘트·파일을 폼에 담는다', async () => {
+  it('워크플로우·누름 식별자·코멘트·파일을 폼에 담는다', async () => {
     const file = excel()
-    const form = await sentForm({ workflowId: 'wf_001', comment: '난이도가 높았습니다', file })
+    const form = await sentForm({
+      workflowId: 'wf_001',
+      requestId: REQUEST_ID,
+      comment: '난이도가 높았습니다',
+      file,
+    })
 
     expect(form.get('workflowId')).toBe('wf_001')
+    expect(form.get('requestId')).toBe(REQUEST_ID)
     expect(form.get('comment')).toBe('난이도가 높았습니다')
     expect(form.get('file')).toBe(file)
   })
 
   it('빈 코멘트와 고르지 않은 파일은 아예 넣지 않는다', async () => {
-    const form = await sentForm({ workflowId: 'wf_001', comment: '   ', file: null })
+    const form = await sentForm({
+      workflowId: 'wf_001',
+      requestId: REQUEST_ID,
+      comment: '   ',
+      file: null,
+    })
 
     expect(form.has('comment')).toBe(false)
     expect(form.has('file')).toBe(false)
     // 서버는 값이 온 칸만 본다. 빈 문자열을 넣으면 「코멘트가 왔는데 비었다」가 된다.
-    expect([...form.keys()]).toEqual(['workflowId'])
+    expect([...form.keys()].sort()).toEqual(['requestId', 'workflowId'])
   })
 
   it('mock 은 켰을 때만 싣는다', async () => {
-    expect((await sentForm({ workflowId: 'wf_001' })).has('mock')).toBe(false)
-    expect((await sentForm({ workflowId: 'wf_001', mock: true })).get('mock')).toBe('true')
+    const base = { workflowId: 'wf_001', requestId: REQUEST_ID }
+
+    expect((await sentForm(base)).has('mock')).toBe(false)
+    expect((await sentForm({ ...base, mock: true })).get('mock')).toBe('true')
   })
 
   it('경로는 /executions 가 아니라 /runs 다', async () => {
     const post = vi.spyOn(client, 'post').mockResolvedValue({} as never)
-    await startExecution({ workflowId: 'wf_001' })
+    await startExecution({ workflowId: 'wf_001', requestId: REQUEST_ID })
 
     expect(post.mock.calls[0][0]).toBe('/runs')
     post.mockRestore()
