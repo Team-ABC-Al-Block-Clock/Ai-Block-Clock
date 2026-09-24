@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
+import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
 import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -12,6 +13,7 @@ import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
+import { useNodeDetail } from '@/hooks/useNodeDetail'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
@@ -29,6 +31,16 @@ import NodePalettePanel from './NodePalettePanel'
 const NAME_MAX = 40
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
+/** 서버가 아는 모델이 하나뿐이다. 늘어나면 골라 담는 자리를 연다. */
+const DEFAULT_AI_MODEL: AiModel = 'GEMINI_2_5_FLASH'
+
+function describeNodeCreateError(error: unknown): string {
+  if (!(error instanceof ApiError)) return '노드를 만들지 못했습니다'
+  if (error.code === 'NODE_003') return '프롬프트를 입력해 주세요'
+  if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
+  return '노드를 만들지 못했습니다'
+}
 
 /** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
 const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
@@ -82,7 +94,8 @@ export default function EditNodes() {
     dragId,
     linkFrom,
     canSell,
-    removeSelected,
+    removeBySource,
+    renameBySource,
     portOpen,
     onHover,
     onSelectEdge,
@@ -107,6 +120,9 @@ export default function EditNodes() {
   const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
 
   const [name, setName] = useState('문서 정리')
+  /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
+  const [draft, setDraft] = useState({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+  const { create } = useNodeDetail(undefined)
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
@@ -254,6 +270,23 @@ export default function EditNodes() {
         transition: 'transform .2s,opacity .25s ease',
       }
     : { display: 'none' }
+  const draftFilled = !!draft.name.trim() && !!draft.prompt.trim()
+
+  const closeAddPanel = () => {
+    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    create.reset()
+    handleTogglePanel()
+  }
+
+  // 만들고 나면 팔레트에 들어간다. 캔버스에 놓는 것은 여느 항목과 같이 끌어다 놓는다.
+  const handleCreate = () => {
+    if (!draftFilled || create.isPending) return
+    create.mutate(
+      { name: draft.name.trim(), prompt: draft.prompt.trim(), model: draft.model },
+      { onSuccess: closeAddPanel },
+    )
+  }
+
   const hasSelection = !!n
   // 에이전트는 원본을 열지 않는다 — 남의 내부 구성이고, 내 것이라도 노드가 아니다.
   const selNodeId = n && n.sourceType === 'NODE' && n.mine ? n.sourceId : undefined
@@ -529,7 +562,11 @@ export default function EditNodes() {
                 <input
                   className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
                   type="text"
+                  value={draft.name}
+                  maxLength={NODE_NAME_MAX}
+                  onChange={(ev) => setDraft((it) => ({ ...it, name: ev.target.value }))}
                   placeholder="예: 내용 분석"
+                  aria-label="노드 이름"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -580,7 +617,7 @@ export default function EditNodes() {
                   marginBottom: '14px',
                 }}
               >
-                <div className="text-[17px] text-white">기본 모델</div>
+                <div className="text-[17px] text-white">Gemini 2.5 Flash</div>
               </div>
 
               <div
@@ -600,7 +637,10 @@ export default function EditNodes() {
               >
                 <textarea
                   className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
+                  value={draft.prompt}
+                  onChange={(ev) => setDraft((it) => ({ ...it, prompt: ev.target.value }))}
                   placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
+                  aria-label="프롬프트"
                   style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
                 ></textarea>
               </div>
@@ -634,11 +674,20 @@ export default function EditNodes() {
             </div>
 
             <div
-              className="flex flex-none"
+              className="flex flex-none items-center"
               style={{ justifyContent: 'flex-end', gap: '8px', paddingTop: '14px' }}
             >
-              <div
-                onClick={handleTogglePanel}
+              {create.error && (
+                <div
+                  className="mr-auto truncate text-[14px]"
+                  style={{ color: 'rgba(255,196,214,.95)' }}
+                >
+                  {describeNodeCreateError(create.error)}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={closeAddPanel}
                 style={{
                   height: '40px',
                   padding: '0 22px',
@@ -646,12 +695,17 @@ export default function EditNodes() {
                   boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
                   color: 'rgba(255,255,255,.9)',
                 }}
-                className="bg-surface-card flex cursor-pointer items-center text-[17px] font-semibold hover:bg-[rgba(255,255,255,.18)]"
+                className="bg-surface-card flex cursor-pointer items-center border-0 font-[inherit] text-[17px] font-semibold hover:bg-[rgba(255,255,255,.18)]"
               >
                 취소
-              </div>
-              <div
-                onClick={handleTogglePanel}
+              </button>
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={!draftFilled || create.isPending}
+                title={
+                  draftFilled ? '노드를 만들어 팔레트에 넣습니다' : '이름과 프롬프트를 적어 주세요'
+                }
                 style={{
                   height: '40px',
                   padding: '0 24px',
@@ -659,11 +713,12 @@ export default function EditNodes() {
                   background: 'var(--color-accent)',
                   boxShadow: '0 8px 20px rgba(140,100,130,.24)',
                   color: 'var(--color-accent-ink)',
+                  cursor: !draftFilled || create.isPending ? 'default' : 'pointer',
                 }}
-                className="flex cursor-pointer items-center text-[17px] font-bold hover:brightness-[1.05]"
+                className="flex items-center border-0 font-[inherit] text-[17px] font-bold hover:brightness-[1.05] disabled:opacity-45 disabled:hover:brightness-100"
               >
-                추가
-              </div>
+                {create.isPending ? '만드는 중' : '추가'}
+              </button>
             </div>
           </div>
         )}
@@ -759,7 +814,10 @@ export default function EditNodes() {
           initial={selInitial}
           typeLabel={selTypeLabel}
           nodeId={selNodeId}
-          onDeleted={removeSelected}
+          // 저장된 워크플로우에 놓인 노드는 서버가 삭제를 막는다(`NODE_004`).
+          deletable={!saved}
+          onRenamed={renameBySource}
+          onDeleted={removeBySource}
         />
 
         <NodePalettePanel
