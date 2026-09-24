@@ -21,6 +21,7 @@ public interface CostEstimateApi {
                     **아무것도 차감하거나 기록하지 않는다.**
 
                     노드는 원가를, 에이전트는 놓을 때 박힌 버전의 판매가(원가 × 등급 할증)를 더한다.
+                    내가 만든 에이전트는 할증이 내 몫이라 원가만 더한다.
                     에이전트는 속을 펼치지 않고 한 줄로 적는다.
 
                     `executable` 이 `false` 면 `shortageAmount` 만큼 충전을 안내한다.

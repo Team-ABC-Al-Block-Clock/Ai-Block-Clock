@@ -10,7 +10,7 @@ import java.util.List;
 
 @Schema(description = "실행 견적. 실행 전에 보여주는 안내이며, 실제로 막고 차감하는 것은 실행을 접수할 때다")
 public record CostEstimateResponse(
-        @Schema(description = "예상 차감액. 놓인 노드의 원가와 에이전트의 판매가를 더한 값이다", example = "9.000000")
+        @Schema(description = "예상 차감액. 놓인 노드의 원가와 에이전트의 판매가(내 에이전트는 원가)를 더한 값이다", example = "9.000000")
         String estimatedAmount,
 
         @Schema(description = "지금 쓸 수 있는 ABC. 다른 실행에 잠긴 금액은 빠져 있다", example = "5.000000")
@@ -45,7 +45,7 @@ public record CostEstimateResponse(
             @Schema(description = "노드 이름 또는 에이전트 이름", example = "분석 에이전트")
             String name,
 
-            @Schema(description = "이 자리의 값. 노드는 원가, 에이전트는 판매가다", example = "6.000000")
+            @Schema(description = "이 자리의 값. 노드는 원가, 에이전트는 판매가다. 내 에이전트는 할증 없이 원가다", example = "6.000000")
             String price
     ) {
         static Item from(CostItem item) {

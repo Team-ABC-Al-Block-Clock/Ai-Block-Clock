@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.agent.Agent;
 import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.agent.AgentReader;
@@ -9,6 +10,7 @@ import com.aiblockclock.domain.agent.AgentVersionReader;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -24,14 +26,17 @@ public class CostEstimateAssembler {
     private final AgentReader agentReader;
     private final AgentVersionReader agentVersionReader;
 
-    // 캔버스의 노드는 지금의 원가를, 에이전트는 놓을 때 박힌 버전의 판매가를 읽는다.
+    // 캔버스의 노드는 지금의 원가를, 에이전트는 놓을 때 박힌 버전의 판매가를 읽는다. 내 에이전트는 원가만.
+    // 자기 워크플로우만 견적 · 실행할 수 있으므로 워크플로우 주인이 곧 내는 사람이다.
     public CostEstimate assemble(Workflow workflow) {
+        UserId payer = workflow.getOwner();
+
         return CostEstimate.of(workflow.getGraph().nodesInOrder().stream()
-                .map(this::itemOf)
+                .map(placed -> itemOf(placed, payer))
                 .toList());
     }
 
-    private CostItem itemOf(GraphNode placed) {
+    private CostItem itemOf(GraphNode placed, UserId payer) {
         return switch (placed.sourceType()) {
             case NODE -> {
                 NodeDefinition node = nodeReader.read(NodeDefinitionId.of(placed.reference().referenceId()));
@@ -42,8 +47,14 @@ public class CostEstimateAssembler {
                 Agent agent = agentReader.read(AgentId.of(placed.reference().referenceId()));
                 AgentVersion version = agentVersionReader.read(AgentVersionId.of(placed.reference().versionId()));
 
-                yield new CostItem(placed.key(), SourceType.AGENT, agent.getProfile().name(), version.finalPrice());
+                yield new CostItem(placed.key(), SourceType.AGENT, agent.getProfile().name(),
+                        priceFor(payer, agent, version));
             }
         };
+    }
+
+    // 할증은 판매자 몫이라, 자기 에이전트를 자기가 쓰면 원가만 낸다.
+    private static AbcAmount priceFor(UserId payer, Agent agent, AgentVersion version) {
+        return agent.isOwnedBy(payer) ? version.getCost().baseCost() : version.finalPrice();
     }
 }
