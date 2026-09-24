@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.file.UploadedFile;
 import com.aiblockclock.domain.node.RefFileStore;
 import com.aiblockclock.client.ai.AiClientException;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,12 +33,21 @@ public class ExecutionService {
     private final ExecutionFileValidator executionFileValidator;
     private final ExecutionFileStore executionFileStore;
     private final RefFileStore refFileStore;
+    private final ExecutionReservationManager executionReservationManager;
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
 
-    public Execution start(
-            UserId requester, Workflow workflow, String comment, boolean mock, UploadedFile upload) {
+    // 같은 요청 번호로 이미 접수했으면 다시 떼지 않고 그 실행을 돌려준다.
+    // 새 요청이면 먼저 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
+    public Execution start(UserId requester, Workflow workflow, ExecutionRequestId requestId,
+                           String comment, boolean mock, UploadedFile upload) {
+        Optional<Execution> earlier = executionReader.find(requester, requestId);
+
+        if (earlier.isPresent()) {
+            return earlier.get();
+        }
+
         if (upload != null) {
             executionFileValidator.validate(upload);
         }
@@ -44,12 +55,13 @@ public class ExecutionService {
         ExecutionPlan plan = executionPlanAssembler.assemble(workflow);
         ExecutionId id = ExecutionId.newId();
         ExecutionFile inputFile = upload == null ? null : executionFileStore.write(id, upload);
+        Execution requested = Execution.requested(
+                id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
 
         try {
-            RunAccepted accepted = accept(RuntimeWorkflow.of(workflow, plan), comment, mock, inputFile);
+            AbcAmount reserved = executionReservationManager.reserve(requested, workflow);
 
-            return executionWriter.append(Execution.started(
-                    id, workflow.getId(), requester, RunId.of(accepted.runId()), plan.promptCount(), inputFile));
+            return dispatch(requested, reserved, RuntimeWorkflow.of(workflow, plan), comment, mock);
         } catch (RuntimeException exception) {
             executionFileStore.erase(inputFile);
 
@@ -64,6 +76,10 @@ public class ExecutionService {
             throw new CoreException(ErrorType.EXECUTION_NOT_FOUND);
         }
 
+        if (!execution.isDispatched()) {
+            return ExecutionProgress.from(execution);
+        }
+
         RunStatus run = read(execution);
         ExecutionStatus reported = ExecutionProgress.toStatus(run.state());
 
@@ -74,16 +90,23 @@ public class ExecutionService {
         return ExecutionProgress.of(id, run, execution.getPromptCount());
     }
 
-    private RunAccepted accept(
-            RuntimeWorkflow runtime, String comment, boolean mock, ExecutionFile inputFile) {
+    // 엔진이 받지 않았으면 떼어 둔 금액을 돌려준다. 엔진이 받았는데 응답만 늦은 경우도
+    // 지금 클라이언트는 같은 실패로 알려 구분할 수 없어, 실패로 보고 돌려준다.
+    private Execution dispatch(Execution requested, AbcAmount reserved, RuntimeWorkflow runtime,
+                               String comment, boolean mock) {
+        RunAccepted accepted;
+
         try {
-            return aiRuntimeClient.start(new RunRequest(runtime.json(), null, comment,
-                    pathOf(inputFile), refFilePathsOf(runtime), mock));
+            accepted = aiRuntimeClient.start(new RunRequest(runtime.json(), null, comment,
+                    pathOf(requested.getInputFile()), refFilePathsOf(runtime), mock));
         } catch (AiClientException exception) {
-            log.warn("실행을 맡기지 못했다: {}", exception.getMessage(), exception);
+            log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: {}", exception.getMessage(), exception);
+            executionReservationManager.release(requested, reserved);
 
             throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
         }
+
+        return executionWriter.markDispatched(requested.getId(), RunId.of(accepted.runId()));
     }
 
     private Path pathOf(ExecutionFile inputFile) {

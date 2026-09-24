@@ -6,6 +6,7 @@ import com.aiblockclock.api.v1.response.ExecutionProgressResponse;
 import com.aiblockclock.api.v1.response.ExecutionStartResponse;
 import com.aiblockclock.domain.execution.Execution;
 import com.aiblockclock.domain.execution.ExecutionId;
+import com.aiblockclock.domain.execution.ExecutionRequestId;
 import com.aiblockclock.domain.execution.ExecutionService;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Workflow;
@@ -45,7 +46,7 @@ public class ExecutionController implements ExecutionApi {
     ) {
         Workflow workflow = workflowService.get(WorkflowId.of(request.workflowId()), requester);
 
-        Execution started = executionService.start(requester, workflow,
+        Execution started = executionService.start(requester, workflow, ExecutionRequestId.of(request.requestId()),
                 request.comment(), request.mockOrDefault(), request.uploadedFile());
 
         return ApiResult.success(ExecutionStartResponse.from(started));

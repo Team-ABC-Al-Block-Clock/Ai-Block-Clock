@@ -7,7 +7,12 @@ import com.aiblockclock.client.ai.RunAccepted;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.execution.ExecutionStatus;
+import com.aiblockclock.enums.payment.LedgerAccountType;
+import com.aiblockclock.storage.execution.ExecutionEntity;
 import com.aiblockclock.storage.execution.ExecutionRepository;
+import com.aiblockclock.storage.payment.LedgerAccountEntity;
+import com.aiblockclock.storage.payment.LedgerAccountRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
 
@@ -34,9 +39,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +56,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -75,6 +83,9 @@ class ExecutionControllerTest {
 
     @Autowired
     private ExecutionRepository executionRepository;
+
+    @Autowired
+    private LedgerAccountRepository ledgerAccountRepository;
 
     @MockitoBean
     private AiRuntimeClient aiRuntimeClient;
@@ -117,6 +128,7 @@ class ExecutionControllerTest {
 
         workflowId = mapper.readTree(saved.getResponse().getContentAsString())
                 .get("data").get("workflowId").asText();
+        charge(requester, "10");
     }
 
     @Test
@@ -252,9 +264,122 @@ class ExecutionControllerTest {
         assertThat(sent.getValue().file()).isNull();
     }
 
+    // 노드 두 개라 한 번 실행에 3 + 3 = 6 ABC 를 뗀다. 잔액은 10 으로 시작한다.
+    @Test
+    void 실행을_접수하면_견적만큼_쓸_수_있는_잔액에서_예치로_옮긴다() throws Exception {
+        start();
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("6");
+    }
+
+    @Test
+    void 잔액이_모자라면_402_와_부족액을_알리고_실행_엔진을_부르지_않는다() throws Exception {
+        start();
+
+        mockMvc.perform(run().with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isPaymentRequired())
+                .andExpect(jsonPath("$.error.code").value("PAYMENT_008"))
+                .andExpect(jsonPath("$.error.data.estimatedAmount").value("6.000000"))
+                .andExpect(jsonPath("$.error.data.availableAmount").value("4.000000"))
+                .andExpect(jsonPath("$.error.data.shortageAmount").value("2.000000"));
+
+        then(aiRuntimeClient).should(times(1)).start(any());
+    }
+
+    @Test
+    void 같은_요청_번호로_다시_보내면_같은_실행을_돌려주고_한_번만_뗀다() throws Exception {
+        String requestId = UUID.randomUUID().toString();
+
+        String first = startWith(requestId);
+        String second = startWith(requestId);
+
+        assertThat(second).isEqualTo(first);
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+        then(aiRuntimeClient).should(times(1)).start(any());
+    }
+
+    @Test
+    void 실행_엔진에_맡기지_못하면_떼어_둔_금액을_돌려주고_실패로_남긴다() throws Exception {
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "engine is down"))
+                .given(aiRuntimeClient).start(any());
+        String requestId = UUID.randomUUID().toString();
+
+        mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadGateway());
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .get().extracting(ExecutionEntity::getStatus).isEqualTo(ExecutionStatus.FAILED);
+    }
+
+    @Test
+    void 엔진에_넘기지_못한_실행은_엔진에_묻지_않고_실패로_답한다() throws Exception {
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "engine is down"))
+                .given(aiRuntimeClient).start(any());
+        String requestId = UUID.randomUUID().toString();
+        mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadGateway());
+        UUID executionId = executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId))
+                .orElseThrow().getId();
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        then(aiRuntimeClient).should(never()).read(anyString());
+    }
+
+    @Test
+    void mock_실행도_똑같이_뗀다() throws Exception {
+        mockMvc.perform(run().param("mock", "true").with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted());
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+    }
+
+    @Test
+    void 요청_번호가_없으면_400_이다() throws Exception {
+        mockMvc.perform(multipart("/api/v1/runs").param("workflowId", workflowId)
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        then(aiRuntimeClient).should(never()).start(any());
+    }
+
     private MockMultipartHttpServletRequestBuilder run() {
+        return run(UUID.randomUUID().toString());
+    }
+
+    private MockMultipartHttpServletRequestBuilder run(String requestId) {
         return (MockMultipartHttpServletRequestBuilder) multipart("/api/v1/runs")
-                .param("workflowId", workflowId);
+                .param("workflowId", workflowId)
+                .param("requestId", requestId);
+    }
+
+    private String startWith(String requestId) throws Exception {
+        MvcResult accepted = mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted())
+                .andReturn();
+
+        return mapper.readTree(accepted.getResponse().getContentAsString())
+                .get("data").get("executionId").asText();
+    }
+
+    // 잔액은 운영 코드와 같은 경로(증감 UPDATE)로만 바꾼다.
+    private void charge(long userId, String amount) {
+        LedgerAccountEntity account = ledgerAccountRepository.save(
+                LedgerAccountEntity.of(LedgerAccountType.ABC_BALANCE, Long.toString(userId)));
+
+        ledgerAccountRepository.addBalanceDelta(account.getId(), new BigDecimal(amount), Instant.now());
+    }
+
+    private BigDecimal balanceOf(long userId, LedgerAccountType accountType) {
+        return ledgerAccountRepository.findByAccountTypeAndReferenceId(accountType, Long.toString(userId))
+                .map(LedgerAccountEntity::getBalance)
+                .orElse(BigDecimal.ZERO);
     }
 
     private static MockMultipartFile excel(String filename, String content) {

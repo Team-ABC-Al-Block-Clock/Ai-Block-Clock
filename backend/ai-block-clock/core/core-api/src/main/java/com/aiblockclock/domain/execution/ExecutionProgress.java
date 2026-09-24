@@ -28,6 +28,12 @@ public record ExecutionProgress(
                 run.nodes() == null ? List.of() : run.nodes().stream().map(Step::of).toList());
     }
 
+    // 엔진에 넘기기 전이거나 넘기지 못한 실행이다. 엔진에 물을 번호가 없어 우리 기록으로만 답한다.
+    public static ExecutionProgress from(Execution execution) {
+        return new ExecutionProgress(execution.getId(), execution.getStatus(),
+                0, execution.getPromptCount(), 0, null, List.of());
+    }
+
     public static ExecutionStatus toStatus(RunState state) {
         return switch (state) {
             case QUEUED -> ExecutionStatus.QUEUED;
