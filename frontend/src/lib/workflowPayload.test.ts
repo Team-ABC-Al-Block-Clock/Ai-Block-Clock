@@ -11,6 +11,7 @@ const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData =>
   nodeType: 'TOOL',
   sourceType: 'NODE',
   sourceId: `src-${id}`,
+  price: '1',
   x: 0,
   y: 0,
   mine: true,
@@ -123,7 +124,7 @@ describe('toCanvasWorkflow', () => {
 
   const known = (sourceId: string) =>
     sourceId === 'node_001'
-      ? { name: '파일 수집', nodeType: 'TRIGGER' as const, mine: true }
+      ? { name: '파일 수집', nodeType: 'TRIGGER' as const, price: '4', mine: true }
       : undefined
 
   it('순서대로 왼쪽부터 같은 보폭으로 늘어놓는다', () => {
@@ -156,10 +157,10 @@ describe('toCanvasWorkflow', () => {
     ])
   })
 
-  it('팔레트가 아는 노드는 이름과 종류를 채운다', () => {
+  it('팔레트가 아는 노드는 이름과 종류와 단가를 채운다', () => {
     const [first] = toCanvasWorkflow(detail(2), known).nodes
 
-    expect(first).toMatchObject({ name: '파일 수집', nodeType: 'TRIGGER', mine: true })
+    expect(first).toMatchObject({ name: '파일 수집', nodeType: 'TRIGGER', price: '4', mine: true })
   })
 
   // 카드를 빼 버리면 저장된 구성이 조용히 바뀐다. 자리는 남기고 이름만 비운다.
@@ -169,6 +170,8 @@ describe('toCanvasWorkflow', () => {
     expect(nodes).toHaveLength(2)
     expect(nodes[1]).toMatchObject({ name: '알 수 없는 노드', mine: false })
     expect(nodes[1].sourceId).toBe('node_002')
+    // 0 으로 채우면 카드가 공짜로 보여 견적과 어긋난다.
+    expect(nodes[1].price).toBeNull()
   })
 
   it('되돌린 캔버스를 그대로 다시 보낼 수 있다', () => {

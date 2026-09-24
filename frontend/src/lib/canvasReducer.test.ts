@@ -20,6 +20,7 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   nodeType: 'TOOL',
   sourceType: 'NODE',
   sourceId: `src-${id}`,
+  price: '1',
   x,
   y,
   mine: true,
@@ -43,6 +44,7 @@ const seed = {
   nodeType: 'LLM',
   sourceType: 'NODE',
   sourceId: 'node_009',
+  price: '11',
   mine: true,
 } as const
 const idsOf = (state: CanvasState) => state.nodes.map((n) => n.id)
