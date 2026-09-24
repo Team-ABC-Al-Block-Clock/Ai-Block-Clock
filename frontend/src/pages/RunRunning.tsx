@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
+import type { ExecutionFailure } from '@/api/executions'
+import { useRunProgress } from '@/hooks/useRunProgress'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
   canSellWorkflow,
@@ -27,6 +29,40 @@ const EMPTY_EDGES: CanvasEdge[] = []
  * 마지막 카드의 오른쪽 끝이 968 이고 패널 앞 경계가 980 이다.
  */
 const CAMERA_MIN_NODES = 6
+/** 실행 엔진이 매기는 오류 코드. 없는 코드가 와도 화면이 비지 않게 기본 문구를 둔다. */
+const FAILURE_TEXT: Record<string, string> = {
+  SCHEMA_VALIDATION_FAILED: '단계가 약속한 형식으로 결과를 내지 못했습니다.',
+  BRANCH_CONDITION_INVALID: '분기 조건이 없는 값을 가리킵니다.',
+  AGENT_BOUNDARY_VIOLATION: '에이전트가 공개한 형식과 다른 결과를 냈습니다.',
+  REF_FILE_REJECTED: '단계에 붙은 참고 자료를 읽을 수 없습니다.',
+  PROMPT_TEMPLATE_INVALID: '프롬프트가 이 자리에서 받을 수 없는 값을 찾습니다.',
+  MODEL_TIMEOUT: '모델이 제때 답하지 않았습니다.',
+  MODEL_API_ERROR: '모델 호출이 실패했습니다.',
+  FILE_PARSE_FAILED: '올린 파일을 읽지 못했습니다.',
+  RATE_LIMITED: '요청이 몰려 잠시 처리하지 못했습니다.',
+  LLM_INIT_FAILED: '실행 환경 설정에 문제가 있습니다.',
+  RUNTIME_INTERNAL: '실행 엔진에서 오류가 났습니다.',
+  ABC_RUNTIME_STALLED: '실행 엔진이 응답을 멈춰 기다리기를 그만두었습니다.',
+  ABC_RUNTIME_UNREPORTED: '실행이 실패했지만 까닭은 남아 있지 않습니다.',
+}
+
+/** 누구 탓인지 서버가 모를 수 있다. 비어 있으면 탓을 적지 않는다. */
+const FAULT_TEXT: Record<string, string> = {
+  supplier: '만든 사람 쪽 문제로 봅니다.',
+  consumer: '넣은 값 쪽 문제로 봅니다.',
+  platform: '플랫폼 쪽 문제로 봅니다.',
+}
+
+const BROKEN_TEXT = '진행 상황 연결이 끊겼습니다. 새로고침하면 지금 상태부터 다시 받습니다.'
+
+function describeFailure(failure: ExecutionFailure): string {
+  const what = FAILURE_TEXT[failure.errorCode] ?? '실행이 실패했습니다.'
+  const where = failure.stepName ? `${failure.stepName} 단계에서 멎었습니다. ` : ''
+  const whose = failure.fault ? ` ${FAULT_TEXT[failure.fault] ?? ''}` : ''
+
+  return `${where}${what}${whose}`.trim()
+}
+
 /** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
 const CAMERA_LEAD = 2
 /** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
@@ -36,6 +72,9 @@ export default function RunRunning() {
   // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
   const [searchParams] = useSearchParams()
   const startDone = searchParams.get('done') === '1'
+  // 실행 번호가 있으면 진짜 진행 상황을 따라간다. 없으면 자리표시자가 혼자 돈다.
+  const { executionId } = useParams<{ executionId: string }>()
+  const run = useRunProgress(executionId)
   const [pct, setPct] = useState(startDone ? 100 : 0)
   const [copied, setCopied] = useState(false)
 
@@ -61,7 +100,9 @@ export default function RunRunning() {
     '분류 결과 검증',
     '요약 생성 대기',
   ]
-  const pctR = Math.round(pct)
+  const failure = run.progress?.failure ?? null
+  const failed = run.progress?.status === 'FAILED'
+  const pctR = executionId ? (run.progress?.percent ?? 0) : Math.round(pct)
   // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
   const per = 100 / Math.max(1, defs.length)
   const active = Math.min(defs.length - 1, Math.floor(pctR / per))
@@ -83,8 +124,9 @@ export default function RunRunning() {
         }
       : { display: 'none' }
   const nodes = defs.map((d, i) => {
-    const done = i < active || pctR >= 100
-    const running = i === active && pctR < 100
+    const stopped = failed && i === active
+    const done = !stopped && (i < active || pctR >= 100)
+    const running = !stopped && i === active && pctR < 100
     return {
       ...d,
       background: running
@@ -94,12 +136,14 @@ export default function RunRunning() {
           : 'rgba(255,255,255,.06)',
       numberColor: running ? '#fff' : done ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.5)',
       nameColor: running ? '#fff' : done ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.55)',
-      sublabelColor: running
-        ? 'rgba(230,196,212,.85)'
-        : done
-          ? 'rgba(154,208,180,.85)'
-          : 'rgba(255,236,246,.4)',
-      stateLabel: running ? '진행 중' : done ? '완료' : '대기',
+      sublabelColor: stopped
+        ? 'rgba(255,170,170,.92)'
+        : running
+          ? 'rgba(230,196,212,.85)'
+          : done
+            ? 'rgba(154,208,180,.85)'
+            : 'rgba(255,236,246,.4)',
+      stateLabel: stopped ? '실패' : running ? '진행 중' : done ? '완료' : '대기',
     }
   })
   const edges = geometry.map((edge, i) => ({
@@ -189,8 +233,8 @@ export default function RunRunning() {
   const copyLabel = copied ? '복사됨' : '복사'
   const copyBg = copied ? 'rgba(154,208,180,.26)' : 'rgba(255,255,255,.1)'
   const copyFg = copied ? '#a8ddc0' : 'rgba(255,255,255,.82)'
-  const running = pctR < 100
-  const done = pctR >= 100
+  const running = !failed && pctR < 100
+  const done = !failed && pctR >= 100
   const pctLabel = pctR + '%'
   const gaugeBg =
     'conic-gradient(from 0deg, var(--color-accent) 0 ' +
@@ -199,13 +243,23 @@ export default function RunRunning() {
     pctR +
     '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
-  const stepTitle = pctR >= 100 ? '결과 전달 완료' : g ? `${g.name} 중` : '워크플로우를 불러오는 중'
-  const stepMeta = defs.length
-    ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
-    : ''
+  const stepTitle = failed
+    ? '실행이 멎었습니다'
+    : pctR >= 100
+      ? '결과 전달 완료'
+      : (run.progress?.currentStepName ?? g?.name)
+        ? `${run.progress?.currentStepName ?? g?.name} 중`
+        : '워크플로우를 불러오는 중'
+  // 서버가 세는 단계 수는 펼친 프롬프트 기준이라 캔버스 카드 수와 다를 수 있다.
+  const stepMeta = run.progress
+    ? `${run.progress.done} / ${run.progress.total} 단계`
+    : defs.length
+      ? `${pctR >= 100 ? defs.length : active + 1} / ${defs.length} 단계`
+      : ''
+  const failureText = failure ? describeFailure(failure) : run.broken ? BROKEN_TEXT : null
 
   useEffect(() => {
-    if (startDone) return
+    if (startDone || executionId) return
     const t0 = performance.now()
     const tick = (now: number) => {
       const p = Math.min(100, ((now - t0) / 1000) * 5.2) // 약 19초에 완주
@@ -220,7 +274,7 @@ export default function RunRunning() {
     return () => {
       if (rafId.current) cancelAnimationFrame(rafId.current)
     }
-  }, [startDone])
+  }, [startDone, executionId])
 
   // 복사 타이머는 진행률과 무관하다. 위에 얹으면 `?done=1` 로 들어왔을 때
   // 이펙트가 먼저 빠져나가 정리가 등록되지 않는다 — 그 경로가 실제로 쓰인다.
@@ -374,6 +428,21 @@ export default function RunRunning() {
         >
           {stepMeta}
         </div>
+
+        {failureText ? (
+          <div
+            role="alert"
+            className="absolute text-[13px] leading-[1.6]"
+            style={{
+              left: `${PANEL_INSET}px`,
+              top: '390px',
+              width: `${PANEL_CONTENT_WIDTH}px`,
+              color: 'rgba(255,190,190,.95)',
+            }}
+          >
+            {failureText}
+          </div>
+        ) : null}
 
         {running && (
           <>

@@ -12,6 +12,8 @@ import {
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { useNavigate } from 'react-router-dom'
+import { startRun } from '@/api/executions'
+import { ApiError } from '@/api/errors'
 import { paths } from '@/routes/paths'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
@@ -51,17 +53,33 @@ export default function RunWaiting() {
    */
   const [prompt, setPrompt] = useState('')
   const filled = prompt.trim().length > 0
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState<string>()
 
-  const handleRun = () => {
-    if (!filled) return
-    // 돌릴 워크플로우를 그대로 넘긴다. 없으면 자리표시자 그대로다.
-    navigate(
-      workflowId
-        ? `${paths.run.running.withoutId}?workflowId=${workflowId}`
-        : paths.run.running.withoutId,
-    )
+  /**
+   * 실행을 맡기고 받은 번호로 진행 화면에 들어간다. 번호가 없으면 따라갈 것도 없어
+   * 화면을 넘기지 않는다 — 넘겨 두면 영영 도는 중으로 보인다.
+   */
+  const handleRun = async () => {
+    if (!filled || starting) return
+
+    if (!workflowId) {
+      setStartError('돌릴 워크플로우가 없습니다. 편집 화면에서 저장한 뒤 실행해 주세요.')
+      return
+    }
+
+    setStarting(true)
+    setStartError(undefined)
+
+    try {
+      const { executionId } = await startRun({ workflowId, comment: prompt.trim() })
+      navigate(`${paths.run.running(executionId)}?workflowId=${workflowId}`)
+    } catch (error) {
+      setStartError(error instanceof ApiError ? error.message : '실행을 시작하지 못했습니다.')
+      setStarting(false)
+    }
   }
-  const on = filled
+  const on = filled && !starting
   const btnBg = on ? 'var(--color-accent)' : 'rgba(255,255,255,.09)'
   const btnColor = on ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.42)'
   const btnShadow = on
@@ -279,8 +297,23 @@ export default function RunWaiting() {
           }}
           className="absolute flex items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
         >
-          <span>실행하기</span>
+          <span>{starting ? '실행을 맡기는 중' : '실행하기'}</span>
         </div>
+
+        {startError ? (
+          <div
+            role="alert"
+            className="absolute text-[13px] leading-[1.5]"
+            style={{
+              left: `${PANEL_INSET}px`,
+              top: '590px',
+              width: `${PANEL_CONTENT_WIDTH}px`,
+              color: 'rgba(255,190,190,.95)',
+            }}
+          >
+            {startError}
+          </div>
+        ) : null}
 
         <div
           className="absolute text-[20px] font-semibold tracking-[-.01em]"
