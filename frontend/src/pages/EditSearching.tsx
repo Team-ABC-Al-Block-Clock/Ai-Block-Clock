@@ -203,9 +203,7 @@ export default function EditSearching() {
                 animation: 'uiIn .8s .3s cubic-bezier(.2,.8,.25,1) both',
               }}
             >
-              {picked.length > 0
-                ? '선택한 순서대로 이어 편집 화면에서 엽니다'
-                : '오른쪽에서 카드를 누르면 여기에 올라갑니다'}
+              {picked.length > 0 ? '선택한 순서대로 연결됩니다' : '오른쪽에서 카드를 선택하세요'}
             </div>
 
             <CanvasWorld view={previewView}>
@@ -249,7 +247,7 @@ export default function EditSearching() {
             type="text"
             value={draft}
             maxLength={RECOMMEND_LIMITS.query.max}
-            placeholder="하고 싶은 일을 다시 적어 보세요"
+            placeholder="하고 싶은 일을 다시 알려주세요"
             onChange={(ev) => setDraft(ev.target.value)}
             onKeyDown={handleResearch}
             style={{ left: '38px', top: '9px', width: '310px', height: '22px' }}
