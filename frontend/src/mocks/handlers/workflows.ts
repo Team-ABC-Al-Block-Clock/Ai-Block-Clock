@@ -4,6 +4,7 @@ import { API_BASE_URL } from '@/api/client'
 import type { PaletteScope, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { PLACEABLE_ITEMS, byMineThenUsed } from '@/mocks/fixtures/nodePalette'
+import { createdItems, removedNodeIds } from '@/mocks/handlers/nodes'
 import { WORKFLOWS } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -76,7 +77,9 @@ function putSaved(detail: WorkflowDetail) {
   writeSaved(all)
 }
 
-const PLACEABLE = new Set(PLACEABLE_ITEMS.map((item) => item.itemId))
+const isPlaceable = (sourceId: string) =>
+  PLACEABLE_ITEMS.some((item) => item.itemId === sourceId) ||
+  createdItems.some((item) => item.itemId === sourceId)
 
 /**
  * 서버가 그래프를 받아 줄지. 거절하면 오류 응답을, 통과하면 null 을 준다.
@@ -93,7 +96,7 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   const keys = new Set(graph.nodes.map((node) => node.nodeKey))
   if (keys.size !== graph.nodes.length)
     return fail(400, 'WORKFLOW_013', '노드 키가 중복되었습니다.')
-  if (graph.nodes.some((node) => !PLACEABLE.has(node.sourceId)))
+  if (graph.nodes.some((node) => !isPlaceable(node.sourceId)))
     return fail(404, 'WORKFLOW_015', '배치할 노드를 찾을 수 없습니다.')
 
   const edges = graph.edges ?? []
@@ -155,7 +158,10 @@ export const workflowsHandlers = [
     if (!isScope(scope)) return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
     const keyword = url.searchParams.get('keyword') ?? ''
-    const items = PLACEABLE_ITEMS.filter((item) => scope === 'ALL' || item.mine)
+    const items = [...createdItems, ...PLACEABLE_ITEMS]
+      .filter((item) => scope === 'ALL' || item.mine)
+      // 지운 원본은 목록에서 뺀다. 남겨 두면 다시 끌어다 놓을 수 있고 그 카드의 상세는 404 다.
+      .filter((item) => !removedNodeIds.has(item.itemId))
       // 명세상 검색 대상은 이름뿐이다. 한 줄 설명은 보지 않는다.
       .filter((item) => matchKeyword(keyword, item.name))
       .sort(byMineThenUsed)

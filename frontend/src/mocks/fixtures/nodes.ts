@@ -28,6 +28,7 @@ export const OTHERS_NODE_ID = 'node_900'
 /**
  * 워크플로우에 배치돼 지울 수 없는 노드(`NODE_004`).
  *
- * 픽스처 워크플로우가 내 기본 노드 앞 세 건으로 한 줄을 만든다 — 그중 첫 건을 고른다.
+ * 픽스처 워크플로우가 내 기본 노드 앞 세 건으로 한 줄을 만든다(`handlers/workflows.ts`).
+ * 수가 어긋나면 실서버가 막는 노드를 mock 에서만 지울 수 있게 된다.
  */
-export const PLACED_NODE_ID = NODE_DETAILS[0]?.nodeId ?? 'node_001'
+export const PLACED_NODE_IDS = new Set(NODE_DETAILS.slice(0, 3).map((node) => node.nodeId))

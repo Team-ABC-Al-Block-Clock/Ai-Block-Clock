@@ -13,8 +13,9 @@ export type AiModel = 'GEMINI_2_5_FLASH'
 /** 붙여 둔 참고 자료. 이 화면은 아직 다루지 않고 받기만 한다. */
 export interface RefFile {
   refFileId: string
-  fileName: string
-  byteSize: number
+  filename: string
+  /** 바이트 */
+  size: number
 }
 
 export interface NodeDetail {

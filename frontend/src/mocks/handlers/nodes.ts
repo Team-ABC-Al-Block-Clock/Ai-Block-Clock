@@ -2,7 +2,8 @@ import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
 import { NODE_NAME_MAX, type NodeDetail, type NodeSaveBody } from '@/api/nodes'
-import { NODE_DETAILS, OTHERS_NODE_ID, PLACED_NODE_ID } from '@/mocks/fixtures/nodes'
+import type { PlaceableItem } from '@/api/workflows'
+import { NODE_DETAILS, OTHERS_NODE_ID, PLACED_NODE_IDS } from '@/mocks/fixtures/nodes'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -14,13 +15,19 @@ import { scene } from '@/mocks/scenario'
  */
 
 const edited = new Map<string, NodeDetail>()
-/** 지운 것은 픽스처에 그대로 남아 있어 따로 기억해야 다시 살아나지 않는다. */
-const removed = new Set<string>()
+/**
+ * 지운 것은 픽스처에 그대로 남아 있어 따로 기억해야 다시 살아나지 않는다.
+ * 팔레트 핸들러도 이것을 걸러야 지운 노드를 다시 끌어다 놓을 수 없다.
+ */
+export const removedNodeIds = new Set<string>()
+
+/** 새로 만든 노드. 팔레트가 이어 붙여야 만들자마자 끌어다 놓을 수 있다. */
+export const createdItems: PlaceableItem[] = []
 
 const DEFAULT_MODEL = 'GEMINI_2_5_FLASH' as const
 
 const findNode = (nodeId: string) =>
-  removed.has(nodeId)
+  removedNodeIds.has(nodeId)
     ? undefined
     : (edited.get(nodeId) ?? NODE_DETAILS.find((node) => node.nodeId === nodeId))
 
@@ -69,6 +76,18 @@ export const nodeHandlers = [
       refFiles: [],
     }
     edited.set(node.nodeId, node)
+    createdItems.unshift({
+      itemId: node.nodeId,
+      itemType: 'NODE',
+      name: node.name,
+      nodeType: 'LLM',
+      iconUrl: null,
+      mine: true,
+      owner: { nickname: '이싸피' },
+      executionCount: 0,
+      price: node.baseCost,
+      summary: null,
+    })
     return ok(node, { status: 201 })
   }),
 
@@ -104,11 +123,11 @@ export const nodeHandlers = [
     if (nodeId === OTHERS_NODE_ID) return forbidden()
     if (!findNode(nodeId)) return notFound()
     // 픽스처 워크플로우가 이 노드를 물고 있다.
-    if (nodeId === PLACED_NODE_ID)
+    if (PLACED_NODE_IDS.has(nodeId))
       return fail(409, 'NODE_004', '워크플로우나 에이전트에 배치된 노드는 삭제할 수 없습니다.')
 
     edited.delete(nodeId)
-    removed.add(nodeId)
+    removedNodeIds.add(nodeId)
     return ok({ nodeId, deletedAt: new Date().toISOString() })
   }),
 ]
