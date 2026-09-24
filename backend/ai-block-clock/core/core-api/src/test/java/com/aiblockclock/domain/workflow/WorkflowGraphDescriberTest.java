@@ -63,6 +63,18 @@ class WorkflowGraphDescriberTest {
     }
 
     @Test
+    @DisplayName("원본이 없는 분기 노드는 판매 등록을 막지 않는다")
+    void branchNodeDoesNotBlockRegistration() {
+        WorkflowGraph graph = GraphFixtures.branched();
+
+        Map<NodeKey, PlacedSource> described =
+                new WorkflowGraphDescriber(List.of(new CountingDescriber(SourceType.NODE, Map.of())))
+                        .describe(REQUESTER, graph);
+
+        assertThat(described.get(NodeKey.of("br1"))).isEqualTo(new PlacedSource(null, true));
+    }
+
+    @Test
     @DisplayName("빈 그래프는 아무것도 묻지 않는다")
     void describesNothingForEmptyGraph() {
         CountingDescriber nodes = new CountingDescriber(SourceType.NODE, Map.of());
