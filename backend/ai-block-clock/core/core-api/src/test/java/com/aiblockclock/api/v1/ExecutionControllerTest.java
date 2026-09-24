@@ -39,6 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -55,6 +56,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +67,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class ExecutionControllerTest {
     private static final Path FILE_ROOT = createTempDirectory();
+    private static final String ARTIFACT = "{\"schema_id\":\"common.document@1\"}";
+    private static final byte[] PDF = "%PDF-1.7".getBytes(StandardCharsets.UTF_8);
 
     private final JsonMapper mapper = JsonMapper.builder().build();
 
@@ -96,6 +101,8 @@ class ExecutionControllerTest {
         requester = createUser();
         other = createUser();
         given(aiRuntimeClient.start(any())).willReturn(new RunAccepted("20260919-1", "queued", 2, 2000));
+        given(aiRuntimeClient.readArtifact(anyString())).willReturn(ARTIFACT);
+        given(aiRuntimeClient.readPdf(anyString())).willReturn(Optional.of(PDF));
 
         MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
                         .with(as(requester)).with(csrf().asHeader())
@@ -260,6 +267,81 @@ class ExecutionControllerTest {
     private static MockMultipartFile excel(String filename, String content) {
         return new MockMultipartFile("file", filename,
                 MediaType.APPLICATION_OCTET_STREAM_VALUE, content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("끝난 실행의 결과를 로컬에 쌓아 두고 파일로 내려준다")
+    void storesResultsOnDiskAndServesThem() throws Exception {
+        String executionId = finish();
+
+        assertThat(FILE_ROOT.resolve("executions/" + executionId + "/result.json"))
+                .exists().hasContent(ARTIFACT);
+        assertThat(FILE_ROOT.resolve("executions/" + executionId + "/result.pdf")).exists();
+
+        mockMvc.perform(get("/api/v1/runs/{id}/result", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"" + executionId + ".json\""))
+                .andExpect(content().string(ARTIFACT));
+    }
+
+    @Test
+    @DisplayName("PDF 로 달라고 하면 PDF 바이트를 그대로 내려준다")
+    void servesThePdf() throws Exception {
+        String executionId = finish();
+
+        MvcResult received = mockMvc.perform(get("/api/v1/runs/{id}/result", executionId)
+                        .param("format", "PDF").with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition",
+                        "attachment; filename=\"" + executionId + ".pdf\""))
+                .andReturn();
+
+        assertThat(received.getResponse().getContentAsByteArray()).isEqualTo(PDF);
+    }
+
+    @Test
+    @DisplayName("아직 끝나지 않은 실행의 결과는 409 다")
+    void refusesResultBeforeTheRunFinishes() throws Exception {
+        String executionId = start();
+
+        mockMvc.perform(get("/api/v1/runs/{id}/result", executionId).with(as(requester)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_001"));
+    }
+
+    @Test
+    @DisplayName("렌더되지 않은 형식을 달라고 하면 404 다")
+    void refusesFormatThatWasNeverRendered() throws Exception {
+        given(aiRuntimeClient.readPdf(anyString())).willReturn(Optional.empty());
+        String executionId = finish();
+
+        mockMvc.perform(get("/api/v1/runs/{id}/result", executionId)
+                        .param("format", "PDF").with(as(requester)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_001"));
+    }
+
+    @Test
+    @DisplayName("남의 실행 결과는 찾을 수 없다고 한다")
+    void hidesSomeoneElsesResult() throws Exception {
+        String executionId = finish();
+
+        mockMvc.perform(get("/api/v1/runs/{id}/result", executionId).with(as(other)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_001"));
+    }
+
+    private String finish() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk());
+
+        return executionId;
     }
 
     private String start() throws Exception {

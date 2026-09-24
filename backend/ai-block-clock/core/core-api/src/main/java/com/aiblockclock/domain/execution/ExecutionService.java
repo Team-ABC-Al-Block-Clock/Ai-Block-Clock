@@ -9,6 +9,7 @@ import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.enums.execution.ExecutionResultFormat;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +36,9 @@ public class ExecutionService {
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
+    private final ExecutionResultHarvester executionResultHarvester;
+    private final ExecutionResultReader executionResultReader;
+    private final ExecutionResultStore executionResultStore;
 
     public Execution start(
             UserId requester, Workflow workflow, String comment, boolean mock, UploadedFile upload) {
@@ -69,9 +74,40 @@ public class ExecutionService {
 
         if (reported != execution.getStatus()) {
             executionWriter.moveTo(id, reported);
+
+            if (reported == ExecutionStatus.SUCCEEDED) {
+                executionResultHarvester.harvest(execution);
+            }
         }
 
         return ExecutionProgress.of(id, run, execution.getPromptCount());
+    }
+
+    public ExecutionResult download(ExecutionId id, UserId requester, ExecutionResultFormat format) {
+        Execution execution = executionReader.read(id);
+
+        if (!execution.isRequestedBy(requester)) {
+            throw new CoreException(ErrorType.EXECUTION_NOT_FOUND);
+        }
+
+        if (execution.getStatus() != ExecutionStatus.SUCCEEDED) {
+            throw new CoreException(ErrorType.EXECUTION_RESULT_NOT_READY);
+        }
+
+        return executionResultReader.read(id, format)
+                .or(() -> retry(execution, format))
+                .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_RESULT_NOT_FOUND,
+                        Map.of("format", format.name())));
+    }
+
+    public Path locate(ExecutionResult result) {
+        return executionResultStore.locate(result);
+    }
+
+    private Optional<ExecutionResult> retry(Execution execution, ExecutionResultFormat format) {
+        executionResultHarvester.harvest(execution);
+
+        return executionResultReader.read(execution.getId(), format);
     }
 
     private RunAccepted accept(
