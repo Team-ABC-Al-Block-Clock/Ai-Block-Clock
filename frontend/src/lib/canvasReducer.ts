@@ -153,7 +153,10 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
     }
 
     case 'removeBySource': {
-      const targets = state.nodes.filter((node) => node.sourceId === action.sourceId)
+      // 에이전트 id 와 노드 id 는 이름 공간이 다르다. 종류까지 맞춰야 엉뚱한 카드를 내리지 않는다.
+      const targets = state.nodes.filter(
+        (node) => node.sourceType === 'NODE' && node.sourceId === action.sourceId,
+      )
       if (!targets.length) return state
       // 한 장씩 내린다. 선까지 같이 걷어 내는 규칙이 `removeNode` 한 곳에만 있어야 한다.
       const after = targets.reduce((acc, node) => removeNode(acc.nodes, acc.edges, node.id), {
@@ -171,12 +174,12 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
     }
 
     case 'renameBySource': {
-      if (!state.nodes.some((node) => node.sourceId === action.sourceId)) return state
+      const hit = (node: CanvasNodeData) =>
+        node.sourceType === 'NODE' && node.sourceId === action.sourceId
+      if (!state.nodes.some(hit)) return state
       return {
         ...state,
-        nodes: state.nodes.map((node) =>
-          node.sourceId === action.sourceId ? { ...node, name: action.name } : node,
-        ),
+        nodes: state.nodes.map((node) => (hit(node) ? { ...node, name: action.name } : node)),
       }
     }
 

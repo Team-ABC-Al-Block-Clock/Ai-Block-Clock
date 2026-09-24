@@ -47,7 +47,8 @@ export function useNodeDetail(nodeId: string | undefined) {
   const remove = useMutation({
     mutationFn: () => deleteNode(nodeId!),
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: queryKeys.nodes.detail(nodeId ?? '') })
+      // 지운 뒤 `removeQueries` 를 쓰면 아직 붙어 있는 관찰자가 곧바로 다시 물어 404 를 받는다.
+      queryClient.setQueryData(queryKeys.nodes.detail(nodeId ?? ''), undefined)
       refreshPalette()
     },
   })

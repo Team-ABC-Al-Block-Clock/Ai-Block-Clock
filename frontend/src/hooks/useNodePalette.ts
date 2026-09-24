@@ -62,7 +62,8 @@ export function useNodePalette() {
     data?.pages.flatMap((page) => page.content).filter((item) => item.itemType === 'AGENT') ?? []
   // placeholder 는 아직 이번 검색의 결과가 아니다. isPending 만 보면 한 글자마다 깜빡인다.
   const isSettled = !isPending && !isPlaceholderData
-  const isEmpty = isSettled && !isError && items.length === 0
+  // 받은 쪽에서 에이전트만 골라 내므로, 다음 쪽이 남아 있으면 아직 없다고 말할 수 없다.
+  const isEmpty = isSettled && !isError && !hasNextPage && items.length === 0
 
   const paletteRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
