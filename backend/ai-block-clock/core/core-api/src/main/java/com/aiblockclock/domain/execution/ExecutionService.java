@@ -1,6 +1,5 @@
 package com.aiblockclock.domain.execution;
 
-import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.file.UploadedFile;
 import com.aiblockclock.domain.node.RefFileStore;
 import com.aiblockclock.client.ai.AiClientException;
@@ -59,9 +58,9 @@ public class ExecutionService {
                 id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
 
         try {
-            AbcAmount reserved = executionReservationManager.reserve(requested, workflow);
+            Execution reserved = executionReservationManager.reserve(requested, workflow, plan);
 
-            return dispatch(requested, reserved, RuntimeWorkflow.of(workflow, plan), comment, mock);
+            return dispatch(reserved, RuntimeWorkflow.of(workflow, plan), comment, mock);
         } catch (RuntimeException exception) {
             executionFileStore.erase(inputFile);
 
@@ -83,7 +82,10 @@ public class ExecutionService {
         RunStatus run = read(execution);
         ExecutionStatus reported = ExecutionProgress.toStatus(run.state());
 
-        if (reported != execution.getStatus()) {
+        // 끝난 것을 처음 본 순간에 닫으면서 쓰지 않은 만큼을 돌려준다. 이미 닫힌 실행은 다시 보지 않는다.
+        if (reported.isFinished() && !execution.getStatus().isFinished()) {
+            executionReservationManager.finish(execution, run);
+        } else if (reported != execution.getStatus()) {
             executionWriter.moveTo(id, reported);
         }
 
@@ -92,21 +94,20 @@ public class ExecutionService {
 
     // 엔진이 받지 않았으면 떼어 둔 금액을 돌려준다. 엔진이 받았는데 응답만 늦은 경우도
     // 지금 클라이언트는 같은 실패로 알려 구분할 수 없어, 실패로 보고 돌려준다.
-    private Execution dispatch(Execution requested, AbcAmount reserved, RuntimeWorkflow runtime,
-                               String comment, boolean mock) {
+    private Execution dispatch(Execution reserved, RuntimeWorkflow runtime, String comment, boolean mock) {
         RunAccepted accepted;
 
         try {
             accepted = aiRuntimeClient.start(new RunRequest(runtime.json(), null, comment,
-                    pathOf(requested.getInputFile()), refFilePathsOf(runtime), mock));
+                    pathOf(reserved.getInputFile()), refFilePathsOf(runtime), mock));
         } catch (AiClientException exception) {
             log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: {}", exception.getMessage(), exception);
-            executionReservationManager.release(requested, reserved);
+            executionReservationManager.release(reserved);
 
             throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
         }
 
-        return executionWriter.markDispatched(requested.getId(), RunId.of(accepted.runId()));
+        return executionWriter.markDispatched(reserved.getId(), RunId.of(accepted.runId()));
     }
 
     private Path pathOf(ExecutionFile inputFile) {

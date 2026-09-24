@@ -339,6 +339,64 @@ class ExecutionControllerTest {
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
     }
 
+    // 떼어 둔 6 중 두 단계의 실측 0.4 + 0.6 = 1 만 쓰고 5 를 돌려받아 잔액은 9 가 된다.
+    @Test
+    void 실행이_끝난_것을_보면_쓰지_않은_만큼을_잔액으로_돌려준다() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("1");
+    }
+
+    @Test
+    void 끝난_뒤_여러_번_조회해도_한_번만_돌려준다() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+
+        for (int poll = 0; poll < 3; poll++) {
+            mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                    .andExpect(status().isOk());
+        }
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+    }
+
+    @Test
+    void 아직_돌고_있으면_돌려주지_않는다() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(new RunStatus("20260919-1", "running",
+                new RunStatus.Progress(1, 2, 50, null, null),
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, new BigDecimal("0.4"), null)),
+                List.of(), List.of(), null, null));
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(jsonPath("$.data.status").value("RUNNING"));
+
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("6");
+    }
+
+    // mock 은 모델을 부르지 않아 실측 원가가 0 이다 (계약 8.1). 접수 때 떼고, 끝나면 전부 돌려준다.
+    @Test
+    void mock_실행은_끝나면_떼어_둔_것을_전부_돌려준다() throws Exception {
+        MvcResult accepted = mockMvc.perform(run().param("mock", "true").with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted())
+                .andReturn();
+        String executionId = mapper.readTree(accepted.getResponse().getContentAsString())
+                .get("data").get("executionId").asText();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.0", "0.0"));
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk());
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+    }
+
     @Test
     void 요청_번호가_없으면_400_이다() throws Exception {
         mockMvc.perform(multipart("/api/v1/runs").param("workflowId", workflowId)
@@ -403,6 +461,16 @@ class ExecutionControllerTest {
                 new RunStatus.Progress(2, 2, 100, null, null),
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null, null, null)),
+                List.of(), List.of(), null, null);
+    }
+
+    private static RunStatus succeeded(String firstCost, String secondCost) {
+        return new RunStatus("20260919-1", "succeeded",
+                new RunStatus.Progress(2, 2, 100, null, null),
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null,
+                                new BigDecimal(firstCost), null),
+                        new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null,
+                                new BigDecimal(secondCost), null)),
                 List.of(), List.of(), null, null);
     }
 

@@ -103,6 +103,24 @@ class LedgerTransactionTest {
         assertThat(release.isBalanced()).isTrue();
     }
 
+    @Test
+    void 끝난_실행의_환불은_예치를_쓸_수_있는_잔액으로_돌리고_되돌리기와_다른_키를_쓴다() {
+        UUID executionId = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
+
+        LedgerTransaction refund = LedgerTransaction.forExecutionRefund(
+                executionId, UserId.of(7L), AbcAmount.of(new BigDecimal("5.25")));
+
+        assertThat(refund.eventType()).isEqualTo(LedgerEventType.REFUND);
+        assertThat(refund.idempotencyKey()).isEqualTo("execution-refund:" + executionId);
+        assertThat(refund.referenceType()).isEqualTo("EXECUTION");
+        assertThat(refund.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-5.250000")),
+                        tuple(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("5.250000")));
+        assertThat(refund.isBalanced()).isTrue();
+    }
+
     private ChargeRequest persistedPendingChargeRequest() {
         return ChargeRequest.restore(
                 100L,
