@@ -10,6 +10,14 @@ import { api } from '@/api/client'
 /** 서버가 아는 모델. 지금은 하나뿐이고, 비워 보내면 서버가 기본값을 고른다. */
 export type AiModel = 'GEMINI_2_5_FLASH'
 
+/** 고르는 자리에 쓰는 이름. 서버 enum 이 늘어나면 여기만 고친다. */
+export const AI_MODELS: { value: AiModel; label: string }[] = [
+  { value: 'GEMINI_2_5_FLASH', label: 'Gemini 2.5 Flash' },
+]
+
+/** 서버 기본값과 같은 값. 만들기 자리의 첫 선택이다. */
+export const DEFAULT_AI_MODEL: AiModel = 'GEMINI_2_5_FLASH'
+
 /** 붙여 둔 참고 자료. 이 화면은 아직 다루지 않고 받기만 한다. */
 export interface RefFile {
   refFileId: string

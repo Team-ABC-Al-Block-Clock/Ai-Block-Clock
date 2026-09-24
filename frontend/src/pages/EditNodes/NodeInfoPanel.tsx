@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { ApiError } from '@/api/errors'
-import { NODE_NAME_MAX, type AiModel, type NodeSaveBody } from '@/api/nodes'
+import { AI_MODELS, NODE_NAME_MAX, type AiModel, type NodeSaveBody } from '@/api/nodes'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import { useNodeDetail } from '@/hooks/useNodeDetail'
 
@@ -11,11 +11,6 @@ import { useNodeDetail } from '@/hooks/useNodeDetail'
  * 세로는 424px 까지다. 그 아래는 팔레트가 쓴다(`NodePalettePanel`) — 같은 `SidePanel` 안에
  * 절대 배치라, 넘치면 팔레트가 위를 덮어 버튼이 눌리지 않는다.
  */
-
-/** 서버가 아는 모델. 늘어나면 여기만 고친다. */
-const MODELS: { value: AiModel; label: string }[] = [
-  { value: 'GEMINI_2_5_FLASH', label: 'Gemini 2.5 Flash' },
-]
 
 function messageOf(error: unknown, fallback: string) {
   if (!(error instanceof ApiError)) return fallback
@@ -119,7 +114,7 @@ function NodeForm({
           background: 'var(--color-surface-inset)',
         }}
       >
-        {MODELS.map((item) => (
+        {AI_MODELS.map((item) => (
           <option key={item.value} value={item.value} style={{ color: '#20121c' }}>
             {item.label}
           </option>

@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import { AI_MODELS, DEFAULT_AI_MODEL, NODE_NAME_MAX, type AiModel } from '@/api/nodes'
 import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -31,9 +31,6 @@ import NodePalettePanel from './NodePalettePanel'
 const NAME_MAX = 40
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
-
-/** 서버가 아는 모델이 하나뿐이다. 늘어나면 골라 담는 자리를 연다. */
-const DEFAULT_AI_MODEL: AiModel = 'GEMINI_2_5_FLASH'
 
 function describeNodeCreateError(error: unknown): string {
   if (!(error instanceof ApiError)) return '노드를 만들지 못했습니다'
@@ -499,7 +496,8 @@ export default function EditNodes() {
             className="absolute box-border flex flex-col"
             style={{
               left: 'calc(32px - var(--edge, 0px))',
-              top: '262px',
+              // 패널을 여는 바가 `--edge-y` 만큼 내려간다. 따라가지 않으면 창이 길어질수록 떨어진다.
+              top: 'calc(262px + var(--edge-y, 0px))',
               width: '500px',
               height: '700px',
               borderRadius: '14px',
@@ -534,15 +532,8 @@ export default function EditNodes() {
             </div>
 
             <div
-              className="flex-1 overflow-x-hidden"
-              id="addPanelFields"
-              style={{
-                minHeight: '0',
-                overflowY: 'auto',
-                paddingRight: '4px',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(255,255,255,.26) transparent',
-              }}
+              className="scroll-thin flex-1 overflow-x-hidden"
+              style={{ minHeight: '0', paddingRight: '4px' }}
             >
               <div
                 className="text-[17px]"
@@ -608,8 +599,11 @@ export default function EditNodes() {
               >
                 AI 모델
               </div>
-              <div
-                className="bg-surface-card flex items-center"
+              <select
+                className="bg-surface-card w-full cursor-pointer border-0 font-[inherit] text-[17px] text-white outline-0"
+                value={draft.model}
+                onChange={(ev) => setDraft((it) => ({ ...it, model: ev.target.value as AiModel }))}
+                aria-label="AI 모델"
                 style={{
                   height: '44px',
                   borderRadius: '11px',
@@ -617,8 +611,12 @@ export default function EditNodes() {
                   marginBottom: '14px',
                 }}
               >
-                <div className="text-[17px] text-white">Gemini 2.5 Flash</div>
-              </div>
+                {AI_MODELS.map((item) => (
+                  <option key={item.value} value={item.value} style={{ color: '#20121c' }}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
 
               <div
                 className="text-[17px] font-semibold"
