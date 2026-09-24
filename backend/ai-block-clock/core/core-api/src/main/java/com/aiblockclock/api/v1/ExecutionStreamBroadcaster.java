@@ -30,7 +30,15 @@ public class ExecutionStreamBroadcaster implements ExecutionProgressListener {
 
         register(id, emitter);
 
-        ExecutionProgress progress = current.get();
+        ExecutionProgress progress;
+
+        try {
+            progress = current.get();
+        } catch (RuntimeException exception) {
+            forget(id, emitter);
+
+            throw exception;
+        }
 
         send(emitter, progress);
 
