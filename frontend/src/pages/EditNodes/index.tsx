@@ -56,9 +56,14 @@ function describeSaveError(error: unknown): string | null {
  */
 export default function EditNodes() {
   const { state } = useLocation()
+  const { workflowId } = useParams()
   // 한 번만 읽는다. 렌더마다 다시 만들면 캔버스가 첫 상태를 계산할 때 쓰는 값이
   // 매번 새 배열이 된다.
-  const [seeds] = useState(() => seedsFrom(state))
+  //
+  // 주소에 id 가 있으면 버린다. 저장하며 `replaceState` 로 주소만 갈아 끼우고 state 는
+  // 그대로 두기 때문에, 새로고침하면 불러온 그래프 위로 옛 추천 노드가 한 번 겹쳐 그려지고
+  // 첫 화면도 그쪽에 맞춰진다.
+  const [seeds] = useState(() => (workflowId ? [] : seedsFrom(state)))
   const canvas = useCanvasWorkflow(seeds)
   const palette = useNodePalette()
 
@@ -94,8 +99,6 @@ export default function EditNodes() {
     zoomOut,
   } = canvas
   const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
-
-  const { workflowId } = useParams()
 
   const [name, setName] = useState('문서 정리')
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
