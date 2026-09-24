@@ -20,6 +20,34 @@ function reloadMark(): { taken: boolean; take: () => void; clear: () => void } {
 }
 
 /**
+ * `clients.claim()` 이 `worker.start()` 가 풀린 바로 뒤에 붙는 경우가 있다. 그만큼만
+ * 기다려 본다 — 안 기다리면 멀쩡한 탭을 새 탭마다 한 번씩 헛되이 다시 읽는다.
+ */
+const CLAIM_GRACE_MS = 300
+
+/** 새로고침이 끝내 문서를 바꾸지 않을 때 기다릴 만큼. */
+const RELOAD_GIVE_UP_MS = 3000
+
+/** 이 문서가 워커의 제어를 받게 되는지. 이미 받고 있으면 기다리지 않는다. */
+function claimed(timeout: number): Promise<boolean> {
+  const sw = navigator.serviceWorker
+  if (sw.controller) return Promise.resolve(true)
+  return new Promise((resolve) => {
+    let timer = 0
+    const settle = (ok: boolean) => {
+      sw.removeEventListener('controllerchange', onChange)
+      clearTimeout(timer)
+      resolve(ok)
+    }
+    function onChange() {
+      settle(true)
+    }
+    timer = window.setTimeout(() => settle(sw.controller !== null), timeout)
+    sw.addEventListener('controllerchange', onChange)
+  })
+}
+
+/**
  * `main.tsx` 가 렌더 전에 await 한다 — 워커 등록 전에 나간 요청은 그냥 새어 나간다.
  *
  * `import.meta.env.DEV` 를 여기서만 직접 읽는다. Vite 가 이 값을 `false` 로 치환해
@@ -40,7 +68,7 @@ export async function startMocks() {
    * 지나쳐 프록시로 새어 나가 원인 모를 502 만 남는다. 한 번만 다시 읽어 붙인다.
    */
   const mark = reloadMark()
-  if (navigator.serviceWorker.controller) {
+  if (await claimed(CLAIM_GRACE_MS)) {
     mark.clear()
     return
   }
@@ -52,5 +80,7 @@ export async function startMocks() {
   window.location.reload()
   // 새로고침은 지금 이 작업을 멈추지 않는다. 그냥 두면 `main.tsx` 가 화면을 그리고
   // 첫 요청들이 워커를 지나쳐 502 로 깜빡인다 — 문서가 바뀔 때까지 여기서 멈춘다.
-  await new Promise(() => undefined)
+  // 영영 붙들지는 않는다. 새로고침이 걸리지 않으면 콘솔 한 줄 없는 백지만 남는다.
+  await new Promise((resolve) => setTimeout(resolve, RELOAD_GIVE_UP_MS))
+  console.error('[mocks] 새로고침이 걸리지 않았습니다. 요청이 프록시로 나가 502 가 됩니다.')
 }
