@@ -72,6 +72,25 @@ export const USER_ERROR = {
 } as const
 
 /**
+ * ABC 충전 실패 코드.
+ *
+ * 토큰은 이미 지갑에서 나간 뒤라 어느 코드든 「다시 보내세요」로 끝낼 수 없다.
+ * 화면 문구는 `lib/chargeMessage.ts` 가 만든다.
+ */
+export const CHARGE_ERROR = {
+  /** 없는 충전 요청 — 404 */
+  NOT_FOUND: 'PAYMENT_001',
+  /** 남의 충전 요청 — 403 */
+  FORBIDDEN: 'PAYMENT_002',
+  /** 다른 사용자가 이미 이 거래로 충전을 요청함 — 409 */
+  TRANSACTION_ALREADY_USED: 'PAYMENT_003',
+  /** 금액이 0 이하이거나 소수 6자리를 넘음 — 400 */
+  INVALID_AMOUNT: 'PAYMENT_005',
+  /** 로그인한 지갑이 입금 보관 지갑 — 403 */
+  SENDER_IS_CUSTODY: 'PAYMENT_009',
+} as const
+
+/**
  * 응답 본문이 서버의 실패 봉투 모양인지 확인한다.
  *
  * `status` 값('FAIL')이 아니라 `error` 안에 code·message 가 있는지로 본다. 서버의 CSRF·인증
