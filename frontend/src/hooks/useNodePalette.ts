@@ -108,6 +108,7 @@ export function useNodePalette() {
     panelOpen,
     q,
     cards,
+    hasNextPage,
     isEmpty,
     isError,
     isFetchNextPageError,

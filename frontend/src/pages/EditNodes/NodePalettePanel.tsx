@@ -14,6 +14,7 @@ type NodePalettePanelProps = {
   isError: Palette['isError']
   isFetchNextPageError: Palette['isFetchNextPageError']
   isFetchingNextPage: Palette['isFetchingNextPage']
+  hasNextPage: Palette['hasNextPage']
   onSearch: Palette['handleSearch']
   onRetryNextPage: Palette['handleRetryNextPage']
   refs: Palette['refs']
@@ -27,6 +28,7 @@ export default function NodePalettePanel({
   isError,
   isFetchNextPageError,
   isFetchingNextPage,
+  hasNextPage,
   onSearch: handleSearch,
   onRetryNextPage: handleRetryNextPage,
   refs: { paletteRef, sentinelRef },
@@ -148,10 +150,15 @@ export default function NodePalettePanel({
               {item.name}
             </div>
             <div
-              className="absolute text-[13px] font-medium"
-              style={{ left: `${CARD_GUTTER}px`, top: '100px', color: 'rgba(255,224,238,.85)' }}
+              className="absolute truncate text-[13px]"
+              style={{
+                left: `${CARD_GUTTER}px`,
+                right: `${CARD_GUTTER}px`,
+                top: '100px',
+                color: 'rgba(255,224,238,.72)',
+              }}
             >
-              {item.typeLabel}
+              {item.summary ?? '설명이 없습니다'}
             </div>
             <div
               className="absolute text-[13px]"
@@ -234,6 +241,18 @@ export default function NodePalettePanel({
           </div>
         ))}
         <div ref={sentinelRef} style={{ gridColumn: '1 / -1', height: '1px' }}></div>
+        {!isFetchNextPageError && cards.length > 0 && (
+          <div
+            className="text-center text-[12.5px]"
+            style={{
+              gridColumn: '1 / -1',
+              paddingTop: '6px',
+              color: 'rgba(255,236,246,.45)',
+            }}
+          >
+            {isFetchingNextPage ? '더 불러오는 중…' : hasNextPage ? '' : '목록의 끝입니다'}
+          </div>
+        )}
         {/* observer 가 꺼진 뒤라 손으로 눌러야 다음 장이 다시 온다. */}
         {isFetchNextPageError && (
           <div
