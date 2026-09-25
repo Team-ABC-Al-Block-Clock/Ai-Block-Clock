@@ -166,7 +166,15 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         ...state,
         nodes: state.nodes.map((node) =>
           node.id === action.id
-            ? { ...node, name: action.name, prompt: action.prompt, model: action.model }
+            ? {
+                ...node,
+                name: action.name,
+                prompt: action.prompt,
+                model: action.model,
+                // 원본을 계속 가리키면 저장할 때 이름·프롬프트를 싣지 않아 고친 값이 버려진다.
+                sourceId: '',
+                price: null,
+              }
             : node,
         ),
       }
