@@ -115,10 +115,12 @@ export function useSavedWorkflow(workflowId: string | undefined) {
     canvas,
     isPending: !!workflowId && (detail.isPending || labels.isPending || !extrasSettled),
     // 이름표가 빠져도 카드가 통째로 이름을 잃는다. 같은 실패로 다룬다.
-    error: detail.error ?? labels.error,
+    // 이름표가 빠져도 카드가 통째로 이름을 잃는다. 개별 조회도 같은 실패로 다룬다.
+    error: detail.error ?? labels.error ?? extras.find((query) => query.error)?.error ?? null,
     refetch: () => {
       void detail.refetch()
       void labels.refetch()
+      for (const query of extras) void query.refetch()
     },
   }
 }

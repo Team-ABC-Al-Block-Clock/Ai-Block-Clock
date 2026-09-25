@@ -285,7 +285,8 @@ export default function NodeInfoPanel({
         className="scroll-thin absolute text-[16.5px] leading-[1.75] tracking-[-.003em]"
         style={{
           ...rowStyle('206px'),
-          maxHeight: '198px',
+          // 아래 메타 행이 300px 에서 시작한다. 서버 상한(80자)까지 차도 넘지 않게 자른다.
+          maxHeight: '86px',
           color: summary ? 'rgba(255,246,251,.94)' : 'rgba(255,236,246,.5)',
         }}
       >
