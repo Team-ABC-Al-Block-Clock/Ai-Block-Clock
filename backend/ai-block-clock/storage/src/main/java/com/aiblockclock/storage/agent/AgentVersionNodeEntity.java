@@ -39,6 +39,9 @@ public class AgentVersionNodeEntity {
     @Column(name = "node_key", length = 64, nullable = false, updatable = false)
     private String nodeKey;
 
+    @Column(name = "owner_id", nullable = false, updatable = false)
+    private Long ownerId;
+
     @Column(name = "name", length = 40, nullable = false, updatable = false)
     private String name;
 
@@ -56,10 +59,11 @@ public class AgentVersionNodeEntity {
     @Column(name = "base_cost", precision = 41, scale = 6, nullable = false, updatable = false)
     private BigDecimal baseCost;
 
-    public AgentVersionNodeEntity(UUID agentVersionId, String nodeKey, String name, NodeType nodeType,
-                                  String prompt, AiModel model, BigDecimal baseCost) {
+    public AgentVersionNodeEntity(UUID agentVersionId, String nodeKey, Long ownerId, String name,
+                                  NodeType nodeType, String prompt, AiModel model, BigDecimal baseCost) {
         this.agentVersionId = agentVersionId;
         this.nodeKey = nodeKey;
+        this.ownerId = ownerId;
         this.name = name;
         this.nodeType = nodeType;
         this.prompt = prompt;

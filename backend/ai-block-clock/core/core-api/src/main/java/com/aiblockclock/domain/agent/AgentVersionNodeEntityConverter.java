@@ -5,6 +5,7 @@ import com.aiblockclock.domain.node.NodeSpec;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.domain.node.RefFileId;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.storage.agent.AgentVersionNodeEntity;
 import com.aiblockclock.storage.agent.AgentVersionNodeRefFileEntity;
@@ -23,6 +24,7 @@ public final class AgentVersionNodeEntityConverter {
         return new AgentVersionNodeEntity(
                 versionId.value(),
                 node.key().value(),
+                node.owner().value(),
                 spec.name(),
                 spec.nodeType(),
                 node.prompt().value(),
@@ -42,6 +44,7 @@ public final class AgentVersionNodeEntityConverter {
     public static VersionNode toDomain(AgentVersionNodeEntity entity, List<RefFile> refFiles) {
         return new VersionNode(
                 NodeKey.of(entity.getNodeKey()),
+                UserId.of(entity.getOwnerId()),
                 new NodeSpec(entity.getName(), entity.getNodeType(), entity.getModel(),
                         AbcAmount.of(entity.getBaseCost())),
                 Prompt.of(entity.getPrompt()),
