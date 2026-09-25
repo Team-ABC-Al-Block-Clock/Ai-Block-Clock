@@ -26,7 +26,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         Map<String, List<RefFile>> refFiles = new LinkedHashMap<>();
 
         for (int index = 0; index < plan.prompts().size(); index++) {
-            String nodeId = "n" + (index + 1);
+            String nodeId = stepIdOf(index);
             PlannedPrompt prompt = plan.prompts().get(index);
             boolean last = index == plan.prompts().size() - 1;
 
@@ -37,7 +37,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
             }
 
             if (index > 0) {
-                edges.add(Map.of("from", "n" + index, "to", nodeId));
+                edges.add(Map.of("from", stepIdOf(index - 1), "to", nodeId));
             }
         }
 
@@ -47,6 +47,11 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 "nodes", nodes,
                 "edges", edges,
                 "output", Map.of("schema_id", RESULT_SCHEMA))), refFiles);
+    }
+
+    // 엔진은 이 번호로 단계마다 결과를 돌려준다. 끝난 뒤 값을 셀 때도 같은 번호로 찾는다.
+    public static String stepIdOf(int index) {
+        return "n" + (index + 1);
     }
 
     private static Map<String, Object> node(String id, PlannedPrompt prompt, boolean last) {

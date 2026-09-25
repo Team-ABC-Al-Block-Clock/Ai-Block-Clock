@@ -188,6 +188,28 @@ class AiRuntimeClientTest {
     }
 
     @Test
+    void 실패하면_단계별_성공_여부와_실패_책임을_읽는다() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1"))
+                .andRespond(withSuccess("""
+                        { "run_id": "run-1", "status": "failed",
+                          "nodes": [
+                            { "id": "n1", "type": "llm", "status": "succeeded", "cost_abc": 0.0021 },
+                            { "id": "n2", "type": "llm", "status": "failed", "cost_abc": 0.0004 } ],
+                          "not_executed": [],
+                          "failure": { "node_id": "n2", "error_code": "RATE_LIMITED", "fault": "platform",
+                                       "affects_success_rate": false,
+                                       "refund_scope": { "refund_node_ids": ["n1", "n2"], "settled_node_ids": ["n1"] } } }
+                        """, MediaType.APPLICATION_JSON));
+
+        RunStatus status = client.read("run-1");
+
+        assertThat(status.nodes()).extracting(RunStatus.Node::isSucceeded).containsExactly(true, false);
+        assertThat(status.nodes().get(0).costAbc()).isEqualByComparingTo("0.0021");
+        assertThat(status.failure().isPlatformFault()).isTrue();
+        server.verify();
+    }
+
+    @Test
     @DisplayName("실행 엔진이 죽어 있으면 요청 실패로 끊는다")
     void failsWhenTheRuntimeIsDown() {
         server.expect(requestTo(BASE_URL + "/v1/runs/run-1"))

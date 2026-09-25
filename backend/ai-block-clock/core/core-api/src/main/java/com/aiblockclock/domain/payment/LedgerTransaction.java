@@ -29,6 +29,7 @@ public record LedgerTransaction(
     private static final String EXECUTION_REFERENCE_TYPE = "EXECUTION";
     private static final String EXECUTION_RESERVE_KEY_PREFIX = "execution-reserve:";
     private static final String EXECUTION_RELEASE_KEY_PREFIX = "execution-release:";
+    private static final String EXECUTION_REFUND_KEY_PREFIX = "execution-refund:";
 
     public LedgerTransaction {
         if (eventType == null
@@ -135,6 +136,31 @@ public record LedgerTransaction(
                                 reservedAmount.value().negate()),
                         new LedgerEntry(LedgerAccountType.ABC_BALANCE, payerReferenceId,
                                 reservedAmount.value())
+                )
+        );
+    }
+
+    // 끝난 실행에서 쓰지 않은 만큼을 예치에서 돌려준다. 쓴 만큼은 예치에 남아 정산을 기다린다.
+    // 키가 실행 ID 라 폴링이 같은 끝을 여러 번 봐도 한 번만 기록된다.
+    public static LedgerTransaction forExecutionRefund(
+            UUID executionId,
+            UserId payer,
+            AbcAmount refundAmount
+    ) {
+        String payerReferenceId = referenceIdOf(payer);
+
+        return new LedgerTransaction(
+                LedgerEventType.REFUND,
+                EXECUTION_REFUND_KEY_PREFIX + executionId,
+                EXECUTION_REFERENCE_TYPE,
+                executionId.toString(),
+                null,
+                null,
+                List.of(
+                        new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, payerReferenceId,
+                                refundAmount.value().negate()),
+                        new LedgerEntry(LedgerAccountType.ABC_BALANCE, payerReferenceId,
+                                refundAmount.value())
                 )
         );
     }

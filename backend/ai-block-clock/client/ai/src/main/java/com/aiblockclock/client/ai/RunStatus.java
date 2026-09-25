@@ -50,6 +50,11 @@ public record RunStatus(
             @JsonProperty("cost_abc") BigDecimal costAbc,
             @JsonProperty("skip_reason") String skipReason
     ) {
+        private static final String SUCCEEDED = "succeeded";
+
+        public boolean isSucceeded() {
+            return SUCCEEDED.equals(status);
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -78,11 +83,17 @@ public record RunStatus(
     ) {
     }
 
+    // fault 는 실패 책임이다. supplier · consumer · platform 중 하나가 온다 (계약 8.5).
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Failure(
             @JsonProperty("node_id") String nodeId,
             @JsonProperty("error_code") String errorCode,
             String fault
     ) {
+        private static final String PLATFORM_FAULT = "platform";
+
+        public boolean isPlatformFault() {
+            return PLATFORM_FAULT.equals(fault);
+        }
     }
 }

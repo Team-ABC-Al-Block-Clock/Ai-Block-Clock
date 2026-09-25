@@ -84,7 +84,8 @@ class CostQuoteTest {
 
     private static CostEstimate estimateOf(String total) {
         return CostEstimate.of(List.of(
-                new CostItem(NodeKey.of("n1"), SourceType.NODE, "노드", AbcAmount.of(new BigDecimal(total)))));
+                new CostItem(NodeKey.of("n1"), SourceType.NODE, "노드", AbcAmount.of(new BigDecimal(total)),
+                        BigDecimal.ONE)));
     }
 
     private static AbcBalance balanceOf(String available) {

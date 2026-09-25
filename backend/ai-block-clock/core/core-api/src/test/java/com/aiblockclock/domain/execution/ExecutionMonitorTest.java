@@ -34,12 +34,14 @@ class ExecutionMonitorTest {
     private final MovableClock clock = new MovableClock(START);
     private final AiRuntimeClient aiRuntimeClient = mock(AiRuntimeClient.class);
     private final ExecutionWriter executionWriter = mock(ExecutionWriter.class);
+    private final ExecutionReservationManager reservationManager = mock(ExecutionReservationManager.class);
     private final ExecutionResultHarvester executionResultHarvester = mock(ExecutionResultHarvester.class);
     private final ExecutionProgressStore store = new ExecutionProgressStore();
     private final RecordingListener listener = new RecordingListener();
 
     private final ExecutionMonitor sut = new ExecutionMonitor(
-            aiRuntimeClient, executionWriter, executionResultHarvester, store, PROPERTIES, List.of(listener), clock);
+            aiRuntimeClient, executionWriter, reservationManager, executionResultHarvester,
+            store, PROPERTIES, List.of(listener), clock);
 
     @Test
     @DisplayName("맡기자마자 접수 상태를 한 번 흘려보낸다 — 엔진을 두드리기 전이다")
@@ -98,7 +100,8 @@ class ExecutionMonitorTest {
     @Test
     @DisplayName("끝나면 마지막 상태를 밀고 그만 물어보라고 한다")
     void stopsWhenTheRunIsDone() {
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
+        RunStatus finished = succeeded();
+        given(aiRuntimeClient.read(anyString())).willReturn(finished);
         Execution started = execution();
         sut.begin(started);
 
@@ -106,7 +109,8 @@ class ExecutionMonitorTest {
 
         assertThat(listener.statuses()).containsExactly(ExecutionStatus.QUEUED, ExecutionStatus.SUCCEEDED);
         assertThat(store.find(ExecutionId.of(ID))).isEmpty();
-        then(executionWriter).should().moveTo(ExecutionId.of(ID), ExecutionStatus.SUCCEEDED);
+        then(reservationManager).should().finish(ExecutionId.of(ID), ExecutionStatus.SUCCEEDED, finished);
+        then(executionWriter).should(never()).moveTo(ExecutionId.of(ID), ExecutionStatus.SUCCEEDED);
         then(executionResultHarvester).should().harvest(started);
     }
 
@@ -137,7 +141,7 @@ class ExecutionMonitorTest {
             assertThat(progress.failure().errorCode()).isEqualTo(ExecutionProgress.STALLED);
             assertThat(progress.failure().fault()).isEqualTo("platform");
         });
-        then(executionWriter).should().moveTo(ExecutionId.of(ID), ExecutionStatus.FAILED);
+        then(reservationManager).should().finish(ExecutionId.of(ID), ExecutionStatus.FAILED, null);
     }
 
     private static final UUID ID = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
@@ -145,7 +149,7 @@ class ExecutionMonitorTest {
     private static Execution execution() {
         return Execution.restore(ExecutionId.of(ID), ExecutionRequestId.of(UUID.randomUUID()),
                 WorkflowId.of(UUID.randomUUID()), UserId.of(1L),
-                RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2, null);
+                RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2, null, null);
     }
 
     private static RunStatus running(int done) {
