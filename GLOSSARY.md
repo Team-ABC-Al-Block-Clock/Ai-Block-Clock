@@ -28,7 +28,9 @@
 | **Tier (등급)** | Agent Score 와 필수 허들로 부여되는 등급. Tier 1(Platinum) ~ Tier 4(Bronze) | `Tier`. 매기는 규칙은 `AgentTierLadder` |
 | **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수. 0 ~ 100 | `AgentGrade.score` (`AgentGradeProperties.gradeOf`) |
 | **허들 (Hurdle)** | 점수가 닿은 등급을 지키는 데 필요한 최소 성공률 · 평가 수. 못 넘으면 넘는 등급까지 내려간다 | `AgentTierRequirement`. 점수로 닿은 등급은 `AgentGrade.scoreTier`, 확정 등급은 `tier` |
-| **등급 이력** | 등급을 매길 때마다 그때의 재료 · 지표 · 점수 · 등급을 한 줄씩 남긴 것 | `agent_grade_history` (`AgentGradeHistoryWriter`) |
+| **등급 이력** | 등급을 매길 때 그때의 재료 · 지표 · 점수 · 등급을 남긴 것. 마지막 줄과 같은 결과면 더하지 않는다 | `agent_grade_history` (`AgentGradeHistoryWriter.appendIfChanged`) |
+| **재산정 (Regrade)** | 정해진 때(매일 새벽)에 공개된 에이전트를 다시 매겨, 그 등급을 모든 버전의 가격 칸에 옮기는 것. 진행 중인 실행은 접수 때 배율 그대로다 | `AgentGradeScheduler.regradeAll` → `AgentGradeService.regrade` |
+| **등급 변경 이력** | 재산정으로 버전의 가격 등급이 바뀔 때 버전마다 전후 등급 · 판매가 · 근거 등급 이력 · 시점을 남긴 것 | `agent_tier_change` (`AgentTierChangeWriter`, `AgentTierChange`) |
 | **등급 재료** | 에이전트마다 쌓는 성공 수 · 공급자 탓 실패 수 · 평가 수 · 평균 평점. 지표는 이것에서 계산한다 | `AgentGradeMetric`. 실행 하나가 남기는 것은 `AgentRunOutcomes` |
 | **보정 평점 (Bayesian Rating)** | 평가가 적을수록 전체 평균 쪽으로 당긴 평점. 1 ~ 5. 0 ~ 100 으로 옮긴 것이 평점 점수 | `AgentGradeIndicators.adjustedRating` · `ratingScore` |
 | **정규화 사용량** | 누적 성공 실행 수를 로그 눈금으로 0 ~ 100 에 놓은 것 | `AgentGradeIndicators.usageScore` |
