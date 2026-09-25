@@ -139,9 +139,7 @@ export default function MyPageCredit() {
   const pickerNote = withdraw
     ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 코인은 출금할 수 없습니다'
     : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · 예치한 코인은 언제든 출금할 수 있습니다'
-  const inputPlaceholder = withdraw
-    ? '출금할 코인을 입력하세요 (최소 10 ABC)'
-    : '예치할 코인을 입력하세요 (최소 100 ABC)'
+  const inputPlaceholder = withdraw ? '출금할 코인을 입력하세요' : '예치할 코인을 입력하세요'
   const summaryTitle = withdraw ? '출금 요약' : '예치 요약'
   const sumLabel = withdraw ? '출금 코인' : '예치 코인'
   const ctaLabel = withdraw ? '출금하기' : '예치하기'
