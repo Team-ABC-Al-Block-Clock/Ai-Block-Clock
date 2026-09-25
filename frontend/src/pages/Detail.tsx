@@ -966,11 +966,10 @@ export default function Detail() {
                 리뷰처럼 보인다. 빈 화면을 가운데 두는 것은 empty-state 와 같은 규칙이다. */}
             {reviews.isPending && <div className="text-faint text-center">불러오는 중…</div>}
 
-            {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다. */}
+            {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다.
+                쓰라고 부추기지 않는다 — 리뷰를 남기는 화면이 아직 없다. */}
             {!reviews.isPending && !reviews.isError && reviewItems.length === 0 && (
-              <div className="text-muted text-center">
-                아직 리뷰가 없습니다. 첫 리뷰를 남겨 보세요.
-              </div>
+              <div className="text-muted text-center">아직 리뷰가 없습니다.</div>
             )}
 
             {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다.
