@@ -406,11 +406,7 @@ export default function RunRunning() {
 
         {/* 이전 단계로 돌아가 프롬프트를 수정하여 재실행할 수 있다. */}
         <a
-          href={
-            workflowId
-              ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
-              : paths.run.waiting.withoutId
-          }
+          href={workflowId ? `${paths.run.waiting}?workflowId=${workflowId}` : paths.run.waiting}
           title="다시 실행"
           aria-label="다시 실행"
           style={{
@@ -523,9 +519,7 @@ export default function RunRunning() {
             ) : (
               <a
                 href={
-                  workflowId
-                    ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
-                    : paths.run.waiting.withoutId
+                  workflowId ? `${paths.run.waiting}?workflowId=${workflowId}` : paths.run.waiting
                 }
                 style={PANEL_ACTION}
                 className="flex cursor-pointer items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"

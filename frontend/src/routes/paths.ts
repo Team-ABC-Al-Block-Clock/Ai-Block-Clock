@@ -19,7 +19,7 @@ export const routePatterns = {
   /** ID 없으면 신규 생성, 있으면 편집. */
   editNodes: ['/edit/nodes', '/edit/nodes/:workflowId'],
 
-  runWaiting: ['/run/waiting', '/run/:executionId/waiting'],
+  runWaiting: ['/run/waiting'],
   runRunning: ['/run/:executionId/running'],
 
   myAgents: ['/my/agents'],
@@ -60,7 +60,7 @@ export const paths = {
   },
 
   run: {
-    waiting: idPath(routePatterns.runWaiting),
+    waiting: routePatterns.runWaiting[0],
     running: requiredIdPath(routePatterns.runRunning),
   },
 

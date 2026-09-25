@@ -491,7 +491,7 @@ export default function Detail() {
           )}
 
           <a
-            href={paths.run.waiting.withoutId}
+            href={paths.run.waiting}
             style={{
               left: '1008px',
               top: '210px',
