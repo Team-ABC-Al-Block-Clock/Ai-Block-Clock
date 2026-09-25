@@ -106,10 +106,13 @@ public class ExecutionService {
             return concluded(execution);
         }
 
-        ExecutionProgress progress = ExecutionProgress.of(
-                execution.getId(), read(execution), execution.getPromptCount());
+        RunStatus run = read(execution);
+        ExecutionProgress progress = ExecutionProgress.of(execution.getId(), run, execution.getPromptCount());
 
-        if (progress.status() != execution.getStatus()) {
+        // 뒤에서 따라가던 모니터가 닫지 못한 실행이다. 모니터와 같은 자리에서 닫아야 쓰지 않은 만큼이 돌아온다.
+        if (progress.status().isFinished()) {
+            executionReservationManager.finish(execution.getId(), progress.status(), run);
+        } else if (progress.status() != execution.getStatus()) {
             executionWriter.moveTo(execution.getId(), progress.status());
         }
 

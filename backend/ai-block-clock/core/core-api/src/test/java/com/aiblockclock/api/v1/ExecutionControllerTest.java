@@ -9,6 +9,7 @@ import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.execution.ExecutionFileStore;
 import com.aiblockclock.domain.execution.ExecutionId;
 import com.aiblockclock.domain.execution.ExecutionProgressStore;
+import com.aiblockclock.domain.execution.ExecutionService;
 import com.aiblockclock.domain.execution.ExecutionWriter;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.execution.ExecutionStatus;
@@ -97,6 +98,9 @@ class ExecutionControllerTest {
 
     @Autowired
     private ExecutionProgressStore progressStore;
+
+    @Autowired
+    private ExecutionService executionService;
 
     @MockitoBean
     private AiRuntimeClient aiRuntimeClient;
@@ -481,6 +485,77 @@ class ExecutionControllerTest {
                 .andExpect(status().isAccepted());
 
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+    }
+
+    // 떼어 둔 6 중 두 단계의 실측 0.4 + 0.6 = 1 만 쓰고 5 를 돌려받아 잔액은 9 가 된다.
+    // 뒤에서 따라가던 모니터가 끝을 보고 닫는 길이다. 조회가 엔진에 묻기 전에 모니터가 먼저 닫는다.
+    @Test
+    void 뒤에서_따라가다_끝난_것을_보면_쓰지_않은_만큼을_잔액으로_돌려준다() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+
+        executionService.pollOnce(ExecutionId.of(executionId));
+
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
+                .isEqualTo(ExecutionStatus.SUCCEEDED);
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("1");
+    }
+
+    @Test
+    void 모니터가_닫은_뒤에_조회해도_다시_돌려주지_않는다() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+        executionService.pollOnce(ExecutionId.of(executionId));
+
+        for (int poll = 0; poll < 3; poll++) {
+            mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                    .andExpect(status().isOk());
+        }
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+    }
+
+    // 모니터가 놓친 실행(재기동 등)은 조회가 엔진에 물어 같은 자리에서 닫는다.
+    @Test
+    void 모니터가_놓친_실행은_조회가_끝을_보고_돌려준다() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+
+        for (int poll = 0; poll < 3; poll++) {
+            mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
+        }
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("1");
+    }
+
+    @Test
+    void 아직_돌고_있으면_돌려주지_않는다() throws Exception {
+        String executionId = start();
+        given(aiRuntimeClient.read(anyString())).willReturn(running());
+
+        executionService.pollOnce(ExecutionId.of(executionId));
+
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("6");
+    }
+
+    // mock 은 모델을 부르지 않아 실측 원가가 0 이다 (계약 8.1). 접수 때 떼고, 끝나면 전부 돌려준다.
+    @Test
+    void mock_실행은_끝나면_떼어_둔_것을_전부_돌려준다() throws Exception {
+        MvcResult accepted = mockMvc.perform(run().param("mock", "true").with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted())
+                .andReturn();
+        String executionId = mapper.readTree(accepted.getResponse().getContentAsString())
+                .get("data").get("executionId").asText();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.0", "0.0"));
+
+        executionService.pollOnce(ExecutionId.of(executionId));
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
     }
 
     @Test

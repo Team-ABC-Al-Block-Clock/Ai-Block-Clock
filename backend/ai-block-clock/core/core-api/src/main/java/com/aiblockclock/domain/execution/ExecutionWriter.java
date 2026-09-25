@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -55,20 +56,20 @@ public class ExecutionWriter {
         entityOf(id).moveTo(status);
     }
 
-    // 실행 행을 잠그고 끝난 상태로 옮긴다. 이미 끝나 있으면 옮기지 않고 false 를 돌려준다.
-    // 폴링이 겹쳐 같은 끝을 동시에 봐도 늦은 쪽은 앞쪽이 커밋할 때까지 기다렸다가 끝난 것을 본다.
+    // 실행 행을 잠그고 끝난 상태로 옮겨 닫은 실행을 돌려준다. 이미 끝나 있으면 옮기지 않고 비워 돌려준다.
+    // 모니터와 조회가 같은 끝을 동시에 봐도 늦은 쪽은 앞쪽이 커밋할 때까지 기다렸다가 끝난 것을 본다.
     @Transactional(propagation = Propagation.MANDATORY)
-    public boolean finish(ExecutionId id, ExecutionStatus status) {
+    public Optional<Execution> finish(ExecutionId id, ExecutionStatus status) {
         ExecutionEntity entity = executionRepository.findForUpdate(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_NOT_FOUND));
 
         if (entity.getStatus().isFinished()) {
-            return false;
+            return Optional.empty();
         }
 
         entity.moveTo(status);
 
-        return true;
+        return Optional.of(ExecutionEntityConverter.toDomain(entity));
     }
 
     @Transactional

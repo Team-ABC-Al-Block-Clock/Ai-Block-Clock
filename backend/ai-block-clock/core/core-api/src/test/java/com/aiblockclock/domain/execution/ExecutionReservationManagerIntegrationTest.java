@@ -266,7 +266,7 @@ class ExecutionReservationManagerIntegrationTest {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        executionReservationManager.finish(reserved, run("succeeded", null,
+        finish(reserved, run("succeeded", null,
                 step("n1", "succeeded", "0.5"), step("n2", "succeeded", "0.25")));
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.25");
@@ -282,7 +282,7 @@ class ExecutionReservationManagerIntegrationTest {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        executionReservationManager.finish(reserved, run("failed", failure("supplier"),
+        finish(reserved, run("failed", failure("supplier"),
                 step("n1", "succeeded", "0.5"), step("n2", "failed", "0.3")));
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.5");
@@ -296,7 +296,7 @@ class ExecutionReservationManagerIntegrationTest {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        executionReservationManager.finish(reserved, run("failed", failure("platform"),
+        finish(reserved, run("failed", failure("platform"),
                 step("n1", "succeeded", "0.5"), step("n2", "failed", "0.3")));
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
@@ -309,7 +309,7 @@ class ExecutionReservationManagerIntegrationTest {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        executionReservationManager.finish(reserved, run("succeeded", null,
+        finish(reserved, run("succeeded", null,
                 step("n1", "succeeded", "5"), step("n2", "succeeded", "4")));
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
@@ -325,8 +325,8 @@ class ExecutionReservationManagerIntegrationTest {
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
         RunStatus finished = run("succeeded", null, step("n1", "succeeded", "0.5"), step("n2", "succeeded", "0.5"));
 
-        executionReservationManager.finish(reserved, finished);
-        executionReservationManager.finish(reserved, finished);
+        finish(reserved, finished);
+        finish(reserved, finished);
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
         assertThat(ledgerTransactionRepository.count()).isEqualTo(2);
@@ -340,12 +340,12 @@ class ExecutionReservationManagerIntegrationTest {
 
         List<Outcome> outcomes = runConcurrently(List.of(
                 () -> {
-                    executionReservationManager.finish(reserved, finished);
+                    finish(reserved, finished);
 
                     return null;
                 },
                 () -> {
-                    executionReservationManager.finish(reserved, finished);
+                    finish(reserved, finished);
 
                     return null;
                 }));
@@ -358,12 +358,25 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     @Test
+    void 엔진이_기한_안에_끝을_알리지_않아_실패로_끊으면_전부_돌려준다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+
+        executionReservationManager.finish(reserved.getId(), ExecutionStatus.FAILED, null);
+
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.FAILED);
+        assertBalancesMatchEntries();
+    }
+
+    @Test
     void 선차감_전에_접수한_실행은_끝나도_돌려줄_것이_없다() {
         Execution requested = requested(newRequestId());
         new TransactionTemplate(transactionManager).executeWithoutResult(status ->
                 executionRepository.save(ExecutionEntityConverter.toEntity(requested)));
 
-        executionReservationManager.finish(requested, run("succeeded", null, step("n1", "succeeded", "0.5")));
+        finish(requested, run("succeeded", null, step("n1", "succeeded", "0.5")));
 
         assertThat(statusOf(requested)).isEqualTo(ExecutionStatus.SUCCEEDED);
         assertThat(ledgerTransactionRepository.count()).isZero();
@@ -421,6 +434,10 @@ class ExecutionReservationManagerIntegrationTest {
 
     private static ExecutionRequestId newRequestId() {
         return ExecutionRequestId.of(UUID.randomUUID());
+    }
+
+    private void finish(Execution execution, RunStatus run) {
+        executionReservationManager.finish(execution.getId(), ExecutionProgress.toStatus(run.state()), run);
     }
 
     private ExecutionStatus statusOf(Execution execution) {

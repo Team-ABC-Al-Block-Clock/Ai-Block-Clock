@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 // 실행 엔진 호출을 사이에 두고 앞(접수 + 선차감)과 뒤(되돌리기 · 끝난 뒤 환불)에 쓰기가 있다.
 // 엔진 호출은 트랜잭션 안에 둘 수 없어 Service 트랜잭션 하나로 묶지 못하므로, 앞과 뒤를 각각 한 트랜잭션으로 둔다.
 // 외부 확인을 사이에 둔 충전 확정(ChargeConfirmationManager)과 같은 모양이다.
@@ -48,23 +50,24 @@ public class ExecutionReservationManager {
                 reserved.getId().value(), reserved.getRequester(), reserved.getReserved()));
     }
 
-    // 엔진이 끝났다고 알린 실행을 닫고, 떼어 둔 것 중 쓰지 않은 만큼 돌려준다.
+    // 실행을 닫는 자리는 여기 하나다. 뒤에서 따라가는 모니터도, 모니터가 놓친 실행을 조회가 볼 때도 여기로 온다.
     // 닫기와 환불이 한 트랜잭션이라 닫혔는데 돌려주지 않은 실행이 남지 않는다.
-    // 이미 닫힌 실행이면 아무것도 하지 않아, 폴링이 겹쳐도 한 번만 돌려준다.
+    // 이미 닫힌 실행이면 아무것도 하지 않아, 모니터와 조회가 겹쳐도 한 번만 돌려준다.
+    // run 은 엔진이 알린 마지막 상태다. 기한 안에 끝을 알리지 않아 우리가 끊은 실행은 비어 있다.
     @Transactional
-    public void finish(Execution dispatched, RunStatus run) {
-        ExecutionStatus reported = ExecutionProgress.toStatus(run.state());
+    public void finish(ExecutionId id, ExecutionStatus status, RunStatus run) {
+        Optional<Execution> closed = executionWriter.finish(id, status);
 
-        if (!executionWriter.finish(dispatched.getId(), reported) || !dispatched.isReserved()) {
+        if (closed.isEmpty() || !closed.get().isReserved()) {
             return;
         }
 
-        ExecutionUsage usage = ExecutionUsage.of(dispatched.getReserved(), run,
-                executionReader.readChargeRates(dispatched.getId()));
+        Execution execution = closed.get();
+        ExecutionUsage usage = ExecutionUsage.of(execution.getReserved(), run, executionReader.readChargeRates(id));
 
         if (usage.hasRefund()) {
             ledgerTransactionWriter.append(LedgerTransaction.forExecutionRefund(
-                    dispatched.getId().value(), dispatched.getRequester(), AbcAmount.of(usage.refund())));
+                    id.value(), execution.getRequester(), AbcAmount.of(usage.refund())));
         }
     }
 }

@@ -64,6 +64,14 @@ class ExecutionUsageTest {
     }
 
     @Test
+    void 엔진이_기한_안에_끝을_알리지_않아_끊은_실행은_전부_돌려준다() {
+        ExecutionUsage usage = ExecutionUsage.of(RESERVED, null, AT_COST);
+
+        assertThat(usage.used()).isZero();
+        assertThat(usage.refund()).isEqualByComparingTo("6");
+    }
+
+    @Test
     void mock_실행은_실측_원가가_0_이라_전부_돌려준다() {
         ExecutionUsage usage = ExecutionUsage.of(RESERVED,
                 run(null, step("n1", "succeeded", "0.0"), step("n2", "succeeded", "0.0")), AT_COST);
