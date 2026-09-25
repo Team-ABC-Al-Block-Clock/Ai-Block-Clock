@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import { priceLabel } from '@/lib/format'
 import ModelSelect from '@/components/ModelSelect'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 
@@ -27,6 +28,21 @@ const rowStyle = (top: string) => ({
 })
 
 type FormValues = { name: string; prompt: string; model: AiModel }
+
+/** 설명 아래 한 줄짜리 값. 라벨은 왼쪽, 값은 오른쪽 끝에 세운다. */
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="flex items-center justify-between"
+      style={{ height: '38px', borderTop: '1px solid rgba(255,255,255,.08)' }}
+    >
+      <span className="text-[15px]" style={{ color: 'rgba(255,224,238,.7)' }}>
+        {label}
+      </span>
+      <span className="truncate text-[16px] font-semibold text-white">{value}</span>
+    </div>
+  )
+}
 
 /** 고칠 수 있는 자리임을 알린다. 워크플로우 이름 칸과 같은 그림이다. */
 function PencilIcon() {
@@ -174,6 +190,8 @@ type NodeInfoPanelProps = {
   basic?: { id: string; name: string; prompt: string; model: AiModel }
   /** 에이전트의 한 줄 설명. */
   summary?: string | null
+  /** 에이전트의 단가·실행 횟수·만든 사람. 모르는 값은 비워 둔다. */
+  meta?: { price: string | null; executionCount?: number | null; owner?: string | null }
   /** 고친 값을 캔버스에 돌려준다. 저장은 워크플로우를 저장할 때 서버로 함께 나간다. */
   onApply: (id: string, values: { name: string; prompt: string; model: AiModel }) => void
 }
@@ -186,6 +204,7 @@ export default function NodeInfoPanel({
   typeLabel,
   basic,
   summary,
+  meta,
   onApply,
 }: NodeInfoPanelProps) {
   if (!hasSelection)
@@ -255,6 +274,21 @@ export default function NodeInfoPanel({
       >
         {summary ?? '설명이 없습니다'}
       </div>
+
+      {meta && (
+        <div className="absolute flex flex-col" style={{ ...rowStyle('300px'), gap: '1px' }}>
+          <MetaRow label="단가" value={meta.price ? priceLabel(meta.price) : '—'} />
+          <MetaRow
+            label="총 실행 횟수"
+            value={
+              typeof meta.executionCount === 'number'
+                ? `${meta.executionCount.toLocaleString('ko-KR')}회`
+                : '—'
+            }
+          />
+          <MetaRow label="만든 사람" value={meta.owner ?? '—'} />
+        </div>
+      )}
     </>
   )
 }

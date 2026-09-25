@@ -75,7 +75,21 @@ export function useSavedWorkflow(workflowId: string | undefined) {
   const canvas = useMemo(() => {
     // 이름표가 「도착」해야 한다. 실패도 isPending 은 false 라, 그것만 보면 이름 없는 카드가 굳는다.
     if (!detail.data || !labels.isSuccess || !extrasSettled) return null
-    const found = new Map<string, NodeLabel>((labels.data ?? []).map((item) => [item.itemId, item]))
+    // 팔레트 항목을 그대로 넘기지 않는다 — `owner` 의 모양이 다르다.
+    const found = new Map<string, NodeLabel>(
+      (labels.data ?? []).map((item) => [
+        item.itemId,
+        {
+          name: item.name,
+          nodeType: item.nodeType,
+          price: item.price,
+          summary: item.summary,
+          executionCount: item.executionCount,
+          owner: item.owner.nickname,
+          mine: item.mine,
+        },
+      ]),
+    )
     for (const query of extras) {
       const node = query.data
       if (!node) continue

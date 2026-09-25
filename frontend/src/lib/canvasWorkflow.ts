@@ -59,6 +59,10 @@ export interface CanvasNodeData {
   prompt: string | null
   /** 기본 노드가 쓸 모델. 에이전트는 null */
   model: AiModel | null
+  /** 에이전트의 누적 실행 횟수. 모르면 비운다 — 0 과 「모름」은 다르다 */
+  executionCount?: number | null
+  /** 에이전트를 등록한 사람. 모르면 비운다 */
+  owner?: string | null
   /** 팔레트 항목의 `price`. 팔레트에서 못 찾은 노드는 null 이다 */
   price: string | null
   /** 팔레트 항목의 `summary`. 에이전트는 내부 구성 대신 이것을 보여준다 */
@@ -432,6 +436,8 @@ export function placeNode(
     | 'summary'
     | 'prompt'
     | 'model'
+    | 'executionCount'
+    | 'owner'
     | 'mine'
   >,
   x: number,
@@ -495,6 +501,8 @@ export function seedCanvasNodes(
     | 'summary'
     | 'prompt'
     | 'model'
+    | 'executionCount'
+    | 'owner'
     | 'mine'
   >[],
   layout: SeedLayout = 'row',

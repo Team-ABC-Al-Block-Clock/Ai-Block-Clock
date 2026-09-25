@@ -69,6 +69,9 @@ export interface NodeLabel {
   /** 기본 노드만. 우측 패널이 그대로 보여주고 다시 저장할 때 실려 나간다 */
   prompt?: string | null
   model?: AiModel | null
+  /** 에이전트만. 우측 패널이 단가 옆에 함께 보여준다 */
+  executionCount?: number | null
+  owner?: string | null
   mine: boolean
 }
 
@@ -102,6 +105,8 @@ export function toCanvasWorkflow(
       // 기본 노드는 여기 담겨 와야 우측 패널이 채워지고 다시 저장할 때도 살아남는다.
       prompt: label?.prompt ?? null,
       model: label?.model ?? null,
+      executionCount: label?.executionCount ?? null,
+      owner: label?.owner ?? null,
       x: RESTORE_X0 + i * RESTORE_STEP,
       y: RESTORE_Y[i % RESTORE_Y.length],
       // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.

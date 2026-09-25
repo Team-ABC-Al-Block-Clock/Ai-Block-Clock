@@ -63,6 +63,8 @@ export type PlacedSeed = Pick<
   | 'summary'
   | 'prompt'
   | 'model'
+  | 'executionCount'
+  | 'owner'
   | 'mine'
 >
 

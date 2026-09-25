@@ -233,6 +233,8 @@ export default function EditNodes() {
         sourceId: item.itemId,
         price: item.price,
         summary: item.summary,
+        executionCount: item.executionCount,
+        owner: item.owner.nickname,
         prompt: null,
         model: null,
         mine: item.mine,
@@ -804,6 +806,11 @@ export default function EditNodes() {
           typeLabel={selTypeLabel}
           basic={selBasic}
           summary={n?.summary}
+          meta={
+            n && n.sourceType === 'AGENT'
+              ? { price: n.price, executionCount: n.executionCount, owner: n.owner }
+              : undefined
+          }
           onApply={editNode}
         />
 
