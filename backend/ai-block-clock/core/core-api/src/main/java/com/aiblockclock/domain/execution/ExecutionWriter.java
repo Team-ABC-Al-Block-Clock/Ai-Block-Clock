@@ -4,6 +4,8 @@ import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.storage.execution.ExecutionChargeRateEntity;
 import com.aiblockclock.storage.execution.ExecutionChargeRateRepository;
 import com.aiblockclock.storage.execution.ExecutionEntity;
+import com.aiblockclock.storage.execution.ExecutionFailureEntity;
+import com.aiblockclock.storage.execution.ExecutionFailureRepository;
 import com.aiblockclock.storage.execution.ExecutionRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -27,6 +29,7 @@ public class ExecutionWriter {
 
     private final ExecutionRepository executionRepository;
     private final ExecutionChargeRateRepository executionChargeRateRepository;
+    private final ExecutionFailureRepository executionFailureRepository;
 
     // 같은 요청 번호가 동시에 두 번 들어오면 늦은 쪽이 여기서 막힌다.
     // 제약 위반을 이 자리에서 알아채려고 SQL 을 곧바로 내보낸다. 트랜잭션이 실패하면 함께 되돌려진다.
@@ -58,7 +61,7 @@ public class ExecutionWriter {
 
     // 실행 행을 잠그고 끝난 상태로 옮겨 닫은 실행을 돌려준다. 이미 끝나 있으면 옮기지 않고 비워 돌려준다.
     // 모니터와 조회가 같은 끝을 동시에 봐도 늦은 쪽은 앞쪽이 커밋할 때까지 기다렸다가 끝난 것을 본다.
-    // 실패했으면 누구 탓인지도 함께 적는다. 성공한 실행은 failure 가 비어 있다.
+    // 실패했으면 닫은 뒤 바로 누구 탓인지를 적는다. 성공한 실행은 failure 가 비어 있다.
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<Execution> finish(ExecutionId id, ExecutionStatus status, ExecutionFailure failure) {
         ExecutionEntity entity = executionRepository.findForUpdate(id.value())
@@ -71,18 +74,10 @@ public class ExecutionWriter {
         entity.moveTo(status);
 
         if (failure != null) {
-            record(entity, failure);
+            executionFailureRepository.save(toEntity(id, failure));
         }
 
         return Optional.of(ExecutionEntityConverter.toDomain(entity));
-    }
-
-    // 엔진에 넘기지 못한 실행을 실패로 닫는다. 돌지 않은 실행이라 모니터 · 조회와 겹치지 않는다.
-    @Transactional
-    public void fail(ExecutionId id, ExecutionFailure failure) {
-        ExecutionEntity entity = entityOf(id);
-        entity.moveTo(ExecutionStatus.FAILED);
-        record(entity, failure);
     }
 
     @Transactional
@@ -93,8 +88,9 @@ public class ExecutionWriter {
         return ExecutionEntityConverter.toDomain(entity);
     }
 
-    private static void record(ExecutionEntity entity, ExecutionFailure failure) {
-        entity.recordFailure(failure.stepId(), failure.errorCode(), failure.fault(), failure.affectsSuccessRate(),
+    private static ExecutionFailureEntity toEntity(ExecutionId id, ExecutionFailure failure) {
+        return new ExecutionFailureEntity(id.value(), failure.stepId(), failure.errorCode(), failure.fault(),
+                failure.affectsSuccessRate(),
                 failure.supplier() == null ? null : failure.supplier().value(),
                 failure.agent() == null ? null : failure.agent().value());
     }
