@@ -48,7 +48,7 @@ export interface ExecutionStep {
 }
 
 /**
- * 왜 멎었는지. `status` 가 `FAILED` 일 때만 온다.
+ * 왜 중단되었는지. `status` 가 `FAILED` 일 때만 온다.
  *
  * `fault` 가 비어 있으면 모른다는 뜻이다 — 플랫폼 과실이 아니다. 실행 엔진이 이력을 잊어
  * 사유를 되찾지 못한 경우다.
@@ -70,8 +70,8 @@ export interface ExecutionProgress {
   /** 끝났으면 null */
   currentStepName: string | null
   steps: ExecutionStep[]
-  /** `FAILED` 가 아니면 null */
-  failure: ExecutionFailure | null
+  /** `FAILED` 가 아니면 null. 서버가 칸 자체를 안 보내기도 한다 */
+  failure?: ExecutionFailure | null
 }
 
 export interface StartedExecution {

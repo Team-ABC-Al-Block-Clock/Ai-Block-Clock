@@ -11,32 +11,32 @@ export interface RunStreamHandlers {
   onBroken: () => void
 }
 
-/**
- * 붙지 못한 채 이만큼 되풀이하면 포기한다.
- *
- * `EventSource` 는 응답이 비-2xx 면 CLOSED 가 되지만, 서버에 닿지도 못하면 CONNECTING 으로
- * 끝없이 다시 붙는다 — 그대로 두면 화면이 0% 인 채 아무 말도 없이 멈춘다. mock 모드처럼
- * 스트림이 아예 없는 자리가 그렇다.
- */
+/** 붙지 못한 채 이만큼 되풀이하면 포기한다. 상한이 없으면 0% 인 채 끝없이 다시 붙는다. */
 const MAX_RETRIES = 3
+
+/**
+ * 붙은 뒤 이 시간 안에 첫 소식이 없으면 포기한다. 서버는 붙는 즉시 지금 상태를 한 번 보낸다 —
+ * 그런데도 조용하면 중간에서 버퍼에 쌓고 있다는 뜻이다(프록시 설정이 빠진 경우). 그때는
+ * 오류조차 나지 않아 기다리기만 하면 화면이 0% 에 선다.
+ */
+const FIRST_EVENT_MS = 5_000
 
 const STATUSES: ExecutionStatus[] = ['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED']
 
 /**
  * 진행 상황 스트림을 따라간다. 그만 볼 때 부를 함수를 돌려준다.
- *
- * 끝난 실행에서 직접 닫는 것이 핵심이다. 서버가 종료 이벤트를 보내고 연결을 닫는데,
- * `EventSource` 는 닫히면 스스로 다시 붙는다 — 닫아 주지 않으면 끝난 실행에 계속
- * 재연결해 매번 종료 이벤트 하나를 받고 끊기기를 반복한다.
+ * 끝난 실행에서 직접 닫는다 — `EventSource` 는 닫히면 스스로 다시 붙는다.
  */
 export function followRun(executionId: string, handlers: RunStreamHandlers): () => void {
   const source = openRunStream(executionId)
   let closed = false
   let retries = 0
+  let silence: ReturnType<typeof setTimeout> | undefined
 
   const close = () => {
     if (closed) return
     closed = true
+    clearTimeout(silence)
     source.close()
   }
 
@@ -47,12 +47,15 @@ export function followRun(executionId: string, handlers: RunStreamHandlers): () 
 
   source.addEventListener('open', () => {
     retries = 0
+    clearTimeout(silence)
+    silence = setTimeout(giveUp, FIRST_EVENT_MS)
   })
 
   source.addEventListener('progress', (event) => {
     const progress = parseProgress((event as MessageEvent).data)
     if (!progress) return
 
+    clearTimeout(silence)
     handlers.onProgress(progress)
     if (isFinished(progress.status)) close()
   })
@@ -86,10 +89,7 @@ function parseProgress(raw: unknown): ExecutionProgress | null {
   }
 }
 
-/**
- * 화면이 실제로 읽는 칸이 다 있는지 본다. 두엇만 보고 통과시키면 `steps` 가 `undefined` 인 채
- * 타입만 맞아 보여, 그것을 쓰기 시작하는 순간 터진다.
- */
+/** 화면이 읽는 칸이 다 있는지 본다. 두엇만 보면 `steps` 가 `undefined` 인 채 타입만 맞는다. */
 function isProgress(value: unknown): value is ExecutionProgress {
   if (typeof value !== 'object' || value === null) return false
   const candidate = value as Partial<ExecutionProgress>

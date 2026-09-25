@@ -38,6 +38,12 @@ class FakeEventSource {
     this.readyState = FakeEventSource.CLOSED
   }
 
+  /** 붙은 것으로 친다. */
+  open() {
+    this.readyState = FakeEventSource.OPEN
+    this.listeners.get('open')?.forEach((listener) => listener(new Event('open')))
+  }
+
   /** 서버가 progress 이벤트를 보낸 것으로 친다. */
   emit(data: unknown) {
     const event = new MessageEvent('progress', {
@@ -161,6 +167,37 @@ describe('followRun', () => {
 
     expect(onBroken).toHaveBeenCalledTimes(1)
     expect(latest().closed).toBe(true)
+  })
+
+  // 버퍼링하는 프록시를 만나면 붙기는 붙고 아무것도 오지 않는다. 오류가 안 나 기다리기만 하면
+  // 화면이 0% 에 선다.
+  it('붙고도 첫 소식이 없으면 포기한다', () => {
+    vi.useFakeTimers()
+    const onBroken = vi.fn()
+    followRun('e-1', { onProgress: vi.fn(), onBroken })
+
+    latest().open()
+    vi.advanceTimersByTime(4_000)
+    expect(onBroken).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1_500)
+
+    expect(onBroken).toHaveBeenCalledTimes(1)
+    expect(latest().closed).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('첫 소식이 오면 기다리기를 그만둔다', () => {
+    vi.useFakeTimers()
+    const onBroken = vi.fn()
+    followRun('e-1', { onProgress: vi.fn(), onBroken })
+
+    latest().open()
+    latest().emit(progress())
+    vi.advanceTimersByTime(30_000)
+
+    expect(onBroken).not.toHaveBeenCalled()
+    vi.useRealTimers()
   })
 
   it('그만 보겠다고 하면 닫고, 그 뒤에 끊겨도 알리지 않는다', () => {

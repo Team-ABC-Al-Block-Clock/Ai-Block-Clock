@@ -243,7 +243,7 @@ describe('getExecutionProgress', () => {
   })
 })
 
-/** 스트림·폴링이 함께 읽는 모양. 실패 사유는 !84 가 실어 준다. */
+/** 스트림과 폴링이 함께 읽는 모양. */
 describe('진행 상황의 실패 정보', () => {
   const PROGRESS = {
     executionId: 'exe_1',
@@ -258,7 +258,7 @@ describe('진행 상황의 실패 정보', () => {
     ],
   }
 
-  it('멎은 실행은 왜 멎었는지 함께 준다', async () => {
+  it('중단된 실행은 왜 중단되었는지 함께 준다', async () => {
     server.use(
       http.get(`${API_BASE_URL}/runs/:id`, () =>
         ok({

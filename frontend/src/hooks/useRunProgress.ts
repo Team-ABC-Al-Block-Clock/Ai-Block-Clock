@@ -1,41 +1,41 @@
 import { useEffect, useState } from 'react'
 
 import { getExecutionProgress, isFinished, type ExecutionProgress } from '@/api/executions'
+import { ApiError } from '@/api/errors'
 import { followRun } from '@/lib/runStream'
 
 /** 스트림이 없을 때 물어보는 간격. 명세가 정한 값이다. */
 const POLL_MS = 2_000
+/** 이만큼 잇따라 실패하면 화면에 알린다. 한 번 걸렀다고 알리면 잠깐 끊긴 것에도 놀란다. */
+const MAX_MISSES = 3
 
 interface Followed {
   executionId?: string
   progress?: ExecutionProgress
-  /** 스트림이 끊겨 폴링으로 따라가는 중 */
-  polling: boolean
-  /** 폴링마저 닿지 못한다. 마지막으로 받은 값은 그대로 둔다 */
+  /** 잇따라 닿지 못하는 중. 계속 물어보므로 서버가 돌아오면 저절로 풀린다 */
   broken: boolean
+  /** 서버가 모르는 실행이다. 다시 물어도 없으므로 그만둔다 */
+  missing: boolean
 }
 
 export interface RunProgressState {
   progress?: ExecutionProgress
-  polling: boolean
   broken: boolean
+  missing: boolean
 }
 
 /**
- * 실행 하나를 따라간다. 스트림으로 받다가, 붙지 못하면 2초 간격 조회로 내려간다.
+ * 실행 하나를 따라간다. 스트림으로 받다가 붙지 못하면 2초 조회로 내려간다 —
+ * mock 은 `EventSource` 를 가로채지 못하고, 운영도 SSE 프록시가 빠지면 닿지 않는다.
  *
- * 내려갈 자리가 필요한 이유는 스트림이 없는 환경이 실제로 있기 때문이다 — mock 은 `EventSource`
- * 를 가로채지 못하고, 운영도 SSE 전용 프록시 설정이 빠지면 닿지 않는다. 그때 화면이 0% 인 채
- * 멈추는 것보다 느려도 도는 편이 낫다.
- *
- * 따라가는 실행 번호를 상태에 함께 들고 렌더할 때 견준다. 이펙트에서 비우면 실행을 갈아타는
- * 사이에 앞 실행의 진행률이 한 프레임 비친다.
+ * 따라가는 실행 번호를 상태에 함께 들고 렌더할 때 견준다. 이펙트에서 비우면 실행을
+ * 갈아타는 사이에 앞 실행의 진행률이 한 프레임 비친다.
  */
 export function useRunProgress(executionId?: string): RunProgressState {
   const [followed, setFollowed] = useState<Followed>({
     executionId,
-    polling: false,
     broken: false,
+    missing: false,
   })
 
   useEffect(() => {
@@ -48,22 +48,32 @@ export function useRunProgress(executionId?: string): RunProgressState {
       if (!gone) setFollowed((prev) => ({ ...prev, executionId, ...next }))
     }
 
-    /** 끝날 때까지 되풀이한다. 앞 요청이 끝난 뒤에 다음을 예약해 밀리지 않게 한다. */
+    let misses = 0
+
+    /** 앞 요청이 끝난 뒤에 다음을 예약한다 — 간격으로 돌리면 느릴 때 밀린다. */
     const poll = () => {
       getExecutionProgress(executionId)
         .then((progress) => {
-          remember({ progress, broken: false })
+          misses = 0
+          remember({ progress, broken: false, missing: false })
           if (!gone && !isFinished(progress.status)) timer = setTimeout(poll, POLL_MS)
         })
-        .catch(() => remember({ broken: true }))
+        .catch((error: unknown) => {
+          // 서버가 모르는 실행만 그만둔다. 프록시가 낸 404 와 섞이지 않게 코드까지 본다.
+          const unknown =
+            error instanceof ApiError && error.status === 404 && error.code === 'EXECUTION_001'
+          if (unknown) return remember({ missing: true, broken: true })
+
+          // 그 밖에는 끝날 때까지 계속 물어본다 — 포기하면 서버가 돌아와도 화면이 굳는다.
+          misses += 1
+          if (misses >= MAX_MISSES) remember({ broken: true })
+          if (!gone) timer = setTimeout(poll, POLL_MS)
+        })
     }
 
     const stop = followRun(executionId, {
-      onProgress: (progress) => remember({ progress, polling: false, broken: false }),
-      onBroken: () => {
-        remember({ polling: true })
-        poll()
-      },
+      onProgress: (progress) => remember({ progress, broken: false, missing: false }),
+      onBroken: poll,
     })
 
     return () => {
@@ -74,8 +84,8 @@ export function useRunProgress(executionId?: string): RunProgressState {
   }, [executionId])
 
   if (followed.executionId !== executionId) {
-    return { progress: undefined, polling: false, broken: false }
+    return { progress: undefined, broken: false, missing: false }
   }
 
-  return { progress: followed.progress, polling: followed.polling, broken: followed.broken }
+  return { progress: followed.progress, broken: followed.broken, missing: followed.missing }
 }
