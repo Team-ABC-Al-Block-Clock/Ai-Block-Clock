@@ -23,7 +23,8 @@ class GraphConverterTest {
     void restoresBaseNode() {
         UUID sourceId = UUID.randomUUID();
 
-        WorkflowGraph graph = toDomain(new GraphNodeEntity(GRAPH_ID, "n1", SourceType.NODE, sourceId, null, InputSource.defaultSource(), null, null));
+        WorkflowGraph graph = toDomain(new GraphNodeEntity(GRAPH_ID, "n1", SourceType.NODE, sourceId, null,
+                InputSource.defaultSource(), null, null, null, null, null, null));
 
         assertThat(graph.getNodes()).containsExactly(new BaseNode(NodeKey.of("n1"), sourceId, InputSource.defaultSource()));
     }
@@ -34,7 +35,8 @@ class GraphConverterTest {
         UUID agentId = UUID.randomUUID();
         UUID versionId = UUID.randomUUID();
 
-        WorkflowGraph graph = toDomain(new GraphNodeEntity(GRAPH_ID, "n1", SourceType.AGENT, agentId, versionId, InputSource.defaultSource(), null, null));
+        WorkflowGraph graph = toDomain(new GraphNodeEntity(GRAPH_ID, "n1", SourceType.AGENT, agentId, versionId,
+                InputSource.defaultSource(), null, null, null, null, null, null));
 
         assertThat(graph.getNodes()).containsExactly(new AgentNode(NodeKey.of("n1"), agentId, versionId, InputSource.defaultSource()));
     }
@@ -44,7 +46,7 @@ class GraphConverterTest {
     void rejectsVersionedBaseNodeRow() {
         GraphNodeEntity corrupt =
                 new GraphNodeEntity(GRAPH_ID, "n1", SourceType.NODE, UUID.randomUUID(),
-                        UUID.randomUUID(), InputSource.defaultSource(), null, null);
+                        UUID.randomUUID(), InputSource.defaultSource(), null, null, null, null, null, null);
 
         assertThatThrownBy(() -> toDomain(corrupt))
                 .isInstanceOf(CoreException.class)
@@ -56,7 +58,8 @@ class GraphConverterTest {
     @DisplayName("에이전트 행에 버전이 비어 있으면 복원하지 않는다")
     void rejectsUnversionedAgentRow() {
         GraphNodeEntity corrupt =
-                new GraphNodeEntity(GRAPH_ID, "n1", SourceType.AGENT, UUID.randomUUID(), null, InputSource.defaultSource(), null, null);
+                new GraphNodeEntity(GRAPH_ID, "n1", SourceType.AGENT, UUID.randomUUID(), null,
+                        InputSource.defaultSource(), null, null, null, null, null, null);
 
         assertThatThrownBy(() -> toDomain(corrupt))
                 .isInstanceOf(CoreException.class)

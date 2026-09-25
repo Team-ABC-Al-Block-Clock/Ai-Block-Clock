@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.workflow;
 
+import com.aiblockclock.enums.workflow.IoType;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
@@ -35,6 +36,7 @@ public final class WorkflowGraph {
 
     private WorkflowGraph(List<GraphNode> nodes, List<GraphEdge> edges) {
         this.nodeIndex = indexNodes(nodes);
+        ensureIoNodesAreUnique(nodes);
         validateEdges(edges, this.nodeIndex);
 
         this.nodes = List.copyOf(nodes);
@@ -64,6 +66,16 @@ public final class WorkflowGraph {
         }
 
         return Map.copyOf(index);
+    }
+
+    private static void ensureIoNodesAreUnique(List<GraphNode> nodes) {
+        Set<IoType> seen = new HashSet<>();
+        for (GraphNode node : nodes) {
+            if (node instanceof IoNode io && !seen.add(io.ioType())) {
+                throw new CoreException(ErrorType.WORKFLOW_IO_NODE_DUPLICATED,
+                        Map.of("nodeKey", node.key().value(), "ioType", io.ioType().name()));
+            }
+        }
     }
 
     private static void validateEdges(List<GraphEdge> edges, Map<NodeKey, GraphNode> nodeIndex) {
@@ -199,7 +211,20 @@ public final class WorkflowGraph {
                     Map.of("startCount", starts.size()));
         }
 
+        ensureStartNodeLeadsIfPlaced(starts.get(0));
+
         return starts.get(0);
+    }
+
+    private void ensureStartNodeLeadsIfPlaced(NodeKey root) {
+        nodes.stream()
+                .filter(node -> node instanceof IoNode io && io.isStart())
+                .filter(node -> !node.key().equals(root))
+                .findFirst()
+                .ifPresent(node -> {
+                    throw new CoreException(ErrorType.WORKFLOW_IO_NODE_EDGE_INVALID,
+                            Map.of("nodeKey", node.key().value()));
+                });
     }
 
     private Set<NodeKey> targetedNodes() {
@@ -216,6 +241,11 @@ public final class WorkflowGraph {
 
     private void ensureOutgoingShape(GraphNode node) {
         List<GraphEdge> next = outgoing.get(node.key());
+
+        if (node instanceof IoNode io && io.isEnd() && !next.isEmpty()) {
+            throw new CoreException(ErrorType.WORKFLOW_IO_NODE_EDGE_INVALID,
+                    Map.of("nodeKey", node.key().value()));
+        }
 
         if (node.sourceType() == SourceType.CONTROL) {
             if (!splitsTrueAndFalse(next)) {

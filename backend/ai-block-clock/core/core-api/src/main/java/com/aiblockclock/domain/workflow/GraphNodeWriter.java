@@ -29,7 +29,8 @@ public class GraphNodeWriter {
         for (GraphNodeEntity row : rows) {
             int updated = graphNodeRepository.updatePlacement(graphId.value(), row.getNodeKey(),
                     row.getSourceType(), row.getReferenceId(), row.getVersionId(), row.getInputSource(),
-                    row.getControlType(), row.getBranchCondition());
+                    row.getControlType(), row.getBranchCondition(), row.getIoType(), row.getIoFields(),
+                    row.getResultShape(), row.getResultFormat());
 
             if (updated == 0) {
                 graphNodeRepository.save(row);

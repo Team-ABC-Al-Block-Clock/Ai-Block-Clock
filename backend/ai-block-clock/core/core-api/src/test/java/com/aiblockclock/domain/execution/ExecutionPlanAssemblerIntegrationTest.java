@@ -105,7 +105,7 @@ class ExecutionPlanAssemblerIntegrationTest {
                 Prompt.of("당신은 시장 조사 분석가입니다."), AiModel.defaultModel());
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
-                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"));
+                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
 
         Workflow workflow = workflowService.save(OWNER, "경쟁 강도로 가른다", null,
                 List.of(
