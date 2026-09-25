@@ -1,4 +1,4 @@
-import { API_BASE_URL, api } from '@/api/client'
+import { API_BASE_URL, api, notifyAuthFailure } from '@/api/client'
 import { ApiError, isApiErrorBody } from '@/api/errors'
 import type { SourceType } from '@/api/workflows'
 
@@ -171,6 +171,7 @@ export async function fetchResult(executionId: string, format: ResultFormat = 'J
   })
 
   if (!response.ok) {
+    if (response.status === 401) notifyAuthFailure()
     const body = await response.json().catch(() => null)
     throw new ApiError(isApiErrorBody(body) ? body.error.message : '결과를 받지 못했습니다.', {
       code: isApiErrorBody(body) ? body.error.code : undefined,
