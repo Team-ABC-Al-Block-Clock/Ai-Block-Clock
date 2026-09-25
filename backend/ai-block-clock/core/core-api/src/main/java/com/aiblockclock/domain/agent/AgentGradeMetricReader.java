@@ -8,6 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -19,6 +24,23 @@ public class AgentGradeMetricReader {
         return agentGradeMetricRepository.findById(agent.value())
                 .map(AgentGradeMetricReader::toDomain)
                 .orElseGet(() -> AgentGradeMetric.fresh(agent));
+    }
+
+    // 여러 에이전트를 한 번에 읽는다. 줄이 없는 에이전트도 신규 재료로 채워, 받은 에이전트마다 하나씩 돌려준다.
+    public Map<AgentId, AgentGradeMetric> readAll(Collection<AgentId> agents) {
+        if (agents.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<AgentId, AgentGradeMetric> counted = agentGradeMetricRepository
+                .findAllById(agents.stream().map(AgentId::value).toList()).stream()
+                .map(AgentGradeMetricReader::toDomain)
+                .collect(Collectors.toMap(AgentGradeMetric::agent, Function.identity()));
+
+        return agents.stream()
+                .distinct()
+                .collect(Collectors.toMap(Function.identity(),
+                        agent -> counted.getOrDefault(agent, AgentGradeMetric.fresh(agent))));
     }
 
     private static AgentGradeMetric toDomain(AgentGradeMetricEntity entity) {

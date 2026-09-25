@@ -67,6 +67,11 @@ agent-grade:
       min-score: ${AGENT_GRADE_TIER_3_MIN_SCORE:45}
       min-success-rate: ${AGENT_GRADE_TIER_3_MIN_SUCCESS_RATE:0.90}
       min-review-count: ${AGENT_GRADE_TIER_3_MIN_REVIEW_COUNT:0}
+  # 등급 · 단가 재산정(PAY-022)을 도는 때. 하루 한 번, 사용이 적은 새벽이다. 가격이 하루 동안 바뀌지 않는다.
+  # 시연 전에 한 번 돌리려면 cron 만 잠깐 가까운 시각으로 바꾼다. "-" 면 돌지 않는다.
+  regrade:
+    cron: ${AGENT_GRADE_REGRADE_CRON:0 0 3 * * *}
+    zone: ${AGENT_GRADE_REGRADE_ZONE:Asia/Seoul}
 
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
