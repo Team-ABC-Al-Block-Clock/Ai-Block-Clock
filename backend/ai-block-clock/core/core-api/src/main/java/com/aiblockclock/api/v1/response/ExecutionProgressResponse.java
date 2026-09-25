@@ -28,7 +28,10 @@ public record ExecutionProgressResponse(
         String currentStepName,
 
         @Schema(description = "단계별 상태")
-        List<StepResponse> steps
+        List<StepResponse> steps,
+
+        @Schema(description = "왜 멎었나. `status` 가 `FAILED` 일 때만 채워진다", nullable = true)
+        FailureResponse failure
 ) {
     public static ExecutionProgressResponse from(ExecutionProgress progress) {
         return new ExecutionProgressResponse(
@@ -38,7 +41,8 @@ public record ExecutionProgressResponse(
                 progress.total(),
                 progress.percent(),
                 progress.currentStepName(),
-                progress.steps().stream().map(StepResponse::from).toList());
+                progress.steps().stream().map(StepResponse::from).toList(),
+                FailureResponse.from(progress.failure()));
     }
 
     @Schema(description = "단계 하나")
@@ -51,6 +55,30 @@ public record ExecutionProgressResponse(
     ) {
         static StepResponse from(ExecutionProgress.Step step) {
             return new StepResponse(step.name(), step.status());
+        }
+    }
+
+    @Schema(description = "실패한 까닭")
+    public record FailureResponse(
+            @Schema(description = "멎은 단계 이름. 어느 단계인지 엔진이 알려주지 않으면 null",
+                    example = "가정통신문 작성", nullable = true)
+            String stepName,
+
+            @Schema(description = "실행 엔진이 매긴 오류 코드", example = "MODEL_API_ERROR")
+            String errorCode,
+
+            @Schema(description = """
+                    누구 탓인가. `supplier` · `consumer` · `platform`.
+                    까닭을 되찾지 못했으면 비어 있다 — 모른다는 뜻이지 플랫폼 과실이 아니다.
+                    """, example = "supplier", nullable = true)
+            String fault
+    ) {
+        static FailureResponse from(ExecutionProgress.Failure failure) {
+            if (failure == null) {
+                return null;
+            }
+
+            return new FailureResponse(failure.stepName(), failure.errorCode(), failure.fault());
         }
     }
 }
