@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 
 import type { ExecutionFailure, StepStatus } from '@/api/executions'
+import { useEasedPercent } from '@/hooks/useEasedPercent'
 import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -34,10 +35,6 @@ const CAMERA_LEAD = 2
 /** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
 const CAMERA_STEP = 197
 
-/**
- * 실행 엔진이 보낸 소문자가 그대로 온다 — 서버가 대조하지 않아 모르는 값이 올 수 있다.
- * 못 찾으면 대기로 둔다. 빈 칸이면 카드 아래 한 줄이 통째로 사라진다.
- */
 /** 실행 엔진이 매기는 오류 코드. 없는 코드가 와도 화면이 비지 않게 기본 문구를 둔다. */
 const FAILURE_TEXT: Record<string, string> = {
   SCHEMA_VALIDATION_FAILED: '단계가 약속한 형식으로 결과를 내지 못했습니다.',
@@ -55,21 +52,41 @@ const FAILURE_TEXT: Record<string, string> = {
   ABC_RUNTIME_UNREPORTED: '실행이 실패했지만 까닭은 남아 있지 않습니다.',
 }
 
-/** 누구 탓인지 서버가 모를 수 있다. 비어 있으면 탓을 적지 않는다. */
-const FAULT_TEXT: Record<string, string> = {
-  supplier: '만든 사람 쪽 문제로 봅니다.',
-  consumer: '넣은 값 쪽 문제로 봅니다.',
-  platform: '플랫폼 쪽 문제로 봅니다.',
+/**
+ * `fault` 는 원래 정산용이다 — 누구에게 환원할지 가르는 값이라 그대로 보여 주면 탓만 하고
+ * 할 일을 알려 주지 않는다. 특히 `consumer` 는 사용자 잘못이라는 말이 된다. 행동으로 바꾼다.
+ * 서버가 까닭을 못 찾으면 비어 오고, 그때는 아무 말도 덧붙이지 않는다.
+ */
+const FAULT_ADVICE: Record<string, string> = {
+  supplier: '재실행 후에도 실패한다면 노드를 교체해주세요.',
+  consumer: '올린 파일과 입력한 내용을 확인해 주세요.',
+  platform: '잠시 후 다시 실행해 주세요.',
 }
 
+/** 안내 패널 안의 버튼. 실패와 조회 불가가 같은 모양을 쓴다. */
+const PANEL_ACTION: CSSProperties = {
+  marginTop: '6px',
+  height: '38px',
+  padding: '0 16px',
+  borderRadius: '10px',
+  background: 'rgba(255,255,255,.12)',
+}
+
+/** 한 줄에 한 마디씩 — 어디서 멈췄나, 무슨 일이 났나, 무엇을 하면 되나. */
 function describeFailure(failure: ExecutionFailure): string {
-  const what = FAILURE_TEXT[failure.errorCode] ?? '실행이 실패했습니다.'
-  const where = failure.stepName ? `${failure.stepName} 단계에서 멎었습니다. ` : ''
-  const whose = failure.fault ? ` ${FAULT_TEXT[failure.fault] ?? ''}` : ''
+  const lines = [
+    failure.stepName && `${failure.stepName} 단계에서 중단되었습니다.`,
+    FAILURE_TEXT[failure.errorCode] ?? '실행이 실패했습니다.',
+    failure.fault && FAULT_ADVICE[failure.fault],
+  ]
 
-  return `${where}${what}${whose}`.trim()
+  return lines.filter(Boolean).join('\n')
 }
 
+/**
+ * 실행 엔진이 보낸 소문자가 그대로 온다 — 서버가 대조하지 않아 모르는 값이 올 수 있다.
+ * 못 찾으면 대기로 둔다. 빈 칸이면 카드 아래 한 줄이 통째로 사라진다.
+ */
 const STEP_LABEL: Record<string, string> = {
   pending: '대기',
   running: '진행 중',
@@ -120,7 +137,15 @@ export default function RunRunning() {
    * 폴링 한 번이 넘어져도 쿼리는 지난 값을 들고 있어, 도는 실행이 잠깐 실패로 보인다.
    */
   const lost = run.broken && !progress
-  const pctR = progress ? progress.percent : Math.round(pct)
+  const settled = progress ? progress.percent : Math.round(pct)
+  /** 끝났거나 멎었거나 소식이 끊겼다. 기어가기를 멈추고 받은 값에 붙는다. */
+  const settle = failed || run.broken || progress?.status === 'SUCCEEDED'
+  /** 도는 단계가 끝나면 닿을 값. 그 앞까지 기어가 게이지가 서 있지 않게 한다. */
+  const ceiling = progress
+    ? Math.min(100, Math.round(((progress.done + 1) / Math.max(1, progress.total)) * 100))
+    : settled
+  // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
+  const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
   // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
   const per = 100 / Math.max(1, defs.length)
   const active = progress
@@ -286,23 +311,27 @@ export default function RunRunning() {
     pctR +
     '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
-  const failureNotice = lost
-    ? '잠시 뒤 다시 열어 보시거나, 워크플로우를 확인해 주세요'
-    : progress?.failure
-      ? describeFailure(progress.failure)
-      : '실행 엔진이 사유를 알려 주지 않았습니다. 입력과 노드 설정을 확인해 주세요'
+  const failureNotice = run.missing
+    ? '워크플로우를 다시 실행해 주세요.'
+    : lost
+      ? '실행은 계속되고 있습니다. 새로고침해 주세요.'
+      : progress?.failure
+        ? describeFailure(progress.failure)
+        : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 
-  const stepTitle = lost
-    ? '진행 상황을 알 수 없습니다'
-    : failed
-      ? '실행이 중단되었습니다'
-      : finished
-        ? '결과 전달 완료'
-        : progress
-          ? (progress.currentStepName ?? '실행을 준비하는 중')
-          : g
-            ? `${g.name} 중`
-            : '워크플로우를 불러오는 중'
+  const stepTitle = run.missing
+    ? '실행을 찾을 수 없습니다'
+    : lost
+      ? '진행 상황을 알 수 없습니다'
+      : failed
+        ? '실행이 중단되었습니다'
+        : finished
+          ? '실행 완료'
+          : progress
+            ? (progress.currentStepName ?? '실행을 준비하는 중')
+            : g
+              ? `${g.name} 중`
+              : '워크플로우를 불러오는 중'
   const stepMeta = lost
     ? ''
     : progress
@@ -423,8 +452,8 @@ export default function RunRunning() {
               ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
               : paths.run.waiting.withoutId
           }
-          title="실행 재설정"
-          aria-label="실행 재설정"
+          title="다시 실행"
+          aria-label="다시 실행"
           style={{
             right: '26px',
             top: '32px',
@@ -483,39 +512,68 @@ export default function RunRunning() {
           {stepMeta}
         </div>
 
+        {run.broken && progress && (
+          <div
+            className="absolute left-0 text-center text-[13px]"
+            style={{ top: '380px', width: `${PANEL_WIDTH}px`, color: 'rgba(255,214,232,.6)' }}
+          >
+            진행 상황을 잠시 받지 못하고 있습니다
+          </div>
+        )}
+
         {(failed || lost) && (
           <div
-            className="bg-surface-card absolute box-border flex flex-col"
+            className="bg-surface-card absolute box-border flex flex-col items-center text-center"
             style={{
               left: `${PANEL_INSET}px`,
               top: '400px',
               width: `${PANEL_CONTENT_WIDTH}px`,
-              padding: '18px 20px',
+              padding: '22px 20px',
               borderRadius: '12px',
-              gap: '8px',
+              gap: '10px',
               animation: 'uiIn .6s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
             <div className="text-[16px] font-semibold" style={{ color: 'rgba(255,190,209,.95)' }}>
-              {lost ? '진행 상황을 불러오지 못했습니다' : '실행이 실패했습니다'}
+              {run.missing
+                ? '잘못된 링크이거나 다른 계정의 실행입니다'
+                : lost
+                  ? '진행 상황을 불러오지 못했습니다'
+                  : '실행이 실패했습니다'}
             </div>
-            <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.7)' }}>
+            <div
+              className="text-[14.5px]"
+              style={{ color: 'rgba(255,236,246,.7)', lineHeight: '1.7', whiteSpace: 'pre-line' }}
+            >
               {failureNotice}
             </div>
-            <a
-              href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
-              style={{
-                marginTop: '4px',
-                height: '38px',
-                padding: '0 16px',
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,.12)',
-                alignSelf: 'flex-start',
-              }}
-              className="flex cursor-pointer items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
-            >
-              워크플로우 수정하기
-            </a>
+            {/*
+              멎었으면 다시 걸어 준다 — 까닭은 대개 모델이 잠깐 넘어진 것이라 고칠 게 없다.
+              중간부터 이어 갈 수는 없다. 서버에 그런 자리가 없어 늘 첫 단계부터 새로 돈다.
+              진행을 못 받은 것은 다르다. 실행은 멀쩡히 돌고 있을 수 있어 다시 걸면 두 번 빠진다.
+            */}
+            {lost && !run.missing ? (
+              <button
+                type="button"
+                onClick={() => location.reload()}
+                style={PANEL_ACTION}
+                className="flex cursor-pointer items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
+              >
+                새로고침
+              </button>
+            ) : (
+              <a
+                href={
+                  workflowId
+                    ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
+                    : paths.run.waiting.withoutId
+                }
+                style={PANEL_ACTION}
+                className="flex cursor-pointer items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
+              >
+                처음부터 다시 실행하기
+              </a>
+            )}
           </div>
         )}
 

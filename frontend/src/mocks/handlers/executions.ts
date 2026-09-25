@@ -89,19 +89,43 @@ const stepNamesOf = (detail: WorkflowDetail) =>
       PLACEABLE_ITEMS.find((item) => item.itemId === node.sourceId)?.name ?? '이름 없는 단계',
   )
 
+/**
+ * 실패 화면을 볼 자리. 몇 번째 단계에서 멎게 할지 적어 둔다 — 0부터 센다.
+ * `localStorage.setItem('mockFailStep', '2')`, 되돌리려면 지운다.
+ */
+const FAIL_STEP_KEY = 'mockFailStep'
+
+function failStep(): number | null {
+  try {
+    const raw = localStorage.getItem(FAIL_STEP_KEY)
+    const at = raw === null ? NaN : Number(raw)
+    return Number.isInteger(at) && at >= 0 ? at : null
+  } catch {
+    return null
+  }
+}
+
 /** 경과 시간으로 진행을 짓는다. 끝난 뒤에는 더 움직이지 않는다. */
 function progressOf(run: MockRun) {
   const total = run.stepNames.length
   const elapsed = Date.now() - run.startedAt
-  const done = Math.max(0, Math.min(total, Math.floor((elapsed - QUEUED_MS) / STEP_MS)))
-  const finished = done >= total
-  const status: ExecutionStatus = finished
-    ? 'SUCCEEDED'
-    : elapsed < QUEUED_MS
-      ? 'QUEUED'
-      : 'RUNNING'
+  const reached = Math.max(0, Math.min(total, Math.floor((elapsed - QUEUED_MS) / STEP_MS)))
+
+  const at = failStep()
+  // 대기 구간을 지나야 실패로 본다 — 0 을 넣으면 접수하자마자 터져 QUEUED 를 볼 수 없다.
+  const failed = at !== null && at < total && elapsed >= QUEUED_MS && reached >= at
+  const done = failed ? at : reached
+  const finished = !failed && done >= total
+  const status: ExecutionStatus = failed
+    ? 'FAILED'
+    : finished
+      ? 'SUCCEEDED'
+      : elapsed < QUEUED_MS
+        ? 'QUEUED'
+        : 'RUNNING'
 
   const steps: ExecutionStep[] = run.stepNames.map((name, i) => {
+    if (failed) return { name, status: i < done ? 'succeeded' : i === done ? 'failed' : 'pending' }
     const stepStatus: StepStatus = i < done ? 'succeeded' : i === done ? 'running' : 'pending'
     return { name, status: finished ? 'succeeded' : status === 'QUEUED' ? 'pending' : stepStatus }
   })
@@ -112,8 +136,12 @@ function progressOf(run: MockRun) {
     done,
     total,
     percent: total ? Math.round((done / total) * 100) : 0,
-    currentStepName: finished || status === 'QUEUED' ? null : (run.stepNames[done] ?? null),
+    currentStepName:
+      failed || finished || status === 'QUEUED' ? null : (run.stepNames[done] ?? null),
     steps,
+    failure: failed
+      ? { stepName: run.stepNames[done] ?? null, errorCode: 'MODEL_API_ERROR', fault: 'supplier' }
+      : null,
   }
 }
 
@@ -176,7 +204,7 @@ export const executionHandlers = [
     // 선차감. 잔액을 실제로 깎지는 않는다 — 픽스처가 상수라 새로고침에 되살아난다.
     const quote = quoteOf(detail)
     if (!quote.executable)
-      return fail(402, 'PAYMENT_008', 'ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.', {
+      return fail(402, 'PAYMENT_008', 'ABC 잔액이 부족합니다. 충전 후 다시 실행해 주세요.', {
         estimatedAmount: quote.estimatedAmount,
         availableAmount: quote.availableAmount,
         shortageAmount: quote.shortageAmount,

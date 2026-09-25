@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 
@@ -34,6 +34,9 @@ const COMMENT_MAX = 500
 
 /** 잔액 부족. 금액은 위 카드에 이미 있어 문구만 쓴다. */
 const INSUFFICIENT = 'PAYMENT_008'
+
+/** 충전으로 가는 길. 견적이 막았을 때와 접수가 막혔을 때 같은 모양을 쓴다. */
+const CHARGE_LINK: CSSProperties = { color: '#d7bce8', textDecoration: 'underline' }
 
 /**
  * 떼어 두기 전에 끊긴 것이 확실한 코드. 이때만 요청 식별자를 버린다 —
@@ -181,14 +184,14 @@ export default function RunWaiting() {
   const runNotice = start.error
     ? start.error instanceof ApiError && !start.error.isNetworkError
       ? start.error.message
-      : '실행을 맡기지 못했습니다. 잠시 뒤 다시 시도해 주세요'
+      : '실행을 맡기지 못했습니다. 잠시 후 다시 시도해 주세요'
     : !workflowId
       ? '저장된 워크플로우를 열어야 실행할 수 있습니다'
       : ''
 
   /** 목록이 비어 보이는 이유를 자리에 적는다 — 빈 상자만 두면 노드가 없는 것처럼 읽힌다. */
   const itemsNotice = !workflowId
-    ? '저장된 워크플로우를 열면 단계마다 비용이 나옵니다'
+    ? '저장된 워크플로우를 열면 단계별 비용을 확인할 수 있습니다'
     : estimate.isPending
       ? '견적을 계산하는 중입니다'
       : estimate.error
@@ -437,9 +440,16 @@ export default function RunWaiting() {
               color: blocked ? 'rgba(255,190,209,.86)' : 'rgba(255,236,246,.44)',
             }}
           >
-            {blocked
-              ? `${priceLabel(shortage)} 부족합니다. 충전한 뒤 다시 시도해 주세요`
-              : '실제 사용량에 따라 달라질 수 있습니다'}
+            {blocked ? (
+              <>
+                {`${priceLabel(shortage)} 부족합니다. `}
+                <a href={paths.my.credit} style={CHARGE_LINK}>
+                  충전하러 가기
+                </a>
+              </>
+            ) : (
+              '실제 사용량에 따라 달라질 수 있습니다'
+            )}
           </div>
         </div>
 
@@ -476,10 +486,7 @@ export default function RunWaiting() {
           >
             {runNotice}
             {startCode === INSUFFICIENT && (
-              <a
-                href={paths.my.credit}
-                style={{ marginLeft: '8px', color: '#d7bce8', textDecoration: 'underline' }}
-              >
+              <a href={paths.my.credit} style={{ ...CHARGE_LINK, marginLeft: '8px' }}>
                 충전하러 가기
               </a>
             )}
