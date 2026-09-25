@@ -634,6 +634,31 @@ class WorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("시작 노드가 아닌 자리가 빈 입력 항목을 실어 와도 저장한다")
+    void acceptsEmptyFieldsOutsideStartNode() throws Exception {
+        mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "빈 입력 항목",
+                                  "nodes": [
+                                    { "nodeKey": "s1", "sourceType": "IO", "ioType": "START", "fields": [] },
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s", "fields": [] },
+                                    { "nodeKey": "e1", "sourceType": "IO", "ioType": "END", "fields": [],
+                                      "resultShape": "TABLE", "resultFormat": "XLSX" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "g1", "sourceNodeKey": "s1", "targetNodeKey": "n1" },
+                                    { "edgeKey": "g2", "sourceNodeKey": "n1", "targetNodeKey": "e1" }
+                                  ]
+                                }
+                                """.formatted(nodeId)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     @DisplayName("낡은 회차로 수정하면 충돌로 막는다")
     void rejectsStaleRevision() throws Exception {
         String workflowId = create("회차 충돌");

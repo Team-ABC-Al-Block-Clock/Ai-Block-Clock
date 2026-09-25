@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.file.UploadedFile;
 import com.aiblockclock.domain.node.RefFileStore;
 import com.aiblockclock.client.ai.AiClientException;
@@ -33,6 +34,7 @@ public class ExecutionService {
     private final ExecutionFileValidator executionFileValidator;
     private final ExecutionFileStore executionFileStore;
     private final RefFileStore refFileStore;
+    private final ExecutionReservationManager executionReservationManager;
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
@@ -42,8 +44,16 @@ public class ExecutionService {
     private final ExecutionProgressStore progressStore;
     private final ExecutionMonitor executionMonitor;
 
-    public Execution start(
-            UserId requester, Workflow workflow, String comment, boolean mock, UploadedFile upload) {
+    // 같은 요청 번호로 이미 접수했으면 다시 떼지 않고 그 실행을 돌려준다.
+    // 새 요청이면 엔진에 보낼 요청을 다 만든 뒤에 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
+    public ExecutionStart start(UserId requester, Workflow workflow, ExecutionRequestId requestId,
+                                String comment, boolean mock, UploadedFile upload) {
+        Optional<Execution> earlier = executionReader.find(requester, requestId);
+
+        if (earlier.isPresent()) {
+            return ExecutionStart.alreadyRequested(earlier.get());
+        }
+
         if (upload != null) {
             executionFileValidator.validate(upload);
         }
@@ -53,10 +63,12 @@ public class ExecutionService {
         ExecutionFile inputFile = upload == null ? null : executionFileStore.write(id, upload);
 
         try {
-            RunAccepted accepted = accept(RuntimeWorkflow.of(workflow, plan), comment, mock, inputFile);
+            RunRequest runRequest = runRequestOf(RuntimeWorkflow.of(workflow, plan), inputFile, comment, mock);
+            Execution requested = Execution.requested(
+                    id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
+            AbcAmount reserved = executionReservationManager.reserve(requested, workflow);
 
-            return executionWriter.append(Execution.started(
-                    id, workflow.getId(), requester, RunId.of(accepted.runId()), plan.promptCount(), inputFile));
+            return ExecutionStart.newlyCreated(dispatch(requested, reserved, runRequest));
         } catch (RuntimeException exception) {
             executionFileStore.erase(inputFile);
 
@@ -90,7 +102,12 @@ public class ExecutionService {
         return execution;
     }
 
+    // 엔진에 넘기기 전이거나 넘기지 못한 실행은 엔진에 물을 번호가 없다. 우리가 남긴 것으로 답한다.
     private ExecutionProgress readThrough(Execution execution) {
+        if (!execution.isDispatched()) {
+            return ExecutionProgress.concluded(execution.getId(), execution.getStatus(), execution.getPromptCount());
+        }
+
         if (execution.getStatus().isFinished()) {
             return concluded(execution);
         }
@@ -150,16 +167,37 @@ public class ExecutionService {
         return executionResultReader.read(execution.getId(), format);
     }
 
-    private RunAccepted accept(
-            RuntimeWorkflow runtime, String comment, boolean mock, ExecutionFile inputFile) {
+    // 떼어 둔 뒤에는 무엇이 실패하든 돌려준다. 실행 번호를 남기지 못한 경우는 엔진이 이미 받았지만,
+    // 사용자 돈을 묶어 두기보다 돌려주는 쪽을 택한다. 엔진이 받았는데 응답만 늦은 경우도 지금은 구분할 수 없다.
+    private Execution dispatch(Execution requested, AbcAmount reserved, RunRequest runRequest) {
         try {
-            return aiRuntimeClient.start(new RunRequest(runtime.json(), null, comment,
-                    pathOf(inputFile), refFilePathsOf(runtime), mock));
-        } catch (AiClientException exception) {
-            log.warn("실행을 맡기지 못했다: {}", exception.getMessage(), exception);
+            RunAccepted accepted = aiRuntimeClient.start(runRequest);
 
-            throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
+            return executionWriter.markDispatched(requested.getId(), RunId.of(accepted.runId()));
+        } catch (RuntimeException exception) {
+            log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: execution={}", requested.getId().value(), exception);
+            release(requested, reserved, exception);
+
+            if (exception instanceof AiClientException) {
+                throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
+            }
+
+            throw exception;
         }
+    }
+
+    // 돌려주기마저 실패하면 원래 실패를 가리지 않도록 덧붙여 두고, 묶인 실행을 찾을 수 있게 남긴다.
+    private void release(Execution requested, AbcAmount reserved, RuntimeException cause) {
+        try {
+            executionReservationManager.release(requested, reserved);
+        } catch (RuntimeException failure) {
+            cause.addSuppressed(failure);
+            log.error("떼어 둔 금액을 돌려주지 못했다: execution={}", requested.getId().value(), failure);
+        }
+    }
+
+    private RunRequest runRequestOf(RuntimeWorkflow runtime, ExecutionFile inputFile, String comment, boolean mock) {
+        return new RunRequest(runtime.json(), null, comment, pathOf(inputFile), refFilePathsOf(runtime), mock);
     }
 
     private Path pathOf(ExecutionFile inputFile) {

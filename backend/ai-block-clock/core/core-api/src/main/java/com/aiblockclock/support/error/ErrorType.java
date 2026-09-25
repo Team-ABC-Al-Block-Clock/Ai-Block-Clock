@@ -91,6 +91,12 @@ public enum ErrorType {
             "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
             LogLevel.WARN),
 
+    WORKFLOW_IO_NODE_DUPLICATED(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "시작 노드와 끝 노드는 각각 하나만 놓을 수 있습니다.", LogLevel.WARN),
+
+    WORKFLOW_IO_NODE_EDGE_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
+            "시작 노드로는 선이 들어올 수 없고, 끝 노드에서는 선이 나갈 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_GRAPH_EMPTY(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_014,
             "노드를 하나 이상 놓아야 저장할 수 있습니다.", LogLevel.WARN),
 
@@ -148,8 +154,14 @@ public enum ErrorType {
     EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
             "그 형식으로 받을 수 있는 결과가 없습니다.", LogLevel.WARN),
 
+    EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
+            "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
+
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
+
+    EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
+            "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
 
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
             "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),
@@ -200,7 +212,10 @@ public enum ErrorType {
             "원장 거래 구성이 올바르지 않습니다.", LogLevel.ERROR),
 
     CHARGE_REQUEST_CONCURRENTLY_MODIFIED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_007,
-            "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN);
+            "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN),
+
+    ABC_BALANCE_INSUFFICIENT(HttpStatus.PAYMENT_REQUIRED, ErrorCode.PAYMENT_008,
+            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

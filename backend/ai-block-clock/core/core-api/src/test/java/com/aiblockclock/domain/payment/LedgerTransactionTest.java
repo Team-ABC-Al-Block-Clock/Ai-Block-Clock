@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
@@ -10,9 +11,11 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class LedgerTransactionTest {
 
@@ -62,6 +65,42 @@ class LedgerTransactionTest {
                 exception -> assertThat(exception.getErrorType())
                         .isEqualTo(ErrorType.LEDGER_INVALID_TRANSACTION)
         );
+    }
+
+    @Test
+    void 실행_선차감은_쓸_수_있는_잔액에서_예치로_옮기고_실행마다_키가_하나다() {
+        UUID executionId = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
+
+        LedgerTransaction reserve = LedgerTransaction.forExecutionReserve(
+                executionId, UserId.of(7L), AbcAmount.of(new BigDecimal("6")));
+
+        assertThat(reserve.eventType()).isEqualTo(LedgerEventType.RESERVE);
+        assertThat(reserve.idempotencyKey()).isEqualTo("execution-reserve:" + executionId);
+        assertThat(reserve.referenceType()).isEqualTo("EXECUTION");
+        assertThat(reserve.referenceId()).isEqualTo(executionId.toString());
+        assertThat(reserve.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-6.000000")),
+                        tuple(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("6.000000")));
+        assertThat(reserve.isBalanced()).isTrue();
+    }
+
+    @Test
+    void 실행_되돌리기는_예치를_쓸_수_있는_잔액으로_돌리고_선차감과_다른_키를_쓴다() {
+        UUID executionId = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
+
+        LedgerTransaction release = LedgerTransaction.forExecutionRelease(
+                executionId, UserId.of(7L), AbcAmount.of(new BigDecimal("6")));
+
+        assertThat(release.eventType()).isEqualTo(LedgerEventType.REFUND);
+        assertThat(release.idempotencyKey()).isEqualTo("execution-release:" + executionId);
+        assertThat(release.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.EXECUTION_ESCROW, new BigDecimal("-6.000000")),
+                        tuple(LedgerAccountType.ABC_BALANCE, new BigDecimal("6.000000")));
+        assertThat(release.isBalanced()).isTrue();
     }
 
     private ChargeRequest persistedPendingChargeRequest() {

@@ -132,6 +132,29 @@ class AgentExpansionIntegrationTest {
                 .containsExactly(tuple("고친 이름", "고친 일을 한다"));
     }
 
+    @Test
+    @DisplayName("굳힌 에이전트를 남이 놓고 돌려도 주인은 원 제작자 그대로다")
+    void keepsTheAgentAuthorAsOwnerForSomeoneElsesRun() {
+        UserId buyer = UserId.of(5555L);
+        Workflow placed = workflowService.save(buyer, "산 에이전트를 놓았다", null,
+                List.of(agentPlacement("a1")), List.of());
+
+        assertThat(executionPlanAssembler.assemble(placed).prompts())
+                .extracting(PlannedPrompt::owner)
+                .containsExactly(OWNER, OWNER);
+    }
+
+    @Test
+    @DisplayName("캔버스에 그냥 놓은 노드는 그 노드의 주인을 들고 나온다")
+    void carriesTheLiveNodeOwner() {
+        Workflow placed = workflowService.save(OWNER, "노드만 놓았다", null,
+                List.of(GraphFixtures.placement("n1", soldNode.getId().value())), List.of());
+
+        assertThat(executionPlanAssembler.assemble(placed).prompts())
+                .extracting(PlannedPrompt::owner)
+                .containsExactly(OWNER);
+    }
+
     private NodePlacement node(String key, String name, String prompt) {
         NodeDefinition created = nodeService.create(OWNER, name, Prompt.of(prompt), AiModel.defaultModel());
 
@@ -140,7 +163,7 @@ class AgentExpansionIntegrationTest {
 
     private NodePlacement agentPlacement(String key) {
         return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agent.agent().getId().value(), InputSource.defaultSource(), null, null, null);
+                agent.agent().getId().value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
     }
 
     private static AgentProfile profile() {

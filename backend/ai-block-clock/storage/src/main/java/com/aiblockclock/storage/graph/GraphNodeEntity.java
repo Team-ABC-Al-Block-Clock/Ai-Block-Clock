@@ -2,6 +2,9 @@ package com.aiblockclock.storage.graph;
 
 import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.IoType;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import jakarta.persistence.Column;
@@ -62,8 +65,24 @@ public class GraphNodeEntity {
     @Column(name = "branch_condition", columnDefinition = "text")
     private String branchCondition;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "io_type", length = 20)
+    private IoType ioType;
+
+    @Column(name = "io_fields", columnDefinition = "text")
+    private String ioFields;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "result_shape", length = 20)
+    private ResultShape resultShape;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "result_format", length = 20)
+    private ResultFormat resultFormat;
+
     public GraphNodeEntity(UUID graphId, String nodeKey, SourceType sourceType, UUID referenceId, UUID versionId,
-                           InputSource inputSource, ControlType controlType, String branchCondition) {
+                           InputSource inputSource, ControlType controlType, String branchCondition,
+                           IoType ioType, String ioFields, ResultShape resultShape, ResultFormat resultFormat) {
         this.graphId = graphId;
         this.nodeKey = nodeKey;
         this.sourceType = sourceType;
@@ -72,5 +91,9 @@ public class GraphNodeEntity {
         this.inputSource = inputSource;
         this.controlType = controlType;
         this.branchCondition = branchCondition;
+        this.ioType = ioType;
+        this.ioFields = ioFields;
+        this.resultShape = resultShape;
+        this.resultFormat = resultFormat;
     }
 }

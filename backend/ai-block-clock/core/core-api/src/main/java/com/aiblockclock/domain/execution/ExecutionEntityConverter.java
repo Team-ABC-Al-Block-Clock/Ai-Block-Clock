@@ -12,8 +12,9 @@ public final class ExecutionEntityConverter {
         return new ExecutionEntity(
                 execution.getId().value(),
                 execution.getWorkflowId().value(),
+                execution.getRequestId().value(),
                 execution.getRequester().value(),
-                execution.getRunId().value(),
+                execution.isDispatched() ? execution.getRunId().value() : null,
                 execution.getStatus(),
                 execution.getPromptCount(),
                 keyOf(execution.getInputFile()),
@@ -24,9 +25,10 @@ public final class ExecutionEntityConverter {
     public static Execution toDomain(ExecutionEntity entity) {
         return Execution.restore(
                 ExecutionId.of(entity.getId()),
+                ExecutionRequestId.of(entity.getRequestId()),
                 WorkflowId.of(entity.getWorkflowId()),
                 UserId.of(entity.getRequesterId()),
-                RunId.of(entity.getRunId()),
+                entity.getRunId() == null ? null : RunId.of(entity.getRunId()),
                 entity.getStatus(),
                 entity.getPromptCount(),
                 inputFileOf(entity));

@@ -21,5 +21,5 @@ import java.lang.annotation.Target;
         "spring.jpa.hibernate.ddl-auto=validate"
 })
 @Import(MySqlTestConfiguration.class)
-@interface PaymentMySqlTest {
+public @interface PaymentMySqlTest {
 }

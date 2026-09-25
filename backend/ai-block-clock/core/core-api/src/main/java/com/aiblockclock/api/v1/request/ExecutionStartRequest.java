@@ -19,6 +19,12 @@ public record ExecutionStartRequest(
         @Schema(description = "실행할 워크플로우 ID", example = "33567ab2-e08b-461b-a0f2-51a857df5ec7")
         @NotNull UUID workflowId,
 
+        @Schema(description = """
+                실행 버튼을 누를 때 화면이 만드는 UUID. 같은 누름을 다시 보낼 때(재시도 · 연타)는 같은 값을 보낸다. \
+                같은 값이 다시 오면 새로 차감하지 않고 앞서 접수한 실행을 돌려준다. 새 실행은 새 값으로 보낸다""",
+                example = "5d3f9c1e-7b2a-4e8f-9a61-2c4b8d0e1f37")
+        @NotNull UUID requestId,
+
         @Schema(description = "사용자가 덧붙인 한 줄. 첫 단계에 함께 전달된다",
                 example = "이번 달은 난이도가 높았습니다", maxLength = 500, nullable = true)
         @Size(max = 500) String comment,

@@ -34,11 +34,12 @@ public class ExecutionUnitAssembler {
                 NodeDefinitionId nodeId = NodeDefinitionId.of(placed.reference().referenceId());
                 NodeDefinition node = nodeReader.read(nodeId);
 
-                yield new NodeUnit(placed.inputSource(), node.getSpec().name(), node.getPrompt(),
-                        refFileReader.read(nodeId));
+                yield new NodeUnit(placed.inputSource(), node.getOwner(), node.getSpec().name(),
+                        node.getPrompt(), refFileReader.read(nodeId));
             }
             case AGENT -> expand(placed);
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
         };
     }
 
@@ -57,10 +58,12 @@ public class ExecutionUnitAssembler {
             case NODE -> {
                 VersionNode node = require(frozen, placed.key());
 
-                yield new NodeUnit(placed.inputSource(), node.spec().name(), node.prompt(), node.refFiles());
+                yield new NodeUnit(placed.inputSource(), node.owner(), node.spec().name(), node.prompt(),
+                        node.refFiles());
             }
             case AGENT -> expand(placed);
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
         };
     }
 

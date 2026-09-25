@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -75,8 +76,9 @@ class ExecutionResultHarvestIntegrationTest {
     @BeforeEach
     void setUp() {
         executionId = ExecutionId.newId();
-        executionWriter.append(Execution.started(executionId, WorkflowId.newId(), REQUESTER,
-                RunId.of(RUN_ID), 2, null));
+        executionWriter.append(Execution.requested(executionId, ExecutionRequestId.of(UUID.randomUUID()),
+                WorkflowId.newId(), REQUESTER, 2, null));
+        executionWriter.markDispatched(executionId, RunId.of(RUN_ID));
 
         given(aiRuntimeClient.readArtifact(RUN_ID)).willReturn(ARTIFACT);
         given(aiRuntimeClient.readPdf(RUN_ID))

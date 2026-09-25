@@ -40,6 +40,16 @@ public interface LedgerAccountRepository
             @Param("referenceId") String referenceId
     );
 
+    @Query(value = """
+            SELECT balance FROM ledger_account
+             WHERE account_type = :accountType AND reference_id = :referenceId
+             FOR UPDATE
+            """, nativeQuery = true)
+    Optional<BigDecimal> findBalanceForUpdate(
+            @Param("accountType") String accountType,
+            @Param("referenceId") String referenceId
+    );
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE LedgerAccountEntity account
