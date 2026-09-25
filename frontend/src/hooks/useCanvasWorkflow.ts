@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
+import type { AiModel } from '@/api/nodes'
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
@@ -478,11 +479,9 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     dragId,
     linkFrom,
     canSell: canSellWorkflow(nodes),
-    /** 지워진 원본을 쓰던 카드를 전부 내린다. 남겨 두면 저장이 `WORKFLOW_015` 로 막힌다. */
-    removeBySource: (sourceId: string) => dispatch({ type: 'removeBySource', sourceId }),
-    /** 원본 이름이 바뀌면 놓인 카드도 따라간다. */
-    renameBySource: (sourceId: string, name: string) =>
-      dispatch({ type: 'renameBySource', sourceId, name }),
+    /** 고른 기본 노드의 값을 고친다. 서버에는 워크플로우를 저장할 때 함께 나간다. */
+    editNode: (id: string, values: { name: string; prompt: string; model: AiModel }) =>
+      dispatch({ type: 'editNode', id, ...values }),
     portOpen,
     view,
     zoomLabel: `${zoomPercent(view)}%`,

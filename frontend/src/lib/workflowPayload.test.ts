@@ -13,6 +13,8 @@ const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData =>
   sourceId: `src-${id}`,
   price: '1',
   summary: null,
+  prompt: null,
+  model: null,
   x: 0,
   y: 0,
   mine: true,
@@ -130,6 +132,8 @@ describe('toCanvasWorkflow', () => {
           nodeType: 'TRIGGER' as const,
           price: '4',
           summary: '폴더를 훑어 새 파일을 집어 온다',
+          prompt: null,
+          model: null,
           mine: true,
         }
       : undefined

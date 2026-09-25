@@ -1,3 +1,4 @@
+import type { AiModel } from '@/api/nodes'
 import type { ItemNodeType, SourceType } from '@/api/workflows'
 
 import { roundedPath, routeEdge } from './edgeRoute'
@@ -48,8 +49,16 @@ export interface CanvasNodeData {
   nodeType: ItemNodeType
   /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드와 에이전트를 가른다 */
   sourceType: SourceType
-  /** 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다 */
+  /**
+   * 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다.
+   *
+   * 캔버스에서 갓 만든 기본 노드는 아직 원본이 없어 빈 문자열이다 — 저장할 때 서버가 만든다.
+   */
   sourceId: string
+  /** 기본 노드가 그 자리에 적은 프롬프트. 에이전트는 null */
+  prompt: string | null
+  /** 기본 노드가 쓸 모델. 에이전트는 null */
+  model: AiModel | null
   /** 팔레트 항목의 `price`. 팔레트에서 못 찾은 노드는 null 이다 */
   price: string | null
   /** 팔레트 항목의 `summary`. 에이전트는 내부 구성 대신 이것을 보여준다 */
@@ -83,6 +92,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceId: 'node_001',
     price: '4',
     summary: null,
+    prompt: null,
+    model: null,
     x: 12,
     y: 400,
     mine: true,
@@ -97,6 +108,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceId: 'node_002',
     price: '12',
     summary: null,
+    prompt: null,
+    model: null,
     x: 209,
     y: 320,
     mine: true,
@@ -111,6 +124,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceId: 'node_003',
     price: '6',
     summary: null,
+    prompt: null,
+    model: null,
     x: 406,
     y: 440,
     mine: true,
@@ -125,6 +140,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceId: 'node_004',
     price: '15',
     summary: null,
+    prompt: null,
+    model: null,
     x: 603,
     y: 330,
     mine: true,
@@ -139,6 +156,8 @@ export const CANVAS_NODES: CanvasNodeData[] = [
     sourceId: 'node_005',
     price: '3',
     summary: null,
+    prompt: null,
+    model: null,
     x: 800,
     y: 430,
     mine: true,
@@ -404,7 +423,16 @@ export function placeNode(
   nodes: CanvasNodeData[],
   seed: Pick<
     CanvasNodeData,
-    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'summary' | 'mine'
+    | 'id'
+    | 'name'
+    | 'nodeType'
+    | 'sourceType'
+    | 'sourceId'
+    | 'price'
+    | 'summary'
+    | 'prompt'
+    | 'model'
+    | 'mine'
   >,
   x: number,
   y: number,
@@ -458,7 +486,16 @@ function seedPoint(layout: SeedLayout, i: number): { x: number; y: number } {
 export function seedCanvasNodes(
   seeds: Pick<
     CanvasNodeData,
-    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'summary' | 'mine'
+    | 'id'
+    | 'name'
+    | 'nodeType'
+    | 'sourceType'
+    | 'sourceId'
+    | 'price'
+    | 'summary'
+    | 'prompt'
+    | 'model'
+    | 'mine'
   >[],
   layout: SeedLayout = 'row',
 ): CanvasNodeData[] {

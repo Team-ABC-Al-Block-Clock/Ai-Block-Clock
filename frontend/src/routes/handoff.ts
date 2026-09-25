@@ -55,6 +55,8 @@ export function seedsFrom(state: unknown): PlacedSeed[] {
       sourceId: agent.agentId,
       price: agent.price,
       summary: agent.summary,
+      prompt: null,
+      model: null,
       mine: false,
     }))
 }

@@ -57,12 +57,9 @@ export function useNodePalette() {
     placeholderData: keepPreviousData,
   })
 
-  // 팔레트에 세우는 것은 마켓 에이전트뿐이다. 내 노드는 「노드 추가」로 캔버스에 바로 놓는다.
-  const items =
-    data?.pages.flatMap((page) => page.content).filter((item) => item.itemType === 'AGENT') ?? []
+  const items = data?.pages.flatMap((page) => page.content) ?? []
   // placeholder 는 아직 이번 검색의 결과가 아니다. isPending 만 보면 한 글자마다 깜빡인다.
   const isSettled = !isPending && !isPlaceholderData
-  // 받은 쪽에서 에이전트만 골라 내므로, 다음 쪽이 남아 있으면 아직 없다고 말할 수 없다.
   const isEmpty = isSettled && !isError && !hasNextPage && items.length === 0
 
   const paletteRef = useRef<HTMLDivElement>(null)

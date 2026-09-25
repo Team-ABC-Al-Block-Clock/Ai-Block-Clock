@@ -3,6 +3,7 @@ import { http } from 'msw'
 import { API_BASE_URL } from '@/api/client'
 import type { CostItem, ExecutionStatus, ExecutionStep, StepStatus } from '@/api/executions'
 import { CREDIT_BALANCE } from '@/mocks/fixtures/credits'
+import { findNode } from '@/mocks/handlers/nodes'
 import { PLACEABLE_ITEMS } from '@/mocks/fixtures/nodePalette'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -60,12 +61,14 @@ const FILE_MAX_BYTES = 10 * 1024 * 1024
 /** 견적. 접수와 조회가 같은 값을 써야 한다 — 따로 계산하면 카드와 막는 금액이 어긋난다. */
 function quoteOf(detail: WorkflowDetail) {
   const items: CostItem[] = detail.nodes.map((node) => {
+    // 기본 노드는 팔레트에 없다. 저장하며 만들어진 원본에서 찾는다.
     const item = PLACEABLE_ITEMS.find((it) => it.itemId === node.sourceId)
+    const basic = item ? undefined : findNode(node.sourceId)
     return {
       nodeKey: node.nodeKey,
       sourceType: node.sourceType,
-      name: item?.name ?? '알 수 없는 노드',
-      price: money(Number(item?.price ?? 0)),
+      name: item?.name ?? basic?.name ?? '알 수 없는 노드',
+      price: money(Number(item?.price ?? basic?.baseCost ?? 0)),
     }
   })
 

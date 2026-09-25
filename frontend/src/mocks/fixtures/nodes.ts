@@ -1,34 +1,40 @@
 import type { NodeDetail } from '@/api/nodes'
-import { PLACEABLE_ITEMS } from '@/mocks/fixtures/nodePalette'
 
 /**
- * 작업 노드 상세. 팔레트 픽스처에서 파생한다 — 두 곳에 따로 적으면 ID 체계가 갈려
- * 팔레트에서 놓은 노드를 상세로 열 수 없게 된다.
+ * 작업 노드 원본.
+ *
+ * 팔레트에서 파생하지 않는다 — 기본 노드는 캔버스에서 적어 워크플로우를 저장할 때 만들어지고,
+ * 재사용되지 않아 팔레트에 오르지 않는다. 여기 있는 것은 앞서 저장하며 만들어진 셈 치는 값이다.
  */
-
-/** 프롬프트는 이름에서 지어 낸다. 건마다 손으로 적을 값이 아니다. */
-const promptOf = (name: string, summary: string | null) =>
-  `당신은 ${name} 담당입니다.\n${summary ?? '주어진 입력을 처리해 결과를 돌려주세요.'}`
-
-export const NODE_DETAILS: NodeDetail[] = PLACEABLE_ITEMS.filter(
-  (item) => item.itemType === 'NODE' && item.mine,
-).map((item) => ({
-  nodeId: item.itemId,
-  name: item.name,
-  prompt: promptOf(item.name, item.summary),
-  model: 'GEMINI_2_5_FLASH',
-  baseCost: item.price,
-  currency: 'ABC',
-  refFiles: [],
-}))
+export const NODE_DETAILS: NodeDetail[] = [
+  {
+    nodeId: 'node_001',
+    name: '파일 수집',
+    prompt: '지정한 폴더를 훑어 새로 들어온 파일을 모아 준다.',
+    model: 'GEMINI_2_5_FLASH',
+    baseCost: '4',
+    currency: 'ABC',
+    refFiles: [],
+  },
+  {
+    nodeId: 'node_002',
+    name: '내용 분석',
+    prompt: '문서를 읽고 주제와 핵심 문장을 뽑는다.',
+    model: 'GEMINI_2_5_FLASH',
+    baseCost: '12',
+    currency: 'ABC',
+    refFiles: [],
+  },
+  {
+    nodeId: 'node_003',
+    name: '요약 생성',
+    prompt: '분석 결과를 세 줄로 줄인다.',
+    model: 'GEMINI_2_5_FLASH',
+    baseCost: '15',
+    currency: 'ABC',
+    refFiles: [],
+  },
+]
 
 /** 팔레트에 없는 남의 노드. 권한 실패(`NODE_002`) 경로를 확인할 때 쓴다. */
 export const OTHERS_NODE_ID = 'node_900'
-
-/**
- * 워크플로우에 배치돼 지울 수 없는 노드(`NODE_004`).
- *
- * 픽스처 워크플로우가 내 기본 노드 앞 세 건으로 한 줄을 만든다(`handlers/workflows.ts`).
- * 수가 어긋나면 실서버가 막는 노드를 mock 에서만 지울 수 있게 된다.
- */
-export const PLACED_NODE_IDS = new Set(NODE_DETAILS.slice(0, 3).map((node) => node.nodeId))

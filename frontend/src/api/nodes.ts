@@ -40,23 +40,5 @@ export interface NodeDetail {
 /** 서버 이름 상한. 넘겨 보내면 COMMON_001 로 돌아온다. */
 export const NODE_NAME_MAX = 40
 
-/** 생성과 수정이 같은 모양을 쓴다. `model` 을 비우면 서버 기본 모델이 붙는다. */
-export interface NodeSaveBody {
-  name: string
-  prompt: string
-  model?: AiModel | null
-}
-
+/** 저장된 워크플로우를 다시 열 때, 배치가 가리키는 원본의 이름·프롬프트를 읽는다. */
 export const getNode = (nodeId: string) => api.get<NodeDetail>(`/nodes/${nodeId}`)
-
-export const createNode = (body: NodeSaveBody) => api.post<NodeDetail>('/nodes', body)
-
-export const updateNode = (nodeId: string, body: NodeSaveBody) =>
-  api.put<NodeDetail>(`/nodes/${nodeId}`, body)
-
-export interface NodeDeleted {
-  nodeId: string
-  deletedAt: string
-}
-
-export const deleteNode = (nodeId: string) => api.delete<NodeDeleted>(`/nodes/${nodeId}`)

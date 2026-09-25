@@ -13,7 +13,6 @@ import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
-import { useNodeDetail } from '@/hooks/useNodeDetail'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
@@ -31,14 +30,6 @@ import NodePalettePanel from './NodePalettePanel'
 const NAME_MAX = 40
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
-
-function describeNodeCreateError(error: unknown): string {
-  if (!(error instanceof ApiError)) return '노드를 만들지 못했습니다'
-  if (error.code === 'NODE_003') return '프롬프트를 입력해 주세요'
-  // 서버 빈 검증은 이름·프롬프트를 한 코드로 묶어 답한다. 한쪽을 지목하지 않는다.
-  if (error.code === 'COMMON_001') return '입력한 값을 확인해 주세요'
-  return '노드를 만들지 못했습니다'
-}
 
 /** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
 const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
@@ -92,8 +83,7 @@ export default function EditNodes() {
     dragId,
     linkFrom,
     canSell,
-    removeBySource,
-    renameBySource,
+    editNode,
     portOpen,
     onHover,
     onSelectEdge,
@@ -120,7 +110,6 @@ export default function EditNodes() {
   const [name, setName] = useState('문서 정리')
   /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
   const [draft, setDraft] = useState({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
-  const { create } = useNodeDetail(undefined)
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
@@ -128,12 +117,6 @@ export default function EditNodes() {
 
   /** 마지막으로 저장에 성공한(또는 불러온) 내용. 한 글자라도 달라지면 다시 저장할 것이 있다. */
   const [savedShape, setSavedShape] = useState<string | null>(null)
-  /**
-   * 저장본에 들어간 원본 id. 서버가 이런 노드의 삭제를 `NODE_004` 로 막는다.
-   *
-   * 화면 단위로 「저장했는가」만 보면 저장 뒤에 새로 만든 노드까지 잠긴다.
-   */
-  const [savedSources, setSavedSources] = useState<ReadonlySet<string>>(new Set())
 
   /** 한 번 옮기면 끝이다. 같은 응답으로 다시 덮지 않는다. */
   const applied = useRef<string | null>(null)
@@ -149,7 +132,6 @@ export default function EditNodes() {
     setSavedShape(
       shapeOf(toWorkflowGraph(loadedCanvas.nodes, loadedCanvas.edges), detail.name.trim()),
     )
-    setSavedSources(new Set(loadedCanvas.nodes.map((node) => node.sourceId)))
   }, [loaded, canvas])
 
   // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
@@ -184,7 +166,6 @@ export default function EditNodes() {
     onSuccess: ({ result, shape }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
       setSavedShape(shape)
-      setSavedSources(new Set(nodes.map((node) => node.sourceId)))
       // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workflows.detail(result.workflowId),
@@ -251,6 +232,8 @@ export default function EditNodes() {
         sourceId: item.itemId,
         price: item.price,
         summary: item.summary,
+        prompt: null,
+        model: null,
         mine: item.mine,
       },
       point,
@@ -281,42 +264,37 @@ export default function EditNodes() {
 
   const closeAddPanel = () => {
     setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
-    create.reset()
     handleTogglePanel()
   }
 
   /**
-   * 만든 노드를 팔레트에 넣고 캔버스에도 바로 놓는다.
-   *
-   * 팔레트에만 넣으면 찾을 수 없다 — 실행 이력이 없어 정렬 맨 뒤로 가고 다음 쪽으로 밀린다.
-   * 만들자마자 쓰는 것이 이 자리의 목적이라 한가운데 올려 준다.
+   * 적은 것을 캔버스에 올린다. 서버에 만들지 않는다 —
+   * 기본 노드는 워크플로우를 저장할 때 배치와 함께 만들어진다(`NodePlacementRequest`).
    */
   const handleCreate = () => {
-    if (!draftFilled || create.isPending) return
-    create.mutate(
-      { name: draft.name.trim(), prompt: draft.prompt.trim(), model: draft.model },
-      {
-        onSuccess: (made) => {
-          canvas.placeAtCenter({
-            name: made.name,
-            // 서버는 만든 노드를 늘 LLM 으로 둔다(`NodeDefinition.create`). 상세 응답에는 종류가 없다.
-            nodeType: 'LLM',
-            sourceType: 'NODE',
-            sourceId: made.nodeId,
-            price: made.baseCost,
-            // 내 노드는 설명 대신 프롬프트를 보여준다. 패널이 원본을 따로 읽어 채운다.
-            summary: null,
-            mine: true,
-          })
-          closeAddPanel()
-        },
-      },
-    )
+    if (!draftFilled) return
+    canvas.placeAtCenter({
+      name: draft.name.trim(),
+      nodeType: 'LLM',
+      sourceType: 'NODE',
+      // 아직 원본이 없다. 저장하고 나면 서버가 준 id 로 채워진다.
+      sourceId: '',
+      // 원가도 저장해 봐야 안다 — 서버가 프롬프트와 모델로 매긴다.
+      price: null,
+      summary: null,
+      prompt: draft.prompt.trim(),
+      model: draft.model,
+      mine: true,
+    })
+    closeAddPanel()
   }
 
   const hasSelection = !!n
-  // 에이전트는 원본을 열지 않는다 — 남의 내부 구성이고, 내 것이라도 노드가 아니다.
-  const selNodeId = n && n.sourceType === 'NODE' && n.mine ? n.sourceId : undefined
+  // 에이전트는 열지 않는다 — 남의 내부 구성이다. 기본 노드는 캔버스가 값을 들고 있다.
+  const selBasic =
+    n && n.sourceType === 'NODE'
+      ? { id: n.id, name: n.name, prompt: n.prompt ?? '', model: n.model ?? DEFAULT_AI_MODEL }
+      : undefined
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
   const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
@@ -705,14 +683,6 @@ export default function EditNodes() {
               className="flex flex-none items-center"
               style={{ justifyContent: 'flex-end', gap: '8px', paddingTop: '14px' }}
             >
-              {create.error && (
-                <div
-                  className="mr-auto truncate text-[14px]"
-                  style={{ color: 'rgba(255,196,214,.95)' }}
-                >
-                  {describeNodeCreateError(create.error)}
-                </div>
-              )}
               <button
                 type="button"
                 onClick={closeAddPanel}
@@ -730,7 +700,7 @@ export default function EditNodes() {
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={!draftFilled || create.isPending}
+                disabled={!draftFilled}
                 title={
                   draftFilled ? '노드를 만들어 팔레트에 넣습니다' : '이름과 프롬프트를 적어 주세요'
                 }
@@ -741,11 +711,11 @@ export default function EditNodes() {
                   background: 'var(--color-accent)',
                   boxShadow: '0 8px 20px rgba(140,100,130,.24)',
                   color: 'var(--color-accent-ink)',
-                  cursor: !draftFilled || create.isPending ? 'default' : 'pointer',
+                  cursor: draftFilled ? 'pointer' : 'default',
                 }}
                 className="flex items-center border-0 font-[inherit] text-[17px] font-bold hover:brightness-[1.05] disabled:opacity-45 disabled:hover:brightness-100"
               >
-                {create.isPending ? '만드는 중' : '추가'}
+                추가
               </button>
             </div>
           </div>
@@ -841,12 +811,9 @@ export default function EditNodes() {
           name={selName}
           initial={selInitial}
           typeLabel={selTypeLabel}
-          nodeId={selNodeId}
+          basic={selBasic}
           summary={n?.summary}
-          // 저장본에 들어간 노드는 서버가 삭제를 막는다(`NODE_004`).
-          deletable={!!selNodeId && !savedSources.has(selNodeId)}
-          onRenamed={renameBySource}
-          onDeleted={removeBySource}
+          onApply={editNode}
         />
 
         <NodePalettePanel

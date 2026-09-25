@@ -1,3 +1,4 @@
+import type { AiModel } from '@/api/nodes'
 import {
   NO_BOUNDS,
   connect,
@@ -53,7 +54,16 @@ export const initialCanvasState: CanvasState = {
 /** 팔레트에서 끌어다 놓은 항목. 자리는 놓는 쪽이 정한다. */
 export type PlacedSeed = Pick<
   CanvasNodeData,
-  'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'summary' | 'mine'
+  | 'id'
+  | 'name'
+  | 'nodeType'
+  | 'sourceType'
+  | 'sourceId'
+  | 'price'
+  | 'summary'
+  | 'prompt'
+  | 'model'
+  | 'mine'
 >
 
 /**
@@ -84,10 +94,8 @@ export type CanvasAction =
   | { type: 'loadGraph'; nodes: CanvasNodeData[]; edges: CanvasEdge[] }
   /** 선택한 것을 지움. 노드면 거기 붙은 선도 함께. */
   | { type: 'removeSelected' }
-  /** 원본이 지워졌다. 같은 원본을 두 번 놓았을 수 있어 전부 내린다. */
-  | { type: 'removeBySource'; sourceId: string }
-  /** 원본 이름이 바뀌었다. 놓인 카드가 옛 이름을 붙들지 않게 맞춘다. */
-  | { type: 'renameBySource'; sourceId: string; name: string }
+  /** 고른 기본 노드의 이름·프롬프트·모델을 고친다. 저장은 워크플로우 저장이 맡는다. */
+  | { type: 'editNode'; id: string; name: string; prompt: string; model: AiModel }
   | { type: 'startLink'; from: LinkOrigin }
   /** 포트가 아닌 곳에서 손을 뗌. */
   | { type: 'cancelLink' }
@@ -152,34 +160,15 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       return { ...state, ...after, selId: null, hovId: null, linkFrom: null }
     }
 
-    case 'removeBySource': {
-      // 에이전트 id 와 노드 id 는 이름 공간이 다르다. 종류까지 맞춰야 엉뚱한 카드를 내리지 않는다.
-      const targets = state.nodes.filter(
-        (node) => node.sourceType === 'NODE' && node.sourceId === action.sourceId,
-      )
-      if (!targets.length) return state
-      // 한 장씩 내린다. 선까지 같이 걷어 내는 규칙이 `removeNode` 한 곳에만 있어야 한다.
-      const after = targets.reduce((acc, node) => removeNode(acc.nodes, acc.edges, node.id), {
-        nodes: state.nodes,
-        edges: state.edges,
-      })
-      const gone = new Set(targets.map((node) => node.id))
+    case 'editNode': {
+      if (!state.nodes.some((node) => node.id === action.id)) return state
       return {
         ...state,
-        ...after,
-        selId: state.selId && gone.has(state.selId) ? null : state.selId,
-        hovId: state.hovId && gone.has(state.hovId) ? null : state.hovId,
-        linkFrom: state.linkFrom && gone.has(state.linkFrom.id) ? null : state.linkFrom,
-      }
-    }
-
-    case 'renameBySource': {
-      const hit = (node: CanvasNodeData) =>
-        node.sourceType === 'NODE' && node.sourceId === action.sourceId
-      if (!state.nodes.some(hit)) return state
-      return {
-        ...state,
-        nodes: state.nodes.map((node) => (hit(node) ? { ...node, name: action.name } : node)),
+        nodes: state.nodes.map((node) =>
+          node.id === action.id
+            ? { ...node, name: action.name, prompt: action.prompt, model: action.model }
+            : node,
+        ),
       }
     }
 

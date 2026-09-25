@@ -21,11 +21,23 @@ export function toWorkflowGraph(
   if (!order) return null
 
   const keyOf = new Map(order.map((node, i) => [node.id, `n${i + 1}`]))
-  const placements: NodePlacement[] = order.map((node) => ({
-    nodeKey: keyOf.get(node.id)!,
-    sourceType: node.sourceType,
-    sourceId: node.sourceId,
-  }))
+  const placements: NodePlacement[] = order.map((node) => {
+    const placed: NodePlacement = {
+      nodeKey: keyOf.get(node.id)!,
+      sourceType: node.sourceType,
+    }
+    // 캔버스에서 적은 기본 노드는 원본이 없다. 이름·프롬프트를 실어 보내면 서버가 만든다.
+    if (node.sourceType === 'NODE' && !node.sourceId) {
+      return {
+        ...placed,
+        nodeType: 'LLM',
+        name: node.name,
+        prompt: node.prompt ?? '',
+        ...(node.model ? { model: node.model } : {}),
+      }
+    }
+    return { ...placed, sourceId: node.sourceId }
+  })
   // 순서가 이미 한 줄이라 이웃끼리 이으면 선 목록이 그대로 나온다.
   const links: EdgePlacement[] = order.slice(1).map((node, i) => ({
     edgeKey: `e${i + 1}`,
@@ -83,6 +95,8 @@ export function toCanvasWorkflow(
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,
       summary: label?.summary ?? null,
+      prompt: null,
+      model: null,
       x: RESTORE_X0 + i * RESTORE_STEP,
       y: RESTORE_Y[i % RESTORE_Y.length],
       // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
