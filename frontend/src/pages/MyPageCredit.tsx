@@ -27,10 +27,13 @@ function describeCharge(charge: AbcCharge) {
         action: { label: '다시 접수', run: charge.retrySubmit },
       }
     case 'confirming':
+      // 더 묻지 않게 된 건은 화면이 스스로 못 푼다. 해시를 버리는 reset 이 아니라 다시 묻게 한다.
       return {
         title: '확인 중',
-        note: '거래가 블록에 적히면 잔액에 반영됩니다. 이 화면을 떠나도 됩니다.',
-        action: null,
+        note: charge.stalled
+          ? '상태를 확인하지 못했습니다. 거래는 체인에 남아 있습니다.'
+          : '거래가 블록에 적히면 잔액에 반영됩니다. 이 화면을 떠나도 됩니다.',
+        action: charge.stalled ? { label: '다시 확인', run: charge.recheck } : null,
       }
     case 'confirmed':
       return {

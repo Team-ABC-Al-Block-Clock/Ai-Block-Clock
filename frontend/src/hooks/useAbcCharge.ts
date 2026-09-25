@@ -121,7 +121,9 @@ export function useAbcCharge() {
     enabled: chargeId !== null,
     refetchInterval: (query) => {
       const data = query.state.data
-      if (!data || data.status !== 'PENDING') return false
+      // 한 번도 못 받았으면 계속 묻는다. 여기서 멈추면 타이머가 지워진 뒤 다시 걸리지 않는다.
+      if (!data) return POLL_MS
+      if (data.status !== 'PENDING') return false
       // 서버가 닫지 못한 건을 배경에서 계속 물고 있지 않는다.
       if (Date.now() - Date.parse(data.requestedAt) > POLL_LIMIT_MS) return false
       return POLL_MS
@@ -209,8 +211,26 @@ export function useAbcCharge() {
     resumed.current = false
   }
 
+  // 마감은 서버가 준 requestedAt 이 정한다. 지나는 순간 한 번 깨워야 화면이 길을 낸다 —
+  // 다음 응답을 기다리면 폴링이 멈춘 뒤라 영영 오지 않는다.
+  const requestedAt = status?.requestedAt ?? null
+  // 어느 건의 마감인지까지 적는다. 다음 충전으로 넘어가면 값이 달라져 저절로 풀린다.
+  const [timedOutAt, setTimedOutAt] = useState<string | null>(null)
+  useEffect(() => {
+    if (!requestedAt) return
+    const left = Date.parse(requestedAt) + POLL_LIMIT_MS - Date.now()
+    const id = setTimeout(() => setTimedOutAt(requestedAt), Math.max(left, 0))
+    return () => clearTimeout(id)
+  }, [requestedAt])
+  const timedOut = requestedAt !== null && timedOutAt === requestedAt
+
+  /** 폴링이 멈췄는데 아직 확인 중이다 — 화면이 스스로 풀 수 없다. */
+  const stalled = phase === 'confirming' && (charge.isError || timedOut)
+
   return {
     phase,
+    /** 확인 중인데 더 묻지 않는 상태. 화면이 빠져나갈 길을 내줘야 한다 */
+    stalled,
     error,
     /** 확인 중 · 완료 · 실패 화면이 그리는 값. 접수 전이면 없다 */
     status,
@@ -223,6 +243,8 @@ export function useAbcCharge() {
       setLocalPhase('submitting')
       submit.mutate({ transactionHash: pending.transactionHash, amount: pending.amount })
     },
+    /** 멈춘 폴링을 손으로 한 번 깨운다 — 진행 중인 건을 버리지 않는다 */
+    recheck: () => void charge.refetch(),
     send,
     reset,
   }
