@@ -62,6 +62,11 @@ export function setOnAuthFailure(handler: AuthFailureHandler | null) {
   onAuthFailure = handler
 }
 
+export function notifyAuthFailure() {
+  clearCsrfToken()
+  onAuthFailure?.()
+}
+
 client.interceptors.response.use(
   // 봉투를 벗겨 data 만 넘긴다 — 화면이 res.data.data 를 몰라도 된다.
   (response) => {
@@ -118,10 +123,7 @@ client.interceptors.response.use(
 
     // 401 은 전부 회복 불가다 — 자동 재발급 API 가 없어 지갑 서명 로그인부터 다시 한다.
     // 세션이 사라졌으니 거기 매인 토큰도 죽은 값이다.
-    if (response.status === 401) {
-      clearCsrfToken()
-      onAuthFailure?.()
-    }
+    if (response.status === 401) notifyAuthFailure()
 
     throw new ApiError(message, { code, status: response.status, cause: error })
   },

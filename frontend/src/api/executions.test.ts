@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from 'msw'
 
-import { API_BASE_URL, client } from '@/api/client'
+import { API_BASE_URL, client, setOnAuthFailure } from '@/api/client'
 
 import { ApiError, EXECUTION_ERROR } from '@/api/errors'
 import {
@@ -370,6 +370,21 @@ describe('실행 결과 받기', () => {
         error.status === 404 &&
         error.code === EXECUTION_ERROR.RESULT_NOT_FOUND,
     )
+  })
+
+  it('세션이 끝났으면 인증 실패를 알린다', async () => {
+    const onAuthFailure = vi.fn()
+    setOnAuthFailure(onAuthFailure)
+    server.use(
+      http.get(`${API_BASE_URL}/runs/:id/result`, () =>
+        fail(401, 'AUTH_005', '로그인이 필요합니다.'),
+      ),
+    )
+
+    await expect(fetchResult(EXECUTION_ID)).rejects.toMatchObject({ status: 401 })
+    expect(onAuthFailure).toHaveBeenCalledOnce()
+
+    setOnAuthFailure(null)
   })
 
   it('아직 끝나지 않았으면 409 다', async () => {
