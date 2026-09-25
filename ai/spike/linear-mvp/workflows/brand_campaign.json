@@ -11,22 +11,18 @@
       "agent": {
         "agent_id": "ag_brand_strategy",
         "owner_id": "u_seller_a",
-        "input_schema_id": "biz.brand_brief@1",
-        "output_schema_id": "biz.brand_strategy@1",
         "nodes": [
           {
             "id": "n1", "name": "시장 조사",
             "prompt": "../../prompts/brand/01_market_research.md",
-            "input_schema_id": "biz.brand_brief@1",
-            "output_schema_id": "biz.market_research@1",
-            "unit_price": 4.2, "base_cost": 3.2, "premium_rate": 0.3
+            "input": { "sample": "biz.brand_brief@1" },
+            "output": { "kind": "json", "sample": "biz.market_research@1" }
           },
           {
             "id": "n2", "name": "제품 분석",
             "prompt": "../../prompts/brand/02_product_analysis.md",
-            "input_schema_id": "biz.brand_brief@1",
-            "output_schema_id": "biz.product_analysis@1",
-            "unit_price": 3.8, "base_cost": 2.9, "premium_rate": 0.3
+            "input": { "sample": "biz.brand_brief@1" },
+            "output": { "kind": "json", "sample": "biz.product_analysis@1" }
           },
           {
             "id": "br1", "name": "경쟁 강도 분기", "type": "branch",
@@ -35,21 +31,17 @@
           {
             "id": "n3a", "name": "차별화 전략",
             "prompt": "../../prompts/brand/03a_strategy_differentiate.md",
-            "output_schema_id": "biz.strategy_draft@1",
-            "unit_price": 4.5, "base_cost": 3.5, "premium_rate": 0.3
+            "output": { "kind": "json", "sample": "biz.strategy_draft@1" }
           },
           {
             "id": "n3b", "name": "대중 공략 전략",
             "prompt": "../../prompts/brand/03b_strategy_mass.md",
-            "output_schema_id": "biz.strategy_draft@1",
-            "unit_price": 4.5, "base_cost": 3.5, "premium_rate": 0.3
+            "output": { "kind": "json", "sample": "biz.strategy_draft@1" }
           },
           {
             "id": "n4", "name": "브랜드 전략 보고서",
             "prompt": "../../prompts/brand/04_brand_report.md",
-            "input_schema_id": "biz.strategy_draft@1",
-            "output_schema_id": "biz.brand_strategy@1",
-            "unit_price": 5.0, "base_cost": 4.0, "premium_rate": 0.25
+            "output": { "kind": "json", "sample": "biz.brand_strategy@1" }
           }
         ],
         "edges": [
@@ -70,15 +62,11 @@
       "agent": {
         "agent_id": "ag_sns_campaign",
         "owner_id": "u_seller_b",
-        "input_schema_id": "biz.brand_strategy@1",
-        "output_schema_id": "biz.campaign_plan@1",
         "nodes": [
           {
             "id": "c1", "name": "캠페인 기획",
             "prompt": "../../prompts/brand/05_sns_campaign.md",
-            "input_schema_id": "biz.brand_strategy@1",
-            "output_schema_id": "biz.campaign_plan@1",
-            "unit_price": 4.8, "base_cost": 3.7, "premium_rate": 0.3
+            "output": { "kind": "json", "sample": "biz.campaign_plan@1" }
           }
         ],
         "edges": []
@@ -92,15 +80,11 @@
       "agent": {
         "agent_id": "ag_ad_copy",
         "owner_id": "u_seller_c",
-        "input_schema_id": "biz.brand_strategy@1",
-        "output_schema_id": "biz.ad_copy@1",
         "nodes": [
           {
             "id": "k1", "name": "광고 카피 작성",
             "prompt": "../../prompts/brand/06_ad_copy.md",
-            "input_schema_id": "biz.brand_strategy@1",
-            "output_schema_id": "biz.ad_copy@1",
-            "unit_price": 3.6, "base_cost": 2.8, "premium_rate": 0.3
+            "output": { "kind": "json", "sample": "biz.ad_copy@1" }
           }
         ],
         "edges": []
@@ -114,13 +98,11 @@
       "agent": {
         "agent_id": "ag_execution_plan",
         "owner_id": "u_seller_b",
-        "output_schema_id": "biz.execution_plan@1",
         "nodes": [
           {
             "id": "e1", "name": "통합 실행안",
             "prompt": "../../prompts/brand/07_execution_plan.md",
-            "output_schema_id": "biz.execution_plan@1",
-            "unit_price": 5.2, "base_cost": 4.1, "premium_rate": 0.25
+            "output": { "kind": "json", "sample": "biz.execution_plan@1" }
           }
         ],
         "edges": []
@@ -135,7 +117,6 @@
   ],
   "output": {
     "type": "pdf",
-    "schema_id": "biz.execution_plan@1",
     "template_id": null,
     "title": "브랜딩 통합 실행안"
   }

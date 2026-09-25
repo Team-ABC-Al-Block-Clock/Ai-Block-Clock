@@ -1,6 +1,7 @@
-"""그래프 실행 — edges · 위상 정렬 · fan-in · 조건 분기 · 규모 상한. 계약 §5.3 ~ §5.7.
+"""그래프 실행 — edges · 위상 정렬 · fan-in · 조건 분기 · 출력 선언 · 규모 상한. 계약 v2.0 §5.
 
-실행 규칙은 하나다.
+**연결 호환 검사는 없다.** 어떤 노드 사이에도 선을 그을 수 있고, 다음 노드는 앞 결과 전체를
+받는다(입력 형식 폐지, 09-25). 실행 규칙은 하나다.
 
 > 노드는 **실제로 실행된** 상위 노드들의 결과를 받는다. 하나면 그 payload 그대로,
 > 여럿이면 edge `port` 이름으로 묶은 객체로. 분기 노드는 받은 것을 그대로
@@ -9,6 +10,9 @@
 이 규칙 하나로 직선 · 분할 · 병합 · 합류가 전부 같은 코드를 탄다.
 **분기 조건 평가는 코드가 한다. LLM 을 쓰지 않는다**(설계 원칙 1) — 같은 입력이면
 항상 같은 경로가 나와야 정산과 견적의 근거가 된다.
+
+노드의 출력은 판매자가 선언한다 — `output: {kind: "text"}` 또는 `{kind: "json", sample: <견본 id>}`.
+카탈로그(`src/catalog`)는 강제 규격이 아니라 **견본**이다.
 """
 from __future__ import annotations
 
@@ -27,9 +31,21 @@ LIMIT_LONGEST_PATH = 8
 LIMIT_AGENT_DEPTH = 1
 WARN_LONGEST_PATH = 7
 
+# 계약 v2.0 §5.2 — 받으면 무시하고 DEPRECATED_FIELD 경고를 낸다
+DEPRECATED_NODE_FIELDS = ("input_schema_id", "unit_price", "base_cost", "premium_rate", "context")
+OUTPUT_KINDS = ("text", "json")
+
 OPS = {
     "==": operator.eq, "!=": operator.ne, ">": operator.gt,
     ">=": operator.ge, "<": operator.lt, "<=": operator.le,
+}
+
+# 계약 v2.0 §5.4 — 필드 종류별로 허용하는 분기 연산자. 배열 · 객체는 분기 기준이 될 수 없다
+BRANCH_OPS_BY_KIND = {
+    "enum": {"==", "!=", "in"},
+    "string": {"==", "!=", "in"},
+    "number": set(OPS) | {"in"},
+    "boolean": {"==", "!="},
 }
 
 
@@ -109,6 +125,54 @@ def _topo_order(nodes: dict, incoming: dict, outgoing: dict) -> list[str]:
     return order
 
 
+def reaches(graph: Graph, src: str, dst: str) -> bool:
+    """src 에서 간선을 따라 dst 에 닿는가 — dst 의 (임의) 상위인가."""
+    seen, stack = set(), [src]
+    while stack:
+        cur = stack.pop()
+        for e in graph.outgoing.get(cur) or []:
+            if e["to"] == dst:
+                return True
+            if e["to"] not in seen:
+                seen.add(e["to"])
+                stack.append(e["to"])
+    return False
+
+
+def check_branch_ref(graph: Graph, node_id: str, condition: dict) -> tuple[str, str] | None:
+    """분기 조건 `left` 가 상위 노드의 **선언된 스칼라 필드**를 가리키고 연산자가 타입에 맞는가.
+
+    저장 시점 판정(계약 v2.0 §5.4 · §5.7). 어기면 `(오류 코드, 메시지)`, 맞으면 None.
+    실행 시점의 `BRANCH_CONDITION_INVALID`(선택 필드가 비어 옴)는 여기서 다 막지 못하므로 남겨 둔다.
+    """
+    left = str(condition.get("left") or "")
+    src = next((k for k in sorted(graph.nodes, key=len, reverse=True)
+                if left == k or left.startswith(k + ".")), None)
+    if src is None:
+        return "BRANCH_REF_UNKNOWN_FIELD", f"조건이 가리키는 노드가 없습니다: {left}"
+    if graph.is_branch(src):
+        return "BRANCH_REF_UNKNOWN_FIELD", f"분기 노드({src})를 직접 가리킬 수 없습니다 — 원천 노드를 가리키세요"
+    if not reaches(graph, src, node_id):
+        return "BRANCH_REF_UNKNOWN_FIELD", f"{src} 는 이 분기의 상위 노드가 아닙니다"
+    spec = output_spec_of(graph.node(src))
+    if not spec or spec.get("kind") != "json":
+        return "BRANCH_ON_TEXT_OUTPUT", f"{src} 는 글 출력이라 분기 기준이 될 수 없습니다"
+    if spec["sample"] not in catalog.CATALOG:
+        return None                                   # UNKNOWN_SAMPLE 이 따로 잡는다
+    path = left[len(src):].lstrip(".")
+    kind = catalog.field_kind(spec["sample"], path)
+    title = catalog.get(spec["sample"]).title
+    if kind is None:
+        return "BRANCH_REF_UNKNOWN_FIELD", f"{src}({title})에 {path or '(필드 없음)'} 필드가 없습니다"
+    if kind not in catalog.SCALAR_KINDS:
+        return "BRANCH_REF_UNKNOWN_FIELD", f"{src}({title}).{path} 은(는) {kind} 라 비교할 수 없습니다 — 스칼라 필드를 쓰세요"
+    op = condition.get("op")
+    if op not in BRANCH_OPS_BY_KIND[kind]:
+        allowed = " ".join(sorted(BRANCH_OPS_BY_KIND[kind]))
+        return "BRANCH_OP_TYPE_MISMATCH", f"{path} 은(는) {kind} 라 {op} 을(를) 쓸 수 없습니다 (허용: {allowed})"
+    return None
+
+
 def longest_path(graph: Graph) -> int:
     """가능한 가장 긴 경로의 노드 수. 실제로 도는 경로가 아니다(계약 §5.6)."""
     depth = {n: 1 for n in graph.order}
@@ -118,43 +182,56 @@ def longest_path(graph: Graph) -> int:
     return max(depth.values()) if depth else 0
 
 
-def branch_constraints(graph: Graph) -> dict[str, set[tuple[str, bool]]]:
-    """노드마다 "거기까지 가려면 참이어야 하는 분기 조건" 집합.
+# --- 출력 · 입력 선언 (계약 v2.0 §5.2 · §5.5) ---------------------------------
 
-    상위가 여럿이면 **교집합**이다 — 어느 경로로든 도착하면 실행되기 때문이다.
-    그래서 분기 양쪽이 만나는 합류 지점에서는 제약이 사라진다.
+def output_spec_of(node: dict) -> dict[str, Any] | None:
+    """노드가 선언한 출력 `{kind, sample}`. 분기 노드는 None.
+
+    v1.x 별칭 `output_schema_id` 는 `{kind: "json", sample: <id>}` 로 읽는다 — 한 버전만.
     """
-    deps: dict[str, set[tuple[str, bool]]] = {}
-    for node_id in graph.order:
-        edges = graph.incoming.get(node_id) or []
-        if not edges:
-            deps[node_id] = set()
-            continue
-        per_edge = [_edge_constraints(graph, deps, e) for e in edges]
-        deps[node_id] = set.intersection(*per_edge) if per_edge else set()
-    return deps
+    if node.get("type") == "branch":
+        return None
+    out = node.get("output")
+    if isinstance(out, dict) and out.get("kind"):
+        return {"kind": out.get("kind"), "sample": out.get("sample")}
+    legacy = node.get("output_schema_id")
+    if legacy:
+        return {"kind": "json", "sample": legacy}
+    return None
 
 
-def _edge_constraints(graph: Graph, deps: dict, edge: dict) -> set[tuple[str, bool]]:
-    src = edge["from"]
-    base = set(deps.get(src, set()))
-    if graph.is_branch(src):
-        base.add((src, bool(edge.get("when"))))
-    return base
+def uses_output_alias(node: dict) -> bool:
+    out = node.get("output")
+    return bool(node.get("output_schema_id")) and not (isinstance(out, dict) and out.get("kind"))
 
 
-def is_join(graph: Graph, node_id: str, deps: dict) -> bool:
-    """들어오는 간선들이 서로 배타적인가 — 분기 뒤 합류인가, 그냥 병합인가."""
-    edges = graph.incoming.get(node_id) or []
-    if len(edges) < 2:
-        return False
-    sets = [_edge_constraints(graph, deps, e) for e in edges]
-    for i, a in enumerate(sets):
-        for b in sets[i + 1:]:
-            if any((bid, not w) in b for bid, w in a):
-                return True
-    return False
+def entry_input_sample(node: dict) -> str | None:
+    """진입 노드의 사용자 입력 폼 견본(`input.sample`). 별칭 `input_schema_id` 도 읽는다."""
+    inp = node.get("input")
+    if isinstance(inp, dict) and inp.get("sample"):
+        return inp["sample"]
+    return node.get("input_schema_id")
 
+
+def upstream_output_spec(graph: Graph, node_id: str) -> dict[str, Any] | None:
+    """노드가 내는 형식. 분기 노드는 받은 것을 그대로 넘기므로 상위의 형식을 물려받는다."""
+    node = graph.node(node_id)
+    if node.get("type") != "branch":
+        return output_spec_of(node)
+    for e in graph.incoming.get(node_id) or []:
+        found = upstream_output_spec(graph, e["from"])
+        if found:
+            return found
+    return None
+
+
+def output_schema_of(graph: Graph, node_id: str) -> str | None:
+    """노드가 내는 견본 id. 글 출력이면 None. 자리표시자 이름(`prompts.short_name`)에 쓴다."""
+    spec = upstream_output_spec(graph, node_id)
+    return spec["sample"] if spec and spec.get("kind") == "json" else None
+
+
+# --- fan-in · 분기 -----------------------------------------------------------
 
 def live_edges(graph: Graph, node_id: str, payloads: dict[str, Any],
                branch_taken: dict[str, bool] | None = None) -> list[dict]:
@@ -184,6 +261,23 @@ def fan_in(graph: Graph, node_id: str, payloads: dict[str, Any],
     if len(edges) == 1:
         return payloads[edges[0]["from"]]
     return {(e.get("port") or e["from"]): payloads[e["from"]] for e in edges}
+
+
+def fan_in_sources(graph: Graph, node_id: str, payloads: dict[str, Any],
+                   branch_taken: dict[str, bool] | None = None) -> list[tuple[str, str | None]]:
+    """받는 결과가 어느 노드에서 왔는지 — `(원천 노드 id, port)` 목록. 분기 노드는 통과시킨다.
+
+    다음 노드 LLM 에게 "## 입력" 블록의 절 제목을 붙일 때 쓴다(계약 v2.0 §5.4). `fan_in` 이
+    `{port: payload}` 로 묶은 것과 같은 순서 · 같은 키다.
+    """
+    out: list[tuple[str, str | None]] = []
+    for e in live_edges(graph, node_id, payloads, branch_taken):
+        src = e["from"]
+        if graph.is_branch(src):
+            out.extend(fan_in_sources(graph, src, payloads, branch_taken))
+        else:
+            out.append((src, e.get("port")))
+    return out
 
 
 def skip_reason(graph: Graph, node_id: str, payloads: dict[str, Any],
@@ -255,46 +349,33 @@ def executed_nodes(graph: Graph, taken: dict[str, bool]) -> list[str]:
 
 
 def estimate(wf: dict) -> dict:
-    """실행 전 견적 — **가능한 분기 조합 중 가장 비싼 경우**를 잡는다.
+    """실행 전 견적 — **가능한 분기 조합 중 가장 많은 노드가 도는 경우**의 노드 목록. 금액은 없다.
 
-    경로 길이가 아니라 "그 경우에 실제로 도는 노드들의 합"이다. 분할 · 병합이 있으면
-    여러 노드가 함께 돌기 때문에 최장 경로로는 답이 안 나온다.
-
-    단가(`unit_price`)는 백엔드가 요청에 실어 보내는 값이다. 없는 노드는 0으로 두고
-    `unpriced_nodes` 에 남겨 "견적을 믿을 수 없다"는 것을 드러낸다(계약 §8.2).
-    분기 노드 자체는 과금하지 않는다(계약 §8.4).
+    경로 길이가 아니라 "그 경우에 실제로 도는 노드들"이다. 분할 · 병합이 있으면 여러 노드가
+    함께 돌기 때문에 최장 경로로는 답이 안 나온다. 단가 합산은 백엔드가 이 목록으로 한다
+    (계약 v2.0 §7.5). 분기 노드 자체는 과금하지 않으므로 목록에서 뺀다.
     """
     wf, _ = expand_mod.expand(wf)
     graph = build(wf)
     branches = [n for n in graph.order if graph.is_branch(n)]
-    best_total, best_nodes = 0.0, []
+    best: list[str] = []
     for combo in itertools.product([True, False], repeat=len(branches)):
         taken = dict(zip(branches, combo))
-        ran = executed_nodes(graph, taken)
-        total = sum(float(graph.node(n).get("unit_price") or 0)
-                    for n in ran if not graph.is_branch(n))
-        if total >= best_total and (total > best_total or not best_nodes):
-            best_total, best_nodes = total, [n for n in ran if not graph.is_branch(n)]
-    unpriced = [n for n in best_nodes if graph.node(n).get("unit_price") is None]
-    return {"max_charge_abc": round(best_total, 4),
-            "worst_case_nodes": best_nodes,
-            "unpriced_nodes": unpriced}
+        ran = [n for n in executed_nodes(graph, taken) if not graph.is_branch(n)]
+        if len(ran) > len(best):
+            best = ran
+    return {"worst_case_nodes": best, "worst_case_node_count": len(best)}
 
 
 def validate(wf: dict) -> dict:
-    """실행하지 않고 정의만 검사한다(계약 §5.7 · §7.5).
+    """실행하지 않고 정의만 검사한다(계약 v2.0 §5.7 · §7.5).
 
-    백엔드 · 프론트가 상한 · 순환 · 스키마 호환 규칙을 복제하지 않아도 되게 하려는
+    백엔드 · 프론트가 상한 · 순환 · 분기 참조 규칙을 복제하지 않아도 되게 하려는
     엔드포인트의 본체다. 저장 시점과 실행 시점의 판정이 갈리지 않는다.
     """
     errors: list[dict] = []
     warnings: list[dict] = []
     nodes_list = wf.get("nodes")
-    # 스키마 · edges 가 아예 없는 정의는 09-19 이전 자유 텍스트 워크플로우다.
-    # 스모크 직선을 지키기 위해 출력 형식 필수 규칙만 경고로 낮춘다(09-22 이후 제거)
-    legacy_text = (isinstance(nodes_list, list)
-                   and not wf.get("edges")
-                   and not any((n or {}).get("output_schema_id") for n in nodes_list))
     if not isinstance(nodes_list, list) or not nodes_list:
         return {"valid": False,
                 "errors": [{"code": "NO_NODES", "node_id": None,
@@ -318,6 +399,9 @@ def validate(wf: dict) -> dict:
     def err(code: str, node_id: str | None, message: str) -> None:
         errors.append({"code": code, "node_id": node_id, "message": message})
 
+    def warn(code: str, node_id: str | None, message: str) -> None:
+        warnings.append({"code": code, "node_id": node_id, "message": message})
+
     # 노드 자체
     for node_id in graph.order:
         node = graph.node(node_id)
@@ -325,6 +409,10 @@ def validate(wf: dict) -> dict:
         if kind == "branch":
             if not isinstance(node.get("condition"), dict):
                 err("BRANCH_CONDITION_MISSING", node_id, "분기 노드에 condition 이 없습니다")
+            else:
+                problem = check_branch_ref(graph, node_id, node["condition"])
+                if problem:
+                    err(problem[0], node_id, problem[1])
             whens = [bool(e.get("when")) for e in graph.outgoing.get(node_id) or []]
             if sorted(whens) != [False, True]:
                 err("BRANCH_EDGES_INVALID", node_id,
@@ -332,60 +420,40 @@ def validate(wf: dict) -> dict:
             continue
         if not str(node.get("prompt", "")).strip():
             err("MISSING_PROMPT", node_id, "prompt 가 비어 있습니다")
-        out_schema = node.get("output_schema_id")
-        if not out_schema:
-            if legacy_text:
-                warnings.append({"code": "LEGACY_TEXT_NODE", "node_id": node_id,
-                                 "message": "출력 형식이 없는 자유 텍스트 노드입니다"})
-            else:
-                err("MISSING_OUTPUT_SCHEMA", node_id, "output_schema_id 는 필수입니다")
-        elif out_schema not in catalog.CATALOG:
-            err("UNKNOWN_SCHEMA", node_id, f"카탈로그에 없는 형식입니다: {out_schema}")
-        in_schema = node.get("input_schema_id")
-        if in_schema and in_schema not in catalog.CATALOG:
-            err("UNKNOWN_SCHEMA", node_id, f"카탈로그에 없는 형식입니다: {in_schema}")
 
-    # 연결 호환 · 합류
-    deps = branch_constraints(graph)
-    for node_id in graph.order:
-        node = graph.node(node_id)
-        edges = graph.incoming.get(node_id) or []
-        upstream_schemas = [_output_schema_of(graph, e["from"]) for e in edges]
-        if is_join(graph, node_id, deps):
-            if len(set(s for s in upstream_schemas if s)) > 1:
-                err("JOIN_SCHEMA_MISMATCH", node_id,
-                    "합류 지점에서 만나는 경로들의 output_schema_id 가 다릅니다: "
-                    + ", ".join(sorted(set(s or "?" for s in upstream_schemas))))
-        elif len(edges) > 1:
-            if node.get("input_schema_id"):
-                warnings.append({"code": "MERGE_INPUT_UNCHECKED", "node_id": node_id,
-                                 "message": "병합 노드의 입력은 port 로 묶인 객체라 "
-                                            "input_schema_id 로 검증하지 않습니다"})
-            continue
-        in_schema = node.get("input_schema_id")
-        if in_schema and upstream_schemas and upstream_schemas[0]:
-            if not catalog.is_compatible(upstream_schemas[0], in_schema):
-                err("SCHEMA_INCOMPATIBLE", node_id,
-                    f"{edges[0]['from']}의 출력({upstream_schemas[0]})이 "
-                    f"{node_id}의 입력({in_schema})과 맞지 않습니다")
+        spec = output_spec_of(node)
+        if spec is None:
+            err("MISSING_OUTPUT", node_id,
+                'output 이 없습니다 — {"kind": "text"} 또는 {"kind": "json", "sample": "<견본 id>"}')
+        elif spec["kind"] not in OUTPUT_KINDS or (spec["kind"] == "json" and not spec.get("sample")):
+            err("OUTPUT_KIND_INVALID", node_id,
+                "output.kind 는 text · json 이어야 하고, json 이면 sample 이 필요합니다")
+        elif spec["kind"] == "json" and spec["sample"] not in catalog.CATALOG:
+            err("UNKNOWN_SAMPLE", node_id, f"견본 목록에 없는 형식입니다: {spec['sample']}")
 
-    # 에이전트 경계 — 내부 종단이 공개한 형식과 다르면 공급자 책임이다(계약 §5.2)
-    for node_id in graph.order:
-        boundary = expand_mod.boundary_of(graph.node(node_id))
-        if boundary and graph.node(node_id).get("output_schema_id") != boundary["schema_id"]:
-            err("AGENT_BOUNDARY_VIOLATION", node_id,
-                f"에이전트가 공개한 출력({boundary['schema_id']})과 내부 종단의 출력"
-                f"({graph.node(node_id).get('output_schema_id')})이 다릅니다")
+        sample_in = entry_input_sample(node)
+        if sample_in and sample_in not in catalog.CATALOG:
+            err("UNKNOWN_SAMPLE", node_id, f"견본 목록에 없는 입력 형식입니다: {sample_in}")
 
-    # 종단 노드와 output.schema_id
-    output_schema = (wf.get("output") or {}).get("schema_id")
-    terminals = [n for n in graph.order if not graph.outgoing.get(n)]
-    if output_schema:
-        terminal_schemas = {_output_schema_of(graph, n) for n in terminals}
-        if terminal_schemas and output_schema not in terminal_schemas:
-            err("OUTPUT_SCHEMA_MISMATCH", None,
-                f"output.schema_id({output_schema})가 종단 노드의 출력과 다릅니다: "
-                + ", ".join(sorted(s or "?" for s in terminal_schemas)))
+        # v2.0 에서 없어진 필드 — 무시(별칭은 읽음)하고 경고만. 백엔드가 옛 형식을 보내도 실행은 된다
+        deprecated = [k for k in DEPRECATED_NODE_FIELDS if k in node]
+        if uses_output_alias(node):
+            deprecated.append("output_schema_id(output.sample 로 읽음)")
+        if deprecated:
+            warn("DEPRECATED_FIELD", node_id,
+                 ", ".join(deprecated) + " 은(는) v2.0 에서 쓰지 않습니다. 다음 버전에서 사라집니다")
+
+    # 연결 호환 검사는 없다(계약 v2.0 §5.3). 어떤 노드든 이어지고 합류 양쪽 형식이 달라도 된다.
+    for canvas_node in nodes_list:
+        agent = (canvas_node or {}).get("agent") or {}
+        dep = [k for k in ("input_schema_id", "output_schema_id") if k in agent]
+        if canvas_node.get("type") == "agent" and dep:
+            warn("DEPRECATED_FIELD", canvas_node.get("id"),
+                 "agent." + " · agent.".join(dep)
+                 + " 은(는) v2.0 에서 쓰지 않습니다 — 공개 입출력은 내부 진입 · 종단 노드에서 파생됩니다")
+    if isinstance(wf.get("output"), dict) and "schema_id" in wf["output"]:
+        warn("DEPRECATED_FIELD", None,
+             "output.schema_id 은(는) v2.0 에서 쓰지 않습니다 — 종단 노드의 봉투가 산출물입니다")
 
     # 규모 상한
     path = longest_path(graph)
@@ -399,30 +467,7 @@ def validate(wf: dict) -> dict:
     if path > LIMIT_LONGEST_PATH:
         err("LIMIT_EXCEEDED", None, f"최장 경로는 {LIMIT_LONGEST_PATH}단계까지입니다")
     elif path >= WARN_LONGEST_PATH:
-        warnings.append({"code": "LONG_PATH", "node_id": None,
-                         "message": f"최장 경로 {path}단계. 5분을 넘길 수 있습니다"})
+        warn("LONG_PATH", None, f"최장 경로 {path}단계. 5분을 넘길 수 있습니다")
 
-    quote = estimate(wf)
-    if quote["unpriced_nodes"]:
-        warnings.append({"code": "UNPRICED_NODES", "node_id": None,
-                         "message": "단가가 없는 노드가 있어 견적이 실제보다 낮습니다: "
-                                    + ", ".join(quote["unpriced_nodes"])})
     return {"valid": not errors, "errors": errors, "warnings": warnings,
-            "stats": stats, "estimate": quote}
-
-
-def output_schema_of(graph: Graph, node_id: str) -> str | None:
-    """노드가 내는 형식. 분기 노드는 받은 것을 그대로 넘기므로 상위의 형식이다."""
-    return _output_schema_of(graph, node_id)
-
-
-def _output_schema_of(graph: Graph, node_id: str) -> str | None:
-    """분기 노드는 받은 것을 그대로 넘기므로 상위의 출력 형식을 물려받는다."""
-    node = graph.node(node_id)
-    if node.get("type") != "branch":
-        return node.get("output_schema_id")
-    for e in graph.incoming.get(node_id) or []:
-        found = _output_schema_of(graph, e["from"])
-        if found:
-            return found
-    return None
+            "stats": stats, "estimate": estimate(wf)}

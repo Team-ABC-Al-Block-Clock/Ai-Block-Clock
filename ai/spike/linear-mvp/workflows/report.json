@@ -1,27 +1,21 @@
 {
   "id": "report",
-  "name": "학원 성적 리포트",
+  "name": "학원 성적 리포트 (글 출력 2노드 · 스모크 직선)",
   "model": null,
   "nodes": [
     {
       "id": "analyze",
       "name": "성적 분석",
       "prompt": "prompts/analyze.md",
-      "context": "user",
-      "owner_id": "u_demo_analyst",
-      "unit_price": 3.9,
-      "base_cost": 3.0,
-      "premium_rate": 0.3
+      "output": { "kind": "text" },
+      "owner_id": "u_demo_analyst"
     },
     {
       "id": "letter",
       "name": "가정통신문 작성",
       "prompt": "prompts/letter.md",
-      "context": "prev",
-      "owner_id": "u_demo_writer",
-      "unit_price": 4.0,
-      "base_cost": 4.0,
-      "premium_rate": 0.0
+      "output": { "kind": "text" },
+      "owner_id": "u_demo_writer"
     }
   ],
   "output": { "type": "pdf", "title": "3월 성적 리포트" }

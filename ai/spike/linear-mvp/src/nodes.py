@@ -24,6 +24,7 @@ from . import catalog, envelope, pricing
 from .llm import LLM
 
 MAX_REPAIRS = 2                      # 계약 §6.2 — 교정은 2회까지
+TEXT_SCHEMA = "text"                 # 글 출력 노드의 봉투 schema_id (계약 v2.0 §5.5)
 _FENCE = re.compile(r"```(?:json)?\s*(.+?)\s*```", re.S)
 
 
@@ -71,6 +72,7 @@ def run_llm_node(
     message: str,
     runtime_values: dict[str, Any] | None = None,
     mock_overrides: dict[str, Any] | None = None,
+    attachments: list[tuple[bytes, str, str]] | None = None,
 ) -> NodeRun:
     """노드 하나를 실행해 봉투를 돌려준다. 예외를 던지지 않는다.
 
@@ -89,8 +91,19 @@ def run_llm_node(
     user = message
 
     for attempt in range(MAX_REPAIRS + 1):
-        res = llm.generate(system=system, user=user, label=node_id,
-                           response_schema=response_schema, mock_json=mock_json)
+        try:
+            res = llm.generate(system=system, user=user, label=node_id,
+                               response_schema=response_schema, mock_json=mock_json,
+                               **_attach(attachments))
+        except Exception as e:
+            # 교정 호출에서 타임아웃 · API 오류가 나도 앞 호출의 토큰은 썼다.
+            # 백엔드 환불 계산의 입력이므로 예외에 실어 올린다(runner 가 실패 항목에 기록)
+            if attempt > 0:
+                e.partial_meta = envelope.meta(
+                    model, input_tokens=tokens_in, output_tokens=tokens_out, duration_ms=duration,
+                    retry_count=retries, repair_count=attempt,
+                    cost_usd=pricing.cost_usd(model, tokens_in, tokens_out))
+            raise
         model = res.model
         tokens_in += res.input_tokens
         tokens_out += res.output_tokens
@@ -111,7 +124,7 @@ def run_llm_node(
                 attempts.append("")
                 meta = envelope.meta(model, input_tokens=tokens_in, output_tokens=tokens_out,
                                      duration_ms=duration, retry_count=retries, repair_count=attempt,
-                                     cost_abc=pricing.cost_abc(model, tokens_in, tokens_out))
+                                     cost_usd=pricing.cost_usd(model, tokens_in, tokens_out))
                 return NodeRun(ok=True, payload=validated.model_dump(),
                                envelope=envelope.build(run_id, node_id, schema_id,
                                                        validated.model_dump(), meta),
@@ -124,7 +137,7 @@ def run_llm_node(
     # 실패해도 토큰은 썼다. 원가는 기록하고 정산에서 환원 여부를 가린다
     meta = envelope.meta(model, input_tokens=tokens_in, output_tokens=tokens_out,
                          duration_ms=duration, retry_count=retries, repair_count=MAX_REPAIRS,
-                         cost_abc=pricing.cost_abc(model, tokens_in, tokens_out))
+                         cost_usd=pricing.cost_usd(model, tokens_in, tokens_out))
     return NodeRun(
         ok=False,
         envelope=envelope.failed(run_id, node_id, schema_id,
@@ -134,6 +147,27 @@ def run_llm_node(
         repair_count=MAX_REPAIRS,
         attempts=attempts,
     )
+
+
+def run_text_node(llm: LLM, *, run_id: str, node_id: str, system: str, message: str,
+                  attachments: list[tuple[bytes, str, str]] | None = None) -> NodeRun:
+    """글 출력 노드 — 구조화 없이 한 번 부르고 `{"text": …}` 를 봉투에 담는다(계약 v2.0 §5.5).
+
+    검증 · 교정이 없으므로 `repair_count` 는 항상 0 이다. 모델 API 오류는 호출자가 잡는다.
+    """
+    res = llm.generate(system=system, user=message, label=node_id, **_attach(attachments))
+    meta = envelope.meta(res.model, input_tokens=res.input_tokens, output_tokens=res.output_tokens,
+                         duration_ms=res.duration_ms, retry_count=res.retries, repair_count=0,
+                         cost_usd=pricing.cost_usd(res.model, res.input_tokens, res.output_tokens))
+    payload = {"text": res.text or ""}
+    return NodeRun(ok=True, payload=payload,
+                   envelope=envelope.build(run_id, node_id, TEXT_SCHEMA, payload, meta),
+                   attempts=[""])
+
+
+def _attach(attachments: list[tuple[bytes, str, str]] | None) -> dict[str, Any]:
+    """첨부가 있을 때만 kwargs 로. 없으면 어댑터 시그니처를 건드리지 않는다."""
+    return {"attachments": attachments} if attachments else {}
 
 
 def _loads(text: str) -> dict[str, Any] | None:
