@@ -48,5 +48,5 @@ file-store:
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
   uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}
-  chain-id: ${WALLET_AUTH_CHAIN_ID:80002}
+  chain-id: ${WALLET_AUTH_CHAIN_ID:31221}
   message-ttl: ${WALLET_AUTH_MESSAGE_TTL:5m}
