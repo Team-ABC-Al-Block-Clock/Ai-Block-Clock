@@ -51,8 +51,9 @@ public class ExecutionReservationManager {
     }
 
     // 실행을 닫는 자리는 여기 하나다. 뒤에서 따라가는 모니터도, 모니터가 놓친 실행을 조회가 볼 때도 여기로 온다.
-    // 닫기 · 책임 판정 · 환불이 한 트랜잭션이라 닫혔는데 돌려주지 않았거나 누구 탓인지 모르는 실행이 남지 않는다.
-    // 이미 닫힌 실행이면 아무것도 하지 않아, 모니터와 조회가 겹쳐도 한 번만 돌려준다.
+    // 닫기 · 책임 판정 · 환불 · 정산이 한 트랜잭션이라, 닫혔는데 돌려주지 않았거나 공급자에게 주지 않아
+    // 예치에 남은 실행, 누구 탓인지 모르는 실행이 생기지 않는다.
+    // 이미 닫힌 실행이면 아무것도 하지 않아, 모니터와 조회가 겹쳐도 한 번만 돌려주고 한 번만 적립한다.
     // run 은 엔진이 알린 마지막 상태다. 기한 안에 끝을 알리지 않아 우리가 끊은 실행은 비어 있다.
     @Transactional
     public void finish(ExecutionId id, ExecutionStatus status, RunStatus run) {
@@ -70,6 +71,12 @@ public class ExecutionReservationManager {
         if (usage.hasRefund()) {
             ledgerTransactionWriter.append(LedgerTransaction.forExecutionRefund(
                     id.value(), execution.getRequester(), AbcAmount.of(usage.refund())));
+        }
+
+        if (usage.hasSettlement()) {
+            executionWriter.appendSettlements(id, usage.settlements());
+            ledgerTransactionWriter.append(LedgerTransaction.forExecutionSettlement(
+                    id.value(), execution.getRequester(), usage.payouts()));
         }
     }
 }

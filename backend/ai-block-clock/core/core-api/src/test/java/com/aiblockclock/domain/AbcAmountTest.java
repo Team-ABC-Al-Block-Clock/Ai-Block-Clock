@@ -26,6 +26,15 @@ class AbcAmountTest {
     }
 
     @Test
+    void 더한_금액도_소수_6자리를_지킨다() {
+        AbcAmount amount = AbcAmount.of(new BigDecimal("1.5"))
+                .add(AbcAmount.of(new BigDecimal("0.000001")));
+
+        assertThat(amount.value()).isEqualByComparingTo("1.500001");
+        assertThat(amount.value().scale()).isEqualTo(6);
+    }
+
+    @Test
     void 곱한_금액도_소수_6자리를_지킨다() {
         AbcAmount amount = AbcAmount.of(new BigDecimal("3.0"))
                 .multiply(new BigDecimal("1.5"));
