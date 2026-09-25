@@ -2,6 +2,7 @@ package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunStatus;
+import com.aiblockclock.enums.execution.ExecutionStatus;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ public class ExecutionMonitor {
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReservationManager executionReservationManager;
+    private final ExecutionResultHarvester executionResultHarvester;
     private final ExecutionProgressStore progressStore;
     private final ExecutionPollingProperties properties;
     private final List<ExecutionProgressListener> listeners;
@@ -89,7 +91,7 @@ public class ExecutionMonitor {
         progressStore.put(progress);
 
         if (watch.movedTo(progress.status())) {
-            remember(progress, run);
+            remember(progress, watch, run);
         }
 
         for (ExecutionProgressListener listener : listeners) {
@@ -103,10 +105,14 @@ public class ExecutionMonitor {
 
     // 끝난 실행은 상태만 옮기지 않고 닫는다. 닫으면서 떼어 둔 것 중 쓰지 않은 만큼을 돌려준다.
     // 여기서 실패해도 우리 기록은 안 끝난 채로 남으므로, 조회가 엔진에 다시 물어 같은 자리에서 닫는다.
-    private void remember(ExecutionProgress progress, RunStatus run) {
+    private void remember(ExecutionProgress progress, ExecutionWatch watch, RunStatus run) {
         try {
             if (progress.status().isFinished()) {
                 executionReservationManager.finish(progress.id(), progress.status(), run);
+
+                if (progress.status() == ExecutionStatus.SUCCEEDED) {
+                    executionResultHarvester.harvest(watch.execution());
+                }
             } else {
                 executionWriter.moveTo(progress.id(), progress.status());
             }

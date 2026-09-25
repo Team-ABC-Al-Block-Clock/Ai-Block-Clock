@@ -369,4 +369,36 @@ class AiRuntimeClientTest {
                 .extracting(e -> ((AiClientException) e).getError())
                 .isEqualTo(expected);
     }
+
+    @Test
+    @DisplayName("결과 PDF 를 바이트로 받는다")
+    void readsPdf() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1/pdf"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("%PDF-1.7".getBytes(StandardCharsets.UTF_8), MediaType.APPLICATION_PDF));
+
+        assertThat(client.readPdf("run-1")).hasValueSatisfying(pdf ->
+                assertThat(new String(pdf, StandardCharsets.UTF_8)).isEqualTo("%PDF-1.7"));
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("PDF 가 아직 렌더되지 않았으면 실패가 아니라 없는 것으로 본다")
+    void treatsUnrenderedPdfAsAbsent() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1/pdf"))
+                .andRespond(withStatus(HttpStatus.CONFLICT));
+
+        assertThat(client.readPdf("run-1")).isEmpty();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("PDF 요청이 409 말고 다른 이유로 실패하면 끊는다")
+    void failsWhenPdfRequestBreaks() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1/pdf"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertError(() -> client.readPdf("run-1"), AiClientError.REQUEST_FAILED);
+        server.verify();
+    }
 }
