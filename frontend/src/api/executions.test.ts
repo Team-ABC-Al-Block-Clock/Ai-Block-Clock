@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { http } from 'msw'
 
-import { client } from '@/api/client'
+import { API_BASE_URL, client } from '@/api/client'
 
 import { ApiError } from '@/api/errors'
 import {
@@ -11,6 +12,8 @@ import {
 } from '@/api/executions'
 import { saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import { CREDIT_BALANCE } from '@/mocks/fixtures/credits'
+import { fail, ok } from '@/mocks/response'
+import { server } from '@/test/server'
 
 /** api 레이어 + 실행 mock 을 한 번에 통과시킨다. 견적은 저장된 워크플로우를 읽는다. */
 
@@ -237,5 +240,67 @@ describe('getExecutionProgress', () => {
   it('없는 실행은 EXECUTION_001 이다', async () => {
     await expect(getExecutionProgress('exe_999')).rejects.toBeInstanceOf(ApiError)
     await expect(getExecutionProgress('exe_999')).rejects.toMatchObject({ code: 'EXECUTION_001' })
+  })
+})
+
+/** 스트림과 폴링이 함께 읽는 모양. */
+describe('진행 상황의 실패 정보', () => {
+  const PROGRESS = {
+    executionId: 'exe_1',
+    status: 'FAILED',
+    done: 1,
+    total: 2,
+    percent: 50,
+    currentStepName: null,
+    steps: [
+      { name: '성적 분석', status: 'succeeded' },
+      { name: '가정통신문 작성', status: 'failed' },
+    ],
+  }
+
+  it('중단된 실행은 왜 중단되었는지 함께 준다', async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/runs/:id`, () =>
+        ok({
+          ...PROGRESS,
+          failure: { stepName: '가정통신문 작성', errorCode: 'MODEL_API_ERROR', fault: 'supplier' },
+        }),
+      ),
+    )
+
+    const progress = await getExecutionProgress('exe_1')
+
+    expect(progress.failure).toEqual({
+      stepName: '가정통신문 작성',
+      errorCode: 'MODEL_API_ERROR',
+      fault: 'supplier',
+    })
+  })
+
+  it('까닭을 되찾지 못하면 fault 가 비어 온다 — 플랫폼 과실이 아니다', async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/runs/:id`, () =>
+        ok({
+          ...PROGRESS,
+          failure: { stepName: null, errorCode: 'ABC_RUNTIME_UNREPORTED', fault: null },
+        }),
+      ),
+    )
+
+    const progress = await getExecutionProgress('exe_1')
+
+    expect(progress.failure?.fault).toBeNull()
+  })
+
+  it('실행 엔진에 맡기지 못하면 코드로 가를 수 있게 던진다', async () => {
+    server.use(
+      http.post(`${API_BASE_URL}/runs`, () =>
+        fail(502, 'EXECUTION_002', '실행을 맡기지 못했습니다. 잠시 후 다시 시도해 주세요.'),
+      ),
+    )
+
+    await expect(
+      startExecution({ workflowId: 'wf_001', requestId: REQUEST_ID }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_002', status: 502 })
   })
 })
