@@ -4,9 +4,16 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
 import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode, type AiModel } from '@/api/nodes'
-import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
+import {
+  replaceWorkflow,
+  saveWorkflow,
+  type ControlKind,
+  type IoType,
+  type WorkflowGraph,
+} from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
-import CanvasNode from '@/components/CanvasNode'
+import CanvasNode, { type CanvasNodeProps } from '@/components/CanvasNode'
+import ControlNode from '@/components/ControlNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
 import ModelSelect from '@/components/ModelSelect'
@@ -16,16 +23,50 @@ import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
-import { chainPositions } from '@/lib/canvasWorkflow'
+import { chainPositions, graphProblem, runProblem, upstreamOf } from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { placedKindLabel, priceLabel } from '@/lib/format'
+import { describeCondition } from '@/lib/branchCondition'
+import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
+
+const UNSUPPORTED = '아직 지원하지 않습니다'
+
+/** 「제어 흐름 노드」 줄의 칩. 누르면 캔버스 가운데에 하나 놓인다. */
+function ControlChip({
+  label,
+  disabled = false,
+  title,
+  onClick,
+}: {
+  label: string
+  disabled?: boolean
+  title?: string
+  onClick: () => void
+}) {
+  return (
+    <div
+      onClick={disabled ? undefined : onClick}
+      title={title}
+      style={{
+        height: '36px',
+        padding: '0 15px',
+        borderRadius: '10px',
+        opacity: disabled ? 0.45 : 1,
+      }}
+      className={`bg-surface-card flex items-center text-[12.5px] font-semibold whitespace-nowrap text-white ${
+        disabled ? 'cursor-default' : 'cursor-pointer hover:bg-[rgba(255,255,255,.2)]'
+      }`}
+    >
+      {label}
+    </div>
+  )
+}
 
 /** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
 const NAME_MAX = 40
@@ -46,7 +87,8 @@ function describeSaveError(error: unknown): string | null {
   if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
   // 서버가 그래프를 물리는 나머지 갈래. 빠져 있으면 고칠 곳을 모른 채 같은 저장만 되풀이한다.
   if (error.code === 'WORKFLOW_005') return '연결이 고리를 이룹니다. 돌아오는 선을 지워 주세요'
-  if (error.code === 'WORKFLOW_013') return '연결이 규칙에 맞지 않습니다. 한 줄로 이어 주세요'
+  if (error.code === 'WORKFLOW_013')
+    return '연결이 서버 규칙에 맞지 않습니다. 시작·분기·종료 연결을 확인해 주세요'
   if (error.code === 'WORKFLOW_014') return '노드를 하나 이상 놓아야 저장할 수 있습니다'
   if (error.code === 'WORKFLOW_017') return '놓인 노드의 종류가 서버와 다릅니다. 다시 놓아 주세요'
   if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
@@ -85,6 +127,7 @@ export default function EditNodes() {
     linkFrom,
     canSell,
     editNode,
+    editCondition,
     attachSources,
     repriceBySource,
     portOpen,
@@ -209,15 +252,12 @@ export default function EditNodes() {
   /** 못 누르는 이유. 없으면 누를 수 있다 — 버튼을 죽여 두기만 하면 왜인지 알 길이 없다. */
   const saveBlocked = loaded.isPending
     ? '워크플로우를 불러오는 중입니다'
-    : !nodes.length
-      ? '노드를 하나 이상 놓아 주세요'
-      : !graph
-        ? '노드를 빠짐없이 하나로 이어 주세요'
-        : !trimmedName
-          ? '워크플로우 이름을 적어 주세요'
-          : null
+    : (graphProblem(nodes, edges) ?? (trimmedName ? null : '워크플로우 이름을 적어 주세요'))
   const canSave = !saveBlocked && !save.isPending && dirty
-  const canRun = !saveBlocked && !save.isPending
+
+  /** 못 실행하는 이유. 저장보다 한 단계 더 본다 — 어디서 시작해 어디서 끝나는지까지. */
+  const runBlocked = saveBlocked ?? runProblem(nodes, edges)
+  const canRun = !runBlocked && !save.isPending
   const saveError = describeSaveError(save.error)
 
   const navigate = useNavigate()
@@ -317,6 +357,32 @@ export default function EditNodes() {
     closeAddPanel()
   }
 
+  /**
+   * 제어·입출력 노드를 캔버스 가운데에 놓는다.
+   *
+   * 팔레트를 거치지 않는다 — 가리킬 원본이 없어 서버에 만들 것도, 값을 받아 올 곳도 없다.
+   * 종류만 실어 두면 저장할 때 `sourceType` 이 `CONTROL`·`IO` 로 나간다.
+   */
+  const handlePlaceControl = (kind: ControlKind) => {
+    // 시작은 맨 앞이라 왼쪽, 분기·종료는 뒤로 이어지니 오른쪽에 둔다.
+    canvas.placeBeside(kind === 'START' ? 'left' : 'right', {
+      name: controlKindName(kind),
+      nodeType: null,
+      sourceType: kind === 'BRANCH' ? 'CONTROL' : 'IO',
+      sourceId: '',
+      price: null,
+      summary: null,
+      prompt: null,
+      model: null,
+      mine: null,
+      ...(kind === 'BRANCH' ? { controlType: 'BRANCH' as const } : { ioType: kind }),
+    })
+    closeAddPanel()
+  }
+
+  /** 시작·종료는 저마다 하나뿐이다. 둘을 놓으면 서버가 `WORKFLOW_013` 으로 물린다. */
+  const ioPlaced = (type: IoType) => nodes.some((node) => node.ioType === type)
+
   const hasSelection = !!n
   // 에이전트는 열지 않는다 — 남의 내부 구성이다. 기본 노드는 캔버스가 값을 들고 있다.
   /**
@@ -342,6 +408,21 @@ export default function EditNodes() {
           price: n.price,
         }
       : undefined
+  /**
+   * 고른 것이 분기일 때 조건이 읽을 수 있는 자리.
+   *
+   * 앞에 놓인 기본 노드만이다 — 에이전트는 내부 구성을 열지 않아 결과 안의 경로를 알 수
+   * 없고, 제어·입출력은 낼 결과가 없다(`WorkflowGraph.ensureConditionReadsUpstream`).
+   */
+  const selBranch = useMemo(() => {
+    if (!n?.controlType) return undefined
+    const sources = upstreamOf(nodes, edges, n.id)
+      .filter((node) => node.sourceType === 'NODE')
+      .map((node) => ({ id: node.id, name: node.name }))
+    return { id: n.id, condition: n.condition ?? null, sources }
+  }, [n, nodes, edges])
+
+  const selKind = n?.controlType ?? n?.ioType
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
   const selTypeLabel = n ? placedKindLabel(n) : ''
@@ -444,44 +525,88 @@ export default function EditNodes() {
           <div className="pointer-events-none absolute inset-0">
             <div ref={glowRef} style={selRing}></div>
 
-            {nodes.map((node) => (
-              <CanvasNode
-                key={node.id}
-                index={chainAt?.get(node.id)}
-                name={node.name}
-                sublabel={node.price === null ? '—' : priceLabel(node.price)}
-                x={node.x}
-                y={node.y}
-                mine={node.mine}
-                floaty={node.floaty}
-                enter={node.enter}
-                background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
-                sublabelColor="rgba(230,196,212,.85)"
-                title={
-                  node.mine === false
-                    ? '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
-                    : undefined
-                }
-                nodeId={node.id}
-                dragging={dragId === node.id}
-                onSelect={handleSelect}
-                onPointerDown={handleNodePointerDown(node.id)}
-                onPortDown={handlePortDown(node.id)}
-                portDim={(side) => !portOpen(node.id, side)}
+            {nodes.map((node) => {
+              // 끌고 놓기와 선 잇기는 종류를 가리지 않는다. 모양만 갈린다.
+              const grip: Pick<
+                CanvasNodeProps,
+                | 'x'
+                | 'y'
+                | 'floaty'
+                | 'enter'
+                | 'nodeId'
+                | 'dragging'
+                | 'onSelect'
+                | 'onPointerDown'
+                | 'onPortDown'
+                | 'portDim'
+                | 'onPointerMove'
+                | 'onPointerUp'
+                | 'onPointerCancel'
+                | 'onHover'
+                | 'onHoverOut'
+              > = {
+                x: node.x,
+                y: node.y,
+                floaty: node.floaty,
+                enter: node.enter,
+                nodeId: node.id,
+                dragging: dragId === node.id,
+                onSelect: handleSelect,
+                onPointerDown: handleNodePointerDown(node.id),
+                onPortDown: handlePortDown(node.id),
+                portDim: (side) => !portOpen(node.id, side),
                 // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
-                onPointerMove={(ev) => {
+                onPointerMove: (ev) => {
                   handleNodePointerMove(ev)
                   handlePortMove(ev)
-                }}
-                onPointerUp={(ev) => {
+                },
+                onPointerUp: (ev) => {
                   handleNodePointerUp()
                   handlePortUp(ev)
-                }}
-                onPointerCancel={handlePointerCancel}
-                onHover={() => onHover(node.id)}
-                onHoverOut={handleHoverOut}
-              />
-            ))}
+                },
+                onPointerCancel: handlePointerCancel,
+                onHover: () => onHover(node.id),
+                onHoverOut: handleHoverOut,
+              }
+
+              const kind = node.controlType ?? node.ioType
+              if (kind) {
+                return (
+                  <ControlNode
+                    key={node.id}
+                    {...grip}
+                    kind={kind}
+                    selected={node.id === selId}
+                    sublabel={
+                      node.controlType
+                        ? describeCondition(
+                            node.condition,
+                            (id) => nodes.find((it) => it.id === id)?.name,
+                          )
+                        : undefined
+                    }
+                  />
+                )
+              }
+
+              return (
+                <CanvasNode
+                  key={node.id}
+                  {...grip}
+                  index={chainAt?.get(node.id)}
+                  name={node.name}
+                  sublabel={node.price === null ? '—' : priceLabel(node.price)}
+                  mine={node.mine}
+                  background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
+                  sublabelColor="rgba(230,196,212,.85)"
+                  title={
+                    node.mine === false
+                      ? '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+                      : undefined
+                  }
+                />
+              )
+            })}
           </div>
 
           {/* 끄는 중인 선은 카드 위에 둔다 — 이어진 선과 달리 카드를 피해 가지 않아서,
@@ -693,25 +818,24 @@ export default function EditNodes() {
               >
                 제어 흐름 노드
               </div>
-              <div className="flex" style={{ gap: '8px', marginBottom: '2px' }}>
-                <div
-                  style={{ height: '36px', padding: '0 13px', borderRadius: '10px' }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold whitespace-nowrap text-white hover:bg-[rgba(255,255,255,.2)]"
-                >
-                  조건 분기 (if / else)
-                </div>
-                <div
-                  style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
-                >
-                  반복
-                </div>
-                <div
-                  style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
-                >
-                  병합
-                </div>
+              <div className="flex flex-wrap" style={{ gap: '8px', marginBottom: '2px' }}>
+                <ControlChip
+                  label="시작"
+                  disabled={ioPlaced('START')}
+                  title={ioPlaced('START') ? '시작 노드는 하나만 놓을 수 있습니다' : undefined}
+                  onClick={() => handlePlaceControl('START')}
+                />
+                <ControlChip
+                  label="종료"
+                  disabled={ioPlaced('END')}
+                  title={ioPlaced('END') ? '종료 노드는 하나만 놓을 수 있습니다' : undefined}
+                  onClick={() => handlePlaceControl('END')}
+                />
+                <ControlChip label="조건 분기" onClick={() => handlePlaceControl('BRANCH')} />
+                {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 반복은 타입이 없고,
+                    병합은 그래프가 트리라 들어오는 선을 둘 받지 못한다. 자리만 남겨 둔다. */}
+                <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
+                <ControlChip label="병합" disabled title={UNSUPPORTED} onClick={() => {}} />
               </div>
             </div>
 
@@ -807,13 +931,13 @@ export default function EditNodes() {
 
         {/*
           저장하지 않고 눌러도 넘어간다 — 먼저 저장하고 그 워크플로우로 실행 화면을 연다.
-          저장이 막힌 상태(빈 캔버스·갈래·이름 없음)면 저장 버튼과 같은 이유로 여기도 막힌다.
+          저장이 막힌 상태면 여기도 막히고, 시작·종료가 이어지지 않아도 막힌다.
         */}
         <button
           type="button"
           onClick={() => void runNow()}
           disabled={!canRun}
-          title={saveBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
+          title={runBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
             top: 'calc(915px + var(--edge-y, 0px))',
@@ -849,7 +973,9 @@ export default function EditNodes() {
           initial={selInitial}
           typeLabel={selTypeLabel}
           basic={selBasic}
-          summary={n?.summary}
+          branch={selBranch}
+          onApplyCondition={editCondition}
+          summary={selKind ? controlKindHint(selKind) : n?.summary}
           meta={
             n && n.sourceType === 'AGENT'
               ? { price: n.price, executionCount: n.executionCount, owner: n.owner }

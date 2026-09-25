@@ -24,6 +24,108 @@ const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData =>
 
 const link = (from: string, to: string): CanvasEdge => ({ id: `${from}__${to}`, from, to })
 
+const placed = (
+  nodeKey: string,
+  over: Partial<WorkflowDetail['nodes'][number]> = {},
+): WorkflowDetail['nodes'][number] => ({
+  nodeKey,
+  sourceType: 'NODE',
+  sourceId: null,
+  versionId: null,
+  inputSource: 'PREV',
+  controlType: null,
+  condition: null,
+  ioType: null,
+  ...over,
+})
+
+const branchLink = (from: string, to: string, when: boolean): CanvasEdge => ({
+  ...link(from, to),
+  when,
+})
+
+const io = (id: string, ioType: 'START' | 'END'): CanvasNodeData =>
+  node(id, { nodeType: null, sourceType: 'IO', sourceId: '', mine: null, ioType })
+
+const branch = (id: string, fromId: string): CanvasNodeData =>
+  node(id, {
+    nodeType: null,
+    sourceType: 'CONTROL',
+    sourceId: '',
+    mine: null,
+    controlType: 'BRANCH',
+    condition: { fromId, path: 'level', operator: 'EQ', right: 'high' },
+  })
+
+describe('toWorkflowGraph — 분기·입출력', () => {
+  /** 시작 → a → 분기 →(참) t / (거짓) f. 한 갈래 끝에만 종료가 붙는다. */
+  const scene = () => ({
+    nodes: [io('s', 'START'), node('a'), branch('br', 'a'), node('t'), io('e', 'END'), node('f')],
+    edges: [
+      link('s', 'a'),
+      link('a', 'br'),
+      branchLink('br', 't', true),
+      branchLink('br', 'f', false),
+      link('t', 'e'),
+    ],
+  })
+
+  it('제어·입출력은 원본 대신 종류를 싣는다', () => {
+    const { nodes, edges } = scene()
+    const graph = toWorkflowGraph(nodes, edges)
+    const byKey = new Map(graph!.nodes.map((placed) => [placed.nodeKey, placed]))
+    const keyOf = (id: string) =>
+      Object.entries(graph!.nodeIdByKey).find(([, value]) => value === id)![0]
+
+    expect(byKey.get(keyOf('s'))).toEqual({
+      nodeKey: keyOf('s'),
+      sourceType: 'IO',
+      ioType: 'START',
+    })
+    expect(byKey.get(keyOf('e'))).toEqual({ nodeKey: keyOf('e'), sourceType: 'IO', ioType: 'END' })
+    expect(byKey.get(keyOf('br'))).toMatchObject({ sourceType: 'CONTROL', controlType: 'BRANCH' })
+  })
+
+  // 노드 키는 저장할 때 매겨진다. 캔버스 id 를 그대로 보내면 서버가 못 찾는다.
+  it('조건의 left 를 노드 키로 옮긴다', () => {
+    const { nodes, edges } = scene()
+    const graph = toWorkflowGraph(nodes, edges)
+    const keyOf = (id: string) =>
+      Object.entries(graph!.nodeIdByKey).find(([, value]) => value === id)![0]
+    const placed = graph!.nodes.find((it) => it.controlType === 'BRANCH')
+
+    expect(placed?.condition).toEqual({
+      left: `${keyOf('a')}.level`,
+      operator: 'EQ',
+      right: 'high',
+    })
+  })
+
+  it('분기에서 나가는 선에만 when 이 붙는다', () => {
+    const { nodes, edges } = scene()
+    const graph = toWorkflowGraph(nodes, edges)
+    const withWhen = graph!.edges.filter((edge) => edge.when !== undefined)
+
+    expect(withWhen).toHaveLength(2)
+    expect(withWhen.map((edge) => edge.when).sort()).toEqual([false, true])
+  })
+
+  // 서버는 참 갈래를 먼저 끝까지 간다. 순서가 다르면 다시 불러올 때 자리가 흔들린다.
+  it('참 갈래를 먼저 훑는다', () => {
+    const { nodes, edges } = scene()
+    const graph = toWorkflowGraph(nodes, edges)
+    const order = graph!.nodes.map((placed) => graph!.nodeIdByKey[placed.nodeKey])
+
+    expect(order).toEqual(['s', 'a', 'br', 't', 'e', 'f'])
+  })
+
+  it('조건이 없는 분기는 저장할 수 없다', () => {
+    const { nodes, edges } = scene()
+    const noCondition = nodes.map((it) => (it.id === 'br' ? { ...it, condition: null } : it))
+    expect(toWorkflowGraph(noCondition, edges)).toBeNull()
+  })
+})
+
 describe('toWorkflowGraph', () => {
   it('선을 따라간 순서로 키를 매긴다', () => {
     const graph = toWorkflowGraph(
@@ -100,6 +202,84 @@ describe('toWorkflowGraph', () => {
       'node_005',
     ])
     expect(graph?.edges).toHaveLength(4)
+  })
+})
+
+describe('toCanvasWorkflow — 분기·입출력', () => {
+  const detail: WorkflowDetail = {
+    workflowId: 'wf-1',
+    name: '갈래',
+    description: null,
+    revision: 1,
+    lastExecutedAt: null,
+    updatedAt: '2026-09-26T00:00:00Z',
+    nodes: [
+      placed('n1', { sourceType: 'IO', sourceId: null, ioType: 'START' }),
+      placed('n2', { sourceId: 'node_001' }),
+      placed('n3', {
+        sourceType: 'CONTROL',
+        sourceId: null,
+        controlType: 'BRANCH',
+        condition: { left: 'n2.level', operator: 'EQ', right: 'high' },
+      }),
+      placed('n4', { sourceId: 'node_002' }),
+      placed('n5', { sourceType: 'IO', sourceId: null, ioType: 'END' }),
+    ],
+    edges: [
+      { edgeKey: 'e1', sourceNodeKey: 'n1', targetNodeKey: 'n2' },
+      { edgeKey: 'e2', sourceNodeKey: 'n2', targetNodeKey: 'n3' },
+      { edgeKey: 'e3', sourceNodeKey: 'n3', targetNodeKey: 'n4', when: true },
+      { edgeKey: 'e4', sourceNodeKey: 'n3', targetNodeKey: 'n5', when: false },
+    ],
+  }
+  const canvas = () => toCanvasWorkflow(detail, () => undefined)
+
+  it('종류를 그대로 되살린다', () => {
+    const { nodes } = canvas()
+    expect(nodes.map((it) => it.ioType ?? it.controlType ?? '-')).toEqual([
+      'START',
+      '-',
+      'BRANCH',
+      '-',
+      'END',
+    ])
+  })
+
+  // 팔레트에 없어 이름을 못 찾는다. 「알 수 없는 노드」로 굳으면 무엇인지 알 수 없다.
+  it('제어·입출력은 종류로 이름을 채운다', () => {
+    expect(canvas().nodes.map((it) => it.name)).toEqual([
+      '시작',
+      '알 수 없는 노드',
+      '조건 분기',
+      '알 수 없는 노드',
+      '종료',
+    ])
+  })
+
+  it('조건의 노드 키를 캔버스 id 로 되돌린다', () => {
+    const { nodes } = canvas()
+    const branchNode = nodes.find((it) => it.controlType === 'BRANCH')
+    const source = nodes[1]
+
+    expect(branchNode?.condition).toEqual({
+      fromId: source.id,
+      path: 'level',
+      operator: 'EQ',
+      right: 'high',
+    })
+  })
+
+  it('선의 갈래를 그대로 싣는다', () => {
+    expect(canvas().edges.map((edge) => edge.when)).toEqual([undefined, undefined, true, false])
+  })
+
+  // 갈래가 생기면 한 줄이 아니다. 깊이로 가로, 형제로 세로를 가른다.
+  it('갈라진 자리는 같은 가로줄에 겹치지 않는다', () => {
+    const { nodes } = canvas()
+    const [yes, no] = [nodes[3], nodes[4]]
+
+    expect(yes.x).toBe(no.x)
+    expect(yes.y).not.toBe(no.y)
   })
 })
 

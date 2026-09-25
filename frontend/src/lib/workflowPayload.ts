@@ -1,5 +1,6 @@
 import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
 import type { AiModel } from '@/api/nodes'
+import { controlKindName } from '@/lib/format'
 import {
   NODE_SIZE,
   type CanvasCondition,
@@ -93,9 +94,6 @@ const RESTORE_X0 = 12
 /** 짝수 깊이는 아래, 홀수 깊이는 위. */
 const RESTORE_Y = [430, 325] as const
 
-/** 제어·입출력 노드는 가리킬 원본이 없어 팔레트에서 이름을 찾을 수 없다. */
-const KIND_NAMES = { BRANCH: '조건 분기', START: '시작', END: '끝' } as const
-
 /** 팔레트가 아는 표시용 정보. 서버 응답에 종류·단가가 없어 밖에서 채워 준다. */
 export interface NodeLabel {
   name: string
@@ -167,11 +165,8 @@ export function toCanvasWorkflow(
 
     return {
       id: idOf.get(node.nodeKey)!,
-      name: control
-        ? KIND_NAMES[control]
-        : io
-          ? KIND_NAMES[io]
-          : (label?.name ?? '알 수 없는 노드'),
+      // 제어·입출력은 가리킬 원본이 없어 팔레트에서 이름을 찾을 수 없다.
+      name: control || io ? controlKindName(control ?? io!) : (label?.name ?? '알 수 없는 노드'),
       // 제어·입출력은 종류를 `controlType`·`ioType` 이 든다.
       nodeType:
         control || io

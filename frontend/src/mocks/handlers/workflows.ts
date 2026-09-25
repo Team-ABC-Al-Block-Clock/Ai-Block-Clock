@@ -125,7 +125,7 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   if (graph.nodes.filter((node) => node.ioType === 'START').length > 1)
     return fail(400, 'WORKFLOW_013', '시작 노드는 하나만 놓을 수 있습니다.')
   if (graph.nodes.filter((node) => node.ioType === 'END').length > 1)
-    return fail(400, 'WORKFLOW_013', '끝 노드는 하나만 놓을 수 있습니다.')
+    return fail(400, 'WORKFLOW_013', '종료 노드는 하나만 놓을 수 있습니다.')
 
   for (const node of graph.nodes) {
     const next = out.get(node.nodeKey) ?? []
@@ -144,7 +144,7 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
       return fail(400, 'WORKFLOW_013', '분기가 아닌 노드의 선에는 갈래를 붙일 수 없습니다.')
     if (next.length > 1) return fail(400, 'WORKFLOW_013', '노드에서 나가는 선은 하나뿐입니다.')
     if (node.ioType === 'END' && next.length > 0)
-      return fail(400, 'WORKFLOW_013', '끝 노드에서는 선이 나갈 수 없습니다.')
+      return fail(400, 'WORKFLOW_013', '종료 노드에서는 선이 나갈 수 없습니다.')
   }
 
   const heads = [...keys].filter((key) => !ins.has(key))

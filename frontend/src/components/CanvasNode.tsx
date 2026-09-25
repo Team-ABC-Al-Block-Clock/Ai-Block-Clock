@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 
-import type { PortSide } from '@/lib/canvasReducer'
-import { NODE_SIZE } from '@/lib/canvasWorkflow'
+import type { NodePort } from '@/lib/canvasReducer'
+import { NODE_SIZE, portOffsetY } from '@/lib/canvasWorkflow'
 
 /** 내 것에만 붙는 표시. 다른 사람의 것이 하나라도 섞이면 마켓에 등록할 수 없다. */
 const MY_CHIP: CSSProperties = {
@@ -40,6 +40,14 @@ const NAME_FIT: CSSProperties = {
   WebkitBoxOrient: 'vertical',
   WebkitLineClamp: 2,
   overflow: 'hidden',
+}
+
+/** 부제는 한 줄이다. 분기의 조건 요약처럼 길어지면 카드를 넘지 않게 자른다. */
+const SUBLABEL_FIT: CSSProperties = {
+  maxWidth: `${NODE_SIZE - 30}px`,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 }
 
 /** 선을 잇는 자리. */
@@ -83,8 +91,8 @@ const FLAT_BOTTOM = NODE_SIZE - FLAT_TOP
  */
 const PILL_INSET = 8
 
-/** 육각이 위아래로 물러서는 거리. 꽉 채우면 알약 옆에서 혼자 커 보인다. */
-const HEX_INSET = 26
+/** 육각이 위아래로 물러서는 거리. 조건 요약이 한 줄 들어갈 만큼은 남긴다. */
+const HEX_INSET = 14
 
 /** 위아래가 뾰족하고 좌우가 평평한 육각. 테두리가 잘리지 않게 1px 더 들인다. */
 const HEX_POINTS = [
@@ -118,7 +126,7 @@ const TEXT_SHADOW = {
   filled: '0 1px 3px rgba(10,5,22,.92)',
 }
 
-const BOTH_PORTS: readonly PortSide[] = ['in', 'out']
+const BOTH_PORTS: readonly NodePort[] = [{ side: 'in' }, { side: 'out' }]
 
 /**
  * 바닥 위에 얹히는 글자.
@@ -206,8 +214,8 @@ export interface CanvasNodeProps {
   glass?: boolean
   /** 카드 모양. 기본은 원 */
   shape?: NodeShape
-  /** 그릴 포트. 시작 노드는 출력만, 종료 노드는 입력만 낸다 */
-  ports?: readonly PortSide[]
+  /** 그릴 포트. 시작 노드는 출력만, 종료 노드는 입력만, 분기는 오른쪽에 둘을 낸다 */
+  ports?: readonly NodePort[]
   title?: string
   /** 드래그 중. 모션과 호버를 멈춰 손끝을 따라오게 한다. */
   dragging?: boolean
@@ -220,11 +228,11 @@ export interface CanvasNodeProps {
   onHover?: () => void
   onHoverOut?: () => void
   /** 주면 좌우에 연결 점이 생긴다. */
-  onPortDown?: (side: 'in' | 'out', ev: React.PointerEvent<HTMLDivElement>) => void
+  onPortDown?: (port: NodePort, ev: React.PointerEvent<HTMLDivElement>) => void
   /** 선을 놓은 자리의 노드를 화면에서 되찾을 때. */
   nodeId?: string
   /** 참이면 그 포트를 흐리게 둔다. */
-  portDim?: (side: 'in' | 'out') => boolean
+  portDim?: (port: NodePort) => boolean
 }
 
 export default function CanvasNode({
@@ -310,16 +318,33 @@ export default function CanvasNode({
         glass={glass}
       />
       {onPortDown &&
-        ports.map((side) => (
+        ports.map((port) => (
           <div
-            key={side}
-            data-port={side}
+            key={`${port.side}${port.when ?? ''}`}
+            data-port={port.side}
+            data-when={port.when === undefined ? undefined : String(port.when)}
             style={{
               ...PORT_BASE,
-              [side === 'in' ? 'left' : 'right']: `${-PORT_HIT / 2}px`,
+              top: `${NODE_SIZE / 2 - PORT_HIT / 2 + portOffsetY(port.when)}px`,
+              [port.side === 'in' ? 'left' : 'right']: `${-PORT_HIT / 2}px`,
             }}
-            onPointerDown={(ev) => onPortDown(side, ev)}
+            onPointerDown={(ev) => onPortDown(port, ev)}
           >
+            {port.when !== undefined && (
+              <div
+                className="text-[11.5px] font-semibold whitespace-nowrap"
+                style={{
+                  position: 'absolute',
+                  // 카드 안쪽, 점 바로 옆. 선이 나가는 자리를 가리지 않는다.
+                  right: '100%',
+                  color: 'rgba(255,255,255,.8)',
+                  letterSpacing: '.02em',
+                  pointerEvents: 'none',
+                }}
+              >
+                {port.when ? 'true' : 'false'}
+              </div>
+            )}
             <div
               className="rounded-full"
               style={{
@@ -328,7 +353,7 @@ export default function CanvasNode({
                 background: 'rgba(255,224,238,.9)',
                 boxShadow: '0 0 0 3px rgba(40,20,40,.55), 0 0 10px rgba(255,190,220,.5)',
                 pointerEvents: 'none',
-                opacity: portDim?.(side) ? 0.22 : 1,
+                opacity: portDim?.(port) ? 0.22 : 1,
                 transition: 'opacity .18s',
               }}
             />
@@ -366,7 +391,12 @@ export default function CanvasNode({
       {sublabel && (
         <div
           className="text-[13.5px] font-medium"
-          style={{ ...OVER_BACKDROP, color: sublabelColor, letterSpacing: '.05em' }}
+          style={{
+            ...OVER_BACKDROP,
+            ...SUBLABEL_FIT,
+            color: sublabelColor,
+            letterSpacing: '.05em',
+          }}
         >
           {sublabel}
         </div>

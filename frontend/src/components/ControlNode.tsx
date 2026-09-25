@@ -8,12 +8,16 @@ import CanvasNode, { type CanvasNodeProps } from './CanvasNode'
  *
  * 시작·종료는 흐름의 끝점이라 알약, 분기는 갈림길이라 육각이다.
  *
- * 포트는 흐름이 드나드는 쪽만 낸다. 시작 앞과 종료 뒤에는 아무것도 올 수 없다.
+ * 포트는 흐름이 드나드는 쪽만 낸다. 시작 앞과 종료 뒤에는 아무것도 올 수 없고,
+ * 분기는 오른쪽에 참·거짓 둘을 낸다.
  */
 const KINDS = {
-  BRANCH: { shape: 'hex', ports: ['in', 'out'] },
-  START: { shape: 'pill', ports: ['out'] },
-  END: { shape: 'pill', ports: ['in'] },
+  BRANCH: {
+    shape: 'hex',
+    ports: [{ side: 'in' }, { side: 'out', when: true }, { side: 'out', when: false }],
+  },
+  START: { shape: 'pill', ports: [{ side: 'out' }] },
+  END: { shape: 'pill', ports: [{ side: 'in' }] },
 } as const satisfies Record<ControlKind, Pick<CanvasNodeProps, 'shape' | 'ports'>>
 
 /**

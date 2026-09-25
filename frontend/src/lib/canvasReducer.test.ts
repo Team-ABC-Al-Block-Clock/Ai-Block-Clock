@@ -163,11 +163,43 @@ describe('팔레트에서 놓기', () => {
   })
 })
 
+describe('분기 조건', () => {
+  const branchState = (condition: CanvasState['nodes'][number]['condition'] = null) =>
+    stateOf({
+      nodes: [
+        {
+          ...stateOf({}).nodes[0],
+          id: 'br',
+          sourceType: 'CONTROL',
+          controlType: 'BRANCH',
+          condition,
+        },
+      ],
+    })
+
+  it('고른 분기의 조건을 갈아 끼운다', () => {
+    const next = { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' }
+    const after = canvasReducer(branchState(), { type: 'editCondition', id: 'br', condition: next })
+    expect(after.nodes[0].condition).toEqual(next)
+  })
+
+  // 일하는 노드에는 조건 자리가 없다. 잘못 들어가면 저장 페이로드에 낄 곳이 없다.
+  it('분기가 아니면 건드리지 않는다', () => {
+    const before = stateOf({})
+    const after = canvasReducer(before, {
+      type: 'editCondition',
+      id: before.nodes[0].id,
+      condition: { fromId: 'a', path: 'level', operator: 'EQ', right: 'high' },
+    })
+    expect(after.nodes[0].condition).toBeUndefined()
+  })
+})
+
 describe('포트 연결', () => {
   const linking = stateOf({ linkFrom: { id: 'a', side: 'out' } })
 
   it('출력에서 끌어 입력에 놓으면 이어진다', () => {
-    const after = canvasReducer(linking, { type: 'endLink', targetId: 'b', side: 'in' })
+    const after = canvasReducer(linking, { type: 'endLink', targetId: 'b', port: { side: 'in' } })
     expect(edgeIdsOf(after)).toEqual(['a__b'])
     expect(after.linkFrom).toBeNull()
   })
@@ -176,13 +208,13 @@ describe('포트 연결', () => {
     const after = canvasReducer(stateOf({ linkFrom: { id: 'b', side: 'in' } }), {
       type: 'endLink',
       targetId: 'a',
-      side: 'out',
+      port: { side: 'out' },
     })
     expect(after.edges[0]).toMatchObject({ from: 'a', to: 'b' })
   })
 
   it('같은 쪽 포트끼리는 잇지 않는다', () => {
-    const after = canvasReducer(linking, { type: 'endLink', targetId: 'b', side: 'out' })
+    const after = canvasReducer(linking, { type: 'endLink', targetId: 'b', port: { side: 'out' } })
     expect(after.edges).toHaveLength(0)
     expect(after.linkFrom).toBeNull()
   })
@@ -190,7 +222,7 @@ describe('포트 연결', () => {
   it('고리가 되는 짝은 잇지 않는다', () => {
     const after = canvasReducer(
       stateOf({ edges: [{ id: 'a__b', from: 'a', to: 'b' }], linkFrom: { id: 'b', side: 'out' } }),
-      { type: 'endLink', targetId: 'a', side: 'in' },
+      { type: 'endLink', targetId: 'a', port: { side: 'in' } },
     )
     expect(edgeIdsOf(after)).toEqual(['a__b'])
   })
@@ -202,7 +234,7 @@ describe('포트 연결', () => {
         edges: [{ id: 'a__b', from: 'a', to: 'b' }],
         linkFrom: { id: 'c', side: 'out' },
       }),
-      { type: 'endLink', targetId: 'b', side: 'in' },
+      { type: 'endLink', targetId: 'b', port: { side: 'in' } },
     )
     expect(edgeIdsOf(after)).toEqual(['a__b'])
   })
@@ -232,7 +264,7 @@ describe('포트 연결', () => {
     const after = run(
       stateOf({ selId: 'a', linkFrom: { id: 'a', side: 'out' } }),
       { type: 'removeSelected' },
-      { type: 'endLink', targetId: 'b', side: 'in' },
+      { type: 'endLink', targetId: 'b', port: { side: 'in' } },
     )
     expect(after.edges).toHaveLength(0)
   })
@@ -242,9 +274,9 @@ describe('포트 연결', () => {
       stateOf({ nodes: [nodeAt('a', 0, 0), nodeAt('b', 400, 0), nodeAt('c', 0, 400)], selId: 'a' }),
       { type: 'startLink', from: { id: 'a', side: 'out' } },
       { type: 'removeSelected' },
-      { type: 'endLink', targetId: 'b', side: 'in' },
+      { type: 'endLink', targetId: 'b', port: { side: 'in' } },
       { type: 'startLink', from: { id: 'c', side: 'out' } },
-      { type: 'endLink', targetId: 'b', side: 'in' },
+      { type: 'endLink', targetId: 'b', port: { side: 'in' } },
     )
     expect(edgeIdsOf(after)).toEqual(['c__b'])
   })
@@ -300,7 +332,7 @@ describe('원본을 건드리지 않는다', () => {
       before,
       { type: 'placeNode', seed, x: 700, y: 400 },
       { type: 'startLink', from: { id: 'a', side: 'out' } },
-      { type: 'endLink', targetId: 'b', side: 'in' },
+      { type: 'endLink', targetId: 'b', port: { side: 'in' } },
     )
     expect(before.nodes).toBe(nodes)
     expect(before.edges).toBe(edges)

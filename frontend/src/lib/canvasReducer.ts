@@ -9,6 +9,7 @@ import {
   chainEdges,
   seedCanvasNodes,
   type CanvasBounds,
+  type CanvasCondition,
   type CanvasEdge,
   type CanvasNodeData,
 } from './canvasWorkflow'
@@ -16,10 +17,16 @@ import {
 /** 선이 드나드는 쪽. 입력은 왼쪽, 출력은 오른쪽. */
 export type PortSide = 'in' | 'out'
 
-/** 선을 끄는 중인 출발점. 누를 때와 뗄 때만 바뀐다. */
-interface LinkOrigin {
-  id: string
+/** 카드에 붙는 포트 하나. 분기만 오른쪽에 참·거짓 둘을 낸다. */
+export interface NodePort {
   side: PortSide
+  /** 분기에서 나가는 포트만. 참 갈래가 `true` */
+  when?: boolean
+}
+
+/** 선을 끄는 중인 출발점. 누를 때와 뗄 때만 바뀐다. */
+interface LinkOrigin extends NodePort {
+  id: string
 }
 
 /**
@@ -66,6 +73,9 @@ export type PlacedSeed = Pick<
   | 'executionCount'
   | 'owner'
   | 'mine'
+  | 'controlType'
+  | 'ioType'
+  | 'condition'
 >
 
 /**
@@ -98,6 +108,8 @@ export type CanvasAction =
   | { type: 'removeSelected' }
   /** 고른 기본 노드의 이름·프롬프트·모델을 고친다. 저장은 워크플로우 저장이 맡는다. */
   | { type: 'editNode'; id: string; name: string; prompt: string; model: AiModel }
+  /** 분기 조건을 고침. 조건이 없으면 저장이 막힌다. */
+  | { type: 'editCondition'; id: string; condition: CanvasCondition }
   /** 저장하며 만들어진 노드의 원본 id 를 되쓴다. 비워 두면 다음 저장에서 또 만들어진다. */
   | { type: 'attachSources'; sourceIdByNodeId: Record<string, string> }
   /** 원본을 고치면 서버가 원가를 다시 매긴다. 그 값을 카드에 되쓴다. */
@@ -106,7 +118,7 @@ export type CanvasAction =
   /** 포트가 아닌 곳에서 손을 뗌. */
   | { type: 'cancelLink' }
   /** 포트 위에서 손을 뗌. 이을 수 없는 짝이면 `connect` 가 목록을 그대로 돌려준다. */
-  | { type: 'endLink'; targetId: string; side: PortSide }
+  | { type: 'endLink'; targetId: string; port: NodePort }
 
 export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
   switch (action.type) {
@@ -178,6 +190,16 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       }
     }
 
+    case 'editCondition':
+      return {
+        ...state,
+        nodes: state.nodes.map((node) =>
+          node.id === action.id && node.controlType
+            ? { ...node, condition: action.condition }
+            : node,
+        ),
+      }
+
     case 'attachSources': {
       const given = action.sourceIdByNodeId
       if (!state.nodes.some((node) => given[node.id] && given[node.id] !== node.sourceId))
@@ -208,13 +230,18 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
 
     case 'endLink': {
       const held = state.linkFrom
-      if (!held || action.side === held.side) return { ...state, linkFrom: null }
+      if (!held || action.port.side === held.side) return { ...state, linkFrom: null }
       // 출발점이 사라졌으면 잇지 않는다. 한쪽이 없는 선은 그려지지 않아 지울 수도 없는데,
       // `canConnect` 의 입력 하나 규칙에는 잡혀 대상 노드가 영영 선을 못 받는다.
       if (!state.nodes.some((node) => node.id === held.id)) return { ...state, linkFrom: null }
-      const [from, to] =
-        held.side === 'out' ? [held.id, action.targetId] : [action.targetId, held.id]
-      return { ...state, edges: connect(state.edges, from, to), linkFrom: null }
+      // 갈래는 늘 나가는 쪽 포트가 들고 있다. 거꾸로 끌어와도 출발점은 그쪽이다.
+      const [out, to] = held.side === 'out' ? [held, action.targetId] : [action.port, held.id]
+      const from = held.side === 'out' ? held.id : action.targetId
+      return {
+        ...state,
+        edges: connect(state.nodes, state.edges, from, to, out.when),
+        linkFrom: null,
+      }
     }
   }
 }
