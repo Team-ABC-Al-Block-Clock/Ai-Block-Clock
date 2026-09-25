@@ -40,7 +40,7 @@ public class ExecutionService {
     private final ExecutionMonitor executionMonitor;
 
     // 같은 요청 번호로 이미 접수했으면 다시 떼지 않고 그 실행을 돌려준다.
-    // 새 요청이면 먼저 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
+    // 새 요청이면 엔진에 보낼 요청을 다 만든 뒤에 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
     public Execution start(UserId requester, Workflow workflow, ExecutionRequestId requestId,
                            String comment, boolean mock, UploadedFile upload) {
         Optional<Execution> earlier = executionReader.find(requester, requestId);
@@ -56,13 +56,14 @@ public class ExecutionService {
         ExecutionPlan plan = executionPlanAssembler.assemble(workflow);
         ExecutionId id = ExecutionId.newId();
         ExecutionFile inputFile = upload == null ? null : executionFileStore.write(id, upload);
-        Execution requested = Execution.requested(
-                id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
 
         try {
+            RunRequest runRequest = runRequestOf(RuntimeWorkflow.of(workflow, plan), inputFile, comment, mock);
+            Execution requested = Execution.requested(
+                    id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
             AbcAmount reserved = executionReservationManager.reserve(requested, workflow);
 
-            return dispatch(requested, reserved, RuntimeWorkflow.of(workflow, plan), comment, mock);
+            return dispatch(requested, reserved, runRequest);
         } catch (RuntimeException exception) {
             executionFileStore.erase(inputFile);
 
@@ -130,23 +131,37 @@ public class ExecutionService {
         }
     }
 
-    // 엔진이 받지 않았으면 떼어 둔 금액을 돌려준다. 엔진이 받았는데 응답만 늦은 경우도
-    // 지금 클라이언트는 같은 실패로 알려 구분할 수 없어, 실패로 보고 돌려준다.
-    private Execution dispatch(Execution requested, AbcAmount reserved, RuntimeWorkflow runtime,
-                               String comment, boolean mock) {
-        RunAccepted accepted;
-
+    // 떼어 둔 뒤에는 무엇이 실패하든 돌려준다. 실행 번호를 남기지 못한 경우는 엔진이 이미 받았지만,
+    // 사용자 돈을 묶어 두기보다 돌려주는 쪽을 택한다. 엔진이 받았는데 응답만 늦은 경우도 지금은 구분할 수 없다.
+    private Execution dispatch(Execution requested, AbcAmount reserved, RunRequest runRequest) {
         try {
-            accepted = aiRuntimeClient.start(new RunRequest(runtime.json(), null, comment,
-                    pathOf(requested.getInputFile()), refFilePathsOf(runtime), mock));
-        } catch (AiClientException exception) {
-            log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: {}", exception.getMessage(), exception);
-            executionReservationManager.release(requested, reserved);
+            RunAccepted accepted = aiRuntimeClient.start(runRequest);
 
-            throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
+            return executionWriter.markDispatched(requested.getId(), RunId.of(accepted.runId()));
+        } catch (RuntimeException exception) {
+            log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: execution={}", requested.getId().value(), exception);
+            release(requested, reserved, exception);
+
+            if (exception instanceof AiClientException) {
+                throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
+            }
+
+            throw exception;
         }
+    }
 
-        return executionWriter.markDispatched(requested.getId(), RunId.of(accepted.runId()));
+    // 돌려주기마저 실패하면 원래 실패를 가리지 않도록 덧붙여 두고, 묶인 실행을 찾을 수 있게 남긴다.
+    private void release(Execution requested, AbcAmount reserved, RuntimeException cause) {
+        try {
+            executionReservationManager.release(requested, reserved);
+        } catch (RuntimeException failure) {
+            cause.addSuppressed(failure);
+            log.error("떼어 둔 금액을 돌려주지 못했다: execution={}", requested.getId().value(), failure);
+        }
+    }
+
+    private RunRequest runRequestOf(RuntimeWorkflow runtime, ExecutionFile inputFile, String comment, boolean mock) {
+        return new RunRequest(runtime.json(), null, comment, pathOf(inputFile), refFilePathsOf(runtime), mock);
     }
 
     private Path pathOf(ExecutionFile inputFile) {

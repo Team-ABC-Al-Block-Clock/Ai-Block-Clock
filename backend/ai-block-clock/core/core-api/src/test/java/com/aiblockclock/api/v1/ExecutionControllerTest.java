@@ -6,8 +6,10 @@ import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
+import com.aiblockclock.domain.execution.ExecutionFileStore;
 import com.aiblockclock.domain.execution.ExecutionId;
 import com.aiblockclock.domain.execution.ExecutionProgressStore;
+import com.aiblockclock.domain.execution.ExecutionWriter;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
@@ -32,6 +34,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
@@ -97,6 +100,12 @@ class ExecutionControllerTest {
 
     @MockitoBean
     private AiRuntimeClient aiRuntimeClient;
+
+    @MockitoSpyBean
+    private ExecutionFileStore executionFileStore;
+
+    @MockitoSpyBean
+    private ExecutionWriter executionWriter;
 
     private long requester;
 
@@ -460,6 +469,48 @@ class ExecutionControllerTest {
                 .andExpect(status().isAccepted());
 
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+    }
+
+    @Test
+    void 엔진에_보낼_요청을_만들다_실패하면_떼지_않는다() throws Exception {
+        willThrow(new IllegalStateException("disk is gone")).given(executionFileStore).locate(any());
+        String requestId = UUID.randomUUID().toString();
+
+        mockMvc.perform(run(requestId).file(excel("성적.csv", "점수"))
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isInternalServerError());
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .isEmpty();
+        then(aiRuntimeClient).should(never()).start(any());
+    }
+
+    @Test
+    void 엔진_호출이_예상_밖의_오류로_끝나도_떼어_둔_금액을_돌려준다() throws Exception {
+        willThrow(new IllegalStateException("unexpected")).given(aiRuntimeClient).start(any());
+        String requestId = UUID.randomUUID().toString();
+
+        mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isInternalServerError());
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .get().extracting(ExecutionEntity::getStatus).isEqualTo(ExecutionStatus.FAILED);
+    }
+
+    @Test
+    void 실행_번호를_남기지_못해도_떼어_둔_금액을_돌려준다() throws Exception {
+        willThrow(new IllegalStateException("db is gone")).given(executionWriter).markDispatched(any(), any());
+        String requestId = UUID.randomUUID().toString();
+
+        mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isInternalServerError());
+
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .get().extracting(ExecutionEntity::getStatus).isEqualTo(ExecutionStatus.FAILED);
     }
 
     @Test
