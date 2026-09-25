@@ -5,7 +5,9 @@ import com.aiblockclock.domain.workflow.ControlNode;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.InputField;
 import com.aiblockclock.domain.workflow.IoNode;
+import com.aiblockclock.domain.workflow.PlacedSource;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.domain.workflow.WorkflowDetail;
 import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputFieldType;
 import com.aiblockclock.enums.workflow.InputSource;
@@ -46,9 +48,10 @@ public record WorkflowDetailResponse(
         @Schema(description = "마지막 수정 시각")
         Instant updatedAt
 ) {
-    public static WorkflowDetailResponse from(Workflow workflow) {
+    public static WorkflowDetailResponse from(WorkflowDetail detail) {
+        Workflow workflow = detail.workflow();
         List<NodeResponse> nodes = workflow.getGraph().nodesInOrder().stream()
-                .map(NodeResponse::from)
+                .map(node -> NodeResponse.from(node, detail.sourceOf(node.key())))
                 .toList();
         List<EdgeResponse> edges = workflow.getGraph().edgesInOrder().stream()
                 .map(edge -> new EdgeResponse(
@@ -87,6 +90,15 @@ public record WorkflowDetailResponse(
             @Schema(description = "이 자리가 무엇을 입력으로 받나")
             InputSource inputSource,
 
+            @Schema(description = "배치된 노드 또는 에이전트의 표시 이름. 원본을 찾지 못하면 null",
+                    example = "성적 분석", nullable = true)
+            String name,
+
+            @Schema(description = """
+                    이 자리가 판매 등록을 막지 않는가. 모든 노드가 `true` 여야 워크플로우를 에이전트로 등록할 수 있다.
+                    판정은 서버가 한다 — 화면은 이 값을 그대로 접어 쓰면 된다.""", example = "true")
+            boolean mine,
+
             @Schema(description = "제어 노드 종류. 제어 노드가 아니면 null", nullable = true)
             ControlType controlType,
 
@@ -105,7 +117,7 @@ public record WorkflowDetailResponse(
             @Schema(description = "결과를 어떤 형식으로 받을지. 끝 노드가 아니면 null", nullable = true)
             ResultFormat resultFormat
     ) {
-        static NodeResponse from(GraphNode node) {
+        static NodeResponse from(GraphNode node, PlacedSource source) {
             ControlNode control = node instanceof ControlNode placed ? placed : null;
             IoNode io = node instanceof IoNode placed ? placed : null;
 
@@ -115,6 +127,8 @@ public record WorkflowDetailResponse(
                     node.reference().referenceId() == null ? null : node.reference().referenceId().toString(),
                     node.reference().hasVersion() ? node.reference().versionId().toString() : null,
                     node.inputSource(),
+                    source.name(),
+                    source.mine(),
                     control == null ? null : control.controlType(),
                     control == null ? null : new ConditionResponse(
                             control.condition().left(), control.condition().operator(), control.condition().right()),

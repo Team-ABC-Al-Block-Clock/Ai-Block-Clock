@@ -13,8 +13,10 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -39,16 +41,24 @@ public class AgentVersionPolicy {
                         Map.of("nodeId", nodeId.value()));
             }
 
-            if (!node.getOwner().equals(requester)) {
+            if (!node.isOwnedBy(requester)) {
                 throw new CoreException(ErrorType.AGENT_FOREIGN_NODE_INCLUDED,
                         Map.of("nodeId", nodeId.value()));
             }
         }
 
-        for (AgentPlacement placement : AgentPlacement.in(workflow.getGraph())) {
-            if (!agentReader.isOwnedBy(placement.agentId(), requester)) {
+        Set<AgentId> placedAgents = AgentPlacement.in(workflow.getGraph()).stream()
+                .map(AgentPlacement::agentId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<AgentId, Agent> agents = agentReader.readAll(placedAgents).stream()
+                .collect(Collectors.toMap(Agent::getId, Function.identity()));
+
+        for (AgentId agentId : placedAgents) {
+            Agent agent = agents.get(agentId);
+
+            if (agent == null || !agent.isOwnedBy(requester)) {
                 throw new CoreException(ErrorType.AGENT_FOREIGN_NODE_INCLUDED,
-                        Map.of("agentId", placement.agentId().value()));
+                        Map.of("agentId", agentId.value()));
             }
         }
 

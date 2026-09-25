@@ -18,6 +18,7 @@ public class WorkflowService {
     private final WorkflowWriter workflowWriter;
     private final GraphWriter graphWriter;
     private final WorkflowGraphAssembler workflowGraphAssembler;
+    private final WorkflowGraphDescriber workflowGraphDescriber;
     private final WorkflowValidator validator;
 
     @Transactional
@@ -41,6 +42,14 @@ public class WorkflowService {
         WorkflowValidator.ensureOwner(workflow.getOwner(), requester);
 
         return workflow;
+    }
+
+    /** 캔버스를 되살리는 조회. 박힌 참조를 이름과 소유 판정까지 풀어서 돌려준다. */
+    @Transactional(readOnly = true)
+    public WorkflowDetail getDetail(WorkflowId id, UserId requester) {
+        Workflow workflow = get(id, requester);
+
+        return new WorkflowDetail(workflow, workflowGraphDescriber.describe(requester, workflow.getGraph()));
     }
 
     @Transactional

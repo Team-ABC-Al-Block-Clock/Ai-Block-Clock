@@ -68,9 +68,11 @@ public interface WorkflowApi {
                 "revision": 1,
                 "nodes": [
                   { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13",
-                    "versionId": null },
+                    "versionId": null, "inputSource": "PREV",
+                    "name": "성적 분석", "mine": true },
                   { "nodeKey": "n2", "sourceType": "AGENT", "sourceId": "b7e2d4c8-1f65-4a09-93de-5c0a8b2f7e41",
-                    "versionId": "6f3a1c92-77b4-4a8e-9d61-2c5e8a0b4f17" }
+                    "versionId": "6f3a1c92-77b4-4a8e-9d61-2c5e8a0b4f17", "inputSource": "PREV",
+                    "name": "가정통신문 작성 에이전트", "mine": false }
                 ],
                 "edges": [
                   { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
@@ -211,7 +213,11 @@ public interface WorkflowApi {
 
                     배치 좌표는 저장하지 않는다. `edges` 의 연결 순서만으로 화면이 배치를 계산한다.
                     `nodes` 와 `edges` 는 그 연결을 따라간 순서로 나간다. 보낸 배열 순서가 달랐어도 같다.
-                    소유자만 조회할 수 있다.""")
+                    소유자만 조회할 수 있다.
+
+                    노드마다 `name` 과 `mine` 이 함께 나간다. 이름은 카드에 그대로 박으면 되고,
+                    `mine` 이 전부 `true` 일 때만 이 워크플로우를 에이전트로 등록할 수 있다.
+                    등록을 막는 기준은 서버가 쥐고 있으므로 화면이 소유자를 따로 대조할 필요가 없다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 완료", useReturnTypeSchema = true,
                     content = @Content(mediaType = "application/json",
