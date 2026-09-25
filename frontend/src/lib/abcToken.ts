@@ -12,6 +12,9 @@ export const ABC_TOKEN_ADDRESS: Address = '0x56DC097C14836473f4Ad4BD675a3d01BE5e
 /** 입금 전용 지갑. 발행 계정과 나눠 둔 권한 없는 계정이다. */
 export const CUSTODY_ADDRESS: Address = '0x64e72A170a7a36cE09806190Ed02085fe23CB6B6'
 
+/** 컨트랙트의 `symbol()` 과 같은 값이다. 지갑에 등록할 때 쓴다. */
+const ABC_TOKEN_SYMBOL = 'abcToken'
+
 /** ABC 1 = 10^18 */
 const DECIMALS = 18
 
@@ -67,4 +70,34 @@ export function isSendableAmount(amount: string): boolean {
   const trimmed = trimAbcAmount(amount)
   if (!/^\d+(\.\d+)?$/.test(trimmed)) return false
   return Number(trimmed) > 0
+}
+
+/** EIP-1193 의 최소 모양. 커넥터가 주는 provider 는 타입이 넓어 여기서 좁힌다. */
+interface RequestProvider {
+  request: (args: { method: string; params?: unknown }) => Promise<unknown>
+}
+
+/**
+ * 지갑에 abcToken 을 등록한다(EIP-747).
+ *
+ * 등록되지 않은 토큰은 전송 창에서 기호 자리가 '알 수 없음' 으로 뜬다 — 무엇을 얼마나
+ * 보내는지 확인할 수가 없다. 주소를 손으로 옮겨 적게 하지 않으려고 지갑에 직접 묻는다.
+ *
+ * 거절하거나 지갑이 이 요청을 모르더라도 로그인·충전은 그대로 된다. 표시 문제라 조용히 넘긴다.
+ */
+export async function watchAbcToken(provider: unknown): Promise<void> {
+  const eip1193 = provider as Partial<RequestProvider>
+  if (typeof eip1193.request !== 'function') return
+
+  try {
+    await eip1193.request({
+      method: 'wallet_watchAsset',
+      params: {
+        type: 'ERC20',
+        options: { address: ABC_TOKEN_ADDRESS, symbol: ABC_TOKEN_SYMBOL, decimals: DECIMALS },
+      },
+    })
+  } catch {
+    /* 거절·미지원 — 알릴 일이 아니다 */
+  }
 }

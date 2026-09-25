@@ -5,6 +5,7 @@ import { useAccount, useConnect, useSignMessage, useSwitchChain } from 'wagmi'
 import { requestWalletMessage } from '@/api/auth'
 import { ApiError } from '@/api/errors'
 import type { WalletPhase } from '@/components/wallet-dialog'
+import { watchAbcToken } from '@/lib/abcToken'
 import { shortAddress } from '@/lib/format'
 import { chain, describeWalletError } from '@/lib/wagmi'
 import { endReasonFrom, redirectTargetFrom } from '@/routes/access'
@@ -102,6 +103,9 @@ export default function Login() {
       if (onChain !== chain.id) {
         await switchChainAsync({ chainId: chain.id }).catch(() => undefined)
       }
+
+      // 체인을 맞춘 뒤에 토큰을 등록한다 — 충전 전송 창이 'abcToken' 을 이름으로 보여 준다.
+      await watchAbcToken(await connectors[0].getProvider())
 
       setWallet(connected)
       // 연결이 끝나면 곧바로 서명으로 간다. 중간에 확인 화면을 한 번 더 두면
