@@ -126,6 +126,8 @@ export function useAbcCharge() {
       if (Date.now() - Date.parse(data.requestedAt) > POLL_LIMIT_MS) return false
       return POLL_MS
     },
+    // 탭을 옮겨도 계속 묻는다. 기본값은 배경에서 쉬는 것이라 「떠나도 된다」는 안내가 거짓말이 된다.
+    refetchIntervalInBackground: true,
   })
 
   // 접수 응답과 조회 응답이 같은 모양이라, 먼저 온 쪽을 그대로 쓴다.
