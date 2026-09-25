@@ -14,6 +14,7 @@ import com.aiblockclock.domain.workflow.GraphEdge;
 import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.domain.workflow.WorkflowDetail;
 import com.aiblockclock.domain.workflow.WorkflowId;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.domain.workflow.WorkflowSummary;
@@ -67,9 +68,9 @@ public class WorkflowController implements WorkflowApi {
             @CurrentUser UserId owner,
             @PathVariable UUID workflowId
     ) {
-        Workflow workflow = workflowService.get(WorkflowId.of(workflowId), owner);
+        WorkflowDetail detail = workflowService.getDetail(WorkflowId.of(workflowId), owner);
 
-        return ApiResult.success(WorkflowDetailResponse.from(workflow));
+        return ApiResult.success(WorkflowDetailResponse.from(detail));
     }
 
     @Override

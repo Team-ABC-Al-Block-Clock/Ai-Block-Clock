@@ -96,7 +96,8 @@ class ExecutionResultHarvestIntegrationTest {
     void harvestsOnFinish() {
         given(aiRuntimeClient.read(RUN_ID)).willReturn(succeeded());
 
-        executionService.follow(executionId, REQUESTER);
+        executionService.beginWatching(executionService.mine(executionId, REQUESTER));
+        executionService.pollOnce(executionId);
 
         assertThat(executionResultReader.readFormats(executionId))
                 .containsExactlyInAnyOrder(ExecutionResultFormat.JSON, ExecutionResultFormat.PDF);

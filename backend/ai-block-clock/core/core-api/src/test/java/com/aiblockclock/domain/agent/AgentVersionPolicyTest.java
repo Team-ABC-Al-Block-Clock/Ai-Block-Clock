@@ -26,6 +26,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -35,8 +36,14 @@ class AgentVersionPolicyTest {
 
     private static AgentVersionPolicy policy(Set<AgentId> ownedAgents) {
         AgentReader agentReader = mock(AgentReader.class);
-        given(agentReader.isOwnedBy(any(), any()))
-                .willAnswer(call -> OWNER.equals(call.getArgument(1)) && ownedAgents.contains(call.getArgument(0)));
+        given(agentReader.readAll(any())).willAnswer(call -> {
+            Collection<AgentId> ids = call.getArgument(0);
+
+            return ids.stream()
+                    .filter(ownedAgents::contains)
+                    .map(id -> Agent.draft(id, OWNER, new AgentProfile("에이전트", null, null, null, null, null)))
+                    .toList();
+        });
 
         return new AgentVersionPolicy(agentReader);
     }

@@ -6,8 +6,10 @@ import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
+import com.aiblockclock.domain.workflow.PlacedSource;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.domain.workflow.WorkflowDetail;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -79,6 +81,40 @@ class AgentPlacementIntegrationTest {
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.AGENT_FOREIGN_NODE_INCLUDED);
+    }
+
+    // 상세 조회의 mine 은 화면이 "판매 등록 가능 / 불가" 를 띄우는 근거다.
+    // 여기서 막힌 워크플로우가 화면에서는 등록 가능해 보이면 눌렀을 때 403 이 난다.
+    @Test
+    @DisplayName("등록이 막히는 워크플로우는 상세 조회의 mine 도 전부 true 가 아니다")
+    void detailAgreesWithRegistrationPolicy() {
+        Workflow placed = workflowService.save(OTHER, "남의 것을 놓는다", null,
+                List.of(agentPlacement("n1", published.agent().getId()), nodePlacement("n2")),
+                List.of(GraphFixtures.edge("e1", "n1", "n2")));
+
+        WorkflowDetail detail = workflowService.getDetail(placed.getId(), OTHER);
+
+        assertThat(detail.sources().values()).anyMatch(source -> !source.mine());
+        assertThat(detail.sourceOf(NodeKey.of("n1")))
+                .isEqualTo(new PlacedSource("성적 분석 에이전트", false));
+        assertThatThrownBy(() -> agentService.register(OTHER, placed, Revision.initial(), profile()))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.AGENT_FOREIGN_NODE_INCLUDED);
+    }
+
+    @Test
+    @DisplayName("전부 내 것이면 mine 이 전부 true 이고 등록도 통과한다")
+    void detailMarksEveryOwnPlacementAsMine() {
+        Workflow placed = workflowService.save(OWNER, "내 것만 놓는다", null,
+                List.of(agentPlacement("n1", published.agent().getId()), nodePlacement("n2")),
+                List.of(GraphFixtures.edge("e1", "n1", "n2")));
+
+        WorkflowDetail detail = workflowService.getDetail(placed.getId(), OWNER);
+
+        assertThat(detail.sources().values()).allMatch(PlacedSource::mine);
+        assertThat(detail.sourceOf(NodeKey.of("n2")).name()).isEqualTo("시드 노드");
+        assertThat(agentService.register(OWNER, placed, Revision.initial(), profile())).isNotNull();
     }
 
     @Test
