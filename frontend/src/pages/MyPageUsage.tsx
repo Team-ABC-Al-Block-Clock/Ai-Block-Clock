@@ -388,6 +388,12 @@ export default function MyPageUsage() {
               잠긴 코인은 실행이 끝나면 정산되거나 되돌아옵니다
             </span>
           </div>
+          {/* PAY-004 — 남에게 ABC 가 가는 길은 정산금 적립 하나뿐이다. */}
+          <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
+            <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+              ABC 는 다른 사용자에게 양도할 수 없습니다
+            </span>
+          </div>
         </div>
       </div>
 
