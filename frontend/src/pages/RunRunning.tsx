@@ -97,16 +97,13 @@ const STEP_LABEL: Record<string, string> = {
 const labelOf = (status: StepStatus) => STEP_LABEL[status] ?? '대기'
 
 export default function RunRunning() {
-  // 등록 화면에서 취소 버튼을 누르면 실행 결과 화면으로 되돌아간다.
   const [searchParams] = useSearchParams()
-  const startDone = searchParams.get('done') === '1'
-  const [pct, setPct] = useState(startDone ? 100 : 0)
   const [copied, setCopied] = useState(false)
 
   // 어떤 워크플로우를 돌리는지. 대기 화면이 넘겨준다. 없으면 자리표시자를 그린다.
   const workflowId = searchParams.get('workflowId') ?? undefined
 
-  /** 실제 진행. 접수 번호가 있을 때만 따라간다 — 없으면 아래 흉내 진행이 돈다. */
+  /** 경로가 접수 번호를 늘 싣는다 — 이 화면은 서버가 주는 진행만 그린다. */
   const { executionId } = useParams()
   const run = useRunProgress(executionId)
   const progress = run.progress
@@ -119,25 +116,14 @@ export default function RunRunning() {
   const canSell = canSellWorkflow(defs)
 
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const rafId = useRef<number>(undefined)
 
-  /** 접수 번호 없이 들어왔을 때 쓰는 표본. 실제 실행에서는 서버가 준 단계 이름이 들어온다. */
-  const SAMPLE_LOG_LINES = [
-    '입력 파일 128개 수집 완료',
-    'PDF 112개 · 이미지 16개 판별',
-    '문서 본문 추출 및 정규화',
-    '주제 클러스터 7개 도출',
-    '태그 규칙 적용 중',
-    '분류 결과 검증',
-    '요약 생성 대기',
-  ]
   const failed = progress?.status === 'FAILED'
   /**
    * 진행을 한 번도 못 받은 상태. 앞서 받아 둔 값이 있으면 실패로 보지 않는다 —
    * 폴링 한 번이 넘어져도 쿼리는 지난 값을 들고 있어, 도는 실행이 잠깐 실패로 보인다.
    */
   const lost = run.broken && !progress
-  const settled = progress ? progress.percent : Math.round(pct)
+  const settled = progress?.percent ?? 0
   /** 끝났거나 멎었거나 소식이 끊겼다. 기어가기를 멈추고 받은 값에 붙는다. */
   const settle = failed || run.broken || progress?.status === 'SUCCEEDED'
   /** 도는 단계가 끝나면 닿을 값. 그 앞까지 기어가 게이지가 서 있지 않게 한다. */
@@ -146,11 +132,7 @@ export default function RunRunning() {
     : settled
   // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
-  // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
-  const per = 100 / Math.max(1, defs.length)
-  const active = progress
-    ? Math.min(defs.length - 1, progress.done)
-    : Math.min(defs.length - 1, Math.floor(pctR / per))
+  const active = Math.min(defs.length - 1, progress?.done ?? 0)
   /**
    * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
    * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
@@ -160,7 +142,7 @@ export default function RunRunning() {
    * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
    * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
    */
-  const finished = progress ? progress.status === 'SUCCEEDED' : pctR >= 100
+  const finished = progress?.status === 'SUCCEEDED'
   const g: CanvasNodeData | undefined = defs[active]
   const glowStyle: CSSProperties =
     g && !finished
@@ -226,10 +208,8 @@ export default function RunRunning() {
   const camera =
     defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
   // 펼친 단계를 그대로 적는다 — 카드와 수가 달라도 여기서는 순서만 맞으면 된다.
-  const logLines = progress ? progress.steps.map((step) => step.name) : SAMPLE_LOG_LINES
-  const shown = progress
-    ? Math.min(logLines.length, progress.done + 1)
-    : Math.min(logLines.length, Math.max(1, Math.round((pctR / 100) * logLines.length) + 1))
+  const logLines = progress?.steps.map((step) => step.name) ?? []
+  const shown = progress ? Math.min(logLines.length, progress.done + 1) : 0
   const logs = logLines.slice(0, shown).map((text, i) => {
     const last = i === shown - 1 && !finished
     return {
@@ -340,27 +320,6 @@ export default function RunRunning() {
         ? `${finished ? defs.length : active + 1} / ${defs.length} 단계`
         : ''
 
-  useEffect(() => {
-    // 실제 진행을 따라가는 중이면 흉내를 내지 않는다. 두 값이 다투면 게이지가 되돌아간다.
-    if (startDone || executionId) return
-    const t0 = performance.now()
-    const tick = (now: number) => {
-      const p = Math.min(100, ((now - t0) / 1000) * 5.2) // 약 19초에 완주
-      if (p >= 100) {
-        setPct(100)
-        return // 다음 프레임을 예약하지 않으면 루프가 스스로 멈춘다
-      }
-      setPct((prev) => (Math.floor(p) !== Math.floor(prev) ? p : prev))
-      rafId.current = requestAnimationFrame(tick)
-    }
-    rafId.current = requestAnimationFrame(tick)
-    return () => {
-      if (rafId.current) cancelAnimationFrame(rafId.current)
-    }
-  }, [startDone, executionId])
-
-  // 복사 타이머는 진행률과 무관하다. 위에 얹으면 `?done=1` 로 들어왔을 때
-  // 이펙트가 먼저 빠져나가 정리가 등록되지 않는다 — 그 경로가 실제로 쓰인다.
   useEffect(() => () => clearTimeout(copyTimer.current), [])
 
   // 없는 워크플로우는 실행할 수도 없다. 편집 화면과 같은 안내로 끊는다.
@@ -447,11 +406,7 @@ export default function RunRunning() {
 
         {/* 이전 단계로 돌아가 프롬프트를 수정하여 재실행할 수 있다. */}
         <a
-          href={
-            workflowId
-              ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
-              : paths.run.waiting.withoutId
-          }
+          href={workflowId ? `${paths.run.waiting}?workflowId=${workflowId}` : paths.run.waiting}
           title="다시 실행"
           aria-label="다시 실행"
           style={{
@@ -564,9 +519,7 @@ export default function RunRunning() {
             ) : (
               <a
                 href={
-                  workflowId
-                    ? `${paths.run.waiting.withoutId}?workflowId=${workflowId}`
-                    : paths.run.waiting.withoutId
+                  workflowId ? `${paths.run.waiting}?workflowId=${workflowId}` : paths.run.waiting
                 }
                 style={PANEL_ACTION}
                 className="flex cursor-pointer items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
@@ -717,8 +670,8 @@ export default function RunRunning() {
                 ? {
                     // 접수 번호도 함께 넘긴다. 돌아올 때 이 실행으로 되돌아와야 결과를 잃지 않는다.
                     href: workflowId
-                      ? `${paths.register}?workflowId=${workflowId}${executionId ? `&executionId=${executionId}` : ''}`
-                      : paths.register,
+                      ? `${paths.register}?workflowId=${workflowId}&executionId=${executionId}`
+                      : `${paths.register}?executionId=${executionId}`,
                   }
                 : {})}
               title={
