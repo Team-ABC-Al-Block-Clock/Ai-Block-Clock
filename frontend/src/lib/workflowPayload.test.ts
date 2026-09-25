@@ -12,6 +12,9 @@ const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData =>
   sourceType: 'NODE',
   sourceId: `src-${id}`,
   price: '1',
+  summary: null,
+  prompt: null,
+  model: null,
   x: 0,
   y: 0,
   mine: true,
@@ -124,7 +127,15 @@ describe('toCanvasWorkflow', () => {
 
   const known = (sourceId: string) =>
     sourceId === 'node_001'
-      ? { name: '파일 수집', nodeType: 'TRIGGER' as const, price: '4', mine: true }
+      ? {
+          name: '파일 수집',
+          nodeType: 'TRIGGER' as const,
+          price: '4',
+          summary: '폴더를 훑어 새 파일을 집어 온다',
+          prompt: null,
+          model: null,
+          mine: true,
+        }
       : undefined
 
   it('순서대로 왼쪽부터 같은 보폭으로 늘어놓는다', () => {

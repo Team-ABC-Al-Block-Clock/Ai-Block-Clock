@@ -44,7 +44,7 @@ const chainOf = (sourceId: string, count: number): WorkflowGraph => ({
 
 describe('estimateCost', () => {
   it('픽스처 워크플로우의 노드 단가를 더해 준다', async () => {
-    // wf_001 은 node_001·002·003 — 4 + 12 + 6.
+    // wf_001 은 팔레트 앞 세 건 — 4 + 12 + 6.
     const estimate = await estimateCost('wf_001')
 
     expect(estimate.items).toHaveLength(3)
@@ -88,11 +88,11 @@ describe('estimateCost', () => {
   })
 
   it('저장한 구성이 그대로 견적에 반영된다', async () => {
-    const saved = await saveWorkflow({ ...chainOf('node_004', 2), name: '요약 두 번' })
+    const saved = await saveWorkflow({ ...chainOf('node_003', 2), name: '요약 두 번' })
 
     const estimate = await estimateCost(saved.workflowId)
 
-    // node_004 가 15 — 캔버스를 고치면 금액도 따라 움직여야 한다.
+    // node_003 이 15 — 캔버스를 고치면 금액도 따라 움직여야 한다.
     expect(estimate.estimatedAmount).toBe('30.000000')
     expect(estimate.items.map((item) => item.name)).toEqual(['요약 생성', '요약 생성'])
   })

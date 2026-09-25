@@ -1,4 +1,5 @@
 import { api } from '@/api/client'
+import type { AiModel } from '@/api/nodes'
 import type { CursorPage, CursorParams } from '@/api/page'
 
 export interface WorkflowSummary {
@@ -29,12 +30,27 @@ export const getMyWorkflows = (params: WorkflowQuery = {}) =>
   api.get<CursorPage<WorkflowSummary>>('/workflows', { params })
 
 /** 무엇을 어디에 놓았는가. 좌표는 서버가 저장하지 않아 보내지 않는다(`lib/workflowPayload.ts`). */
+/**
+ * 노드 배치.
+ *
+ * 기본 노드(`LLM`)는 캔버스에서 그 자리에 적은 것이라 원본이 아직 없다 — `name`·`prompt`
+ * 를 실어 보내면 저장할 때 서버가 만든다. 에이전트와 이미 만들어진 노드는 `sourceId` 로
+ * 가리킨다.
+ */
 export interface NodePlacement {
   /** 이 워크플로우 안에서만 통하는 키. 최대 64자 */
   nodeKey: string
   sourceType: SourceType
-  /** 원본 노드 또는 에이전트의 id */
-  sourceId: string
+  /** `sourceType` 이 NODE 일 때만 보낸다. `sourceId` 와 함께 보내면 종류를 대조한다 */
+  nodeType?: NodeType
+  /** 원본 노드 또는 에이전트의 id. 저장하며 만들 `LLM` 은 비운다 */
+  sourceId?: string
+  /** 새로 만들 노드의 이름. `LLM` 일 때만 */
+  name?: string
+  /** 새로 만들 노드의 프롬프트 원문. `LLM` 일 때만 */
+  prompt?: string
+  /** 새로 만들 노드가 쓸 모델. 비우면 서버 기본 모델 */
+  model?: AiModel
 }
 
 export interface EdgePlacement {
@@ -50,15 +66,35 @@ export interface WorkflowGraph {
 }
 
 /** 예상 차감액은 여기 없다 — 실행 견적 API(`POST /executions/cost-estimates`)가 따로 준다. */
+/** 저장하며 만들어진 노드가 받은 id. 보낸 `nodeKey` 로 되짚는다. */
+export interface PlacedNodeId {
+  nodeKey: string
+  sourceType: SourceType
+  /** 제어 노드면 null */
+  sourceId: string | null
+}
+
 export interface SavedWorkflow {
   workflowId: string
   name: string
   /** 다음 수정 요청에 그대로 넣는다. 어긋나면 `WORKFLOW_016` */
   revision: number
+  /**
+   * 놓인 노드. 본문으로 실어 보낸 새 단계는 여기서 `sourceId` 를 받는다.
+   * 다음 수정 요청에는 그 id 를 그대로 보내야 노드가 또 만들어지지 않는다.
+   */
+  nodes: PlacedNodeId[]
 }
 
 /** 서버가 돌려주는 배치. `versionId` 는 에이전트 노드만 갖는다. */
-export interface PlacedNode extends NodePlacement {
+/**
+ * 저장된 배치. 보낼 때와 달리 서버가 이미 원본을 만들어 둔 뒤라 `sourceId` 가 채워져 온다
+ * (제어 노드만 null). 이름·프롬프트는 여기 실려 오지 않아 `GET /nodes/{id}` 로 따로 읽는다.
+ */
+export interface PlacedNode {
+  nodeKey: string
+  sourceType: SourceType
+  sourceId: string
   versionId: string | null
   inputSource: 'USER' | 'PREV' | 'PREV_AND_USER'
 }

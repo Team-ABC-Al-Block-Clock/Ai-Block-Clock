@@ -33,7 +33,7 @@ export interface PickedAgentsHandoff {
 }
 
 /**
- * 선택한 에이전트를 캔버스 노드 씨앗으로 바꾼다.
+ * 선택한 에이전트를 캔버스 노드 시드로 바꾼다.
  *
  * 전부 남의 것으로 둔다 — 추천 응답에 소유자가 없어 내 것인지 가를 수 없다. 내 에이전트가
  * 섞여도 판매 등록만 막히고, 반대로 두면 팔 수 없는 구성을 팔 수 있다고 말하게 된다.
@@ -54,6 +54,9 @@ export function seedsFrom(state: unknown): PlacedSeed[] {
       sourceType: 'AGENT' as const,
       sourceId: agent.agentId,
       price: agent.price,
+      summary: agent.summary,
+      prompt: null,
+      model: null,
       mine: false,
     }))
 }

@@ -77,6 +77,13 @@ export const queryKeys = {
     },
   },
 
+  /** /nodes */
+  nodes: {
+    all: ['nodes'] as const,
+    details: () => [...queryKeys.nodes.all, 'detail'] as const,
+    detail: (nodeId: string) => [...queryKeys.nodes.details(), nodeId] as const,
+  },
+
   /** /executions */
   executions: {
     all: ['executions'] as const,

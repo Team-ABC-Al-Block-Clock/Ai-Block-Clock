@@ -3,11 +3,13 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
+import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode, type AiModel } from '@/api/nodes'
 import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
+import ModelSelect from '@/components/ModelSelect'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
@@ -42,6 +44,11 @@ function describeSaveError(error: unknown): string | null {
   if (error.code === 'WORKFLOW_006') return '노드는 20개까지 이을 수 있습니다'
   if (error.code === 'WORKFLOW_007') return '연결이 너무 깁니다. 10단계까지 이을 수 있습니다'
   if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
+  // 서버가 그래프를 물리는 나머지 갈래. 빠져 있으면 고칠 곳을 모른 채 같은 저장만 되풀이한다.
+  if (error.code === 'WORKFLOW_005') return '연결이 고리를 이룹니다. 돌아오는 선을 지워 주세요'
+  if (error.code === 'WORKFLOW_013') return '연결이 규칙에 맞지 않습니다. 한 줄로 이어 주세요'
+  if (error.code === 'WORKFLOW_014') return '노드를 하나 이상 놓아야 저장할 수 있습니다'
+  if (error.code === 'WORKFLOW_017') return '놓인 노드의 종류가 서버와 다릅니다. 다시 놓아 주세요'
   if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
   if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
   if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
@@ -77,6 +84,9 @@ export default function EditNodes() {
     dragId,
     linkFrom,
     canSell,
+    editNode,
+    attachSources,
+    repriceBySource,
     portOpen,
     onHover,
     onSelectEdge,
@@ -101,6 +111,8 @@ export default function EditNodes() {
   const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
 
   const [name, setName] = useState('문서 정리')
+  /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
+  const [draft, setDraft] = useState({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
@@ -135,12 +147,28 @@ export default function EditNodes() {
   const pending = useMemo(() => shapeOf(graph, trimmedName), [graph, trimmedName])
   const dirty = savedShape !== pending
 
+  /** 원가는 프롬프트와 모델로 다시 매겨진다. 받은 값을 카드에 되쓴다. */
+  const editOriginal = useMutation({
+    mutationFn: ({
+      sourceId,
+      values,
+    }: {
+      sourceId: string
+      values: { name: string; prompt: string; model: AiModel }
+    }) => updateNode(sourceId, values),
+    onSuccess: (node) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.detail(node.nodeId) })
+      repriceBySource(node.nodeId, node.baseCost)
+    },
+  })
+
   const save = useMutation({
     // 보낸 내용을 함께 돌려준다. `onSuccess` 에서 `pending` 을 다시 읽으면 요청이 나가는 동안
     // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
     mutationFn: async () => {
       if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
       const shape = shapeOf(graph, trimmedName)
+      const { nodeIdByKey } = graph
       const result = saved
         ? await replaceWorkflow(saved.workflowId, {
             ...graph,
@@ -148,15 +176,22 @@ export default function EditNodes() {
             revision: saved.revision,
           })
         : await saveWorkflow({ ...graph, name: trimmedName })
-      return { result, shape }
+      return { result, shape, nodeIdByKey }
     },
     // 회차가 어긋나면 들고 있던 값이 낡은 것이다. 다시 받아 두지 않으면 몇 번을 눌러도 같은 409 다.
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'WORKFLOW_016') void loaded.refetch()
     },
-    onSuccess: ({ result, shape }) => {
+    onSuccess: ({ result, shape, nodeIdByKey }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
       setSavedShape(shape)
+      // 저장하며 만들어진 노드의 원본 id 를 캔버스에 되쓴다. 비워 두면 다음 저장에서 또 만들어진다.
+      const attached: Record<string, string> = {}
+      for (const placed of result.nodes ?? []) {
+        const nodeId = nodeIdByKey[placed.nodeKey]
+        if (nodeId && placed.sourceId) attached[nodeId] = placed.sourceId
+      }
+      attachSources(attached)
       // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workflows.detail(result.workflowId),
@@ -222,6 +257,11 @@ export default function EditNodes() {
         sourceType: item.itemType,
         sourceId: item.itemId,
         price: item.price,
+        summary: item.summary,
+        executionCount: item.executionCount,
+        owner: item.owner.nickname,
+        prompt: null,
+        model: null,
         mine: item.mine,
       },
       point,
@@ -248,7 +288,60 @@ export default function EditNodes() {
         transition: 'transform .2s,opacity .25s ease',
       }
     : { display: 'none' }
+  const draftFilled = !!draft.name.trim() && !!draft.prompt.trim()
+
+  const closeAddPanel = () => {
+    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    handleTogglePanel()
+  }
+
+  /**
+   * 적은 것을 캔버스에 올린다. 서버에 만들지 않는다 —
+   * 기본 노드는 워크플로우를 저장할 때 배치와 함께 만들어진다(`NodePlacementRequest`).
+   */
+  const handleCreate = () => {
+    if (!draftFilled) return
+    canvas.placeAtCenter({
+      name: draft.name.trim(),
+      nodeType: 'LLM',
+      sourceType: 'NODE',
+      // 아직 원본이 없다. 저장하고 나면 서버가 준 id 로 채워진다.
+      sourceId: '',
+      // 원가도 저장해 봐야 안다 — 서버가 프롬프트와 모델로 매긴다.
+      price: null,
+      summary: null,
+      prompt: draft.prompt.trim(),
+      model: draft.model,
+      mine: true,
+    })
+    closeAddPanel()
+  }
+
   const hasSelection = !!n
+  // 에이전트는 열지 않는다 — 남의 내부 구성이다. 기본 노드는 캔버스가 값을 들고 있다.
+  /**
+   * 고친 값을 캔버스에 넣고, 원본이 이미 있으면 서버에도 반영한다.
+   *
+   * 원본을 가리키는 배치는 저장할 때 `sourceId` 만 보내므로 이름·프롬프트가 함께 나가지 않는다.
+   * 여기서 `PUT` 하지 않으면 고친 값이 다음 저장에서 버려진다.
+   */
+  const applyNodeEdit = (id: string, values: { name: string; prompt: string; model: AiModel }) => {
+    editNode(id, values)
+    const sourceId = nodes.find((node) => node.id === id)?.sourceId
+    if (sourceId) editOriginal.mutate({ sourceId, values })
+  }
+
+  // 프롬프트를 모르면 빈 폼이 원본을 덮어쓴다. 종류가 LLM 이 아니면 저장이 종류를 바꿔 버린다.
+  const selBasic =
+    n && n.sourceType === 'NODE' && n.nodeType === 'LLM' && n.prompt !== null
+      ? {
+          id: n.id,
+          name: n.name,
+          prompt: n.prompt ?? '',
+          model: n.model ?? DEFAULT_AI_MODEL,
+          price: n.price,
+        }
+      : undefined
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
   const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
@@ -458,7 +551,8 @@ export default function EditNodes() {
             className="absolute box-border flex flex-col"
             style={{
               left: 'calc(32px - var(--edge, 0px))',
-              top: '262px',
+              // 패널을 여는 바가 `--edge-y` 만큼 내려간다. 따라가지 않으면 창이 길어질수록 떨어진다.
+              top: 'calc(262px + var(--edge-y, 0px))',
               width: '500px',
               height: '700px',
               borderRadius: '14px',
@@ -493,15 +587,8 @@ export default function EditNodes() {
             </div>
 
             <div
-              className="flex-1 overflow-x-hidden"
-              id="addPanelFields"
-              style={{
-                minHeight: '0',
-                overflowY: 'auto',
-                paddingRight: '4px',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(255,255,255,.26) transparent',
-              }}
+              className="scroll-thin flex-1 overflow-x-hidden"
+              style={{ minHeight: '0', paddingRight: '4px' }}
             >
               <div
                 className="text-[17px]"
@@ -521,7 +608,11 @@ export default function EditNodes() {
                 <input
                   className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
                   type="text"
+                  value={draft.name}
+                  maxLength={NODE_NAME_MAX}
+                  onChange={(ev) => setDraft((it) => ({ ...it, name: ev.target.value }))}
                   placeholder="예: 내용 분석"
+                  aria-label="노드 이름"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -563,16 +654,12 @@ export default function EditNodes() {
               >
                 AI 모델
               </div>
-              <div
-                className="bg-surface-card flex items-center"
-                style={{
-                  height: '44px',
-                  borderRadius: '11px',
-                  padding: '0 12px',
-                  marginBottom: '14px',
-                }}
-              >
-                <div className="text-[17px] text-white">기본 모델</div>
+              <div style={{ position: 'relative', height: '44px', marginBottom: '14px' }}>
+                <ModelSelect
+                  value={draft.model}
+                  onChange={(model) => setDraft((it) => ({ ...it, model }))}
+                  style={{ inset: 0, fontSize: '17px' }}
+                />
               </div>
 
               <div
@@ -592,7 +679,10 @@ export default function EditNodes() {
               >
                 <textarea
                   className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
+                  value={draft.prompt}
+                  onChange={(ev) => setDraft((it) => ({ ...it, prompt: ev.target.value }))}
                   placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
+                  aria-label="프롬프트"
                   style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
                 ></textarea>
               </div>
@@ -626,11 +716,12 @@ export default function EditNodes() {
             </div>
 
             <div
-              className="flex flex-none"
+              className="flex flex-none items-center"
               style={{ justifyContent: 'flex-end', gap: '8px', paddingTop: '14px' }}
             >
-              <div
-                onClick={handleTogglePanel}
+              <button
+                type="button"
+                onClick={closeAddPanel}
                 style={{
                   height: '40px',
                   padding: '0 22px',
@@ -638,12 +729,17 @@ export default function EditNodes() {
                   boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
                   color: 'rgba(255,255,255,.9)',
                 }}
-                className="bg-surface-card flex cursor-pointer items-center text-[17px] font-semibold hover:bg-[rgba(255,255,255,.18)]"
+                className="bg-surface-card flex cursor-pointer items-center border-0 font-[inherit] text-[17px] font-semibold hover:bg-[rgba(255,255,255,.18)]"
               >
                 취소
-              </div>
-              <div
-                onClick={handleTogglePanel}
+              </button>
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={!draftFilled}
+                title={
+                  draftFilled ? '노드를 만들어 팔레트에 넣습니다' : '이름과 프롬프트를 적어 주세요'
+                }
                 style={{
                   height: '40px',
                   padding: '0 24px',
@@ -651,11 +747,12 @@ export default function EditNodes() {
                   background: 'var(--color-accent)',
                   boxShadow: '0 8px 20px rgba(140,100,130,.24)',
                   color: 'var(--color-accent-ink)',
+                  cursor: draftFilled ? 'pointer' : 'default',
                 }}
-                className="flex cursor-pointer items-center text-[17px] font-bold hover:brightness-[1.05]"
+                className="flex items-center border-0 font-[inherit] text-[17px] font-bold hover:brightness-[1.05] disabled:opacity-45 disabled:hover:brightness-100"
               >
                 추가
-              </div>
+              </button>
             </div>
           </div>
         )}
@@ -675,7 +772,7 @@ export default function EditNodes() {
           }
           style={{
             left: 'calc(624px + var(--edge, 0px))',
-            top: 'calc(943px + var(--edge-y, 0px))',
+            top: 'calc(915px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',
@@ -697,9 +794,10 @@ export default function EditNodes() {
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
-              left: 'calc(560px + var(--edge, 0px))',
-              top: 'calc(1000px + var(--edge-y, 0px))',
-              width: '400px',
+              // 실행하기 버튼(800~960) 바로 아래 가운데.
+              left: 'calc(760px + var(--edge, 0px))',
+              top: 'calc(974px + var(--edge-y, 0px))',
+              width: '240px',
               color: saveError ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
             }}
           >
@@ -718,7 +816,7 @@ export default function EditNodes() {
           title={saveBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
-            top: 'calc(943px + var(--edge-y, 0px))',
+            top: 'calc(915px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',
@@ -750,6 +848,14 @@ export default function EditNodes() {
           name={selName}
           initial={selInitial}
           typeLabel={selTypeLabel}
+          basic={selBasic}
+          summary={n?.summary}
+          meta={
+            n && n.sourceType === 'AGENT'
+              ? { price: n.price, executionCount: n.executionCount, owner: n.owner }
+              : undefined
+          }
+          onApply={applyNodeEdit}
         />
 
         <NodePalettePanel
@@ -759,6 +865,7 @@ export default function EditNodes() {
           isError={isError}
           isFetchNextPageError={isFetchNextPageError}
           isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={palette.hasNextPage}
           onSearch={handleSearch}
           onRetryNextPage={handleRetryNextPage}
           refs={palette.refs}

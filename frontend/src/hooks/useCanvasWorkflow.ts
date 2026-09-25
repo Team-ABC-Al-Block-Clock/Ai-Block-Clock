@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
+import type { AiModel } from '@/api/nodes'
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
@@ -426,12 +427,25 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     })
   }
 
+  /**
+   * 팔레트를 거치지 않고 방금 만든 것을 바로 놓는다.
+   *
+   * 새 노드는 실행 이력이 없어 팔레트 정렬(내 것 먼저 → 많이 쓰인 순)에서 맨 뒤로 가고,
+   * 한 쪽이 10건이라 다음 쪽으로 밀린다 — 만들고도 어디 갔는지 보이지 않는다.
+   */
+  const placeAtCenter = (seed: Omit<PlacedSeed, 'id'>) => {
+    placeFromPalette(seed, {
+      x: (PANE_CONTENT_WIDTH / 2 - view.tx) / view.k,
+      y: (PANE_HEIGHT / 2 - view.ty) / view.k,
+    })
+  }
+
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
       // 글자를 지우는 중일 수 있다.
       const target = ev.target as HTMLElement | null
-      if (target?.closest('input, textarea, [contenteditable="true"]')) return
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
       if (!selEdge && !nodes.some((n) => n.id === selId)) return
       ev.preventDefault()
       dispatch({ type: 'removeSelected' })
@@ -465,6 +479,15 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     dragId,
     linkFrom,
     canSell: canSellWorkflow(nodes),
+    /** 고른 기본 노드의 값을 고친다. 서버에는 워크플로우를 저장할 때 함께 나간다. */
+    editNode: (id: string, values: { name: string; prompt: string; model: AiModel }) =>
+      dispatch({ type: 'editNode', id, ...values }),
+    /** 저장 응답이 준 원본 id 를 캔버스에 되쓴다. */
+    attachSources: (sourceIdByNodeId: Record<string, string>) =>
+      dispatch({ type: 'attachSources', sourceIdByNodeId }),
+    /** 원본을 고친 뒤 서버가 다시 매긴 원가를 되쓴다. */
+    repriceBySource: (sourceId: string, price: string) =>
+      dispatch({ type: 'repriceBySource', sourceId, price }),
     portOpen,
     view,
     zoomLabel: `${zoomPercent(view)}%`,
@@ -472,6 +495,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     zoomOut: () => zoomBy('out'),
     refs: { paneRef, worldRef, gridRef, glowRef, tempRef },
     placeFromPalette,
+    placeAtCenter,
     toCanvasPoint,
     onHover: (id: string) => dispatch({ type: 'hover', id }),
     handleHoverOut: () => dispatch({ type: 'hover', id: null }),

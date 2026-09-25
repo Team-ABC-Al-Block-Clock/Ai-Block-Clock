@@ -1,4 +1,5 @@
 import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
+import type { AiModel } from '@/api/nodes'
 import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/lib/canvasWorkflow'
 
 /**
@@ -16,16 +17,29 @@ import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/
 export function toWorkflowGraph(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[],
-): WorkflowGraph | null {
+): (WorkflowGraph & { nodeIdByKey: Record<string, string> }) | null {
   const order = linearOrder(nodes, edges)
   if (!order) return null
 
   const keyOf = new Map(order.map((node, i) => [node.id, `n${i + 1}`]))
-  const placements: NodePlacement[] = order.map((node) => ({
-    nodeKey: keyOf.get(node.id)!,
-    sourceType: node.sourceType,
-    sourceId: node.sourceId,
-  }))
+  const nodeIdByKey = Object.fromEntries(order.map((node, i) => [`n${i + 1}`, node.id]))
+  const placements: NodePlacement[] = order.map((node) => {
+    const placed: NodePlacement = {
+      nodeKey: keyOf.get(node.id)!,
+      sourceType: node.sourceType,
+    }
+    // 캔버스에서 적은 기본 노드는 원본이 없다. 이름·프롬프트를 실어 보내면 서버가 만든다.
+    if (node.sourceType === 'NODE' && !node.sourceId) {
+      return {
+        ...placed,
+        nodeType: 'LLM',
+        name: node.name,
+        prompt: node.prompt ?? '',
+        ...(node.model ? { model: node.model } : {}),
+      }
+    }
+    return { ...placed, sourceId: node.sourceId }
+  })
   // 순서가 이미 한 줄이라 이웃끼리 이으면 선 목록이 그대로 나온다.
   const links: EdgePlacement[] = order.slice(1).map((node, i) => ({
     edgeKey: `e${i + 1}`,
@@ -33,7 +47,7 @@ export function toWorkflowGraph(
     targetNodeKey: keyOf.get(node.id)!,
   }))
 
-  return { nodes: placements, edges: links }
+  return { nodes: placements, edges: links, nodeIdByKey }
 }
 
 /**
@@ -52,6 +66,13 @@ export interface NodeLabel {
   name: string
   nodeType: CanvasNodeData['nodeType']
   price: string
+  summary: string | null
+  /** 기본 노드만. 우측 패널이 그대로 보여주고 다시 저장할 때 실려 나간다 */
+  prompt?: string | null
+  model?: AiModel | null
+  /** 에이전트만. 우측 패널이 단가 옆에 함께 보여준다 */
+  executionCount?: number | null
+  owner?: string | null
   mine: boolean
 }
 
@@ -81,6 +102,12 @@ export function toCanvasWorkflow(
       sourceId: node.sourceId,
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,
+      summary: label?.summary ?? null,
+      // 기본 노드는 여기 담겨 와야 우측 패널이 채워지고 다시 저장할 때도 살아남는다.
+      prompt: label?.prompt ?? null,
+      model: label?.model ?? null,
+      executionCount: label?.executionCount ?? null,
+      owner: label?.owner ?? null,
       x: RESTORE_X0 + i * RESTORE_STEP,
       y: RESTORE_Y[i % RESTORE_Y.length],
       // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.

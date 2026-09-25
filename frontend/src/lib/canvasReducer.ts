@@ -1,3 +1,4 @@
+import type { AiModel } from '@/api/nodes'
 import {
   NO_BOUNDS,
   connect,
@@ -53,7 +54,18 @@ export const initialCanvasState: CanvasState = {
 /** 팔레트에서 끌어다 놓은 항목. 자리는 놓는 쪽이 정한다. */
 export type PlacedSeed = Pick<
   CanvasNodeData,
-  'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'mine'
+  | 'id'
+  | 'name'
+  | 'nodeType'
+  | 'sourceType'
+  | 'sourceId'
+  | 'price'
+  | 'summary'
+  | 'prompt'
+  | 'model'
+  | 'executionCount'
+  | 'owner'
+  | 'mine'
 >
 
 /**
@@ -84,6 +96,12 @@ export type CanvasAction =
   | { type: 'loadGraph'; nodes: CanvasNodeData[]; edges: CanvasEdge[] }
   /** 선택한 것을 지움. 노드면 거기 붙은 선도 함께. */
   | { type: 'removeSelected' }
+  /** 고른 기본 노드의 이름·프롬프트·모델을 고친다. 저장은 워크플로우 저장이 맡는다. */
+  | { type: 'editNode'; id: string; name: string; prompt: string; model: AiModel }
+  /** 저장하며 만들어진 노드의 원본 id 를 되쓴다. 비워 두면 다음 저장에서 또 만들어진다. */
+  | { type: 'attachSources'; sourceIdByNodeId: Record<string, string> }
+  /** 원본을 고치면 서버가 원가를 다시 매긴다. 그 값을 카드에 되쓴다. */
+  | { type: 'repriceBySource'; sourceId: string; price: string }
   | { type: 'startLink'; from: LinkOrigin }
   /** 포트가 아닌 곳에서 손을 뗌. */
   | { type: 'cancelLink' }
@@ -146,6 +164,40 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       if (after.nodes === state.nodes) return state
       // 끄는 중인 선의 출발점이 방금 지운 노드일 수 있다. 남겨 두면 없는 노드에서 선이 나간다.
       return { ...state, ...after, selId: null, hovId: null, linkFrom: null }
+    }
+
+    case 'editNode': {
+      if (!state.nodes.some((node) => node.id === action.id)) return state
+      return {
+        ...state,
+        nodes: state.nodes.map((node) =>
+          node.id === action.id
+            ? { ...node, name: action.name, prompt: action.prompt, model: action.model }
+            : node,
+        ),
+      }
+    }
+
+    case 'attachSources': {
+      const given = action.sourceIdByNodeId
+      if (!state.nodes.some((node) => given[node.id] && given[node.id] !== node.sourceId))
+        return state
+      return {
+        ...state,
+        nodes: state.nodes.map((node) =>
+          given[node.id] ? { ...node, sourceId: given[node.id] } : node,
+        ),
+      }
+    }
+
+    case 'repriceBySource': {
+      if (!state.nodes.some((node) => node.sourceId === action.sourceId)) return state
+      return {
+        ...state,
+        nodes: state.nodes.map((node) =>
+          node.sourceId === action.sourceId ? { ...node, price: action.price } : node,
+        ),
+      }
     }
 
     case 'startLink':

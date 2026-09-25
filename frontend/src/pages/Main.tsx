@@ -440,7 +440,7 @@ export default function Main() {
             animation: 'uiInPop .35s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          하고 싶은 일을 먼저 적어 주세요
+          내용을 입력해주세요
         </div>
       )}
     </>

@@ -13,14 +13,14 @@ const ME = '이싸피'
 // 한 줄에 한 건 — Prettier 가 펼치면 건당 10줄이 되어 분산을 표처럼 훑을 수 없다.
 // prettier-ignore
 const SEEDS: Seed[] = [
-  // 내가 만든 기본 노드. 아직 한 번도 안 쓴 것(0회)과 설명을 안 적은 것을 섞는다.
-  { itemId: 'node_001', itemType: 'NODE',  nodeType: 'TRIGGER', name: '파일 수집',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 312, price: '4',   summary: '지정한 폴더를 훑어 새 파일을 집어 온다' },
-  { itemId: 'node_002', itemType: 'NODE',  nodeType: 'LLM',     name: '내용 분석',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 128, price: '12',  summary: '문서에서 주제를 추출합니다' },
-  { itemId: 'node_003', itemType: 'NODE',  nodeType: 'TOOL',    name: '분류 및 태깅', mine: true,  owner: ME,          iconUrl: null,    executionCount: 96,  price: '6',   summary: '주제별로 태그를 붙여 묶는다' },
-  { itemId: 'node_004', itemType: 'NODE',  nodeType: 'LLM',     name: '요약 생성',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 74,  price: '15',  summary: '핵심만 세 줄로 줄인다' },
-  { itemId: 'node_005', itemType: 'NODE',  nodeType: 'TOOL',    name: '결과 전달',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 71,  price: '3',   summary: null },
-  { itemId: 'node_006', itemType: 'NODE',  nodeType: 'LLM',     name: '번역 정리',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 18,  price: '11',  summary: '번역문에서 용어를 하나로 맞춘다' },
-  { itemId: 'node_007', itemType: 'NODE',  nodeType: 'TRIGGER', name: '메일 수신',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 0,   price: '4',   summary: '새 메일이 오면 흐름을 시작한다' },
+  // 내가 등록한 에이전트. 기본 노드는 캔버스에서 만들고 저장할 때 생겨 팔레트에 오르지 않는다.
+  { itemId: 'agt_2001', itemType: 'AGENT', nodeType: 'AGENT',   name: '파일 수집',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 312, price: '4',   summary: '지정한 폴더를 훑어 새 파일을 집어 온다' },
+  { itemId: 'agt_2002', itemType: 'AGENT', nodeType: 'AGENT',       name: '내용 분석',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 128, price: '12',  summary: '문서에서 주제를 추출합니다' },
+  { itemId: 'agt_2003', itemType: 'AGENT', nodeType: 'AGENT',      name: '분류 및 태깅', mine: true,  owner: ME,          iconUrl: null,    executionCount: 96,  price: '6',   summary: '주제별로 태그를 붙여 묶는다' },
+  { itemId: 'agt_2004', itemType: 'AGENT', nodeType: 'AGENT',       name: '요약 생성',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 74,  price: '15',  summary: '핵심만 세 줄로 줄인다' },
+  { itemId: 'agt_2005', itemType: 'AGENT', nodeType: 'AGENT',      name: '결과 전달',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 71,  price: '3',   summary: null },
+  { itemId: 'agt_2006', itemType: 'AGENT', nodeType: 'AGENT',       name: '번역 정리',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 18,  price: '11',  summary: '번역문에서 용어를 하나로 맞춘다' },
+  { itemId: 'agt_2007', itemType: 'AGENT', nodeType: 'AGENT',   name: '메일 수신',    mine: true,  owner: ME,          iconUrl: null,    executionCount: 0,   price: '4',   summary: '새 메일이 오면 흐름을 시작한다' },
   // 내가 등록한 에이전트. scope=MINE 에도 나온다.
   { itemId: 'agt_001',  itemType: 'AGENT', nodeType: 'AGENT',   name: '성적 리포트',  mine: true,  owner: ME,          iconUrl,          executionCount: 204, price: '150', summary: '엑셀 성적표를 통계와 가정통신문으로' },
   { itemId: 'agt_002',  itemType: 'AGENT', nodeType: 'AGENT',   name: '계약서 검토',  mine: true,  owner: ME,          iconUrl: null,    executionCount: 88,  price: '220', summary: '조항을 뽑아 위험한 곳을 표시한다' },

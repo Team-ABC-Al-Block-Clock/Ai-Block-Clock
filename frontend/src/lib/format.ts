@@ -131,8 +131,10 @@ export function josa(name: string) {
 
 /** `Record<ItemNodeType, string>` 이라 유형이 늘어나면 채울 때까지 컴파일이 실패한다. */
 const NODE_TYPE_LABELS: Record<ItemNodeType, string> = {
+  // 서버 `NodeType` 은 아직 TRIGGER·TOOL 을 들고 있지만 팔레트에는 에이전트만 오르고
+  // 캔버스에서 만드는 것은 LLM 뿐이라, 화면에 실제로 나오는 것은 아래 둘이다.
   TRIGGER: '트리거',
-  LLM: 'LLM',
+  LLM: '기본',
   TOOL: '도구',
   AGENT: '에이전트',
 }

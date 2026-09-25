@@ -22,6 +22,9 @@ const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   sourceType: 'NODE',
   sourceId: `src-${id}`,
   price: '1',
+  summary: null,
+  prompt: null,
+  model: null,
   x,
   y,
   mine: true,
@@ -46,6 +49,9 @@ const seed = {
   sourceType: 'NODE',
   sourceId: 'node_009',
   price: '11',
+  summary: null,
+  prompt: null,
+  model: null,
   mine: true,
 } as const
 const idsOf = (state: CanvasState) => state.nodes.map((n) => n.id)
@@ -310,7 +316,10 @@ describe('seededCanvasState', () => {
     nodeType: 'AGENT' as const,
     sourceType: 'AGENT' as const,
     sourceId: id,
-    price: '6',
+    price: '10',
+    summary: null,
+    prompt: null,
+    model: null,
     mine: false,
   }))
 
