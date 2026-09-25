@@ -3,7 +3,7 @@ import { http } from 'msw'
 
 import { API_BASE_URL, client } from '@/api/client'
 
-import { ApiError } from '@/api/errors'
+import { ApiError, EXECUTION_ERROR } from '@/api/errors'
 import {
   describeRunFileProblem,
   estimateCost,
@@ -360,13 +360,15 @@ describe('실행 결과 받기', () => {
   it('렌더되지 않은 형식은 404 와 코드를 그대로 전한다', async () => {
     server.use(
       http.get(`${API_BASE_URL}/runs/:id/result`, () =>
-        fail(404, 'EXECUTION_001', '그 형식으로 받을 수 있는 결과가 없습니다.'),
+        fail(404, EXECUTION_ERROR.RESULT_NOT_FOUND, '그 형식으로 받을 수 있는 결과가 없습니다.'),
       ),
     )
 
     await expect(fetchResult(EXECUTION_ID, 'PDF')).rejects.toSatisfy(
       (error: unknown) =>
-        error instanceof ApiError && error.status === 404 && error.code === 'EXECUTION_001',
+        error instanceof ApiError &&
+        error.status === 404 &&
+        error.code === EXECUTION_ERROR.RESULT_NOT_FOUND,
     )
   })
 

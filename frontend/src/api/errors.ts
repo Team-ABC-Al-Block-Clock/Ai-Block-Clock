@@ -71,6 +71,10 @@ export const USER_ERROR = {
   IMAGE_CONFLICT: 'USER_007',
 } as const
 
+export const EXECUTION_ERROR = {
+  RESULT_NOT_FOUND: 'EXECUTION_007',
+} as const
+
 /**
  * 응답 본문이 서버의 실패 봉투 모양인지 확인한다.
  *
