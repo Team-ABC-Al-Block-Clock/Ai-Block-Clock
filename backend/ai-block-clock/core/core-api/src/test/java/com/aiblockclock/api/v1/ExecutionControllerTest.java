@@ -719,7 +719,7 @@ class ExecutionControllerTest {
         mockMvc.perform(get("/api/v1/runs/{id}/result", executionId)
                         .param("format", "PDF").with(as(requester)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("EXECUTION_001"));
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_007"));
     }
 
     @Test

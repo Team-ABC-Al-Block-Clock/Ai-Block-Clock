@@ -151,7 +151,7 @@ public enum ErrorType {
     EXECUTION_RESULT_NOT_READY(HttpStatus.CONFLICT, ErrorCode.EXECUTION_001,
             "아직 끝나지 않은 실행입니다.", LogLevel.WARN),
 
-    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
+    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_007,
             "그 형식으로 받을 수 있는 결과가 없습니다.", LogLevel.WARN),
 
     EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
