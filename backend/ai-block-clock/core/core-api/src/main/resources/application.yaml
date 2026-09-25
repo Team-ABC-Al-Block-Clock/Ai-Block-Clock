@@ -45,12 +45,28 @@ execution:
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
 
-# 등급 지표(PAY-016 ~ 018) 수식의 조정값. AI grading-formula.md v1.0 의 초기값이고 팀 합의로 바뀔 수 있다.
+# 등급(PAY-016 ~ 020) 수식의 조정값. AI grading-formula.md v1.0 의 초기값이고 팀 합의로 바뀔 수 있다.
 agent-grade:
   rating-prior-count: ${AGENT_GRADE_RATING_PRIOR_COUNT:10}
   rating-prior-mean: ${AGENT_GRADE_RATING_PRIOR_MEAN:3.5}
   usage-cap: ${AGENT_GRADE_USAGE_CAP:1000}
   success-rate-exponent: ${AGENT_GRADE_SUCCESS_RATE_EXPONENT:2}
+  rating-weight: ${AGENT_GRADE_RATING_WEIGHT:0.6}
+  usage-weight: ${AGENT_GRADE_USAGE_WEIGHT:0.4}
+  # 등급마다 점수 구간의 아래 끝과 허들. Tier 4 는 조건이 없다.
+  tiers:
+    tier-1:
+      min-score: ${AGENT_GRADE_TIER_1_MIN_SCORE:80}
+      min-success-rate: ${AGENT_GRADE_TIER_1_MIN_SUCCESS_RATE:0.98}
+      min-review-count: ${AGENT_GRADE_TIER_1_MIN_REVIEW_COUNT:50}
+    tier-2:
+      min-score: ${AGENT_GRADE_TIER_2_MIN_SCORE:65}
+      min-success-rate: ${AGENT_GRADE_TIER_2_MIN_SUCCESS_RATE:0.95}
+      min-review-count: ${AGENT_GRADE_TIER_2_MIN_REVIEW_COUNT:20}
+    tier-3:
+      min-score: ${AGENT_GRADE_TIER_3_MIN_SCORE:45}
+      min-success-rate: ${AGENT_GRADE_TIER_3_MIN_SUCCESS_RATE:0.90}
+      min-review-count: ${AGENT_GRADE_TIER_3_MIN_REVIEW_COUNT:0}
 
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
