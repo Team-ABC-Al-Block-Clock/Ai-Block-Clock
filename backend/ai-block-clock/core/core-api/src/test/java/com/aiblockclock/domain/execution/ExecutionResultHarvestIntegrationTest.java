@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -62,8 +63,11 @@ class ExecutionResultHarvestIntegrationTest {
     @Autowired
     private ExecutionWriter executionWriter;
 
-    @Autowired
+    @MockitoSpyBean
     private ExecutionResultReader executionResultReader;
+
+    @Autowired
+    private ExecutionResultWriter executionResultWriter;
 
     @Autowired
     private ExecutionResultRepository executionResultRepository;
@@ -138,6 +142,39 @@ class ExecutionResultHarvestIntegrationTest {
 
         assertThat(executionResultReader.readFormats(executionId))
                 .containsExactly(ExecutionResultFormat.JSON);
+    }
+
+    @Test
+    @DisplayName("PDF 만 빠졌으면 받으러 올 때 PDF 만 받아 온다")
+    void retriesOnlyMissingPdf() {
+        given(aiRuntimeClient.read(RUN_ID)).willReturn(succeeded());
+        given(aiRuntimeClient.readPdf(RUN_ID)).willReturn(Optional.empty());
+        executionService.follow(executionId, REQUESTER);
+
+        willReturn(Optional.of("%PDF-1.7".getBytes(StandardCharsets.UTF_8))).given(aiRuntimeClient).readPdf(RUN_ID);
+        ExecutionResult result = executionService.download(executionId, REQUESTER, ExecutionResultFormat.PDF);
+
+        assertThat(executionService.locate(result)).exists().hasContent("%PDF-1.7");
+        assertThat(executionResultReader.readFormats(executionId))
+                .containsExactlyInAnyOrder(ExecutionResultFormat.JSON, ExecutionResultFormat.PDF);
+        verify(aiRuntimeClient, times(1)).readArtifact(RUN_ID);
+    }
+
+    @Test
+    @DisplayName("다른 쪽이 먼저 받아 두었으면 그 파일을 지우지 않는다")
+    void keepsFileKeptByTheOtherSide() {
+        ExecutionResult earlier = executionResultStore.write(
+                executionId, ExecutionResultFormat.JSON, ARTIFACT.getBytes(StandardCharsets.UTF_8));
+        executionResultWriter.append(earlier);
+        willReturn(List.of()).given(executionResultReader).readFormats(executionId);
+        given(aiRuntimeClient.read(RUN_ID)).willReturn(succeeded());
+
+        executionService.follow(executionId, REQUESTER);
+
+        assertThat(executionService.locate(earlier)).exists().hasContent(ARTIFACT);
+        assertThat(executionResultRepository.findByExecutionIdOrderByIdAsc(executionId.value()))
+                .extracting(entity -> entity.getFormat())
+                .containsExactly(ExecutionResultFormat.JSON, ExecutionResultFormat.PDF);
     }
 
     @Test

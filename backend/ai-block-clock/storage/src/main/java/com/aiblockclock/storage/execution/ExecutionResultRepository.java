@@ -12,6 +12,4 @@ public interface ExecutionResultRepository extends JpaRepository<ExecutionResult
     Optional<ExecutionResultEntity> findByExecutionIdAndFormat(UUID executionId, ExecutionResultFormat format);
 
     List<ExecutionResultEntity> findByExecutionIdOrderByIdAsc(UUID executionId);
-
-    boolean existsByExecutionId(UUID executionId);
 }
