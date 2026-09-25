@@ -3,8 +3,9 @@ import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import { getCreditBalance } from '@/api/credits'
 import { useAbcCharge, type AbcCharge } from '@/hooks/useAbcCharge'
+import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
-import { priceLabel } from '@/lib/format'
+import { chargeAmountLabel, priceLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
@@ -34,7 +35,7 @@ function describeCharge(charge: AbcCharge) {
     case 'confirmed':
       return {
         title: '충전 완료',
-        note: `${priceLabel(charge.status?.creditedAmount ?? charge.requestedAmount ?? '0')} 를 적립했습니다.`,
+        note: `${chargeAmountLabel(charge.status?.creditedAmount ?? charge.requestedAmount ?? '0')} 를 적립했습니다.`,
         action: { label: '확인', run: charge.reset },
       }
     case 'failed':
@@ -101,7 +102,10 @@ export default function MyPageCredit() {
     },
   }))
   const cur = raw[at]
-  const sumCredit = cur.amount.toLocaleString() + ' ABC'
+  // 직접 입력이 있으면 그 값이 이긴다. 프리셋은 비워 뒀을 때의 기본값이다.
+  const amount = typed.trim() || String(cur.amount)
+  // 요약은 실제로 보낼 값을 그대로 보여 준다 — 프리셋만 따르면 직접 입력한 금액이 화면에서 사라진다.
+  const sumCredit = isSendableAmount(amount) ? chargeAmountLabel(trimAbcAmount(amount)) : '—'
   const handlePickDeposit = () => {
     setMode('deposit')
     setPick(2)
@@ -135,9 +139,6 @@ export default function MyPageCredit() {
   const summaryTitle = withdraw ? '출금 요약' : '예치 요약'
   const sumLabel = withdraw ? '출금 코인' : '예치 코인'
   const ctaLabel = withdraw ? '출금하기' : '예치하기'
-
-  // 직접 입력이 있으면 그 값이 이긴다. 프리셋은 비워 뒀을 때의 기본값이다.
-  const amount = typed.trim() || String(cur.amount)
 
   // 출금은 서버에 기능이 없다 — 예치일 때만 지갑을 연다.
   const charging = !withdraw && charge.phase !== 'idle'
