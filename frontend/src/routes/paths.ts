@@ -20,7 +20,7 @@ export const routePatterns = {
   editNodes: ['/edit/nodes', '/edit/nodes/:workflowId'],
 
   runWaiting: ['/run/waiting', '/run/:executionId/waiting'],
-  runRunning: ['/run/running', '/run/:executionId/running'],
+  runRunning: ['/run/:executionId/running'],
 
   myAgents: ['/my/agents'],
   myEdit: ['/my/edit'],
@@ -61,7 +61,7 @@ export const paths = {
 
   run: {
     waiting: idPath(routePatterns.runWaiting),
-    running: idPath(routePatterns.runRunning),
+    running: requiredIdPath(routePatterns.runRunning),
   },
 
   my: {

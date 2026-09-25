@@ -222,15 +222,13 @@ export default function RegisterForm() {
   const workflowId = searchParams.get('workflowId') ?? ''
   const revision = Number(searchParams.get('revision') ?? 0)
   /**
-   * 취소하고 돌아갈 실행 결과 화면. 워크플로우를 잃으면 빈 캔버스가 뜨고, 접수 번호를 잃으면
-   * 진행을 다시 물어보지 못해 흉내 진행으로 되돌아간다.
+   * 취소하고 돌아갈 자리. 실행 결과에서 들어왔으면 그 실행으로 되돌린다 — 워크플로우를 잃으면
+   * 빈 캔버스가 뜬다. 접수 번호 없이 들어오는 길은 내 에이전트 목록뿐이라 그리로 보낸다.
    */
   const executionId = searchParams.get('executionId') ?? ''
-  const backToRun = executionId
-    ? `${paths.run.running(executionId)}?workflowId=${workflowId}&done=1`
-    : workflowId
-      ? `${paths.run.running.withoutId}?workflowId=${workflowId}&done=1`
-      : `${paths.run.running.withoutId}?done=1`
+  const backTo = executionId
+    ? `${paths.run.running(executionId)}?workflowId=${workflowId}`
+    : paths.my.agents
 
   /** 등록은 수정도 삭제도 되지 않아 한 번 더 묻는다. */
   const [asking, setAsking] = useState<{ name: string } | null>(null)
@@ -357,7 +355,7 @@ export default function RegisterForm() {
 
           {/* 완료 화면에서 들어온다. '취소하기' 와 같은 곳으로 되돌린다. */}
           <a
-            href={backToRun}
+            href={backTo}
             style={{
               left: '272px',
               top: '94px',
@@ -699,7 +697,7 @@ export default function RegisterForm() {
           ></div>
 
           <a
-            href={backToRun}
+            href={backTo}
             style={{
               left: '832px',
               top: '1628px',
