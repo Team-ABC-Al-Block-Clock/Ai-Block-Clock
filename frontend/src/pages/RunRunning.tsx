@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom'
 
 import type { ExecutionFailure, StepStatus } from '@/api/executions'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
+import { downloadResult } from '@/api/executions'
+import { ApiError } from '@/api/errors'
 import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -298,6 +300,29 @@ export default function RunRunning() {
         ? 'rgba(255,206,226,.88)'
         : 'rgba(255,255,255,.62)',
   }))
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  const handleDownload = async () => {
+    if (!executionId || downloading) return
+    setDownloading(true)
+    setDownloadError(null)
+
+    try {
+      await downloadResult(executionId, 'PDF')
+    } catch (error) {
+      setDownloadError(
+        error instanceof ApiError && error.status === 404
+          ? 'PDF 를 만들지 못했습니다. 결과 JSON 으로 받아 주세요'
+          : '결과를 받지 못했습니다. 잠시 후 다시 눌러 주세요',
+      )
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const downloadLabel = downloading ? '받는 중…' : '결과 다운로드 (PDF)'
+
   const copyLabel = copied ? '복사됨' : '복사'
   const copyBg = copied ? 'rgba(154,208,180,.26)' : 'rgba(255,255,255,.1)'
   const copyFg = copied ? '#a8ddc0' : 'rgba(255,255,255,.82)'
@@ -647,7 +672,10 @@ export default function RunRunning() {
               </div>
             </div>
 
-            <div
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={!executionId || downloading}
               style={{
                 left: `${PANEL_INSET}px`,
                 top: '508px',
@@ -659,8 +687,9 @@ export default function RunRunning() {
                 gap: '10px',
                 transition: 'transform .18s',
                 animation: 'uiIn .6s .08s cubic-bezier(.2,.8,.25,1) both',
+                opacity: downloading ? 0.7 : 1,
               }}
-              className="absolute flex cursor-pointer items-center justify-center hover:-translate-y-[2px]"
+              className="absolute flex cursor-pointer items-center justify-center hover:-translate-y-[2px] disabled:cursor-default disabled:hover:translate-y-0"
             >
               <svg className="block" width="16" height="17" viewBox="0 0 14 15" fill="none">
                 <path
@@ -675,9 +704,24 @@ export default function RunRunning() {
                 className="text-[17px] font-bold tracking-[-.01em]"
                 style={{ color: 'var(--color-accent-ink)' }}
               >
-                결과 다운로드 (.txt)
+                {downloadLabel}
               </div>
-            </div>
+            </button>
+
+            {downloadError && (
+              <div
+                role="alert"
+                className="absolute text-center text-[13px]"
+                style={{
+                  left: `${PANEL_INSET}px`,
+                  top: '568px',
+                  width: `${PANEL_CONTENT_WIDTH}px`,
+                  color: 'rgba(255,214,232,.72)',
+                }}
+              >
+                {downloadError}
+              </div>
+            )}
 
             <a
               href={workflowId ? paths.edit.nodes(workflowId) : paths.edit.nodes.withoutId}
