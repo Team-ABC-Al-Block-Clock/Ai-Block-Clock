@@ -19,7 +19,7 @@ import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { nodeTypeLabel, priceLabel } from '@/lib/format'
+import { placedKindLabel, priceLabel } from '@/lib/format'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
@@ -344,7 +344,7 @@ export default function EditNodes() {
       : undefined
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
-  const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
+  const selTypeLabel = n ? placedKindLabel(n) : ''
 
   // 없거나 남의 워크플로우다. 여기서 끊지 않으면 자리표시자 다섯 개가 그대로 떠 있어
   // 무언가 불러와진 것처럼 보이고, 거기서 저장하면 엉뚱한 새 워크플로우가 하나 더 생긴다.

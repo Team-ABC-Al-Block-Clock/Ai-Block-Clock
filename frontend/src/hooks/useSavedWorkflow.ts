@@ -57,8 +57,9 @@ export function useSavedWorkflow(workflowId: string | undefined) {
     if (!detail.data || !labels.isSuccess) return []
     const known = new Set((labels.data ?? []).map((item) => item.itemId))
     const ids = detail.data.nodes
-      .filter((node) => node.sourceType === 'NODE' && !known.has(node.sourceId))
+      .filter((node) => node.sourceType === 'NODE')
       .map((node) => node.sourceId)
+      .filter((id): id is string => !!id && !known.has(id))
     return [...new Set(ids)]
   }, [detail.data, labels.data, labels.isSuccess])
 

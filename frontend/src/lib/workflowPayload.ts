@@ -93,13 +93,13 @@ export function toCanvasWorkflow(
   const idOf = new Map(detail.nodes.map((node, i) => [node.nodeKey, `loaded-${i + 1}`]))
 
   const nodes = detail.nodes.map((node, i) => {
-    const label = describe(node.sourceId)
+    const label = node.sourceId ? describe(node.sourceId) : undefined
     return {
       id: idOf.get(node.nodeKey)!,
       name: label?.name ?? '알 수 없는 노드',
       nodeType: label?.nodeType ?? (node.sourceType === 'AGENT' ? 'AGENT' : 'TOOL'),
       sourceType: node.sourceType,
-      sourceId: node.sourceId,
+      sourceId: node.sourceId ?? '',
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,
       summary: label?.summary ?? null,

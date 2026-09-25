@@ -58,15 +58,23 @@ function putRun(run: MockRun) {
 const FILE_EXTENSIONS = ['.xlsx', '.xls', '.csv']
 const FILE_MAX_BYTES = 10 * 1024 * 1024
 
+/** 값을 매길 수 있는 자리만. 제어·입출력 노드는 원본이 없어 원가도 단계도 없다. */
+const priced = (detail: WorkflowDetail) =>
+  detail.nodes.flatMap((node) =>
+    node.sourceType !== 'CONTROL' && node.sourceType !== 'IO' && node.sourceId
+      ? [{ nodeKey: node.nodeKey, sourceType: node.sourceType, sourceId: node.sourceId }]
+      : [],
+  )
+
 /** 견적. 접수와 조회가 같은 값을 써야 한다 — 따로 계산하면 카드와 막는 금액이 어긋난다. */
 function quoteOf(detail: WorkflowDetail) {
-  const items: CostItem[] = detail.nodes.map((node) => {
+  const items: CostItem[] = priced(detail).map(({ nodeKey, sourceType, sourceId }) => {
     // 기본 노드는 팔레트에 없다. 저장하며 만들어진 원본에서 찾는다.
-    const item = PLACEABLE_ITEMS.find((it) => it.itemId === node.sourceId)
-    const basic = item ? undefined : findNode(node.sourceId)
+    const item = PLACEABLE_ITEMS.find((it) => it.itemId === sourceId)
+    const basic = item ? undefined : findNode(sourceId)
     return {
-      nodeKey: node.nodeKey,
-      sourceType: node.sourceType,
+      nodeKey,
+      sourceType,
       name: item?.name ?? basic?.name ?? '알 수 없는 노드',
       price: money(Number(item?.price ?? basic?.baseCost ?? 0)),
     }
@@ -87,11 +95,11 @@ function quoteOf(detail: WorkflowDetail) {
 
 /** 접수 때 굳히는 단계 이름. 견적과 같은 자리를 읽어 금액과 단계가 어긋나지 않게 한다. */
 const stepNamesOf = (detail: WorkflowDetail) =>
-  detail.nodes.map(
-    (node) =>
-      PLACEABLE_ITEMS.find((item) => item.itemId === node.sourceId)?.name ??
+  priced(detail).map(
+    ({ sourceId }) =>
+      PLACEABLE_ITEMS.find((item) => item.itemId === sourceId)?.name ??
       // 기본 노드는 팔레트에 없다. 저장하며 만들어진 원본에서 찾는다 — 견적과 같은 자리다.
-      findNode(node.sourceId)?.name ??
+      findNode(sourceId)?.name ??
       '이름 없는 단계',
   )
 

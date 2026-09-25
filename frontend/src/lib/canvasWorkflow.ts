@@ -1,5 +1,11 @@
 import type { AiModel } from '@/api/nodes'
-import type { ItemNodeType, SourceType } from '@/api/workflows'
+import type {
+  BranchCondition,
+  ControlType,
+  IoType,
+  ItemNodeType,
+  PlacedSourceType,
+} from '@/api/workflows'
 
 import { roundedPath, routeEdge } from './edgeRoute'
 import type { ContentBox } from './viewport'
@@ -46,9 +52,16 @@ export interface CanvasNodeData {
   /** 같은 항목을 두 번 놓을 수 있어 이름으로는 가를 수 없다. */
   id: string
   name: string
-  nodeType: ItemNodeType
-  /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드와 에이전트를 가른다 */
-  sourceType: SourceType
+  /** 팔레트에서 온 것만. 제어·입출력 노드는 종류를 `controlType`·`ioType` 이 들고 있어 null */
+  nodeType: ItemNodeType | null
+  /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드·에이전트·제어·입출력을 가른다 */
+  sourceType: PlacedSourceType
+  /** 제어 노드만. 그 밖에는 비운다 */
+  controlType?: ControlType | null
+  /** 입출력 노드만. 그 밖에는 비운다 */
+  ioType?: IoType | null
+  /** 분기 노드만. 조건을 채우지 않으면 저장이 물린다 */
+  condition?: BranchCondition | null
   /**
    * 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다.
    *

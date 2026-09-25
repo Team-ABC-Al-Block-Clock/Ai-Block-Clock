@@ -150,6 +150,9 @@ const toDetail = (
     // 저장하며 만든 노드는 여기서 id 를 얻는다. 화면은 이 값으로 상세를 다시 읽는다.
     sourceId: node.sourceId ?? createLlmNode(node),
     versionId: null,
+    controlType: node.controlType ?? null,
+    condition: node.condition ?? null,
+    ioType: node.ioType ?? null,
     inputSource: 'PREV' as const,
   })),
   edges: graph.edges ?? [],

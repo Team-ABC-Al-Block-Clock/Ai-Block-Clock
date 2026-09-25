@@ -1,4 +1,4 @@
-import type { ItemNodeType } from '@/api/workflows'
+import type { ControlType, IoType, ItemNodeType } from '@/api/workflows'
 
 /** 2400 → '2.4k', 640 → '640' */
 export function compactCount(n: number) {
@@ -140,3 +140,28 @@ const NODE_TYPE_LABELS: Record<ItemNodeType, string> = {
 }
 
 export const nodeTypeLabel = (type: ItemNodeType) => NODE_TYPE_LABELS[type]
+
+/** 제어 노드는 `nodeType` 이 없어 종류 이름을 대신 쓴다. */
+const CONTROL_TYPE_LABELS: Record<ControlType, string> = {
+  BRANCH: '분기',
+}
+
+export const controlTypeLabel = (type: ControlType) => CONTROL_TYPE_LABELS[type]
+
+const IO_TYPE_LABELS: Record<IoType, string> = {
+  START: '시작',
+  END: '끝',
+}
+
+export const ioTypeLabel = (type: IoType) => IO_TYPE_LABELS[type]
+
+/** 카드 아래에 붙는 종류 이름. 셋 중 채워진 것을 쓴다 — 한 노드는 하나만 갖는다. */
+export function placedKindLabel(node: {
+  nodeType?: ItemNodeType | null
+  controlType?: ControlType | null
+  ioType?: IoType | null
+}): string {
+  if (node.ioType) return ioTypeLabel(node.ioType)
+  if (node.controlType) return controlTypeLabel(node.controlType)
+  return node.nodeType ? nodeTypeLabel(node.nodeType) : ''
+}

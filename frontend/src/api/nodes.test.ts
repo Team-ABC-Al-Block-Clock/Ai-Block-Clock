@@ -57,7 +57,7 @@ describe('기본 노드의 저장 왕복', () => {
     const [placed] = detail.nodes
     expect(placed.sourceId).toBeTruthy()
 
-    const node = await getNode(placed.sourceId)
+    const node = await getNode(placed.sourceId!)
     expect(node.name).toBe('왕복할 노드')
     expect(node.prompt).toBe('할 일을 적는다')
   })

@@ -115,6 +115,9 @@ describe('toCanvasWorkflow', () => {
       sourceId: `node_00${i + 1}`,
       versionId: null,
       inputSource: 'PREV' as const,
+      controlType: null,
+      condition: null,
+      ioType: null,
     })),
     edges: Array.from({ length: Math.max(0, nodeCount - 1) }, (_, i) => ({
       edgeKey: `e${i + 1}`,
