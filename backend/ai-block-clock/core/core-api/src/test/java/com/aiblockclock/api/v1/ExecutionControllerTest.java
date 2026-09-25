@@ -717,7 +717,7 @@ class ExecutionControllerTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, null, null, null)),
                 List.of(), List.of(), null,
-                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier"));
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true));
     }
 
     private static Path createTempDirectory() {

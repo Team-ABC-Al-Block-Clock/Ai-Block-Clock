@@ -13,12 +13,13 @@ import java.util.List;
 public record ExecutionUsage(BigDecimal used, BigDecimal refund) {
     private static final int DECIMAL_PLACES = 6;
 
-    public static ExecutionUsage of(AbcAmount reserved, RunStatus run, ChargeRates rates) {
+    // failure 는 실패한 실행의 책임 판정이다. 성공한 실행은 비어 있다.
+    public static ExecutionUsage of(AbcAmount reserved, RunStatus run, ExecutionFailure failure, ChargeRates rates) {
         BigDecimal held = reserved.value();
 
         // 플랫폼 탓으로 실패하면 성공한 단계까지 모두 돌려준다 (계약 8.5).
-        // 엔진이 기한 안에 끝을 알리지 않아 우리가 끊은 실행(run 이 비어 있음)도 플랫폼 탓으로 본다.
-        if (run == null || run.failure() != null && run.failure().isPlatformFault()) {
+        // 엔진이 기한 안에 끝을 알리지 않아 우리가 끊은 실행(run 이 비어 있음)도 플랫폼 탓으로 판정된다.
+        if (run == null || failure != null && failure.isPlatformFault()) {
             return new ExecutionUsage(BigDecimal.ZERO.setScale(DECIMAL_PLACES), held);
         }
 

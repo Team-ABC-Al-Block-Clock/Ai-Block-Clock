@@ -58,8 +58,9 @@ public class ExecutionWriter {
 
     // 실행 행을 잠그고 끝난 상태로 옮겨 닫은 실행을 돌려준다. 이미 끝나 있으면 옮기지 않고 비워 돌려준다.
     // 모니터와 조회가 같은 끝을 동시에 봐도 늦은 쪽은 앞쪽이 커밋할 때까지 기다렸다가 끝난 것을 본다.
+    // 실패했으면 누구 탓인지도 함께 적는다. 성공한 실행은 failure 가 비어 있다.
     @Transactional(propagation = Propagation.MANDATORY)
-    public Optional<Execution> finish(ExecutionId id, ExecutionStatus status) {
+    public Optional<Execution> finish(ExecutionId id, ExecutionStatus status, ExecutionFailure failure) {
         ExecutionEntity entity = executionRepository.findForUpdate(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_NOT_FOUND));
 
@@ -69,7 +70,19 @@ public class ExecutionWriter {
 
         entity.moveTo(status);
 
+        if (failure != null) {
+            record(entity, failure);
+        }
+
         return Optional.of(ExecutionEntityConverter.toDomain(entity));
+    }
+
+    // 엔진에 넘기지 못한 실행을 실패로 닫는다. 돌지 않은 실행이라 모니터 · 조회와 겹치지 않는다.
+    @Transactional
+    public void fail(ExecutionId id, ExecutionFailure failure) {
+        ExecutionEntity entity = entityOf(id);
+        entity.moveTo(ExecutionStatus.FAILED);
+        record(entity, failure);
     }
 
     @Transactional
@@ -78,6 +91,12 @@ public class ExecutionWriter {
         entity.markDispatched(runId.value());
 
         return ExecutionEntityConverter.toDomain(entity);
+    }
+
+    private static void record(ExecutionEntity entity, ExecutionFailure failure) {
+        entity.recordFailure(failure.stepId(), failure.errorCode(), failure.fault(), failure.affectsSuccessRate(),
+                failure.supplier() == null ? null : failure.supplier().value(),
+                failure.agent() == null ? null : failure.agent().value());
     }
 
     private ExecutionEntity entityOf(ExecutionId id) {

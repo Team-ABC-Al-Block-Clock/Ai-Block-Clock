@@ -1,5 +1,6 @@
 package com.aiblockclock.storage.execution;
 
+import com.aiblockclock.enums.execution.ExecutionFault;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.storage.audit.BaseTimeEntity;
 
@@ -63,6 +64,26 @@ public class ExecutionEntity extends BaseTimeEntity {
     @Column(name = "reserved_abc", precision = 41, scale = 6)
     private BigDecimal reservedAbc;
 
+    @Column(name = "failed_step_id", length = 16)
+    private String failedStepId;
+
+    @Column(name = "failure_code", length = 64)
+    private String failureCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "failure_fault", length = 20)
+    private ExecutionFault failureFault;
+
+    @Column(name = "failure_affects_success_rate")
+    private Boolean failureAffectsSuccessRate;
+
+    @Column(name = "fault_supplier_id")
+    private Long faultSupplierId;
+
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "fault_agent_id", length = 36)
+    private UUID faultAgentId;
+
     public ExecutionEntity(UUID id, UUID workflowId, UUID requestId, Long requesterId, String runId,
                            ExecutionStatus status, int promptCount,
                            String inputFileKey, String inputFileName, Long inputFileSize,
@@ -82,6 +103,16 @@ public class ExecutionEntity extends BaseTimeEntity {
 
     public void moveTo(ExecutionStatus status) {
         this.status = status;
+    }
+
+    public void recordFailure(String failedStepId, String failureCode, ExecutionFault failureFault,
+                              boolean failureAffectsSuccessRate, Long faultSupplierId, UUID faultAgentId) {
+        this.failedStepId = failedStepId;
+        this.failureCode = failureCode;
+        this.failureFault = failureFault;
+        this.failureAffectsSuccessRate = failureAffectsSuccessRate;
+        this.faultSupplierId = faultSupplierId;
+        this.faultAgentId = faultAgentId;
     }
 
     public void markDispatched(String runId) {
