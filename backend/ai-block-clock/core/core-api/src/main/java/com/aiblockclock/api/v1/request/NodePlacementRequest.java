@@ -154,7 +154,7 @@ public record NodePlacementRequest(
     }
 
     private boolean carriesIoBody() {
-        return fields != null || resultShape != null || resultFormat != null;
+        return carriesFields() || resultShape != null || resultFormat != null;
     }
 
     private boolean matchesIoType() {
@@ -162,7 +162,11 @@ public record NodePlacementRequest(
             return resultShape == null && resultFormat == null;
         }
 
-        return fields == null && resultShape != null && resultFormat != null;
+        return !carriesFields() && resultShape != null && resultFormat != null;
+    }
+
+    private boolean carriesFields() {
+        return fields != null && !fields.isEmpty();
     }
 
     private boolean carriesBody() {
