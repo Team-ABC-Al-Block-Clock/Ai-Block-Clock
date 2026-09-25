@@ -61,6 +61,18 @@ class AgentVersionTest {
         assertThat(next.getAgentId()).isEqualTo(previous.getAgentId());
     }
 
+    // 등급은 에이전트에 하나다. 재산정으로 Tier 2 가 된 에이전트가 새 버전을 내도 다음 재산정을 기다리지 않고 Tier 2 다.
+    @Test
+    void 다음_버전은_직전_버전의_등급을_이어받는다() {
+        AgentVersion previous = versionAt(Tier.TIER_2, PublicationState.PUBLISHED);
+
+        AgentVersion next = AgentVersion.next(previous, AgentVersionId.newId(), source(2),
+                GraphFixtures.straightLine(), cost(3, "150"));
+
+        assertThat(next.getTier()).isEqualTo(Tier.TIER_2);
+        assertThat(next.finalPrice().value()).isEqualByComparingTo("195.000000");
+    }
+
     @Test
     @DisplayName("빈 그래프로는 실행 정의를 만들 수 없다")
     void rejectsEmptySnapshot() {
