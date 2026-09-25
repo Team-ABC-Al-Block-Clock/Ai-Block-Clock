@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api/errors'
-import { getNode } from '@/api/nodes'
+import { getNode, updateNode } from '@/api/nodes'
 import { estimateCost } from '@/api/executions'
-import { getNodePalette, getWorkflow, saveWorkflow } from '@/api/workflows'
+import { getNodePalette, getWorkflow, replaceWorkflow, saveWorkflow } from '@/api/workflows'
 import { NODE_DETAILS, OTHERS_NODE_ID } from '@/mocks/fixtures/nodes'
 
 /** api 레이어 + mock 핸들러를 한 번에 통과시킨다. */
@@ -96,5 +96,66 @@ describe('기본 노드의 견적', () => {
 
     expect(estimate.items[0].name).toBe('분석')
     expect(Number(estimate.estimatedAmount)).toBeGreaterThan(0)
+  })
+})
+
+/** 저장 응답의 원본 id 를 받지 않으면 다음 저장에서 같은 노드가 또 만들어진다. */
+describe('저장 응답의 원본 id', () => {
+  const draft = (name: string, prompt: string) => ({
+    name: '중복 검증',
+    nodes: [{ nodeKey: 'n1', sourceType: 'NODE' as const, nodeType: 'LLM' as const, name, prompt }],
+    edges: [],
+  })
+
+  it('저장하면 놓인 노드의 원본 id 가 함께 온다', async () => {
+    const saved = await saveWorkflow(draft('원본 id 검증', '할 일'))
+
+    expect(saved.nodes).toHaveLength(1)
+    expect(saved.nodes[0].nodeKey).toBe('n1')
+    expect(saved.nodes[0].sourceId).toBeTruthy()
+  })
+
+  it('받은 id 로 다시 저장하면 노드가 새로 만들어지지 않는다', async () => {
+    const first = await saveWorkflow(draft('두 번 저장', '할 일'))
+    const sourceId = first.nodes[0].sourceId!
+
+    const again = await replaceWorkflow(first.workflowId, {
+      name: '두 번 저장',
+      nodes: [{ nodeKey: 'n1', sourceType: 'NODE', sourceId }],
+      edges: [],
+      revision: first.revision,
+    })
+
+    expect(again.nodes[0].sourceId).toBe(sourceId)
+  })
+})
+
+/** 원본이 있는 노드는 제자리에서 고친다 — 새로 만들면 옛 원본이 고아가 된다. */
+describe('updateNode', () => {
+  it('이름·프롬프트를 고치고 원가를 다시 매긴다', async () => {
+    const saved = await saveWorkflow({
+      name: '수정 검증',
+      nodes: [
+        {
+          nodeKey: 'n1',
+          sourceType: 'NODE' as const,
+          nodeType: 'LLM' as const,
+          name: '고치기 전',
+          prompt: '짧은 프롬프트',
+        },
+      ],
+      edges: [],
+    })
+    const sourceId = saved.nodes[0].sourceId!
+
+    const updated = await updateNode(sourceId, {
+      name: '고친 뒤',
+      prompt: '아주 긴 프롬프트를 적어 원가가 달라지게 만든다'.repeat(3),
+    })
+
+    expect(updated.nodeId).toBe(sourceId)
+    expect(updated.name).toBe('고친 뒤')
+    expect(Number(updated.baseCost)).toBeGreaterThan(1)
+    expect((await getNode(sourceId)).name).toBe('고친 뒤')
   })
 })

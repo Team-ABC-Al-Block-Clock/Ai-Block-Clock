@@ -482,6 +482,12 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     /** 고른 기본 노드의 값을 고친다. 서버에는 워크플로우를 저장할 때 함께 나간다. */
     editNode: (id: string, values: { name: string; prompt: string; model: AiModel }) =>
       dispatch({ type: 'editNode', id, ...values }),
+    /** 저장 응답이 준 원본 id 를 캔버스에 되쓴다. */
+    attachSources: (sourceIdByNodeId: Record<string, string>) =>
+      dispatch({ type: 'attachSources', sourceIdByNodeId }),
+    /** 원본을 고친 뒤 서버가 다시 매긴 원가를 되쓴다. */
+    repriceBySource: (sourceId: string, price: string) =>
+      dispatch({ type: 'repriceBySource', sourceId, price }),
     portOpen,
     view,
     zoomLabel: `${zoomPercent(view)}%`,

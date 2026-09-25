@@ -17,11 +17,12 @@ import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/
 export function toWorkflowGraph(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[],
-): WorkflowGraph | null {
+): (WorkflowGraph & { nodeIdByKey: Record<string, string> }) | null {
   const order = linearOrder(nodes, edges)
   if (!order) return null
 
   const keyOf = new Map(order.map((node, i) => [node.id, `n${i + 1}`]))
+  const nodeIdByKey = Object.fromEntries(order.map((node, i) => [`n${i + 1}`, node.id]))
   const placements: NodePlacement[] = order.map((node) => {
     const placed: NodePlacement = {
       nodeKey: keyOf.get(node.id)!,
@@ -46,7 +47,7 @@ export function toWorkflowGraph(
     targetNodeKey: keyOf.get(node.id)!,
   }))
 
-  return { nodes: placements, edges: links }
+  return { nodes: placements, edges: links, nodeIdByKey }
 }
 
 /**

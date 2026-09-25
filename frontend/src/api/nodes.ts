@@ -42,3 +42,13 @@ export const NODE_NAME_MAX = 40
 
 /** 저장된 워크플로우를 다시 열 때, 배치가 가리키는 원본의 이름·프롬프트를 읽는다. */
 export const getNode = (nodeId: string) => api.get<NodeDetail>(`/nodes/${nodeId}`)
+
+/** 이미 만들어진 노드를 제자리에서 고친다. 배치는 `sourceId` 를 그대로 가리킨다. */
+export interface NodeSaveBody {
+  name: string
+  prompt: string
+  model?: AiModel | null
+}
+
+export const updateNode = (nodeId: string, body: NodeSaveBody) =>
+  api.put<NodeDetail>(`/nodes/${nodeId}`, body)

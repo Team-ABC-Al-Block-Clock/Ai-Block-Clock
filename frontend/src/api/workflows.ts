@@ -66,11 +66,24 @@ export interface WorkflowGraph {
 }
 
 /** 예상 차감액은 여기 없다 — 실행 견적 API(`POST /executions/cost-estimates`)가 따로 준다. */
+/** 저장하며 만들어진 노드가 받은 id. 보낸 `nodeKey` 로 되짚는다. */
+export interface PlacedNodeId {
+  nodeKey: string
+  sourceType: SourceType
+  /** 제어 노드면 null */
+  sourceId: string | null
+}
+
 export interface SavedWorkflow {
   workflowId: string
   name: string
   /** 다음 수정 요청에 그대로 넣는다. 어긋나면 `WORKFLOW_016` */
   revision: number
+  /**
+   * 놓인 노드. 본문으로 실어 보낸 새 단계는 여기서 `sourceId` 를 받는다.
+   * 다음 수정 요청에는 그 id 를 그대로 보내야 노드가 또 만들어지지 않는다.
+   */
+  nodes: PlacedNodeId[]
 }
 
 /** 서버가 돌려주는 배치. `versionId` 는 에이전트 노드만 갖는다. */

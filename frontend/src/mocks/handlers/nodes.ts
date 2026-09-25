@@ -1,7 +1,7 @@
 import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
-import { type AiModel, type NodeDetail } from '@/api/nodes'
+import { NODE_NAME_MAX, type AiModel, type NodeDetail, type NodeSaveBody } from '@/api/nodes'
 import { NODE_DETAILS, OTHERS_NODE_ID } from '@/mocks/fixtures/nodes'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -72,6 +72,39 @@ export const findNode = (nodeId: string): NodeDetail | undefined =>
 export const knowsNode = (nodeId: string) => !!findNode(nodeId)
 
 export const nodeHandlers = [
+  http.put(`${API_BASE_URL}/nodes/:nodeId`, async (info) => {
+    const forced = await scene(info.request)
+    if (forced) return forced
+
+    const { nodeId } = info.params as { nodeId: string }
+    if (nodeId === OTHERS_NODE_ID) return fail(403, 'NODE_002', '노드에 대한 권한이 없습니다.')
+
+    const node = findNode(nodeId)
+    if (!node) return fail(404, 'NODE_001', '노드를 찾을 수 없습니다.')
+
+    const body = (await info.request.json()) as NodeSaveBody
+    const violations: Record<string, string> = {}
+    if (typeof body?.name !== 'string' || !body.name.trim() || body.name.length > NODE_NAME_MAX)
+      violations.name = '이름이 올바르지 않습니다.'
+    if (typeof body?.prompt !== 'string' || !body.prompt.trim())
+      violations.prompt = '프롬프트를 입력해야 합니다.'
+    if (Object.keys(violations).length)
+      return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', violations)
+
+    const next: NodeDetail = {
+      ...node,
+      name: body.name.trim(),
+      prompt: body.prompt.trim(),
+      model: body.model ?? DEFAULT_MODEL,
+      // 원가는 프롬프트와 모델로 다시 매겨진다.
+      baseCost: String(Math.max(1, Math.ceil(body.prompt.trim().length / 40))),
+    }
+    const all = readCreated()
+    all[nodeId] = next
+    writeCreated(all)
+    return ok(next)
+  }),
+
   http.get(`${API_BASE_URL}/nodes/:nodeId`, async (info) => {
     const forced = await scene(info.request)
     if (forced) return forced

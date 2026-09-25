@@ -157,10 +157,16 @@ const toDetail = (
   updatedAt: new Date().toISOString(),
 })
 
-const saved = ({ workflowId, name, revision }: WorkflowDetail) => ({
+const saved = ({ workflowId, name, revision, nodes }: WorkflowDetail) => ({
   workflowId,
   name,
   revision,
+  // 저장하며 만든 노드는 여기서 id 를 받는다. 화면이 이 값을 캔버스에 되쓴다.
+  nodes: nodes.map((node) => ({
+    nodeKey: node.nodeKey,
+    sourceType: node.sourceType,
+    sourceId: node.sourceId,
+  })),
 })
 
 export const workflowsHandlers = [

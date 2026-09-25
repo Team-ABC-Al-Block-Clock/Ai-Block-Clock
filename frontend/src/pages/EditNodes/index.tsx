@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import { DEFAULT_AI_MODEL, NODE_NAME_MAX } from '@/api/nodes'
+import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode, type AiModel } from '@/api/nodes'
 import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -85,6 +85,8 @@ export default function EditNodes() {
     linkFrom,
     canSell,
     editNode,
+    attachSources,
+    repriceBySource,
     portOpen,
     onHover,
     onSelectEdge,
@@ -145,12 +147,28 @@ export default function EditNodes() {
   const pending = useMemo(() => shapeOf(graph, trimmedName), [graph, trimmedName])
   const dirty = savedShape !== pending
 
+  /** 원가는 프롬프트와 모델로 다시 매겨진다. 받은 값을 카드에 되쓴다. */
+  const editOriginal = useMutation({
+    mutationFn: ({
+      sourceId,
+      values,
+    }: {
+      sourceId: string
+      values: { name: string; prompt: string; model: AiModel }
+    }) => updateNode(sourceId, values),
+    onSuccess: (node) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.detail(node.nodeId) })
+      repriceBySource(node.nodeId, node.baseCost)
+    },
+  })
+
   const save = useMutation({
     // 보낸 내용을 함께 돌려준다. `onSuccess` 에서 `pending` 을 다시 읽으면 요청이 나가는 동안
     // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
     mutationFn: async () => {
       if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
       const shape = shapeOf(graph, trimmedName)
+      const { nodeIdByKey } = graph
       const result = saved
         ? await replaceWorkflow(saved.workflowId, {
             ...graph,
@@ -158,15 +176,22 @@ export default function EditNodes() {
             revision: saved.revision,
           })
         : await saveWorkflow({ ...graph, name: trimmedName })
-      return { result, shape }
+      return { result, shape, nodeIdByKey }
     },
     // 회차가 어긋나면 들고 있던 값이 낡은 것이다. 다시 받아 두지 않으면 몇 번을 눌러도 같은 409 다.
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'WORKFLOW_016') void loaded.refetch()
     },
-    onSuccess: ({ result, shape }) => {
+    onSuccess: ({ result, shape, nodeIdByKey }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
       setSavedShape(shape)
+      // 저장하며 만들어진 노드의 원본 id 를 캔버스에 되쓴다. 비워 두면 다음 저장에서 또 만들어진다.
+      const attached: Record<string, string> = {}
+      for (const placed of result.nodes ?? []) {
+        const nodeId = nodeIdByKey[placed.nodeKey]
+        if (nodeId && placed.sourceId) attached[nodeId] = placed.sourceId
+      }
+      attachSources(attached)
       // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workflows.detail(result.workflowId),
@@ -294,8 +319,21 @@ export default function EditNodes() {
 
   const hasSelection = !!n
   // 에이전트는 열지 않는다 — 남의 내부 구성이다. 기본 노드는 캔버스가 값을 들고 있다.
+  /**
+   * 고친 값을 캔버스에 넣고, 원본이 이미 있으면 서버에도 반영한다.
+   *
+   * 원본을 가리키는 배치는 저장할 때 `sourceId` 만 보내므로 이름·프롬프트가 함께 나가지 않는다.
+   * 여기서 `PUT` 하지 않으면 고친 값이 다음 저장에서 버려진다.
+   */
+  const applyNodeEdit = (id: string, values: { name: string; prompt: string; model: AiModel }) => {
+    editNode(id, values)
+    const sourceId = nodes.find((node) => node.id === id)?.sourceId
+    if (sourceId) editOriginal.mutate({ sourceId, values })
+  }
+
+  // 프롬프트를 모르면 빈 폼이 원본을 덮어쓴다. 종류가 LLM 이 아니면 저장이 종류를 바꿔 버린다.
   const selBasic =
-    n && n.sourceType === 'NODE'
+    n && n.sourceType === 'NODE' && n.nodeType === 'LLM' && n.prompt !== null
       ? {
           id: n.id,
           name: n.name,
@@ -817,7 +855,7 @@ export default function EditNodes() {
               ? { price: n.price, executionCount: n.executionCount, owner: n.owner }
               : undefined
           }
-          onApply={editNode}
+          onApply={applyNodeEdit}
         />
 
         <NodePalettePanel
