@@ -71,13 +71,13 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
 
   return (
     <>
-      <FieldLabel top="58px">노드 이름</FieldLabel>
+      <FieldLabel top="62px">노드 이름</FieldLabel>
       <div
         className="bg-surface-card absolute flex items-center"
-        style={{ ...rowStyle('82px'), height: '44px', borderRadius: '11px', padding: '0 12px' }}
+        style={{ ...rowStyle('84px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
       >
         <input
-          className="w-full border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
+          className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
           value={name}
           maxLength={NODE_NAME_MAX}
           onChange={(ev) => setName(ev.target.value)}
@@ -87,29 +87,56 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
         <PencilIcon />
       </div>
 
-      <FieldLabel top="140px">프롬프트</FieldLabel>
+      {/* 「노드 추가」 패널과 같은 자리·같은 차림. 참고 자료 붙이기는 아직 손대지 않았다. */}
+      <FieldLabel top="134px">입력 파일</FieldLabel>
+      <div
+        className="bg-surface-card absolute flex items-center justify-between"
+        style={{
+          ...rowStyle('156px'),
+          height: '42px',
+          borderRadius: '11px',
+          padding: '0 6px 0 12px',
+        }}
+      >
+        <div className="truncate text-[16.5px]" style={{ color: 'rgba(255,255,255,.5)' }}>
+          파일을 선택하세요
+        </div>
+        <div
+          className="flex flex-none items-center text-[14px] font-semibold text-white"
+          style={{
+            height: '30px',
+            padding: '0 14px',
+            borderRadius: '8px',
+            background: 'rgba(255,255,255,.16)',
+          }}
+        >
+          찾기
+        </div>
+      </div>
+
+      <FieldLabel top="206px">AI 모델</FieldLabel>
+      <ModelSelect
+        value={model}
+        onChange={setModel}
+        style={{ ...rowStyle('228px'), height: '42px', fontSize: '16.5px' }}
+      />
+
+      <FieldLabel top="278px">프롬프트</FieldLabel>
       <div
         className="bg-surface-card absolute"
-        style={{ ...rowStyle('164px'), height: '96px', borderRadius: '11px', padding: '10px 12px' }}
+        style={{ ...rowStyle('300px'), height: '68px', borderRadius: '11px', padding: '9px 12px' }}
       >
         <textarea
-          className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[15px] leading-[1.5] text-white outline-0"
+          className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[16.5px] leading-[1.55] text-white outline-0"
           value={prompt}
           onChange={(ev) => setPrompt(ev.target.value)}
           placeholder="이 노드가 할 일을 프롬프트로 적으세요"
           aria-label="프롬프트"
-          style={{ height: '72px' }}
+          style={{ height: '50px' }}
         />
       </div>
 
-      <FieldLabel top="272px">AI 모델</FieldLabel>
-      <ModelSelect
-        value={model}
-        onChange={setModel}
-        style={{ ...rowStyle('294px'), height: '44px', fontSize: '16.5px' }}
-      />
-
-      <div className="absolute flex justify-end" style={rowStyle('352px')}>
+      <div className="absolute flex justify-end" style={rowStyle('378px')}>
         <button
           type="button"
           disabled={!canApply}
@@ -117,9 +144,9 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
           title={canApply ? '고친 값을 캔버스에 반영합니다' : '바뀐 것이 없습니다'}
           className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
           style={{
-            height: '34px',
+            height: '32px',
             padding: '0 18px',
-            borderRadius: '17px',
+            borderRadius: '16px',
             background: 'var(--color-accent)',
             color: 'var(--color-accent-ink)',
             cursor: canApply ? 'pointer' : 'default',
@@ -171,22 +198,14 @@ export default function NodeInfoPanel({
       </div>
     )
 
-  // 기본 노드는 폼이 이름을 들고 있어 머리 카드가 겹친다. 종류만 한 줄로 밝힌다.
+  // 기본 노드는 폼이 이름을 들고 있어 머리 카드도 종류 줄도 겹친다. 폼만 세운다.
   if (basic)
     return (
-      <>
-        <div
-          className="absolute text-[16px]"
-          style={{ ...rowStyle('24px'), color: 'rgba(255,224,238,.88)' }}
-        >
-          기본 노드
-        </div>
-        <NodeForm
-          key={basic.id}
-          initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
-          onApply={(values) => onApply(basic.id, values)}
-        />
-      </>
+      <NodeForm
+        key={basic.id}
+        initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
+        onApply={(values) => onApply(basic.id, values)}
+      />
     )
 
   return (

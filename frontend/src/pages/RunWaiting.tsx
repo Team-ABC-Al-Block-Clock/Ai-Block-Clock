@@ -290,7 +290,7 @@ export default function RunWaiting() {
           className="absolute"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '132px',
+            top: '140px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '136px',
             borderRadius: '12px',
@@ -322,7 +322,7 @@ export default function RunWaiting() {
           style={{
             left: `${PANEL_INSET}px`,
             // 위 입력 상자(…268)와 16px, 아래 비용 카드와도 16px.
-            top: '284px',
+            top: '292px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '44px',
             padding: '0 8px 0 16px',
@@ -373,7 +373,7 @@ export default function RunWaiting() {
           className="absolute box-border flex flex-col"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '344px',
+            top: '352px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '194px',
             padding: '18px 20px',
@@ -449,7 +449,7 @@ export default function RunWaiting() {
           onClick={handleRun}
           style={{
             left: `${PANEL_INSET}px`,
-            top: '554px',
+            top: '562px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '56px',
             borderRadius: '12px',
@@ -470,7 +470,7 @@ export default function RunWaiting() {
             className="absolute text-[14px] tracking-[-.005em]"
             style={{
               left: `${PANEL_INSET}px`,
-              top: '620px',
+              top: '628px',
               width: `${PANEL_CONTENT_WIDTH}px`,
               color: start.error ? 'rgba(255,190,209,.9)' : 'rgba(255,236,246,.5)',
             }}
@@ -489,7 +489,7 @@ export default function RunWaiting() {
 
         <div
           className="absolute text-[22px] font-semibold tracking-[-.01em]"
-          style={{ left: `${PANEL_INSET}px`, top: '658px', color: 'rgba(255,255,255,.96)' }}
+          style={{ left: `${PANEL_INSET}px`, top: '666px', color: 'rgba(255,255,255,.96)' }}
         >
           단계별 비용
         </div>
@@ -498,9 +498,9 @@ export default function RunWaiting() {
           className="absolute flex flex-col overflow-x-hidden"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '694px',
+            top: '702px',
             width: `${PANEL_CONTENT_WIDTH}px`,
-            height: 'calc(282px + 2 * var(--edge-y, 0px))',
+            height: 'calc(274px + 2 * var(--edge-y, 0px))',
             gap: '8px',
             overflowY: 'auto',
             scrollbarWidth: 'thin',
