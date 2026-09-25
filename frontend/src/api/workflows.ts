@@ -168,6 +168,9 @@ export type ControlType = 'BRANCH'
 /** 입출력 노드 종류 */
 export type IoType = 'START' | 'END'
 
+/** 제어·입출력 노드의 종류. 한 노드는 이 중 하나를 갖는다 */
+export type ControlKind = ControlType | IoType
+
 /** 분기 조건의 비교 방법. `IN` 이면 `right` 가 배열이다 */
 export type ConditionOperator = 'EQ' | 'NE' | 'GT' | 'GE' | 'LT' | 'LE' | 'IN'
 

@@ -1,4 +1,4 @@
-import type { ControlType, IoType, ItemNodeType } from '@/api/workflows'
+import type { ControlKind, ControlType, IoType, ItemNodeType } from '@/api/workflows'
 
 /** 2400 → '2.4k', 640 → '640' */
 export function compactCount(n: number) {
@@ -150,10 +150,19 @@ export const controlTypeLabel = (type: ControlType) => CONTROL_TYPE_LABELS[type]
 
 const IO_TYPE_LABELS: Record<IoType, string> = {
   START: '시작',
-  END: '끝',
+  END: '종료',
 }
 
 export const ioTypeLabel = (type: IoType) => IO_TYPE_LABELS[type]
+
+/** 카드에 적히는 이름. 제어·입출력은 팔레트에 없어 이름을 여기서 받는다. */
+const KIND_NAMES: Record<ControlKind, string> = {
+  BRANCH: '조건 분기',
+  START: '시작',
+  END: '종료',
+}
+
+export const controlKindName = (kind: ControlKind) => KIND_NAMES[kind]
 
 /** 카드 아래에 붙는 종류 이름. 셋 중 채워진 것을 쓴다 — 한 노드는 하나만 갖는다. */
 export function placedKindLabel(node: {
