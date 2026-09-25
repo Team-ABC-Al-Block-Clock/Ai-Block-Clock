@@ -9,6 +9,15 @@ const POLL_MS = 2_000
 /** 이만큼 잇따라 실패하면 화면에 알린다. 한 번 걸렀다고 알리면 잠깐 끊긴 것에도 놀란다. */
 const MAX_MISSES = 3
 
+/**
+ * 마지막으로 받아 둔 진행. 등록 화면에 다녀오면 이 훅이 다시 마운트되는데, 빈손으로 시작하면
+ * 첫 응답이 닿기 전까지 끝난 실행이 다시 도는 것처럼 그려진다. 한 건만 들고 있으면 된다.
+ */
+let last: { executionId: string; progress: ExecutionProgress } | undefined
+
+const lastFor = (executionId?: string) =>
+  executionId && last?.executionId === executionId ? last.progress : undefined
+
 interface Followed {
   executionId?: string
   progress?: ExecutionProgress
@@ -34,6 +43,7 @@ export interface RunProgressState {
 export function useRunProgress(executionId?: string): RunProgressState {
   const [followed, setFollowed] = useState<Followed>({
     executionId,
+    progress: lastFor(executionId),
     broken: false,
     missing: false,
   })
@@ -45,6 +55,8 @@ export function useRunProgress(executionId?: string): RunProgressState {
     let timer: ReturnType<typeof setTimeout> | undefined
 
     const remember = (next: Partial<Followed>) => {
+      // 떠난 뒤에 닿은 응답도 들고 있는다 — 돌아왔을 때 처음부터 그리지 않게.
+      if (next.progress) last = { executionId, progress: next.progress }
       if (!gone) setFollowed((prev) => ({ ...prev, executionId, ...next }))
     }
 
@@ -84,7 +96,7 @@ export function useRunProgress(executionId?: string): RunProgressState {
   }, [executionId])
 
   if (followed.executionId !== executionId) {
-    return { progress: undefined, broken: false, missing: false }
+    return { progress: lastFor(executionId), broken: false, missing: false }
   }
 
   return { progress: followed.progress, broken: followed.broken, missing: followed.missing }
