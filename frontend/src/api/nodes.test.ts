@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api/errors'
 import { getNode } from '@/api/nodes'
+import { estimateCost } from '@/api/executions'
 import { getNodePalette, getWorkflow, saveWorkflow } from '@/api/workflows'
 import { NODE_DETAILS, OTHERS_NODE_ID } from '@/mocks/fixtures/nodes'
 
@@ -71,5 +72,29 @@ describe('기본 노드의 저장 왕복', () => {
 
   it('프롬프트가 비면 COMMON_001 로 거절한다', async () => {
     await expect(saveWorkflow(place('이름만 있는 노드', '   '))).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+/** 저장하자마자 견적이 나와야 한다 — 금액이 0 이면 실행 화면이 막힌다. */
+describe('기본 노드의 견적', () => {
+  it('저장 직후 바로 단가가 매겨진다', async () => {
+    const saved = await saveWorkflow({
+      name: '견적 검증',
+      nodes: [
+        {
+          nodeKey: 'n1',
+          sourceType: 'NODE' as const,
+          nodeType: 'LLM' as const,
+          name: '분석',
+          prompt: '아주 긴 프롬프트를 적어 원가가 1 보다 크게 나오도록 한다'.repeat(3),
+        },
+      ],
+      edges: [],
+    })
+
+    const estimate = await estimateCost(saved.workflowId)
+
+    expect(estimate.items[0].name).toBe('분석')
+    expect(Number(estimate.estimatedAmount)).toBeGreaterThan(0)
   })
 })

@@ -89,7 +89,10 @@ function quoteOf(detail: WorkflowDetail) {
 const stepNamesOf = (detail: WorkflowDetail) =>
   detail.nodes.map(
     (node) =>
-      PLACEABLE_ITEMS.find((item) => item.itemId === node.sourceId)?.name ?? '이름 없는 단계',
+      PLACEABLE_ITEMS.find((item) => item.itemId === node.sourceId)?.name ??
+      // 기본 노드는 팔레트에 없다. 저장하며 만들어진 원본에서 찾는다 — 견적과 같은 자리다.
+      findNode(node.sourceId)?.name ??
+      '이름 없는 단계',
   )
 
 /** 경과 시간으로 진행을 짓는다. 끝난 뒤에는 더 움직이지 않는다. */
