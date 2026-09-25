@@ -74,7 +74,7 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
       <FieldLabel top="58px">노드 이름</FieldLabel>
       <div
         className="bg-surface-card absolute flex items-center"
-        style={{ ...rowStyle('82px'), height: '40px', borderRadius: '11px', padding: '0 12px' }}
+        style={{ ...rowStyle('82px'), height: '44px', borderRadius: '11px', padding: '0 12px' }}
       >
         <input
           className="w-full border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
@@ -87,10 +87,10 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
         <PencilIcon />
       </div>
 
-      <FieldLabel top="136px">프롬프트</FieldLabel>
+      <FieldLabel top="140px">프롬프트</FieldLabel>
       <div
         className="bg-surface-card absolute"
-        style={{ ...rowStyle('160px'), height: '92px', borderRadius: '11px', padding: '10px 12px' }}
+        style={{ ...rowStyle('164px'), height: '96px', borderRadius: '11px', padding: '10px 12px' }}
       >
         <textarea
           className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[15px] leading-[1.5] text-white outline-0"
@@ -102,14 +102,14 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
         />
       </div>
 
-      <FieldLabel top="266px">AI 모델</FieldLabel>
+      <FieldLabel top="272px">AI 모델</FieldLabel>
       <ModelSelect
         value={model}
         onChange={setModel}
-        style={{ ...rowStyle('290px'), height: '40px', fontSize: '15px' }}
+        style={{ ...rowStyle('294px'), height: '44px', fontSize: '16.5px' }}
       />
 
-      <div className="absolute flex justify-end" style={rowStyle('346px')}>
+      <div className="absolute flex justify-end" style={rowStyle('352px')}>
         <button
           type="button"
           disabled={!canApply}
@@ -176,8 +176,8 @@ export default function NodeInfoPanel({
     return (
       <>
         <div
-          className="absolute text-[14.5px]"
-          style={{ ...rowStyle('26px'), color: 'rgba(255,224,238,.88)' }}
+          className="absolute text-[16px]"
+          style={{ ...rowStyle('24px'), color: 'rgba(255,224,238,.88)' }}
         >
           기본 노드
         </div>
