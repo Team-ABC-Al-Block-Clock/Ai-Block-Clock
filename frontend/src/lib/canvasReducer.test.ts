@@ -310,6 +310,7 @@ describe('seededCanvasState', () => {
     nodeType: 'AGENT' as const,
     sourceType: 'AGENT' as const,
     sourceId: id,
+    price: '6',
     mine: false,
   }))
 

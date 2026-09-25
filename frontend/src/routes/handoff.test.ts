@@ -50,6 +50,7 @@ describe('seedsFrom', () => {
       // 저장할 때 서버가 찾을 원본. 화면용 id 와 값은 같지만 쓰임이 다르다.
       sourceType: 'AGENT',
       sourceId: 'ag_1',
+      price: '6.000000',
       mine: false,
     })
   })

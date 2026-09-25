@@ -53,6 +53,7 @@ export function seedsFrom(state: unknown): PlacedSeed[] {
       // 저장할 때 서버가 이 값으로 원본 에이전트를 찾는다. 화면용 id 와 값은 같지만 쓰임이 다르다.
       sourceType: 'AGENT' as const,
       sourceId: agent.agentId,
+      price: agent.price,
       mine: false,
     }))
 }
