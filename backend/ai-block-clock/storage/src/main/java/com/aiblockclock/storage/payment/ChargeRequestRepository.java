@@ -9,10 +9,20 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface ChargeRequestRepository
         extends JpaRepository<ChargeRequestEntity, Long> {
+
+    // 먼저 들어온 요청부터 확인한다. 대기 한도가 먼저 차는 쪽이다
+    @Query("""
+            SELECT chargeRequest.id
+              FROM ChargeRequestEntity chargeRequest
+             WHERE chargeRequest.status = :status
+             ORDER BY chargeRequest.id
+            """)
+    List<Long> findIdsByStatus(@Param("status") ChargeStatus status);
 
     Optional<ChargeRequestEntity> findByChainIdAndTransactionHash(
             Long chainId,

@@ -2,11 +2,17 @@ package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
+import com.aiblockclock.domain.user.User;
+import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.domain.user.UserReader;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -22,15 +28,26 @@ import static org.mockito.Mockito.when;
 
 class ChargeRequestServiceTest {
 
-    private static final String USER_ID = "test-user";
+    private static final UserId REQUESTER = UserId.of(7L);
+    private static final String USER_ID = "7";
+    private static final String WALLET = "0x1111111111111111111111111111111111111111";
     private static final String TRANSACTION_HASH = "test-hash";
-    private static final ChargeNetworkPolicy NETWORK_POLICY = new ChargeNetworkPolicy(
-            12345L, "test-custody", "test-token", 5L
+    private static final String CUSTODY = "0x2222222222222222222222222222222222222222";
+    private static final ChargeProperties CHARGE_PROPERTIES = new ChargeProperties(
+            12345L, CUSTODY, "0x3333333333333333333333333333333333333333", 5L,
+            Duration.ofSeconds(10), Duration.ofMinutes(5), Duration.ofMinutes(30), false
     );
 
     private final ChargeRequestReader reader = mock(ChargeRequestReader.class);
     private final ChargeRequestWriter writer = mock(ChargeRequestWriter.class);
-    private final ChargeRequestService service = new ChargeRequestService(reader, writer);
+    private final UserReader userReader = mock(UserReader.class);
+    private final ChargeRequestService service =
+            new ChargeRequestService(reader, writer, userReader, CHARGE_PROPERTIES);
+
+    @BeforeEach
+    void 로그인한_사용자의_지갑을_준비한다() {
+        when(userReader.read(REQUESTER)).thenReturn(userWith(WALLET));
+    }
 
     @Test
     void 기존_요청이_없으면_새_요청을_저장한다() {
@@ -136,6 +153,35 @@ class ChargeRequestServiceTest {
     }
 
     @Test
+    void 보낸_지갑은_요청이_아니라_로그인한_사용자의_지갑이다() {
+        when(reader.findByChainAndTransactionHash(12345L, TRANSACTION_HASH)).thenReturn(Optional.empty());
+        when(writer.saveNewRequest(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChargeRequest createdRequest = create();
+
+        assertThat(createdRequest.getSenderWalletAddress()).isEqualTo(WALLET);
+        assertThat(createdRequest.getUserReferenceId()).isEqualTo(USER_ID);
+        assertThat(createdRequest.getChainId()).isEqualTo(12345L);
+    }
+
+    @Test
+    void 로그인한_지갑이_보관_지갑이면_저장하지_않고_막는다() {
+        when(userReader.read(REQUESTER)).thenReturn(userWith(CUSTODY.toUpperCase().replace("0X", "0x")));
+
+        assertThatThrownBy(this::create).isInstanceOfSatisfying(CoreException.class,
+                exception -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_SENDER_IS_CUSTODY));
+        verifyNoInteractions(reader, writer);
+    }
+
+    @Test
+    void 남의_충전_요청은_조회할_수_없다() {
+        when(reader.read(1L)).thenReturn(request("8"));
+
+        assertThatThrownBy(() -> service.getOwnedCharge(1L, REQUESTER)).isInstanceOfSatisfying(CoreException.class,
+                exception -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_REQUEST_FORBIDDEN));
+    }
+
+    @Test
     void Service에는_트랜잭션_경계를_선언하지_않는다() {
         assertThat(AnnotatedElementUtils.hasAnnotation(ChargeRequestService.class, Transactional.class)).isFalse();
         Arrays.stream(ChargeRequestService.class.getDeclaredMethods()).forEach(method ->
@@ -148,9 +194,7 @@ class ChargeRequestServiceTest {
 
     private ChargeRequest create(BigDecimal requestedDepositAmount) {
         return service.createChargeRequest(
-                USER_ID,
-                "test-wallet",
-                NETWORK_POLICY,
+                REQUESTER,
                 TRANSACTION_HASH,
                 requestedDepositAmount
         );
@@ -173,5 +217,9 @@ class ChargeRequestServiceTest {
                 TRANSACTION_HASH,
                 DepositAmount.of(new BigDecimal("1.000001"))
         );
+    }
+
+    private static User userWith(String walletAddress) {
+        return new User(REQUESTER, walletAddress, null, null, null, 0L, Instant.EPOCH, Instant.EPOCH);
     }
 }

@@ -130,6 +130,7 @@ class LedgerTransactionTest {
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 DepositAmount.of(new BigDecimal("10.000000")),
                 null,
+                null,
                 ChargeStatus.PENDING,
                 null,
                 null,

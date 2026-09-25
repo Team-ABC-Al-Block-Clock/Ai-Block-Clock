@@ -8,6 +8,7 @@ import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,5 +131,29 @@ class ChargeRequestTest {
                         new BigDecimal("10.000000")
                 )
         );
+    }
+
+    @Test
+    void 요청_시각부터_대기_한도가_지나면_확인_기한을_넘긴_것이다() {
+        Instant requestedAt = Instant.parse("2026-09-25T00:00:00Z");
+        ChargeRequest chargeRequest = savedPendingAt(requestedAt);
+
+        assertThat(chargeRequest.isVerificationOverdue(requestedAt.plus(Duration.ofMinutes(29)), Duration.ofMinutes(30)))
+                .isFalse();
+        assertThat(chargeRequest.isVerificationOverdue(requestedAt.plus(Duration.ofMinutes(30)), Duration.ofMinutes(30)))
+                .isTrue();
+    }
+
+    @Test
+    void 저장되기_전_요청은_기한을_재지_않는다() {
+        ChargeRequest chargeRequest = ChargeRequest.pending("user", "0x1111111111111111111111111111111111111111",
+                12345L, "0xhash", DepositAmount.of(BigDecimal.ONE));
+
+        assertThat(chargeRequest.isVerificationOverdue(Instant.MAX, Duration.ZERO)).isFalse();
+    }
+
+    private ChargeRequest savedPendingAt(Instant requestedAt) {
+        return ChargeRequest.restore(1L, "user", "0x1111111111111111111111111111111111111111", 12345L, "0xhash",
+                DepositAmount.of(BigDecimal.ONE), requestedAt, null, ChargeStatus.PENDING, null, null, 0L);
     }
 }

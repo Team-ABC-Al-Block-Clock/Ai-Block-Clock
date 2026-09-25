@@ -170,7 +170,8 @@ public record LedgerTransaction(
     }
 
     // 장부 계정은 가입 때 LedgerAccountWriter 가 같은 규칙(사용자 ID 의 십진 문자열)으로 만든다.
-    private static String referenceIdOf(UserId userId) {
+    // 장부 계정과 충전 요청이 사용자를 가리키는 문자열이다. 두 곳이 같은 규칙을 써야 서로 이어진다
+    static String referenceIdOf(UserId userId) {
         return Long.toString(userId.value());
     }
 
