@@ -281,7 +281,7 @@ export default function RunWaiting() {
         </a>
 
         <div
-          className="absolute text-[20px] font-semibold tracking-[-.01em]"
+          className="absolute text-[22px] font-semibold tracking-[-.01em]"
           style={{ left: `${PANEL_INSET}px`, top: '96px', color: 'rgba(255,255,255,.96)' }}
         >
           {onboardingMessage || DEFAULT_ONBOARDING_MESSAGE}
@@ -321,7 +321,8 @@ export default function RunWaiting() {
           className="absolute flex cursor-pointer items-center justify-between"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '280px',
+            // 위 입력 상자(…268)와 16px, 아래 비용 카드와도 16px.
+            top: '284px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '44px',
             padding: '0 8px 0 16px',
@@ -337,7 +338,7 @@ export default function RunWaiting() {
             onChange={handlePick}
           />
           <div
-            className="truncate text-[14.5px]"
+            className="truncate text-[16px]"
             style={{
               maxWidth: '280px',
               color: fileProblem
@@ -362,7 +363,7 @@ export default function RunWaiting() {
               borderRadius: '8px',
               background: 'rgba(255,255,255,.16)',
             }}
-            className="flex flex-none items-center text-[12.5px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.28)]"
+            className="flex flex-none items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.28)]"
           >
             {file ? '지우기' : '찾기'}
           </div>
@@ -372,17 +373,17 @@ export default function RunWaiting() {
           className="absolute box-border flex flex-col"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '328px',
+            top: '344px',
             width: `${PANEL_CONTENT_WIDTH}px`,
-            height: '176px',
+            height: '194px',
             padding: '18px 20px',
             borderRadius: '14px',
             background: 'linear-gradient(180deg, rgba(201,169,221,.13), rgba(255,255,255,.05))',
           }}
         >
           <div
-            className="flex-none text-[15px] font-semibold"
-            style={{ letterSpacing: '.06em', color: 'rgba(255,214,232,.8)' }}
+            className="flex-none text-[16.5px] font-semibold"
+            style={{ letterSpacing: '.06em', color: 'rgba(255,214,232,.85)' }}
           >
             실행 예상 비용
           </div>
@@ -391,7 +392,7 @@ export default function RunWaiting() {
             style={{ marginTop: '9px', alignItems: 'baseline', gap: '8px' }}
           >
             <div
-              className="text-[30px] font-semibold tracking-[-.02em] text-white"
+              className="text-[34px] font-semibold tracking-[-.02em] text-white"
               style={{ lineHeight: '1' }}
             >
               {cost ? amountLabel(cost.estimatedAmount) : '—'}
@@ -404,10 +405,10 @@ export default function RunWaiting() {
             className="flex flex-none justify-between"
             style={{ marginTop: '16px', alignItems: 'baseline' }}
           >
-            <span className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.78)' }}>
+            <span className="text-[16px]" style={{ color: 'rgba(255,236,246,.82)' }}>
               사용 가능 코인
             </span>
-            <span className="text-[15.5px] font-semibold" style={{ color: '#d7bce8' }}>
+            <span className="text-[17px] font-semibold" style={{ color: '#d7bce8' }}>
               {cost ? priceLabel(cost.availableAmount) : '—'}
             </span>
           </div>
@@ -431,7 +432,7 @@ export default function RunWaiting() {
             ></div>
           </div>
           <div
-            className="flex-none text-[13px] tracking-[-.005em]"
+            className="flex-none text-[14.5px] tracking-[-.005em]"
             style={{
               marginTop: 'auto',
               color: blocked ? 'rgba(255,190,209,.86)' : 'rgba(255,236,246,.44)',
@@ -448,7 +449,7 @@ export default function RunWaiting() {
           onClick={handleRun}
           style={{
             left: `${PANEL_INSET}px`,
-            top: '528px',
+            top: '554px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '56px',
             borderRadius: '12px',
@@ -459,17 +460,17 @@ export default function RunWaiting() {
             cursor: btnCursor,
             transition: 'background .25s,color .25s,box-shadow .25s,transform .18s',
           }}
-          className="absolute flex items-center justify-center text-[17px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
+          className="absolute flex items-center justify-center text-[19px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
         >
           <span>{start.isPending ? '실행을 맡기는 중…' : '실행하기'}</span>
         </div>
 
         {runNotice && (
           <div
-            className="absolute text-[13px] tracking-[-.005em]"
+            className="absolute text-[14px] tracking-[-.005em]"
             style={{
               left: `${PANEL_INSET}px`,
-              top: '592px',
+              top: '620px',
               width: `${PANEL_CONTENT_WIDTH}px`,
               color: start.error ? 'rgba(255,190,209,.9)' : 'rgba(255,236,246,.5)',
             }}
@@ -487,8 +488,8 @@ export default function RunWaiting() {
         )}
 
         <div
-          className="absolute text-[20px] font-semibold tracking-[-.01em]"
-          style={{ left: `${PANEL_INSET}px`, top: '628px', color: 'rgba(255,255,255,.96)' }}
+          className="absolute text-[22px] font-semibold tracking-[-.01em]"
+          style={{ left: `${PANEL_INSET}px`, top: '658px', color: 'rgba(255,255,255,.96)' }}
         >
           단계별 비용
         </div>
@@ -497,9 +498,9 @@ export default function RunWaiting() {
           className="absolute flex flex-col overflow-x-hidden"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '662px',
+            top: '694px',
             width: `${PANEL_CONTENT_WIDTH}px`,
-            height: 'calc(300px + 2 * var(--edge-y, 0px))',
+            height: 'calc(282px + 2 * var(--edge-y, 0px))',
             gap: '8px',
             overflowY: 'auto',
             scrollbarWidth: 'thin',
@@ -508,7 +509,7 @@ export default function RunWaiting() {
         >
           {itemsNotice ? (
             <div
-              className="text-[14px] tracking-[-.005em]"
+              className="text-[15px] tracking-[-.005em]"
               style={{ color: 'rgba(255,236,246,.44)' }}
             >
               {itemsNotice}
@@ -533,7 +534,7 @@ export default function RunWaiting() {
                   {i + 1}
                 </div>
                 <div
-                  className="absolute truncate text-[14.5px] font-semibold tracking-[-.005em]"
+                  className="absolute truncate text-[16px] font-semibold tracking-[-.005em]"
                   style={{
                     left: `${CARD_GUTTER + 24}px`,
                     top: '14px',
