@@ -33,10 +33,14 @@ public class ExecutionEntity extends BaseTimeEntity {
     @Column(name = "workflow_id", length = 36, nullable = false)
     private UUID workflowId;
 
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "request_id", length = 36, nullable = false)
+    private UUID requestId;
+
     @Column(name = "requester_id", nullable = false)
     private Long requesterId;
 
-    @Column(name = "run_id", length = 64, nullable = false)
+    @Column(name = "run_id", length = 64)
     private String runId;
 
     @Enumerated(EnumType.STRING)
@@ -55,11 +59,12 @@ public class ExecutionEntity extends BaseTimeEntity {
     @Column(name = "input_file_size")
     private Long inputFileSize;
 
-    public ExecutionEntity(UUID id, UUID workflowId, Long requesterId, String runId,
+    public ExecutionEntity(UUID id, UUID workflowId, UUID requestId, Long requesterId, String runId,
                            ExecutionStatus status, int promptCount,
                            String inputFileKey, String inputFileName, Long inputFileSize) {
         this.id = id;
         this.workflowId = workflowId;
+        this.requestId = requestId;
         this.requesterId = requesterId;
         this.runId = runId;
         this.status = status;
@@ -71,5 +76,9 @@ public class ExecutionEntity extends BaseTimeEntity {
 
     public void moveTo(ExecutionStatus status) {
         this.status = status;
+    }
+
+    public void markDispatched(String runId) {
+        this.runId = runId;
     }
 }

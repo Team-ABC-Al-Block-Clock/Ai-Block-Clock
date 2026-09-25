@@ -140,7 +140,8 @@ class ExecutionMonitorTest {
     private static final UUID ID = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
 
     private static Execution execution() {
-        return Execution.restore(ExecutionId.of(ID), WorkflowId.of(UUID.randomUUID()), UserId.of(1L),
+        return Execution.restore(ExecutionId.of(ID), ExecutionRequestId.of(UUID.randomUUID()),
+                WorkflowId.of(UUID.randomUUID()), UserId.of(1L),
                 RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2, null);
     }
 

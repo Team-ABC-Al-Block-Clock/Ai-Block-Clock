@@ -7,7 +7,9 @@ import com.aiblockclock.api.v1.response.ExecutionProgressResponse;
 import com.aiblockclock.api.v1.response.ExecutionStartResponse;
 import com.aiblockclock.domain.execution.Execution;
 import com.aiblockclock.domain.execution.ExecutionId;
+import com.aiblockclock.domain.execution.ExecutionRequestId;
 import com.aiblockclock.domain.execution.ExecutionService;
+import com.aiblockclock.domain.execution.ExecutionStart;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
@@ -49,12 +51,16 @@ public class ExecutionController implements ExecutionApi {
     ) {
         Workflow workflow = workflowService.get(WorkflowId.of(request.workflowId()), requester);
 
-        Execution started = executionService.start(requester, workflow,
+        ExecutionStart started = executionService.start(requester, workflow,
+                ExecutionRequestId.of(request.requestId()),
                 request.comment(), request.mockOrDefault(), request.uploadedFile());
 
-        executionProgressScheduler.follow(started);
+        // 같은 요청 번호로 돌려받은 앞 실행은 이미 따라가고 있거나 끝났다. 다시 따라가면 조회가 두 줄기가 된다.
+        if (started.created()) {
+            executionProgressScheduler.follow(started.execution());
+        }
 
-        return ApiResult.success(ExecutionStartResponse.from(started));
+        return ApiResult.success(ExecutionStartResponse.from(started.execution()));
     }
 
     @Override

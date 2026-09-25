@@ -145,6 +145,9 @@ public enum ErrorType {
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
+    EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
+            "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
+
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
             "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),
 
@@ -194,7 +197,10 @@ public enum ErrorType {
             "원장 거래 구성이 올바르지 않습니다.", LogLevel.ERROR),
 
     CHARGE_REQUEST_CONCURRENTLY_MODIFIED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_007,
-            "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN);
+            "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN),
+
+    ABC_BALANCE_INSUFFICIENT(HttpStatus.PAYMENT_REQUIRED, ErrorCode.PAYMENT_008,
+            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

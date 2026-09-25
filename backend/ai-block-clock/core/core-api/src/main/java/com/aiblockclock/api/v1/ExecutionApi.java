@@ -34,18 +34,31 @@ public interface ExecutionApi {
                     단계 하나가 25초쯤 걸려 기다리지 않는다. 접수 번호만 즉시 돌려주고,
                     진행 상황은 `GET /runs/{executionId}` 를 2초 간격으로 물어 가져간다.
 
+                    **엔진에 넘기기 전에 예상 차감액을 ABC 잔액에서 떼어 둔다(선차감).** 금액은
+                    `POST /executions/cost-estimates` 의 `estimatedAmount` 와 같은 규칙으로 센다.
+                    잔액이 모자라면 엔진을 부르지 않고 402 로 막는다. 엔진에 맡기지 못하면(502) 떼어 둔 금액을 돌려준다.
+                    `mock` 실행도 똑같이 뗀다.
+
+                    `requestId` 는 누름 한 번에 하나다. 같은 값으로 다시 보내면 새로 떼지 않고 앞서 접수한 실행을 돌려준다.
+
                     `mock` 을 켜면 모델을 부르지 않고 파이프라인만 돈다. 형식을 맞춰 볼 때 쓴다.
                     """)
     @ApiResponses({
-            @ApiResponse(responseCode = "202", description = "접수됨. 실행은 뒤에서 돈다"),
+            @ApiResponse(responseCode = "202", description = "접수됨. 실행은 뒤에서 돈다. 같은 `requestId` 로 다시 보내도 같은 실행이 나온다"),
             @ApiResponse(responseCode = "400", description = """
                     요청 본문이 올바르지 않다 (`COMMON_001`).
                     빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`).
                     분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`)""", content = @Content),
+            @ApiResponse(responseCode = "402", description = """
+                    ABC 잔액이 모자란다 (`PAYMENT_008`). `error.data` 에 `estimatedAmount` · `availableAmount` ·
+                    `shortageAmount` 가 온다""", content = @Content),
             @ApiResponse(responseCode = "403", description = "남의 워크플로우다 (`WORKFLOW_003`)", content = @Content),
             @ApiResponse(responseCode = "404", description = "없는 워크플로우다 (`WORKFLOW_002`)", content = @Content),
+            @ApiResponse(responseCode = "409", description = "같은 `requestId` 가 아직 처리 중이다 (`EXECUTION_006`)",
+                    content = @Content),
             @ApiResponse(responseCode = "413", description = "파일이 10MB 를 넘는다 (`FILE_002`)", content = @Content),
-            @ApiResponse(responseCode = "502", description = "실행 엔진에 맡기지 못했다 (`EXECUTION_002`)", content = @Content)
+            @ApiResponse(responseCode = "502", description = "실행 엔진에 맡기지 못했다. 떼어 둔 금액은 돌려준다 (`EXECUTION_002`)",
+                    content = @Content)
     })
     ApiResult<ExecutionStartResponse> start(UserId requester, @Valid ExecutionStartRequest request);
 
@@ -59,6 +72,8 @@ public interface ExecutionApi {
                     **멎었으면 `failure` 가 함께 온다.** 어느 단계에서 무슨 코드로 멎었는지,
                     그리고 누구 탓인지(`supplier` · `consumer` · `platform`)를 담는다.
                     실행 엔진이 매긴 코드를 그대로 넘기므로 값이 늘 수 있다 — 모르는 코드는 일반 문구로 받는다.
+
+                    엔진에 넘기지 못한 실행은 엔진에 묻지 않고 우리 기록(`FAILED`)으로 답한다.
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "진행 상황"),
