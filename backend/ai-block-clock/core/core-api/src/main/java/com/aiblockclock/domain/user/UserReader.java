@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -22,6 +24,12 @@ public class UserReader {
         return userRepository.findById(userId.value())
                 .map(UserEntityConverter::toDomain)
                 .orElseThrow(() -> new CoreException(ErrorType.REQUESTER_NOT_IDENTIFIABLE));
+    }
+
+    public List<User> readAll(Collection<UserId> userIds) {
+        return userRepository.findAllById(userIds.stream().map(UserId::value).toList()).stream()
+                .map(UserEntityConverter::toDomain)
+                .toList();
     }
 
     public Optional<User> findByWalletAddress(String walletAddress) {

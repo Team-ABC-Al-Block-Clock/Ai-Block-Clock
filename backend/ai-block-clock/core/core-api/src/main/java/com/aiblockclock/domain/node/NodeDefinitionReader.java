@@ -57,6 +57,12 @@ public class NodeDefinitionReader {
         return new CursorPage<>(content, hasNext ? OffsetCursor.encode(offset + size) : null, hasNext);
     }
 
+    public List<NodeDefinitionSummary> readAllMine(UserId owner, String keyword) {
+        return nodeRepository.findMineOrderByLatest(owner.value(), keyword, Pageable.unpaged()).stream()
+                .map(NodeDefinitionEntityConverter::toSummary)
+                .toList();
+    }
+
     private NodeDefinitionEntity entity(NodeDefinitionId id) {
         return nodeRepository.findById(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
