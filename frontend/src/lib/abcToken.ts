@@ -1,4 +1,4 @@
-import { formatUnits, parseUnits, type Address } from 'viem'
+import { parseUnits, type Address } from 'viem'
 
 /**
  * abcToken (ERC-20) 과 충전 입금 규칙.
@@ -33,13 +33,6 @@ export const ABC_TOKEN_ABI = [
     ],
     outputs: [{ name: '', type: 'bool' }],
   },
-  {
-    type: 'function',
-    name: 'balanceOf',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
 ] as const
 
 /** 가스비가 0 이고 EIP-1559 가 없는 체인이다. 지갑이 수수료를 따로 잡지 않게 레거시로 못박는다. */
@@ -58,11 +51,6 @@ export function trimAbcAmount(amount: string): string {
 /** '10.5' → 10500000000000000000n */
 export function toTokenValue(amount: string): bigint {
   return parseUnits(trimAbcAmount(amount), DECIMALS)
-}
-
-/** 10500000000000000000n → '10.5'. 지갑 잔액을 화면과 요청에 같은 모양으로 쓴다. */
-export function toAbcAmount(value: bigint): string {
-  return trimAbcAmount(formatUnits(value, DECIMALS))
 }
 
 /** 보낼 수 있는 금액인가. 0 이하·숫자가 아닌 값·잘라 놓고도 0 이 되는 값을 막는다. */

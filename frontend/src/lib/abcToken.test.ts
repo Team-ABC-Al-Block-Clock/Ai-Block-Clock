@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isSendableAmount, toAbcAmount, toTokenValue, trimAbcAmount } from '@/lib/abcToken'
+import { isSendableAmount, toTokenValue, trimAbcAmount } from '@/lib/abcToken'
 
 /** 자릿수를 잘못 다루면 토큰이 나간 뒤에야 알게 된다 — 되돌릴 수 없어 검사를 둔다. */
 
@@ -26,18 +26,6 @@ describe('toTokenValue', () => {
 
   it('소수 6자리까지만 실어 보낸다', () => {
     expect(toTokenValue('1.1234567')).toBe(toTokenValue('1.123456'))
-  })
-})
-
-describe('toAbcAmount', () => {
-  it('10^18 을 ABC 로 되돌린다', () => {
-    expect(toAbcAmount(10n ** 18n)).toBe('1')
-    expect(toAbcAmount(10_500_000_000_000_000_000n)).toBe('10.5')
-  })
-
-  // 지갑 잔액에는 6자리보다 잘게 남은 먼지가 있을 수 있다. 그대로 보내면 서버가 400 으로 막는다
-  it('6자리보다 잘게 남은 잔액은 잘라서 돌려준다', () => {
-    expect(toAbcAmount(1_000_000_000_001n)).toBe('0.000001')
   })
 })
 
