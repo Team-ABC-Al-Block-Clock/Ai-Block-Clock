@@ -545,6 +545,7 @@ describe('seedCanvasNodes', () => {
     nodeType: 'AGENT' as const,
     sourceType: 'AGENT' as const,
     sourceId: `ag_${i}`,
+    price: '6',
     mine: false,
   }))
 
@@ -624,6 +625,7 @@ describe('한 줄 배치와 첫 배율', () => {
       nodeType: 'AGENT' as const,
       sourceType: 'AGENT' as const,
       sourceId: `ag_${i}`,
+      price: '6',
       mine: false,
     }))
 
@@ -687,6 +689,7 @@ describe('chainEdges', () => {
         nodeType: 'AGENT' as const,
         sourceType: 'AGENT' as const,
         sourceId: `ag_${i}`,
+        price: '6',
         mine: false,
       })),
     )

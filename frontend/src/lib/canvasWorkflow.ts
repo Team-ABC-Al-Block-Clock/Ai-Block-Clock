@@ -449,7 +449,10 @@ function seedPoint(layout: SeedLayout, i: number): { x: number; y: number } {
  * 넘어가므로, 부르는 쪽에서 개수를 자른다 (`EditSearching` 의 `MAX_PICKED`).
  */
 export function seedCanvasNodes(
-  seeds: Pick<CanvasNodeData, 'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'mine'>[],
+  seeds: Pick<
+    CanvasNodeData,
+    'id' | 'name' | 'nodeType' | 'sourceType' | 'sourceId' | 'price' | 'mine'
+  >[],
   layout: SeedLayout = 'row',
 ): CanvasNodeData[] {
   const placed = seeds.reduce<CanvasNodeData[]>((nodes, seed, i) => {
