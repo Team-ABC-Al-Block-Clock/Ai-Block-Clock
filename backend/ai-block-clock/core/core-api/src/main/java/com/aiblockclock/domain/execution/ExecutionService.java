@@ -10,7 +10,6 @@ import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Workflow;
-import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -37,6 +36,8 @@ public class ExecutionService {
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
+    private final ExecutionProgressStore progressStore;
+    private final ExecutionMonitor executionMonitor;
 
     // 같은 요청 번호로 이미 접수했으면 다시 떼지 않고 그 실행을 돌려준다.
     // 새 요청이면 먼저 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
@@ -69,25 +70,64 @@ public class ExecutionService {
         }
     }
 
+    public void beginWatching(Execution execution) {
+        executionMonitor.begin(execution);
+    }
+
+    public boolean pollOnce(ExecutionId id) {
+        return executionMonitor.poll(id);
+    }
+
     public ExecutionProgress follow(ExecutionId id, UserId requester) {
+        return progressOf(mine(id, requester));
+    }
+
+    public ExecutionProgress progressOf(Execution execution) {
+        return progressStore.find(execution.getId()).orElseGet(() -> readThrough(execution));
+    }
+
+    public Execution mine(ExecutionId id, UserId requester) {
         Execution execution = executionReader.read(id);
 
         if (!execution.isRequestedBy(requester)) {
             throw new CoreException(ErrorType.EXECUTION_NOT_FOUND);
         }
 
+        return execution;
+    }
+
+    // 엔진에 넘기기 전이거나 넘기지 못한 실행은 엔진에 물을 번호가 없다. 우리가 남긴 것으로 답한다.
+    private ExecutionProgress readThrough(Execution execution) {
         if (!execution.isDispatched()) {
-            return ExecutionProgress.from(execution);
+            return ExecutionProgress.concluded(execution.getId(), execution.getStatus(), execution.getPromptCount());
         }
 
-        RunStatus run = read(execution);
-        ExecutionStatus reported = ExecutionProgress.toStatus(run.state());
-
-        if (reported != execution.getStatus()) {
-            executionWriter.moveTo(id, reported);
+        if (execution.getStatus().isFinished()) {
+            return concluded(execution);
         }
 
-        return ExecutionProgress.of(id, run, execution.getPromptCount());
+        ExecutionProgress progress = ExecutionProgress.of(
+                execution.getId(), read(execution), execution.getPromptCount());
+
+        if (progress.status() != execution.getStatus()) {
+            executionWriter.moveTo(execution.getId(), progress.status());
+        }
+
+        return progress;
+    }
+
+    private ExecutionProgress concluded(Execution execution) {
+        try {
+            return ExecutionProgress.concluded(
+                    ExecutionProgress.of(execution.getId(), aiRuntimeClient.read(execution.getRunId().value()),
+                            execution.getPromptCount()),
+                    execution.getStatus());
+        } catch (AiClientException exception) {
+            log.info("엔진이 끝난 실행을 잊었다. 우리가 남긴 것으로 답한다: execution={}", execution.getId().value());
+
+            return ExecutionProgress.concluded(
+                    execution.getId(), execution.getStatus(), execution.getPromptCount());
+        }
     }
 
     // 엔진이 받지 않았으면 떼어 둔 금액을 돌려준다. 엔진이 받았는데 응답만 늦은 경우도

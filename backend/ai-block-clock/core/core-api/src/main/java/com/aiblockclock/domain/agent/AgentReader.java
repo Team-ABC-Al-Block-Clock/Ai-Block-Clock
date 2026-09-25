@@ -30,6 +30,16 @@ public class AgentReader {
                 .orElseThrow(() -> new CoreException(ErrorType.AGENT_NOT_FOUND)));
     }
 
+    public List<Agent> readAll(Collection<AgentId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        return agentRepository.findAllById(ids.stream().map(AgentId::value).toList()).stream()
+                .map(AgentEntityConverter::toDomain)
+                .toList();
+    }
+
     public boolean isOwnedBy(AgentId id, UserId owner) {
         return agentRepository.existsByIdAndOwnerId(id.value(), owner.value());
     }

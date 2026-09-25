@@ -6,6 +6,8 @@ import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
+import com.aiblockclock.domain.execution.ExecutionId;
+import com.aiblockclock.domain.execution.ExecutionProgressStore;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -63,6 +66,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,6 +74,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestPropertySource(properties = "execution.polling.interval=1h")
 class ExecutionControllerTest {
     private static final Path FILE_ROOT = createTempDirectory();
 
@@ -86,6 +91,9 @@ class ExecutionControllerTest {
 
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
+
+    @Autowired
+    private ExecutionProgressStore progressStore;
 
     @MockitoBean
     private AiRuntimeClient aiRuntimeClient;
@@ -160,9 +168,22 @@ class ExecutionControllerTest {
     }
 
     @Test
-    @DisplayName("진행 상황을 중계하고 끝난 상태를 우리 쪽에도 남긴다")
-    void relaysProgressAndKeepsTheFinalStatus() throws Exception {
+    @DisplayName("맡기자마자 물어보면 뒤에서 알아낸 것을 준다 — 엔진을 다시 두드리지 않는다")
+    void answersFromWhatTheBackgroundPollKnows() throws Exception {
         String executionId = start();
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("QUEUED"))
+                .andExpect(jsonPath("$.data.total").value(2));
+
+        then(aiRuntimeClient).should(never()).read(anyString());
+    }
+
+    @Test
+    @DisplayName("따라가던 기억이 없으면 엔진에 직접 묻고 끝난 상태를 우리 쪽에도 남긴다")
+    void asksTheEngineWhenNothingIsRemembered() throws Exception {
+        String executionId = forgotten();
         given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
 
         mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
@@ -173,6 +194,108 @@ class ExecutionControllerTest {
 
         assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
                 .hasToString("SUCCEEDED");
+    }
+
+    @Test
+    @DisplayName("구독하면 지금 상태가 이벤트로 먼저 온다")
+    void sendsTheCurrentStateAsSoonAsSomeoneSubscribes() throws Exception {
+        String executionId = start();
+
+        MvcResult streamed = mockMvc.perform(get("/api/v1/runs/{id}/stream", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+                .andReturn();
+
+        assertThat(streamed.getResponse().getContentAsString())
+                .contains("event:progress")
+                .contains("\"status\":\"QUEUED\"");
+    }
+
+    @Test
+    @DisplayName("이미 끝난 실행을 구독하면 마지막 상태를 그대로 준다")
+    void sendsTheFinalStateToALateSubscriber() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
+
+        MvcResult streamed = mockMvc.perform(get("/api/v1/runs/{id}/stream", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(streamed.getResponse().getContentAsString()).contains("\"status\":\"SUCCEEDED\"");
+    }
+
+    @Test
+    @DisplayName("남의 실행은 구독할 수 없다")
+    void hidesSomeoneElsesStream() throws Exception {
+        String executionId = start();
+
+        mockMvc.perform(get("/api/v1/runs/{id}/stream", executionId).with(as(other)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("멎으면 어느 단계에서 왜 멎었는지 함께 준다")
+    void relaysWhyTheRunStopped() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.failure.stepName").value("가정통신문 작성"))
+                .andExpect(jsonPath("$.data.failure.errorCode").value("MODEL_API_ERROR"))
+                .andExpect(jsonPath("$.data.failure.fault").value("supplier"));
+    }
+
+    @Test
+    @DisplayName("잘 끝난 실행에는 실패 칸이 비어 있다")
+    void leavesFailureEmptyWhenTheRunSucceeds() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.failure").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("끝난 실행은 엔진이 뒤늦게 돌고 있다고 해도 되살아나지 않는다")
+    void neverResurrectsAConcludedRun() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        given(aiRuntimeClient.read(anyString())).willReturn(running());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.failure.errorCode").value("ABC_RUNTIME_UNREPORTED"));
+
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
+                .hasToString("FAILED");
+    }
+
+    @Test
+    @DisplayName("엔진이 끝난 실행을 잊어도 우리가 남긴 것으로 답한다")
+    void answersFromOurOwnRecordWhenTheEngineForgot() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "run not found"))
+                .given(aiRuntimeClient).read(anyString());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.failure.errorCode").value("ABC_RUNTIME_UNREPORTED"));
     }
 
     @Test
@@ -404,6 +527,29 @@ class ExecutionControllerTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null, null, null)),
                 List.of(), List.of(), null, null);
+    }
+
+    private String forgotten() throws Exception {
+        String executionId = start();
+
+        progressStore.forget(ExecutionId.of(executionId));
+
+        return executionId;
+    }
+
+    private static RunStatus running() {
+        return new RunStatus("20260919-1", "running",
+                new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
+                List.of(), List.of(), List.of(), null, null);
+    }
+
+    private static RunStatus failed() {
+        return new RunStatus("20260919-1", "failed",
+                new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
+                        new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, null, null, null)),
+                List.of(), List.of(), null,
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier"));
     }
 
     private static Path createTempDirectory() {
