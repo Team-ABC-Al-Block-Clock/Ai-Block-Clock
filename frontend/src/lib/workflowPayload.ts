@@ -1,4 +1,5 @@
 import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
+import type { AiModel } from '@/api/nodes'
 import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/lib/canvasWorkflow'
 
 /**
@@ -65,6 +66,9 @@ export interface NodeLabel {
   nodeType: CanvasNodeData['nodeType']
   price: string
   summary: string | null
+  /** 기본 노드만. 우측 패널이 그대로 보여주고 다시 저장할 때 실려 나간다 */
+  prompt?: string | null
+  model?: AiModel | null
   mine: boolean
 }
 
@@ -95,8 +99,9 @@ export function toCanvasWorkflow(
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,
       summary: label?.summary ?? null,
-      prompt: null,
-      model: null,
+      // 기본 노드는 여기 담겨 와야 우측 패널이 채워지고 다시 저장할 때도 살아남는다.
+      prompt: label?.prompt ?? null,
+      model: label?.model ?? null,
       x: RESTORE_X0 + i * RESTORE_STEP,
       y: RESTORE_Y[i % RESTORE_Y.length],
       // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.

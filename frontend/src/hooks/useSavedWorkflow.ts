@@ -84,8 +84,9 @@ export function useSavedWorkflow(workflowId: string | undefined) {
         // 만들어 둔 노드는 서버가 늘 LLM 으로 둔다. 상세 응답에는 종류가 없다.
         nodeType: 'LLM',
         price: node.baseCost,
-        // 내 노드는 설명 대신 프롬프트를 보여준다. 패널이 원본을 따로 읽는다.
         summary: null,
+        prompt: node.prompt,
+        model: node.model,
         // 남의 노드는 서버가 `NODE_002` 로 막아 여기까지 오지 않는다.
         mine: true,
       })
