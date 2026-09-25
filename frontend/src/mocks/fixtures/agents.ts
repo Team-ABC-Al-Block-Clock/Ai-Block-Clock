@@ -227,8 +227,8 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
     agentId: agent.agentId,
     owner: { nickname: agent.owner.nickname, walletAddress },
     blockchain: {
-      network: 'POLYGON_AMOY',
-      chainId: 80002,
+      network: 'SSAFY',
+      chainId: 31221,
       contractAddress: '0x41e2e64a79b19e9329f82d3d55be5e767a6f571d',
       transactionHash,
       transactionStatus: pending ? 'PENDING' : 'CONFIRMED',

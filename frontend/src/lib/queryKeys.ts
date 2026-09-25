@@ -106,6 +106,7 @@ export const queryKeys = {
       lists: () => [...queryKeys.credits.all, 'transactions'] as const,
       list: (params: ListParams) => [...queryKeys.credits.transactions.lists(), params] as const,
     },
+    charge: (chargeId: string) => [...queryKeys.credits.all, 'charges', chargeId] as const,
   },
 
   /** /settlements */
