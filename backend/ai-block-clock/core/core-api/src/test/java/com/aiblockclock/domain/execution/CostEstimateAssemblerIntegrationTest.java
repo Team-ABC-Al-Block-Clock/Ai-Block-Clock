@@ -130,7 +130,7 @@ class CostEstimateAssemblerIntegrationTest {
     void 분기가_있으면_실행과_같이_견적도_내지_않는다() {
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
-                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"));
+                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
         Workflow workflow = workflowService.save(OWNER, "경쟁 강도로 가른다", null,
                 List.of(nodePlacement("n1", OWNER), branch, nodePlacement("n2", OWNER), nodePlacement("n3", OWNER)),
                 List.of(GraphFixtures.edge("e1", "n1", "br1"),
@@ -173,6 +173,6 @@ class CostEstimateAssemblerIntegrationTest {
 
     private static NodePlacement agentPlacement(String key, AgentId agentId) {
         return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agentId.value(), InputSource.defaultSource(), null, null, null);
+                agentId.value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
     }
 }

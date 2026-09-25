@@ -57,6 +57,7 @@ public class CostEstimateAssembler {
             }
             // 분기는 아직 실행하지 못한다. 실행 조립(ExecutionUnitAssembler)과 같은 규칙으로 견적도 내지 않는다.
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
         };
     }
 

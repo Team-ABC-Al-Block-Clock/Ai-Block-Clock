@@ -59,6 +59,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         node.put("id", id);
         node.put("type", "llm");
         node.put("name", prompt.name());
+        node.put("owner_id", Long.toString(prompt.owner().value()));
         node.put("prompt", prompt.prompt().value());
         node.put("output_schema_id", last ? RESULT_SCHEMA : STEP_SCHEMA);
 

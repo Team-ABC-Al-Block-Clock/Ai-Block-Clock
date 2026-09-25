@@ -164,6 +164,30 @@ class AiRuntimeClientTest {
     }
 
     @Test
+    @DisplayName("멎은 까닭은 error_code 와 fault 로 온다 — code · message 라는 칸은 계약에 없다")
+    void readsFailureByContractFieldNames() {
+        server.expect(requestTo(BASE_URL + "/v1/runs/run-1"))
+                .andRespond(withSuccess("""
+                        { "run_id": "run-1", "status": "failed",
+                          "progress": { "done": 1, "total": 2, "percent": 50 },
+                          "nodes": [ { "id": "n1", "name": "성적 분석", "type": "llm", "status": "succeeded" },
+                                     { "id": "n2", "name": "가정통신문 작성", "type": "llm", "status": "failed" } ],
+                          "failure": { "node_id": "n2", "error_code": "MODEL_API_ERROR",
+                                       "fault": "supplier", "affects_success_rate": true,
+                                       "refund_scope": { "refund_node_ids": ["n2"],
+                                                         "settled_node_ids": ["n1"] } } }
+                        """, MediaType.APPLICATION_JSON));
+
+        RunStatus status = client.read("run-1");
+
+        assertThat(status.isFinished()).isTrue();
+        assertThat(status.isSucceeded()).isFalse();
+        assertThat(status.failure()).isEqualTo(
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier"));
+        server.verify();
+    }
+
+    @Test
     void 실패하면_단계별_성공_여부와_실패_책임을_읽는다() {
         server.expect(requestTo(BASE_URL + "/v1/runs/run-1"))
                 .andRespond(withSuccess("""

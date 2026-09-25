@@ -9,11 +9,15 @@ import com.aiblockclock.support.response.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.UUID;
 
@@ -65,6 +69,10 @@ public interface ExecutionApi {
                     실행 엔진은 진행 상황을 메모리에만 들고 있어 재기동하면 잊는다.
                     우리 쪽 상태는 조회할 때마다 최신으로 맞춰 둔다.
 
+                    **멎었으면 `failure` 가 함께 온다.** 어느 단계에서 무슨 코드로 멎었는지,
+                    그리고 누구 탓인지(`supplier` · `consumer` · `platform`)를 담는다.
+                    실행 엔진이 매긴 코드를 그대로 넘기므로 값이 늘 수 있다 — 모르는 코드는 일반 문구로 받는다.
+
                     엔진에 넘기지 못한 실행은 엔진에 묻지 않고 우리 기록(`FAILED`)으로 답한다.
 
                     **끝난 것을 처음 본 조회에서 떼어 둔 금액 중 쓰지 않은 만큼을 ABC 잔액으로 돌려준다.**
@@ -79,6 +87,33 @@ public interface ExecutionApi {
             @ApiResponse(responseCode = "502", description = "실행 엔진에 닿지 못했다 (`EXECUTION_002`)", content = @Content)
     })
     ApiResult<ExecutionProgressResponse> follow(
+            UserId requester,
+            @Parameter(description = "접수 때 받은 실행 ID", required = true,
+                    example = "8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13") UUID executionId);
+
+    @Operation(summary = "진행 상황 구독",
+            description = """
+                    `text/event-stream` 을 열어 두면 상태가 바뀔 때마다 밀어 준다. 물어볼 필요가 없다.
+
+                    엔진을 두드리는 것은 백엔드 한 곳이다. 같은 실행을 여러 창에서 봐도 조회는 한 줄기로 돈다.
+
+                    이벤트 이름은 `progress` 하나이고, 본문은 진행 상황 조회 응답과 같은 모양이다.
+                    붙는 즉시 지금 상태가 한 번 오고, 그 뒤로는 **달라졌을 때만** 온다.
+
+                    `status` 가 `SUCCEEDED` · `FAILED` 인 이벤트가 마지막이고 곧바로 연결을 닫는다.
+                    이미 끝난 실행에 붙으면 그 상태 하나만 주고 닫는다.
+
+                    끊겼을 때는 다시 붙으면 된다. 지금 상태부터 다시 받는다.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이벤트 스트림",
+                    content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
+                            schema = @Schema(implementation = ExecutionProgressResponse.class))),
+            @ApiResponse(responseCode = "404", description = "없는 실행이거나 내 실행이 아니다 (`EXECUTION_001`)",
+                    content = @Content),
+            @ApiResponse(responseCode = "502", description = "실행 엔진에 닿지 못했다 (`EXECUTION_002`)", content = @Content)
+    })
+    SseEmitter stream(
             UserId requester,
             @Parameter(description = "접수 때 받은 실행 ID", required = true,
                     example = "8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13") UUID executionId);

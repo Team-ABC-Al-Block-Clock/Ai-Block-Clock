@@ -35,6 +35,13 @@ springdoc:
     path: /swagger-ui.html
     persist-authorization: true
 
+execution:
+  polling:
+    workers: ${EXECUTION_POLL_WORKERS:4}
+    interval: ${EXECUTION_POLL_INTERVAL:2s}
+    per-step: ${EXECUTION_POLL_PER_STEP:40s}
+    grace: ${EXECUTION_POLL_GRACE:60s}
+
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
 

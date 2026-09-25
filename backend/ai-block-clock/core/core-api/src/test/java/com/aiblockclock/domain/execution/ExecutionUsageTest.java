@@ -110,6 +110,6 @@ class ExecutionUsageTest {
     }
 
     private static RunStatus.Failure failure(String fault) {
-        return new RunStatus.Failure("MODEL_API_ERROR", "실패", "n2", fault);
+        return new RunStatus.Failure("n2", "MODEL_API_ERROR", fault);
     }
 }

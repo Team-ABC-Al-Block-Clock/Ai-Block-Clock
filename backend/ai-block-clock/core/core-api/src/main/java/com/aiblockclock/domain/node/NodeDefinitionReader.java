@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 
 @Component
@@ -25,6 +26,16 @@ public class NodeDefinitionReader {
 
     public NodeDefinition read(NodeDefinitionId id) {
         return NodeDefinitionEntityConverter.toDomain(entity(id));
+    }
+
+    public List<NodeDefinition> readAll(Collection<NodeDefinitionId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        return nodeRepository.findAllById(ids.stream().map(NodeDefinitionId::value).toList()).stream()
+                .map(NodeDefinitionEntityConverter::toDomain)
+                .toList();
     }
 
     @Transactional

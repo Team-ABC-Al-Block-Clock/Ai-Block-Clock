@@ -6,6 +6,10 @@ import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
+import com.aiblockclock.domain.execution.ExecutionFileStore;
+import com.aiblockclock.domain.execution.ExecutionId;
+import com.aiblockclock.domain.execution.ExecutionProgressStore;
+import com.aiblockclock.domain.execution.ExecutionWriter;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
@@ -25,10 +29,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
@@ -63,6 +69,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,6 +77,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestPropertySource(properties = "execution.polling.interval=1h")
 class ExecutionControllerTest {
     private static final Path FILE_ROOT = createTempDirectory();
 
@@ -87,8 +95,17 @@ class ExecutionControllerTest {
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
 
+    @Autowired
+    private ExecutionProgressStore progressStore;
+
     @MockitoBean
     private AiRuntimeClient aiRuntimeClient;
+
+    @MockitoSpyBean
+    private ExecutionFileStore executionFileStore;
+
+    @MockitoSpyBean
+    private ExecutionWriter executionWriter;
 
     private long requester;
 
@@ -160,9 +177,34 @@ class ExecutionControllerTest {
     }
 
     @Test
-    @DisplayName("진행 상황을 중계하고 끝난 상태를 우리 쪽에도 남긴다")
-    void relaysProgressAndKeepsTheFinalStatus() throws Exception {
+    @DisplayName("정산이 귀속될 주인을 노드마다 실어 보낸다")
+    void sendsNodeOwnerForSettlement() throws Exception {
+        start();
+
+        ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
+        then(aiRuntimeClient).should().start(sent.capture());
+
+        assertThat(sent.getValue().workflow())
+                .contains("\"owner_id\":\"" + requester + "\"");
+    }
+
+    @Test
+    @DisplayName("맡기자마자 물어보면 뒤에서 알아낸 것을 준다 — 엔진을 다시 두드리지 않는다")
+    void answersFromWhatTheBackgroundPollKnows() throws Exception {
         String executionId = start();
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("QUEUED"))
+                .andExpect(jsonPath("$.data.total").value(2));
+
+        then(aiRuntimeClient).should(never()).read(anyString());
+    }
+
+    @Test
+    @DisplayName("따라가던 기억이 없으면 엔진에 직접 묻고 끝난 상태를 우리 쪽에도 남긴다")
+    void asksTheEngineWhenNothingIsRemembered() throws Exception {
+        String executionId = forgotten();
         given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
 
         mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
@@ -173,6 +215,108 @@ class ExecutionControllerTest {
 
         assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
                 .hasToString("SUCCEEDED");
+    }
+
+    @Test
+    @DisplayName("구독하면 지금 상태가 이벤트로 먼저 온다")
+    void sendsTheCurrentStateAsSoonAsSomeoneSubscribes() throws Exception {
+        String executionId = start();
+
+        MvcResult streamed = mockMvc.perform(get("/api/v1/runs/{id}/stream", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+                .andReturn();
+
+        assertThat(streamed.getResponse().getContentAsString())
+                .contains("event:progress")
+                .contains("\"status\":\"QUEUED\"");
+    }
+
+    @Test
+    @DisplayName("이미 끝난 실행을 구독하면 마지막 상태를 그대로 준다")
+    void sendsTheFinalStateToALateSubscriber() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
+
+        MvcResult streamed = mockMvc.perform(get("/api/v1/runs/{id}/stream", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(streamed.getResponse().getContentAsString()).contains("\"status\":\"SUCCEEDED\"");
+    }
+
+    @Test
+    @DisplayName("남의 실행은 구독할 수 없다")
+    void hidesSomeoneElsesStream() throws Exception {
+        String executionId = start();
+
+        mockMvc.perform(get("/api/v1/runs/{id}/stream", executionId).with(as(other)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("멎으면 어느 단계에서 왜 멎었는지 함께 준다")
+    void relaysWhyTheRunStopped() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.failure.stepName").value("가정통신문 작성"))
+                .andExpect(jsonPath("$.data.failure.errorCode").value("MODEL_API_ERROR"))
+                .andExpect(jsonPath("$.data.failure.fault").value("supplier"));
+    }
+
+    @Test
+    @DisplayName("잘 끝난 실행에는 실패 칸이 비어 있다")
+    void leavesFailureEmptyWhenTheRunSucceeds() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(succeeded());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.failure").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("끝난 실행은 엔진이 뒤늦게 돌고 있다고 해도 되살아나지 않는다")
+    void neverResurrectsAConcludedRun() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        given(aiRuntimeClient.read(anyString())).willReturn(running());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.failure.errorCode").value("ABC_RUNTIME_UNREPORTED"));
+
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
+                .hasToString("FAILED");
+    }
+
+    @Test
+    @DisplayName("엔진이 끝난 실행을 잊어도 우리가 남긴 것으로 답한다")
+    void answersFromOurOwnRecordWhenTheEngineForgot() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "run not found"))
+                .given(aiRuntimeClient).read(anyString());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.failure.errorCode").value("ABC_RUNTIME_UNREPORTED"));
     }
 
     @Test
@@ -339,62 +483,59 @@ class ExecutionControllerTest {
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
     }
 
-    // 떼어 둔 6 중 두 단계의 실측 0.4 + 0.6 = 1 만 쓰고 5 를 돌려받아 잔액은 9 가 된다.
     @Test
-    void 실행이_끝난_것을_보면_쓰지_않은_만큼을_잔액으로_돌려준다() throws Exception {
-        String executionId = start();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+    void 같은_요청_번호로_다시_보내도_끝난_실행을_다시_따라가지_않는다() throws Exception {
+        String requestId = UUID.randomUUID().toString();
+        String executionId = startWith(requestId);
+        finish(executionId);
 
-        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
+        startWith(requestId);
 
-        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
-        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("1");
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
+                .isEqualTo(ExecutionStatus.SUCCEEDED);
+        assertThat(progressStore.find(ExecutionId.of(executionId))).isEmpty();
     }
 
     @Test
-    void 끝난_뒤_여러_번_조회해도_한_번만_돌려준다() throws Exception {
-        String executionId = start();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+    void 엔진에_보낼_요청을_만들다_실패하면_떼지_않는다() throws Exception {
+        willThrow(new IllegalStateException("disk is gone")).given(executionFileStore).locate(any());
+        String requestId = UUID.randomUUID().toString();
 
-        for (int poll = 0; poll < 3; poll++) {
-            mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
-                    .andExpect(status().isOk());
-        }
+        mockMvc.perform(run(requestId).file(excel("성적.csv", "점수"))
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isInternalServerError());
 
-        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .isEmpty();
+        then(aiRuntimeClient).should(never()).start(any());
     }
 
     @Test
-    void 아직_돌고_있으면_돌려주지_않는다() throws Exception {
-        String executionId = start();
-        given(aiRuntimeClient.read(anyString())).willReturn(new RunStatus("20260919-1", "running",
-                new RunStatus.Progress(1, 2, 50, null, null),
-                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, new BigDecimal("0.4"), null)),
-                List.of(), List.of(), null, null));
+    void 엔진_호출이_예상_밖의_오류로_끝나도_떼어_둔_금액을_돌려준다() throws Exception {
+        willThrow(new IllegalStateException("unexpected")).given(aiRuntimeClient).start(any());
+        String requestId = UUID.randomUUID().toString();
 
-        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
-                .andExpect(jsonPath("$.data.status").value("RUNNING"));
+        mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isInternalServerError());
 
-        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("6");
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .get().extracting(ExecutionEntity::getStatus).isEqualTo(ExecutionStatus.FAILED);
     }
 
-    // mock 은 모델을 부르지 않아 실측 원가가 0 이다 (계약 8.1). 접수 때 떼고, 끝나면 전부 돌려준다.
     @Test
-    void mock_실행은_끝나면_떼어_둔_것을_전부_돌려준다() throws Exception {
-        MvcResult accepted = mockMvc.perform(run().param("mock", "true").with(as(requester)).with(csrf().asHeader()))
-                .andExpect(status().isAccepted())
-                .andReturn();
-        String executionId = mapper.readTree(accepted.getResponse().getContentAsString())
-                .get("data").get("executionId").asText();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.0", "0.0"));
+    void 실행_번호를_남기지_못해도_떼어_둔_금액을_돌려준다() throws Exception {
+        willThrow(new IllegalStateException("db is gone")).given(executionWriter).markDispatched(any(), any());
+        String requestId = UUID.randomUUID().toString();
 
-        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
-                .andExpect(status().isOk());
+        mockMvc.perform(run(requestId).with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isInternalServerError());
 
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(executionRepository.findByRequesterIdAndRequestId(requester, UUID.fromString(requestId)))
+                .get().extracting(ExecutionEntity::getStatus).isEqualTo(ExecutionStatus.FAILED);
     }
 
     @Test
@@ -472,6 +613,36 @@ class ExecutionControllerTest {
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null,
                                 new BigDecimal(secondCost), null)),
                 List.of(), List.of(), null, null);
+    }
+
+    // 뒤에서 따라가던 실행이 끝난 것처럼 만든다. 끝나면 따라가던 기억도 지운다(ExecutionMonitor.stop).
+    private void finish(String executionId) {
+        executionRepository.findById(UUID.fromString(executionId)).orElseThrow().moveTo(ExecutionStatus.SUCCEEDED);
+        executionRepository.flush();
+        progressStore.forget(ExecutionId.of(executionId));
+    }
+
+    private String forgotten() throws Exception {
+        String executionId = start();
+
+        progressStore.forget(ExecutionId.of(executionId));
+
+        return executionId;
+    }
+
+    private static RunStatus running() {
+        return new RunStatus("20260919-1", "running",
+                new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
+                List.of(), List.of(), List.of(), null, null);
+    }
+
+    private static RunStatus failed() {
+        return new RunStatus("20260919-1", "failed",
+                new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
+                        new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, null, null, null)),
+                List.of(), List.of(), null,
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier"));
     }
 
     private static Path createTempDirectory() {

@@ -85,7 +85,11 @@ public record RunStatus(
 
     // fault 는 실패 책임이다. supplier · consumer · platform 중 하나가 온다 (계약 8.5).
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Failure(String code, String message, @JsonProperty("node_id") String nodeId, String fault) {
+    public record Failure(
+            @JsonProperty("node_id") String nodeId,
+            @JsonProperty("error_code") String errorCode,
+            String fault
+    ) {
         private static final String PLATFORM_FAULT = "platform";
 
         public boolean isPlatformFault() {

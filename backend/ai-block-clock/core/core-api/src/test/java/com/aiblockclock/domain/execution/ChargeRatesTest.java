@@ -2,6 +2,7 @@ package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.node.Prompt;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -38,7 +39,7 @@ class ChargeRatesTest {
     }
 
     private static PlannedPrompt prompt(NodeKey placedKey) {
-        return new PlannedPrompt(placedKey, "단계", Prompt.of("프롬프트"), InputSource.PREV, List.of());
+        return new PlannedPrompt(placedKey, "단계", UserId.of(1L), Prompt.of("프롬프트"), InputSource.PREV, List.of());
     }
 
     private static CostItem item(NodeKey key, SourceType sourceType, BigDecimal multiplier) {

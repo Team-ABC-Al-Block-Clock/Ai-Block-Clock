@@ -436,7 +436,7 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     private static RunStatus.Failure failure(String fault) {
-        return new RunStatus.Failure("MODEL_API_ERROR", "실패", "n2", fault);
+        return new RunStatus.Failure("n2", "MODEL_API_ERROR", fault);
     }
 
     // 잔액은 운영 코드와 같은 경로(증감 UPDATE)로만 바꾼다.
