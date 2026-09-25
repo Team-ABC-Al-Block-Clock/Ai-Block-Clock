@@ -57,7 +57,16 @@ export function useNodePalette() {
     placeholderData: keepPreviousData,
   })
 
-  const items = data?.pages.flatMap((page) => page.content) ?? []
+  /**
+   * 팔레트에 세우는 것은 마켓 에이전트뿐이다. 기본 노드는 「노드 추가」로 캔버스에 바로 놓고
+   * 재사용하지 않으므로, 목록에 오르면 다시 놓을 수 있는 것처럼 보인다.
+   *
+   * 서버는 아직 걸러 주지 않는다 — `PlaceableItemService.find` 가 `readAllMine` 으로 내 노드를
+   * 목록 앞줄에 싣는다. 응답에 `itemType` 필터를 열어 달라고 요청해 두었고, 그때까지는 여기서
+   * 거른다. 걸러 낸 만큼 한 쪽이 짧아지는 것은 감수한다.
+   */
+  const items =
+    data?.pages.flatMap((page) => page.content).filter((item) => item.itemType === 'AGENT') ?? []
   // placeholder 는 아직 이번 검색의 결과가 아니다. isPending 만 보면 한 글자마다 깜빡인다.
   const isSettled = !isPending && !isPlaceholderData
   const isEmpty = isSettled && !isError && !hasNextPage && items.length === 0
