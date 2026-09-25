@@ -77,7 +77,16 @@ function FieldLabel({ top, children }: { top: string; children: React.ReactNode 
   )
 }
 
-function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: FormValues) => void }) {
+function NodeForm({
+  initial,
+  price,
+  onApply,
+}: {
+  initial: FormValues
+  /** 서버가 매긴 1회 실행 원가. 저장하기 전에는 없다 */
+  price: string | null
+  onApply: (v: FormValues) => void
+}) {
   const [name, setName] = useState(initial.name)
   const [prompt, setPrompt] = useState(initial.prompt)
   const [model, setModel] = useState<AiModel>(initial.model)
@@ -152,7 +161,14 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
         />
       </div>
 
-      <div className="absolute flex justify-end" style={rowStyle('378px')}>
+      <div
+        className="absolute flex items-center justify-between"
+        style={{ ...rowStyle('378px'), height: '32px' }}
+      >
+        <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
+          {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
+          {price ? `1회 실행 원가 ${priceLabel(price)}` : '저장하면 원가가 매겨집니다'}
+        </span>
         <button
           type="button"
           disabled={!canApply}
@@ -187,7 +203,7 @@ type NodeInfoPanelProps = {
    *
    * 에이전트면 undefined — 남의 내부 구성이라 열지 않고 한 줄 설명만 보여준다.
    */
-  basic?: { id: string; name: string; prompt: string; model: AiModel }
+  basic?: { id: string; name: string; prompt: string; model: AiModel; price: string | null }
   /** 에이전트의 한 줄 설명. */
   summary?: string | null
   /** 에이전트의 단가·실행 횟수·만든 사람. 모르는 값은 비워 둔다. */
@@ -223,6 +239,7 @@ export default function NodeInfoPanel({
       <NodeForm
         key={basic.id}
         initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
+        price={basic.price}
         onApply={(values) => onApply(basic.id, values)}
       />
     )

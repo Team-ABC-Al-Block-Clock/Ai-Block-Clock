@@ -296,7 +296,13 @@ export default function EditNodes() {
   // 에이전트는 열지 않는다 — 남의 내부 구성이다. 기본 노드는 캔버스가 값을 들고 있다.
   const selBasic =
     n && n.sourceType === 'NODE'
-      ? { id: n.id, name: n.name, prompt: n.prompt ?? '', model: n.model ?? DEFAULT_AI_MODEL }
+      ? {
+          id: n.id,
+          name: n.name,
+          prompt: n.prompt ?? '',
+          model: n.model ?? DEFAULT_AI_MODEL,
+          price: n.price,
+        }
       : undefined
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
