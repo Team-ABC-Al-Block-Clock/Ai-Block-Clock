@@ -117,6 +117,8 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.data.nodes.length()").value(2))
                 .andExpect(jsonPath("$.data.nodes[0].nodeKey").value("n1"))
                 .andExpect(jsonPath("$.data.nodes[0].versionId").doesNotExist())
+                .andExpect(jsonPath("$.data.nodes[0].name").value("시드 노드"))
+                .andExpect(jsonPath("$.data.nodes[0].mine").value(true))
                 .andExpect(jsonPath("$.data.edges[0].edgeKey").value("e1"))
                 .andExpect(jsonPath("$.data.lastExecutedAt").doesNotExist());
 
@@ -175,6 +177,41 @@ class WorkflowControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.estimatedCost").doesNotExist())
                 .andExpect(jsonPath("$.data.currency").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("남의 노드가 섞이면 그 자리만 mine 이 false 로 나간다")
+    void marksForeignPlacementAsNotMine() throws Exception {
+        UUID foreignNodeId = NodeDefinitionSeeder.seed(nodeRepository, other);
+
+        MvcResult created = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "남의 것을 섞는다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "n2" }
+                                  ]
+                                }
+                                """.formatted(nodeId, foreignNodeId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String workflowId = mapper.readTree(created.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes[0].mine").value(true))
+                .andExpect(jsonPath("$.data.nodes[1].name").value("시드 노드"))
+                .andExpect(jsonPath("$.data.nodes[1].mine").value(false));
     }
 
     @Test
