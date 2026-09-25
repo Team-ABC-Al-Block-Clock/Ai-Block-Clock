@@ -14,7 +14,7 @@ import { queryKeys } from '@/lib/queryKeys'
  * 토큰이 나간 뒤로는 「다시 시도」가 두 번 보내기가 된다 — 접수만 다시 하는 것과
  * 확인하고 나가는 것을 갈라 둔다.
  */
-function describeCharge(charge: AbcCharge) {
+function describeCharge(charge: AbcCharge, finish: () => void) {
   switch (charge.phase) {
     case 'signing':
       return { title: '지갑 승인 대기', note: 'MetaMask 에서 전송을 승인해 주세요.', action: null }
@@ -39,13 +39,13 @@ function describeCharge(charge: AbcCharge) {
       return {
         title: '충전 완료',
         note: `${chargeAmountLabel(charge.status?.creditedAmount ?? charge.requestedAmount ?? '0')} 를 적립했습니다.`,
-        action: { label: '확인', run: charge.reset },
+        action: { label: '확인', run: finish },
       }
     case 'failed':
       return {
         title: '충전 실패',
         note: chargeFailureText(charge.status?.failureReason ?? null),
-        action: { label: '확인', run: charge.reset },
+        action: { label: '확인', run: finish },
       }
     default:
       return { title: '', note: '', action: null }
@@ -148,7 +148,10 @@ export default function MyPageCredit() {
 
   // 출금은 서버에 기능이 없다 — 예치일 때만 지갑을 연다.
   const charging = !withdraw && charge.phase !== 'idle'
-  const chargeCard = describeCharge(charge)
+  const chargeCard = describeCharge(charge, () => {
+    charge.reset()
+    setTyped('')
+  })
 
   return (
     <>
