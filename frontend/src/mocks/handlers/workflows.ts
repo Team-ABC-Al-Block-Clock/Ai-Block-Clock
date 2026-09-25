@@ -1,7 +1,13 @@
 import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
-import type { NodePlacement, PaletteScope, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
+import type {
+  EdgePlacement,
+  NodePlacement,
+  PaletteScope,
+  WorkflowDetail,
+  WorkflowGraph,
+} from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { PLACEABLE_ITEMS, byMineThenUsed } from '@/mocks/fixtures/nodePalette'
 import { createLlmNode, knowsNode } from '@/mocks/handlers/nodes'
@@ -97,7 +103,7 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   if (keys.size !== graph.nodes.length)
     return fail(400, 'WORKFLOW_013', '노드 키가 중복되었습니다.')
   // 기본 노드는 저장하며 만들어진다 — 가리킬 원본이 아직 없는 것이 정상이다.
-  if (graph.nodes.some((node) => !isNewLlm(node) && !isPlaceable(node.sourceId ?? '')))
+  if (graph.nodes.some((node) => needsSource(node) && !isPlaceable(node.sourceId ?? '')))
     return fail(404, 'WORKFLOW_015', '배치할 노드를 찾을 수 없습니다.')
   if (graph.nodes.some((node) => isNewLlm(node) && !node.prompt?.trim()))
     return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', {
@@ -107,27 +113,63 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   const edges = graph.edges ?? []
   if (edges.some((edge) => !keys.has(edge.sourceNodeKey) || !keys.has(edge.targetNodeKey)))
     return fail(400, 'WORKFLOW_013', '연결선이 존재하지 않는 노드를 가리킵니다.')
-  // 한 줄이면 선이 노드보다 하나 적고, 드나드는 선이 저마다 하나뿐이다.
-  const outs = new Set(edges.map((edge) => edge.sourceNodeKey))
-  const ins = new Set(edges.map((edge) => edge.targetNodeKey))
-  if (
-    edges.length !== graph.nodes.length - 1 ||
-    outs.size !== edges.length ||
-    ins.size !== edges.length
-  ) {
-    return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
+  // 트리다 — 들어오는 선은 자리마다 하나뿐이라 합류가 없다.
+  const ins = new Set<string>()
+  if (edges.some((edge) => !ins.add(edge.targetNodeKey)))
+    return fail(400, 'WORKFLOW_013', '한 노드에 두 선이 들어올 수 없습니다.')
+
+  const out = new Map<string, EdgePlacement[]>()
+  for (const edge of edges)
+    out.set(edge.sourceNodeKey, [...(out.get(edge.sourceNodeKey) ?? []), edge])
+
+  if (graph.nodes.filter((node) => node.ioType === 'START').length > 1)
+    return fail(400, 'WORKFLOW_013', '시작 노드는 하나만 놓을 수 있습니다.')
+  if (graph.nodes.filter((node) => node.ioType === 'END').length > 1)
+    return fail(400, 'WORKFLOW_013', '끝 노드는 하나만 놓을 수 있습니다.')
+
+  for (const node of graph.nodes) {
+    const next = out.get(node.nodeKey) ?? []
+    if (node.sourceType === 'CONTROL') {
+      if (!node.controlType || !node.condition)
+        return fail(400, 'WORKFLOW_013', '분기 노드에는 조건이 있어야 합니다.')
+      if (
+        next.length !== 2 ||
+        next.filter((edge) => edge.when === true).length !== 1 ||
+        next.filter((edge) => edge.when === false).length !== 1
+      )
+        return fail(400, 'WORKFLOW_013', '분기에서는 참·거짓 두 갈래가 나가야 합니다.')
+      continue
+    }
+    if (next.some((edge) => edge.when != null))
+      return fail(400, 'WORKFLOW_013', '분기가 아닌 노드의 선에는 갈래를 붙일 수 없습니다.')
+    if (next.length > 1) return fail(400, 'WORKFLOW_013', '노드에서 나가는 선은 하나뿐입니다.')
+    if (node.ioType === 'END' && next.length > 0)
+      return fail(400, 'WORKFLOW_013', '끝 노드에서는 선이 나갈 수 없습니다.')
   }
-  // 개수만으로는 고리를 못 거른다 — A→B, B→A 도 위를 통과한다. 머리에서 끝까지 닿는지 본다.
-  const next = new Map(edges.map((edge) => [edge.sourceNodeKey, edge.targetNodeKey]))
+
   const heads = [...keys].filter((key) => !ins.has(key))
-  if (heads.length !== 1) return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
+  // 머리가 없으면 전부 고리 안이다. 둘 이상이면 덩어리가 갈라져 있다.
+  if (heads.length === 0) return fail(400, 'WORKFLOW_005', '연결이 고리를 이룹니다.')
+  if (heads.length > 1) return fail(400, 'WORKFLOW_013', '맨 앞 노드는 하나여야 합니다.')
+  if (graph.nodes.some((node) => node.ioType === 'START' && node.nodeKey !== heads[0]))
+    return fail(400, 'WORKFLOW_013', '시작 노드가 맨 앞에 있어야 합니다.')
+
+  // 개수만으로는 고리를 못 거른다 — A→B, B→A 도 위를 통과한다. 머리에서 다 닿는지 본다.
   let walked = 0
-  for (let at: string | undefined = heads[0]; at !== undefined; at = next.get(at)) walked += 1
+  const walk = (key: string) => {
+    walked += 1
+    for (const edge of out.get(key) ?? []) walk(edge.targetNodeKey)
+  }
+  walk(heads[0])
   if (walked !== graph.nodes.length)
-    return fail(400, 'WORKFLOW_013', '노드는 한 줄로 이어져야 합니다.')
+    return fail(400, 'WORKFLOW_005', '연결이 고리를 이루거나 끊겨 있습니다.')
 
   return null
 }
+
+/** 원본을 가리켜야 하는 자리. 저장하며 만들 기본 노드와 제어·입출력은 뺀다. */
+const needsSource = (node: NodePlacement) =>
+  !isNewLlm(node) && node.sourceType !== 'CONTROL' && node.sourceType !== 'IO'
 
 /** 원본 없이 이름·프롬프트만 실려 온 기본 노드. 저장하며 만든다. */
 const isNewLlm = (node: NodePlacement) =>
@@ -148,7 +190,7 @@ const toDetail = (
     nodeKey: node.nodeKey,
     sourceType: node.sourceType,
     // 저장하며 만든 노드는 여기서 id 를 얻는다. 화면은 이 값으로 상세를 다시 읽는다.
-    sourceId: node.sourceId ?? createLlmNode(node),
+    sourceId: needsSource(node) || isNewLlm(node) ? (node.sourceId ?? createLlmNode(node)) : null,
     versionId: null,
     controlType: node.controlType ?? null,
     condition: node.condition ?? null,

@@ -137,7 +137,7 @@ export default function EditNodes() {
     )
   }, [loaded, canvas])
 
-  // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
+  // 서버가 받는 모양이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
   const graph = useMemo(() => toWorkflowGraph(nodes, edges), [nodes, edges])
   // 카드 순번. 갈래가 있으면 차례가 없으므로 번호를 감춘다.
   const chainAt = useMemo(() => chainPositions(nodes, edges), [nodes, edges])
@@ -166,7 +166,7 @@ export default function EditNodes() {
     // 보낸 내용을 함께 돌려준다. `onSuccess` 에서 `pending` 을 다시 읽으면 요청이 나가는 동안
     // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
     mutationFn: async () => {
-      if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
+      if (!graph) throw new Error('서버가 받는 모양의 워크플로우가 아니다')
       const shape = shapeOf(graph, trimmedName)
       const { nodeIdByKey } = graph
       const result = saved
@@ -212,7 +212,7 @@ export default function EditNodes() {
     : !nodes.length
       ? '노드를 하나 이상 놓아 주세요'
       : !graph
-        ? '노드를 한 줄로 이어 주세요'
+        ? '노드를 빠짐없이 하나로 이어 주세요'
         : !trimmedName
           ? '워크플로우 이름을 적어 주세요'
           : null
@@ -458,9 +458,9 @@ export default function EditNodes() {
                 background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
                 sublabelColor="rgba(230,196,212,.85)"
                 title={
-                  node.mine
-                    ? undefined
-                    : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+                  node.mine === false
+                    ? '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+                    : undefined
                 }
                 nodeId={node.id}
                 dragging={dragId === node.id}

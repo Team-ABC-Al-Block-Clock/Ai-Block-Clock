@@ -409,7 +409,7 @@ describe('getWorkflow', () => {
 })
 
 describe('mock 이 실서버와 같은 선에서 거절한다', () => {
-  it('고리는 한 줄이 아니다 — 개수만으로는 걸러지지 않는다', async () => {
+  it('머리에서 닿지 못하는 고리는 개수만으로는 걸러지지 않는다', async () => {
     const cyclic = {
       nodes: line('node_001', 'node_002', 'node_003').nodes,
       // 개수는 맞는다: 선 2개, 드나드는 키도 2개씩. 그래도 n1 은 아무도 닿지 못한다.
@@ -420,7 +420,7 @@ describe('mock 이 실서버와 같은 선에서 거절한다', () => {
     }
 
     await expect(saveWorkflow({ ...cyclic, name: '고리' })).rejects.toMatchObject({
-      code: 'WORKFLOW_013',
+      code: 'WORKFLOW_005',
       status: 400,
     })
   })

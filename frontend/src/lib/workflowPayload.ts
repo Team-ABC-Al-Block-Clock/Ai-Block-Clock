@@ -1,16 +1,22 @@
 import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
 import type { AiModel } from '@/api/nodes'
-import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/lib/canvasWorkflow'
+import {
+  NODE_SIZE,
+  type CanvasCondition,
+  type CanvasEdge,
+  type CanvasNodeData,
+  treeOrder,
+} from '@/lib/canvasWorkflow'
 
 /**
- * 캔버스를 서버가 받는 그래프로 바꾼다. 한 줄이 아니면 `null`.
+ * 캔버스를 서버가 받는 그래프로 바꾼다. 저장할 수 없는 모양이면 `null`.
  *
  * 키는 여기서 새로 매긴다. 캔버스의 `id`(`placed-3`)와 선의 `id`(`a__b`)를 그대로 쓰면
  * 서버의 64자 제한에 걸린다 — 노드 id 가 UUID 가 되면 선 키가 73자다. 워크플로우 안에서만
- * 통하면 되는 값이라 순서대로 `n1…nN` · `e1…eN-1` 로 짧게 붙인다.
+ * 통하면 되는 값이라 훑은 차례대로 `n1…nN` · `e1…eM` 으로 짧게 붙인다.
  *
- * 좌표는 보내지 않는다. 서버가 저장하지 않아서(`NodePlacementRequest`) 다시 열면
- * 순서만 남는다. 한 줄이라 그 순서로 좌우에 다시 늘어놓을 수 있다.
+ * 좌표는 보내지 않는다. 서버가 저장하지 않아서(`NodePlacementRequest`) 다시 열면 이어진
+ * 모양만 남는다 — 그것으로 다시 늘어놓는다(`toCanvasWorkflow`).
  *
  * `inputSource` 도 보내지 않는다. 고르는 화면이 없어 서버 기본값(`PREV`)에 맡긴다.
  */
@@ -18,50 +24,79 @@ export function toWorkflowGraph(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[],
 ): (WorkflowGraph & { nodeIdByKey: Record<string, string> }) | null {
-  const order = linearOrder(nodes, edges)
+  const order = treeOrder(nodes, edges)
   if (!order) return null
 
-  const keyOf = new Map(order.map((node, i) => [node.id, `n${i + 1}`]))
-  const nodeIdByKey = Object.fromEntries(order.map((node, i) => [`n${i + 1}`, node.id]))
-  const placements: NodePlacement[] = order.map((node) => {
-    const placed: NodePlacement = {
-      nodeKey: keyOf.get(node.id)!,
-      sourceType: node.sourceType,
+  const keyOf = new Map(order.nodes.map((node, i) => [node.id, `n${i + 1}`]))
+  const nodeIdByKey = Object.fromEntries(order.nodes.map((node, i) => [`n${i + 1}`, node.id]))
+
+  const placements: NodePlacement[] = []
+  for (const node of order.nodes) {
+    const placed = { nodeKey: keyOf.get(node.id)!, sourceType: node.sourceType }
+
+    if (node.sourceType === 'CONTROL') {
+      // 조건이 읽는 앞 노드는 여기서야 키를 얻는다. 조건이 비어 있으면 서버가 물린다.
+      const left = node.condition && keyOf.get(node.condition.fromId)
+      if (!node.condition || !left) return null
+      placements.push({
+        ...placed,
+        controlType: node.controlType ?? 'BRANCH',
+        condition: {
+          left: `${left}.${node.condition.path}`,
+          operator: node.condition.operator,
+          right: node.condition.right,
+        },
+      })
+      continue
     }
+
+    if (node.sourceType === 'IO') {
+      if (!node.ioType) return null
+      placements.push({ ...placed, ioType: node.ioType })
+      continue
+    }
+
     // 캔버스에서 적은 기본 노드는 원본이 없다. 이름·프롬프트를 실어 보내면 서버가 만든다.
     if (node.sourceType === 'NODE' && !node.sourceId) {
-      return {
+      placements.push({
         ...placed,
         nodeType: 'LLM',
         name: node.name,
         prompt: node.prompt ?? '',
         ...(node.model ? { model: node.model } : {}),
-      }
+      })
+      continue
     }
-    return { ...placed, sourceId: node.sourceId }
-  })
-  // 순서가 이미 한 줄이라 이웃끼리 이으면 선 목록이 그대로 나온다.
-  const links: EdgePlacement[] = order.slice(1).map((node, i) => ({
+
+    placements.push({ ...placed, sourceId: node.sourceId })
+  }
+
+  const links: EdgePlacement[] = order.edges.map((edge, i) => ({
     edgeKey: `e${i + 1}`,
-    sourceNodeKey: keyOf.get(order[i].id)!,
-    targetNodeKey: keyOf.get(node.id)!,
+    sourceNodeKey: keyOf.get(edge.from)!,
+    targetNodeKey: keyOf.get(edge.to)!,
+    ...(edge.when == null ? {} : { when: edge.when }),
   }))
 
   return { nodes: placements, edges: links, nodeIdByKey }
 }
 
 /**
- * 불러올 때 카드를 늘어놓는 자리. 자리표시자와 같은 보폭·높낮이로 지그재그를 만든다.
+ * 불러올 때 카드를 늘어놓는 자리. 깊이마다 오른쪽으로, 같은 깊이의 형제는 아래로.
  *
- * 한 줄로 곧게 놓으면 카드 사이 선이 짧은 수평선이라 잘 보이지 않는다. 위아래로 엇갈리게
- * 두면 선이 휘어 어디서 어디로 가는지가 드러난다.
+ * 한 줄이면 깊이가 곧 차례라 예전처럼 위아래로 엇갈린다 — 일직선으로 두면 카드 사이 선이
+ * 짧은 수평선이라 어디서 어디로 가는지가 보이지 않는다.
  */
 const RESTORE_STEP = NODE_SIZE + 29
+const RESTORE_ROW = NODE_SIZE + 24
 const RESTORE_X0 = 12
-/** 짝수 번째는 아래, 홀수 번째는 위. */
+/** 짝수 깊이는 아래, 홀수 깊이는 위. */
 const RESTORE_Y = [430, 325] as const
 
-/** 팔레트가 아는 표시용 정보. 서버 응답에 이름·종류·단가가 없어 밖에서 채워 준다. */
+/** 제어·입출력 노드는 가리킬 원본이 없어 팔레트에서 이름을 찾을 수 없다. */
+const KIND_NAMES = { BRANCH: '조건 분기', START: '시작', END: '끝' } as const
+
+/** 팔레트가 아는 표시용 정보. 서버 응답에 종류·단가가 없어 밖에서 채워 준다. */
 export interface NodeLabel {
   name: string
   nodeType: CanvasNodeData['nodeType']
@@ -76,10 +111,27 @@ export interface NodeLabel {
   mine: boolean
 }
 
+/** 서버의 `<nodeKey>.<경로>` 를 캔버스 id 로 옮긴다. 가리키는 자리가 없으면 비운다. */
+function toCanvasCondition(
+  condition: WorkflowDetail['nodes'][number]['condition'],
+  idOf: Map<string, string>,
+): CanvasCondition | null {
+  if (!condition) return null
+  const dot = condition.left.indexOf('.')
+  const fromId = dot < 0 ? undefined : idOf.get(condition.left.slice(0, dot))
+  if (!fromId) return null
+  return {
+    fromId,
+    path: condition.left.slice(dot + 1),
+    operator: condition.operator,
+    right: condition.right,
+  }
+}
+
 /**
  * 저장된 워크플로우를 캔버스로 되돌린다.
  *
- * 서버는 좌표를 저장하지 않아 순서만 온다. 한 줄이라 왼쪽부터 같은 간격으로 늘어놓으면
+ * 서버는 좌표를 저장하지 않아 이어진 모양만 온다. 선을 따라 깊이를 재 다시 늘어놓으면
  * 원래 배치와 달라도 읽는 데는 지장이 없다.
  *
  * 이름·종류·내 것인지도 서버가 주지 않는다(`NodeResponse` 는 `sourceId` 까지다). 팔레트에서
@@ -92,13 +144,43 @@ export function toCanvasWorkflow(
 ): { nodes: CanvasNodeData[]; edges: CanvasEdge[] } {
   const idOf = new Map(detail.nodes.map((node, i) => [node.nodeKey, `loaded-${i + 1}`]))
 
-  const nodes = detail.nodes.map((node, i) => {
+  // 트리라 부모는 자리마다 하나다. 부모의 깊이에 한 칸 더한 것이 제 깊이다.
+  const parentOf = new Map(detail.edges.map((edge) => [edge.targetNodeKey, edge.sourceNodeKey]))
+  const depths = new Map<string, number>()
+  const depthOf = (key: string): number => {
+    const seen = depths.get(key)
+    if (seen !== undefined) return seen
+    const parent = parentOf.get(key)
+    const at = parent === undefined ? 0 : depthOf(parent) + 1
+    depths.set(key, at)
+    return at
+  }
+  const filled = new Map<number, number>()
+
+  const nodes = detail.nodes.map((node) => {
+    const control = node.controlType
+    const io = node.ioType
     const label = node.sourceId ? describe(node.sourceId) : undefined
+    const depth = depthOf(node.nodeKey)
+    const row = filled.get(depth) ?? 0
+    filled.set(depth, row + 1)
+
     return {
       id: idOf.get(node.nodeKey)!,
-      name: label?.name ?? '알 수 없는 노드',
-      nodeType: label?.nodeType ?? (node.sourceType === 'AGENT' ? 'AGENT' : 'TOOL'),
+      name: control
+        ? KIND_NAMES[control]
+        : io
+          ? KIND_NAMES[io]
+          : (label?.name ?? '알 수 없는 노드'),
+      // 제어·입출력은 종류를 `controlType`·`ioType` 이 든다.
+      nodeType:
+        control || io
+          ? null
+          : (label?.nodeType ?? (node.sourceType === 'AGENT' ? 'AGENT' : 'TOOL')),
       sourceType: node.sourceType,
+      controlType: control,
+      ioType: io,
+      condition: toCanvasCondition(node.condition, idOf),
       sourceId: node.sourceId ?? '',
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,
@@ -108,10 +190,11 @@ export function toCanvasWorkflow(
       model: label?.model ?? null,
       executionCount: label?.executionCount ?? null,
       owner: label?.owner ?? null,
-      x: RESTORE_X0 + i * RESTORE_STEP,
-      y: RESTORE_Y[i % RESTORE_Y.length],
-      // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
-      mine: label?.mine ?? false,
+      x: RESTORE_X0 + depth * RESTORE_STEP,
+      y: RESTORE_Y[depth % RESTORE_Y.length] + row * RESTORE_ROW,
+      // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다. 제어·입출력은
+      // 가리킬 원본이 없어 아예 판정 대상이 아니다.
+      mine: control || io ? null : (label?.mine ?? false),
       floaty: '',
     } satisfies CanvasNodeData
   })
@@ -119,7 +202,9 @@ export function toCanvasWorkflow(
   const edges = detail.edges.flatMap((edge) => {
     const from = idOf.get(edge.sourceNodeKey)
     const to = idOf.get(edge.targetNodeKey)
-    return from && to ? [{ id: `${from}__${to}`, from, to }] : []
+    return from && to
+      ? [{ id: `${from}__${to}`, from, to, ...(edge.when == null ? {} : { when: edge.when }) }]
+      : []
   })
 
   return { nodes, edges }

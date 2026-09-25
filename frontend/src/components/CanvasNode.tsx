@@ -83,7 +83,8 @@ export interface CanvasNodeProps {
   sublabel: string
   x: number
   y: number
-  mine: boolean
+  /** 참이면 MY 칩과 테두리. 판정 대상이 아닌 자리는 null */
+  mine: boolean | null
   /** 계속 도는 모션 */
   floaty: string
   /** 등장 모션. 없으면 생략 */
