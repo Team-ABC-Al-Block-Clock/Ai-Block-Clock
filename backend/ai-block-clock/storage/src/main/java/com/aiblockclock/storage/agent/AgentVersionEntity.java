@@ -80,4 +80,8 @@ public class AgentVersionEntity extends BaseTimeEntity {
         this.tier = tier;
         this.publicationState = publicationState;
     }
+
+    public void changeTier(Tier tier) {
+        this.tier = tier;
+    }
 }

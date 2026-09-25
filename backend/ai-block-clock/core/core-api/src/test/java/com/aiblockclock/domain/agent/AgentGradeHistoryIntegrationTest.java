@@ -67,7 +67,7 @@ class AgentGradeHistoryIntegrationTest {
         AgentId agent = AgentId.newId();
         applyDemoSeed(agent);
 
-        AgentGrade grade = agentGradeService.grade(agent);
+        AgentGrade grade = agentGradeService.regrade(agent);
 
         AgentGradeHistoryEntity history = onlyHistory();
 
@@ -91,7 +91,7 @@ class AgentGradeHistoryIntegrationTest {
     void 한_번도_세지_않은_신규_에이전트는_Tier_4로_매기고_재료_시점은_비워_둔다() {
         AgentId agent = AgentId.newId();
 
-        agentGradeService.grade(agent);
+        agentGradeService.regrade(agent);
 
         AgentGradeHistoryEntity history = onlyHistory();
 
@@ -112,7 +112,7 @@ class AgentGradeHistoryIntegrationTest {
                 + "supplier_failures, review_count, average_rating, measured_at) "
                 + "VALUES (?, 999, 0, 0, null, CURRENT_TIMESTAMP(6))", agent.value().toString());
 
-        agentGradeService.grade(agent);
+        agentGradeService.regrade(agent);
 
         AgentGradeHistoryEntity history = onlyHistory();
 
@@ -122,13 +122,13 @@ class AgentGradeHistoryIntegrationTest {
     }
 
     @Test
-    void 매길_때마다_한_줄씩_쌓고_앞의_줄은_고치지_않는다() throws IOException {
+    void 재료가_바뀌어_다시_매기면_한_줄을_더하고_앞의_줄은_고치지_않는다() throws IOException {
         AgentId agent = AgentId.newId();
         applyDemoSeed(agent);
-        agentGradeService.grade(agent);
+        agentGradeService.regrade(agent);
 
         count(Set.of(), Set.of(agent));
-        agentGradeService.grade(agent);
+        agentGradeService.regrade(agent);
 
         List<AgentGradeHistoryEntity> histories = agentGradeHistoryRepository.findAll(Sort.by("id"));
 
@@ -137,6 +137,23 @@ class AgentGradeHistoryIntegrationTest {
         assertThat(histories.get(0).getScore()).isEqualByComparingTo("71.0150");
         assertThat(histories.get(1).getSupplierFailures()).isEqualTo(6);
         assertThat(histories.get(1).getScore()).isLessThan(histories.get(0).getScore());
+    }
+
+    // 재산정 배치는 매일 모든 에이전트를 다시 매긴다. 그사이 실행이 없었으면 같은 결과라 줄이 늘지 않아야 한다.
+    @Test
+    void 같은_재료로_다시_매기면_줄을_더하지_않는다() throws IOException {
+        AgentId seeded = AgentId.newId();
+        AgentId fresh = AgentId.newId();
+        applyDemoSeed(seeded);
+
+        agentGradeService.regrade(seeded);
+        agentGradeService.regrade(fresh);
+        agentGradeService.regrade(seeded);
+        agentGradeService.regrade(fresh);
+
+        assertThat(agentGradeHistoryRepository.findAll())
+                .extracting(AgentGradeHistoryEntity::getAgentId)
+                .containsExactlyInAnyOrder(seeded.value(), fresh.value());
     }
 
     // 이력은 손으로 고치는 표가 아니지만, 코드가 잘못된 값을 넘겨도 DB 가 받지 않게 한다.

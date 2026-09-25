@@ -151,7 +151,7 @@ class CostEstimateAssemblerIntegrationTest {
                 "분석 에이전트", "성적을 분석한다", "학생별 점수 표를 받아 비교한다", null, null, null));
     }
 
-    // 등급 배치가 아직 없어 모든 버전이 Tier 4 다. 원가와 판매가를 가르려고 테스트에서만 등급을 올린다.
+    // 등급은 재산정 배치가 재료로 매겨 바꾼다. 여기서는 원가와 판매가만 가르면 되므로 등급을 바로 올린다.
     private void promote(AgentRegistration agent, Tier tier) {
         entityManager.flush();
         entityManager.createNativeQuery("update agent_version set tier = ?1 where id = ?2")
