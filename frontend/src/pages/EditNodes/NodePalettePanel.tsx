@@ -108,7 +108,7 @@ export default function NodePalettePanel({
             title="캔버스로 드래그하세요"
             style={{
               // 폭은 주지 않고 그리드 열을 그대로 채운다.
-              height: '160px',
+              height: '134px',
               borderRadius: '12px',
               transition: 'background .18s,transform .18s',
               // 자신의 에이전트와 다른 사람 에이전트를 구분할 수 있게 테두리와 칩으로 표시한다.
@@ -145,24 +145,13 @@ export default function NodePalettePanel({
             </div>
             <div
               className="absolute truncate text-[15.5px] font-semibold tracking-[-.005em] text-white"
-              style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '74px' }}
+              style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '72px' }}
             >
               {item.name}
             </div>
             <div
-              className="absolute truncate text-[13px]"
-              style={{
-                left: `${CARD_GUTTER}px`,
-                right: `${CARD_GUTTER}px`,
-                top: '100px',
-                color: 'rgba(255,224,238,.72)',
-              }}
-            >
-              {item.summary ?? '설명이 없습니다'}
-            </div>
-            <div
               className="absolute text-[13px]"
-              style={{ left: `${CARD_GUTTER}px`, top: '123px', color: 'rgba(255,236,246,.7)' }}
+              style={{ left: `${CARD_GUTTER}px`, top: '99px', color: 'rgba(255,236,246,.7)' }}
             >
               {item.unit}
             </div>
@@ -172,7 +161,7 @@ export default function NodePalettePanel({
                 className="absolute text-[12px] font-bold tracking-[-.005em]"
                 style={{
                   right: '12px',
-                  top: '120px',
+                  top: '96px',
                   height: '20px',
                   padding: '0 8px',
                   lineHeight: '20px',

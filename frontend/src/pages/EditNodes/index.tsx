@@ -726,7 +726,7 @@ export default function EditNodes() {
           }
           style={{
             left: 'calc(624px + var(--edge, 0px))',
-            top: 'calc(943px + var(--edge-y, 0px))',
+            top: 'calc(915px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',
@@ -750,7 +750,7 @@ export default function EditNodes() {
             style={{
               // 실행하기 버튼(800~960) 바로 아래 가운데.
               left: 'calc(760px + var(--edge, 0px))',
-              top: 'calc(1002px + var(--edge-y, 0px))',
+              top: 'calc(974px + var(--edge-y, 0px))',
               width: '240px',
               color: saveError ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
             }}
@@ -770,7 +770,7 @@ export default function EditNodes() {
           title={saveBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
-            top: 'calc(943px + var(--edge-y, 0px))',
+            top: 'calc(915px + var(--edge-y, 0px))',
             width: '160px',
             height: '52px',
             borderRadius: '26px',

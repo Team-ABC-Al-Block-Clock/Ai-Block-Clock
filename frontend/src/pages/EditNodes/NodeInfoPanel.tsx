@@ -227,11 +227,11 @@ export default function NodeInfoPanel({
         설명
       </div>
       <div
-        className="scroll-thin absolute text-[15px] leading-[1.7]"
+        className="scroll-thin absolute text-[16.5px] leading-[1.75] tracking-[-.003em]"
         style={{
           ...rowStyle('206px'),
           maxHeight: '198px',
-          color: summary ? 'rgba(255,242,249,.9)' : 'rgba(255,236,246,.5)',
+          color: summary ? 'rgba(255,246,251,.94)' : 'rgba(255,236,246,.5)',
         }}
       >
         {summary ?? '설명이 없습니다'}
