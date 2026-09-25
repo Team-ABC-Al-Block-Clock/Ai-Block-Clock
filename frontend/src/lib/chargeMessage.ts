@@ -18,6 +18,9 @@ const FAILURE_TEXT: Record<ChargeFailureReason, string> = {
   DEPOSIT_TOKEN_CONTRACT_MISMATCH: 'ABC 토큰이 아닌 자산을 보냈습니다. 문의해 주세요.',
   AMOUNT_MISMATCH: '요청한 금액과 실제로 보낸 금액이 다릅니다. 문의해 주세요.',
   CHAIN_ID_MISMATCH: `${chainLabel} 체인의 거래가 아닙니다. 네트워크를 바꾼 뒤 다시 보내 주세요.`,
+  TRANSACTION_HASH_MISMATCH: '거래 해시가 맞지 않습니다. 문의해 주세요.',
+  TRANSACTION_ALREADY_USED: '이미 다른 충전에 쓰인 거래입니다. 문의해 주세요.',
+  USER_CANCELED: '충전이 취소됐습니다.',
 }
 
 /** 서버가 실패로 닫은 이유. 사유 없이 닫히는 경우는 없지만 와도 화면은 서야 한다. */

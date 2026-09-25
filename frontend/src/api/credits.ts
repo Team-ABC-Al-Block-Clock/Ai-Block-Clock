@@ -54,6 +54,9 @@ export type ChargeFailureReason =
   | 'DEPOSIT_TOKEN_CONTRACT_MISMATCH'
   | 'AMOUNT_MISMATCH'
   | 'CHAIN_ID_MISMATCH'
+  | 'TRANSACTION_HASH_MISMATCH'
+  | 'TRANSACTION_ALREADY_USED'
+  | 'USER_CANCELED'
 
 /** 접수 응답과 상태 조회 응답이 같은 모양이다 — 화면도 한 코드로 그린다. */
 export interface ChargeStatusView {
