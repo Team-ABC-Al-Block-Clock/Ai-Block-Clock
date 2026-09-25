@@ -105,7 +105,11 @@ export default function Login() {
       }
 
       // 체인을 맞춘 뒤에 토큰을 등록한다 — 충전 전송 창이 'abcToken' 을 이름으로 보여 준다.
-      await watchAbcToken(await connectors[0].getProvider())
+      // 표시용이라 실패해도 로그인은 멈추지 않는다 — 위 switchChain 과 같다.
+      await connectors[0]
+        .getProvider()
+        .then(watchAbcToken)
+        .catch(() => undefined)
 
       setWallet(connected)
       // 연결이 끝나면 곧바로 서명으로 간다. 중간에 확인 화면을 한 번 더 두면
