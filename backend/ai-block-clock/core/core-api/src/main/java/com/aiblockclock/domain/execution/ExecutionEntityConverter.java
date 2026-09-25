@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.WorkflowId;
 import com.aiblockclock.storage.execution.ExecutionEntity;
@@ -19,7 +20,8 @@ public final class ExecutionEntityConverter {
                 execution.getPromptCount(),
                 keyOf(execution.getInputFile()),
                 nameOf(execution.getInputFile()),
-                sizeOf(execution.getInputFile()));
+                sizeOf(execution.getInputFile()),
+                execution.isReserved() ? execution.getReserved().value() : null);
     }
 
     public static Execution toDomain(ExecutionEntity entity) {
@@ -31,7 +33,8 @@ public final class ExecutionEntityConverter {
                 entity.getRunId() == null ? null : RunId.of(entity.getRunId()),
                 entity.getStatus(),
                 entity.getPromptCount(),
-                inputFileOf(entity));
+                inputFileOf(entity),
+                entity.getReservedAbc() == null ? null : AbcAmount.of(entity.getReservedAbc()));
     }
 
     private static ExecutionFile inputFileOf(ExecutionEntity entity) {

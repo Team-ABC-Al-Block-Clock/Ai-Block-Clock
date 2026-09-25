@@ -3,6 +3,7 @@ package com.aiblockclock.domain.execution;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.enums.workflow.InputSource;
 
 import java.util.List;
@@ -15,7 +16,7 @@ public record NodeUnit(
     }
 
     @Override
-    public List<PlannedPrompt> flatten() {
-        return List.of(new PlannedPrompt(name, owner, prompt, inputSource, refFiles));
+    public List<PlannedPrompt> flatten(NodeKey placedKey) {
+        return List.of(new PlannedPrompt(placedKey, name, owner, prompt, inputSource, refFiles));
     }
 }

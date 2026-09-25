@@ -1,6 +1,5 @@
 package com.aiblockclock.domain.execution;
 
-import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.file.UploadedFile;
 import com.aiblockclock.domain.node.RefFileStore;
 import com.aiblockclock.client.ai.AiClientException;
@@ -61,9 +60,9 @@ public class ExecutionService {
             RunRequest runRequest = runRequestOf(RuntimeWorkflow.of(workflow, plan), inputFile, comment, mock);
             Execution requested = Execution.requested(
                     id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
-            AbcAmount reserved = executionReservationManager.reserve(requested, workflow);
+            Execution reserved = executionReservationManager.reserve(requested, workflow, plan);
 
-            return ExecutionStart.newlyCreated(dispatch(requested, reserved, runRequest));
+            return ExecutionStart.newlyCreated(dispatch(reserved, runRequest));
         } catch (RuntimeException exception) {
             executionFileStore.erase(inputFile);
 
@@ -107,10 +106,13 @@ public class ExecutionService {
             return concluded(execution);
         }
 
-        ExecutionProgress progress = ExecutionProgress.of(
-                execution.getId(), read(execution), execution.getPromptCount());
+        RunStatus run = read(execution);
+        ExecutionProgress progress = ExecutionProgress.of(execution.getId(), run, execution.getPromptCount());
 
-        if (progress.status() != execution.getStatus()) {
+        // 뒤에서 따라가던 모니터가 닫지 못한 실행이다. 모니터와 같은 자리에서 닫아야 쓰지 않은 만큼이 돌아온다.
+        if (progress.status().isFinished()) {
+            executionReservationManager.finish(execution.getId(), progress.status(), run);
+        } else if (progress.status() != execution.getStatus()) {
             executionWriter.moveTo(execution.getId(), progress.status());
         }
 
@@ -133,14 +135,14 @@ public class ExecutionService {
 
     // 떼어 둔 뒤에는 무엇이 실패하든 돌려준다. 실행 번호를 남기지 못한 경우는 엔진이 이미 받았지만,
     // 사용자 돈을 묶어 두기보다 돌려주는 쪽을 택한다. 엔진이 받았는데 응답만 늦은 경우도 지금은 구분할 수 없다.
-    private Execution dispatch(Execution requested, AbcAmount reserved, RunRequest runRequest) {
+    private Execution dispatch(Execution reserved, RunRequest runRequest) {
         try {
             RunAccepted accepted = aiRuntimeClient.start(runRequest);
 
-            return executionWriter.markDispatched(requested.getId(), RunId.of(accepted.runId()));
+            return executionWriter.markDispatched(reserved.getId(), RunId.of(accepted.runId()));
         } catch (RuntimeException exception) {
-            log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: execution={}", requested.getId().value(), exception);
-            release(requested, reserved, exception);
+            log.warn("실행을 맡기지 못해 떼어 둔 금액을 돌려준다: execution={}", reserved.getId().value(), exception);
+            release(reserved, exception);
 
             if (exception instanceof AiClientException) {
                 throw new CoreException(ErrorType.EXECUTION_ENGINE_UNAVAILABLE);
@@ -151,12 +153,12 @@ public class ExecutionService {
     }
 
     // 돌려주기마저 실패하면 원래 실패를 가리지 않도록 덧붙여 두고, 묶인 실행을 찾을 수 있게 남긴다.
-    private void release(Execution requested, AbcAmount reserved, RuntimeException cause) {
+    private void release(Execution reserved, RuntimeException cause) {
         try {
-            executionReservationManager.release(requested, reserved);
+            executionReservationManager.release(reserved);
         } catch (RuntimeException failure) {
             cause.addSuppressed(failure);
-            log.error("떼어 둔 금액을 돌려주지 못했다: execution={}", requested.getId().value(), failure);
+            log.error("떼어 둔 금액을 돌려주지 못했다: execution={}", reserved.getId().value(), failure);
         }
     }
 
