@@ -3,6 +3,7 @@ package com.aiblockclock.api.v1;
 import com.aiblockclock.client.ai.IndexOutcome;
 import com.aiblockclock.client.ai.RecommendClient;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.agent.Tier;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
@@ -21,6 +22,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -55,6 +58,9 @@ class PlaceableItemControllerTest {
 
     @Autowired
     private NodeDefinitionRepository nodeRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @MockitoBean
     private RecommendClient recommendClient;
@@ -91,6 +97,23 @@ class PlaceableItemControllerTest {
                 .andExpect(jsonPath("$.data.content[1].owner.nickname").value("남"))
                 .andExpect(jsonPath("$.data.content[1].price").value("6.000000"))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
+    }
+
+    @Test
+    @DisplayName("내 에이전트는 등급이 높아도 원가로, 남의 에이전트는 할증을 붙인 판매가로 내린다")
+    void pricesMyAgentAtBaseCost() throws Exception {
+        String myAgent = registerAgent(me);
+        String othersAgent = registerAgent(other);
+        promote(myAgent, Tier.TIER_1);
+        promote(othersAgent, Tier.TIER_1);
+
+        mockMvc.perform(get(PLACEABLE).param("scope", "ALL").with(as(me)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(3))
+                .andExpect(jsonPath("$.data.content[1].itemId").value(myAgent))
+                .andExpect(jsonPath("$.data.content[1].price").value("6.000000"))
+                .andExpect(jsonPath("$.data.content[2].itemId").value(othersAgent))
+                .andExpect(jsonPath("$.data.content[2].price").value("9.000000"));
     }
 
     @Test
@@ -150,6 +173,15 @@ class PlaceableItemControllerTest {
 
         return mapper.readTree(registered.getResponse().getContentAsString())
                 .get("data").get("agentId").asText();
+    }
+
+    private void promote(String agentId, Tier tier) {
+        entityManager.flush();
+        entityManager.createNativeQuery("update agent_version set tier = ?1 where agent_id = ?2")
+                .setParameter(1, tier.name())
+                .setParameter(2, agentId)
+                .executeUpdate();
+        entityManager.clear();
     }
 
     private long createUser(String nickname) {

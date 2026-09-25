@@ -95,7 +95,7 @@ public class PlaceableItemService {
                 null,
                 mine,
                 ownerNickname,
-                agent.price(),
+                mine ? agent.baseCost() : agent.price(),
                 agent.summary());
     }
 }
