@@ -3,12 +3,13 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import { AI_MODELS, DEFAULT_AI_MODEL, NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import { DEFAULT_AI_MODEL, NODE_NAME_MAX } from '@/api/nodes'
 import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
+import ModelSelect from '@/components/ModelSelect'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
@@ -607,24 +608,13 @@ export default function EditNodes() {
               >
                 AI 모델
               </div>
-              <select
-                className="bg-surface-card w-full cursor-pointer border-0 font-[inherit] text-[17px] text-white outline-0"
-                value={draft.model}
-                onChange={(ev) => setDraft((it) => ({ ...it, model: ev.target.value as AiModel }))}
-                aria-label="AI 모델"
-                style={{
-                  height: '44px',
-                  borderRadius: '11px',
-                  padding: '0 12px',
-                  marginBottom: '14px',
-                }}
-              >
-                {AI_MODELS.map((item) => (
-                  <option key={item.value} value={item.value} style={{ color: '#20121c' }}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative', height: '44px', marginBottom: '14px' }}>
+                <ModelSelect
+                  value={draft.model}
+                  onChange={(model) => setDraft((it) => ({ ...it, model }))}
+                  style={{ inset: 0, fontSize: '17px' }}
+                />
+              </div>
 
               <div
                 className="text-[17px] font-semibold"
@@ -758,9 +748,10 @@ export default function EditNodes() {
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
-              left: 'calc(560px + var(--edge, 0px))',
-              top: 'calc(1000px + var(--edge-y, 0px))',
-              width: '400px',
+              // 실행하기 버튼(800~960) 바로 아래 가운데.
+              left: 'calc(760px + var(--edge, 0px))',
+              top: 'calc(1002px + var(--edge-y, 0px))',
+              width: '240px',
               color: saveError ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
             }}
           >
@@ -823,6 +814,7 @@ export default function EditNodes() {
           isError={isError}
           isFetchNextPageError={isFetchNextPageError}
           isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={palette.hasNextPage}
           onSearch={handleSearch}
           onRetryNextPage={handleRetryNextPage}
           refs={palette.refs}

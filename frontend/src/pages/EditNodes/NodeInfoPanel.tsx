@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-import { AI_MODELS, NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import ModelSelect from '@/components/ModelSelect'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 
 /**
@@ -28,15 +29,15 @@ const rowStyle = (top: string) => ({
 type FormValues = { name: string; prompt: string; model: AiModel }
 
 /** 고칠 수 있는 자리임을 알린다. 워크플로우 이름 칸과 같은 그림이다. */
-function PencilIcon({ left, top }: { left: number; top: number }) {
+function PencilIcon() {
   return (
     <svg
-      className="pointer-events-none absolute"
+      className="pointer-events-none flex-none"
       width="15"
       height="15"
       viewBox="0 0 14 14"
       fill="none"
-      style={{ left: `${left}px`, top: `${top}px` }}
+      aria-hidden
     >
       <path
         d="M0 12.5L1.5 8L9.5 0L12.5 3L4.5 11L0 12.5ZM0 12.5L3.7 11.8"
@@ -48,7 +49,18 @@ function PencilIcon({ left, top }: { left: number; top: number }) {
   )
 }
 
-/** 이름·프롬프트·모델을 담는 자리. */
+/** 「노드 추가」 패널과 같은 차림 — 라벨 아래 칸 하나. 두 자리가 달라 보이면 같은 값이 아닌 줄 안다. */
+function FieldLabel({ top, children }: { top: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="absolute text-[15px]"
+      style={{ left: `${PANEL_INSET}px`, top, color: 'rgba(255,214,232,.85)' }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: FormValues) => void }) {
   const [name, setName] = useState(initial.name)
   const [prompt, setPrompt] = useState(initial.prompt)
@@ -59,57 +71,45 @@ function NodeForm({ initial, onApply }: { initial: FormValues; onApply: (v: Form
 
   return (
     <>
-      <input
-        className="absolute rounded-md border-0 bg-transparent font-[inherit] text-[18px] font-semibold tracking-[-.005em] text-white outline-0 transition-colors duration-[160ms] hover:bg-white/10 focus:bg-white/14"
-        value={name}
-        maxLength={NODE_NAME_MAX}
-        onChange={(ev) => setName(ev.target.value)}
-        placeholder="노드 이름"
-        aria-label="노드 이름"
-        // 머리 카드의 글자 칸과 같은 자리 — 30(inset) + 16(padding) + 48(아이콘) + 16(gap).
-        style={{ left: '104px', top: '78px', width: '214px', height: '30px', padding: '0 6px' }}
-      />
-      <PencilIcon left={322} top={85} />
-
-      <textarea
-        className="scroll-thin absolute resize-none border-0 font-[inherit] text-[14px] leading-[1.6] text-white outline-0"
-        value={prompt}
-        onChange={(ev) => setPrompt(ev.target.value)}
-        placeholder="이 노드가 할 일을 프롬프트로 적으세요"
-        aria-label="프롬프트"
-        style={{
-          ...rowStyle('192px'),
-          height: '108px',
-          borderRadius: '10px',
-          background: 'var(--color-surface-inset)',
-          padding: '10px 14px',
-        }}
-      />
-
-      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('312px')}>
-        모델
-      </div>
-      <select
-        className="absolute cursor-pointer border-0 font-[inherit] text-[15.5px] text-white outline-0"
-        value={model}
-        onChange={(ev) => setModel(ev.target.value as AiModel)}
-        aria-label="모델"
-        style={{
-          ...rowStyle('334px'),
-          height: '38px',
-          borderRadius: '10px',
-          padding: '0 14px',
-          background: 'var(--color-surface-inset)',
-        }}
+      <FieldLabel top="58px">노드 이름</FieldLabel>
+      <div
+        className="bg-surface-card absolute flex items-center"
+        style={{ ...rowStyle('82px'), height: '40px', borderRadius: '11px', padding: '0 12px' }}
       >
-        {AI_MODELS.map((item) => (
-          <option key={item.value} value={item.value} style={{ color: '#20121c' }}>
-            {item.label}
-          </option>
-        ))}
-      </select>
+        <input
+          className="w-full border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
+          value={name}
+          maxLength={NODE_NAME_MAX}
+          onChange={(ev) => setName(ev.target.value)}
+          placeholder="예: 내용 분석"
+          aria-label="노드 이름"
+        />
+        <PencilIcon />
+      </div>
 
-      <div className="absolute flex justify-end" style={rowStyle('382px')}>
+      <FieldLabel top="136px">프롬프트</FieldLabel>
+      <div
+        className="bg-surface-card absolute"
+        style={{ ...rowStyle('160px'), height: '92px', borderRadius: '11px', padding: '10px 12px' }}
+      >
+        <textarea
+          className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[15px] leading-[1.5] text-white outline-0"
+          value={prompt}
+          onChange={(ev) => setPrompt(ev.target.value)}
+          placeholder="이 노드가 할 일을 프롬프트로 적으세요"
+          aria-label="프롬프트"
+          style={{ height: '72px' }}
+        />
+      </div>
+
+      <FieldLabel top="266px">AI 모델</FieldLabel>
+      <ModelSelect
+        value={model}
+        onChange={setModel}
+        style={{ ...rowStyle('290px'), height: '40px', fontSize: '15px' }}
+      />
+
+      <div className="absolute flex justify-end" style={rowStyle('346px')}>
         <button
           type="button"
           disabled={!canApply}
@@ -171,6 +171,24 @@ export default function NodeInfoPanel({
       </div>
     )
 
+  // 기본 노드는 폼이 이름을 들고 있어 머리 카드가 겹친다. 종류만 한 줄로 밝힌다.
+  if (basic)
+    return (
+      <>
+        <div
+          className="absolute text-[14.5px]"
+          style={{ ...rowStyle('26px'), color: 'rgba(255,224,238,.88)' }}
+        >
+          기본 노드
+        </div>
+        <NodeForm
+          key={basic.id}
+          initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
+          onApply={(values) => onApply(basic.id, values)}
+        />
+      </>
+    )
+
   return (
     <>
       <div
@@ -196,11 +214,7 @@ export default function NodeInfoPanel({
           </div>
         </div>
         <div className="flex min-w-0 flex-col" style={{ gap: '4px' }}>
-          {/* 고칠 수 있을 때는 이름 입력이 이 자리를 덮는다. */}
-          <div
-            className="truncate text-[18px] font-semibold tracking-[-.005em] text-white"
-            style={{ visibility: basic ? 'hidden' : 'visible' }}
-          >
+          <div className="truncate text-[18px] font-semibold tracking-[-.005em] text-white">
             {name}
           </div>
           <div className="text-[14.5px]" style={{ color: 'rgba(255,224,238,.88)' }}>
@@ -209,28 +223,19 @@ export default function NodeInfoPanel({
         </div>
       </div>
 
-      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('168px')}>
-        {basic ? '프롬프트' : '설명'}
+      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('180px')}>
+        설명
       </div>
-
-      {basic ? (
-        <NodeForm
-          key={basic.id}
-          initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
-          onApply={(values) => onApply(basic.id, values)}
-        />
-      ) : (
-        <div
-          className="scroll-thin absolute text-[15px] leading-[1.7]"
-          style={{
-            ...rowStyle('192px'),
-            maxHeight: '212px',
-            color: summary ? 'rgba(255,242,249,.9)' : 'rgba(255,236,246,.5)',
-          }}
-        >
-          {summary ?? '설명이 없습니다'}
-        </div>
-      )}
+      <div
+        className="scroll-thin absolute text-[15px] leading-[1.7]"
+        style={{
+          ...rowStyle('206px'),
+          maxHeight: '198px',
+          color: summary ? 'rgba(255,242,249,.9)' : 'rgba(255,236,246,.5)',
+        }}
+      >
+        {summary ?? '설명이 없습니다'}
+      </div>
     </>
   )
 }
