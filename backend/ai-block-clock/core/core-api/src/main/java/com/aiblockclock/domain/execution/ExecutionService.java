@@ -41,12 +41,12 @@ public class ExecutionService {
 
     // 같은 요청 번호로 이미 접수했으면 다시 떼지 않고 그 실행을 돌려준다.
     // 새 요청이면 엔진에 보낼 요청을 다 만든 뒤에 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
-    public Execution start(UserId requester, Workflow workflow, ExecutionRequestId requestId,
-                           String comment, boolean mock, UploadedFile upload) {
+    public ExecutionStart start(UserId requester, Workflow workflow, ExecutionRequestId requestId,
+                                String comment, boolean mock, UploadedFile upload) {
         Optional<Execution> earlier = executionReader.find(requester, requestId);
 
         if (earlier.isPresent()) {
-            return earlier.get();
+            return ExecutionStart.alreadyRequested(earlier.get());
         }
 
         if (upload != null) {
@@ -63,7 +63,7 @@ public class ExecutionService {
                     id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
             AbcAmount reserved = executionReservationManager.reserve(requested, workflow);
 
-            return dispatch(requested, reserved, runRequest);
+            return ExecutionStart.newlyCreated(dispatch(requested, reserved, runRequest));
         } catch (RuntimeException exception) {
             executionFileStore.erase(inputFile);
 

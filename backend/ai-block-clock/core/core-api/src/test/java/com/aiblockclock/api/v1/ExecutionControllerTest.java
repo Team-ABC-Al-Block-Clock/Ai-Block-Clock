@@ -472,6 +472,19 @@ class ExecutionControllerTest {
     }
 
     @Test
+    void 같은_요청_번호로_다시_보내도_끝난_실행을_다시_따라가지_않는다() throws Exception {
+        String requestId = UUID.randomUUID().toString();
+        String executionId = startWith(requestId);
+        finish(executionId);
+
+        startWith(requestId);
+
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
+                .isEqualTo(ExecutionStatus.SUCCEEDED);
+        assertThat(progressStore.find(ExecutionId.of(executionId))).isEmpty();
+    }
+
+    @Test
     void 엔진에_보낼_요청을_만들다_실패하면_떼지_않는다() throws Exception {
         willThrow(new IllegalStateException("disk is gone")).given(executionFileStore).locate(any());
         String requestId = UUID.randomUUID().toString();
@@ -578,6 +591,13 @@ class ExecutionControllerTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null, null, null)),
                 List.of(), List.of(), null, null);
+    }
+
+    // 뒤에서 따라가던 실행이 끝난 것처럼 만든다. 끝나면 따라가던 기억도 지운다(ExecutionMonitor.stop).
+    private void finish(String executionId) {
+        executionRepository.findById(UUID.fromString(executionId)).orElseThrow().moveTo(ExecutionStatus.SUCCEEDED);
+        executionRepository.flush();
+        progressStore.forget(ExecutionId.of(executionId));
     }
 
     private String forgotten() throws Exception {
