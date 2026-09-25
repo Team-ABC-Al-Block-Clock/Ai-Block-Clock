@@ -98,7 +98,10 @@ export default function MyPageCredit() {
     fg: p.disabled ? 'rgba(255,240,247,.38)' : i === at ? '#e6cbe0' : '#fff',
     anim: 'rise .7s ' + (0.2 + i * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
     pick: () => {
-      if (!p.disabled) setPick(i)
+      if (p.disabled) return
+      setPick(i)
+      // 프리셋을 누르면 직접 입력은 버린다. 남겨 두면 고른 칸과 보내는 값이 갈린다.
+      setTyped('')
     },
   }))
   const cur = raw[at]
