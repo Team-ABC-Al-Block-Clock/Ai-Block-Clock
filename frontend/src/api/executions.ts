@@ -1,4 +1,4 @@
-import { api } from '@/api/client'
+import { API_BASE_URL, api } from '@/api/client'
 import type { SourceType } from '@/api/workflows'
 
 /**
@@ -47,6 +47,18 @@ export interface ExecutionStep {
   status: StepStatus
 }
 
+/**
+ * 왜 중단되었는지. `status` 가 `FAILED` 일 때만 온다.
+ *
+ * `fault` 가 비어 있으면 모른다는 뜻이다 — 플랫폼 과실이 아니다. 실행 엔진이 이력을 잊어
+ * 사유를 되찾지 못한 경우다.
+ */
+export interface ExecutionFailure {
+  stepName: string | null
+  errorCode: string
+  fault: 'supplier' | 'consumer' | 'platform' | null
+}
+
 export interface ExecutionProgress {
   executionId: string
   status: ExecutionStatus
@@ -58,6 +70,8 @@ export interface ExecutionProgress {
   /** 끝났으면 null */
   currentStepName: string | null
   steps: ExecutionStep[]
+  /** `FAILED` 가 아니면 null. 서버가 칸 자체를 안 보내기도 한다 */
+  failure?: ExecutionFailure | null
 }
 
 export interface StartedExecution {
@@ -125,3 +139,14 @@ export const startExecution = ({
  */
 export const getExecutionProgress = (executionId: string) =>
   api.get<ExecutionProgress>(`/runs/${executionId}`)
+
+export const isFinished = (status: ExecutionStatus) => status === 'SUCCEEDED' || status === 'FAILED'
+
+/**
+ * 진행 상황 스트림을 연다. 붙는 즉시 지금 상태가 한 번 오고, 그 뒤로는 달라졌을 때만 온다.
+ *
+ * axios 인터셉터를 타지 않아 봉투가 벗겨지지 않는다 — 서버가 `data` 알맹이만 실어 보내므로
+ * 그대로 쓴다. 세션은 쿠키라 `withCredentials` 만 있으면 붙는다.
+ */
+export const openRunStream = (executionId: string) =>
+  new EventSource(`${API_BASE_URL}/runs/${executionId}/stream`, { withCredentials: true })

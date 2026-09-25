@@ -87,7 +87,7 @@ export default function NodePalettePanel({
             className="text-[14.5px]"
             style={{ gridColumn: '1 / -1', color: 'rgba(255,236,246,.78)' }}
           >
-            목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.
+            목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
           </div>
         )}
         {isEmpty && (
