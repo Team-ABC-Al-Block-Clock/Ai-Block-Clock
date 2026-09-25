@@ -9,7 +9,6 @@ import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Workflow;
-import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -34,6 +33,8 @@ public class ExecutionService {
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
+    private final ExecutionProgressStore progressStore;
+    private final ExecutionMonitor executionMonitor;
 
     public Execution start(
             UserId requester, Workflow workflow, String comment, boolean mock, UploadedFile upload) {
@@ -57,21 +58,59 @@ public class ExecutionService {
         }
     }
 
+    public void beginWatching(Execution execution) {
+        executionMonitor.begin(execution);
+    }
+
+    public boolean pollOnce(ExecutionId id) {
+        return executionMonitor.poll(id);
+    }
+
     public ExecutionProgress follow(ExecutionId id, UserId requester) {
+        return progressOf(mine(id, requester));
+    }
+
+    public ExecutionProgress progressOf(Execution execution) {
+        return progressStore.find(execution.getId()).orElseGet(() -> readThrough(execution));
+    }
+
+    public Execution mine(ExecutionId id, UserId requester) {
         Execution execution = executionReader.read(id);
 
         if (!execution.isRequestedBy(requester)) {
             throw new CoreException(ErrorType.EXECUTION_NOT_FOUND);
         }
 
-        RunStatus run = read(execution);
-        ExecutionStatus reported = ExecutionProgress.toStatus(run.state());
+        return execution;
+    }
 
-        if (reported != execution.getStatus()) {
-            executionWriter.moveTo(id, reported);
+    private ExecutionProgress readThrough(Execution execution) {
+        if (execution.getStatus().isFinished()) {
+            return concluded(execution);
         }
 
-        return ExecutionProgress.of(id, run, execution.getPromptCount());
+        ExecutionProgress progress = ExecutionProgress.of(
+                execution.getId(), read(execution), execution.getPromptCount());
+
+        if (progress.status() != execution.getStatus()) {
+            executionWriter.moveTo(execution.getId(), progress.status());
+        }
+
+        return progress;
+    }
+
+    private ExecutionProgress concluded(Execution execution) {
+        try {
+            return ExecutionProgress.concluded(
+                    ExecutionProgress.of(execution.getId(), aiRuntimeClient.read(execution.getRunId().value()),
+                            execution.getPromptCount()),
+                    execution.getStatus());
+        } catch (AiClientException exception) {
+            log.info("엔진이 끝난 실행을 잊었다. 우리가 남긴 것으로 답한다: execution={}", execution.getId().value());
+
+            return ExecutionProgress.concluded(
+                    execution.getId(), execution.getStatus(), execution.getPromptCount());
+        }
     }
 
     private RunAccepted accept(

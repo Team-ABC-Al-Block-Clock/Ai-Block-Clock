@@ -79,6 +79,10 @@ public record RunStatus(
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Failure(String code, String message, @JsonProperty("node_id") String nodeId) {
+    public record Failure(
+            @JsonProperty("node_id") String nodeId,
+            @JsonProperty("error_code") String errorCode,
+            String fault
+    ) {
     }
 }

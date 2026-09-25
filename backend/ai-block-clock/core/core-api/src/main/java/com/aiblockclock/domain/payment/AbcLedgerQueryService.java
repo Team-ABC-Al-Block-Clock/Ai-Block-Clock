@@ -13,7 +13,7 @@ public class AbcLedgerQueryService {
     private final AbcTransactionReader abcTransactionReader;
 
     public AbcBalance readBalance(UserId userId) {
-        return abcBalanceReader.read(referenceIdOf(userId));
+        return abcBalanceReader.read(userId);
     }
 
     public CursorPage<AbcTransaction> readTransactions(

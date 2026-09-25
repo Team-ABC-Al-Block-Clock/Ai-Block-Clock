@@ -2,10 +2,14 @@ package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
+import com.aiblockclock.domain.workflow.NodeKey;
+import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.agent.PublicationState;
+import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.agent.AgentEntity;
 import com.aiblockclock.storage.agent.AgentRepository;
 import com.aiblockclock.storage.agent.AgentVersionEntity;
@@ -122,6 +126,35 @@ class AgentRegistrationIntegrationTest {
     }
 
     @Test
+    @DisplayName("안에 놓인 에이전트는 그 버전에 박힌 원가와 노드 수를 더한다")
+    void addsCostOfPlacedAgentVersion() {
+        AgentRegistration inner = register(Revision.initial());
+        Workflow outer = workflowService.save(OWNER, "에이전트를 품은 워크플로우", null,
+                List.of(GraphFixtures.placement("n1", NodeDefinitionSeeder.seed(nodeRepository, OWNER.value())),
+                        agentPlacement("n2", inner.agent().getId())),
+                List.of(GraphFixtures.edge("e1", "n1", "n2")));
+
+        AgentRegistration registered = agentService.register(OWNER, outer, Revision.initial(), profile());
+
+        assertThat(registered.version().getCost().promptNodeCount()).isEqualTo(3);
+        assertThat(registered.version().getCost().baseCost().value()).isEqualByComparingTo("9.000000");
+    }
+
+    @Test
+    @DisplayName("같은 에이전트를 두 자리에 놓으면 두 번 센다")
+    void countsEveryPlacementOfTheSameAgent() {
+        AgentRegistration inner = register(Revision.initial());
+        Workflow outer = workflowService.save(OWNER, "같은 에이전트를 두 번 놓는다", null,
+                List.of(agentPlacement("n1", inner.agent().getId()), agentPlacement("n2", inner.agent().getId())),
+                List.of(GraphFixtures.edge("e1", "n1", "n2")));
+
+        AgentRegistration registered = agentService.register(OWNER, outer, Revision.initial(), profile());
+
+        assertThat(registered.version().getCost().promptNodeCount()).isEqualTo(4);
+        assertThat(registered.version().getCost().baseCost().value()).isEqualByComparingTo("12.000000");
+    }
+
+    @Test
     @DisplayName("보던 회차가 아니면 굳히지 않는다")
     void rejectsStaleRevision() {
         assertThatThrownBy(() -> register(Revision.of(2L)))
@@ -154,6 +187,11 @@ class AgentRegistrationIntegrationTest {
                 null,
                 List.of(GraphFixtures.placement("n1", firstSource), GraphFixtures.placement("n2", secondSource)),
                 List.of(GraphFixtures.edge("e1", "n1", "n2")));
+    }
+
+    private static NodePlacement agentPlacement(String key, AgentId agentId) {
+        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
+                agentId.value(), InputSource.defaultSource(), null, null, null);
     }
 
     private static AgentProfile profile() {
