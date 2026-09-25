@@ -3,8 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom'
 
 import type { ExecutionFailure, StepStatus } from '@/api/executions'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
-import { downloadResult } from '@/api/executions'
-import { ApiError } from '@/api/errors'
+import { downloadResult, type ResultFormat } from '@/api/executions'
+import { ApiError, EXECUTION_ERROR } from '@/api/errors'
 import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
@@ -281,20 +281,22 @@ export default function RunRunning() {
         : 'rgba(255,255,255,.62)',
   }))
   const [downloading, setDownloading] = useState(false)
-  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [downloadProblem, setDownloadProblem] = useState<'PDF_MISSING' | 'FAILED' | null>(null)
 
-  const handleDownload = async () => {
+  const handleDownload = async (format: ResultFormat) => {
     if (!executionId || downloading) return
     setDownloading(true)
-    setDownloadError(null)
+    setDownloadProblem(null)
 
     try {
-      await downloadResult(executionId, 'PDF')
+      await downloadResult(executionId, format)
     } catch (error) {
-      setDownloadError(
-        error instanceof ApiError && error.status === 404
-          ? 'PDF 를 만들지 못했습니다. 결과 JSON 으로 받아 주세요'
-          : '결과를 받지 못했습니다. 잠시 후 다시 눌러 주세요',
+      setDownloadProblem(
+        format === 'PDF' &&
+          error instanceof ApiError &&
+          error.code === EXECUTION_ERROR.RESULT_NOT_FOUND
+          ? 'PDF_MISSING'
+          : 'FAILED',
       )
     } finally {
       setDownloading(false)
@@ -627,7 +629,7 @@ export default function RunRunning() {
 
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={() => handleDownload('PDF')}
               disabled={!executionId || downloading}
               style={{
                 left: `${PANEL_INSET}px`,
@@ -661,7 +663,7 @@ export default function RunRunning() {
               </div>
             </button>
 
-            {downloadError && (
+            {downloadProblem && (
               <div
                 role="alert"
                 className="absolute text-center text-[13px]"
@@ -672,7 +674,22 @@ export default function RunRunning() {
                   color: 'rgba(255,214,232,.72)',
                 }}
               >
-                {downloadError}
+                {downloadProblem === 'PDF_MISSING' ? (
+                  <>
+                    PDF 를 만들지 못했습니다.{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleDownload('JSON')}
+                      disabled={downloading}
+                      className="cursor-pointer font-bold underline disabled:cursor-default"
+                      style={{ color: 'rgba(255,236,246,.92)' }}
+                    >
+                      결과 JSON 으로 받기
+                    </button>
+                  </>
+                ) : (
+                  '결과를 받지 못했습니다. 잠시 후 다시 눌러 주세요'
+                )}
               </div>
             )}
 

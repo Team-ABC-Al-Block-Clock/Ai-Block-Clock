@@ -71,6 +71,10 @@ export const USER_ERROR = {
   IMAGE_CONFLICT: 'USER_007',
 } as const
 
+export const EXECUTION_ERROR = {
+  RESULT_NOT_FOUND: 'EXECUTION_007',
+} as const
+
 /**
  * ABC 충전 실패 코드.
  *
