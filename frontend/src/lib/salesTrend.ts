@@ -8,13 +8,18 @@ export function dailySeries(
   range: { from?: string; to?: string },
 ) {
   if (!range.from || !range.to) {
-    return periods.map((p) => ({ day: p.periodStart, amount: Number(p.amount) }))
+    return periods.map((p) => ({
+      day: p.periodStart,
+      amount: Number(p.amount),
+      executionCount: p.executionCount,
+    }))
   }
-  const byDay = new Map(periods.map((p) => [p.periodStart, Number(p.amount)]))
-  const series: { day: string; amount: number }[] = []
+  const byDay = new Map(periods.map((p) => [p.periodStart, p]))
+  const series: { day: string; amount: number; executionCount: number }[] = []
   for (let at = Date.parse(range.from); at <= Date.parse(range.to); at += DAY_MS) {
     const day = new Date(at).toISOString().slice(0, 10)
-    series.push({ day, amount: byDay.get(day) ?? 0 })
+    const hit = byDay.get(day)
+    series.push({ day, amount: Number(hit?.amount ?? 0), executionCount: hit?.executionCount ?? 0 })
   }
   return series
 }

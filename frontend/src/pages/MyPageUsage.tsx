@@ -2,12 +2,14 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Fragment, useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import MyPageFrame from '@/components/MyPageFrame'
-import type { CreditTransactionType } from '@/api/credits'
+import type { CreditTransaction, CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditHistory, getCreditTransactions } from '@/api/credits'
 import StatusDot from '@/components/StatusDot'
-import { amountLabel, priceLabel, shortAddress, timeLabel } from '@/lib/format'
+import { amountLabel, priceLabel, runLabel, shortAddress, timeLabel } from '@/lib/format'
 import { PERIODS, rangeOf } from '@/lib/period'
 import { queryKeys } from '@/lib/queryKeys'
+import { dailySeries, trendPath } from '@/lib/salesTrend'
+import { usagePeriods, usageTotals } from '@/lib/usageTrend'
 import { historyStatus, type HistoryTone } from '@/lib/withdrawalMessage'
 
 /** 마켓(9)·마이페이지 목록(10)과 다르다. */
@@ -22,6 +24,10 @@ const TYPE_LABELS: Record<CreditTransactionType, string> = {
 
 /** 들어오는 것은 초록, 나가는 것은 분홍. */
 const WALLET_POLL_MS = 15_000
+const CHART_W = 534
+const CHART_H = 146
+/** 기간 전체를 50건씩 읽는다. 너무 길면 여기서 끊어 요청이 끝없이 늘지 않게 한다. */
+const TREND_PAGE_LIMIT = 20
 const TONE_COLORS: Record<HistoryTone, string> = {
   done: '#9ad0b4',
   progress: '#c9a9dd',
@@ -55,6 +61,39 @@ export default function MyPageUsage() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })
 
+  const trend = useQuery({
+    queryKey: queryKeys.credits.transactions.list({ ...range, trend: true }),
+    queryFn: async () => {
+      const rows: CreditTransaction[] = []
+      let cursor: string | undefined
+      for (let i = 0; i < TREND_PAGE_LIMIT; i++) {
+        const page = await getCreditTransactions({ ...range, size: 50, cursor })
+        rows.push(...page.content)
+        if (!page.hasNext || !page.nextCursor) break
+        cursor = page.nextCursor
+      }
+      return rows
+    },
+  })
+  const trendRows = trend.data ?? []
+  const totals = usageTotals(trendRows)
+  const series = trend.data ? dailySeries(usagePeriods(trendRows), range) : []
+  const spendLine = trendPath(
+    series.map((p) => p.amount),
+    CHART_W,
+    CHART_H,
+  )
+  const runLine = trendPath(
+    series.map((p) => p.executionCount),
+    CHART_W,
+    CHART_H,
+    40,
+  )
+  const ticks =
+    series.length > 1
+      ? [0, 1, 2, 3, 4].map((k) => series[Math.round(((series.length - 1) * k) / 4)].day.slice(5))
+      : series.map((p) => p.day.slice(5))
+
   const [listTab, setListTab] = useState<'usage' | 'wallet'>('usage')
   // 충전 · 출금은 기간 조건이 없다. 처리 중인 줄이 있으면 다시 불러 상태를 따라간다.
   const wallet = useInfiniteQuery({
@@ -80,6 +119,10 @@ export default function MyPageUsage() {
     !list.isPending && !list.isError && (walletTab ? walletRows : history).length === 0
 
   const available = balance.data?.availableAmount
+  const reserved = balance.data?.reservedAmount
+  // 실행에 묶인 것까지가 전체다. 잔액이 0 이면 나눗셈이 NaN 이라 빈 고리로 둔다.
+  const total = Number(available ?? 0) + Number(reserved ?? 0)
+  const gaugeArc = total > 0 ? (452.39 * Number(available ?? 0)) / total : 0
 
   const handlePickPeriod = (at: number) => {
     setPeriodAt(at)
@@ -208,12 +251,15 @@ export default function MyPageUsage() {
         }}
       >
         <div className="text-[17px] font-semibold tracking-[-.01em] text-white">사용량 추이</div>
-        {/* 서버에 통계 API 가 없어 아래 꺾은선과 요약 문구는 임의 값이다. */}
         <div
           className="text-[13px] tracking-[-.01em]"
           style={{ marginTop: '5px', width: '534px', color: 'rgba(255,236,246,.6)' }}
         >
-          총 호출 수 1,248회 (+18.3%) · 가장 많이 사용 GPT-4o · 피크 14:00 ~ 16:00
+          {trend.data
+            ? `${period.label} 총 사용 ${priceLabel(totals.spent)} · 실행 ${runLabel(totals.executionCount)}`
+            : trend.isError
+              ? '사용량을 불러오지 못했습니다.'
+              : '사용량을 불러오는 중입니다.'}
         </div>
         <div className="flex" style={{ marginTop: '10px', gap: '18px' }}>
           <div className="flex items-center" style={{ gap: '7px' }}>
@@ -231,7 +277,7 @@ export default function MyPageUsage() {
               className="text-[12.5px] whitespace-nowrap"
               style={{ color: 'var(--color-muted)' }}
             >
-              호출 수
+              실행 수
             </div>
           </div>
         </div>
@@ -272,41 +318,47 @@ export default function MyPageUsage() {
                 <stop offset="100%" stopColor="#ffb0cd" stopOpacity="0" />
               </linearGradient>
             </defs>
-            <path
-              d="M0 118 L44 96 L89 108 L133 74 L178 92 L222 62 L267 78 L311 50 L356 66 L400 34 L445 52 L489 26 L534 40 L534 146 L0 146 Z"
-              fill="url(#spendFill)"
-            />
-            <path
-              d="M0 118 L44 96 L89 108 L133 74 L178 92 L222 62 L267 78 L311 50 L356 66 L400 34 L445 52 L489 26 L534 40"
-              fill="none"
-              stroke="url(#spendLine)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray="1400"
-              style={{ animation: 'drawUp 1.5s .35s cubic-bezier(.3,.7,.2,1) both' }}
-            />
-            <path
-              d="M0 132 L44 124 L89 128 L133 110 L178 118 L222 100 L267 112 L311 92 L356 102 L400 80 L445 92 L489 70 L534 82"
-              fill="none"
-              stroke="#dba18b"
-              strokeOpacity=".62"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray="1400"
-              style={{ animation: 'drawUp 1.5s .5s cubic-bezier(.3,.7,.2,1) both' }}
-            />
+            {spendLine && (
+              <path
+                d={`${spendLine} L${CHART_W} ${CHART_H} L0 ${CHART_H} Z`}
+                fill="url(#spendFill)"
+              />
+            )}
+            {spendLine && (
+              <path
+                d={spendLine}
+                fill="none"
+                stroke="url(#spendLine)"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                pathLength={1400}
+                strokeDasharray="1400"
+                style={{ animation: 'drawUp 1.5s .35s cubic-bezier(.3,.7,.2,1) both' }}
+              />
+            )}
+            {runLine && (
+              <path
+                d={runLine}
+                fill="none"
+                stroke="#dba18b"
+                strokeOpacity=".62"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                pathLength={1400}
+                strokeDasharray="1400"
+                style={{ animation: 'drawUp 1.5s .5s cubic-bezier(.3,.7,.2,1) both' }}
+              />
+            )}
           </svg>
           <div
             className="absolute left-0 flex justify-between text-[12px]"
             style={{ top: '142px', width: '534px', color: 'rgba(255,236,246,.5)' }}
           >
-            <span>08/01</span>
-            <span>08/07</span>
-            <span>08/13</span>
-            <span>08/19</span>
-            <span>08/25</span>
+            {ticks.map((t, i) => (
+              <span key={i}>{t.replace('-', '/')}</span>
+            ))}
           </div>
         </div>
       </div>
@@ -324,25 +376,60 @@ export default function MyPageUsage() {
         }}
       >
         <div className="text-[17px] font-semibold tracking-[-.01em] text-white">코인 잔액</div>
-        <div
-          className="flex flex-col items-center justify-center text-center"
-          style={{ height: '200px' }}
-        >
-          <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-            지금 쓸 수 있는 ABC
-          </div>
-          <div
-            className="text-[40px] font-semibold tracking-[-.02em] text-white"
-            style={{ marginTop: '8px', lineHeight: '1.1' }}
+        <div className="relative" style={{ marginTop: '8px', width: '266px', height: '160px' }}>
+          <svg
+            className="absolute top-0 left-0"
+            width="266"
+            height="160"
+            viewBox="0 0 266 160"
+            fill="none"
           >
-            {available ? amountLabel(available) : '—'}
+            <g transform="translate(133,80) rotate(-90) scale(0.98)">
+              <circle r="72" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="11" />
+              <circle
+                r="72"
+                fill="none"
+                stroke="#c9a9dd"
+                strokeWidth="11"
+                strokeLinecap="round"
+                strokeDasharray={`${gaugeArc} 452.39`}
+                style={{ animation: 'gaugeIn 1.1s .5s cubic-bezier(.3,.7,.2,1) both' }}
+              />
+            </g>
+          </svg>
+          <div className="absolute left-0 text-center" style={{ top: '52px', width: '266px' }}>
+            <div
+              className="text-[30px] font-semibold tracking-[-.02em] text-white"
+              style={{ lineHeight: '1.1' }}
+            >
+              {available ? amountLabel(available) : '—'}
+            </div>
+            <div
+              className="text-[13px]"
+              style={{ marginTop: '3px', color: 'rgba(255,236,246,.62)' }}
+            >
+              ABC 사용 가능
+            </div>
           </div>
-          <div className="text-[15px] font-semibold" style={{ marginTop: '4px', color: '#c9a9dd' }}>
-            ABC
+        </div>
+        <div
+          className="flex justify-center text-[13px]"
+          style={{ marginTop: '10px', gap: '14px', color: 'rgba(255,236,246,.72)' }}
+        >
+          <div className="flex items-center" style={{ gap: '6px' }}>
+            <StatusDot color="#c9a9dd" />
+            사용 가능 {available ? amountLabel(available) : '—'}
+          </div>
+          <div className="flex items-center" style={{ gap: '6px' }}>
+            <StatusDot color="rgba(255,255,255,.3)" />
+            실행 중 {reserved ? amountLabel(reserved) : '—'}
           </div>
         </div>
         {/* PAY-004 — 남에게 ABC 가 가는 길은 정산금 적립 하나뿐이다. */}
-        <div className="text-center text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+        <div
+          className="text-center text-[13px]"
+          style={{ marginTop: '8px', color: 'rgba(255,236,246,.55)' }}
+        >
           ABC 는 양도할 수 없어요
         </div>
       </div>

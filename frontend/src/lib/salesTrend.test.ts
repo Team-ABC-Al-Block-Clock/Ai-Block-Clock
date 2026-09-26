@@ -13,17 +13,17 @@ describe('dailySeries', () => {
     )
 
     expect(series).toEqual([
-      { day: '2026-09-01', amount: 1.5 },
-      { day: '2026-09-02', amount: 0 },
-      { day: '2026-09-03', amount: 2 },
-      { day: '2026-09-04', amount: 0 },
+      { day: '2026-09-01', amount: 1.5, executionCount: 1 },
+      { day: '2026-09-02', amount: 0, executionCount: 0 },
+      { day: '2026-09-03', amount: 2, executionCount: 2 },
+      { day: '2026-09-04', amount: 0, executionCount: 0 },
     ])
   })
 
   it('기간이 없으면 받은 날만 쓴다', () => {
     const series = dailySeries([{ periodStart: '2026-09-01', amount: '1', executionCount: 1 }], {})
 
-    expect(series).toEqual([{ day: '2026-09-01', amount: 1 }])
+    expect(series).toEqual([{ day: '2026-09-01', amount: 1, executionCount: 1 }])
   })
 })
 
