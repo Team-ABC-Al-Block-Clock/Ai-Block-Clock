@@ -14,6 +14,9 @@ export const IN_PROGRESS_WITHDRAWAL: readonly WithdrawalStatus[] = [
   'ON_HOLD',
 ]
 
+export const isWithdrawalInProgress = (status: string) =>
+  (IN_PROGRESS_WITHDRAWAL as readonly string[]).includes(status)
+
 export interface Withdrawal {
   withdrawalId: string
   status: WithdrawalStatus

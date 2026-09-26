@@ -7,12 +7,12 @@ import { IN_PROGRESS_WITHDRAWAL, WITHDRAWAL_LIMITS } from '@/api/withdrawals'
 import { useAbcCharge, type AbcCharge } from '@/hooks/useAbcCharge'
 import { usePayoutWithdrawal } from '@/hooks/usePayoutWithdrawal'
 import { useWalletAbcBalance } from '@/hooks/useWalletAbcBalance'
+import { useWalletStatus } from '@/hooks/useWalletStatus'
 import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
 import { amountLabel, chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { withdrawalStatusText } from '@/lib/withdrawalMessage'
-import { useAuthStore } from '@/stores/authStore'
 
 const { MIN_AMOUNT, MAX_AMOUNT } = WITHDRAWAL_LIMITS
 
@@ -91,7 +91,7 @@ export default function MyPageCredit() {
   const [typed, setTyped] = useState('')
   const charge = useAbcCharge()
   const payoutFlow = usePayoutWithdrawal()
-  const wallet = useAuthStore((s) => s.profile?.wallet.address ?? s.walletAddress)
+  const wallet = useWalletStatus().walletAddress
 
   const balance = useQuery({
     queryKey: queryKeys.credits.balance(),
@@ -106,25 +106,26 @@ export default function MyPageCredit() {
   }, [charge.phase, refetchWallet])
   // 프리셋 계산에만 숫자를 쓴다. 표시는 서버 문자열 그대로다.
   const payout = Number(balance.data?.payoutAmount ?? 0)
+  // 전액은 서버 문자열을 그대로 보낸다 — 1e6 을 곱해 내리면 8.2 가 8.199999 가 된다.
+  const payoutText = trimAbcAmount(balance.data?.payoutAmount ?? '0')
   // 1,000 을 넘겨 보내면 PAYMENT_010 이다.
-  const payoutMax = Math.min(Math.floor(payout * 1e6) / 1e6, MAX_AMOUNT)
+  const payoutMax = payout > MAX_AMOUNT ? String(MAX_AMOUNT) : payoutText
   const withdraw = mode === 'withdraw'
   const convert = mode === 'convert'
   const available = Number(balance.data?.availableAmount ?? 0)
-  const payoutFloor = Math.floor(payout * 1e6) / 1e6
   // 적용 뒤 금액은 아래 요약이 보여 준다. 칸에는 금액만 둔다.
   const presetAmounts = withdraw
-    ? [100, 200, 400, payoutMax]
+    ? ['100', '200', '400', payoutMax]
     : convert
-      ? [100, 200, 400, payoutFloor]
-      : [500, 1000, 2500, 5000]
+      ? ['100', '200', '400', payoutText]
+      : ['500', '1000', '2500', '5000']
   const raw = presetAmounts.map((amount) => ({
     credit: chargeAmountLabel(amount),
     amount,
     disabled: withdraw
-      ? amount > payout || amount < MIN_AMOUNT
+      ? Number(amount) > payout || Number(amount) < MIN_AMOUNT
       : convert
-        ? amount > payout || amount <= 0
+        ? Number(amount) > payout || Number(amount) <= 0
         : false,
   }))
   // 고른 칸이 잔액 부족이면 고를 수 있는 마지막 칸으로 내린다. 없으면 그대로 둔다.
@@ -145,7 +146,7 @@ export default function MyPageCredit() {
   }))
   const cur = raw[at]
   // 직접 입력이 있으면 그 값이 이긴다. 프리셋은 비워 뒀을 때의 기본값이다.
-  const amount = typed.trim() || String(cur.amount)
+  const amount = typed.trim() || cur.amount
   // 요약은 실제로 보낼 값을 그대로 보여 준다 — 프리셋만 따르면 직접 입력한 금액이 화면에서 사라진다.
   const sumCredit = isSendableAmount(amount) ? chargeAmountLabel(trimAbcAmount(amount)) : '—'
   const handlePickMode = (next: Mode) => {

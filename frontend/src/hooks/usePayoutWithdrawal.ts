@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { convertPayout, getCreditHistory } from '@/api/credits'
 import {
   cancelWithdrawal,
   createWithdrawal,
-  IN_PROGRESS_WITHDRAWAL,
+  isWithdrawalInProgress as isInProgress,
   type WithdrawalStatus,
 } from '@/api/withdrawals'
 import { trimAbcAmount } from '@/lib/abcToken'
@@ -40,15 +40,13 @@ const LATEST = { type: 'WITHDRAWAL', size: 1 } as const
 /** 서버가 10 ~ 30초 간격이면 충분하다고 했다. */
 const POLL_MS = 15_000
 
-const isInProgress = (status: string) =>
-  (IN_PROGRESS_WITHDRAWAL as readonly string[]).includes(status)
-
 export function usePayoutWithdrawal() {
   const queryClient = useQueryClient()
   const withdrawalId = useRequestId()
   const conversionId = useRequestId()
-  // 끝난 출금은 이 화면에서 건드린 것만 카드로 보여 주고, 확인을 누르면 접는다.
+  // 끝난 출금은 이 화면에서 건드렸거나 진행 중으로 지켜본 것만 카드로 보여 주고, 확인을 누르면 접는다.
   const [touchedId, setTouchedId] = useState<string | null>(null)
+  const [watchedId, setWatchedId] = useState<string | null>(null)
   const [dismissedId, setDismissedId] = useState<string | null>(null)
 
   const latest = useQuery({
@@ -61,8 +59,12 @@ export function usePayoutWithdrawal() {
     },
   })
   const item = latest.data
+  // 렌더 중에 맞춘다 — effect 에서 set 하면 한 번 더 그린다.
+  if (item && isInProgress(item.status) && watchedId !== item.id) setWatchedId(item.id)
   const withdrawal: WithdrawalView | null =
-    item && item.id !== dismissedId && (isInProgress(item.status) || item.id === touchedId)
+    item &&
+    item.id !== dismissedId &&
+    (isInProgress(item.status) || item.id === touchedId || item.id === watchedId)
       ? {
           id: item.id,
           status: item.status as WithdrawalStatus,
@@ -82,6 +84,23 @@ export function usePayoutWithdrawal() {
       queryClient.invalidateQueries({ queryKey: queryKeys.credits.history.lists() }),
     ])
 
+  // 반려 · 실패면 묶였던 금액이 정산금으로 돌아온다. 끝나는 순간 잔액을 다시 읽는다.
+  const lastSeen = useRef<{ id: string; status: string } | null>(null)
+  useEffect(() => {
+    if (!item) return
+    const prev = lastSeen.current
+    lastSeen.current = { id: item.id, status: item.status }
+    if (!isInProgress(item.status) && prev?.id === item.id && isInProgress(prev.status)) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.credits.balance() })
+    }
+  }, [item, queryClient])
+
+  // 실패는 대개 상태가 그새 바뀐 것이다(PAYMENT_012 · 016). 카드가 옛 상태로 남지 않게 다시 묻는다.
+  const failWith = (action: 'request' | 'cancel') => (e: unknown) => {
+    setError(withdrawalErrorText(e, action))
+    void queryClient.invalidateQueries({ queryKey: queryKeys.credits.history.lists() })
+  }
+
   const create = useMutation({
     mutationFn: (amount: string) =>
       createWithdrawal({ requestId: withdrawalId.take(`w:${amount}`), amount }),
@@ -90,7 +109,7 @@ export function usePayoutWithdrawal() {
       setTouchedId(result.withdrawalId)
       void refreshCredits()
     },
-    onError: (e) => setError(withdrawalErrorText(e, 'request')),
+    onError: failWith('request'),
   })
 
   const cancel = useMutation({
@@ -99,7 +118,7 @@ export function usePayoutWithdrawal() {
       setTouchedId(result.withdrawalId)
       void refreshCredits()
     },
-    onError: (e) => setError(withdrawalErrorText(e, 'cancel')),
+    onError: failWith('cancel'),
   })
 
   const convert = useMutation({

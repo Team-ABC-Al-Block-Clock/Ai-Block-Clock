@@ -1,4 +1,4 @@
-import { IN_PROGRESS_WITHDRAWAL, type WithdrawalStatus } from '@/api/withdrawals'
+import { isWithdrawalInProgress, type WithdrawalStatus } from '@/api/withdrawals'
 import { ApiError, WITHDRAWAL_ERROR } from '@/api/errors'
 import { dateTimeLabel } from '@/lib/format'
 
@@ -89,10 +89,6 @@ export function historyStatus(type: 'CHARGE' | 'WITHDRAWAL', status: string) {
     return { label: CHARGE_STATUS[status] ?? status, tone }
   }
   const tone: HistoryTone =
-    status === 'PAID'
-      ? 'done'
-      : (IN_PROGRESS_WITHDRAWAL as readonly string[]).includes(status)
-        ? 'progress'
-        : 'closed'
+    status === 'PAID' ? 'done' : isWithdrawalInProgress(status) ? 'progress' : 'closed'
   return { label: withdrawalStatusText(status as WithdrawalStatus).title, tone }
 }
