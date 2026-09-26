@@ -31,7 +31,7 @@ class WalletAuthMessageGeneratorTest {
 
         WalletAuthMessageGenerator generator = new WalletAuthMessageGenerator(
                 new WalletAuthProperties("j15a403.p.ssafy.io",
-                        URI.create("https://j15a403.p.ssafy.io/"), 80002L, Duration.ofMinutes(5)),
+                        URI.create("https://j15a403.p.ssafy.io/"), 31221L, Duration.ofMinutes(5)),
                 walletNonceGenerator,
                 clock
         );
@@ -50,7 +50,7 @@ class WalletAuthMessageGeneratorTest {
                 "",
                 "URI: https://j15a403.p.ssafy.io/",
                 "Version: 1",
-                "Chain ID: 80002",
+                "Chain ID: 31221",
                 "Nonce: " + NONCE,
                 "Issued At: 2026-09-16T12:00:00.123456Z",
                 "Expiration Time: 2026-09-16T12:05:00.123456Z"
@@ -68,7 +68,7 @@ class WalletAuthMessageGeneratorTest {
 
         WalletAuthMessageGenerator generator = new WalletAuthMessageGenerator(
                 new WalletAuthProperties("j15a403.p.ssafy.io",
-                        URI.create("https://j15a403.p.ssafy.io/"), 80002L, Duration.ofMinutes(5)),
+                        URI.create("https://j15a403.p.ssafy.io/"), 31221L, Duration.ofMinutes(5)),
                 walletNonceGenerator,
                 clock
         );
@@ -86,7 +86,7 @@ class WalletAuthMessageGeneratorTest {
 
         WalletAuthMessageGenerator generator = new WalletAuthMessageGenerator(
                 new WalletAuthProperties("localhost:5173", URI.create("http://localhost:5173/"),
-                        80002L, Duration.ofSeconds(90)),
+                        31221L, Duration.ofSeconds(90)),
                 walletNonceGenerator,
                 clock
         );

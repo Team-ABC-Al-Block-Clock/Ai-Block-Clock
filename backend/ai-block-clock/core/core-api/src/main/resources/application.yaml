@@ -42,6 +42,24 @@ execution:
     per-step: ${EXECUTION_POLL_PER_STEP:40s}
     grace: ${EXECUTION_POLL_GRACE:60s}
 
+payment:
+  charge:
+    # 로그인과 같은 SSAFY 체인이다. 충전 요청마다 이 값을 적고 거래의 체인 ID 와 대조한다
+    chain-id: ${PAYMENT_CHARGE_CHAIN_ID:31221}
+    # 사용자가 abcToken 을 보내는 입금 전용 지갑. 권한 없는 일반 계정이고 발행(오너·민터) 계정과 나눴다
+    custody-address: ${PAYMENT_CHARGE_CUSTODY_ADDRESS:0x64e72A170a7a36cE09806190Ed02085fe23CB6B6}
+    # 토큰 주소는 :client:blockchain 설정 하나만 둔다
+    deposit-token-contract-address: ${ssafy.sto.token.contract-address}
+    # QBFT 체인은 확정된 블록이 되돌려지지 않아 블록에 적히면 바로 믿는다
+    required-confirmations: ${PAYMENT_CHARGE_REQUIRED_CONFIRMATIONS:1}
+    # 블록이 약 10초마다 생겨서 더 자주 물어도 새 답이 없다
+    poll-interval: ${PAYMENT_CHARGE_POLL_INTERVAL:10s}
+    # 체인에 닿지 못하면 간격을 두 배씩 늘리되 이 값에서 멈춘다
+    max-poll-interval: ${PAYMENT_CHARGE_MAX_POLL_INTERVAL:5m}
+    # 이 시간이 지나도 거래가 블록에 적히지 않으면 실패로 닫는다. 늦게 성사되면 사용자가 같은 해시로 다시 요청한다
+    verification-timeout: ${PAYMENT_CHARGE_VERIFICATION_TIMEOUT:30m}
+    polling-enabled: ${PAYMENT_CHARGE_POLLING_ENABLED:true}
+
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
 
@@ -71,5 +89,5 @@ agent-grade:
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
   uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}
-  chain-id: ${WALLET_AUTH_CHAIN_ID:80002}
+  chain-id: ${WALLET_AUTH_CHAIN_ID:31221}
   message-ttl: ${WALLET_AUTH_MESSAGE_TTL:5m}

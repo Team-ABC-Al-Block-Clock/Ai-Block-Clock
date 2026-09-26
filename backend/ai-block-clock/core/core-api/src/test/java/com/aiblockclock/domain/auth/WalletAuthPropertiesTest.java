@@ -28,7 +28,7 @@ class WalletAuthPropertiesTest {
             WalletAuthProperties properties = context.getBean(WalletAuthProperties.class);
             assertThat(properties.domain()).isEqualTo("localhost:5173");
             assertThat(properties.uri()).isEqualTo(URI.create("http://localhost:5173/"));
-            assertThat(properties.chainId()).isEqualTo(80002L);
+            assertThat(properties.chainId()).isEqualTo(31221L);
             assertThat(properties.messageTtl()).isEqualTo(Duration.ofMinutes(5));
         });
     }
@@ -65,7 +65,7 @@ class WalletAuthPropertiesTest {
         contextRunner.withPropertyValues("spring.profiles.active=local").run(context -> {
             WalletAuthProperties properties = context.getBean(WalletAuthProperties.class);
 
-            assertThat(properties.network()).isEqualTo(WalletNetwork.POLYGON_AMOY);
+            assertThat(properties.network()).isEqualTo(WalletNetwork.SSAFY);
         });
     }
 

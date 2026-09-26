@@ -10,6 +10,10 @@ public final class OnChainChargeVerifier {
             ChargeVerificationCriteria criteria,
             OnChainTokenTransfer onChainTransfer
     ) {
+        if (onChainTransfer.isUnknown()) {
+            return ChargeVerificationResult.unreachable();
+        }
+
         if (onChainTransfer.isWaitingForConfirmation()) {
             return ChargeVerificationResult.waiting();
         }
