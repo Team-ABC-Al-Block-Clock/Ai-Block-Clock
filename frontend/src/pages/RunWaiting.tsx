@@ -111,6 +111,7 @@ export default function RunWaiting() {
     attached: [],
     pending: file ? [file] : [],
     busy: false,
+    loading: false,
     problem: fileProblem,
     onPick: (picked: File[]) => {
       const [first] = picked

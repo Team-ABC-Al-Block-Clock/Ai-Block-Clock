@@ -793,7 +793,7 @@ export default function EditNodes() {
           {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
         </button>
 
-        {(saveError ?? unsentNotice ?? saveBlocked) && (
+        {(saveError ?? saveBlocked ?? unsentNotice) && (
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
@@ -802,11 +802,12 @@ export default function EditNodes() {
               top: 'calc(974px + var(--edge-y, 0px))',
               width: '240px',
               color: (saveError ?? unsentNotice) ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
+              // 저장이 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
             }}
           >
-            {saveError ?? unsentNotice ?? saveBlocked}
+            {saveError ?? saveBlocked ?? unsentNotice}
             {/* 저장 버튼은 이미 「저장됨」이라 다시 눌리지 않는다. 보낼 길을 여기 둔다. */}
-            {!saveError && unsentNotice && (
+            {!saveError && !saveBlocked && unsentNotice && (
               <button
                 type="button"
                 onClick={() => void refFiles.flush(targets)}

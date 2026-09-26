@@ -32,12 +32,14 @@ function Row({
   name,
   size,
   hint,
+  disabled,
   onRemove,
 }: {
   name: string
   size: number
   /** 올라간 것과 아직인 것이 한 목록에 섞였을 때만 온다 */
   hint?: string
+  disabled?: boolean
   onRemove: () => void
 }) {
   return (
@@ -59,10 +61,11 @@ function Row({
       </span>
       <button
         type="button"
+        disabled={disabled}
         onClick={onRemove}
         aria-label={`${name} 삭제`}
         title="삭제"
-        className="flex flex-none cursor-pointer items-center justify-center border-0 bg-transparent text-[14px] hover:text-[#fff]"
+        className="flex flex-none cursor-pointer items-center justify-center border-0 bg-transparent text-[14px] hover:text-[#fff] disabled:cursor-default disabled:opacity-40"
         style={{ width: '18px', height: '18px', color: 'rgba(255,255,255,.55)' }}
       >
         ×
@@ -72,7 +75,7 @@ function Row({
 }
 
 export default function RefFileField({
-  slot: { attached, pending, busy, problem, onPick, onDetach, onDropPending },
+  slot: { attached, pending, busy, loading, problem, onPick, onDetach, onDropPending },
   accept = ACCEPT,
   multiple = true,
   emptyHint = EMPTY_HINT,
@@ -112,12 +115,12 @@ export default function RefFileField({
         </span>
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || loading}
           onClick={() => picker.current?.click()}
           className="flex flex-none cursor-pointer items-center border-0 bg-[rgba(255,255,255,.16)] font-[inherit] text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.28)] disabled:cursor-default disabled:opacity-45"
           style={{ height: '30px', padding: '0 14px', borderRadius: '8px' }}
         >
-          {busy ? '올리는 중…' : '찾기'}
+          {busy ? '올리는 중…' : loading ? '불러오는 중…' : '찾기'}
         </button>
         <input
           ref={picker}
@@ -166,6 +169,8 @@ export default function RefFileField({
               name={file.filename}
               size={file.size}
               hint={mixed ? '업로드 완료' : undefined}
+              // 올리는 중에 지우면 합계가 어긋난 채로 다음 건이 나간다.
+              disabled={busy || loading}
               onRemove={() => onDetach(file.refFileId)}
             />
           ))}
@@ -175,6 +180,7 @@ export default function RefFileField({
               name={file.name}
               size={file.size}
               hint={mixed ? '대기중' : undefined}
+              disabled={busy || loading}
               onRemove={() => onDropPending(at)}
             />
           ))}

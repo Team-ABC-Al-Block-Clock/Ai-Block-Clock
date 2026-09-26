@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import {
   attachRefFile,
@@ -27,6 +27,8 @@ export interface RefFileSlot {
   /** 원본이 아직 없어 들고 있는 것 */
   pending: File[]
   busy: boolean
+  /** 붙은 목록을 아직 읽는 중 */
+  loading: boolean
   /** 제출 전 검사나 서버가 거절한 사유. 없으면 null */
   problem: string | null
   onPick: (files: File[]) => void
@@ -39,10 +41,29 @@ const bytesOf = (files: { size: number }[]) => files.reduce((sum, file) => sum +
 export function useNodeRefFiles(selected: { canvasId: string; sourceId: string } | null) {
   const drafts = useRefFileDrafts()
   const [problems, setProblems] = useState<Record<string, string | null>>({})
-  /** 올리는 중인 카드들. 한 칸으로 들면 A 가 끝날 때 B 의 잠금까지 풀린다 */
-  const [busyAt, setBusyAt] = useState<readonly string[]>([])
+  /**
+   * 카드마다 지금 도는 작업 수. 배열에서 이름 하나를 빼는 식이면, 먼저 끝난 삭제가
+   * 아직 도는 업로드의 잠금까지 풀어 같은 카드에 두 번째 업로드가 겹친다.
+   */
+  const [busyCount, setBusyCount] = useState<Record<string, number>>({})
 
+  const isBusy = (nodeId: string) => (busyCount[nodeId] ?? 0) > 0
+  const holdBusy = (nodeId: string) =>
+    setBusyCount((all) => ({ ...all, [nodeId]: (all[nodeId] ?? 0) + 1 }))
+  const releaseBusy = (nodeId: string) =>
+    setBusyCount((all) => {
+      const left = (all[nodeId] ?? 1) - 1
+      const next = { ...all }
+      if (left > 0) next[nodeId] = left
+      else delete next[nodeId]
+      return next
+    })
+
+  const canvasId = selected?.canvasId ?? ''
   const sourceId = selected?.sourceId ?? ''
+
+  // 고른 카드가 바뀌면 앞 카드의 사유를 지운다. 두고 오면 다시 골랐을 때 문제도 없이 빨간 줄만 선다.
+  useEffect(() => () => setProblems((all) => ({ ...all, [canvasId]: null })), [canvasId])
   const detail = useQuery({
     queryKey: queryKeys.nodes.detail(sourceId),
     queryFn: () => getNode(sourceId),
@@ -67,7 +88,7 @@ export function useNodeRefFiles(selected: { canvasId: string; sourceId: string }
     const failed: File[] = []
     let rejected: string | null = null
 
-    setBusyAt((all) => [...all, nodeId])
+    holdBusy(nodeId)
     try {
       for (const file of files) {
         try {
@@ -78,7 +99,7 @@ export function useNodeRefFiles(selected: { canvasId: string; sourceId: string }
         }
       }
     } finally {
-      setBusyAt((all) => all.filter((id) => id !== nodeId))
+      releaseBusy(nodeId)
     }
 
     drafts.keep(nodeId, failed)
@@ -129,11 +150,11 @@ export function useNodeRefFiles(selected: { canvasId: string; sourceId: string }
 
   const detach = (nodeId: string, targetId: string, refFileId: string) => {
     note(nodeId, null)
-    setBusyAt((all) => [...all, nodeId])
+    holdBusy(nodeId)
     void detachRefFile(targetId, refFileId)
       .catch((error: unknown) => note(nodeId, refFileErrorText(error)))
       .finally(() => {
-        setBusyAt((all) => all.filter((id) => id !== nodeId))
+        releaseBusy(nodeId)
         void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.detail(targetId) })
       })
   }
@@ -146,8 +167,9 @@ export function useNodeRefFiles(selected: { canvasId: string; sourceId: string }
   ): RefFileSlot => ({
     attached,
     pending: drafts.filesOf(nodeId),
+    busy: isBusy(nodeId),
     // 붙은 목록을 아직 못 읽었으면 잠근다 — 빈 목록으로 합계와 중복을 재면 검사가 헛돈다.
-    busy: busyAt.includes(nodeId) || loading,
+    loading,
     problem: problems[nodeId] ?? null,
     onPick: (files) => pick(nodeId, targetId, attached, files),
     onDetach: (refFileId) => detach(nodeId, targetId, refFileId),
@@ -161,7 +183,7 @@ export function useNodeRefFiles(selected: { canvasId: string; sourceId: string }
   return {
     /** 캔버스에서 고른 노드의 칸 */
     selected: slotFor(
-      selected?.canvasId ?? '',
+      canvasId,
       sourceId,
       sourceId ? (detail.data?.refFiles ?? []) : [],
       !!sourceId && detail.isPending,
@@ -175,11 +197,14 @@ export function useNodeRefFiles(selected: { canvasId: string; sourceId: string }
       drafts.keep(DRAFT_NODE_KEY, [])
       note(DRAFT_NODE_KEY, null)
     },
-    /** 아직 못 올려 남은 자료의 수 */
-    unsentIn: (canvasIds: readonly string[]) => drafts.countIn(canvasIds),
+    /** 아직 못 올려 남은 자료의 수. 올리는 중인 카드는 빼고 센다 — 진행 중은 실패가 아니다 */
+    unsentIn: (canvasIds: readonly string[]) =>
+      drafts.countIn(canvasIds.filter((id) => !isBusy(id))),
     /** 저장으로 원본이 생긴 카드에 차례로 올린다. 실패한 것은 남겨 둔다 */
     flush: async (sourceIdByCanvasId: Record<string, string>) => {
       for (const [canvasId, targetId] of Object.entries(sourceIdByCanvasId)) {
+        // 이미 도는 중이면 건너뛴다. 같은 File 이 두 번 나가면 서버에 두 줄로 붙는다.
+        if (isBusy(canvasId)) continue
         const files = drafts.filesOf(canvasId)
         if (files.length) await sendAll(canvasId, targetId, files)
       }
