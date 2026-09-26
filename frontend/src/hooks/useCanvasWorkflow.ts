@@ -460,11 +460,17 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
   const placeBeside = (side: 'left' | 'right', seed: Omit<PlacedSeed, 'id'>) => {
     const bounds = nodesBounds(nodes)
     if (!bounds) return placeAtCenter(seed)
+
+    const beside =
+      side === 'left'
+        ? bounds.minX - BESIDE_GAP - NODE_SIZE / 2
+        : bounds.maxX + BESIDE_GAP + NODE_SIZE / 2
+    // 놓인 것들이 화면을 가득 채우면 옆자리가 판 밖이다. 보이지 않는 곳에 놓으면 아무 일도
+    // 일어나지 않은 것처럼 보이는데, 칩은 비활성이 되고 저장은 막힌다.
+    const seen = { from: -view.tx / view.k, to: (PANE_CONTENT_WIDTH - view.tx) / view.k }
+    const half = NODE_SIZE / 2
     return placeFromPalette(seed, {
-      x:
-        side === 'left'
-          ? bounds.minX - BESIDE_GAP - NODE_SIZE / 2
-          : bounds.maxX + BESIDE_GAP + NODE_SIZE / 2,
+      x: Math.min(Math.max(beside, seen.from + half), seen.to - half),
       y: (bounds.minY + bounds.maxY) / 2,
     })
   }
