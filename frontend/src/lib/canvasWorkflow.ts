@@ -302,7 +302,11 @@ export function removeNode(
 ): { nodes: CanvasNodeData[]; edges: CanvasEdge[] } {
   if (!nodes.some((node) => node.id === id)) return { nodes, edges }
   return {
-    nodes: nodes.filter((node) => node.id !== id),
+    // 지운 자리를 읽던 조건은 함께 비운다. 남겨 두면 가리킬 곳이 없는 채로 저장까지 가서,
+    // 저장 버튼은 켜져 있는데 눌러도 되지 않는 상태에 갇힌다.
+    nodes: nodes
+      .filter((node) => node.id !== id)
+      .map((node) => (node.condition?.fromId === id ? { ...node, condition: null } : node)),
     edges: edges.filter((edge) => edge.from !== id && edge.to !== id),
   }
 }
@@ -497,6 +501,19 @@ export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): Canva
 const branchFirst = (next: CanvasEdge[]) =>
   [...next].sort((a, b) => Number(b.when === true) - Number(a.when === true))
 
+/** 분기 조건이 읽는 자리가 아직 제 앞에 있는 기본 노드인가. */
+function readsUpstream(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+  branch: CanvasNodeData,
+): boolean {
+  const from = branch.condition?.fromId
+  if (!from) return false
+  return upstreamOf(nodes, edges, branch.id).some(
+    (node) => node.id === from && node.sourceType === 'NODE',
+  )
+}
+
 interface GraphCheck {
   /** 저장할 수 없는 까닭. 저장할 수 있으면 null */
   problem: string | null
@@ -536,6 +553,10 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
     const next = out.get(node.id) ?? []
     if (node.controlType) {
       if (!node.condition) return fail('분기 노드에 조건을 넣어 주세요')
+      // 조건이 읽던 자리가 지워지거나 뒤로 밀렸을 수 있다. 서버도 같은 것을 본다
+      // (`WorkflowGraph.ensureConditionReadsUpstream`).
+      if (!readsUpstream(nodes, edges, node))
+        return fail('분기 조건이 읽을 노드를 다시 골라 주세요')
       // 참 하나 거짓 하나. 한쪽만 걸려 있으면 아직 저장할 수 없다.
       if (
         next.length !== 2 ||

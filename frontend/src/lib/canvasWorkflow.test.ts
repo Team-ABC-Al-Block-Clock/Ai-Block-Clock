@@ -178,8 +178,7 @@ describe('canSellWorkflow', () => {
 
   it('빈 캔버스는 등록할 것이 없다', () => {
     expect(canSellWorkflow([])).toBe(false)
-  })
-})
+  })})
 
 describe('linearOrder', () => {
   const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
@@ -282,6 +281,26 @@ describe('graphProblem', () => {
   it('끊긴 자리', () => {
     const nodes = [nodeAt('a', 0, 0), nodeAt('b', 0, 0), nodeAt('c', 0, 0)]
     expect(graphProblem(nodes, [link('a', 'b')])).toBe(LOOSE)
+  })
+
+  // 지운 자리를 가리키는 조건이 남으면 저장 버튼은 켜져 있는데 눌러도 되지 않는다.
+  it('조건이 읽던 노드가 사라지면 막는다', () => {
+    const nodes = [nodeAt('a', 0, 0), branch('br')]
+    const after = removeNode(nodes, [link('a', 'br')], 'a')
+
+    expect(after.nodes[0].condition).toBeNull()
+    expect(graphProblem(after.nodes, after.edges)).toBe('분기 노드에 조건을 넣어 주세요')
+  })
+
+  it('조건이 읽는 노드가 분기 앞에 없으면 막는다', () => {
+    // 조건은 a 를 읽는데 a 는 분기 뒤에 있다.
+    const nodes = [branch('br'), nodeAt('a', 0, 0), nodeAt('t', 0, 0), nodeAt('f', 0, 0)]
+    const edges = [
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'a'),
+    ]
+    expect(graphProblem(nodes, edges)).toBe('분기 조건이 읽을 노드를 다시 골라 주세요')
   })
 
   it('이을 수 있는 구성이면 까닭이 없다', () => {
