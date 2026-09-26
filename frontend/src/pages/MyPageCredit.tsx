@@ -178,7 +178,7 @@ export default function MyPageCredit() {
     ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
     : convert
       ? '금액 · 횟수 제한 없음 · 전환한 ABC 는 정산금으로 되돌릴 수 없습니다'
-      : `지갑의 abcToken ${walletBalance.amount === null ? '—' : `${amountLabel(walletBalance.amount)}개`} · 1개가 1 ABC 로 충전되며 ABC 는 양도할 수 없습니다`
+      : `지갑의 abcToken ${walletBalance.amount === null ? '—' : `${amountLabel(walletBalance.amount)}개`} · ABC 는 양도할 수 없습니다`
   const inputPlaceholder = usesPayout
     ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
     : '예치할 금액을 입력하세요'
