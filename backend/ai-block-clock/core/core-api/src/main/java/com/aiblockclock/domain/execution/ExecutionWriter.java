@@ -7,6 +7,8 @@ import com.aiblockclock.storage.execution.ExecutionEntity;
 import com.aiblockclock.storage.execution.ExecutionFailureEntity;
 import com.aiblockclock.storage.execution.ExecutionFailureRepository;
 import com.aiblockclock.storage.execution.ExecutionRepository;
+import com.aiblockclock.storage.execution.ExecutionSettlementEntity;
+import com.aiblockclock.storage.execution.ExecutionSettlementRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -30,6 +33,7 @@ public class ExecutionWriter {
     private final ExecutionRepository executionRepository;
     private final ExecutionChargeRateRepository executionChargeRateRepository;
     private final ExecutionFailureRepository executionFailureRepository;
+    private final ExecutionSettlementRepository executionSettlementRepository;
 
     // 같은 요청 번호가 동시에 두 번 들어오면 늦은 쪽이 여기서 막힌다.
     // 제약 위반을 이 자리에서 알아채려고 SQL 을 곧바로 내보낸다. 트랜잭션이 실패하면 함께 되돌려진다.
@@ -51,6 +55,17 @@ public class ExecutionWriter {
     public void appendChargeRates(ExecutionId id, ChargeRates rates) {
         executionChargeRateRepository.saveAll(rates.byStep().entrySet().stream()
                 .map(rate -> new ExecutionChargeRateEntity(id.value(), rate.getKey(), rate.getValue()))
+                .toList());
+    }
+
+    // 실행을 닫는 트랜잭션(finish) 안에서만 적는다. 닫기가 한 번뿐이라 정산 내역도 한 번만 남는다.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void appendSettlements(ExecutionId id, List<ExecutionSettlement> settlements) {
+        executionSettlementRepository.saveAll(settlements.stream()
+                .map(settlement -> new ExecutionSettlementEntity(id.value(), settlement.stepId(), settlement.nodeName(),
+                        settlement.supplier().value(),
+                        settlement.agent() == null ? null : settlement.agent().value(),
+                        settlement.amount().value()))
                 .toList());
     }
 

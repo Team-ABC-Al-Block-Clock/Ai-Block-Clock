@@ -8,7 +8,9 @@ import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record LedgerTransaction(
@@ -30,6 +32,7 @@ public record LedgerTransaction(
     private static final String EXECUTION_RESERVE_KEY_PREFIX = "execution-reserve:";
     private static final String EXECUTION_RELEASE_KEY_PREFIX = "execution-release:";
     private static final String EXECUTION_REFUND_KEY_PREFIX = "execution-refund:";
+    private static final String EXECUTION_SETTLEMENT_KEY_PREFIX = "execution-settlement:";
 
     public LedgerTransaction {
         if (eventType == null
@@ -140,7 +143,7 @@ public record LedgerTransaction(
         );
     }
 
-    // 끝난 실행에서 쓰지 않은 만큼을 예치에서 돌려준다. 쓴 만큼은 예치에 남아 정산을 기다린다.
+    // 끝난 실행에서 쓰지 않은 만큼을 예치에서 돌려준다. 쓴 만큼은 같은 자리에서 정산(forExecutionSettlement)으로 옮긴다.
     // 키가 실행 ID 라 폴링이 같은 끝을 여러 번 봐도 한 번만 기록된다.
     public static LedgerTransaction forExecutionRefund(
             UUID executionId,
@@ -162,6 +165,34 @@ public record LedgerTransaction(
                         new LedgerEntry(LedgerAccountType.ABC_BALANCE, payerReferenceId,
                                 refundAmount.value())
                 )
+        );
+    }
+
+    // 끝난 실행에서 쓴 만큼을 예치에서 빼 단계 주인들의 정산금으로 옮긴다. 수수료가 없어 뺀 만큼이 모두 간다.
+    // 주인이 여럿이어도 한 거래로 적어, 일부만 옮겨지고 예치가 남는 일이 없다. 키가 실행 ID 라 한 번만 기록된다.
+    // 자기 에이전트를 자기가 쓴 실행은 내는 사람과 받는 사람이 같다. 쓸 수 있는 잔액이 출금할 수 있는 정산금으로 옮겨 간다.
+    public static LedgerTransaction forExecutionSettlement(
+            UUID executionId,
+            UserId payer,
+            Map<UserId, AbcAmount> payouts
+    ) {
+        BigDecimal used = payouts.values().stream()
+                .map(AbcAmount::value)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<LedgerEntry> entries = new ArrayList<>();
+
+        entries.add(new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, referenceIdOf(payer), used.negate()));
+        payouts.forEach((supplier, amount) ->
+                entries.add(new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, referenceIdOf(supplier), amount.value())));
+
+        return new LedgerTransaction(
+                LedgerEventType.SETTLEMENT,
+                EXECUTION_SETTLEMENT_KEY_PREFIX + executionId,
+                EXECUTION_REFERENCE_TYPE,
+                executionId.toString(),
+                null,
+                null,
+                entries
         );
     }
 
