@@ -19,14 +19,20 @@ ERC-1400 에는 **문서 칸(documents)** 이 들어 있어서 `이름 → (주�
 | | 값 |
 | --- | --- |
 | 토큰 | `ABC Agent Registry` (`abcAgentReg`). **발행하지 않는다.** 문서 칸만 쓴다 |
+| 주소 | `0xBBC46459B7A364089A924cf5C091e6CD9B5AB934` (2026-09-27 배포, 블록 11376188, 거래 `0x80326b62…850f`) |
 | 주인 | 등기부 지갑 「ABC 에이전트 등기부」 `0xFEAc90e2118B6A48ea46b0985eCf6b32D164f8C0` |
-| 배포 | `scripts/deploy-agent-registry.mjs` (한 번만) |
+| 컨트롤러 | 주인 + SSAFY 시스템 지갑 `0xfa6dacC1eF321Ae9BBE4086e0693B2dD0716a1B4` (토큰증권 API 가 배포할 때 넣는다. abcToken 도 같다) |
+| 배포 | `scripts/deploy-agent-registry.mjs` (한 번만. 끝났다) |
 
 **abcToken 에 붙이지 않은 까닭.** abcToken 의 문서 칸에 쓰려면 abcToken 주인(발행 권한이 있는 지갑)의 키가 서버에
 늘 있어야 한다. 등기부를 따로 두면 서버에 있는 키로 할 수 있는 일이 기록 쓰기뿐이다. 출금 보관 지갑의 키도 쓰지
 않는다 — 그 키는 출금을 켜는 서버에만 두기로 했고, 기록은 늘 돌아야 한다.
 
 **주인만 쓸 수 있다.** 문서 칸은 토큰 주인(컨트롤러)만 쓴다. 남이 우리 등기부에 가짜 기록을 적을 수 없다.
+다만 SSAFY 시스템 지갑도 컨트롤러라, 플랫폼 운영자(SSAFY)는 믿는 구조다.
+
+**가스는 우리가 내지 않는다.** 배포 영수증의 보낸 주소(`from`)가 SSAFY 시스템 지갑이고 가스 가격이 0 이었다.
+토큰증권 API 가 우리 요청을 받아 자기 지갑으로 체인에 낸다. 등기부 지갑에 코인이 없어도 된다.
 
 ---
 
@@ -114,7 +120,7 @@ MetaMask `personal_sign` 과 같은 방식으로 서명한다.** 칸 순서는 A
 
 | 설정 (소유) | 환경 변수 | 기본값 | 뜻 |
 | --- | --- | --- | --- |
-| `ssafy.sto.agent-registry.contract-address` (`:client:blockchain`) | `SSAFY_AGENT_REGISTRY_CONTRACT_ADDRESS` | 비어 있음 | 등기부 토큰 주소 |
+| `ssafy.sto.agent-registry.contract-address` (`:client:blockchain`) | `SSAFY_AGENT_REGISTRY_CONTRACT_ADDRESS` | `0xBBC4…B934` | 등기부 토큰 주소. 배포한 것이 기본값이라 보통 넣지 않는다 |
 | `ssafy.sto.agent-registry.signer-private-key` (`:client:blockchain`) | `SSAFY_AGENT_REGISTRY_SIGNER_PRIVATE_KEY` | 비어 있음 | 등기부 지갑 개인키. **서버 `backend.env` 에만** |
 | `ssafy.sto.agent-registry.write-timeout` (`:client:blockchain`) | `SSAFY_AGENT_REGISTRY_WRITE_TIMEOUT` | `30s` | 쓰기 응답 제한 시간. 토큰증권 API 가 블록(약 10초)을 기다렸다 답한다 |
 | `agent-provenance.registration-enabled` | `AGENT_PROVENANCE_REGISTRATION_ENABLED` | `false` | 체인에 보내는 주기 작업을 켠다. 꺼 두면 PENDING 으로 쌓인다 |
@@ -123,28 +129,36 @@ MetaMask `personal_sign` 과 같은 방식으로 서명한다.** 칸 순서는 A
 | `agent-provenance.chain-id` | — | `payment.charge.chain-id` | 응답에 싣는 체인 ID |
 | `agent-provenance.network-name` | `AGENT_PROVENANCE_NETWORK_NAME` | `SSAFY` | 응답에 싣는 네트워크 이름 |
 
-- 등기부 주소와 키는 **둘 다 있거나 둘 다 없어야** 기동한다
-- 보내기를 켰는데 등기부가 없으면 **기동하지 않는다.** 조용히 쌓이게 두지 않는다
+- 키가 없으면 기록을 쓰지 않는 서버로 뜬다(조회는 한다). 키를 넣었으면 주소 · 제한 시간까지 맞아야 뜬다
+- 보내기를 켰는데 키가 없으면 **기동하지 않는다.** 조용히 쌓이게 두지 않는다
+- `compose.yaml` 에 주소를 `${…:-}` 로 넘기지 않는다. 값이 없을 때 빈 글자가 넘어가 기본값을 덮는다
 
 ---
 
 ## 6. 켜는 절차
 
+1~3 은 2026-09-27 에 끝났다(1장의 주소). 다시 배포할 일이 생길 때를 위해 남긴다. Windows cmd 기준이다.
+
 1. 등기부 지갑 주소로 배포할 본문을 출력한다
 
-   ```bash
-   SSAFY_AGENT_REGISTRY_REQUESTOR=0xFEAc90e2118B6A48ea46b0985eCf6b32D164f8C0 SSAFY_AGENT_REGISTRY_PRINT_PAYLOAD=true node scripts/deploy-agent-registry.mjs
+   ```bat
+   set SSAFY_AGENT_REGISTRY_REQUESTOR=0xFEAc90e2118B6A48ea46b0985eCf6b32D164f8C0
+   set SSAFY_AGENT_REGISTRY_PRINT_PAYLOAD=true
+   node scripts/deploy-agent-registry.mjs
    ```
 
-2. 출력된 한 줄을 등기부 지갑(MetaMask)으로 `personal_sign` 한다
-3. 서명을 넣어 배포한다. 끝나면 `contractAddress` 가 찍힌다
+2. 출력된 한 줄을 등기부 지갑(MetaMask)으로 `personal_sign` 한다.
+   서명 페이지는 저장소 밖(`.tmp/ssafy-registry-sign`)에 두었다. `node server.mjs` 로 띄우고 Chrome 에서 `http://127.0.0.1:5501` 을 연다
+3. 출력 모드를 끄고 서명을 넣어 배포한다. 끝나면 `contractAddress` 가 찍힌다
 
-   ```bash
-   SSAFY_AGENT_REGISTRY_REQUESTOR=0xFEAc90e2118B6A48ea46b0985eCf6b32D164f8C0 SSAFY_AGENT_REGISTRY_SIGNATURE=0x… node scripts/deploy-agent-registry.mjs
+   ```bat
+   set SSAFY_AGENT_REGISTRY_PRINT_PAYLOAD=
+   set SSAFY_AGENT_REGISTRY_SIGNATURE=0x…
+   node scripts/deploy-agent-registry.mjs
    ```
 
-4. 서버 `backend.env` 에 `SSAFY_AGENT_REGISTRY_CONTRACT_ADDRESS` · `SSAFY_AGENT_REGISTRY_SIGNER_PRIVATE_KEY` ·
-   `AGENT_PROVENANCE_REGISTRATION_ENABLED=true` 를 넣고 다시 띄운다
+4. 서버 `backend.env` 에 `SSAFY_AGENT_REGISTRY_SIGNER_PRIVATE_KEY` · `AGENT_PROVENANCE_REGISTRATION_ENABLED=true` 를
+   넣고 다시 띄운다. 주소는 기본값이라 넣지 않는다
 5. 에이전트를 하나 공개하고, 30초쯤 뒤 원본 증명 조회가 `CONFIRMED` · `verified=true` 인지 본다.
    `explorerUrl` 을 브라우저로 열면 체인에 적힌 값이 보인다
 
@@ -154,6 +168,7 @@ MetaMask `personal_sign` 과 같은 방식으로 서명한다.** 칸 순서는 A
 
 | 무엇 | 왜 모르나 | 어떻게 확인하나 |
 | --- | --- | --- |
-| 서명 규칙 | Swagger 에 없다. 발행과 같다고 보았다 | 6장 3번(배포)이 서명 오류 없이 끝나면 맞다 |
+| 문서 쓰기의 서명 규칙 | Swagger 에 없다. 발행과 같다고 보았다. 같은 규칙으로 서명한 배포는 받아들여졌지만, 예전에 서명 없이 보낸 abcToken 배포도 통과했어서 토큰증권 API 가 서명을 검사하는지는 모른다 | 6장 5번이 `CONFIRMED` 가 되면 맞다 |
 | 문서 이름이 `bytes32` 로 옮겨지는 방식 | 토큰증권 API 내부라 보이지 않는다. 31자 · 영문 · 숫자 · `-` `_` 로 줄였다 | 6장 5번이 `CONFIRMED` 가 되면 맞다 |
-| 가스 | SSAFY 체인은 가스 가격이 0 이고, 토큰증권 API 가 거래를 대신 낸다고 보았다 | 6장 3번에서 가스 오류가 나지 않으면 맞다 |
+
+가스는 확인했다(1장). 배포 거래를 SSAFY 시스템 지갑이 가스 가격 0 으로 냈다.
