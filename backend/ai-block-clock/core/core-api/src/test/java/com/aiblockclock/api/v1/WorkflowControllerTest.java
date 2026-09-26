@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -288,6 +289,8 @@ class WorkflowControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nodes[1].sourceType").value("CONTROL"))
                 .andExpect(jsonPath("$.data.nodes[1].controlType").value("BRANCH"))
+                .andExpect(jsonPath("$.data.nodes[1].mine").value(nullValue()))
+                .andExpect(jsonPath("$.data.nodes[0].mine").value(true))
                 .andExpect(jsonPath("$.data.nodes[1].condition.left").value("n1.competition_level"))
                 .andExpect(jsonPath("$.data.nodes[1].condition.operator").value("EQ"))
                 .andExpect(jsonPath("$.data.nodes[1].condition.right").value("high"))
