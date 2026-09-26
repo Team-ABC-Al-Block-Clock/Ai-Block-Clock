@@ -67,6 +67,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
                 "id", id,
                 "name", prompt.name(),
+                "model", prompt.model().key(),
                 "nodes", List.of(node(nodeId, prompt, null, sent)),
                 "edges", List.of(),
                 "output", Map.of("title", prompt.name()))), refFiles);

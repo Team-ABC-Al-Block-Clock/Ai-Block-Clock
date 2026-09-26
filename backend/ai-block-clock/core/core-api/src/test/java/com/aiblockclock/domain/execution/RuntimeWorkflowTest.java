@@ -71,6 +71,15 @@ class RuntimeWorkflowTest {
         assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-pro");
     }
 
+    @Test
+    void 판매자_테스트_실행도_그_노드의_모델로_돈다() {
+        JsonNode sent = mapper.readTree(
+                RuntimeWorkflow.forTest("test-1", promptOf("n1", "분석", AiModel.GEMINI_2_5_PRO)).json());
+
+        assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-pro");
+        assertThat(sent.get("nodes").get(0).has("model")).isFalse();
+    }
+
     // 계약 v2.0 은 output_schema_id · output.schema_id 를 한 버전 동안만 별칭으로 읽고 다음 버전에서 없앤다.
     @Test
     void 모든_단계는_글을_낸다고_밝히고_옛_형식_칸은_싣지_않는다() {
