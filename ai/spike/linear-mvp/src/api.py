@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import (BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request,
+                     UploadFile)
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import catalog, graph, runner
@@ -33,9 +34,9 @@ ALLOWED_SUFFIXES = {".xlsx", ".xls", ".csv"}
 MAX_UPLOAD_MB = 10
 
 app = FastAPI(
-    title="ABC AI Runtime (선형 워크플로우 스파이크)",
-    version="0.1.0",
-    description="노드를 순서대로 실행해 마지막 산출물을 PDF 로 렌더링한다. 규격 검증과 분기는 없다.",
+    title="ABC AI Runtime",
+    version="2.0.0",
+    description="워크플로우 실행기 — 그래프 실행 · 분기 · 에이전트 전개 · 판매자 선언 출력 · 토큰/USD 집계. 계약 v2.0.",
 )
 
 # 스파이크는 단일 프로세스 인메모리 저장이다. 재시작하면 목록이 사라진다.
@@ -54,15 +55,15 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     러너 내부 상태에는 프롬프트 · 마크다운 · 파일 경로가 있지만 밖으로는 내지 않는다.
     필드를 더하면 계약 문서도 같은 MR 에서 고친다.
     """
-    public_keys = ("id", "name", "type", "status", "schema_id", "agent_id", "owner_id",
+    public_keys = ("id", "name", "type", "status", "output", "agent_id", "owner_id",
                    "started_at", "finished_at", "duration_ms", "input_tokens", "output_tokens",
-                   "retries", "repair_count", "cost_abc", "unit_price", "skip_reason", "branch_taken")
+                   "retries", "repair_count", "model", "cost_usd", "skip_reason", "branch_taken")
     nodes = []
     for n in run["nodes"]:
         item = {k: n.get(k) for k in public_keys}
         item["type"] = n.get("type") or ("branch" if n.get("branch_taken") is not None else "llm")
         if include_node_output:
-            item["output"] = n.get("output")
+            item["output_payload"] = n.get("output_payload")
         nodes.append(item)
 
     # 진행률은 "돌아야 하는 LLM 노드" 기준이다 — 분기 노드와 건너뛴 노드는 세지 않는다(계약 §7.2)
@@ -80,7 +81,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
         has_envelope = bool(run["result"].get("envelope"))
         result = {
             "type": run["result"].get("type"),
-            "schema_id": run["result"].get("schema_id"),
+            "output": run["result"].get("output"),          # 종단 노드의 선언 {kind, sample}
             "artifact_url": f"/v1/runs/{run['run_id']}/artifact" if has_envelope else None,
             "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if has_pdf else None,
         }
@@ -88,6 +89,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     return {
         "run_id": run["run_id"],
         "status": run["status"],                     # queued | running | succeeded | failed
+        "mode": run.get("mode", "run"),              # run | test — test 는 contribution 이 항상 []
         "workflow": run["workflow"],
         "mock": run["mock"],
         "progress": {
@@ -99,6 +101,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
             "current_node_name": cur_node["name"] if cur_node else None,
         },
         "nodes": nodes,
+        "agents": run.get("agents", []),             # 에이전트(판매자)별 토큰 · USD 합계 (계약 §7.2)
         "totals": run["totals"],
         "started_at": run["started_at"],
         "finished_at": run["finished_at"],
@@ -113,14 +116,15 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
 
 
 def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: bool,
-             input_payload: dict | None = None) -> None:
+             input_payload: dict | None = None, mode: str = "run",
+             ref_files: dict[str, list[str]] | None = None) -> None:
     try:
         # state 로 같은 dict 를 넘겨 러너가 제자리에서 갱신하게 한다.
         # 그래야 폴링으로 노드별 진행 상황이 실시간으로 보인다.
         with _lock:
             state = _runs[run_id]
         runner.execute(wf, comment=comment, file_path=file_path, mock=mock, run_id=run_id,
-                       input_payload=input_payload, state=state)
+                       input_payload=input_payload, state=state, mode=mode, ref_files=ref_files)
     except Exception as e:  # 러너가 삼키지 못한 예외까지 방어
         with _lock:
             _runs[run_id]["status"] = "failed"
@@ -135,16 +139,16 @@ def health() -> dict:
     return {"status": "ok", "auth_required": bool(SERVICE_TOKEN), "runs_in_memory": len(_runs)}
 
 
-@app.get("/v1/schemas", summary="스키마 카탈로그 목록", dependencies=[Depends(auth)])
+@app.get("/v1/schemas", summary="출력 형식 견본 목록", dependencies=[Depends(auth)])
 def get_schemas() -> dict:
-    """판매자가 노드를 만들 때 고르는 입출력 형식 목록. 프론트 드롭다운이 이걸 쓴다."""
+    """판매자가 노드 출력(json)과 진입 노드 입력 폼으로 고를 수 있는 견본 목록(계약 v2.0 §6.1)."""
     return {"catalog_version": catalog.CATALOG_VERSION, "schemas": catalog.list_entries()}
 
 
 @app.get("/v1/schemas/{schema_id}", summary="스키마 JSON Schema 전문",
          dependencies=[Depends(auth)])
 def get_schema(schema_id: str) -> dict:
-    """프론트는 이 JSON Schema 로 입력 폼을 그리고 연결 가부를 판정한다."""
+    """프론트는 이 JSON Schema 로 진입 폼과 분기 조건의 필드 드롭다운을 그린다. 연결 판정에는 쓰지 않는다."""
     try:
         return catalog.json_schema(schema_id)
     except catalog.UnknownSchema:
@@ -183,17 +187,22 @@ def validate_workflow_definition(body: dict) -> dict:
 
 @app.post("/v1/runs", status_code=202, summary="워크플로우 실행 요청", dependencies=[Depends(auth)])
 async def create_run(
+    request: Request,
     background: BackgroundTasks,
     workflow: str = Form(..., description='워크플로우 정의 JSON 문자열. {"name":..., "nodes":[...], "output":{...}}'),
     input: str = Form("", description="첫 노드 입력 payload 를 JSON 문자열로 (폼에서 받은 값)"),
     comment: str = Form("", description="사용자가 입력한 자연어 코멘트"),
     mock: bool = Form(False, description="true 면 LLM 을 호출하지 않고 파이프라인만 실행"),
-    file: UploadFile | None = File(None, description="성적 엑셀 또는 CSV (선택)"),
+    mode: str = Form("run", description="run(기본) | test — 판매자 사전 테스트. 결과는 같고 contribution 만 비운다"),
+    file: UploadFile | None = File(None, description="사용자가 올리는 엑셀 또는 CSV (선택)"),
 ) -> JSONResponse:
     try:
         wf = json.loads(workflow)
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail={"code": "INVALID_WORKFLOW_JSON", "message": str(e)})
+    if mode not in ("run", "test"):
+        raise HTTPException(status_code=400, detail={"code": "INVALID_MODE",
+                                                     "message": f"mode 는 run 또는 test 입니다 (받은 값: {mode})"})
 
     input_payload = None
     if input.strip():
@@ -231,29 +240,48 @@ async def create_run(
                 "code": "FILE_TOO_LARGE", "message": f"최대 {MAX_UPLOAD_MB}MB (받은 값: {size_mb:.1f}MB)"})
         saved_path = tmp
 
+    # 판매자 참고 파일 — 폼 필드 `ref_file_<node_id>_<n>` (계약 §7.1). 노드 id 로 묶어 러너에 넘긴다.
+    # 검사(mime · 크기)는 러너가 실행 시점에 하고 위반은 REF_FILE_REJECTED · supplier 로 실패시킨다.
+    ref_files: dict[str, list[str]] = {}
+    ref_dir: str | None = None
+    for key, value in (await request.form()).multi_items():
+        if not key.startswith("ref_file_") or not getattr(value, "filename", None):
+            continue
+        node_id = key[len("ref_file_"):].rsplit("_", 1)[0]
+        ref_dir = ref_dir or tempfile.mkdtemp(prefix="abc-ref-")
+        # 원래 파일명을 지킨다 — 러너가 "### 파일명" 절 제목과 첨부 이름으로 쓴다
+        dest = Path(ref_dir) / node_id / str(len(ref_files.get(node_id, []))) / Path(value.filename).name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest, "wb") as out:
+            shutil.copyfileobj(value.file, out)
+        ref_files.setdefault(node_id, []).append(str(dest))
+
     run_id = runner.new_run_id()
     nodes = wf.get("nodes", [])
     with _lock:
         _runs[run_id] = {
             "run_id": run_id,
             "workflow": {"id": wf.get("id"), "name": wf.get("name"), "node_count": len(nodes)},
-            "mock": mock, "status": "queued", "started_at": None, "finished_at": None,
+            "mock": mock, "mode": mode, "status": "queued", "started_at": None, "finished_at": None,
             "total_duration_ms": None,
             "nodes": [{"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
-                       "context": n.get("context", "prev"), "duration_ms": None, "input_tokens": None,
-                       "output_tokens": None, "retries": 0, "output": None,
-                       "owner_id": n.get("owner_id"), "unit_price": n.get("unit_price"),
-                       "base_cost": n.get("base_cost"), "premium_rate": n.get("premium_rate")}
+                       "type": n.get("type") or "llm", "output": graph.output_spec_of(n),
+                       "duration_ms": None, "input_tokens": None,
+                       "output_tokens": None, "retries": 0, "output_payload": None,
+                       "model": None, "cost_usd": None, "owner_id": n.get("owner_id")}
                       for n in nodes],
-            "totals": {"input_tokens": 0, "output_tokens": 0},
+            "totals": {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0},
+            "agents": [],
             "contribution": [], "not_executed": [], "failure": None,
             "result": None, "error": None,
         }
 
-    background.add_task(_execute, run_id, wf, comment, saved_path, mock, input_payload)
+    background.add_task(_execute, run_id, wf, comment, saved_path, mock, input_payload, mode,
+                        ref_files or None)
     return JSONResponse(status_code=202, content={
         "run_id": run_id,
         "status": "queued",
+        "mode": mode,
         "node_count": len(nodes),
         "poll_url": f"/v1/runs/{run_id}",
         "poll_interval_ms": 2000,

@@ -56,7 +56,7 @@ def test_형식에_맞으면_한_번에_통과하고_봉투가_씌워진다():
     env = run.envelope
     assert list(env) == ["a2a_version", "run_id", "node_id", "produced_at",
                          "schema_id", "payload", "meta", "error"]
-    assert env["a2a_version"] == "1.0" and env["error"] is None
+    assert env["a2a_version"] == "2.0" and env["error"] is None
     assert env["schema_id"] == "biz.market_research@1"
     assert env["payload"]["competition_level"] == "high"
     assert env["meta"]["repair_count"] == 0 and env["meta"]["usage"]["input_tokens"] == 10

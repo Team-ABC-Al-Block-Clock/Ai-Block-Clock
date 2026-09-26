@@ -8,7 +8,7 @@ ABC(AI Block Clock)의 AI 파트 코드가 이 폴더 아래에 모인다. 프�
 
 | 서비스 | 역할 | 배포 |
 | --- | --- | --- |
-| **runtime** | 워크플로우 실행 엔진. 그래프 해석 → 노드 순차 실행(입력 검증 → LLM 호출 → 출력 검증) → 분기 · 에이전트 전개 → 실패 책임 판정 · 기여 노드 · 실측 원가 반환. H2A(엑셀 파싱) · A2A2H(PDF 렌더링) 포함 | EC2 컨테이너 `runtime-api` |
+| **runtime** | 워크플로우 실행 엔진. 그래프 해석 → 노드 순차 실행(앞 결과 전달 → LLM 호출 → 선언한 출력 형식 검증) → 분기 · 에이전트 전개 → 실패 책임 판정 · 기여 노드 · 토큰 · USD 원가 반환(ABC 환산은 백엔드). H2A(엑셀 파싱) · A2A2H(PDF 렌더링) 포함 | EC2 컨테이너 `runtime-api` |
 | **recommend** | 자연어 에이전트 추천(WRK-017). 허깅페이스 한국어 임베딩 모델을 파인튜닝해 EC2 CPU에서 직접 추론. 인메모리 벡터 인덱스 | EC2 컨테이너 `runtime-recommend` (모델은 이 프로세스에만 로드) |
 
 두 서비스 모두 **stateless**다. 실행 이력 · 노드 출력값 · 정산은 백엔드(Spring + MySQL)가 저장하고, Runtime은 요청에 담긴 것만으로 실행해 결과를 돌려준다. 추천 인덱스는 백엔드 데이터로 언제든 재구성되는 캐시로 취급한다.
@@ -21,11 +21,11 @@ ai/
 │   ├── app/
 │   │   ├── api/              라우터 — /v1/validate · /v1/estimate · /v1/executions · /v1/nodes/test · /v1/agents/verify
 │   │   ├── core/             설정 · 서비스 토큰 인증 · 로깅 · 프롬프트 마스킹 필터(단일 출구)
-│   │   ├── schemas/          Pydantic 모델 — A2A 봉투 · 카탈로그 · 노드 매니페스트 · 실행 이벤트 · Runtime 계약 (JSON Schema의 원본)
+│   │   ├── schemas/          Pydantic 모델 — A2A 봉투 · 견본 카탈로그(출력 선언 · 사용자 입력 폼용) · 노드 매니페스트 · 실행 이벤트 · Runtime 계약 (JSON Schema의 원본)
 │   │   ├── engine/           오케스트레이터 — 그래프 정규화 · 위상 정렬 · 순환/규모 검사 · 분기 평가 · 에이전트 전개
 │   │   ├── nodes/            노드 실행기 — 모델 어댑터 · 레지스트리 · 프롬프트 조립 · 구조화 출력 · 검증 루프 · 타임아웃 · 재시도
 │   │   ├── io/               H2A(엑셀 · CSV 파서, 파일 검증) · A2A2H(HTML 템플릿 → PDF, 차트)
-│   │   ├── settlement/       실패 책임 판정(supplier / consumer / platform) · 기여 노드 목록 · Base Cost · 실측 원가
+│   │   ├── settlement/       실패 책임 판정(supplier / consumer / platform) · 기여 노드 목록 · 에이전트별 토큰 · USD 집계
 │   │   └── events/           실행 이벤트 발행 — 백엔드 콜백 · seq · HMAC 서명 · 재시도
 │   └── tests/
 ├── recommend/                추천 엔진 (Python 3.11 + FastAPI + sentence-transformers)
@@ -44,6 +44,8 @@ ai/
 ## 규칙
 
 - **판정은 코드, 제안은 모델.** 스키마 검증 · 실패 책임 판정 · 분기 평가 · 견적에 LLM을 쓰지 않는다. 돈 계산의 근거는 결정적이어야 한다.
+- **입력 형식은 없다. 출력은 판매자가 선언한다.** 노드는 앞 노드의 결과 전체를 받고, 출력은 글(`text`) 또는 견본 JSON(`sample`)이다. 연결 호환 판정을 다시 넣지 않는다(계약 v2.0 · `docs/integration-guide.md` §5).
+- **Runtime은 토큰 · USD까지만 센다.** ABC · 단가 · 환불액은 백엔드가 계산한다.
 - **프롬프트 원문은 어디에도 남기지 않는다.** 응답 · 로그 · 예외 · 임베딩 텍스트에 프롬프트가 섞이면 SEC-001 위반이다. 마스킹은 `runtime/app/core`의 단일 출구에서 한다. 백엔드는 `prompt_ref`만 넘기고 원문은 Runtime이 조회한다.
 - **스키마의 원본은 Pydantic.** `runtime/app/schemas`에서 `model_json_schema()`로 뽑은 파일을 `ai/schemas/`에 커밋하고 프론트 · 백엔드에 통지한다. 수작업 이중 관리 금지.
 - **비밀은 코드 · 이미지에 넣지 않는다.** 외부 LLM API 키, 백엔드 ↔ Runtime 공유 시크릿은 EC2 환경변수로 주입한다. `.env` 파일은 커밋하지 않는다.

@@ -36,12 +36,12 @@ CODES: dict[str, ErrorSpec] = {
     "BRANCH_CONDITION_INVALID": ErrorSpec(
         "consumer", False, "분기 조건이 가리키는 값이 결과에 없습니다.",
         "조건에 쓴 항목이 앞 블록의 출력 형식에 있는지 확인해 주세요."),
-    "AGENT_BOUNDARY_VIOLATION": ErrorSpec(
-        "supplier", True, "에이전트가 공개한 출력 형식과 다른 결과를 냈습니다.",
-        "판매자에게 알려진 문제입니다. 사용료는 환원됩니다."),
     "PROMPT_TEMPLATE_INVALID": ErrorSpec(
         "supplier", False, "블록의 프롬프트가 요구하는 입력값을 이 자리에서 받을 수 없습니다.",
         "판매자가 프롬프트의 입력 틀({…})을 블록이 받는 형식에 맞게 고쳐야 합니다."),
+    "INPUT_TOO_LARGE": ErrorSpec(
+        "platform", False, "이 단계에 넘길 앞 결과가 너무 큽니다.",
+        "플랫폼의 입력 상한을 넘었습니다. 차감분은 전액 환원됩니다. 워크플로우를 나눠 실행해 주세요."),
     "REF_FILE_REJECTED": ErrorSpec(
         "supplier", False, "블록에 붙은 참고 자료를 쓸 수 없습니다.",
         "형식 또는 크기 제한을 넘었습니다. 판매자가 고쳐야 합니다."),

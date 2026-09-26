@@ -6,7 +6,7 @@ base_url 만 바꿔 끼운다. Google 직접 호출로 돌리려면 LLM_BASE_URL
 
     LLM_API_KEY    GMS 팀 키 (구 GEMINI_API_KEY 도 읽는다)
     LLM_BASE_URL   기본 https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com
-    LLM_MODEL      기본 gemini-2.5-flash (구 GEMINI_MODEL 도 읽는다)
+    LLM_MODEL      기본 gemini-2.5-pro (구 GEMINI_MODEL 도 읽는다). 09-26 Flash → Pro
 
 이 파일은 이후 ai/runtime/app/nodes/ 의 모델 어댑터 골격으로 재사용할 수 있게
 외부 의존을 이 안에만 가둔다.
@@ -18,9 +18,9 @@ import os
 import time
 from dataclasses import dataclass
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-2.5-pro"
 DEFAULT_BASE_URL = "https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com"
-TIMEOUT_MS = 60_000
+TIMEOUT_MS = 120_000                  # Pro 는 노드 1회가 길다. Flash 실측 최대 20s 의 6배
 RETRY_STATUS = {429, 503}
 RETRY_WAIT_SEC = 10
 MAX_RETRIES = 2
@@ -64,8 +64,12 @@ class LLM:
 
     def generate(self, system: str, user: str, label: str = "",
                  response_schema: dict | None = None,
-                 mock_json: dict | None = None) -> LLMResult:
+                 mock_json: dict | None = None,
+                 attachments: list[tuple[bytes, str, str]] | None = None) -> LLMResult:
         """한 번 호출한다.
+
+        `attachments` 는 `(bytes, mime, 파일명)` 목록 — 판매자 참고 파일(PDF)을 inline 으로
+        함께 보낸다(계약 §7.1 `ref_files`). 텍스트 계열은 호출자가 본문에 넣으므로 여기 오지 않는다.
 
         `response_schema` 를 주면 **JSON 만** 받는다(구조화 출력). 스키마는 카탈로그가
         만들어 준 OpenAPI 부분집합이다(`src/catalog.response_schema`).
@@ -76,15 +80,17 @@ class LLM:
         LLM 없이도 스키마를 만족하는 JSON 이 나온다.
         """
         if self.mock:
-            return self._mock(system, user, label, mock_json)
+            return self._mock(system, user, label, mock_json, attachments)
 
         types = self._types
         config = self._config(system, response_schema)
+        contents = user if not attachments else (
+            [types.Part.from_bytes(data=data, mime_type=mime) for data, mime, _ in attachments] + [user])
         retries = 0
         while True:
             start = time.perf_counter()
             try:
-                resp = self._client.models.generate_content(model=self.model, contents=user, config=config)
+                resp = self._client.models.generate_content(model=self.model, contents=contents, config=config)
                 usage = getattr(resp, "usage_metadata", None)
                 return LLMResult(
                     text=resp.text or "",
@@ -126,7 +132,8 @@ class LLM:
             self._schema_mode = "response_schema"
         return types.GenerateContentConfig(**kwargs)
 
-    def _mock(self, system: str, user: str, label: str, mock_json: dict | None = None) -> LLMResult:
+    def _mock(self, system: str, user: str, label: str, mock_json: dict | None = None,
+              attachments: list[tuple[bytes, str, str]] | None = None) -> LLMResult:
         if mock_json is not None:
             # 구조화 출력 자리. 카탈로그 샘플을 그대로 돌려줘 검증 · 봉투 조립까지 실제 코드가 돈다
             text = json.dumps(mock_json, ensure_ascii=False, indent=2)
@@ -138,6 +145,8 @@ class LLM:
             f"## [MOCK {label or self.model}]\n\n"
             f"시스템 프롬프트 {len(system)}자, 입력 {len(user)}자를 받았습니다.\n\n"
             f"입력 앞부분: {head} …\n\n"
+            + (f"첨부 {len(attachments)}개: {', '.join(n for _, _, n in attachments)}\n\n" if attachments else "")
+            +
             "| 항목 | 값 |\n| --- | --- |\n| 모드 | mock |\n| 한글 | 정상 |\n"
         )
         return LLMResult(text=text, model="mock", input_tokens=len(user) // 2,
