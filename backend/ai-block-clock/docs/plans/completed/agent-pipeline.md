@@ -655,15 +655,17 @@ ABC 는 사용자끼리 주고받을 수 없는 이용권이다. 넘기는 API �
 | `SETTLEMENT` | `EXECUTION_ESCROW` (실행한 사람) | `PAYOUT_BALANCE` 한 줄 이상 | 달라도 된다 — 쓴 값을 치르는 것이다 |
 | `WITHDRAWAL_HOLD` (출금 신청) | `PAYOUT_BALANCE` | `WITHDRAWAL_ESCROW` 한 줄 | **같은 사람** |
 | `WITHDRAWAL_RELEASE` (출금 취소 · 반려) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 2장 |
+| `PAYOUT_CONVERSION` (정산금 옮기기) | `PAYOUT_BALANCE` | `ABC_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 8장 |
 
-남에게 ABC 가 가는 길은 정산으로 공급자의 **정산금**에 넣는 것 하나뿐이다. 받은 쪽의 쓸 수 있는 잔액으로는 가지 않는다.
+남에게 ABC 가 가는 길은 정산으로 공급자의 **정산금**에 넣는 것 하나뿐이다. 받은 쪽의 쓸 수 있는 잔액으로 곧장 가지 않는다.
+받은 정산금을 쓸 수 있는 잔액으로 옮기는 것은 받은 사람 자신만 한다(`PAYOUT_CONVERSION`).
 모양이 다르면 `LEDGER_INVALID_TRANSACTION`(500) 이다. 사용자가 고칠 요청이 아니라 코드가 잘못 만든 거래이기 때문이다.
 
 | 지키는 것 | 어떻게 |
 | --- | --- |
 | 팩터리를 거치지 않은 거래도 막는다 | 검사가 생성자에 있어 어떤 길로 만들어도 지나간다 |
 | 거래 종류가 늘면 규칙도 정한다 | `switch` 가 모든 `LedgerEventType` 을 받아야 컴파일된다 |
-| 요청으로 남의 계정을 가리킬 수 없다 | ABC 를 넣는 API 는 충전 신청(`POST /credits/charges`) 하나이고 받는 사람은 로그인한 사람이다. 출금 신청 · 취소(`/withdrawals`)도 로그인한 사람의 정산금만 묶고 푼다. 나머지(`/credits/balance` · `/credits/transactions` · `/settlements`)는 조회이고 로그인한 사람 것만 읽는다. 장부의 주인은 늘 서버가 세션 · 실행 · 출금 행에서 정한다 |
+| 요청으로 남의 계정을 가리킬 수 없다 | ABC 를 넣는 API 는 충전 신청(`POST /credits/charges`) 하나이고 받는 사람은 로그인한 사람이다. 출금 신청 · 취소(`/withdrawals`)와 정산금 옮기기(`/credits/payout-conversions`)도 로그인한 사람의 칸 사이에서만 옮긴다. 나머지(`/credits/balance` · `/credits/transactions` · `/settlements`)는 조회이고 로그인한 사람 것만 읽는다. 장부의 주인은 늘 서버가 세션 · 실행 · 출금 행에서 정한다 |
 | 남의 입금으로 충전할 수 없다 | 보낸 지갑이 신청한 사람의 지갑이어야 한다(`SENDER_WALLET_MISMATCH`, PAY-001/002) |
 
 체인 위 abcToken 은 여기서 막지 않는다. 충전 전의 토큰은 일반 ERC-20 이라 지갑끼리 옮길 수 있고, 서비스가 다루는

@@ -263,7 +263,10 @@ public enum ErrorType {
             "현재 상태에서는 출금 신청을 바꿀 수 없습니다.", LogLevel.WARN),
 
     WITHDRAWAL_IDENTITY_NOT_VERIFIED(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_017,
-            "본인 확인을 마쳐야 출금을 신청할 수 있습니다.", LogLevel.WARN);
+            "본인 확인을 마쳐야 출금을 신청할 수 있습니다.", LogLevel.WARN),
+
+    PAYOUT_CONVERSION_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_018,
+            "옮길 수 있는 정산금이 부족합니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

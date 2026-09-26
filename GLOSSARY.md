@@ -37,6 +37,7 @@
 | **성공률 · 성공률 페널티** | 성공 / (성공 + 공급자 탓 실패). 페널티는 그 거듭제곱으로 종합 점수에 곱한다 | `AgentGradeIndicators.successRate` · `successPenalty` |
 | **ABC (Credit)** | 수요자용 이용권. 실행 시 차감된다. 사용자 간 전송 불가 — 장부 거래가 종류마다 정해진 모양만 받는다(`LedgerTransaction`) | 아직 없음 ⚠️ 3장 참고 |
 | **정산금 (Payout Balance)** | 공급자용 출금 가능 자산 | 장부 계정 `PAYOUT_BALANCE`. 단계마다 내역은 `ExecutionSettlement`, 공급자가 보는 한 줄은 `SettlementRecord` |
+| **정산금 옮기기 (Payout Conversion)** | 공급자가 자기 정산금을 실행에 쓸 수 있는 ABC 로 옮기는 일. 장부 안에서만 옮기고 되돌리지 않는다 | `PayoutConversionService`, 장부 거래 `PAYOUT_CONVERSION` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md) 8장) |
 | **출금 신청 (Withdrawal)** | 공급자가 정산금을 로그인 지갑으로 abcToken 으로 보내 달라고 한 요청. 신청하면 금액이 **출금 예치**로 묶이고, 취소 · 반려되면 정산금으로 돌아온다 | `Withdrawal`, 장부 계정 `WITHDRAWAL_ESCROW` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md)) |
 | **본인 확인 (Identity Verification)** | 출금 전에 실명 · 생년월일을 내고 관리자 승인을 받는 절차. 지갑 로그인은 지갑의 주인까지만 확인하므로 그 뒤의 사람을 확인한다. 승인받아야 출금을 신청할 수 있다 | `IdentityVerification` (ACC-004) |
 | **출금 심사 (Withdrawal Review)** | 관리자가 출금 신청을 승인(지급 대기)하거나 사유를 남겨 반려(금액을 정산금으로 돌려놓음)하는 일 | `WithdrawalService.approve` · `.reject` (PAY-024 · ADM-001) |

@@ -37,6 +37,8 @@ public record LedgerTransaction(
     private static final String WITHDRAWAL_REFERENCE_TYPE = "WITHDRAWAL";
     private static final String WITHDRAWAL_HOLD_KEY_PREFIX = "withdrawal-hold:";
     private static final String WITHDRAWAL_RELEASE_KEY_PREFIX = "withdrawal-release:";
+    private static final String PAYOUT_CONVERSION_REFERENCE_TYPE = "PAYOUT_CONVERSION";
+    private static final String PAYOUT_CONVERSION_KEY_PREFIX = "payout-conversion:";
 
     public LedgerTransaction {
         if (eventType == null
@@ -253,6 +255,35 @@ public record LedgerTransaction(
         );
     }
 
+    // 정산금을 같은 사람의 쓸 수 있는 잔액으로 옮긴다. 출금했다가 다시 충전하지 않고 번 ABC 를 실행에 쓰게 한다.
+    public static LedgerTransaction forPayoutConversion(
+            UserId owner,
+            PayoutConversionRequestId requestId,
+            AbcAmount amount
+    ) {
+        String ownerReferenceId = referenceIdOf(owner);
+
+        return new LedgerTransaction(
+                LedgerEventType.PAYOUT_CONVERSION,
+                payoutConversionKeyOf(owner, requestId),
+                PAYOUT_CONVERSION_REFERENCE_TYPE,
+                requestId.value().toString(),
+                null,
+                null,
+                List.of(
+                        new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, ownerReferenceId,
+                                amount.value().negate()),
+                        new LedgerEntry(LedgerAccountType.ABC_BALANCE, ownerReferenceId,
+                                amount.value())
+                )
+        );
+    }
+
+    // 요청 번호는 화면이 만들어 남의 번호와 겹칠 수 있다. 사용자를 함께 넣어야 남의 옮기기에 막히지 않는다.
+    static String payoutConversionKeyOf(UserId owner, PayoutConversionRequestId requestId) {
+        return PAYOUT_CONVERSION_KEY_PREFIX + referenceIdOf(owner) + ":" + requestId.value();
+    }
+
     // 플랫폼 탓으로 실패한 실행에서 앞서 성공한 단계의 주인에게 줄 값을 플랫폼이 대신 낸다 (엔진 계약 v2.0 8.5).
     // 사용자의 예치는 환불(forExecutionRefund)로 모두 돌려주고, 여기서는 플랫폼 부담 계정에서 빼 정산금으로 옮긴다.
     // 사용자 몫의 정산과 키가 같아 한 실행에 정산은 한 번만 기록된다.
@@ -337,6 +368,8 @@ public record LedgerTransaction(
                     LedgerAccountType.PAYOUT_BALANCE, LedgerAccountType.WITHDRAWAL_ESCROW);
             case WITHDRAWAL_RELEASE -> isOwnMove(outflow, inflows,
                     LedgerAccountType.WITHDRAWAL_ESCROW, LedgerAccountType.PAYOUT_BALANCE);
+            case PAYOUT_CONVERSION -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.PAYOUT_BALANCE, LedgerAccountType.ABC_BALANCE);
         };
     }
 
