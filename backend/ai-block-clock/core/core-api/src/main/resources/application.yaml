@@ -59,6 +59,13 @@ payment:
     # 이 시간이 지나도 거래가 블록에 적히지 않으면 실패로 닫는다. 늦게 성사되면 사용자가 같은 해시로 다시 요청한다
     verification-timeout: ${PAYMENT_CHARGE_VERIFICATION_TIMEOUT:30m}
     polling-enabled: ${PAYMENT_CHARGE_POLLING_ENABLED:true}
+  withdrawal:
+    # 실행 한 번에 쌓이는 정산금이 원가 수준(0.01 ABC 대)이라, 크게 잡으면 판매자가 한참 동안 출금하지 못한다
+    minimum-amount: ${PAYMENT_WITHDRAWAL_MINIMUM_AMOUNT:1}
+    # 관리자가 한 번에 심사할 만한 크기로 묶는다. 더 큰 금액은 나눠 신청한다
+    maximum-amount: ${PAYMENT_WITHDRAWAL_MAXIMUM_AMOUNT:1000}
+    # 마지막 신청(취소 · 반려 제외)에서 이만큼 지나야 다시 신청할 수 있다. 0 이면 주기 없이 처리 중인 출금만 막는다
+    request-interval: ${PAYMENT_WITHDRAWAL_REQUEST_INTERVAL:24h}
 
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
