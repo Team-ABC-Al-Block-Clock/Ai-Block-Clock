@@ -24,6 +24,7 @@ public interface WithdrawalApi {
                     정산금(`GET /credits/balance` 의 `payoutAmount`)에서 신청한 금액을 묶는다. 묶인 금액은 `payoutAmount` 에서 빠진다.
                     받을 지갑은 요청 본문이 아니라 **로그인한 지갑**이다.
 
+                    - 본인 확인(`POST /api/v1/users/me/identity-verification`)을 승인받아야 신청할 수 있다.
                     - 한 번에 1 ~ 1,000 ABC 까지 신청한다.
                     - 처리 중인 출금이 있으면 새로 신청할 수 없다.
                     - 마지막 신청에서 24시간이 지나야 다시 신청할 수 있다. 취소한 신청은 세지 않는다.
@@ -37,6 +38,8 @@ public interface WithdrawalApi {
                     금액이 한 번에 신청할 수 있는 범위를 벗어났다 (`PAYMENT_010`, `data` 에 `minimumAmount` · `maximumAmount`)""",
                     content = @Content),
             @ApiResponse(responseCode = "401", description = "로그인하지 않음", content = @Content),
+            @ApiResponse(responseCode = "403", description = "본인 확인을 승인받지 않았다 (`PAYMENT_017`)",
+                    content = @Content),
             @ApiResponse(responseCode = "409", description = """
                     정산금이 모자란다 (`PAYMENT_011`, `data` 에 `payoutAmount`).
                     처리 중인 출금이 있다 (`PAYMENT_012`).
@@ -55,7 +58,8 @@ public interface WithdrawalApi {
             @ApiResponse(responseCode = "200", description = "취소됨 (`CANCELED`)"),
             @ApiResponse(responseCode = "401", description = "로그인하지 않음", content = @Content),
             @ApiResponse(responseCode = "404", description = "없거나 남의 출금 신청이다 (`PAYMENT_015`)", content = @Content),
-            @ApiResponse(responseCode = "409", description = "심사가 끝나 취소할 수 없다 (`PAYMENT_016`)", content = @Content)
+            @ApiResponse(responseCode = "409", description = "관리자가 이미 승인 · 반려해 취소할 수 없다 (`PAYMENT_016`)",
+                    content = @Content)
     })
     ApiResult<WithdrawalResponse> cancel(UserId requester, Long withdrawalId);
 }

@@ -37,7 +37,15 @@
 | **성공률 · 성공률 페널티** | 성공 / (성공 + 공급자 탓 실패). 페널티는 그 거듭제곱으로 종합 점수에 곱한다 | `AgentGradeIndicators.successRate` · `successPenalty` |
 | **ABC (Credit)** | 수요자용 이용권. 실행 시 차감된다. 사용자 간 전송 불가 — 장부 거래가 종류마다 정해진 모양만 받는다(`LedgerTransaction`) | 아직 없음 ⚠️ 3장 참고 |
 | **정산금 (Payout Balance)** | 공급자용 출금 가능 자산 | 장부 계정 `PAYOUT_BALANCE`. 단계마다 내역은 `ExecutionSettlement`, 공급자가 보는 한 줄은 `SettlementRecord` |
+| **정산금 옮기기 (Payout Conversion)** | 공급자가 자기 정산금을 실행에 쓸 수 있는 ABC 로 옮기는 일. 장부 안에서만 옮기고 되돌리지 않는다 | `PayoutConversionService`, 장부 거래 `PAYOUT_CONVERSION` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md) 8장) |
 | **출금 신청 (Withdrawal)** | 공급자가 정산금을 로그인 지갑으로 abcToken 으로 보내 달라고 한 요청. 신청하면 금액이 **출금 예치**로 묶이고, 취소 · 반려되면 정산금으로 돌아온다 | `Withdrawal`, 장부 계정 `WITHDRAWAL_ESCROW` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md)) |
+| **본인 확인 (Identity Verification)** | 출금 전에 실명 · 생년월일을 내고 관리자 승인을 받는 절차. 지갑 로그인은 지갑의 주인까지만 확인하므로 그 뒤의 사람을 확인한다. 승인받아야 출금을 신청할 수 있다 | `IdentityVerification` (ACC-004) |
+| **출금 심사 (Withdrawal Review)** | 관리자가 출금 신청을 승인(지급 대기)하거나 사유를 남겨 반려(금액을 정산금으로 돌려놓음)하는 일 | `WithdrawalService.approve` · `.reject` (PAY-024 · ADM-001) |
+| **출금 지급 (Withdrawal Payout)** | 승인된 출금을 보관 지갑이 서명한 abcToken 전송으로 신청한 지갑에 보내는 일. 체인에서 성공을 확인하면 묶은 금액을 장부에서 내보낸다 | `WithdrawalPayoutService`, 상태 `PAYING` · `PAID`, 장부 거래 `WITHDRAWAL_PAYOUT` (PAY-025) |
+| **지급 보류 (Payout On Hold)** | 보낸 출금 전송의 결과를 오래(기본 10분) 알 수 없는 상태. 돈이 나갔을 수 있어 금액을 묶어 두고 뒤의 출금도 기다리며, 체인이 답하면 완료 · 실패로 닫는다 | 상태 `ON_HOLD` (PAY-026 · CHN-008) |
+| **지급 실패 (Payout Failed)** | 체인이 출금 전송을 되돌린 상태. 토큰이 나가지 않았으므로 묶은 금액을 정산금으로 돌려놓는다. 공급자는 곧바로 다시 신청할 수 있다 | 상태 `FAILED`, 장부 거래 `WITHDRAWAL_RELEASE` (PAY-026) |
+| **충전 · 출금 내역 (Credit History)** | 한 사람의 충전 요청과 출금 신청을 요청 시각의 최신순으로 섞은 목록. 상태와 체인 거래 해시를 함께 준다 | `CreditHistoryService` · `GET /api/v1/credits/history` (PAY-026) |
+| **관리자 (Admin)** | 설정(`admin.wallet-addresses`)에 적힌 지갑으로 로그인한 사용자. 로그인 때 `ROLE_ADMIN` 을 받아 `/api/v1/admin/**` 를 부른다 | `AdminProperties` · `SessionAuthenticationManager.ADMIN_ROLE` |
 | **단가 (Unit Price)** | 실행을 접수할 때 단계마다 정한 받을 값. 원가 × 놓인 자리의 배율(1 + 할증). 끝난 뒤 성공한 단계의 단가만 받는다 | `StepPrice` · `StepPrices`, 칸 `execution_charge_rate.unit_price` |
 | **플랫폼 부담** | 플랫폼 탓으로 실패한 실행에서 앞서 성공한 판매자에게 플랫폼이 대신 준 정산금. 잔액이 마이너스로 쌓인다 | 장부 계정 `PLATFORM_EXPENSE` (참조 `PLATFORM`) |
 | **테스트 실행** | 판매자가 노드 하나를 엔진에 실제로 돌려 결과물을 보고 원가를 재는 것. 무료, 노드당 하루 5번 (NOD-007) | `NodeTestRun` · 엔진 계약 v2.0 `mode=test` |

@@ -1,5 +1,6 @@
 # :client:blockchain 이 소유하는 설정이다. core-api 는 application.yaml 에서 가져오기만 한다.
-# 애플리케이션은 온체인 상태를 조회만 하므로 조회 제한 시간만 둔다.
+# 체인에 쓰는 일은 둘이다. 출금 지급은 보관 지갑이 서명한 전송을 RPC 로 보내고,
+# 에이전트 원본 기록은 등기부 지갑이 서명한 문서 쓰기를 토큰증권 API 로 보낸다.
 ssafy:
   sto:
     base-url: ${SSAFY_STO_BASE_URL:https://sto.ssafy.io}
@@ -8,8 +9,19 @@ ssafy:
     token:
       # abcToken. SSAFY 토큰증권 API 로 배포했고 name · symbol 로 확인했다
       contract-address: ${SSAFY_TOKEN_CONTRACT_ADDRESS:0x56DC097C14836473f4Ad4BD675a3d01BE5e4C63c}
+    # 에이전트 원본 기록 전용 토큰(등기부). 발행하지 않고 문서 칸에 에이전트 버전마다 원작자와 메타데이터 해시를 적는다.
+    # 개인키가 비어 있으면 기록을 쓰지 않는다(조회만 한다). 개인키는 서버 backend.env 에만 두고 저장소에 두지 않는다.
+    agent-registry:
+      # 2026-09-27 scripts/deploy-agent-registry.mjs 로 배포했다(블록 11376188). 주인은 등기부 지갑 0xFEAc…4f8C0
+      contract-address: ${SSAFY_AGENT_REGISTRY_CONTRACT_ADDRESS:0xBBC46459B7A364089A924cf5C091e6CD9B5AB934}
+      signer-private-key: ${SSAFY_AGENT_REGISTRY_SIGNER_PRIVATE_KEY:}
+      # 토큰증권 API 는 거래가 블록에 적힐 때까지 기다렸다가 답한다. 블록이 약 10초마다 생겨 몇 블록을 기다릴 여유를 둔다
+      write-timeout: ${SSAFY_AGENT_REGISTRY_WRITE_TIMEOUT:30s}
   chain:
     # SSAFY 체인 노드의 HTTPS JSON-RPC. 문서에는 wss 주소만 있고, 이 주소는 직접 호출해 같은 체인(31221)임을 확인했다
     rpc-url: ${SSAFY_CHAIN_RPC_URL:https://rpc.ssafy-blockchain.com}
     connect-timeout: ${SSAFY_CHAIN_CONNECT_TIMEOUT:3s}
     read-timeout: ${SSAFY_CHAIN_READ_TIMEOUT:10s}
+    signer:
+      # 출금을 보내는 보관 지갑의 개인키. 서버의 backend.env 에만 적는다. 비우면 서명하지 않는다
+      private-key: ${SSAFY_CHAIN_SIGNER_PRIVATE_KEY:}

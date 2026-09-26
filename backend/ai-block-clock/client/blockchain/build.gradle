@@ -1,11 +1,13 @@
 // 외부 시스템(SSAFY 토큰증권 API · SSAFY 체인 RPC)에 붙는 어댑터다.
 // core-api 의 웹 스타터에 얹히지 않도록 RestClient 가 있는 spring-web 만 직접 선언한다.
-// 토큰증권 API 응답은 값 하나(숫자·불리언·문자열)라 JSON 변환기가 필요 없다.
+// 토큰증권 API 의 조회 응답은 값 하나(숫자·불리언·문자열)라 직접 변환하지만,
+// 등기부 문서의 조회 응답과 쓰기 영수증은 객체라 JSON 변환기를 선언한다.
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-json'
     implementation 'org.springframework:spring-web'
 
-    // 체인 RPC 는 web3j 의 HTTP 연결(HttpService)만 쓴다.
+    // 체인 RPC 는 web3j 의 HTTP 연결(HttpService)만 쓴다. 등기부 문서의 서명도 web3j 로 만든다.
     // AWS KMS 서명 · 유닉스 소켓(IPC) · WebSocket 연결은 쓰지 않으므로 받지 않는다.
     implementation('org.web3j:core:6.0.0') {
         exclude group: 'software.amazon.awssdk'

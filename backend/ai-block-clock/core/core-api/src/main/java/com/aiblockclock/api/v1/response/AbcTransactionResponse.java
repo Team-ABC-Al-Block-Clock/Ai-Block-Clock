@@ -12,7 +12,7 @@ public record AbcTransactionResponse(
         @Schema(description = "장부 거래 ID", example = "41")
         Long transactionId,
 
-        @Schema(description = "CHARGE 충전 · RESERVE 실행 선차감 · REFUND 환불")
+        @Schema(description = "CHARGE 충전 · RESERVE 실행 선차감 · REFUND 환불 · PAYOUT_CONVERSION 정산금에서 옮겨 옴")
         LedgerEventType transactionType,
 
         @Schema(description = "부호 포함 변동액. 들어오면 +, 나가면 -", example = "-30.000000")

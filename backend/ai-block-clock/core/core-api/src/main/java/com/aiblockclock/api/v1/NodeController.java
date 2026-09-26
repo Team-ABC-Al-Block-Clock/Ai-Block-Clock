@@ -58,7 +58,8 @@ public class NodeController implements NodeApi {
             @RequestBody NodeSaveRequest request
     ) {
         NodeDefinition saved = nodeService.create(
-                owner, request.name(), Prompt.of(request.prompt()), request.modelOrDefault());
+                owner, request.name(), Prompt.of(request.prompt()), request.modelOrDefault(),
+                request.outputOrDefault());
 
         return ApiResult.success(NodeDetailResponse.from(saved, List.of()));
     }
@@ -84,7 +85,7 @@ public class NodeController implements NodeApi {
     ) {
         NodeDefinition updated = nodeService.update(
                 NodeDefinitionId.of(nodeId), owner, request.name(), Prompt.of(request.prompt()),
-                request.modelOrDefault());
+                request.modelOrDefault(), request.outputOrDefault());
 
         return ApiResult.success(NodeDetailResponse.from(
                 updated, nodeService.getRefFiles(NodeDefinitionId.of(nodeId), owner)));

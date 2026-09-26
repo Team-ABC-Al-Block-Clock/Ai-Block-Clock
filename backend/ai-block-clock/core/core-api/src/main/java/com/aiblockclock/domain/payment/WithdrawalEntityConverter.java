@@ -17,7 +17,14 @@ final class WithdrawalEntityConverter {
                 AbcAmount.of(entity.getAmountAbc()),
                 entity.getWalletAddress(),
                 entity.getStatus(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getReviewerId() == null ? null : UserId.of(entity.getReviewerId()),
+                entity.getReviewedAt(),
+                entity.getRejectReason(),
+                entity.getPayoutTransactionHash() == null ? null
+                        : new PayoutTransaction(entity.getPayoutTransactionHash(), entity.getPayoutRawTransaction()),
+                entity.getPayoutSubmittedAt(),
+                entity.getPaidAt()
         );
     }
 

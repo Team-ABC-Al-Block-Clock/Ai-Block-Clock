@@ -6,6 +6,7 @@ import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,14 @@ public class ChargeRequestReader {
 
     public List<Long> readPendingIds() {
         return chargeRequestRepository.findIdsByStatus(ChargeStatus.PENDING);
+    }
+
+    // 한 사람의 충전 요청을 최신순으로 앞에서부터 limit 개 준다
+    public List<ChargeRequest> readLatest(String userReferenceId, int limit) {
+        return chargeRequestRepository.findAllByUserReferenceIdOrderByCreatedAtDescIdDesc(
+                        userReferenceId, Limit.of(limit)).stream()
+                .map(ChargeRequestEntityConverter::toDomain)
+                .toList();
     }
 
     public Optional<ChargeRequest> findByChainAndTransactionHash(

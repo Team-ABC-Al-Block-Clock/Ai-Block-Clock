@@ -38,6 +38,7 @@ public class AgentService {
     private final AgentWriter agentWriter;
     private final AgentVersionWriter agentVersionWriter;
     private final AgentVersionNodeWriter agentVersionNodeWriter;
+    private final AgentProvenanceWriter agentProvenanceWriter;
 
     @Transactional
     public AgentRegistration register(
@@ -55,6 +56,7 @@ public class AgentService {
         agentVersionWriter.append(registered.version(), graphId);
         agentVersionNodeWriter.append(registered.version().getId(),
                 VersionNode.freeze(snapshot, placedNodes, refFilesOf(placedNodes)));
+        agentProvenanceWriter.request(registered.version());
 
         return registered;
     }
@@ -89,6 +91,7 @@ public class AgentService {
         agentVersionWriter.append(next, graphId);
         agentVersionNodeWriter.append(next.getId(),
                 VersionNode.freeze(snapshot, placedNodes, refFilesOf(placedNodes)));
+        agentProvenanceWriter.request(next);
 
         return new AgentRegistration(republished, next);
     }

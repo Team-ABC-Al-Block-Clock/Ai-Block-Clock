@@ -1,5 +1,7 @@
+# 관리자 화면이 없어 관리자가 배포 서버의 Swagger(/api/swagger-ui.html)로 출금 · 본인 확인을 심사한다.
+# 문서는 누구나 볼 수 있지만 관리자 API 는 관리자 권한이 있어야 불린다. 심사가 필요 없어지면 false 로 끈다
 springdoc:
   api-docs:
-    enabled: false
+    enabled: ${API_DOCS_ENABLED:true}
   swagger-ui:
-    enabled: false
+    enabled: ${API_DOCS_ENABLED:true}

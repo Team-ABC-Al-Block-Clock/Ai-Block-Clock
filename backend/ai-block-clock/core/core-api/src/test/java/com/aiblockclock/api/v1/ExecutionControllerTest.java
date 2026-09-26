@@ -255,6 +255,51 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @DisplayName("분기가 있는 워크플로우도 실행하고, 분기 노드와 참 · 거짓 갈래를 엔진에 싣는다")
+    void runsBranchedWorkflow() throws Exception {
+        MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(requester)).with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "경쟁 강도로 가른다",
+                                  "nodes": [
+                                    { "nodeKey": "market", "sourceType": "NODE", "nodeType": "LLM",
+                                      "name": "시장 조사", "prompt": "시장을 조사한다",
+                                      "output": { "kind": "JSON", "example": { "competition_level": "high" } } },
+                                    { "nodeKey": "br", "sourceType": "CONTROL", "controlType": "BRANCH",
+                                      "condition": { "left": "market.competition_level", "operator": "EQ", "right": "high" } },
+                                    { "nodeKey": "high", "sourceType": "NODE", "nodeType": "LLM",
+                                      "name": "고급 전략", "prompt": "고급 전략을 쓴다" },
+                                    { "nodeKey": "low", "sourceType": "NODE", "nodeType": "LLM",
+                                      "name": "보급 전략", "prompt": "보급 전략을 쓴다" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e1", "sourceNodeKey": "market", "targetNodeKey": "br" },
+                                    { "edgeKey": "e2", "sourceNodeKey": "br", "targetNodeKey": "high", "when": true },
+                                    { "edgeKey": "e3", "sourceNodeKey": "br", "targetNodeKey": "low", "when": false }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        workflowId = mapper.readTree(saved.getResponse().getContentAsString()).get("data").get("workflowId").asText();
+
+        mockMvc.perform(run().with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted());
+
+        ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
+        then(aiRuntimeClient).should().start(sent.capture());
+
+        assertThat(sent.getValue().workflow())
+                .contains("\"type\":\"branch\"")
+                .contains("\"left\":\"n1.competition_level\"")
+                .contains("\"when\":true")
+                .contains("\"when\":false")
+                .contains("\"example\":{\"competition_level\":\"high\"}");
+    }
+
+    @Test
     @DisplayName("정산이 귀속될 주인을 노드마다 실어 보낸다")
     void sendsNodeOwnerForSettlement() throws Exception {
         start();
