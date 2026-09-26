@@ -1,10 +1,15 @@
 import type { CreditBalance, CreditTransaction } from '@/api/credits'
+import { settlements } from '@/mocks/fixtures/settlements'
 
 /** ABC 잔액과 사용 내역 픽스처. 금액은 서버처럼 소수점 6자리 문자열이다. */
 
 export const CREDIT_BALANCE: CreditBalance = {
   availableAmount: '640.000000',
   reservedAmount: '350.000000',
+  // 아직 출금·옮기기 전이라 받은 정산금 전부다. 1,000 을 넘겨 「전액 출금」이 상한에서 잘리는 것을 본다.
+  payoutAmount: settlements()
+    .reduce((sum, s) => sum + Number(s.amount), 0)
+    .toFixed(6),
 }
 
 /**

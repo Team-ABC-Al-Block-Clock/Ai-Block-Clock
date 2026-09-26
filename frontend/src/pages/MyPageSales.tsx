@@ -1,87 +1,202 @@
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
-import StatusDot from '@/components/StatusDot'
+import PeriodMenu from '@/components/PeriodMenu'
+import MyPageFrame from '@/components/MyPageFrame'
+import { getMyAgents } from '@/api/agents'
+import { getCreditBalance } from '@/api/credits'
+import { getSettlementStatistics, getSettlements } from '@/api/settlements'
+import { priceLabel, runLabel, timeLabel } from '@/lib/format'
+import { growthPercent, monthRanges, PERIODS, rangeOf } from '@/lib/period'
+import { queryKeys } from '@/lib/queryKeys'
+import { dailySeries, trendPath, trendTicks } from '@/lib/salesTrend'
+import { paths } from '@/routes/paths'
+
+const PAGE_SIZE = 20
+const CHART_W = 534
+const CHART_H = 146
+const SHARE_COLORS = ['#e9aec4', '#dba18b', '#a094c2']
+
+const shareOf = (amount: string, total: number) =>
+  total > 0 ? Math.round((Number(amount) / total) * 1000) / 10 : 0
 
 export default function MyPageSales() {
-  const [tab, setTab] = useState('customer')
+  const [tab, setTab] = useState('entry')
+  const [periodAt, setPeriodAt] = useState(1)
 
+  const period = PERIODS[periodAt]
+  const range = rangeOf(period.days)
+  const listParams = { ...range, size: PAGE_SIZE }
+
+  const balance = useQuery({
+    queryKey: queryKeys.credits.balance(),
+    queryFn: getCreditBalance,
+  })
+  const statistics = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ ...range, unit: 'DAY' }),
+    queryFn: () => getSettlementStatistics({ ...range, unit: 'DAY' }),
+  })
+  // 총 매출은 기간 선택과 상관없는 누적이다.
+  const lifetime = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ unit: 'MONTH' }),
+    queryFn: () => getSettlementStatistics({ unit: 'MONTH' }),
+  })
+  const months = monthRanges()
+  const thisMonth = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ ...months.current, unit: 'MONTH' }),
+    queryFn: () => getSettlementStatistics({ ...months.current, unit: 'MONTH' }),
+  })
+  const lastMonth = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ ...months.previous, unit: 'MONTH' }),
+    queryFn: () => getSettlementStatistics({ ...months.previous, unit: 'MONTH' }),
+  })
+  const entries = useInfiniteQuery({
+    queryKey: queryKeys.settlements.transactions.list(listParams),
+    queryFn: ({ pageParam }) => getSettlements({ ...listParams, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled: tab === 'entry',
+  })
+  // 정산 응답에는 에이전트 이름이 없다. 많이 번 순으로 한 장이면 통계 줄 대부분이 잡힌다.
+  const agentNames = useQuery({
+    queryKey: queryKeys.agents.list({ sort: 'REVENUE', size: 30 }),
+    queryFn: () => getMyAgents({ sort: 'REVENUE', size: 30 }),
+    select: (page) => new Map(page.content.map((a) => [a.agentId, a.name])),
+  })
+  const agentName = (agentId: string | null) =>
+    agentId === null ? '—' : (agentNames.data?.get(agentId) ?? '에이전트')
+
+  const stats = statistics.data
+  const total = Number(stats?.totalAmount ?? 0)
+  // 누적 에이전트 호출 수의 합. 한 실행에서 에이전트 둘을 쓰면 두 번 센다.
+  const agentCalls = (lifetime.data?.agents ?? [])
+    .filter((a) => a.agentId !== null)
+    .reduce((sum, a) => sum + a.executionCount, 0)
+  const growth =
+    thisMonth.data && lastMonth.data
+      ? growthPercent(Number(thisMonth.data.totalAmount), Number(lastMonth.data.totalAmount))
+      : null
+  const growthLabel =
+    growth === null ? '지난달 매출 없음' : `${growth >= 0 ? '+' : ''}${growth.toLocaleString()}%`
   const metrics = [
-    { label: '총 사용 횟수', value: '12,648회', delta: '+21.7%' },
-    { label: '총매출', value: '2,456 ABC', delta: '정산 대기 52.8 ABC 포함' },
-    { label: '출금 가능', value: '2,403.2 ABC', delta: '지금 바로 출금 가능' },
-    { label: '활성 사용자 수', value: '1,248명', delta: '+16.2%' },
+    {
+      label: '총 사용 횟수',
+      value: lifetime.data ? runLabel(agentCalls) : '—',
+      delta: '직접 호출 포함',
+    },
+    {
+      label: '총 매출',
+      value: lifetime.data ? priceLabel(lifetime.data.totalAmount) : '—',
+      delta: '누적 매출액',
+    },
+    {
+      label: '정산금',
+      value: balance.data ? priceLabel(balance.data.payoutAmount) : '—',
+      delta: '즉시 출금 가능',
+      href: paths.my.credit,
+    },
+    {
+      label: '월간 매출',
+      value: thisMonth.data ? priceLabel(thisMonth.data.totalAmount) : '—',
+      delta: lastMonth.data ? growthLabel : '',
+    },
   ].map((m, i) => ({
     ...m,
     anim: 'rise .7s ' + (0.14 + i * 0.04).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
   }))
-  const tokens = [
-    { label: '입력 토큰', value: '10.2M (54.8%)', width: '55%', color: '#e9aec4' },
-    { label: '출력 토큰', value: '6.7M (36.0%)', width: '36%', color: '#dba18b' },
-    { label: '임베딩 토큰', value: '1.7M (9.2%)', width: '9%', color: '#a094c2' },
-  ].map((t, i) => ({
-    ...t,
-    anim: 'growBar .8s ' + (0.4 + i * 0.12).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
-  }))
-  const fg = (s: string) => (s === '정산 완료' ? '#9ad0b4' : '#ffb0cd')
-  const byCustomer = {
+
+  const series = stats ? dailySeries(stats.periods, range) : []
+  const line = trendPath(
+    series.map((p) => p.amount),
+    CHART_W,
+    CHART_H,
+  )
+  const ticks = trendTicks(series)
+
+  // 판매는 에이전트로만 일어난다. 에이전트 없는 묶음은 합계에만 남기고 순위에서는 뺀다.
+  const soldAgents = (stats?.agents ?? []).filter((a) => a.agentId !== null)
+  const topAgent = soldAgents[0]
+  // 2 ~ 4위 칸은 늘 셋이다. 순위가 모자라면 빈 칸을 0 으로 채운다.
+  const shares = [1, 2, 3].map((rank, i) => {
+    const a = soldAgents[rank]
+    return {
+      label: a ? agentName(a.agentId) : '—',
+      value: `${priceLabel(a?.amount ?? 0)} (${a ? shareOf(a.amount, total) : 0}%)`,
+      width: `${a ? shareOf(a.amount, total) : 0}%`,
+      color: SHARE_COLORS[i],
+      anim: 'growBar .8s ' + (0.4 + i * 0.12).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
+    }
+  })
+
+  const byAgent = {
     columns: [
-      { label: '고객', w: '300px' },
-      { label: '사용 횟수', w: '130px' },
-      { label: '토큰 사용량', w: '160px' },
-      { label: '결제 코인', w: '160px' },
-      { label: '상태', w: '110px' },
+      { label: '에이전트', w: '380px' },
+      { label: '호출 수', w: '160px' },
+      { label: '받은 정산금', w: '200px' },
+      { label: '비중', w: '120px' },
     ],
-    data: [
-      ['SmartBuild Inc.', '1,248', '1.93M', '256.8 ABC', '정산 완료'],
-      ['AI Research Lab', '986', '1.42M', '189.4 ABC', '정산 완료'],
-      ['DataFlow Systems', '754', '1.08M', '145.6 ABC', '정산 완료'],
-      ['Nova Analytics', '689', '0.98M', '118.2 ABC', '정산 대기'],
-      ['Orbit Labs', '542', '0.76M', '82.4 ABC', '정산 완료'],
-    ],
+    data: soldAgents.map((a) => [
+      agentName(a.agentId),
+      runLabel(a.executionCount),
+      priceLabel(a.amount),
+      `${shareOf(a.amount, total)}%`,
+    ]),
   }
+  // 판매는 에이전트로만 일어난다. 에이전트 없는 노드 줄은 목록에서 뺀다(합계에는 남는다).
+  const entryRows = (entries.data?.pages.flatMap((page) => page.content) ?? []).filter(
+    (e) => e.agentId !== null,
+  )
   const byEntry = {
     columns: [
-      { label: '일시', w: '150px' },
-      { label: '고객', w: '280px' },
-      { label: '사용 횟수', w: '130px' },
-      { label: '획득 코인', w: '190px' },
-      { label: '상태', w: '110px' },
+      { label: '일시', w: '190px' },
+      { label: '에이전트', w: '370px' },
+      { label: '정산금', w: '190px' },
+      { label: '구분', w: '110px' },
     ],
-    data: [
-      ['05.24 14:32', 'SmartBuild Inc.', '28회', '45.6 ABC', '정산 완료'],
-      ['05.24 11:08', 'DataFlow Systems', '16회', '36.8 ABC', '정산 완료'],
-      ['05.23 21:33', 'AI Research Lab', '31회', '59.2 ABC', '정산 완료'],
-      ['05.23 15:47', 'Nova Analytics', '22회', '41.2 ABC', '정산 대기'],
-      ['05.22 09:12', 'Orbit Labs', '18회', '33.4 ABC', '정산 완료'],
-    ],
+    data: entryRows.map((e) => [
+      timeLabel(e.settledAt),
+      // 이름 목록은 수익 상위 30개뿐이다. 못 찾으면 실행 때 남은 노드 이름을 쓴다.
+      e.agentId && !agentNames.data?.has(e.agentId)
+        ? (e.nodeName ?? '에이전트')
+        : agentName(e.agentId),
+      priceLabel(e.amount),
+      e.selfUse ? '직접 사용' : '판매',
+    ]),
   }
-  const byCustomerTab = tab === 'customer'
-  const view = byCustomerTab ? byCustomer : byEntry
-  const dim = byCustomerTab ? 2 : 0
+  const byAgentTab = tab === 'agent'
+  const view = byAgentTab ? byAgent : byEntry
+  const amountAt = 2
   const rows = view.data.map((cells) => ({
     cells: cells.map((text, i) => ({
       text,
       w: view.columns[i].w,
       color:
-        i === cells.length - 1
-          ? fg(text)
-          : i === dim
-            ? 'rgba(255,255,255,.68)'
-            : 'var(--color-body)',
-      weight: i === cells.length - 1 || i === 3 ? '600' : '400',
+        !byAgentTab && i === cells.length - 1
+          ? text === '판매'
+            ? '#9ad0b4'
+            : '#ff8a8a'
+          : i === 0 && byAgentTab
+            ? 'var(--color-body)'
+            : i === amountAt
+              ? '#fff'
+              : 'rgba(255,255,255,.84)',
+      weight: i === amountAt || (!byAgentTab && i === cells.length - 1) ? '600' : '400',
     })),
   }))
+  const current = byAgentTab ? statistics : entries
+  const isEmpty = !current.isPending && !current.isError && rows.length === 0
+
   const LILAC = '#c9a9dd'
   const columns = view.columns
-  const fgCustomer = byCustomerTab ? '#fff' : 'rgba(255,240,247,.6)'
-  const fgEntry = byCustomerTab ? 'rgba(255,240,247,.6)' : '#fff'
-  const barCustomer = byCustomerTab ? LILAC : 'transparent'
-  const barEntry = byCustomerTab ? 'transparent' : LILAC
-  const handlePickByCustomer = () => setTab('customer')
+  const fgAgent = byAgentTab ? '#fff' : 'rgba(255,240,247,.6)'
+  const fgEntry = byAgentTab ? 'rgba(255,240,247,.6)' : '#fff'
+  const barAgent = byAgentTab ? LILAC : 'transparent'
+  const barEntry = byAgentTab ? 'transparent' : LILAC
+  const handlePickByAgent = () => setTab('agent')
   const handlePickByEntry = () => setTab('entry')
 
   return (
-    <>
+    <MyPageFrame>
       <Sidebar active="sales" />
 
       <div
@@ -105,34 +220,10 @@ export default function MyPageSales() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        내 에이전트가 사용된 만큼 적립된 ABC 코인과 사용량, 정산 상태를 확인합니다.
+        내 에이전트를 판매한 정산금과 출금할 수 있는 금액을 확인합니다.
       </div>
 
-      <div
-        style={{
-          left: '1214px',
-          top: '160px',
-          width: '128px',
-          height: '38px',
-          borderRadius: '19px',
-          padding: '0 15px',
-          animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
-        }}
-        className="absolute box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
-      >
-        <div className="text-[12px]" style={{ color: 'rgba(255,240,247,.84)' }}>
-          최근 30일
-        </div>
-        <div
-          style={{
-            width: '0',
-            height: '0',
-            borderLeft: '4px solid transparent',
-            borderRight: '4px solid transparent',
-            borderTop: '5px solid rgba(255,255,255,.6)',
-          }}
-        ></div>
-      </div>
+      <PeriodMenu at={periodAt} onPick={setPeriodAt} />
 
       <div
         className="absolute flex"
@@ -152,7 +243,7 @@ export default function MyPageSales() {
             >
               <div>
                 <div
-                  className="text-[12.5px] tracking-[-.01em]"
+                  className="text-[14px] tracking-[-.01em]"
                   style={{ color: 'rgba(255,236,246,.62)', lineHeight: '1.3' }}
                 >
                   {m.label}
@@ -163,12 +254,22 @@ export default function MyPageSales() {
                 >
                   {m.value}
                 </div>
-                <div
-                  className="text-[11.5px]"
-                  style={{ marginTop: '8px', color: '#dcaebf', lineHeight: '1.2' }}
-                >
-                  {m.delta}
-                </div>
+                {m.href ? (
+                  <a
+                    href={m.href}
+                    className="block text-[13px] hover:text-white"
+                    style={{ marginTop: '8px', color: '#dcaebf', lineHeight: '1.2' }}
+                  >
+                    {m.delta}
+                  </a>
+                ) : (
+                  <div
+                    className="text-[13px]"
+                    style={{ marginTop: '8px', color: '#dcaebf', lineHeight: '1.2' }}
+                  >
+                    {m.delta}
+                  </div>
+                )}
               </div>
             </div>
           </Fragment>
@@ -187,7 +288,7 @@ export default function MyPageSales() {
           animation: 'rise .7s .22s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">사용량 추이</div>
+        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">정산금 추이</div>
         <div className="relative" style={{ marginTop: '18px', width: '534px', height: '158px' }}>
           <div
             className="absolute top-0 left-0 bg-[rgba(255,255,255,.09)]"
@@ -224,30 +325,46 @@ export default function MyPageSales() {
                 <stop offset="100%" stopColor="#ffb0cd" stopOpacity="0" />
               </linearGradient>
             </defs>
-            <path
-              d="M0 122 L48 100 L97 112 L145 76 L194 94 L242 58 L291 76 L339 48 L388 64 L436 30 L485 46 L534 20 L534 146 L0 146 Z"
-              fill="url(#salesFill)"
-            />
-            <path
-              d="M0 122 L48 100 L97 112 L145 76 L194 94 L242 58 L291 76 L339 48 L388 64 L436 30 L485 46 L534 20"
-              fill="none"
-              stroke="url(#salesLine)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray="1400"
-              style={{ animation: 'drawUp 1.5s .35s cubic-bezier(.3,.7,.2,1) both' }}
-            />
+            {line && (
+              <path d={`${line} L${CHART_W} ${CHART_H} L0 ${CHART_H} Z`} fill="url(#salesFill)" />
+            )}
+            {line && (
+              <path
+                d={line}
+                fill="none"
+                stroke="url(#salesLine)"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                pathLength={1400}
+                strokeDasharray="1400"
+                style={{ animation: 'drawUp 1.5s .35s cubic-bezier(.3,.7,.2,1) both' }}
+              />
+            )}
           </svg>
+          {stats && total === 0 && (
+            <div
+              className="absolute left-0 flex items-center justify-center text-[13.5px]"
+              style={{ top: '0', width: '534px', height: '134px', color: 'rgba(255,236,246,.55)' }}
+            >
+              {period.label}에 받은 정산금이 없습니다.
+            </div>
+          )}
+          {statistics.isError && (
+            <div
+              className="absolute left-0 flex items-center justify-center text-[13.5px]"
+              style={{ top: '0', width: '534px', height: '134px', color: '#ffb0cd' }}
+            >
+              정산 통계를 불러오지 못했습니다.
+            </div>
+          )}
           <div
-            className="absolute left-0 flex justify-between text-[10px]"
+            className="absolute left-0 flex justify-between text-[12px]"
             style={{ top: '142px', width: '534px', color: 'rgba(255,236,246,.5)' }}
           >
-            <span>04/25</span>
-            <span>05/03</span>
-            <span>05/11</span>
-            <span>05/19</span>
-            <span>05/23</span>
+            {ticks.map((t, i) => (
+              <span key={i}>{t.replace('-', '/')}</span>
+            ))}
           </div>
         </div>
       </div>
@@ -264,25 +381,25 @@ export default function MyPageSales() {
           animation: 'rise .7s .26s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">토큰 사용량</div>
+        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">판매 금액</div>
         <div
-          className="text-[26px] font-semibold tracking-[-.02em] text-white"
+          className="truncate text-[26px] font-semibold tracking-[-.02em] text-white"
           style={{ marginTop: '10px', lineHeight: '1.2' }}
         >
-          18.6M
+          {topAgent ? priceLabel(topAgent.amount) : '—'}
         </div>
-        <div className="text-[11px]" style={{ marginTop: '4px', color: 'rgba(255,236,246,.6)' }}>
-          총 토큰
+        <div className="text-[12.5px]" style={{ marginTop: '4px', color: 'rgba(255,236,246,.6)' }}>
+          {topAgent ? agentName(topAgent.agentId) : ''}
         </div>
         <div className="flex flex-col" style={{ marginTop: '14px', gap: '10px' }}>
-          {tokens.map((t, i) => (
+          {shares.map((t, i) => (
             <Fragment key={i}>
               <div>
                 <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-                  <div className="text-[11px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                  <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                     {t.label}
                   </div>
-                  <div className="text-[11px] font-semibold text-white">{t.value}</div>
+                  <div className="text-[12.5px] font-semibold text-white">{t.value}</div>
                 </div>
                 <div
                   className="overflow-hidden bg-[rgba(255,255,255,.09)]"
@@ -311,7 +428,7 @@ export default function MyPageSales() {
           left: '442px',
           top: '665px',
           width: '900px',
-          height: '268px',
+          height: '330px',
           padding: '16px 20px',
           borderRadius: '16px',
           animation: 'rise .7s .3s cubic-bezier(.2,.8,.25,1) both',
@@ -320,24 +437,7 @@ export default function MyPageSales() {
         <div className="flex items-center justify-between" style={{ height: '30px' }}>
           <div className="flex" style={{ gap: '20px', height: '30px' }}>
             <div
-              className="relative flex cursor-pointer items-start text-[14px] font-semibold tracking-[-.01em]"
-              onClick={handlePickByCustomer}
-              style={{ height: '30px', color: `${fgCustomer}`, transition: 'color .16s' }}
-            >
-              고객별
-              <div
-                className="absolute left-0"
-                style={{
-                  bottom: '0',
-                  width: '100%',
-                  height: '2px',
-                  borderRadius: '1px',
-                  background: `${barCustomer}`,
-                }}
-              ></div>
-            </div>
-            <div
-              className="relative flex cursor-pointer items-start text-[14px] font-semibold tracking-[-.01em]"
+              className="relative flex cursor-pointer items-start text-[16px] font-semibold tracking-[-.01em]"
               onClick={handlePickByEntry}
               style={{ height: '30px', color: `${fgEntry}`, transition: 'color .16s' }}
             >
@@ -353,32 +453,32 @@ export default function MyPageSales() {
                 }}
               ></div>
             </div>
+            <div
+              className="relative flex cursor-pointer items-start text-[16px] font-semibold tracking-[-.01em]"
+              onClick={handlePickByAgent}
+              style={{ height: '30px', color: `${fgAgent}`, transition: 'color .16s' }}
+            >
+              에이전트별
+              <div
+                className="absolute left-0"
+                style={{
+                  bottom: '0',
+                  width: '100%',
+                  height: '2px',
+                  borderRadius: '1px',
+                  background: `${barAgent}`,
+                }}
+              ></div>
+            </div>
           </div>
-          <div className="flex items-center" style={{ gap: '14px' }}>
-            <div className="flex items-center" style={{ gap: '7px' }}>
-              <StatusDot color="#84bf9f" />
-              <div
-                className="text-[11.5px]"
-                style={{ color: 'rgba(255,255,255,.86)', fontVariantNumeric: 'tabular-nums' }}
-              >
-                정산 완료 2,403.2 ABC
-              </div>
-            </div>
-            <div className="flex items-center" style={{ gap: '7px' }}>
-              <StatusDot color="#e9aec4" />
-              <div
-                className="text-[11.5px]"
-                style={{ color: 'rgba(255,255,255,.86)', fontVariantNumeric: 'tabular-nums' }}
-              >
-                정산 대기 52.8 ABC
-              </div>
-            </div>
+          <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+            {period.label}
           </div>
         </div>
 
         <div
-          className="flex text-[10.5px] font-semibold"
-          style={{ marginTop: '14px', color: 'rgba(255,236,246,.55)' }}
+          className="flex text-[13.5px] font-semibold"
+          style={{ marginTop: '14px', color: 'rgba(255,236,246,.72)' }}
         >
           {columns.map((c, i) => (
             <Fragment key={i}>
@@ -387,18 +487,21 @@ export default function MyPageSales() {
           ))}
         </div>
 
-        <div className="flex flex-col" style={{ marginTop: '6px' }}>
+        <div
+          className="flex flex-col overflow-y-auto"
+          style={{ marginTop: '8px', height: '196px' }}
+        >
           {rows.map((r, i) => (
             <Fragment key={i}>
               <div
                 style={{
-                  height: '27px',
+                  height: '44px',
                   color: 'var(--color-body)',
                   fontVariantNumeric: 'tabular-nums',
                   borderRadius: '6px',
                   transition: 'background .14s',
                 }}
-                className="hover:bg-surface-inset flex flex-none items-center text-[11.5px]"
+                className="hover:bg-surface-inset flex flex-none items-center text-[15.5px]"
               >
                 {r.cells.map((c, i) => (
                   <Fragment key={i}>
@@ -418,18 +521,38 @@ export default function MyPageSales() {
               </div>
             </Fragment>
           ))}
+          {current.isPending && (
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+              정산 내역을 불러오는 중입니다.
+            </div>
+          )}
+          {current.isError && (
+            <div className="text-[13px]" style={{ color: '#ffb0cd' }}>
+              정산 내역을 불러오지 못했습니다.
+            </div>
+          )}
+          {isEmpty && (
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+              {period.label}에 받은 정산금이 없습니다.
+            </div>
+          )}
         </div>
 
         <div className="flex" style={{ marginTop: '12px', justifyContent: 'flex-end' }}>
-          <div
-            style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
-            className="flex cursor-pointer items-center text-[11.5px] font-semibold hover:text-[#fff]"
-          >
-            전체 보기
-            <span className="text-[12px]">→</span>
-          </div>
+          {!byAgentTab && entries.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => void entries.fetchNextPage()}
+              disabled={entries.isFetchingNextPage}
+              style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
+              className="flex cursor-pointer items-center text-[13px] font-semibold hover:text-[#fff]"
+            >
+              {entries.isFetchingNextPage ? '불러오는 중' : '더 보기'}
+              <span className="text-[13.5px]">→</span>
+            </button>
+          )}
         </div>
       </div>
-    </>
+    </MyPageFrame>
   )
 }

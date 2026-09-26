@@ -23,13 +23,18 @@ export const NODE_DETAILS: NodeDetail[] = [
     model: 'GEMINI_2_5_FLASH',
     baseCost: '12',
     currency: 'ABC',
-    refFiles: [],
+    // 붙여 둔 자료가 있는 노드. 저장본을 다시 열었을 때 목록이 서는지 여기서 확인한다.
+    refFiles: [
+      { refFileId: 'ref_001', filename: '채점 기준표.pdf', size: 204800 },
+      { refFileId: 'ref_002', filename: '분류 규칙.md', size: 3120 },
+    ],
   },
   {
     nodeId: 'node_003',
     name: '요약 생성',
     prompt: '분석 결과를 세 줄로 줄인다.',
-    model: 'GEMINI_2_5_FLASH',
+    // 기본값이 아닌 모델을 하나 섞는다 — 저장본을 다시 열 때 고른 값이 서는지 여기서 드러난다.
+    model: 'GEMINI_2_5_PRO',
     baseCost: '15',
     currency: 'ABC',
     refFiles: [],

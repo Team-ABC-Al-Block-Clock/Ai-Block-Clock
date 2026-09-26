@@ -41,8 +41,29 @@ export default defineConfig(({ mode }) => {
     // jsdom 이 필요한 이유는 두 가지다 — mocks/scenario.ts 가 location·localStorage 를
     // 읽고, msw 가 '/api/v1/...' 상대 경로 핸들러를 풀려면 location.href 가 있어야 한다.
     test: {
-      environment: 'jsdom',
-      setupFiles: ['./src/test/setup.ts'],
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: 'dom',
+            environment: 'jsdom',
+            setupFiles: ['./src/test/setup.ts'],
+            exclude: ['**/node_modules/**', '**/dist/**', '**/*.node.test.ts'],
+          },
+        },
+        // jsdom 에서는 multipart 요청이 문자열로 굳어 검사할 수 없다. setup.node.ts 참고.
+        {
+          extends: true,
+          test: {
+            name: 'node',
+            environment: 'node',
+            setupFiles: ['./src/test/setup.node.ts'],
+            include: ['**/*.node.test.ts'],
+            // node 의 http 어댑터는 절대 URL 을 요구한다 — 기본값 '/api' 로는 요청이 서지 않는다.
+            env: { VITE_API_BASE_URL: 'http://localhost/api' },
+          },
+        },
+      ],
     } satisfies InlineConfig,
     server: {
       port: 5173,

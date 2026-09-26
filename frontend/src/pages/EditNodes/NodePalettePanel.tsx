@@ -1,9 +1,22 @@
 import SearchIcon from '@/components/SearchIcon'
-import { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import {
+  CARD_GUTTER,
+  PANEL_BOTTOM,
+  PANEL_CONTENT_WIDTH,
+  PANEL_HEIGHT,
+  PANEL_INSET,
+  PANEL_SPLIT_Y,
+} from '@/components/SidePanel'
 import type { useNodePalette } from '@/hooks/useNodePalette'
 
 /** `scrollbar-width: thin` 이 먹는 폭. 이만큼 넓혀야 카드가 위의 검색칸과 나란히 선다. */
 const SCROLLBAR = 8
+
+/** 가르는 선부터의 거리. 선을 옮기면 아래가 통째로 따라간다. */
+const SEARCH_Y = PANEL_SPLIT_Y + 24
+const GRID_Y = PANEL_SPLIT_Y + 78
+/** 창이 커지면 위아래로 늘어난 만큼(`--edge-y`) 더 받는다. */
+const GRID_HEIGHT = PANEL_HEIGHT - PANEL_BOTTOM - GRID_Y
 
 type Palette = ReturnType<typeof useNodePalette>
 
@@ -39,7 +52,7 @@ export default function NodePalettePanel({
         className="absolute"
         style={{
           left: `${PANEL_INSET}px`,
-          top: '424px',
+          top: `${PANEL_SPLIT_Y}px`,
           width: `${PANEL_CONTENT_WIDTH}px`,
           height: '1px',
           background: 'rgba(255,255,255,.14)',
@@ -52,7 +65,7 @@ export default function NodePalettePanel({
         className="absolute bg-[rgba(255,255,255,.10)]"
         style={{
           left: `${PANEL_INSET}px`,
-          top: '448px',
+          top: `${SEARCH_Y}px`,
           width: `${PANEL_CONTENT_WIDTH}px`,
           height: '40px',
           borderRadius: '10px',
@@ -75,9 +88,9 @@ export default function NodePalettePanel({
         className="scroll-thin absolute grid"
         style={{
           left: `${PANEL_INSET}px`,
-          top: '502px',
+          top: `${GRID_Y}px`,
           width: `${PANEL_CONTENT_WIDTH + SCROLLBAR}px`,
-          height: 'calc(498px + 2 * var(--edge-y, 0px))',
+          height: `calc(${GRID_HEIGHT}px + 2 * var(--edge-y, 0px))`,
           // 한 줄에 두 장. 남는 폭을 열이 나눠 갖게 한다.
           gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
           gap: '14px',

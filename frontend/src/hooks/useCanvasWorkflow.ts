@@ -427,14 +427,17 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
   }, [])
 
   /** 팔레트에서 끌어온 항목을 커서가 카드 한가운데를 잡고 있는 것처럼 놓는다. */
+  /** 놓은 카드의 id 를 돌려준다 — 붙일 참고 자료를 그 카드 앞으로 옮겨 둬야 한다. */
   const placeFromPalette = (seed: Omit<PlacedSeed, 'id'>, point: { x: number; y: number }) => {
     placedCount.current += 1
+    const id = `placed-${placedCount.current}`
     dispatch({
       type: 'placeNode',
-      seed: { ...seed, id: `placed-${placedCount.current}` },
+      seed: { ...seed, id },
       x: point.x - NODE_SIZE / 2,
       y: point.y - NODE_SIZE / 2,
     })
+    return id
   }
 
   /**
@@ -443,12 +446,11 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
    * 새 노드는 실행 이력이 없어 팔레트 정렬(내 것 먼저 → 많이 쓰인 순)에서 맨 뒤로 가고,
    * 한 쪽이 10건이라 다음 쪽으로 밀린다 — 만들고도 어디 갔는지 보이지 않는다.
    */
-  const placeAtCenter = (seed: Omit<PlacedSeed, 'id'>) => {
+  const placeAtCenter = (seed: Omit<PlacedSeed, 'id'>) =>
     placeFromPalette(seed, {
       x: (PANE_CONTENT_WIDTH / 2 - view.tx) / view.k,
       y: (PANE_HEIGHT / 2 - view.ty) / view.k,
     })
-  }
 
   /**
    * 놓인 것들의 옆 빈자리에 놓는다. 캔버스가 비어 있으면 가운데.
