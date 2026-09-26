@@ -2,9 +2,24 @@ import { api } from '@/api/client'
 
 /** 정산금 출금. 충전한 ABC 는 서비스 안에서만 쓰는 이용권이라 출금되지 않는다. */
 
-/** REQUESTED → APPROVED → PAYING → PAID, 중간에 CANCELED · REJECTED 로 빠진다. */
+/** REQUESTED → APPROVED → PAYING → PAID. CANCELED · REJECTED · FAILED 로 빠지고, 확인이 늦으면 ON_HOLD 에 머문다. */
 export type WithdrawalStatus =
-  'REQUESTED' | 'APPROVED' | 'PAYING' | 'PAID' | 'CANCELED' | 'REJECTED'
+  | 'REQUESTED'
+  | 'APPROVED'
+  | 'PAYING'
+  | 'ON_HOLD'
+  | 'PAID'
+  | 'CANCELED'
+  | 'REJECTED'
+  | 'FAILED'
+
+/** 아직 끝나지 않은 출금. 이런 출금이 있으면 새로 신청하지 못한다 */
+export const IN_PROGRESS_WITHDRAWAL: readonly WithdrawalStatus[] = [
+  'REQUESTED',
+  'APPROVED',
+  'PAYING',
+  'ON_HOLD',
+]
 
 export interface Withdrawal {
   withdrawalId: string

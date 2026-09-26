@@ -99,3 +99,32 @@ export interface PayoutConversion {
 /** 정산금 → ABC 한 방향뿐이다. requestId 는 누를 때마다 새로, 재시도는 같은 값으로 보낸다. */
 export const convertPayout = (params: { requestId: string; amount: string }) =>
   api.post<PayoutConversion>('/credits/payout-conversions', params)
+
+export type CreditHistoryType = 'CHARGE' | 'WITHDRAWAL'
+
+/** 충전과 출금이 같은 칸을 쓴다. id 는 type 마다 따로 매겨 화면 key 는 type + id 다. */
+export interface CreditHistoryItem {
+  type: CreditHistoryType
+  id: string
+  /** CHARGE 면 ChargeStatus, WITHDRAWAL 이면 WithdrawalStatus */
+  status: string
+  amount: string
+  walletAddress: string
+  /** 출금은 체인에 보낸 뒤(PAYING 부터)에만 있다 */
+  transactionHash: string | null
+  requestedAt: string
+  /** 충전은 적립 시각, 출금은 지급 완료 시각 */
+  completedAt: string | null
+  /** 충전 실패 때만 */
+  failureReason: ChargeFailureReason | null
+  /** 출금 반려 때만 */
+  rejectReason: string | null
+}
+
+export interface CreditHistoryQuery extends CursorParams {
+  type?: CreditHistoryType
+}
+
+/** 요청 시각 최신순, 기본 20건·최대 50건. PAYING · ON_HOLD 는 이 목록을 다시 불러 확인한다. */
+export const getCreditHistory = (params: CreditHistoryQuery = {}) =>
+  api.get<CursorPage<CreditHistoryItem>>('/credits/history', { params })

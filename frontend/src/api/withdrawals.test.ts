@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { convertPayout, getCreditBalance } from '@/api/credits'
+import { convertPayout, getCreditBalance, getCreditHistory } from '@/api/credits'
 import { WITHDRAWAL_ERROR } from '@/api/errors'
 import { cancelWithdrawal, createWithdrawal } from '@/api/withdrawals'
 
@@ -90,5 +90,27 @@ describe('정산금 옮기기', () => {
     await expect(
       convertPayout({ requestId: crypto.randomUUID(), amount: '999999' }),
     ).rejects.toMatchObject({ code: WITHDRAWAL_ERROR.CONVERSION_INSUFFICIENT })
+  })
+})
+
+describe('충전 · 출금 내역', () => {
+  it('요청 시각 최신순으로 충전과 출금을 섞어 준다', async () => {
+    const page = await getCreditHistory({ size: 50 })
+    const times = page.content.map((h) => Date.parse(h.requestedAt))
+
+    expect(new Set(page.content.map((h) => h.type))).toEqual(new Set(['CHARGE', 'WITHDRAWAL']))
+    expect(times).toEqual([...times].sort((a, b) => b - a))
+  })
+
+  it('type 으로 거른다', async () => {
+    const page = await getCreditHistory({ type: 'WITHDRAWAL', size: 50 })
+
+    expect(page.content.every((h) => h.type === 'WITHDRAWAL')).toBe(true)
+  })
+
+  it('반려된 출금만 rejectReason 이 있다', async () => {
+    const page = await getCreditHistory({ type: 'WITHDRAWAL', size: 50 })
+
+    for (const h of page.content) expect(Boolean(h.rejectReason)).toBe(h.status === 'REJECTED')
   })
 })

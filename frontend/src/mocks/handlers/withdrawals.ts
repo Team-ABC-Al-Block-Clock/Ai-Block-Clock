@@ -1,22 +1,76 @@
 import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
+import type { CreditHistoryItem, CreditHistoryType } from '@/api/credits'
 import { WITHDRAWAL_ERROR } from '@/api/errors'
-import { WITHDRAWAL_LIMITS, type Withdrawal } from '@/api/withdrawals'
+import { IN_PROGRESS_WITHDRAWAL, WITHDRAWAL_LIMITS, type Withdrawal } from '@/api/withdrawals'
 import { MAX_FRACTION_DIGITS } from '@/lib/abcToken'
+import { offsetCursorOk } from '@/mocks/cursor'
 import { CREDIT_BALANCE, CREDIT_TRANSACTIONS } from '@/mocks/fixtures/credits'
+import { chargeHistory } from '@/mocks/handlers/credits'
 import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
-/** 새로고침하면 사라진다. 조회 API 가 없어 심사 뒤 상태는 mock 에서도 보이지 않는다. */
+/** 새로고침하면 새로 신청한 것은 사라지고 지난 출금 셋만 남는다. */
 const withdrawals = new Map<string, Withdrawal>()
+const txHashes = new Map<string, string>()
+const paidAt = new Map<string, string>()
 const byRequestId = new Map<string, string>()
 const conversions = new Map<string, string>()
-let nextId = 1
 
-const IN_PROGRESS = new Set(['REQUESTED', 'APPROVED', 'PAYING'])
-const COUNTED = new Set(['REQUESTED', 'APPROVED', 'PAYING', 'PAID'])
+const seed = (w: Omit<Withdrawal, 'walletAddress'>, hash?: string, done?: string) => {
+  withdrawals.set(w.withdrawalId, { ...w, walletAddress: PROFILE.wallet.address })
+  if (hash) txHashes.set(w.withdrawalId, hash)
+  if (done) paidAt.set(w.withdrawalId, done)
+}
+// prettier-ignore
+seed({ withdrawalId: '1', status: 'FAILED', amount: '120.000000', requestedAt: '2026-08-28T02:10:00Z', reviewedAt: '2026-08-28T05:00:00Z', rejectReason: null }, '0x4c1e9a07d2b36f58e1a0c94b7d2e5f3816a9c07b4d2e81f3a56c9b07e1d4f2a8')
+// prettier-ignore
+seed({ withdrawalId: '2', status: 'REJECTED', amount: '300.000000', requestedAt: '2026-09-03T11:20:00Z', reviewedAt: '2026-09-03T14:00:00Z', rejectReason: '본인 확인 정보와 지갑 소유자가 다릅니다.' })
+// prettier-ignore
+seed({ withdrawalId: '3', status: 'PAID', amount: '250.000000', requestedAt: '2026-09-10T08:00:00Z', reviewedAt: '2026-09-10T09:30:00Z', rejectReason: null }, '0x9b2f4e7a1c03d58e6a2b1f09c4d7e35a81b6c0f2e49d7a13c5b8e0f4a2d61c97', '2026-09-10T09:30:40Z')
+let nextId = 4
+
+const IN_PROGRESS = new Set<string>(IN_PROGRESS_WITHDRAWAL)
+const COUNTED = new Set(['REQUESTED', 'APPROVED', 'PAYING', 'ON_HOLD', 'PAID'])
+
+/** 심사 · 전송을 흉내 낸다. 10초 뒤 승인, 20초 뒤 전송 중, 35초 뒤 완료. */
+function advance(w: Withdrawal): Withdrawal {
+  if (!['REQUESTED', 'APPROVED', 'PAYING'].includes(w.status)) return w
+  const age = Date.now() - Date.parse(w.requestedAt)
+  if (age >= 35_000) {
+    w.status = 'PAID'
+    paidAt.set(w.withdrawalId, new Date().toISOString())
+  } else if (age >= 20_000) w.status = 'PAYING'
+  else if (age >= 10_000) w.status = 'APPROVED'
+  if (w.status !== 'REQUESTED' && !w.reviewedAt) w.reviewedAt = new Date().toISOString()
+  if ((w.status === 'PAYING' || w.status === 'PAID') && !txHashes.has(w.withdrawalId)) {
+    const hex = w.withdrawalId.padStart(4, '0')
+    txHashes.set(w.withdrawalId, `0x${hex.repeat(16)}`)
+  }
+  return w
+}
+
+function withdrawalHistory(): CreditHistoryItem[] {
+  return [...withdrawals.values()].map((raw) => {
+    const w = advance(raw)
+    return {
+      type: 'WITHDRAWAL',
+      id: w.withdrawalId,
+      status: w.status,
+      amount: w.amount,
+      walletAddress: w.walletAddress,
+      transactionHash: txHashes.get(w.withdrawalId) ?? null,
+      requestedAt: w.requestedAt,
+      completedAt: paidAt.get(w.withdrawalId) ?? null,
+      failureReason: null,
+      rejectReason: w.rejectReason,
+    }
+  })
+}
+
+const TYPES: CreditHistoryType[] = ['CHARGE', 'WITHDRAWAL']
 
 const amount6 = (n: number) => n.toFixed(MAX_FRACTION_DIGITS)
 const addPayout = (delta: number) => {
@@ -31,6 +85,21 @@ function readAmount(raw: unknown): number | null {
 }
 
 export const withdrawalHandlers = [
+  http.get(`${API_BASE_URL}/credits/history`, async ({ request }) => {
+    const forced = await scene(request)
+    if (forced) return forced
+
+    const url = new URL(request.url)
+    const type = url.searchParams.get('type')
+    if (type && !TYPES.includes(type as CreditHistoryType)) {
+      return fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
+    }
+    const items = [...chargeHistory(), ...withdrawalHistory()]
+      .filter((item) => !type || item.type === type)
+      .sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt))
+    return offsetCursorOk(url, items, { defaultSize: 20, maxSize: 50 })
+  }),
+
   http.post(`${API_BASE_URL}/withdrawals`, async ({ request }) => {
     const forced = await scene(request)
     if (forced) return forced
@@ -49,7 +118,7 @@ export const withdrawalHandlers = [
         maximumAmount: amount6(WITHDRAWAL_LIMITS.MAX_AMOUNT),
       })
     }
-    const all = [...withdrawals.values()]
+    const all = [...withdrawals.values()].map(advance)
     if (all.some((w) => IN_PROGRESS.has(w.status))) {
       return fail(409, WITHDRAWAL_ERROR.ALREADY_IN_PROGRESS, '처리 중인 출금이 있습니다.')
     }
@@ -88,7 +157,8 @@ export const withdrawalHandlers = [
     const forced = await scene(request)
     if (forced) return forced
 
-    const withdrawal = withdrawals.get(String(params.withdrawalId))
+    const found = withdrawals.get(String(params.withdrawalId))
+    const withdrawal = found && advance(found)
     if (!withdrawal) {
       return fail(404, WITHDRAWAL_ERROR.NOT_FOUND, '출금 신청을 찾을 수 없습니다.')
     }

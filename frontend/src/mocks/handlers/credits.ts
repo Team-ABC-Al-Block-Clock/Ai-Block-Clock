@@ -1,11 +1,12 @@
 import { http } from 'msw'
 
-import type { ChargeStatusView, CreditTransactionType } from '@/api/credits'
+import type { ChargeStatusView, CreditHistoryItem, CreditTransactionType } from '@/api/credits'
 import { API_BASE_URL } from '@/api/client'
 import { CHARGE_ERROR } from '@/api/errors'
 import { MAX_FRACTION_DIGITS } from '@/lib/abcToken'
 import { offsetCursorOk } from '@/mocks/cursor'
 import { CREDIT_BALANCE, CREDIT_TRANSACTIONS } from '@/mocks/fixtures/credits'
+import { PROFILE } from '@/mocks/fixtures/user'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
 
@@ -64,6 +65,40 @@ function settle(charge: ChargeStatusView): ChargeStatusView {
     transactionHash: charge.transactionHash,
   })
   return charge
+}
+
+/** 충전 · 출금 내역의 충전 쪽. 픽스처의 지난 충전과 이번에 접수한 충전을 함께 준다. */
+export function chargeHistory(): CreditHistoryItem[] {
+  const past: CreditHistoryItem[] = CREDIT_TRANSACTIONS.filter(
+    (t) => t.transactionType === 'CHARGE' && t.transactionId < 1000,
+  ).map((t) => ({
+    type: 'CHARGE',
+    id: String(t.transactionId),
+    status: 'CONFIRMED',
+    amount: t.amount,
+    walletAddress: PROFILE.wallet.address,
+    transactionHash: t.transactionHash,
+    requestedAt: new Date(Date.parse(t.occurredAt) - 20_000).toISOString(),
+    completedAt: t.occurredAt,
+    failureReason: null,
+    rejectReason: null,
+  }))
+  const live: CreditHistoryItem[] = [...charges.values()].map((raw) => {
+    const c = settle(raw)
+    return {
+      type: 'CHARGE',
+      id: c.chargeId,
+      status: c.status,
+      amount: c.creditedAmount ?? c.requestedAmount,
+      walletAddress: PROFILE.wallet.address,
+      transactionHash: c.transactionHash,
+      requestedAt: c.requestedAt,
+      completedAt: c.confirmedAt,
+      failureReason: c.failureReason,
+      rejectReason: null,
+    }
+  })
+  return [...live, ...past]
 }
 
 export const creditHandlers = [

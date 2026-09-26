@@ -1,18 +1,26 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
-import { getCreditBalance } from '@/api/credits'
+import { getCreditBalance, getCreditHistory } from '@/api/credits'
 import { WITHDRAWAL_LIMITS } from '@/api/withdrawals'
 import { useAbcCharge, type AbcCharge } from '@/hooks/useAbcCharge'
 import { usePayoutWithdrawal } from '@/hooks/usePayoutWithdrawal'
 import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
-import { chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
+import { chargeAmountLabel, priceLabel, shortAddress, timeLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
-import { withdrawalStatusText } from '@/lib/withdrawalMessage'
+import { historyStatus, withdrawalStatusText, type HistoryTone } from '@/lib/withdrawalMessage'
 import { useAuthStore } from '@/stores/authStore'
 
 const { MIN_AMOUNT, MAX_AMOUNT } = WITHDRAWAL_LIMITS
+
+const HISTORY_PARAMS = { size: 20 }
+const HISTORY_POLL_MS = 15_000
+const TONE_COLORS: Record<HistoryTone, string> = {
+  done: '#9ad0b4',
+  progress: '#c9a9dd',
+  closed: '#ff8a8a',
+}
 
 /** 출금은 정산금 안에서, 한 번에 1 ~ 1,000 ABC 다. 막혔으면 이유를 준다. */
 function withdrawBlock(amount: string, payout: number) {
@@ -75,6 +83,21 @@ export default function MyPageCredit() {
   const charge = useAbcCharge()
   const payoutFlow = usePayoutWithdrawal()
   const wallet = useAuthStore((s) => s.profile?.wallet.address ?? s.walletAddress)
+
+  const history = useInfiniteQuery({
+    queryKey: queryKeys.credits.history.list(HISTORY_PARAMS),
+    queryFn: ({ pageParam }) => getCreditHistory({ ...HISTORY_PARAMS, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    // 처리 중인 줄이 있으면 다시 불러 상태를 따라간다.
+    refetchInterval: (query) =>
+      query.state.data?.pages[0]?.content.some(
+        (h) => historyStatus(h.type, h.status).tone === 'progress',
+      )
+        ? HISTORY_POLL_MS
+        : false,
+  })
+  const historyRows = history.data?.pages.flatMap((page) => page.content) ?? []
 
   const balance = useQuery({
     queryKey: queryKeys.credits.balance(),
@@ -446,8 +469,9 @@ export default function MyPageCredit() {
               >
                 {payoutFlow.error ?? (
                   <span style={{ color: 'rgba(255,236,246,.5)' }}>
-                    받을 지갑 {shortAddress(withdrawal.walletAddress)} · 신청 번호{' '}
-                    {withdrawal.withdrawalId}
+                    받을 지갑 {shortAddress(withdrawal.walletAddress)} · 신청 번호 {withdrawal.id}
+                    {withdrawal.transactionHash &&
+                      ` · 거래 해시 ${shortAddress(withdrawal.transactionHash)}`}
                   </span>
                 )}
               </div>
@@ -564,6 +588,95 @@ export default function MyPageCredit() {
             </div>
           </>
         )}
+      </div>
+
+      <div
+        className="bg-surface-card absolute box-border"
+        style={{
+          left: '442px',
+          top: '796px',
+          width: '896px',
+          height: '214px',
+          padding: '16px 24px',
+          borderRadius: '14px',
+          backdropFilter: 'blur(18px) saturate(115%)',
+          WebkitBackdropFilter: 'blur(18px) saturate(115%)',
+        }}
+      >
+        <div className="text-[15px] font-semibold tracking-[-.01em] text-white">
+          충전 · 출금 내역
+        </div>
+        <div
+          className="flex text-[13px] font-semibold"
+          style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
+        >
+          <div style={{ width: '170px' }}>일시</div>
+          <div style={{ width: '100px' }}>구분</div>
+          <div style={{ width: '190px' }}>금액</div>
+          <div style={{ width: '170px' }}>상태</div>
+          <div style={{ width: '218px' }}>거래 해시</div>
+        </div>
+        <div
+          className="flex flex-col overflow-y-auto"
+          style={{ marginTop: '4px', height: '128px' }}
+        >
+          {historyRows.map((h) => {
+            const status = historyStatus(h.type, h.status)
+            return (
+              <div
+                key={h.type + h.id}
+                style={{ height: '36px', fontVariantNumeric: 'tabular-nums', borderRadius: '6px' }}
+                className="hover:bg-surface-inset flex flex-none items-center text-[14.5px]"
+              >
+                <div style={{ width: '170px', color: 'rgba(255,255,255,.84)' }}>
+                  {timeLabel(h.requestedAt)}
+                </div>
+                <div className="font-semibold text-white" style={{ width: '100px' }}>
+                  {h.type === 'CHARGE' ? '충전' : '출금'}
+                </div>
+                <div className="font-semibold text-white" style={{ width: '190px' }}>
+                  {chargeAmountLabel(h.amount)}
+                </div>
+                <div
+                  className="truncate font-semibold"
+                  style={{ width: '170px', color: TONE_COLORS[status.tone] }}
+                  title={h.rejectReason ?? undefined}
+                >
+                  {status.label}
+                </div>
+                <div style={{ width: '218px', color: 'rgba(255,255,255,.7)' }}>
+                  {h.transactionHash ? shortAddress(h.transactionHash) : '—'}
+                </div>
+              </div>
+            )
+          })}
+          {history.isPending && (
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+              내역을 불러오는 중입니다.
+            </div>
+          )}
+          {history.isError && (
+            <div className="text-[13px]" style={{ color: '#ffb0cd' }}>
+              내역을 불러오지 못했습니다.
+            </div>
+          )}
+          {!history.isPending && !history.isError && historyRows.length === 0 && (
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+              아직 충전 · 출금 내역이 없습니다.
+            </div>
+          )}
+          {history.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => void history.fetchNextPage()}
+              disabled={history.isFetchingNextPage}
+              className="flex-none cursor-pointer self-end text-[13px] font-semibold hover:text-white"
+              style={{ height: '30px', color: 'rgba(255,240,247,.78)' }}
+            >
+              {history.isFetchingNextPage ? '불러오는 중' : '더 보기 →'}
+            </button>
+          )}
+        </div>
       </div>
     </>
   )
