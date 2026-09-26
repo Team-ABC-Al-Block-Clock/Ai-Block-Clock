@@ -4,16 +4,21 @@ import com.aiblockclock.api.v1.request.AgentRegisterRequest;
 import com.aiblockclock.api.v1.request.AgentUpdateRequest;
 import com.aiblockclock.api.v1.response.AgentRegisterResponse;
 import com.aiblockclock.api.v1.response.AgentUpdateResponse;
+import com.aiblockclock.api.v1.response.MyAgentPageResponse;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.agent.MyAgentSort;
 import com.aiblockclock.support.response.ApiResult;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Positive;
 
 import java.util.UUID;
 
@@ -58,4 +63,33 @@ public interface AgentApi {
             @ApiResponse(responseCode = "409", description = "회차가 어긋났다 (`WORKFLOW_016`)", content = @Content)
     })
     ApiResult<AgentUpdateResponse> update(UserId owner, UUID agentId, @Valid AgentUpdateRequest request);
+
+    @Operation(summary = "판매 중인 내 에이전트 목록",
+            description = """
+                    내가 등록해 공개한 에이전트를 커서 페이지로 돌려준다. 남의 에이전트는 담지 않는다.
+
+                    `LATEST` 는 최근에 등록한 것부터, `EXECUTIONS` 는 누적 실행 수가 많은 것부터,
+                    `REVENUE` 는 받은 정산금이 많은 것부터 준다. 값이 같으면 최근에 등록한 것이 앞에 온다.
+                    검색어는 이름과 한 줄 소개를 함께 본다.
+
+                    `revenue` 는 이 에이전트로 받은 정산금을 모두 더한 값이라 수익 통계(`GET /api/v1/settlements/statistics`)의
+                    에이전트별 금액과 같다. 내가 돌린 실행으로 받은 것도 들어간다.
+                    `trend` 는 최근 7일 동안 날마다 정산을 남긴 실행을 센 값이라, 실패로 끝나 받은 것이 없는 실행은 세지 않는다.
+
+                    `nextCursor` 를 다음 요청의 `cursor` 에 그대로 넣는다. 지금 커서는 오프셋을 감싼 값이라,
+                    페이지를 넘기는 사이에 순서가 바뀌면 창이 밀릴 수 있다.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 완료. 판매 중인 것이 없으면 빈 목록"),
+            @ApiResponse(responseCode = "400", description = "정렬이나 개수, 커서가 올바르지 않다 (`COMMON_001`)",
+                    content = @Content),
+            @ApiResponse(responseCode = "401", description = "로그인하지 않았다", content = @Content)
+    })
+    ApiResult<MyAgentPageResponse> findMine(
+            UserId requester,
+            @Parameter(description = "이름이나 한 줄 소개의 부분 검색어. 비우면 전체", example = "성적") String keyword,
+            @Parameter(description = "정렬 기준. 등록순(`LATEST`), 실행 수(`EXECUTIONS`), 정산금(`REVENUE`)",
+                    example = "LATEST") MyAgentSort sort,
+            @Parameter(description = "이전 응답의 `nextCursor`. 첫 페이지는 비운다", example = "OQ") String cursor,
+            @Parameter(description = "한 번에 가져올 개수. 1 이상 30 이하", example = "9") @Positive @Max(30) int size);
 }

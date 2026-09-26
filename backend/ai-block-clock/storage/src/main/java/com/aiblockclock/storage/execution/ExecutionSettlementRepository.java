@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,5 +30,32 @@ public interface ExecutionSettlementRepository extends JpaRepository<ExecutionSe
             @Param("startAtInclusive") Instant startAtInclusive,
             @Param("endAtExclusive") Instant endAtExclusive,
             Pageable pageable
+    );
+
+    @Query("""
+            SELECT new com.aiblockclock.storage.execution.AgentSettlementSum(settlement.agentId, SUM(settlement.amountAbc))
+            FROM ExecutionSettlementEntity settlement
+            WHERE settlement.supplierId = :supplierId
+              AND settlement.agentId IN :agentIds
+            GROUP BY settlement.agentId
+            """)
+    List<AgentSettlementSum> sumBySupplierAndAgents(
+            @Param("supplierId") Long supplierId,
+            @Param("agentIds") Collection<UUID> agentIds
+    );
+
+    @Query("""
+            SELECT settlement
+            FROM ExecutionSettlementEntity settlement
+            WHERE settlement.supplierId = :supplierId
+              AND settlement.agentId IN :agentIds
+              AND settlement.createdAt >= :startAtInclusive
+              AND settlement.createdAt < :endAtExclusive
+            """)
+    List<ExecutionSettlementEntity> findBySupplierAndAgentsBetween(
+            @Param("supplierId") Long supplierId,
+            @Param("agentIds") Collection<UUID> agentIds,
+            @Param("startAtInclusive") Instant startAtInclusive,
+            @Param("endAtExclusive") Instant endAtExclusive
     );
 }

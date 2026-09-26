@@ -67,6 +67,13 @@ public class AgentReader {
                 agentVersionRepository.findPublicByAgentIds(ids.stream().map(AgentId::value).toList()));
     }
 
+    public List<SellingAgent> readSellingBy(UserId owner) {
+        return agentVersionRepository.findPublicByOwnerId(owner.value()).stream()
+                .map(version -> new SellingAgent(toPublicAgent(version),
+                        version.getAgent().getThumbnailUrl(), version.getAgent().getCreatedAt()))
+                .toList();
+    }
+
     public CursorPage<MarketplaceAgent> searchMarketplace(String keyword, String cursor, int size) {
         int offset = OffsetCursor.decode(cursor);
         Pageable pageable = OffsetPageable.of(offset, size + 1);

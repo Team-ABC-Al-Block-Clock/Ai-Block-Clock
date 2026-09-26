@@ -2,10 +2,16 @@ package com.aiblockclock.api.v1;
 
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.agent.PublicationState;
+import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.storage.agent.AgentEntity;
+import com.aiblockclock.storage.agent.AgentGradeMetricRepository;
 import com.aiblockclock.storage.agent.AgentRepository;
 import com.aiblockclock.storage.agent.AgentVersionEntity;
 import com.aiblockclock.storage.agent.AgentVersionRepository;
+import com.aiblockclock.storage.execution.ExecutionEntity;
+import com.aiblockclock.storage.execution.ExecutionRepository;
+import com.aiblockclock.storage.execution.ExecutionSettlementEntity;
+import com.aiblockclock.storage.execution.ExecutionSettlementRepository;
 import com.aiblockclock.storage.graph.GraphNodeEntity;
 import com.aiblockclock.storage.graph.GraphNodeRepository;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
@@ -26,6 +32,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -34,6 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,6 +75,15 @@ class AgentControllerTest {
 
     @Autowired
     private GraphNodeRepository graphNodeRepository;
+
+    @Autowired
+    private AgentGradeMetricRepository agentGradeMetricRepository;
+
+    @Autowired
+    private ExecutionRepository executionRepository;
+
+    @Autowired
+    private ExecutionSettlementRepository executionSettlementRepository;
 
     private long owner;
 
@@ -284,6 +302,110 @@ class AgentControllerTest {
                 .andExpect(jsonPath("$.error.code").value("AGENT_003"));
     }
 
+    @Test
+    @DisplayName("GET 하면 판매 중인 내 에이전트만 받은 정산금 · 실행 수 · 7일 추이와 함께 나온다")
+    void listsMyAgentsWithSales() throws Exception {
+        String agentId = registerAgent(createWorkflow(nodeId, nodeId));
+        registerAgentOf(other);
+        UUID sold = executionBy(other);
+        settle(sold, "n1", agentId, "1.5");
+        settle(sold, "n2", agentId, "0.25");
+        agentGradeMetricRepository.addRuns(agentId, 2, 1, Instant.now());
+
+        mockMvc.perform(get("/api/v1/agents").with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].agentId").value(agentId))
+                .andExpect(jsonPath("$.data.content[0].name").value("성적 분석 에이전트"))
+                .andExpect(jsonPath("$.data.content[0].summary").value("성적을 분석한다"))
+                .andExpect(jsonPath("$.data.content[0].iconUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].price").value("6.000000"))
+                .andExpect(jsonPath("$.data.content[0].revenue").value("1.750000"))
+                .andExpect(jsonPath("$.data.content[0].executionCount").value(3))
+                .andExpect(jsonPath("$.data.content[0].favorited").value(false))
+                .andExpect(jsonPath("$.data.content[0].trend.length()").value(7))
+                .andExpect(jsonPath("$.data.content[0].trend[6]").value(1))
+                .andExpect(jsonPath("$.data.content[0].createdAt").exists());
+    }
+
+    @Test
+    @DisplayName("REVENUE 로 한 개씩 넘기면 받은 정산금이 많은 것부터 커서로 이어 받는다")
+    void pagesMyAgentsByRevenue() throws Exception {
+        String workflowId = createWorkflow(nodeId, nodeId);
+        String poor = registerAgent(workflowId);
+        String rich = registerAgent(workflowId);
+        settle(executionBy(other), "n1", rich, "3");
+        settle(executionBy(other), "n1", poor, "1");
+
+        MvcResult first = mockMvc.perform(get("/api/v1/agents").with(as(owner))
+                        .param("sort", "REVENUE").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].agentId").value(rich))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                .andReturn();
+
+        String nextCursor = mapper.readTree(first.getResponse().getContentAsString())
+                .get("data").get("nextCursor").asText();
+
+        mockMvc.perform(get("/api/v1/agents").with(as(owner))
+                        .param("sort", "REVENUE").param("size", "1").param("cursor", nextCursor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].agentId").value(poor))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+    }
+
+    @Test
+    @DisplayName("검색어는 한 줄 소개에서도 찾고, 어디에도 없으면 빈 목록이다")
+    void findsNothingForUnmatchedKeyword() throws Exception {
+        registerAgent(createWorkflow(nodeId, nodeId));
+
+        mockMvc.perform(get("/api/v1/agents").with(as(owner)).param("keyword", "분석한다"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/agents").with(as(owner)).param("keyword", "가정통신문"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isEmpty());
+    }
+
+    @Test
+    @DisplayName("내 에이전트 목록은 로그인해야 보고, 정렬 · 개수가 틀리면 400 이다")
+    void rejectsInvalidMyAgentsQuery() throws Exception {
+        mockMvc.perform(get("/api/v1/agents"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/agents").with(as(owner)).param("sort", "RATING"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+
+        mockMvc.perform(get("/api/v1/agents").with(as(owner)).param("size", "31"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+    }
+
+    private void registerAgentOf(long userId) throws Exception {
+        UUID othersNode = NodeDefinitionSeeder.seed(nodeRepository, userId);
+
+        mockMvc.perform(register(userId, registerBody(createWorkflow(userId, othersNode, othersNode), 1)))
+                .andExpect(status().isCreated());
+    }
+
+    private UUID executionBy(long requester) {
+        UUID id = UUID.randomUUID();
+        executionRepository.save(new ExecutionEntity(id, UUID.randomUUID(), UUID.randomUUID(), requester, "run-" + id,
+                ExecutionStatus.SUCCEEDED, 1, null, null, null, false, new BigDecimal("10")));
+
+        return id;
+    }
+
+    private void settle(UUID execution, String stepId, String agentId, String amount) {
+        executionSettlementRepository.saveAndFlush(new ExecutionSettlementEntity(
+                execution, stepId, "노드", owner, UUID.fromString(agentId), new BigDecimal(amount)));
+    }
+
     private String registerAgent(String workflowId) throws Exception {
         MvcResult result = mockMvc.perform(register(owner, registerBody(workflowId, 1)))
                 .andExpect(status().isCreated())
@@ -373,8 +495,12 @@ class AgentControllerTest {
     }
 
     private String createWorkflow(UUID firstNode, UUID secondNode) throws Exception {
+        return createWorkflow(owner, firstNode, secondNode);
+    }
+
+    private String createWorkflow(long userId, UUID firstNode, UUID secondNode) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/workflows")
-                        .with(as(owner))
+                        .with(as(userId))
                         .with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
