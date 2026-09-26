@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import MyPageFrame from '@/components/MyPageFrame'
 import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
 import { ApiError } from '@/api/errors'
 import { shortAddress } from '@/lib/format'
@@ -157,7 +158,7 @@ export default function MyPageEdit() {
   }, [])
 
   return (
-    <>
+    <MyPageFrame>
       <Sidebar editing />
 
       <div
@@ -522,6 +523,6 @@ export default function MyPageEdit() {
           </div>
         </>
       )}
-    </>
+    </MyPageFrame>
   )
 }

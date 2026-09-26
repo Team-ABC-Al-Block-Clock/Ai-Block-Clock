@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Fragment, useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import MyPageFrame from '@/components/MyPageFrame'
 import type { CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditTransactions } from '@/api/credits'
 import { paths } from '@/routes/paths'
@@ -72,11 +73,8 @@ export default function MyPageUsage() {
   }, [periodOpen])
 
   return (
-    <div
-      className="absolute"
-      style={{ left: '18px', top: '-17px', width: '1440px', height: '1024px' }}
-    >
-      <Sidebar active="usage" height={805} />
+    <MyPageFrame>
+      <Sidebar active="usage" />
 
       <div
         className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
@@ -478,6 +476,6 @@ export default function MyPageUsage() {
           )}
         </div>
       </div>
-    </div>
+    </MyPageFrame>
   )
 }

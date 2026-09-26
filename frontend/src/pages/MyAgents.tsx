@@ -23,6 +23,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { sparkPath } from '@/lib/spark'
 import { paths } from '@/routes/paths'
 import Sidebar from '../components/Sidebar'
+import MyPageFrame from '@/components/MyPageFrame'
 import SearchIcon from '@/components/SearchIcon'
 
 /** 마켓 목록(9)과 다르다. */
@@ -381,246 +382,251 @@ export default function MyAgents() {
 
   return (
     <>
-      <Sidebar active="agents" />
+      <MyPageFrame>
+        <Sidebar active="agents" />
 
-      <div
-        className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-        style={{
-          left: `${LEFT}px`,
-          top: '158px',
-          textShadow: '0 2px 20px rgba(35,8,45,.6)',
-          animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        나의 에이전트
-      </div>
-      <div
-        className="absolute text-[13px] tracking-[-.01em]"
-        style={{
-          left: `${LEFT}px`,
-          top: '206px',
-          width: '560px',
-          lineHeight: '1.5',
-          color: 'rgba(255,236,246,.7)',
-          animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        내가 만든 에이전트와 저장한 에이전트를 사용하고 수정할 수 있는 공간입니다.
-      </div>
-
-      {/* 탭 — 하나가 API 하나다 */}
-      <div
-        className="absolute flex"
-        style={{
-          left: `${LEFT}px`,
-          top: '250px',
-          height: '36px',
-          gap: '8px',
-          zIndex: 5,
-          animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        {TABS.map((t) => {
-          const on = tab === t.key
-          return (
-            <div
-              key={t.key}
-              className={`${CHIP} text-[13px] font-semibold whitespace-nowrap ${on ? '' : 'hover:bg-[rgba(255,255,255,.16)]'}`}
-              onClick={handleTab(t.key)}
-              style={{
-                height: '36px',
-                padding: '0 18px',
-                borderRadius: '12px',
-                background: on ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)',
-                color: on ? '#3a1030' : 'rgba(255,240,247,.78)',
-              }}
-            >
-              {t.label}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* 개수 — 커서 목록은 전체 개수를 주지 않는다. 불러온 만큼만 세고 더 있으면 '+' */}
-      <div
-        className="absolute text-right text-[12px] tracking-[-.01em]"
-        style={{
-          left: '1178px',
-          top: '260px',
-          width: '160px',
-          color: 'rgba(255,240,247,.55)',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {countLabel}
-      </div>
-
-      {/* 검색 */}
-      <div
-        className="absolute bg-[rgba(255,255,255,.09)]"
-        style={{
-          left: `${LEFT}px`,
-          top: '302px',
-          width: `${SEARCH_W}px`,
-          height: '44px',
-          borderRadius: '22px',
-          animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <SearchIcon left={18} top={15} color="rgba(255,255,255,.62)" handleLength={8} />
-        <input
-          className="absolute border-0 bg-transparent font-[inherit] text-[13px] tracking-[-.01em] text-white outline-0 placeholder:text-white/50 disabled:cursor-not-allowed"
-          type="text"
-          value={q}
-          onChange={handleChangeQuery}
-          // 명세에 keyword 가 없는 탭이다. 열어 두면 입력은 되는데 아무 효과가 없다.
-          disabled={tab === 'favorites'}
-          placeholder={
-            tab === 'favorites'
-              ? '즐겨찾기 탭은 이름 검색을 지원하지 않습니다'
-              : tab === 'flows'
-                ? '워크플로우 이름 검색'
-                : '에이전트 이름 또는 설명 검색'
-          }
-          style={{ left: '46px', top: '11px', width: `${SEARCH_W - 66}px`, height: '22px' }}
-        />
-      </div>
-
-      {/* 정렬 — 눌러서 다음 값으로. 즐겨찾기 탭은 명세에 sort 가 없어 감춘다 */}
-      {options.length > 0 && (
         <div
-          onClick={cycleSort}
+          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
           style={{
-            left: '1190px',
-            top: '305px',
-            width: `${SORT_W}px`,
-            height: '38px',
-            borderRadius: '19px',
-            padding: '0 14px',
-            animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
+            left: `${LEFT}px`,
+            top: '158px',
+            textShadow: '0 2px 20px rgba(35,8,45,.6)',
+            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
           }}
-          className={`${CHIP} absolute box-border justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.16)]`}
         >
-          <div className="text-[12px] whitespace-nowrap" style={{ color: 'rgba(255,240,247,.82)' }}>
-            {sortLabel}
-          </div>
-          <div
-            style={{
-              width: '0',
-              height: '0',
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '5px solid rgba(255,255,255,.6)',
-            }}
-          ></div>
+          나의 에이전트
         </div>
-      )}
-
-      <div
-        className="absolute box-border overflow-x-hidden"
-        id="myRows"
-        style={{
-          left: '430px',
-          top: '366px',
-          width: '946px',
-          height: '570px',
-          paddingRight: '26px',
-          overflowY: 'auto',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,.28) transparent',
-        }}
-      >
         <div
-          className="flex flex-col"
-          style={{ width: '896px', margin: '8px 12px', gap: tab === 'flows' ? '16px' : '20px' }}
+          className="absolute text-[13px] tracking-[-.01em]"
+          style={{
+            left: `${LEFT}px`,
+            top: '206px',
+            width: '560px',
+            lineHeight: '1.5',
+            color: 'rgba(255,236,246,.7)',
+            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
+          }}
         >
-          {rows.map((row, i) => (
-            <AgentRow
-              key={row.agentId}
-              row={row}
-              delay={i % PAGE_SIZE}
-              onToggleFav={toggleFav(row.agentId, !row.favorited)}
-            />
-          ))}
-          {flowRows.map((flow, i) => (
-            <WorkflowCard
-              key={flow.workflowId}
-              name={flow.name}
-              summary={flow.summary}
-              executionCount={flow.executionCount}
-              lastExecutedAt={flow.lastExecutedAt}
-              href={paths.edit.nodes(flow.workflowId)}
-              delay={i % PAGE_SIZE}
-              onDelete={() => setDeleteAt({ workflowId: flow.workflowId, name: flow.name })}
-            />
-          ))}
-          {/* 이 칸이 보이면 다음 장을 불러온다. 마지막 장이면 걸지 않는다. */}
-          <div ref={sentinelRef} style={{ width: '100%', height: '1px' }} />
-          {isFetchNextPageError && (
-            <div
-              className="flex flex-none items-center justify-center"
-              style={{
-                width: '896px',
-                gap: '12px',
-                padding: '10px 0 2px',
-                animation: 'fadeIn .2s ease both',
-              }}
-            >
+          내가 만든 에이전트와 저장한 에이전트를 사용하고 수정할 수 있는 공간입니다.
+        </div>
+
+        {/* 탭 — 하나가 API 하나다 */}
+        <div
+          className="absolute flex"
+          style={{
+            left: `${LEFT}px`,
+            top: '250px',
+            height: '36px',
+            gap: '8px',
+            zIndex: 5,
+            animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          {TABS.map((t) => {
+            const on = tab === t.key
+            return (
               <div
-                className="text-[12.5px] tracking-[-.01em]"
-                style={{ color: 'rgba(255,196,214,.9)' }}
-              >
-                다음 목록을 불러오지 못했습니다
-              </div>
-              <div
-                onClick={handleRetryNextPage}
-                className={`${CHIP} justify-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
+                key={t.key}
+                className={`${CHIP} text-[13px] font-semibold whitespace-nowrap ${on ? '' : 'hover:bg-[rgba(255,255,255,.16)]'}`}
+                onClick={handleTab(t.key)}
                 style={{
-                  height: '30px',
-                  padding: '0 14px',
-                  borderRadius: '15px',
-                  background: 'rgba(255,255,255,.09)',
-                  opacity: isFetchingNextPage ? 0.6 : 1,
-                  cursor: isFetchingNextPage ? 'default' : 'pointer',
+                  height: '36px',
+                  padding: '0 18px',
+                  borderRadius: '12px',
+                  background: on ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)',
+                  color: on ? '#3a1030' : 'rgba(255,240,247,.78)',
                 }}
               >
-                {isFetchingNextPage ? '불러오는 중…' : '다시 시도'}
+                {t.label}
               </div>
-            </div>
-          )}
+            )
+          })}
         </div>
-      </div>
 
-      {notice &&
-        (active.isError ? (
-          <empty-state
-            ref={bindNotice}
-            style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
-            heading="목록을 불러오지 못했습니다"
-            body={
-              active.error instanceof ApiError && active.error.isNetworkError
-                ? '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.'
-                : '잠시 후 다시 시도해 주세요.'
+        {/* 개수 — 커서 목록은 전체 개수를 주지 않는다. 불러온 만큼만 세고 더 있으면 '+' */}
+        <div
+          className="absolute text-right text-[12px] tracking-[-.01em]"
+          style={{
+            left: '1178px',
+            top: '260px',
+            width: '160px',
+            color: 'rgba(255,240,247,.55)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {countLabel}
+        </div>
+
+        {/* 검색 */}
+        <div
+          className="absolute bg-[rgba(255,255,255,.09)]"
+          style={{
+            left: `${LEFT}px`,
+            top: '302px',
+            width: `${SEARCH_W}px`,
+            height: '44px',
+            borderRadius: '22px',
+            animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          <SearchIcon left={18} top={15} color="rgba(255,255,255,.62)" handleLength={8} />
+          <input
+            className="absolute border-0 bg-transparent font-[inherit] text-[13px] tracking-[-.01em] text-white outline-0 placeholder:text-white/50 disabled:cursor-not-allowed"
+            type="text"
+            value={q}
+            onChange={handleChangeQuery}
+            // 명세에 keyword 가 없는 탭이다. 열어 두면 입력은 되는데 아무 효과가 없다.
+            disabled={tab === 'favorites'}
+            placeholder={
+              tab === 'favorites'
+                ? '즐겨찾기 탭은 이름 검색을 지원하지 않습니다'
+                : tab === 'flows'
+                  ? '워크플로우 이름 검색'
+                  : '에이전트 이름 또는 설명 검색'
             }
-            actions={JSON.stringify([{ label: '다시 시도', event: 'retry', primary: true }])}
+            style={{ left: '46px', top: '11px', width: `${SEARCH_W - 66}px`, height: '22px' }}
           />
-        ) : keyword ? (
-          <empty-state
-            ref={bindNotice}
-            style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
-            heading={`‘${keyword}’ 에 맞는 결과가 없습니다`}
-            body="찾는 이름을 다르게 적어보거나 검색어를 지워 전체를 확인해 보세요."
-            actions={JSON.stringify([{ label: '검색어 지우기', event: 'clear', primary: true }])}
-          />
-        ) : (
-          <empty-state
-            ref={bindNotice}
-            style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
-            heading={EMPTY[tab].heading}
-            body={EMPTY[tab].body}
-            actions={EMPTY[tab].actions}
-          />
-        ))}
+        </div>
+
+        {/* 정렬 — 눌러서 다음 값으로. 즐겨찾기 탭은 명세에 sort 가 없어 감춘다 */}
+        {options.length > 0 && (
+          <div
+            onClick={cycleSort}
+            style={{
+              left: '1190px',
+              top: '305px',
+              width: `${SORT_W}px`,
+              height: '38px',
+              borderRadius: '19px',
+              padding: '0 14px',
+              animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
+            }}
+            className={`${CHIP} absolute box-border justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.16)]`}
+          >
+            <div
+              className="text-[12px] whitespace-nowrap"
+              style={{ color: 'rgba(255,240,247,.82)' }}
+            >
+              {sortLabel}
+            </div>
+            <div
+              style={{
+                width: '0',
+                height: '0',
+                borderLeft: '4px solid transparent',
+                borderRight: '4px solid transparent',
+                borderTop: '5px solid rgba(255,255,255,.6)',
+              }}
+            ></div>
+          </div>
+        )}
+
+        <div
+          className="absolute box-border overflow-x-hidden"
+          id="myRows"
+          style={{
+            left: '430px',
+            top: '366px',
+            width: '946px',
+            height: '570px',
+            paddingRight: '26px',
+            overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,.28) transparent',
+          }}
+        >
+          <div
+            className="flex flex-col"
+            style={{ width: '896px', margin: '8px 12px', gap: tab === 'flows' ? '16px' : '20px' }}
+          >
+            {rows.map((row, i) => (
+              <AgentRow
+                key={row.agentId}
+                row={row}
+                delay={i % PAGE_SIZE}
+                onToggleFav={toggleFav(row.agentId, !row.favorited)}
+              />
+            ))}
+            {flowRows.map((flow, i) => (
+              <WorkflowCard
+                key={flow.workflowId}
+                name={flow.name}
+                summary={flow.summary}
+                executionCount={flow.executionCount}
+                lastExecutedAt={flow.lastExecutedAt}
+                href={paths.edit.nodes(flow.workflowId)}
+                delay={i % PAGE_SIZE}
+                onDelete={() => setDeleteAt({ workflowId: flow.workflowId, name: flow.name })}
+              />
+            ))}
+            {/* 이 칸이 보이면 다음 장을 불러온다. 마지막 장이면 걸지 않는다. */}
+            <div ref={sentinelRef} style={{ width: '100%', height: '1px' }} />
+            {isFetchNextPageError && (
+              <div
+                className="flex flex-none items-center justify-center"
+                style={{
+                  width: '896px',
+                  gap: '12px',
+                  padding: '10px 0 2px',
+                  animation: 'fadeIn .2s ease both',
+                }}
+              >
+                <div
+                  className="text-[12.5px] tracking-[-.01em]"
+                  style={{ color: 'rgba(255,196,214,.9)' }}
+                >
+                  다음 목록을 불러오지 못했습니다
+                </div>
+                <div
+                  onClick={handleRetryNextPage}
+                  className={`${CHIP} justify-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
+                  style={{
+                    height: '30px',
+                    padding: '0 14px',
+                    borderRadius: '15px',
+                    background: 'rgba(255,255,255,.09)',
+                    opacity: isFetchingNextPage ? 0.6 : 1,
+                    cursor: isFetchingNextPage ? 'default' : 'pointer',
+                  }}
+                >
+                  {isFetchingNextPage ? '불러오는 중…' : '다시 시도'}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {notice &&
+          (active.isError ? (
+            <empty-state
+              ref={bindNotice}
+              style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
+              heading="목록을 불러오지 못했습니다"
+              body={
+                active.error instanceof ApiError && active.error.isNetworkError
+                  ? '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.'
+                  : '잠시 후 다시 시도해 주세요.'
+              }
+              actions={JSON.stringify([{ label: '다시 시도', event: 'retry', primary: true }])}
+            />
+          ) : keyword ? (
+            <empty-state
+              ref={bindNotice}
+              style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
+              heading={`‘${keyword}’ 에 맞는 결과가 없습니다`}
+              body="찾는 이름을 다르게 적어보거나 검색어를 지워 전체를 확인해 보세요."
+              actions={JSON.stringify([{ label: '검색어 지우기', event: 'clear', primary: true }])}
+            />
+          ) : (
+            <empty-state
+              ref={bindNotice}
+              style={{ position: 'absolute', ...NOTICE_BOX, animation: 'fadeIn .3s ease both' }}
+              heading={EMPTY[tab].heading}
+              body={EMPTY[tab].body}
+              actions={EMPTY[tab].actions}
+            />
+          ))}
+      </MyPageFrame>
 
       {/* 삭제 확인 — 되돌릴 수 없으므로 한 번 묻는다 */}
       {deleteAt !== null && (

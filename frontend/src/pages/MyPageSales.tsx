@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Fragment, useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import MyPageFrame from '@/components/MyPageFrame'
 import { getMyAgents } from '@/api/agents'
 import { getCreditBalance } from '@/api/credits'
 import { getSettlementStatistics, getSettlements } from '@/api/settlements'
@@ -205,11 +206,8 @@ export default function MyPageSales() {
   }, [periodOpen])
 
   return (
-    <div
-      className="absolute"
-      style={{ left: '18px', top: '-17px', width: '1440px', height: '1024px' }}
-    >
-      <Sidebar active="sales" height={835} />
+    <MyPageFrame>
+      <Sidebar active="sales" />
 
       <div
         className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
@@ -635,6 +633,6 @@ export default function MyPageSales() {
           )}
         </div>
       </div>
-    </div>
+    </MyPageFrame>
   )
 }
