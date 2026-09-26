@@ -98,8 +98,7 @@ export default function MyPageCredit() {
   })
 
   // 예치금·지갑 잔액은 충전 API 가 열리면 붙인다.
-  const DEPOSITED = 2500,
-    WALLET = 3120
+  const WALLET = 3120
   // 프리셋 계산에만 숫자를 쓴다. 표시는 서버 문자열 그대로다.
   const payout = Number(balance.data?.payoutAmount ?? 0)
   // 1,000 을 넘겨 보내면 PAYMENT_010 이다.
@@ -108,43 +107,21 @@ export default function MyPageCredit() {
   const convert = mode === 'convert'
   const available = Number(balance.data?.availableAmount ?? 0)
   const payoutFloor = Math.floor(payout * 1e6) / 1e6
-  const raw = withdraw
-    ? [
-        { amount: 100 },
-        { amount: 200 },
-        { amount: 400 },
-        { amount: payoutMax, note: payout > MAX_AMOUNT ? '최대 출금' : '전액 출금' },
-      ].map((p) => ({
-        credit: p.amount.toLocaleString() + ' ABC',
-        // 잔액을 넘는 금액은 뺀 결과가 음수라 「출금 후 -260 ABC」 가 되어 버린다.
-        price:
-          p.amount > payout
-            ? '정산금 부족'
-            : p.note || '출금 후 ' + (payout - p.amount).toLocaleString() + ' ABC',
-        amount: p.amount,
-        disabled: p.amount > payout || p.amount < MIN_AMOUNT,
-      }))
+  // 적용 뒤 금액은 아래 요약이 보여 준다. 칸에는 금액만 둔다.
+  const presetAmounts = withdraw
+    ? [100, 200, 400, payoutMax]
     : convert
-      ? [
-          { amount: 100 },
-          { amount: 200 },
-          { amount: 400 },
-          { amount: payoutFloor, note: '전액 전환' },
-        ].map((p) => ({
-          credit: p.amount.toLocaleString() + ' ABC',
-          price:
-            p.amount > payout
-              ? '정산금 부족'
-              : p.note || '전환 후 ' + (available + p.amount).toLocaleString() + ' ABC',
-          amount: p.amount,
-          disabled: p.amount > payout || p.amount <= 0,
-        }))
-      : [500, 1000, 2500, 5000].map((amount) => ({
-          credit: amount.toLocaleString() + ' ABC',
-          price: '예치 후 ' + (DEPOSITED + amount).toLocaleString() + ' ABC',
-          amount,
-          disabled: false,
-        }))
+      ? [100, 200, 400, payoutFloor]
+      : [500, 1000, 2500, 5000]
+  const raw = presetAmounts.map((amount) => ({
+    credit: amount.toLocaleString() + ' ABC',
+    amount,
+    disabled: withdraw
+      ? amount > payout || amount < MIN_AMOUNT
+      : convert
+        ? amount > payout || amount <= 0
+        : false,
+  }))
   // 고른 칸이 잔액 부족이면 고를 수 있는 마지막 칸으로 내린다. 없으면 그대로 둔다.
   const pickable = raw.findLastIndex((p) => !p.disabled)
   const at = raw[pick]?.disabled && pickable >= 0 ? pickable : Math.min(pick, raw.length - 1)
@@ -373,27 +350,21 @@ export default function MyPageCredit() {
                 onClick={p.pick}
                 style={{
                   width: '212px',
-                  height: '130px',
-                  padding: '30px 22px',
+                  height: '96px',
+                  padding: '0 22px',
                   borderRadius: '12px',
                   background: `${p.bg}`,
                   boxShadow: `${p.ring}`,
                   transition: 'background .16s,box-shadow .16s',
                   animation: `${p.anim}`,
                 }}
-                className={`box-border flex-none ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
+                className={`box-border flex flex-none items-center ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
               >
                 <div
                   className="text-[24px] font-semibold tracking-[-.01em]"
                   style={{ color: `${p.fg}` }}
                 >
                   {p.credit}
-                </div>
-                <div
-                  className="text-[15.5px]"
-                  style={{ marginTop: '12px', color: 'rgba(255,236,246,.62)' }}
-                >
-                  {p.price}
                 </div>
               </div>
             </Fragment>
@@ -402,7 +373,7 @@ export default function MyPageCredit() {
 
         <div
           className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-          style={{ left: '442px', top: '624px' }}
+          style={{ left: '442px', top: '590px' }}
         >
           직접 입력
         </div>
@@ -410,7 +381,7 @@ export default function MyPageCredit() {
           className="absolute box-border flex items-center justify-between"
           style={{
             left: '442px',
-            top: '654px',
+            top: '620px',
             width: '896px',
             height: '64px',
             padding: '0 22px',
@@ -436,7 +407,7 @@ export default function MyPageCredit() {
           className="bg-surface-card absolute box-border flex items-center justify-between"
           style={{
             left: '442px',
-            top: '750px',
+            top: '716px',
             width: '896px',
             height: '196px',
             padding: '26px 30px',
