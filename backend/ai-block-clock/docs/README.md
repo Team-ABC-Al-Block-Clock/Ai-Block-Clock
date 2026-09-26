@@ -9,6 +9,7 @@
 | [`NAMING.md`](NAMING.md) | 클래스·메서드 네이밍, 계층별 접미사, 어휘 사전 |
 | [`RULE.md`](RULE.md) | 테스트 분류(1~6장) · 코드 규칙(7~12장) |
 | [`abc-charge.md`](abc-charge.md) | ABC 충전 — 체인에서 입금을 확인하는 방법 · 대조 규칙 · 설정 |
+| [`agent-provenance.md`](agent-provenance.md) | 에이전트 원본 증명 — 등기부 토큰 · 기록 흐름 · 해시 규칙 · 켜는 절차 |
 | [`plans/`](plans/) | **아직 코드가 없는 것의 설계.** 구현되면 걷어낸다 |
 | `diagrams/` | 개념도 · 구조도 |
 
