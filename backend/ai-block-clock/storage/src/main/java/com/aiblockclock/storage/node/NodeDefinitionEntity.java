@@ -81,4 +81,8 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
         this.outputKind = outputKind;
         this.outputSample = outputSample;
     }
+
+    public void reprice(BigDecimal baseCost) {
+        this.baseCost = baseCost;
+    }
 }

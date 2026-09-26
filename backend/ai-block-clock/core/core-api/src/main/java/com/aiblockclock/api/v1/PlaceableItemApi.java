@@ -19,10 +19,10 @@ import jakarta.validation.constraints.Positive;
 public interface PlaceableItemApi {
     @Operation(summary = "캔버스에 놓을 수 있는 항목 목록",
             description = """
-                    내 노드와 에이전트, 그리고 마켓에 공개된 다른 사람의 에이전트를 한 목록으로 내려준다.
-                    내 것이 먼저 오고(노드 → 에이전트), 그 뒤에 다른 사람의 에이전트가 온다. 각각은 최신순이다.
+                    마켓에 공개된 에이전트를 한 목록으로 내려준다. 내 에이전트가 먼저 오고, 그 뒤에 다른 사람의
+                    에이전트가 온다. 각각은 최신순이다. 기본 노드는 담지 않는다 — 배치 본문으로 저장할 때 만들어진다.
 
-                    `MINE` 은 내 것만, `ALL` 은 다른 사람의 공개 에이전트까지 담는다.
+                    `MINE` 은 내 에이전트만, `ALL` 은 다른 사람의 에이전트까지 담는다.
                     검색어는 이름만 본다. 실행 이력이 아직 없어 `executionCount` 는 0 이다.
                     """)
     @ApiResponses({
@@ -32,7 +32,7 @@ public interface PlaceableItemApi {
     })
     ApiResult<PlaceableItemPageResponse> find(
             UserId requester,
-            @Parameter(description = "`MINE` 은 내 것만, `ALL` 은 다른 사람의 공개 에이전트까지", required = true,
+            @Parameter(description = "`MINE` 은 내 에이전트만, `ALL` 은 다른 사람의 에이전트까지", required = true,
                     example = "ALL") PlaceableScope scope,
             @Parameter(description = "이름 부분 검색어. 비우면 전체", example = "성적") String keyword,
             @Parameter(description = "이전 응답의 `nextCursor`. 첫 페이지는 비운다", example = "MjA") String cursor,

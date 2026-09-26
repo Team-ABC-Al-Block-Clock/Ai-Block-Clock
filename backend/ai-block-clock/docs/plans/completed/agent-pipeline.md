@@ -105,6 +105,9 @@
 
 ### 8.4 끝난 뒤 환불 — 쓰지 않은 만큼 돌려준다 (PAY-009 · PAY-010)
 
+> **계약 v2.0 (2026-09-26) 에서 바뀌었다.** 쓴 만큼은 실측 × 배율이 아니라 성공한 단계마다 접수할 때 정한 단가의 합이다.
+> 플랫폼 탓이어도 앞서 성공한 판매자는 플랫폼 부담으로 정산받는다. [`../agent-pipeline.md`](../agent-pipeline.md) 12장.
+
 **떼어 둔 것 = 쓴 만큼 + 돌려줄 만큼.** 돌려줄 만큼은 `EXECUTION_ESCROW` → `ABC_BALANCE` 로 옮기고,
 쓴 만큼은 같은 자리에서 단계 주인의 정산금으로 옮긴다(8.6). 닫힌 실행의 예치에는 아무것도 남지 않는다.
 
@@ -210,6 +213,9 @@
 
 ### 8.6 정산 — 쓴 만큼을 단계 주인에게 준다 (PAY-012)
 
+> **계약 v2.0 (2026-09-26) 에서 바뀌었다.** 플랫폼 탓이면 사용자에게 전부 돌려주고, 앞서 성공한 단계의 주인은 `PLATFORM_EXPENSE` 에서 제 단가를 받는다.
+> [`../agent-pipeline.md`](../agent-pipeline.md) 12.3.
+
 **수수료가 없다.** 사용자가 쓴 만큼(8.4)이 전부 그 단계를 만든 주인의 정산금(`PAYOUT_BALANCE`)으로 간다.
 플랫폼 수익 계정은 두지 않는다 (2026-09-25 담당 결정. AI `grading-formula.md` 4장 "MVP 는 수수료 0%" 와 같다).
 실행을 닫는 트랜잭션(`finish`) 안에서 환불과 함께 적는다.
@@ -304,6 +310,8 @@ ABC 는 사용자끼리 주고받을 수 없는 이용권이다. 넘기는 API �
 | `RESERVE` | `ABC_BALANCE` | `EXECUTION_ESCROW` 한 줄 | **같은 사람** |
 | `REFUND` (되돌리기 · 환불) | `EXECUTION_ESCROW` | `ABC_BALANCE` 한 줄 | **같은 사람** |
 | `SETTLEMENT` | `EXECUTION_ESCROW` (실행한 사람) | `PAYOUT_BALANCE` 한 줄 이상 | 달라도 된다 — 쓴 값을 치르는 것이다 |
+| `WITHDRAWAL_HOLD` (출금 신청) | `PAYOUT_BALANCE` | `WITHDRAWAL_ESCROW` 한 줄 | **같은 사람** |
+| `WITHDRAWAL_RELEASE` (출금 취소 · 반려) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 2장 |
 
 남에게 ABC 가 가는 길은 정산으로 공급자의 **정산금**에 넣는 것 하나뿐이다. 받은 쪽의 쓸 수 있는 잔액으로는 가지 않는다.
 모양이 다르면 `LEDGER_INVALID_TRANSACTION`(500) 이다. 사용자가 고칠 요청이 아니라 코드가 잘못 만든 거래이기 때문이다.
@@ -312,7 +320,7 @@ ABC 는 사용자끼리 주고받을 수 없는 이용권이다. 넘기는 API �
 | --- | --- |
 | 팩터리를 거치지 않은 거래도 막는다 | 검사가 생성자에 있어 어떤 길로 만들어도 지나간다 |
 | 거래 종류가 늘면 규칙도 정한다 | `switch` 가 모든 `LedgerEventType` 을 받아야 컴파일된다 |
-| 요청으로 남의 계정을 가리킬 수 없다 | ABC 를 넣는 API 는 충전 신청(`POST /credits/charges`) 하나이고 받는 사람은 로그인한 사람이다. 나머지(`/credits/balance` · `/credits/transactions` · `/settlements`)는 조회이고 로그인한 사람 것만 읽는다. 장부의 주인은 늘 서버가 세션 · 실행 행에서 정한다 |
+| 요청으로 남의 계정을 가리킬 수 없다 | ABC 를 넣는 API 는 충전 신청(`POST /credits/charges`) 하나이고 받는 사람은 로그인한 사람이다. 출금 신청 · 취소(`/withdrawals`)도 로그인한 사람의 정산금만 묶고 푼다. 나머지(`/credits/balance` · `/credits/transactions` · `/settlements`)는 조회이고 로그인한 사람 것만 읽는다. 장부의 주인은 늘 서버가 세션 · 실행 · 출금 행에서 정한다 |
 | 남의 입금으로 충전할 수 없다 | 보낸 지갑이 신청한 사람의 지갑이어야 한다(`SENDER_WALLET_MISMATCH`, PAY-001/002) |
 
 체인 위 abcToken 은 여기서 막지 않는다. 충전 전의 토큰은 일반 ERC-20 이라 지갑끼리 옮길 수 있고, 서비스가 다루는
@@ -382,7 +390,7 @@ ABC 는 충전된 뒤 장부에 적힌 것이다(242 결정).
 | 상황 | 지금 | 필요한 것 |
 | --- | --- | --- |
 | 리뷰 | 평가 수 · 평점을 시드로만 넣는다 | 리뷰 작성 기능(MKT-007)이 생기면 리뷰를 쓸 때 평가 수 · 평균을 함께 고친다 |
-| mock 실패 | mock 여부를 실행에 적지 않아, mock 실행이 공급자 탓으로 실패하면 실패로 센다 | mock 이 공급자 오류를 낼 일은 드물다. 필요하면 접수 때 mock 여부를 적는다 |
+| mock 실패 | ~~mock 여부를 실행에 적지 않아 공급자 탓 실패로 센다~~ → **접수 때 `execution.mock` 에 적고(V32), mock 실행은 등급 재료로 세지 않는다** (계약 v2.0 대응, MR !118 리뷰) | 엔진 응답의 mock 칸에만 기대면 그 칸이 빠졌을 때 가짜 결과물에 값을 받는다 |
 | 이 표보다 먼저 닫힌 실행 | 세지 않았다 | 필요하면 `execution_failure` · `execution_settlement` 로 한 번 채운다. 배포 전이라 dev 데이터뿐이다 |
 | 추천 색인의 `success_rate` | ~~기본값 1.0 을 보낸다~~ → 재료에서 계산한 성공률을 보낸다 (8.11) | — |
 

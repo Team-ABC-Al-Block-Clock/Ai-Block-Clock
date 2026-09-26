@@ -6,6 +6,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.util.List;
 
+// 엔진은 돈을 모른다 (계약 v2.0 8.1). 토큰을 모델 공시 단가로 바꾼 달러 원가(cost_usd)까지만 주고,
+// ABC 로 얼마를 받을지는 우리가 정한다. mock 은 모델을 부르지 않은 실행이라 원가가 모두 0 이다.
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record RunStatus(
         @JsonProperty("run_id") String runId,
@@ -15,7 +17,9 @@ public record RunStatus(
         List<Contribution> contribution,
         @JsonProperty("not_executed") List<NotExecuted> notExecuted,
         Result result,
-        Failure failure
+        Failure failure,
+        Boolean mock,
+        Totals totals
 ) {
     public RunState state() {
         return RunState.from(status);
@@ -29,6 +33,10 @@ public record RunStatus(
         return state() == RunState.SUCCEEDED;
     }
 
+    public boolean isMock() {
+        return Boolean.TRUE.equals(mock);
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Progress(
             int done,
@@ -39,6 +47,7 @@ public record RunStatus(
     ) {
     }
 
+    // cost_usd 는 모델을 부른 만큼이다. 부르기 전에 실패했거나 건너뛴 단계는 비어 있다 — 쓴 것이 없는 게 아니라 잰 것이 없다.
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Node(
             String id,
@@ -47,7 +56,7 @@ public record RunStatus(
             String status,
             @JsonProperty("agent_id") String agentId,
             @JsonProperty("owner_id") String ownerId,
-            @JsonProperty("cost_abc") BigDecimal costAbc,
+            @JsonProperty("cost_usd") BigDecimal costUsd,
             @JsonProperty("skip_reason") String skipReason
     ) {
         private static final String SUCCEEDED = "succeeded";
@@ -63,27 +72,31 @@ public record RunStatus(
         }
     }
 
+    // 실행 전체에서 쓴 달러 원가다. 판매자 테스트 실행의 원가를 잴 때 읽는다.
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Totals(
+            @JsonProperty("cost_usd") BigDecimal costUsd
+    ) {
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Contribution(
             @JsonProperty("node_id") String nodeId,
             @JsonProperty("owner_id") String ownerId,
-            @JsonProperty("agent_id") String agentId,
-            @JsonProperty("charged_abc") BigDecimal chargedAbc
+            @JsonProperty("agent_id") String agentId
     ) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record NotExecuted(
             @JsonProperty("node_id") String nodeId,
-            String reason,
-            @JsonProperty("refund_abc") BigDecimal refundAbc
+            String reason
     ) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Result(
             String type,
-            @JsonProperty("schema_id") String schemaId,
             @JsonProperty("artifact_url") String artifactUrl,
             @JsonProperty("pdf_url") String pdfUrl
     ) {

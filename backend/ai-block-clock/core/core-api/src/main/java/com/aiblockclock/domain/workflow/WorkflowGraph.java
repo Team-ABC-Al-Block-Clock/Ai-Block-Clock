@@ -162,7 +162,8 @@ public final class WorkflowGraph {
     }
 
     private List<NodeKey> walk() {
-        NodeKey start = soleStart();
+        Map<NodeKey, Integer> waiting = incomingCounts();
+        NodeKey start = soleStart(waiting);
         nodes.forEach(this::ensureOutgoingShape);
 
         List<NodeKey> walked = new ArrayList<>();
@@ -175,7 +176,11 @@ public final class WorkflowGraph {
 
             List<GraphEdge> next = branchesOf(current);
             for (int index = next.size() - 1; index >= 0; index--) {
-                pending.push(next.get(index).targetNodeKey());
+                NodeKey target = next.get(index).targetNodeKey();
+
+                if (waiting.merge(target, -1, Integer::sum) == 0) {
+                    pending.push(target);
+                }
             }
         }
 
@@ -183,7 +188,8 @@ public final class WorkflowGraph {
             throw new CoreException(ErrorType.WORKFLOW_GRAPH_CYCLE);
         }
 
-        nodes.forEach(this::ensureConditionReadsUpstream);
+        Map<NodeKey, Set<NodeKey>> passed = passedOnEveryPath(walked);
+        nodes.forEach(node -> ensureConditionReadsUpstream(node, passed.get(node.key())));
 
         return walked;
     }
@@ -195,11 +201,18 @@ public final class WorkflowGraph {
                 .orElse(0);
     }
 
-    private NodeKey soleStart() {
-        Set<NodeKey> targeted = targetedNodes();
+    private Map<NodeKey, Integer> incomingCounts() {
+        Map<NodeKey, Integer> counts = new HashMap<>();
+        nodes.forEach(node -> counts.put(node.key(), 0));
+        edges.forEach(edge -> counts.merge(edge.targetNodeKey(), 1, Integer::sum));
+
+        return counts;
+    }
+
+    private NodeKey soleStart(Map<NodeKey, Integer> incoming) {
         List<NodeKey> starts = nodes.stream()
                 .map(GraphNode::key)
-                .filter(key -> !targeted.contains(key))
+                .filter(key -> incoming.get(key) == 0)
                 .toList();
 
         if (starts.isEmpty()) {
@@ -225,18 +238,6 @@ public final class WorkflowGraph {
                     throw new CoreException(ErrorType.WORKFLOW_IO_NODE_EDGE_INVALID,
                             Map.of("nodeKey", node.key().value()));
                 });
-    }
-
-    private Set<NodeKey> targetedNodes() {
-        Set<NodeKey> targeted = new HashSet<>();
-        for (GraphEdge edge : edges) {
-            if (!targeted.add(edge.targetNodeKey())) {
-                throw new CoreException(ErrorType.WORKFLOW_GRAPH_NOT_TREE,
-                        Map.of("nodeKey", edge.targetNodeKey().value()));
-            }
-        }
-
-        return targeted;
     }
 
     private void ensureOutgoingShape(GraphNode node) {
@@ -267,15 +268,15 @@ public final class WorkflowGraph {
         }
     }
 
-    private void ensureConditionReadsUpstream(GraphNode node) {
+    private void ensureConditionReadsUpstream(GraphNode node, Set<NodeKey> passed) {
         if (!(node instanceof ControlNode branch)) {
             return;
         }
 
         boolean readsUpstreamNode = branch.condition().source()
-                .filter(source -> upstreamOf(branch.key()).contains(source))
+                .filter(passed::contains)
                 .flatMap(this::findNode)
-                .filter(source -> source.sourceType() == SourceType.NODE)
+                .filter(source -> source.sourceType() == SourceType.NODE || source.sourceType() == SourceType.AGENT)
                 .isPresent();
 
         if (!readsUpstreamNode) {
@@ -284,16 +285,30 @@ public final class WorkflowGraph {
         }
     }
 
-    private Set<NodeKey> upstreamOf(NodeKey key) {
-        Map<NodeKey, NodeKey> parents = new HashMap<>();
-        edges.forEach(edge -> parents.put(edge.targetNodeKey(), edge.sourceNodeKey()));
+    private Map<NodeKey, Set<NodeKey>> passedOnEveryPath(List<NodeKey> walked) {
+        Map<NodeKey, Set<NodeKey>> passed = new HashMap<>();
+        for (NodeKey key : walked) {
+            Set<NodeKey> common = edges.stream()
+                    .filter(edge -> edge.targetNodeKey().equals(key))
+                    .map(edge -> passedThrough(passed, edge.sourceNodeKey()))
+                    .reduce((left, right) -> {
+                        left.retainAll(right);
 
-        Set<NodeKey> upstream = new HashSet<>();
-        for (NodeKey current = parents.get(key); current != null; current = parents.get(current)) {
-            upstream.add(current);
+                        return left;
+                    })
+                    .orElseGet(HashSet::new);
+
+            passed.put(key, common);
         }
 
-        return upstream;
+        return passed;
+    }
+
+    private static Set<NodeKey> passedThrough(Map<NodeKey, Set<NodeKey>> passed, NodeKey parent) {
+        Set<NodeKey> through = new HashSet<>(passed.get(parent));
+        through.add(parent);
+
+        return through;
     }
 
     private static boolean splitsTrueAndFalse(List<GraphEdge> next) {

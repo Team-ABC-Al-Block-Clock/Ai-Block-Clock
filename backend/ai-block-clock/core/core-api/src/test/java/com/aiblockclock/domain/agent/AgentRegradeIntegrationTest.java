@@ -315,7 +315,7 @@ class AgentRegradeIntegrationTest {
 
     private Execution reserve(Workflow workflow) {
         Execution requested = Execution.requested(ExecutionId.newId(), ExecutionRequestId.of(UUID.randomUUID()),
-                workflow.getId(), BUYER, 2, null);
+                workflow.getId(), BUYER, 2, null, false);
 
         return executionReservationManager.reserve(requested, workflow, executionPlanAssembler.assemble(workflow));
     }

@@ -71,7 +71,7 @@ class ExecutionFailureTest {
 
     @Test
     void 실패했는데_까닭을_알리지_않으면_플랫폼_탓으로_본다() {
-        RunStatus run = new RunStatus("run-1", "failed", null, List.of(), List.of(), List.of(), null, null);
+        RunStatus run = new RunStatus("run-1", "failed", null, List.of(), List.of(), List.of(), null, null, false, null);
 
         assertThat(ExecutionFailure.judge(run)).isEqualTo(new ExecutionFailure(
                 null, ExecutionProgress.UNREPORTED, ExecutionFault.PLATFORM, false, null, null));
@@ -102,7 +102,7 @@ class ExecutionFailureTest {
     void 돌려받은_주인이나_에이전트가_보낸_모양이_아니면_비워_둔다() {
         RunStatus run = new RunStatus("run-1", "failed", null,
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "failed", "not-a-uuid", "u_2001", null, null)),
-                List.of(), List.of(), null, new RunStatus.Failure("n1", "MODEL_API_ERROR", "supplier", true));
+                List.of(), List.of(), null, new RunStatus.Failure("n1", "MODEL_API_ERROR", "supplier", true), false, null);
 
         ExecutionFailure failure = ExecutionFailure.judge(run);
 
@@ -134,6 +134,6 @@ class ExecutionFailureTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, "7001", null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", AGENT.toString(), "7002",
                                 null, null)),
-                List.of(), List.of(), null, new RunStatus.Failure(stepId, errorCode, fault, affectsSuccessRate));
+                List.of(), List.of(), null, new RunStatus.Failure(stepId, errorCode, fault, affectsSuccessRate), false, null);
     }
 }
