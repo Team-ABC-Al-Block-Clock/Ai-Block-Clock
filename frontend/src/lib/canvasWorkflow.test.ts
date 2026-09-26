@@ -254,6 +254,43 @@ describe('linearOrder', () => {
   })
 })
 
+describe('treeOrder — 선 차례', () => {
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const branch = (id: string) => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'CONTROL' as const,
+    sourceId: '',
+    mine: null,
+    controlType: 'BRANCH' as const,
+    condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
+  })
+
+  /**
+   * 서버는 노드를 훑은 뒤 노드마다 제 갈래를 모은다(`WorkflowGraph.edgesInOrder`).
+   * 차례가 어긋나면 다시 불러올 때 선 키가 달라진다.
+   */
+  it('노드를 먼저, 그 노드의 갈래를 모아서 센다', () => {
+    const nodes = [
+      nodeAt('a', 0, 0),
+      branch('br'),
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      nodeAt('z', 0, 0),
+    ]
+    const edges = [
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'z'),
+    ]
+    const order = treeOrder(nodes, edges)
+
+    expect(order?.nodes.map((n) => n.id)).toEqual(['a', 'br', 't', 'z', 'f'])
+    expect(order?.edges.map((e) => e.id)).toEqual(['a__br', 'br__t', 'br__f', 't__z'])
+  })
+})
+
 describe('graphProblem', () => {
   const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
   const io = (id: string, ioType: 'START' | 'END') => ({

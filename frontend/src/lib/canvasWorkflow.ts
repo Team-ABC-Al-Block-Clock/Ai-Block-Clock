@@ -585,10 +585,11 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
   const walkedEdges: CanvasEdge[] = []
   const walk = (id: string) => {
     walked.push(byId.get(id)!)
-    for (const edge of branchFirst(out.get(id) ?? [])) {
-      walkedEdges.push(edge)
-      walk(edge.to)
-    }
+    // 서버는 노드를 훑은 뒤 노드마다 제 갈래를 모은다(`edgesInOrder`). 갈래를 먼저 다 담고
+    // 나서 내려가야 선 키 차례가 같아진다.
+    const next = branchFirst(out.get(id) ?? [])
+    walkedEdges.push(...next)
+    for (const edge of next) walk(edge.to)
   }
   walk(roots[0].id)
 
