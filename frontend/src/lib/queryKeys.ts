@@ -107,6 +107,8 @@ export const queryKeys = {
       list: (params: ListParams) => [...queryKeys.credits.transactions.lists(), params] as const,
     },
     charge: (chargeId: string) => [...queryKeys.credits.all, 'charges', chargeId] as const,
+    /** 사용량 추이. 사용 내역 목록과 따로 둔다 — 전환 · 출금은 사용량을 바꾸지 않는다. */
+    usageTrend: (params: ListParams) => [...queryKeys.credits.all, 'usage-trend', params] as const,
     history: {
       lists: () => [...queryKeys.credits.all, 'history'] as const,
       list: (params: ListParams) => [...queryKeys.credits.history.lists(), params] as const,

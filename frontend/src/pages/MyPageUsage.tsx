@@ -62,7 +62,7 @@ export default function MyPageUsage() {
   })
 
   const trend = useQuery({
-    queryKey: queryKeys.credits.transactions.list({ ...range, trend: true }),
+    queryKey: queryKeys.credits.usageTrend(range),
     queryFn: async () => {
       const rows: CreditTransaction[] = []
       let cursor: string | undefined

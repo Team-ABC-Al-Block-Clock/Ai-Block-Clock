@@ -75,7 +75,12 @@ export function usePayoutWithdrawal() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const refreshCredits = () => queryClient.invalidateQueries({ queryKey: queryKeys.credits.all })
+  // 출금은 정산금에서 나가 ABC 사용 내역 · 사용량에는 남지 않는다. 잔액과 충전 · 출금 내역만 다시 읽는다.
+  const refreshCredits = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.credits.balance() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.credits.history.lists() }),
+    ])
 
   const create = useMutation({
     mutationFn: (amount: string) =>
