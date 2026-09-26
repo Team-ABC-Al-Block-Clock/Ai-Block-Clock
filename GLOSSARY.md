@@ -25,8 +25,10 @@
 | **A2A 규격** | 노드 간 데이터 교환에 쓰는 정형 JSON 스키마 | 아직 없음. 형식 검증이 없어 노드 출력은 자유 텍스트다 |
 | **Base Cost (기본 원가)** | 노드 1회 실행에 실제로 드는 AI API·컴퓨팅 비용. 에이전트는 내부 노드를 합산 | `VersionCost.baseCost` |
 | **Premium Rate (프리미엄 율)** | 등급에 따라 Base Cost 위에 얹히는 마진율. T1 +50% / T2 +30% / T3 +10% / T4 +0% | `Tier.premiumRate()` |
-| **Tier (등급)** | Agent Score 와 필수 허들로 부여되는 등급. Tier 1(Platinum) ~ Tier 4(Bronze) | `Tier` |
-| **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수 | 아직 없음 (PAY-019) |
+| **Tier (등급)** | Agent Score 와 필수 허들로 부여되는 등급. Tier 1(Platinum) ~ Tier 4(Bronze) | `Tier`. 매기는 규칙은 `AgentTierLadder` |
+| **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수. 0 ~ 100 | `AgentGrade.score` (`AgentGradeProperties.gradeOf`) |
+| **허들 (Hurdle)** | 점수가 닿은 등급을 지키는 데 필요한 최소 성공률 · 평가 수. 못 넘으면 넘는 등급까지 내려간다 | `AgentTierRequirement`. 점수로 닿은 등급은 `AgentGrade.scoreTier`, 확정 등급은 `tier` |
+| **등급 이력** | 등급을 매길 때마다 그때의 재료 · 지표 · 점수 · 등급을 한 줄씩 남긴 것 | `agent_grade_history` (`AgentGradeHistoryWriter`) |
 | **등급 재료** | 에이전트마다 쌓는 성공 수 · 공급자 탓 실패 수 · 평가 수 · 평균 평점. 지표는 이것에서 계산한다 | `AgentGradeMetric`. 실행 하나가 남기는 것은 `AgentRunOutcomes` |
 | **보정 평점 (Bayesian Rating)** | 평가가 적을수록 전체 평균 쪽으로 당긴 평점. 1 ~ 5. 0 ~ 100 으로 옮긴 것이 평점 점수 | `AgentGradeIndicators.adjustedRating` · `ratingScore` |
 | **정규화 사용량** | 누적 성공 실행 수를 로그 눈금으로 0 ~ 100 에 놓은 것 | `AgentGradeIndicators.usageScore` |
@@ -232,7 +234,6 @@ WRK-015(반복) · WRK-016(병합)이 v2 에 있으므로, 제어 노드가 늘�
 | 용어 | 어디서 오는가 |
 | --- | --- |
 | ABC · 정산금 · 출금 | PAY, CHN |
-| Agent Score | PAY-019 ~ 020, MKT-005 |
 | 기여 노드 | PAY-010 · PAY-012 |
 | A2A 봉투(Envelope) · Payload · 노드 매니페스트 | AI 파트 (S15P21A403-170 · 172) |
 | 공급자 · 수요자 | 별개 계정이 아니라 **행위 시점에 결정되는 역할**이다. 계정 유형으로 모델링하지 않는다 |
