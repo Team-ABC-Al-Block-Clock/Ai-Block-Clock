@@ -21,12 +21,17 @@ backend/ai-block-clock/
 │   ├── core-api/            실행 모듈 (진입점) — application.yaml
 │   └── core-enum/           공통 enum
 ├── storage/                 영속성 — db.yml, db/migration
-└── support/                 wrapper
-    ├── logging/             로깅 — logback-spring.xml
-    └── monitoring/          모니터링 — monitoring.yml
+├── support/                 wrapper
+│   ├── logging/             로깅 — logback-spring.xml
+│   └── monitoring/          모니터링 — monitoring.yml
+└── client/                  wrapper
+    ├── blockchain/          SSAFY 토큰증권 API · 체인 RPC 연동 — blockchain.yml
+    └── ai/                  AI 파트 서비스 연동 (추천 · 실행 엔진) — ai.yml
 ```
 
 각 모듈은 자기 관심사의 설정 파일을 직접 소유한다 (4장).
+
+운영자가 손으로 실행하는 일회성 온체인 작업(토큰 발행 등)은 모듈이 아니라 저장소 루트의 `scripts/` 에 스크립트로 둔다. 빌드 산출물에 들어가지 않으므로 서버 기동 경로에서 실행될 수 없다.
 
 ### 1.2 모듈 종류
 
@@ -34,7 +39,7 @@ backend/ai-block-clock/
 
 | 종류 | 설명 | 해당 모듈 |
 | --- | --- | --- |
-| wrapper | 하위 모듈만 묶는 상자. 소스도 `build.gradle` 도 갖지 않는다 | `:core`, `:support` |
+| wrapper | 하위 모듈만 묶는 상자. 소스도 `build.gradle` 도 갖지 않는다 | `:core`, `:support`, `:client` |
 | leaf | 실제 소스·리소스를 갖는 모듈. 빌드 산출물이 나온다 | 그 외 전부 |
 
 루트 `build.gradle` 의 공통 설정은 leaf 모듈에만 적용된다. wrapper 는 Java 플러그인조차 적용되지 않으므로 빈 jar 이 생기지 않는다.
@@ -55,6 +60,9 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) { ... }
 | `:support` | wrapper | `logging`, `monitoring` 을 묶는다 | 없음 |
 | `:support:logging` | leaf | 프로파일별 logback 설정 | jar (리소스만) |
 | `:support:monitoring` | leaf | 액추에이터·메트릭 설정 | jar |
+| `:client` | wrapper | 외부 시스템 연동 모듈을 묶는다 | 없음 |
+| `:client:blockchain` | leaf | SSAFY 토큰증권 API · 체인 RPC 연동 (조회 + 출금 전송 서명 · 보내기) | jar |
+| `:client:ai` | leaf | AI 파트 서비스 연동 (추천 엔진 · 실행 엔진) | jar |
 
 그룹·버전은 전 모듈 공통으로 `com.aiblockclock:0.0.1-SNAPSHOT` 이다.
 
@@ -71,12 +79,23 @@ graph TD
     storage[":storage"]
     logging[":support:logging"]
     monitoring[":support:monitoring"]
+    blockchain[":client:blockchain"]
+    ai[":client:ai"]
+    jpa["spring-boot-starter-data-jpa"]
+    session["spring-boot-starter-session-jdbc"]
+    web["spring-web"]
 
     api -->|implementation| storage
     api -->|implementation| enums
+    api -->|implementation| session
+    api -->|implementation| blockchain
+    api -->|implementation| ai
     api -.->|runtimeOnly| logging
     api -.->|runtimeOnly| monitoring
     storage -->|implementation| enums
+    storage ==>|api| jpa
+    blockchain -->|implementation| web
+    ai -->|implementation| web
 ```
 
 의존은 **항상 한 방향**이다. `core-api` 는 모든 모듈을 알고, `core-enum` 은 아무도 모른다.
@@ -86,13 +105,20 @@ graph TD
 | 모듈 | 의존 대상 | configuration | 이유 |
 | --- | --- | --- | --- |
 | `:core:core-api` | `:storage` | `implementation` | 영속성 계층을 호출한다 |
+| `:core:core-api` | `spring-tx` | `implementation` | Service가 유스케이스 트랜잭션 경계를 잡고 implementation은 이에 참여한다 |
+| `:core:core-api` | `spring-boot-starter-session-jdbc` | `implementation` | HttpSession을 기존 MySQL에 저장하고 여러 요청에서 인증 상태를 복원한다 |
 | `:core:core-api` | `:core:core-enum` | `implementation` | 공통 enum 을 참조한다 |
+| `:core:core-api` | `:client:blockchain` | `implementation` | 온체인 상태를 조회한다 |
+| `:core:core-api` | `:client:ai` | `implementation` | 추천 색인을 유지하고 추천을 중계한다 |
 | `:core:core-api` | `:support:logging` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:core:core-api` | `:support:monitoring` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:storage` | `:core:core-enum` | `implementation` | 엔티티에서 공통 enum 을 쓴다 |
+| `:storage` | `spring-boot-starter-data-jpa` | `api` | implementation 계층이 `JpaRepository` 와 `Pageable` 을 직접 다룬다 (3.3 참고) |
 | `:core:core-enum` | 없음 | - | 외부 라이브러리도 추가하지 않는다 |
 | `:support:logging` | 없음 | - | 리소스만 갖는다 |
 | `:support:monitoring` | 없음 (프로젝트 기준) | - | 액추에이터 라이브러리만 갖는다 |
+| `:client:blockchain` | `spring-web` | `implementation` | `RestClient` 를 직접 선언한다. `core-api` 의 웹 스타터에 얹히지 않는다. 응답이 스칼라라 JSON 변환기는 두지 않는다 |
+| `:client:ai` | `spring-web`, `spring-boot-starter-json` | `implementation` | `RestClient` 를 직접 선언한다. 요청·응답이 객체라 JSON 변환기(Jackson)를 둔다 |
 
 `support:*` 를 `runtimeOnly` 로 붙이는 이유는, 이 모듈들이 **설정만 제공**하고 애플리케이션 코드가 이들의 클래스를 직접 참조할 일이 없기 때문이다. `implementation` 으로 붙이면 컴파일 의존이 생겨 나중에 지우기 어려워진다.
 
@@ -100,8 +126,8 @@ graph TD
 
 지켜야 할 규칙은 다음과 같다.
 
-1. **역방향 금지** — `storage` 나 `support:*` 가 `core-api` 를 의존해서는 안 된다
-2. **형제 모듈 금지** — `storage` 와 `support:*` 는 서로 의존하지 않는다
+1. **역방향 금지** — `storage` · `support:*` · `client:*` 가 `core-api` 를 의존해서는 안 된다
+2. **형제 모듈 금지** — `storage` · `support:*` · `client:*` 는 서로 의존하지 않는다
 3. **`core-enum` 은 순수하게 유지** — 어떤 모듈도, 어떤 외부 라이브러리도 의존하지 않는다. 다른 모듈이 공유해야 하는 enum 만 둔다
 4. **wrapper 에 직접 의존 금지** — `project(':support')` 가 아니라 `project(':support:logging')` 처럼 leaf 를 지정한다
 5. **Spring Boot 플러그인은 `core-api` 에만** — 실행 가능한 산출물은 하나뿐이다. 나머지 모듈은 일반 라이브러리 jar 로 남는다
@@ -125,7 +151,8 @@ core/core-api/src/main/
 
 - 진입점 클래스는 베이스 패키지 `com.aiblockclock` 에 둔다. 컴포넌트 스캔이 다른 모듈의 `com.aiblockclock.*` 패키지까지 닿아야 하기 때문이다
 - `core-api` 자체 코드는 `com.aiblockclock.api` 아래에 둔다
-- 의존성: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`
+- 의존성: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`,
+  `spring-boot-starter-security`, `spring-boot-starter-session-jdbc`
 - `application.yaml` 에는 **애플리케이션 조립**(이름, 기본 프로파일, `config.import`)과 `core-api` 자신의 설정(`server.*`)만 둔다. 다른 모듈의 설정을 여기에 적지 않는다
 - `bootJar` 활성화, 일반 `jar` 비활성화
 
@@ -150,7 +177,14 @@ storage/src/main/resources/
 ```
 
 - JPA 엔티티, 리포지토리, 마이그레이션 스크립트를 둔다
+- **JPA 를 `api` 로 노출한다.** implementation 계층(`Reader`/`Writer`)이 `JpaRepository` 를 직접 주입받고
+  `Pageable` 을 직접 조립한다. 엔티티도 이미 `storage` 밖으로 나가고 있으므로, Spring Data 타입만 가리는
+  래퍼 클래스를 두는 것은 값을 못 한다 — 감추려면 엔티티까지 감춰야 하고, 그것은 `domain` 모듈이 생길 때 한다
+  (ARCHITECTURE.md 5장 미해결 항목)
 - 의존성: `spring-boot-starter-data-jpa`, `spring-boot-starter-flyway`, `flyway-mysql`, 드라이버(`mysql-connector-j`, `h2`)
+- 시각 컬럼은 **`Instant`** 로 매핑한다. 생성·수정 시각은 `audit/BaseCreatedAtEntity`,
+  `audit/BaseTimeEntity` 를 상속해 JPA Auditing 이 채우고, 엔티티가 직접 필드를 갖지 않는다.
+  `LocalDateTime` 은 오프셋이 없어 API 응답과 DB 사이에서 타임존이 유실되므로 쓰지 않는다
 - `ddl-auto` 는 전 프로파일 `validate` 다. 스키마 변경은 마이그레이션 스크립트로만 한다
 - `open-in-view` 는 끈다. 영속성 컨텍스트가 웹 계층까지 열려 있으면 모듈 경계가 무너진다
 
@@ -208,6 +242,72 @@ spring:
       - classpath:monitoring.yml   # monitoring-{profile}.yml 은 함께 로드된다
 ```
 
+### 3.6 `:client:blockchain`
+
+SSAFY 체인에 붙는 어댑터다. 패키지는 `com.aiblockclock.client.blockchain` 이고, **접속 설정을 이 모듈이 소유한다.**
+창구가 둘이고, 서명은 따로 한 곳에서 한다.
+
+| 창구 | 클래스 | 무엇을 하나 |
+| --- | --- | --- |
+| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoClient` | 토큰 정보 · 잔액 · 총공급량 · 민터 권한 · 발행 가능 상태를 읽는다 |
+| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoDocumentClient` | 에이전트 등기부 토큰의 문서 칸을 등기부 지갑으로 서명해 쓰고 읽는다 ([agent-provenance.md](agent-provenance.md)) |
+| 체인 노드 JSON-RPC (`rpc.ssafy-blockchain.com`) | `SsafyChainClient` | 거래 해시 하나의 상태 · 블록 번호 · 토큰 전송 로그를 읽는다(토큰증권 API 에 없어서 따로 둔다, [abc-charge.md](abc-charge.md) 2장). 출금 지급에 쓸 다음 거래 번호 · 가스를 재고, 서명된 거래를 보낸다 |
+| (네트워크 없음) | `SsafyChainSigner` | 보관 지갑 키(`ssafy.chain.signer.private-key`)로 abcToken `transfer` 에 서명한다. 키는 이 클래스 밖으로 나가지 않는다 ([abc-withdrawal.md](abc-withdrawal.md) 9장) |
+
+```
+client/blockchain/src/main/resources/
+└── blockchain.yml            토큰증권 API 주소 · 체인 RPC 주소 · 제한 시간 · 컨트랙트 주소 · 등기부 주소 · 서명 키(환경 변수)
+```
+
+- **체인에 쓰는 일은 둘이다.** 출금 지급은 보관 지갑이 서명한 전송을 보내고, 에이전트 원본 기록은 등기부 지갑이
+  서명한 문서 쓰기를 토큰증권 API 로 보낸다. 문서 쓰기는 공개할 때마다 일어나고 같은 값을 다시 적어도 달라지는 것이
+  없다. 배포 · 발행처럼 권한 키가 필요하고 한 번만 하는 쓰기는 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
+- **예외는 `BlockchainClientException` 하나다.** 사유는 `BlockchainClientError` 로 가른다
+  (`INVALID_ADDRESS` · `INVALID_TRANSACTION_HASH` · `INVALID_DOCUMENT` · `INVALID_TRANSACTION` · `INVALID_AMOUNT` ·
+  `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `TRANSACTION_REVERTED` · `REQUEST_FAILED`).
+  `REQUEST_FAILED` 만 체인 결과를 알 수 없는 상황이고, 나머지는 실패가 확인된 상황이다.
+  `core-api` 는 `CoreException` 을 이 모듈에 내릴 수 없으므로(2.3 규칙 1) 호출 경계에서 변환한다 (RULE.md 7.1)
+- **체인 RPC 는 web3j(`org.web3j:core`)의 HTTP 연결만 쓴다.** JSON-RPC 요청·응답 모양과 이벤트 서명 계산을
+  라이브러리에 맡긴다. 쓰지 않는 AWS KMS 서명 · 유닉스 소켓 · WebSocket 연결 의존성은 `exclude` 로 뺐다.
+  `Web3j` 연결 객체는 이 모듈 안의 빈이고 `SsafyChainClient` 만 쓴다
+- 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`, `org.web3j:core`.
+  서버 스타터(`spring-boot-starter-webmvc`)에 얹히지 않도록 클라이언트 쪽만 선언한다.
+  토큰증권 API 의 조회 응답은 값 하나라 `String` 으로 받아 직접 변환한다. 등기부 문서의 조회 응답과
+  쓰기 영수증은 객체라 JSON 변환기로 푼다. 체인 RPC 의 JSON 은 web3j 가 푼다
+- `RestClient` 를 더 빈으로 내놓지 않는다. 조회용(`ssafyStoQueryRestClient`) 하나가 이미 빈이라, 둘이 되면
+  타입으로 주입받는 쪽이 어느 것을 받을지 알 수 없다. `SsafyStoDocumentClient` 는 제 것을 들고 있는다
+- 프로파일 변형 파일을 두지 않는다. 환경별로 달라지는 값은 `${SSAFY_STO_BASE_URL:...}` 처럼
+  환경 변수로 받는다
+- 외부를 실제로 호출하는 테스트는 `@Tag("integration")` 과 환경 변수 가드를 함께 건다.
+  토큰증권 API 는 `SSAFY_STO_EXTERNAL_TEST=true`, 체인 RPC 는 `SSAFY_CHAIN_EXTERNAL_TEST=true` 일 때만 실행된다
+
+`core` · `storage` · `support` 와 나란한 최상위 wrapper `:client` 아래에 둔다. 외부 시스템 어댑터는 계층을 가로지르는 공통 헬퍼가 아니므로 `com.aiblockclock.support` 에 두지 않는다 (ARCHITECTURE.md 5장). 다른 외부 연동(AI API 등)이 생기면 `:client` 아래에 leaf 를 하나 더 만든다.
+
+### 3.7 `:client:ai`
+
+AI 파트 서비스 어댑터다. 패키지는 `com.aiblockclock.client.ai` 이고, **접속 설정을 이 모듈이 소유한다.**
+추천 엔진(`RecommendClient`, `ai.recommend.*`)과 실행 엔진(`AiRuntimeClient`, `ai.runtime.*`)은 다른 컨테이너이고
+계약도 다르다. 서비스 토큰(`ai.service-token`)만 둘이 나눠 쓴다.
+
+```
+client/ai/src/main/resources/
+└── ai.yml                    추천·실행 엔진 주소·제한 시간, 공유 서비스 토큰
+```
+
+- **추천 쪽은 색인 넣기(`upsert` · `rebuild`)와 추천만 한다.** 색인은 우리 DB 에서 파생된 사본이라
+  원본을 바꾸는 동작이 없다. 쓰는 기능이 생기기 전까지 `remove` · `health` 는 두지 않는다
+- **실행 쪽은 접수 · 상태 조회 · 결과물 조회다.** 접수는 폼(multipart)이고 접수 번호만 즉시 돌아온다.
+  상태는 `RunState` 로 읽고, 모르는 값은 끝난 실패로 본다
+- **예외는 두 클라이언트가 같이 쓰는 `AiClientException` 하나다.** 사유는 `AiClientError` 로 가른다
+  (`INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
+  `core-api` 는 호출 경계에서 이를 `CoreException` 으로 바꾼다 (RULE.md 7.1)
+- 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`.
+  `:client:blockchain` 과 달리 요청·응답이 객체라 JSON 변환기를 선언한다
+- `RestClient` 를 빈으로 내놓지 않는다. 어댑터마다 제 것을 들고 있어야 타입 주입이 섞이지 않는다
+- 서비스 토큰이 비어 있으면 헤더 없이 붙고 기동 때 경고를 남긴다. 추천은 없어도 서비스가 도는
+  기능이라 기동을 막지 않는다
+- 프로파일 변형 파일을 두지 않는다. 환경별 값은 환경 변수로 받는다 (4.4)
+
 ---
 
 ## 4. 설정 소유 규칙
@@ -238,6 +338,8 @@ spring:
     import:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
+      - classpath:blockchain.yml   # :client:blockchain
+      - classpath:ai.yml           # :client:ai
 ```
 
 `spring.config.import` 로 가져온 파일은 프로파일 변형(`db-prod.yml`)도 함께 로드된다. 별도로 import 하지 않는다.
@@ -249,6 +351,8 @@ spring:
 | `application.yaml` | `:core:core-api` | 기본 로드 |
 | `db.yml`, `db-{profile}.yml` | `:storage` | `spring.config.import` |
 | `monitoring.yml`, `monitoring-{profile}.yml` | `:support:monitoring` | `spring.config.import` |
+| `blockchain.yml` | `:client:blockchain` | `spring.config.import` |
+| `ai.yml` | `:client:ai` | `spring.config.import` |
 | `logback-spring.xml`, `logback/*.xml` | `:support:logging` | Spring Boot 가 클래스패스에서 탐색 |
 
 ### 4.4 프로파일
@@ -262,6 +366,21 @@ spring:
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | `dev`, `prod` | 없음 (누락 시 기동 실패) |
 | `DB_POOL_SIZE` | `dev`, `prod` | 10 / 20 |
 | `SERVER_PORT` | 전체 | 8080 |
+| `SSAFY_STO_BASE_URL` | 전체 | `https://sto.ssafy.io` |
+| `SSAFY_STO_CONNECT_TIMEOUT`, `SSAFY_STO_READ_TIMEOUT` | 전체 | 3s / 10s |
+| `SSAFY_TOKEN_CONTRACT_ADDRESS` | 전체 | abcToken `0x56DC…C63c` (충전 대조에도 쓴다. 비우면 기동하지 않는다) |
+| `SSAFY_CHAIN_RPC_URL` | 전체 | `https://rpc.ssafy-blockchain.com` |
+| `SSAFY_CHAIN_CONNECT_TIMEOUT`, `SSAFY_CHAIN_READ_TIMEOUT` | 전체 | 3s / 10s |
+| `SSAFY_CHAIN_SIGNER_PRIVATE_KEY` | 전체 | 비어 있음 (출금 지급을 켜는 운영 서버의 `backend.env` 에만, [abc-withdrawal.md](abc-withdrawal.md) 9.4) |
+| `PAYMENT_CHARGE_*` | 전체 | [abc-charge.md](abc-charge.md) 4장 |
+| `PAYMENT_WITHDRAWAL_*` | 전체 | [abc-withdrawal.md](abc-withdrawal.md) 5장 |
+| `WALLET_AUTH_CHAIN_ID` | 전체 | 31221 (SSAFY 체인) |
+| `AI_RECOMMEND_BASE_URL` | 전체 | `http://ai-block-clock-recommend:8100` |
+| `AI_RECOMMEND_CONNECT_TIMEOUT`, `AI_RECOMMEND_READ_TIMEOUT` | 전체 | 2s / 5s |
+| `AI_RUNTIME_BASE_URL` | 전체 | `http://ai-block-clock-ai-runtime:8000` |
+| `AI_RUNTIME_CONNECT_TIMEOUT`, `AI_RUNTIME_READ_TIMEOUT` | 전체 | 2s / 10s |
+| `AI_SERVICE_TOKEN` | 전체 | 없음 (비어 있으면 헤더 없이 붙고 기동 때 경고) |
+| `FILE_STORE_ROOT` | 전체 | `/var/lib/ai-block-clock/files` (도커 이름 볼륨을 여기에 붙인다) |
 
 ---
 

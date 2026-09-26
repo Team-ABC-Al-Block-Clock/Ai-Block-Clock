@@ -710,8 +710,24 @@ server {
         add_header Cache-Control "no-cache, must-revalidate";
     }
 
+    # 실행 진행 상황(SSE). /api/ 보다 먼저 적어야 이쪽이 잡는다.
+    # 버퍼링을 켜 두면 이벤트가 모였다 한꺼번에 나가고, 기본 60초에서 연결이 끊긴다.
+    location ~ ^/api/v1/runs/[^/]+/stream$ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+
     # 백엔드 API 프록시 (Spring Boot 올라온 뒤 활성화)
     location /api/ {
+        client_max_body_size 11m;
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -728,6 +744,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 > 프론트는 `VITE_API_BASE_URL=/api` 를 쓰므로, 같은 오리진의 `/api` 를 Nginx가
 > 백엔드로 넘겨주면 CORS 설정 없이 동작한다. (개발 환경의 `vite.config.ts` proxy와 동일한 구조)
+>
+> `client_max_body_size` 는 백엔드의 multipart 요청 상한(`spring.servlet.multipart.max-request-size`, 11MB)과
+> 맞춘다. 비워 두면 nginx 기본값 1MB 에 걸려, 1MB 가 넘는 파일은 Spring 에 닿기 전에 HTML 413 으로 끊긴다.
 
 ### HTTPS
 

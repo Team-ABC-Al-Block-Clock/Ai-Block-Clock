@@ -1,0 +1,218 @@
+# 끝난 설계 — 실행 파일 입력
+
+**구현이 끝나 `plans/` 에서 통째로 옮겼다.** 지금 코드가 왜 그 모양인지 되짚을 때만 본다. 남은 것은 원본
+보관 기간과 폐기 배치 하나이고, [`../agent-pipeline.md`](../agent-pipeline.md) 11.1 로 옮겼다.
+
+사용자가 실행할 때 올리는 파일을 받아 검사하고 보관한 뒤 AI Runtime 에 실어 보낸다.
+
+| 요구사항 | |
+| --- | --- |
+| EXE-003 | H2A 노드는 실행 시점에 자연어와 파일을 입력받는다 |
+| EXE-005 · SEC-006 | 업로드 파일은 확장자 · 용량 · 형식 검증을 거친다 |
+| NOD-005 | 노드는 엑셀 · CSV 입력을 받도록 정의할 수 있다 |
+| SEC-007 | 업로드 원본은 보관 기간이 지나면 폐기한다 |
+
+계약은 `ai/docs/integration-guide.md` (09-22 갱신본) §7.1 이다. 이 문서와 어긋나면 그쪽이 맞다.
+
+---
+
+## 1. 계약 — AI 가 받는 모양
+
+`POST /v1/runs` 는 이미 `multipart/form-data` 이고, **파일 자리가 이미 열려 있다.**
+
+| 파트 | 필수 | 우리 상태 |
+| --- | --- | --- |
+| `workflow` | 필수 | 보내는 중 |
+| `input` | 선택 | **항상 `null` 로 보내는 중** |
+| `comment` | 선택 | 보내는 중 |
+| `file` | 선택 | **보내는 중** — `.xlsx` · `.xls` · `.csv`, 최대 10MB |
+| `ref_file_<node_id>_<n>` | 선택 | **보내는 중** — [`node-ref-files.md`](node-ref-files.md) |
+| `mock` | 선택 | 보내는 중 |
+
+**Runtime 은 파일을 보관하지 않는다.** 실행이 끝나면 사라지고, 재배포하면 `run_id` 조회조차 404 다.
+원본을 들고 있어야 하는 쪽은 우리다.
+
+**MinIO 를 공유 저장소로 두려던 제안은 필요가 없어졌다.** 가이드 §4 가 "결과물도 Runtime 이 스토리지에
+직접 쓰지 않는다 — 백엔드가 받아 자기 스토리지에 저장한다" 로 확정했다. 저장소를 Runtime 과 나눠 쓸 일이
+없으므로 **우리만 읽고 쓰는 저장소**면 된다.
+
+---
+
+## 2. 무엇이 바뀌었나
+
+| 자리 | 바뀐 것 |
+| --- | --- |
+| `POST /api/v1/runs` | JSON 본문 → **`multipart/form-data`**. **FE 가 함께 바뀌어야 한다** |
+| `client:ai` | `RunRequest.file` 이 보낼 파일의 경로를 받는다 |
+| `domain/file` | `FileStore` — 디스크 입출력. 실행 파일과 노드 참고 자료가 나눠 쓴다 |
+| `domain/execution` | `ExecutionFileValidator` · `ExecutionFileStore` |
+| `storage` | `execution` 에 입력 파일 컬럼 (V14) |
+| 배포 | `file-store` 볼륨과 `FILE_STORE_ROOT` |
+
+---
+
+## 3. 파일을 어디에 두나 — 로컬 디스크
+
+**결정: 서버 로컬 디스크에 두고, 도커 이름 볼륨으로 컨테이너 밖에 남긴다.**
+
+| 안 | 왜 아닌가 |
+| --- | --- |
+| 오브젝트 스토리지 (MinIO · S3) | 컨테이너가 하나 더 늘고, 얻는 것은 공유와 수평 확장인데 **둘 다 지금 필요 없다** |
+| DB BLOB | 10MB 짜리가 행에 들어가면 조회가 같이 무거워진다 |
+| 컨테이너 안 경로 | `docker compose up -d --build` 가 컨테이너를 다시 만든다. **배포할 때마다 전부 사라진다** |
+
+배포는 EC2 한 대에 compose 로 백엔드 컨테이너 하나다 (`docs/cicd.md`). 인스턴스가 여럿이 되면 그때
+저장소를 갈아끼운다 — **읽고 쓰는 자리를 한 클래스에 가둬 두면 그 교체가 한 파일에서 끝난다.**
+
+```yaml
+# compose.yaml
+    volumes:
+      - file-store:/var/lib/ai-block-clock/files
+volumes:
+  file-store:
+```
+
+경로는 `FILE_STORE_ROOT` 로 받고 기본값을 둔다. 키는 `executions/{executionId}/input{확장자}` 로 만들어
+실행 하나가 폴더 하나를 갖게 한다. **원래 파일명을 경로에 쓰지 않는다** — 사용자가 지은 이름이라
+`../` 이 들어올 수 있다. 원래 이름은 DB 컬럼에만 남기고 내려줄 때 쓴다.
+
+---
+
+## 4. 실행 요청에 얹는다 — 업로드 API 를 따로 두지 않는다
+
+**결정: `POST /api/v1/runs` 를 multipart 로 바꾸고, 파일을 같은 요청에 싣는다.**
+
+| 안 | 값 | 비용 |
+| --- | --- | --- |
+| **실행 요청에 싣는다** | 왕복 한 번. 고아 파일이 안 생긴다 | 요청 본문이 폼으로 갈려 FE 가 함께 바뀐다 |
+| `POST /files` 로 먼저 올리고 키를 넘긴다 | 업로드 진행률, 재사용 | **올려놓고 실행 안 한 파일**을 치우는 배치가 따로 필요하다 |
+
+사용자 동선이 "파일 고르고 실행 누르기" 하나라 왕복을 나눌 이유가 없다. API 명세서에도 업로드
+엔드포인트가 없고 `POST /api/v1/executions` 하나뿐이다.
+
+**재실행(MYP-003 · EXE-017)은 우리가 보관한 원본을 그대로 다시 쓴다.** 같은 파일을 두 번 올리게 하지
+않는다. 그래서 파일은 실행 이력에 붙어 있어야 하고, 이것이 5장의 컬럼이 필요한 이유다.
+
+---
+
+## 5. 실행 이력에 붙인다
+
+`execution` 에 컬럼을 더한다. 실행 한 건에 파일은 최대 하나이므로 테이블을 나누지 않는다.
+
+| 컬럼 | |
+| --- | --- |
+| `input_file_key` | 저장소 안의 키. 없으면 `null` |
+| `input_file_name` | 사용자가 올린 원래 이름 |
+| `input_file_size` | 바이트 |
+
+`ref_files` 가 붙으면 노드마다 여럿이 되므로 그때는 별도 테이블이 맞다. **지금 미리 나누지 않는다.**
+
+---
+
+## 6. 검사는 우리가 먼저 한다
+
+Runtime 도 `UNSUPPORTED_FILE_TYPE` · `FILE_TOO_LARGE` 로 막지만, **우리가 먼저 막아야 한다.**
+
+선차감은 Runtime 을 부르기 **전**에 일어난다 (`agent-pipeline.md` 8.3). 파일이 틀린 것을 Runtime 이
+알려줄 때쯤이면 이미 돈을 뗀 뒤다. 검사를 복제하는 것이 아니라 **돈을 떼기 전에 튕기는 것**이다.
+
+| 검사 | 값 |
+| --- | --- |
+| 확장자 | `.xlsx` · `.xls` · `.csv` |
+| 크기 | 10MB |
+| 빈 파일 | 거부한다 |
+
+Spring 의 multipart 상한(`spring.servlet.multipart.max-file-size`)도 10MB 로 맞춘다. 상한이 우리 검사보다
+**작으면** 톰캣이 먼저 막아 우리 검사에 닿지 않고, 크면 우리 검사가 먼저 본다.
+
+같은 값으로 맞췄으므로 10MB 를 넘는 파일은 실제로는 톰캣이 먼저 막는다. 그 예외(`MaxUploadSizeExceededException`)는
+어느 API 에서 났는지 모르므로 공통 코드 `FILE_002` 로 답한다. 실행 파일 · 노드 참고 자료 · 가입 요청이 모두
+multipart 라 한쪽 코드를 쓰면 다른 API 에 엉뚱한 코드가 나간다. 검사기가 내는 `EXECUTION_004` 는 상한을
+바꿀 때를 위한 것으로 남긴다.
+
+운영 nginx 도 `client_max_body_size 11m` 로 맞췄다 (`docs/cicd.md` 4장). 기본값 1MB 이면 Spring 에 닿기 전에
+nginx 가 HTML 413 으로 끊는다.
+
+---
+
+## 7. 순서와 실패 처리
+
+```
+검사 → 계획 조립 → 디스크에 쓴다 → Execution 기록 · 선차감 → Runtime 접수 → run_id 붙이기
+                                   │
+                                   └ 이후 무엇이 실패하든 쓴 파일을 지운다
+```
+
+**`ExecutionId` 를 요청 처음에 만들어 두어** 파일 키를 행보다 먼저 정한다. 처음 설계할 때는 `Execution`
+행이 Runtime 이 `run_id` 를 준 뒤에 생겼지만, 선차감이 들어오며(`agent-pipeline.md` 8.3) 행이 Runtime 호출
+**전에** 생긴다. `run_id` 는 V17 부터 비어 있을 수 있다.
+
+접수가 실패하면 방금 쓴 파일을 지운다. 이때 실행은 `FAILED` 로 남으므로 **`input_file_key` 가 지워진
+파일을 가리키는 행이 생긴다.** 실패한 실행의 원본을 다시 쓸 일이 없어 그대로 둔다. 지우기까지 실패하면 **고아 파일이 하나 남지만 실행은 이미
+거부된 상태다.** 이것을 막자고 트랜잭션을 걸 수 없다 — 디스크는 롤백되지 않는다. 남은 것은 폐기
+배치가 걷어간다 (8장).
+
+---
+
+## 8. 보관 기간
+
+아직 정하지 않았다. OI-08 권장안(실행 완료 즉시 폐기)과 재실행이 부딪치는 이야기는
+[`../agent-pipeline.md`](../agent-pipeline.md) 11.1 로 옮겼다.
+
+---
+
+## 9. 범위 밖
+
+| | 언제 |
+| --- | --- |
+| 결과 PDF · artifact 보관 | **들어갔다.** 같은 저장소에 얹었다 — V21 `execution_result` · `ExecutionResultStore` · `GET /api/v1/runs/{id}/result` |
+| `input` — 첫 노드 입력 payload | 시작 · 끝 노드 항목에서 함께 정한다 (10장, [`../io-nodes.md`](../io-nodes.md)) |
+| 이미지 입력 (NOD-012) | v2 |
+| 폐기 배치 | 보관 기간이 확정된 뒤 |
+
+---
+
+## 10. 시작 노드와 겹치는 자리
+
+`input` 파트는 **첫 노드의 `input_schema_id` 로 만든 폼**의 값이다 (가이드 §5.2). 지금 우리
+워크플로우 JSON 은 첫 노드에 `input_schema_id` 를 달지 않아서 폼이 만들어지지 않고, 그래서 `input` 이
+계속 `null` 이다.
+
+**파일만으로 실행은 된다.** 다만 `input` 을 채우려면 스키마 카탈로그를 먼저 붙여야 하고, 그것이 다음
+항목(시작 노드 · 끝 노드)이다. 이번에는 파일 파트만 붙이고 `input` 은 그대로 둔다.
+
+---
+
+## 11. 작업 순서 — 전부 들어갔다
+
+| | 무엇을 | 들어간 것 |
+| --- | --- | --- |
+| 1 | `client:ai` — `RunRequest` 에 파일 파트 | `RunRequest.file` 이 `Path` 를 받고 `file` 파트로 나간다 |
+| 2 | 저장 — 쓰기 · 찾기 · 지우기, 경로 설정, 볼륨 | `FileStore` · `ExecutionFileStore` · `FILE_STORE_ROOT` · `file-store` 볼륨 |
+| 3 | 검사 — 확장자 · 크기 · 빈 파일, multipart 상한 | `ExecutionFileValidator` · `spring.servlet.multipart` |
+| 4 | API — `POST /api/v1/runs` 를 multipart 로 | `@ModelAttribute ExecutionStartRequest` |
+| 5 | 이력 — `execution` 컬럼과 V14 | `input_file_key` · `input_file_name` · `input_file_size` |
+| 6 | 통합 — 파일 실은 실행 | 보관 · 전달 · 거부 · 실패 시 되돌리기까지 통합 테스트로 |
+
+---
+
+## 12. 구현하며 갈린 것
+
+### 사용자가 지은 이름을 AI 에 보내지 않는다
+
+폼 헤더는 US-ASCII 로 쓰인다. `2학기 성적.xlsx` 를 그대로 실으면 이름이 깨져 나가고, RFC 5987 로
+인코딩해 보내면 받는 쪽이 그 형식을 읽는지 확인해야 한다.
+
+**AI 가 파일 이름에서 보는 것은 확장자뿐이다** (`UNSUPPORTED_FILE_TYPE`). 그래서 저장할 때 붙인
+`input.xlsx` 를 그대로 실어 보낸다. 사용자가 지은 이름은 `input_file_name` 에 남겨 화면과 이력에서 쓴다.
+
+### `MultipartBodyBuilder` 를 쓰지 않는다
+
+파트마다 파일명을 붙이기 좋은 도구이지만 `org.reactivestreams.Publisher` 를 끌어온다. `:client:ai` 는
+동기 클라이언트라 그 의존을 새로 들이지 않는다. 기존대로 `LinkedMultiValueMap` 에 `FileSystemResource`
+를 담으면 변환기가 이름을 붙여 준다.
+
+### 저장 협력자는 `ExecutionFileStore` 하나다
+
+읽기와 쓰기를 `Reader` · `Writer` 로 가르는 것이 집 규칙이지만, 여기서 하는 일은 DB 영속이 아니라
+디스크 입출력이고 쓰기 · 찾기 · 지우기가 한 덩어리로 움직인다. NAMING 2.3 이 허용하는 역할명을 썼다.

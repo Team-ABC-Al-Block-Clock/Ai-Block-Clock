@@ -9,13 +9,138 @@ spring:
     import:
       - classpath:db.yml           # :storage
       - classpath:monitoring.yml   # :support:monitoring
+      - classpath:blockchain.yml   # :client:blockchain
+      - classpath:ai.yml           # :client:ai
+  session:
+    timeout: ${AUTH_SESSION_TIMEOUT:2h}
+    jdbc:
+      initialize-schema: never
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        path: /api/v1
+        secure: ${AUTH_COOKIE_SECURE:true}
 
+# Nginx 가 /api 아래만 백엔드로 넘기므로 문서도 그 아래에 둔다. 배포 서버에서 관리자가 이 화면으로 심사한다
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    path: /api/v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    path: /api/swagger-ui.html
     persist-authorization: true
+
+# 로그인하면 관리자 권한을 받는 지갑이다(쉼표로 구분). 관리자 API(/api/v1/admin/**)는 이 지갑만 부른다. 비우면 관리자가 없다
+admin:
+  wallet-addresses: ${ADMIN_WALLET_ADDRESSES:}
+
+# 기한 = 단계 수 × per-step + grace. 엔진 계약 v2.0 10장의 폴링 중단 기준이다.
+# 기본 모델이 gemini-2.5-pro 로 바뀌며(09-26) 노드당 최대 32초가 재져 단계당 40초에서 60초로 올랐다.
+execution:
+  polling:
+    workers: ${EXECUTION_POLL_WORKERS:4}
+    interval: ${EXECUTION_POLL_INTERVAL:2s}
+    per-step: ${EXECUTION_POLL_PER_STEP:60s}
+    grace: ${EXECUTION_POLL_GRACE:60s}
+
+payment:
+  charge:
+    # 로그인과 같은 SSAFY 체인이다. 충전 요청마다 이 값을 적고 거래의 체인 ID 와 대조한다
+    chain-id: ${PAYMENT_CHARGE_CHAIN_ID:31221}
+    # 사용자가 abcToken 을 보내는 입금 전용 지갑. 권한 없는 일반 계정이고 발행(오너·민터) 계정과 나눴다
+    custody-address: ${PAYMENT_CHARGE_CUSTODY_ADDRESS:0x64e72A170a7a36cE09806190Ed02085fe23CB6B6}
+    # 토큰 주소는 :client:blockchain 설정 하나만 둔다
+    deposit-token-contract-address: ${ssafy.sto.token.contract-address}
+    # QBFT 체인은 확정된 블록이 되돌려지지 않아 블록에 적히면 바로 믿는다
+    required-confirmations: ${PAYMENT_CHARGE_REQUIRED_CONFIRMATIONS:1}
+    # 블록이 약 10초마다 생겨서 더 자주 물어도 새 답이 없다
+    poll-interval: ${PAYMENT_CHARGE_POLL_INTERVAL:10s}
+    # 체인에 닿지 못하면 간격을 두 배씩 늘리되 이 값에서 멈춘다
+    max-poll-interval: ${PAYMENT_CHARGE_MAX_POLL_INTERVAL:5m}
+    # 이 시간이 지나도 거래가 블록에 적히지 않으면 실패로 닫는다. 늦게 성사되면 사용자가 같은 해시로 다시 요청한다
+    verification-timeout: ${PAYMENT_CHARGE_VERIFICATION_TIMEOUT:30m}
+    polling-enabled: ${PAYMENT_CHARGE_POLLING_ENABLED:true}
+  withdrawal:
+    # 실행 한 번에 쌓이는 정산금이 원가 수준(0.01 ABC 대)이라, 크게 잡으면 판매자가 한참 동안 출금하지 못한다
+    minimum-amount: ${PAYMENT_WITHDRAWAL_MINIMUM_AMOUNT:1}
+    # 관리자가 한 번에 심사할 만한 크기로 묶는다. 더 큰 금액은 나눠 신청한다
+    maximum-amount: ${PAYMENT_WITHDRAWAL_MAXIMUM_AMOUNT:1000}
+    # 마지막 신청(취소 · 반려 제외)에서 이만큼 지나야 다시 신청할 수 있다. 0 이면 주기 없이 처리 중인 출금만 막는다
+    request-interval: ${PAYMENT_WITHDRAWAL_REQUEST_INTERVAL:24h}
+    payout:
+      # 보관 지갑 키(SSAFY_CHAIN_SIGNER_PRIVATE_KEY)를 넣은 서버에서만 켠다. 꺼 두면 승인된 출금은 APPROVED 로 기다린다
+      enabled: ${PAYMENT_WITHDRAWAL_PAYOUT_ENABLED:false}
+      # 블록이 약 10초마다 생겨서, 보낸 거래를 더 자주 물어도 새 답이 없다
+      poll-interval: ${PAYMENT_WITHDRAWAL_PAYOUT_POLL_INTERVAL:10s}
+      # 보낸 뒤 이만큼 결과를 모르면 보류로 넘긴다. 정상이면 한두 블록 안에 적히는데, 10분은 블록 약 60개 동안 적히지 않은 것이다
+      hold-after: ${PAYMENT_WITHDRAWAL_PAYOUT_HOLD_AFTER:10m}
+
+file-store:
+  root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
+
+# 노드 원가(Base Cost, NOD-007). 엔진은 달러 원가만 주고 ABC 원가는 우리가 정한다 (엔진 계약 v2.0 8.1).
+# 판매자가 테스트 실행으로 잰 달러 원가가 있으면 최근 sample-size 번의 중앙값 × margin × abc-per-usd 이고, 없으면 default-cost 다.
+#   default-cost  gemini-2.5-pro 기본(09-26) 노드당 최대 실측 0.009 달러 × 1.5 = 0.0135. AI 파트가 09-26 에 알린
+#                 Pro 실측(노드당 0.005 ~ 0.009 달러)에 계약이 권하는 "실측 최댓값의 1.5 배"를 적용했다
+#   abc-per-usd   1 ABC = 1 달러 (팀 결정)
+node:
+  base-cost:
+    default-cost: ${NODE_BASE_COST_DEFAULT:0.0135}
+    abc-per-usd: ${ABC_PER_USD:1}
+    margin: ${NODE_BASE_COST_MARGIN:1.5}
+    sample-size: ${NODE_BASE_COST_SAMPLE_SIZE:5}
+  # 판매자 테스트 실행은 무료라 모델 요금을 플랫폼이 낸다. 노드마다 하루(UTC) 이 횟수까지 받는다.
+  test-run:
+    daily-limit: ${NODE_TEST_RUN_DAILY_LIMIT:5}
+
+# 등급(PAY-016 ~ 020) 수식의 조정값. AI grading-formula.md v1.0 의 초기값이고 팀 합의로 바뀔 수 있다.
+agent-grade:
+  rating-prior-count: ${AGENT_GRADE_RATING_PRIOR_COUNT:10}
+  rating-prior-mean: ${AGENT_GRADE_RATING_PRIOR_MEAN:3.5}
+  usage-cap: ${AGENT_GRADE_USAGE_CAP:1000}
+  success-rate-exponent: ${AGENT_GRADE_SUCCESS_RATE_EXPONENT:2}
+  rating-weight: ${AGENT_GRADE_RATING_WEIGHT:0.6}
+  usage-weight: ${AGENT_GRADE_USAGE_WEIGHT:0.4}
+  # 등급마다 점수 구간의 아래 끝과 허들. Tier 4 는 조건이 없다.
+  tiers:
+    tier-1:
+      min-score: ${AGENT_GRADE_TIER_1_MIN_SCORE:80}
+      min-success-rate: ${AGENT_GRADE_TIER_1_MIN_SUCCESS_RATE:0.98}
+      min-review-count: ${AGENT_GRADE_TIER_1_MIN_REVIEW_COUNT:50}
+    tier-2:
+      min-score: ${AGENT_GRADE_TIER_2_MIN_SCORE:65}
+      min-success-rate: ${AGENT_GRADE_TIER_2_MIN_SUCCESS_RATE:0.95}
+      min-review-count: ${AGENT_GRADE_TIER_2_MIN_REVIEW_COUNT:20}
+    tier-3:
+      min-score: ${AGENT_GRADE_TIER_3_MIN_SCORE:45}
+      min-success-rate: ${AGENT_GRADE_TIER_3_MIN_SUCCESS_RATE:0.90}
+      min-review-count: ${AGENT_GRADE_TIER_3_MIN_REVIEW_COUNT:0}
+  # 등급 · 단가 재산정(PAY-022)을 도는 때. 하루 한 번, 사용이 적은 새벽이다. 가격이 하루 동안 바뀌지 않는다.
+  # 시연 전에 한 번 돌리려면 cron 만 잠깐 가까운 시각으로 바꾼다. "-" 면 돌지 않는다.
+  regrade:
+    cron: ${AGENT_GRADE_REGRADE_CRON:0 0 3 * * *}
+    zone: ${AGENT_GRADE_REGRADE_ZONE:Asia/Seoul}
+
+# 에이전트 원본 증명(CHN-001/002). 버전을 공개하면 PENDING 기록이 쌓이고, 주기 작업이 등기부 토큰에 적는다.
+# 보내기는 등기부 주소 · 키(ssafy.sto.agent-registry)를 넣은 서버에서만 켠다. 꺼 두면 기록이 PENDING 으로 기다린다.
+agent-provenance:
+  registration-enabled: ${AGENT_PROVENANCE_REGISTRATION_ENABLED:false}
+  # 한 건을 적는 데 블록 하나(약 10초)를 기다린다. 공개 직후 화면이 확정을 오래 기다리지 않게 짧게 둔다
+  registration-interval: ${AGENT_PROVENANCE_REGISTRATION_INTERVAL:15s}
+  # 한 차례에 적는 최대 건수. 건마다 블록을 기다려서 너무 크면 한 차례가 길어진다
+  registration-batch-size: ${AGENT_PROVENANCE_REGISTRATION_BATCH_SIZE:5}
+  # 충전과 같은 SSAFY 체인이다
+  chain-id: ${payment.charge.chain-id}
+  network-name: ${AGENT_PROVENANCE_NETWORK_NAME:SSAFY}
+
+wallet-auth:
+  domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
+  uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}
+  chain-id: ${WALLET_AUTH_CHAIN_ID:31221}
+  message-ttl: ${WALLET_AUTH_MESSAGE_TTL:5m}

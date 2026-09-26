@@ -1,0 +1,99 @@
+package com.aiblockclock.storage.graph;
+
+import com.aiblockclock.enums.workflow.ControlType;
+import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.IoType;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
+import com.aiblockclock.enums.workflow.SourceType;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.UUID;
+
+@Entity
+@Table(name = "graph_node")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class GraphNodeEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Long id;
+
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "graph_id", length = 36, nullable = false, updatable = false)
+    private UUID graphId;
+
+    @Column(name = "node_key", length = 64, nullable = false)
+    private String nodeKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", length = 10, nullable = false)
+    private SourceType sourceType;
+
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "reference_id", length = 36)
+    private UUID referenceId;
+
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "version_id", length = 36)
+    private UUID versionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "input_source", length = 20, nullable = false)
+    private InputSource inputSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "control_type", length = 20)
+    private ControlType controlType;
+
+    @Column(name = "branch_condition", columnDefinition = "text")
+    private String branchCondition;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "io_type", length = 20)
+    private IoType ioType;
+
+    @Column(name = "io_fields", columnDefinition = "text")
+    private String ioFields;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "result_shape", length = 20)
+    private ResultShape resultShape;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "result_format", length = 20)
+    private ResultFormat resultFormat;
+
+    public GraphNodeEntity(UUID graphId, String nodeKey, SourceType sourceType, UUID referenceId, UUID versionId,
+                           InputSource inputSource, ControlType controlType, String branchCondition,
+                           IoType ioType, String ioFields, ResultShape resultShape, ResultFormat resultFormat) {
+        this.graphId = graphId;
+        this.nodeKey = nodeKey;
+        this.sourceType = sourceType;
+        this.referenceId = referenceId;
+        this.versionId = versionId;
+        this.inputSource = inputSource;
+        this.controlType = controlType;
+        this.branchCondition = branchCondition;
+        this.ioType = ioType;
+        this.ioFields = ioFields;
+        this.resultShape = resultShape;
+        this.resultFormat = resultFormat;
+    }
+}

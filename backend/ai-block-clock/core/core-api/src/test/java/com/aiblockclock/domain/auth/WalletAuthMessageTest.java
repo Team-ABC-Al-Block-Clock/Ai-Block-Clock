@@ -1,0 +1,45 @@
+package com.aiblockclock.domain.auth;
+
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.time.Instant;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class WalletAuthMessageTest {
+    private static final Instant ISSUED_AT = Instant.parse("2026-09-17T00:00:00Z");
+    private static final Instant EXPIRES_AT = ISSUED_AT.plusSeconds(300);
+
+    @Test
+    void 만료_직전까지_미사용_메시지는_사용할_수_있다() {
+        assertThatCode(() -> message(null).checkUsable(EXPIRES_AT.minusNanos(1)))
+                .doesNotThrowAnyException();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, 1L, 60L})
+    void 만료_시각에_도달하거나_지나면_거절한다(long secondsAfterExpiry) {
+        assertThatThrownBy(() -> message(null).checkUsable(EXPIRES_AT.plusSeconds(secondsAfterExpiry)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WALLET_AUTH_MESSAGE_EXPIRED));
+    }
+
+    @Test
+    void 만료되지_않았어도_이미_사용한_메시지는_거절한다() {
+        assertThatThrownBy(() -> message(ISSUED_AT.plusSeconds(30)).checkUsable(ISSUED_AT.plusSeconds(60)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WALLET_AUTH_MESSAGE_ALREADY_USED));
+    }
+
+    private WalletAuthMessage message(Instant usedAt) {
+        return new WalletAuthMessage("0x" + "a".repeat(40), "b".repeat(64), "original message",
+                ISSUED_AT, EXPIRES_AT, usedAt);
+    }
+}
