@@ -24,6 +24,7 @@ import com.aiblockclock.storage.payment.WithdrawalRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
 import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +60,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -320,6 +322,20 @@ class WithdrawalPayoutServiceIntegrationTest {
 
         assertThat(reload(failed).getStatus()).isEqualTo(WithdrawalStatus.FAILED);
         assertThat(again.getStatus()).isEqualTo(WithdrawalStatus.REQUESTED);
+    }
+
+    @Test
+    void 지급을_마친_출금은_신청_주기에_세어_24시간_안에는_다시_신청할_수_없다() {
+        Withdrawal paid = approvedWithdrawal("0x5000000000000000000000000000000000000025", "10");
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.SUCCEEDED));
+        withdrawalPayoutService.payNext();
+
+        assertThat(reload(paid).isPaid()).isTrue();
+        assertThatThrownBy(() -> withdrawalService.request(
+                paid.getRequester(), WithdrawalRequestId.of(UUID.randomUUID()), AbcAmount.of(BigDecimal.ONE)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_TOO_FREQUENT));
     }
 
     @Test
