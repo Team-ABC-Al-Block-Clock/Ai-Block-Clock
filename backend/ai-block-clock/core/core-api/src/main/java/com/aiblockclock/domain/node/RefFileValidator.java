@@ -8,12 +8,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Component
 public class RefFileValidator {
-    private static final Set<String> ALLOWED_EXTENSIONS =
-            Set.of(".pdf", ".txt", ".md", ".csv", ".png", ".jpg", ".jpeg");
     private static final long MAX_TOTAL_SIZE = 10L * 1024 * 1024;
 
     public void validate(UploadedFile file, List<RefFile> attached) {
@@ -21,9 +18,9 @@ public class RefFileValidator {
             throw new CoreException(ErrorType.REF_FILE_EMPTY);
         }
 
-        if (!ALLOWED_EXTENSIONS.contains(file.extension())) {
+        if (!RefFileFormat.isAccepted(file.filename())) {
             throw new CoreException(ErrorType.REF_FILE_TYPE_NOT_SUPPORTED,
-                    Map.of("allowed", ALLOWED_EXTENSIONS));
+                    Map.of("allowed", RefFileFormat.ACCEPTED_EXTENSIONS));
         }
 
         long total = attached.stream().mapToLong(RefFile::size).sum() + file.size();

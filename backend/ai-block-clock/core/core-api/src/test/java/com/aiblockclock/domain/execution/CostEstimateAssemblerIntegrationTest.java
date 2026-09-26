@@ -16,6 +16,8 @@ import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.agent.Tier;
 import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.support.error.CoreException;
@@ -127,6 +129,20 @@ class CostEstimateAssemblerIntegrationTest {
     }
 
     @Test
+    void 시작_끝_노드는_값이_없어_적지_않는다() {
+        Workflow workflow = workflowService.save(OWNER, "시작과 끝이 있는 워크플로우", null,
+                List.of(GraphFixtures.startPlacement("s1", List.of(GraphFixtures.field("brand_name"))),
+                        nodePlacement("n1", OWNER),
+                        GraphFixtures.endPlacement("e1", ResultShape.DOCUMENT, ResultFormat.PDF)),
+                List.of(GraphFixtures.edge("g1", "s1", "n1"), GraphFixtures.edge("g2", "n1", "e1")));
+
+        CostEstimate estimate = costEstimateAssembler.assemble(workflow);
+
+        assertThat(estimate.items()).extracting(item -> item.nodeKey().value()).containsExactly("n1");
+        assertThat(estimate.total().value()).isEqualByComparingTo("3.000000");
+    }
+
+    @Test
     void 분기가_있으면_실행과_같이_견적도_내지_않는다() {
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
@@ -151,7 +167,7 @@ class CostEstimateAssemblerIntegrationTest {
                 "분석 에이전트", "성적을 분석한다", "학생별 점수 표를 받아 비교한다", null, null, null));
     }
 
-    // 등급 배치가 아직 없어 모든 버전이 Tier 4 다. 원가와 판매가를 가르려고 테스트에서만 등급을 올린다.
+    // 등급은 재산정 배치가 재료로 매겨 바꾼다. 여기서는 원가와 판매가만 가르면 되므로 등급을 바로 올린다.
     private void promote(AgentRegistration agent, Tier tier) {
         entityManager.flush();
         entityManager.createNativeQuery("update agent_version set tier = ?1 where id = ?2")

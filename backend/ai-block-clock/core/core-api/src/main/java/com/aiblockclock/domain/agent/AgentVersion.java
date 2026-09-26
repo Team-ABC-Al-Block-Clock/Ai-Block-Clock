@@ -45,8 +45,9 @@ public final class AgentVersion {
     ) {
         requireExecutable(snapshot);
 
+        // 등급은 에이전트에 하나다. 새 버전이 신규 등급으로 시작하면 다음 재산정까지 같은 에이전트의 버전끼리 할증이 달라진다.
         return new AgentVersion(id, previous.agentId, previous.number.next(), source, cost,
-                Tier.initial(), PublicationState.DRAFT);
+                previous.tier, PublicationState.DRAFT);
     }
 
     public static AgentVersion restore(

@@ -364,6 +364,7 @@ spring:
 | `SSAFY_CHAIN_RPC_URL` | 전체 | `https://rpc.ssafy-blockchain.com` |
 | `SSAFY_CHAIN_CONNECT_TIMEOUT`, `SSAFY_CHAIN_READ_TIMEOUT` | 전체 | 3s / 10s |
 | `PAYMENT_CHARGE_*` | 전체 | [abc-charge.md](abc-charge.md) 4장 |
+| `PAYMENT_WITHDRAWAL_*` | 전체 | [abc-withdrawal.md](abc-withdrawal.md) 5장 |
 | `WALLET_AUTH_CHAIN_ID` | 전체 | 31221 (SSAFY 체인) |
 | `AI_RECOMMEND_BASE_URL` | 전체 | `http://ai-block-clock-recommend:8100` |
 | `AI_RECOMMEND_CONNECT_TIMEOUT`, `AI_RECOMMEND_READ_TIMEOUT` | 전체 | 2s / 5s |

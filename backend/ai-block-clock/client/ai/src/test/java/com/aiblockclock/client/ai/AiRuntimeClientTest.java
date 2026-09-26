@@ -54,18 +54,34 @@ class AiRuntimeClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.MULTIPART_FORM_DATA))
                 .andExpect(formParts(Map.of(
-                        "workflow", "{\"nodes\":[]}", "mock", "true", "input", "{\"text\":\"성적표\"}")))
+                        "workflow", "{\"nodes\":[]}", "mode", "run", "mock", "true",
+                        "input", "{\"text\":\"성적표\"}")))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).body("""
                         { "run_id": "20260919-100451-688", "status": "queued",
                           "node_count": 2, "poll_url": "/v1/runs/20260919-100451-688",
                           "poll_interval_ms": 2000 }
                         """).contentType(MediaType.APPLICATION_JSON));
 
-        RunAccepted accepted = client.start(new RunRequest("{\"nodes\":[]}", "{\"text\":\"성적표\"}", null, null, Map.of(), true));
+        RunAccepted accepted = client.start(new RunRequest(
+                "{\"nodes\":[]}", "{\"text\":\"성적표\"}", null, null, Map.of(), true, RunMode.RUN));
 
         assertThat(accepted.runId()).isEqualTo("20260919-100451-688");
         assertThat(accepted.nodeCount()).isEqualTo(2);
         assertThat(accepted.pollIntervalMs()).isEqualTo(2000);
+        server.verify();
+    }
+
+    @Test
+    void 판매자_테스트_실행은_mode_를_test_로_보낸다() {
+        server.expect(requestTo(BASE_URL + "/v1/runs"))
+                .andExpect(formParts(Map.of("workflow", "{\"nodes\":[]}", "mode", "test", "mock", "false")))
+                .andRespond(withStatus(HttpStatus.ACCEPTED).body("""
+                        { "run_id": "run-1", "status": "queued", "mode": "test", "node_count": 1,
+                          "poll_url": "/v1/runs/run-1", "poll_interval_ms": 2000 }
+                        """).contentType(MediaType.APPLICATION_JSON));
+
+        client.start(new RunRequest("{\"nodes\":[]}", null, null, null, Map.of(), false, RunMode.TEST));
+
         server.verify();
     }
 
@@ -102,7 +118,7 @@ class AiRuntimeClientTest {
                         """).contentType(MediaType.APPLICATION_JSON));
 
         client.start(new RunRequest("{\"nodes\":[]}", null, null, null,
-                Map.of("n1", List.of(first, second), "n2", List.of(first)), true));
+                Map.of("n1", List.of(first, second), "n2", List.of(first)), true, RunMode.RUN));
 
         server.verify();
     }
@@ -120,23 +136,30 @@ class AiRuntimeClientTest {
                                         "current_node_name": "가정통신문 작성" },
                           "nodes": [
                             { "id": "n1", "name": "성적 분석", "type": "llm", "status": "succeeded",
-                              "owner_id": "u_2001", "agent_id": null, "cost_abc": 3.76,
-                              "input_tokens": 1281, "repair_count": 1, "skip_reason": null },
+                              "output": { "kind": "text" }, "model": "gemini-2.5-pro",
+                              "owner_id": "u_2001", "agent_id": null, "cost_usd": 0.003757,
+                              "input_tokens": 1281, "output_tokens": 1349, "repair_count": 1,
+                              "skip_reason": null, "branch_taken": null },
                             { "id": "n2", "name": "가정통신문 작성", "type": "llm", "status": "running",
-                              "cost_abc": null, "skip_reason": null } ],
-                          "totals": { "cost_abc": 3.76 },
-                          "contribution": [ { "node_id": "n1", "owner_id": "u_2001",
-                                              "agent_id": null, "charged_abc": 4.2 } ],
+                              "cost_usd": null, "skip_reason": null } ],
+                          "agents": [ { "agent_id": null, "owner_id": "u_2001", "node_ids": ["n1"],
+                                        "input_tokens": 1281, "output_tokens": 1349, "cost_usd": 0.003757 } ],
+                          "totals": { "input_tokens": 1281, "output_tokens": 1349, "cost_usd": 0.003757 },
+                          "contribution": [ { "node_id": "n1", "owner_id": "u_2001", "agent_id": null } ],
                           "not_executed": [], "failure": null, "result": null }
                         """, MediaType.APPLICATION_JSON));
 
         RunStatus status = client.read("run-1");
 
         assertThat(status.isFinished()).isFalse();
+        assertThat(status.isMock()).isTrue();
         assertThat(status.progress().percent()).isEqualTo(50);
         assertThat(status.progress().currentNodeName()).isEqualTo("가정통신문 작성");
         assertThat(status.nodes()).extracting(RunStatus.Node::status)
                 .containsExactly("succeeded", "running");
+        assertThat(status.nodes().get(0).costUsd()).isEqualByComparingTo("0.003757");
+        assertThat(status.nodes().get(1).costUsd()).isNull();
+        assertThat(status.totals().costUsd()).isEqualByComparingTo("0.003757");
         assertThat(status.contribution()).singleElement()
                 .extracting(RunStatus.Contribution::ownerId)
                 .isEqualTo("u_2001");
@@ -151,7 +174,7 @@ class AiRuntimeClientTest {
                         { "run_id": "run-1", "status": "succeeded",
                           "progress": { "done": 2, "total": 2, "percent": 100 },
                           "nodes": [], "contribution": [], "not_executed": [],
-                          "result": { "type": "pdf", "schema_id": "common.document@1",
+                          "result": { "type": "pdf", "output": { "kind": "text" },
                                       "artifact_url": "/v1/runs/run-1/artifact",
                                       "pdf_url": "/v1/runs/run-1/pdf" } }
                         """, MediaType.APPLICATION_JSON));
@@ -193,8 +216,8 @@ class AiRuntimeClientTest {
                 .andRespond(withSuccess("""
                         { "run_id": "run-1", "status": "failed",
                           "nodes": [
-                            { "id": "n1", "type": "llm", "status": "succeeded", "cost_abc": 0.0021 },
-                            { "id": "n2", "type": "llm", "status": "failed", "cost_abc": 0.0004 } ],
+                            { "id": "n1", "type": "llm", "status": "succeeded", "cost_usd": 0.0021 },
+                            { "id": "n2", "type": "llm", "status": "failed", "cost_usd": 0.0004 } ],
                           "not_executed": [],
                           "failure": { "node_id": "n2", "error_code": "RATE_LIMITED", "fault": "platform",
                                        "affects_success_rate": false,
@@ -204,7 +227,7 @@ class AiRuntimeClientTest {
         RunStatus status = client.read("run-1");
 
         assertThat(status.nodes()).extracting(RunStatus.Node::isSucceeded).containsExactly(true, false);
-        assertThat(status.nodes().get(0).costAbc()).isEqualByComparingTo("0.0021");
+        assertThat(status.nodes().get(0).costUsd()).isEqualByComparingTo("0.0021");
         assertThat(status.failure().fault()).isEqualTo("platform");
         assertThat(status.failure().affectsSuccessRate()).isFalse();
         server.verify();

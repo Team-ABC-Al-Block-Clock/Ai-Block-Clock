@@ -98,12 +98,32 @@ class NodeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(name, "당신은 학원 성적 데이터 분석가입니다.")))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.baseCost").value("3.000000"))
+                .andExpect(jsonPath("$.data.baseCost").value("0.013500"))
                 .andExpect(jsonPath("$.data.currency").value("ABC"))
                 .andReturn();
 
         return mapper.readTree(result.getResponse().getContentAsString())
                 .get("data").get("nodeId").asText();
+    }
+
+    @Test
+    @DisplayName("모델로 Gemini 2.5 Pro 를 고르면 그대로 저장하고 돌려준다")
+    void savesProModel() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/nodes")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "name": "성적 분석", "prompt": "점수를 비교한다", "model": "GEMINI_2_5_PRO" }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String nodeId = mapper.readTree(created.getResponse().getContentAsString()).get("data").get("nodeId").asText();
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.model").value("GEMINI_2_5_PRO"));
     }
 
     @Test

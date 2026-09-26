@@ -63,15 +63,30 @@ class WorkflowGraphDescriberTest {
     }
 
     @Test
-    @DisplayName("원본이 없는 분기 노드는 판매 등록을 막지 않는다")
-    void branchNodeDoesNotBlockRegistration() {
+    @DisplayName("원본이 없는 분기 노드는 소유 판정이 없다")
+    void branchNodeHasNoOwnership() {
         WorkflowGraph graph = GraphFixtures.branched();
 
         Map<NodeKey, PlacedSource> described =
                 new WorkflowGraphDescriber(List.of(new CountingDescriber(SourceType.NODE, Map.of())))
                         .describe(REQUESTER, graph);
 
-        assertThat(described.get(NodeKey.of("br1"))).isEqualTo(new PlacedSource(null, true));
+        assertThat(described.get(NodeKey.of("br1"))).isEqualTo(new PlacedSource(null, null));
+    }
+
+    @Test
+    @DisplayName("원본이 없는 시작 · 끝 노드는 소유 판정이 없다")
+    void ioNodesHaveNoOwnership() {
+        WorkflowGraph graph = WorkflowGraph.of(
+                List.of(GraphFixtures.start("s1"), GraphFixtures.node("n1"), GraphFixtures.end("e1")),
+                List.of(GraphFixtures.edge("e1", "s1", "n1"), GraphFixtures.edge("e2", "n1", "e1")));
+
+        Map<NodeKey, PlacedSource> described =
+                new WorkflowGraphDescriber(List.of(new CountingDescriber(SourceType.NODE, Map.of())))
+                        .describe(REQUESTER, graph);
+
+        assertThat(described.get(NodeKey.of("s1"))).isEqualTo(new PlacedSource(null, null));
+        assertThat(described.get(NodeKey.of("e1"))).isEqualTo(new PlacedSource(null, null));
     }
 
     @Test

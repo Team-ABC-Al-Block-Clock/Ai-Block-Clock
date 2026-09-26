@@ -36,6 +36,8 @@ public enum ErrorCode {
     NODE_005,
     NODE_006,
     NODE_007,
+    NODE_008,
+    NODE_009,
 
     EXECUTION_001,
     EXECUTION_002,
@@ -45,6 +47,7 @@ public enum ErrorCode {
     EXECUTION_006,
     EXECUTION_007,
     EXECUTION_008,
+    EXECUTION_009,
 
     FILE_001,
     FILE_002,
@@ -66,5 +69,12 @@ public enum ErrorCode {
     PAYMENT_006,
     PAYMENT_007,
     PAYMENT_008,
-    PAYMENT_009
+    PAYMENT_009,
+    PAYMENT_010,
+    PAYMENT_011,
+    PAYMENT_012,
+    PAYMENT_013,
+    PAYMENT_014,
+    PAYMENT_015,
+    PAYMENT_016
 }

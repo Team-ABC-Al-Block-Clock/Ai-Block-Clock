@@ -41,7 +41,7 @@ public class WorkflowGraphDescriber {
         for (GraphNode node : graph.getNodes()) {
             UUID sourceId = node.reference().referenceId();
             described.put(node.key(), sourceId == null
-                    ? new PlacedSource(null, true)
+                    ? new PlacedSource(null, null)
                     : found.getOrDefault(node.sourceType(), Map.of()).getOrDefault(sourceId, PlacedSource.unknown()));
         }
 

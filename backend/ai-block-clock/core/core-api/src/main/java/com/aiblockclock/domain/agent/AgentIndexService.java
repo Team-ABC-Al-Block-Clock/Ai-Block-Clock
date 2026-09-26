@@ -15,6 +15,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 // 추천 엔진의 색인은 우리 DB 에서 파생된 캐시다. 밀어 넣지 못해도 등록은 성사된 것이므로
 // 여기서 예외를 밖으로 내보내지 않는다. 빠진 것은 전체 다시 넣기로 메운다.
@@ -22,11 +23,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AgentIndexService {
-    // 실행 이력이 붙기 전까지 성공률은 갈리지 않는다. 추천 엔진의 기본값과 같은 값을 보낸다.
-    private static final double UNMEASURED_SUCCESS_RATE = 1.0;
-
     private final RecommendClient recommendClient;
     private final AgentReader agentReader;
+    private final AgentGradeMetricReader agentGradeMetricReader;
+    private final AgentGradeProperties agentGradeProperties;
 
     public void index(AgentRegistration registered) {
         Agent agent = registered.agent();
@@ -35,7 +35,8 @@ public class AgentIndexService {
                 agent.getOwner(),
                 agent.getProfile().name(),
                 agent.getProfile().summary(),
-                registered.version().getTier());
+                registered.version().getTier(),
+                successRateOf(agentGradeMetricReader.read(agent.getId())));
 
         push("등록", () -> recommendClient.upsert(List.of(record)));
     }
@@ -52,17 +53,27 @@ public class AgentIndexService {
         }
     }
 
+    // 재산정 배치도 등급을 다 바꾼 뒤 이것을 부른다. 색인의 등급 · 성공률이 우리 DB 와 같아지는 길이 기동과 같다.
     public void rebuild() {
-        List<IndexedAgent> records = agentReader.readPublic().stream()
-                .map(agent -> toRecord(agent.id(), agent.owner(), agent.name(), agent.summary(), agent.tier()))
+        List<PublicAgent> agents = agentReader.readPublic();
+        Map<AgentId, AgentGradeMetric> metrics = agentGradeMetricReader.readAll(
+                agents.stream().map(PublicAgent::id).toList());
+        List<IndexedAgent> records = agents.stream()
+                .map(agent -> toRecord(agent.id(), agent.owner(), agent.name(), agent.summary(), agent.tier(),
+                        successRateOf(metrics.get(agent.id()))))
                 .toList();
 
         push("전체 다시 넣기", () -> recommendClient.rebuild(records));
     }
 
+    // 등급을 매길 때와 같은 수식의 성공률이다. 센 실행이 없는 신규 에이전트는 1 이다.
+    private double successRateOf(AgentGradeMetric metric) {
+        return agentGradeProperties.indicatorsOf(metric).successRate();
+    }
+
     // 프롬프트 원문과 노드 구성은 담지 않는다. 마켓에 공개되는 값만 보낸다.
     private static IndexedAgent toRecord(
-            AgentId id, UserId owner, String name, String summary, Tier tier) {
+            AgentId id, UserId owner, String name, String summary, Tier tier, double successRate) {
         return new IndexedAgent(
                 id.value().toString(),
                 name,
@@ -71,7 +82,7 @@ public class AgentIndexService {
                 "",
                 String.valueOf(owner.value()),
                 tier.level(),
-                UNMEASURED_SUCCESS_RATE,
+                successRate,
                 true);
     }
 
