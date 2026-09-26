@@ -154,6 +154,9 @@ public enum ErrorType {
     EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_007,
             "그 형식으로 받을 수 있는 결과가 없습니다.", LogLevel.WARN),
 
+    EXECUTION_RESULT_UNAVAILABLE(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_008,
+            "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
+
     EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 

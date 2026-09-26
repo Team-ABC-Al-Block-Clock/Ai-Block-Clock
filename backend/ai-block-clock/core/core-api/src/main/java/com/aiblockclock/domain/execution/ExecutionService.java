@@ -149,8 +149,12 @@ public class ExecutionService {
             throw new CoreException(ErrorType.EXECUTION_NOT_FOUND);
         }
 
-        if (execution.getStatus() != ExecutionStatus.SUCCEEDED) {
+        if (!execution.getStatus().isFinished()) {
             throw new CoreException(ErrorType.EXECUTION_RESULT_NOT_READY);
+        }
+
+        if (execution.getStatus() == ExecutionStatus.FAILED) {
+            throw new CoreException(ErrorType.EXECUTION_RESULT_UNAVAILABLE);
         }
 
         return executionResultReader.read(id, format)

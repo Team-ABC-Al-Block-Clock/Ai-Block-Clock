@@ -711,6 +711,21 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @DisplayName("실패로 끝난 실행의 결과는 404 다")
+    void refusesResultOfAFailedRun() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        mockMvc.perform(get("/api/v1/runs/{id}/result", executionId).with(as(requester)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_008"));
+    }
+
+    @Test
     @DisplayName("렌더되지 않은 형식을 달라고 하면 404 다")
     void refusesFormatThatWasNeverRendered() throws Exception {
         given(aiRuntimeClient.readPdf(anyString())).willReturn(Optional.empty());

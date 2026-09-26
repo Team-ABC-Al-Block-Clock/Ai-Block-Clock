@@ -110,7 +110,8 @@ public interface ExecutionApi {
             @ApiResponse(responseCode = "200", description = "결과 파일"),
             @ApiResponse(responseCode = "404", description = """
                     없는 실행이거나 내 실행이 아니다 (`EXECUTION_001`).
-                    그 형식으로 받을 수 있는 결과가 없다 (`EXECUTION_007`)""", content = @Content),
+                    그 형식으로 받을 수 있는 결과가 없다 (`EXECUTION_007`).
+                    실패로 끝난 실행이라 결과가 없다 (`EXECUTION_008`)""", content = @Content),
             @ApiResponse(responseCode = "409", description = "아직 끝나지 않은 실행이다 (`EXECUTION_001`)",
                     content = @Content),
             @ApiResponse(responseCode = "502", description = "실행 엔진에 닿지 못했다 (`EXECUTION_002`)",
