@@ -452,7 +452,7 @@ export default function MyPageEdit() {
           </button>
         </div>
         <div className="text-[13px]" style={{ marginTop: '12px', color: 'rgba(255,236,246,.55)' }}>
-          다른 지갑을 쓰려면 로그아웃한 뒤 그 지갑으로 다시 로그인해 주세요.
+          다른 지갑을 사용하시면 해당 지갑으로 다시 로그인해 주세요.
         </div>
       </div>
 
