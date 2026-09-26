@@ -163,14 +163,14 @@ public enum ErrorType {
     EXECUTION_RESULT_UNAVAILABLE(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_008,
             "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
-    EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
-            "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
-
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
             "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
+
+    EXECUTION_INPUT_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_009,
+            "입력 값이 시작 노드의 입력 항목과 맞지 않습니다.", LogLevel.WARN),
 
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
             "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),

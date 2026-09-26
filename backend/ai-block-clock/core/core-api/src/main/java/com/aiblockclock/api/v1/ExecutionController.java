@@ -61,7 +61,7 @@ public class ExecutionController implements ExecutionApi {
 
         ExecutionStart started = executionService.start(requester, workflow,
                 ExecutionRequestId.of(request.requestId()),
-                request.comment(), request.mockOrDefault(), request.uploadedFile());
+                request.input(), request.comment(), request.mockOrDefault(), request.uploadedFile());
 
         // 같은 요청 번호로 돌려받은 앞 실행은 이미 따라가고 있거나 끝났다. 다시 따라가면 조회가 두 줄기가 된다.
         if (started.created()) {

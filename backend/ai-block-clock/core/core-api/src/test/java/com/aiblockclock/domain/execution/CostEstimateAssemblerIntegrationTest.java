@@ -16,6 +16,8 @@ import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.agent.Tier;
 import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.storage.node.NodeDefinitionRepository;
 import com.aiblockclock.support.error.CoreException;
@@ -124,6 +126,20 @@ class CostEstimateAssemblerIntegrationTest {
         assertThat(estimate.items().get(1).price().value()).isEqualByComparingTo("6.000000");
         assertThat(estimate.total().value()).isEqualByComparingTo("9.000000");
         assertThat(estimate.items().get(1).priceMultiplier()).isEqualByComparingTo("1");
+    }
+
+    @Test
+    void 시작_끝_노드는_값이_없어_적지_않는다() {
+        Workflow workflow = workflowService.save(OWNER, "시작과 끝이 있는 워크플로우", null,
+                List.of(GraphFixtures.startPlacement("s1", List.of(GraphFixtures.field("brand_name"))),
+                        nodePlacement("n1", OWNER),
+                        GraphFixtures.endPlacement("e1", ResultShape.DOCUMENT, ResultFormat.PDF)),
+                List.of(GraphFixtures.edge("g1", "s1", "n1"), GraphFixtures.edge("g2", "n1", "e1")));
+
+        CostEstimate estimate = costEstimateAssembler.assemble(workflow);
+
+        assertThat(estimate.items()).extracting(item -> item.nodeKey().value()).containsExactly("n1");
+        assertThat(estimate.total().value()).isEqualByComparingTo("3.000000");
     }
 
     @Test

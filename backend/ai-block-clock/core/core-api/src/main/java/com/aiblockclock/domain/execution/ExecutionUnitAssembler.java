@@ -39,7 +39,7 @@ public class ExecutionUnitAssembler {
             }
             case AGENT -> expand(placed);
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
-            case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
+            case IO -> new IoUnit();
         };
     }
 
@@ -63,7 +63,7 @@ public class ExecutionUnitAssembler {
             }
             case AGENT -> expand(placed);
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
-            case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
+            case IO -> new IoUnit();
         };
     }
 
