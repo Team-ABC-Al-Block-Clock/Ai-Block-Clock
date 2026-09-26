@@ -540,6 +540,28 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     @Test
+    void 엔진이_칸보다_긴_단계_번호와_노드_이름을_돌려줘도_잘라_넣고_실행을_닫아_정산한다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        String longStep = "a1.".repeat(10) + "n1";
+        String longName = "가정통신문 작성 ".repeat(10);
+
+        finish(reserved, run("succeeded", null, new RunStatus.Node(longStep, longName, "llm", "succeeded", null,
+                Long.toString(SELLER.value()), new BigDecimal("0.5"), null)));
+
+        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.SUCCEEDED);
+        assertThat(executionSettlementRepository.findAll())
+                .singleElement()
+                .satisfies(settlement -> {
+                    assertThat(settlement.getStepId()).isEqualTo(longStep.substring(0, 16));
+                    assertThat(settlement.getNodeName()).isEqualTo(longName.substring(0, 40));
+                });
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.5");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("0.5");
+        assertBalancesMatchEntries();
+    }
+
+    @Test
     void 떼어_둔_것은_돌려준_것과_정산한_것의_합과_같다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
