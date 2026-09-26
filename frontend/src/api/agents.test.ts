@@ -252,7 +252,10 @@ describe('getAgentProvenance', () => {
     expect(provenance.blockchain.transactionStatus).toBe('CONFIRMED')
     expect(provenance.blockchain.transactionHash).toMatch(/^0x[0-9a-f]{64}$/)
     expect(provenance.blockchain.blockNumber).toBeGreaterThan(0)
-    expect(provenance.blockchain.explorerUrl).toContain(provenance.blockchain.transactionHash)
+    // 조회 주소는 거래 해시가 아니라 문서 id 를 가리킨다.
+    expect(provenance.blockchain.explorerUrl).toMatch(
+      /^https:\/\/sto\.ssafy\.io\/v1\/tokens\/0x[0-9a-f]{40}\/documents\/[\w-]+-v\d+$/,
+    )
     expect(provenance.blockchain.registeredAt).toBe(agent.createdAt)
     expect(provenance.verification.verified).toBe(true)
     expect(provenance.verification.mismatchReason).toBeNull()
@@ -282,6 +285,7 @@ describe('getAgentProvenance', () => {
     expect(verification.ownerMatched).toBe(false)
     expect(verification.metadataMatched).toBe(false)
     expect(verification.verified).toBe(false)
+    expect(verification.mismatchReason).toBe('OWNER_MISMATCH')
   })
 
   it('서버 기록만 어긋나면 두 값은 일치인데 verified 가 false 다', async () => {

@@ -190,7 +190,8 @@ export function toSummary(agent: AgentDetail): AgentSummary {
   }
 }
 
-/** 화면의 세 갈래 — 기록 없음(404) · 확정 대기 · 대조 불일치 — 는 이 셋으로만 확인된다. */
+/** 화면의 다섯 갈래 — 기록 없음(404) · 확정 대기 · 대조 불일치 · 서버 기록 불일치 ·
+ *  체인 기록 없음 — 는 이 다섯으로만 확인된다. */
 const NO_RECORD = 'agt_30'
 const PENDING = 'agt_29'
 /** 주소와 해시가 둘 다 어긋난 건. 화면의 ✗ 두 줄을 한 번에 확인한다. */
@@ -212,6 +213,16 @@ function hex(seed: string, length: number) {
   return out.slice(0, length)
 }
 
+/** 조회 주소가 가리키는 건 거래 해시가 아니라 문서 id 다 — `EjRWeJASNFZ4kBI0VniQEg-v1` 꼴. */
+function documentId(seed: string) {
+  const raw = hex(seed, 32)
+  let bytes = ''
+  for (let i = 0; i < raw.length; i += 2) {
+    bytes += String.fromCharCode(parseInt(raw.slice(i, i + 2), 16))
+  }
+  return `${btoa(bytes).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')}-v1`
+}
+
 export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
   if (agent.agentId === NO_RECORD) return null
 
@@ -225,6 +236,11 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
   const metadataHash = `0x${hex(`${agent.agentId}:metadata`, 64)}`
   const onChainOwnerAddress = stale ? `0x${hex(`${agent.agentId}:stale-owner`, 40)}` : walletAddress
   const onChainMetadataHash = stale ? `0x${hex(`${agent.agentId}:stale-hash`, 64)}` : metadataHash
+
+  // 현재 시각으로 만들면 refetch 마다 「마지막 검증」 줄이 움직인다. 등록 시각에서 민다.
+  const verifiedAt = new Date(
+    Date.parse(agent.createdAt) + 36e5 * (1 + (parseInt(hex(agent.agentId, 4), 16) % 72)),
+  ).toISOString()
 
   const ownerMatched = !pending && !offChain && onChainOwnerAddress === walletAddress
   const metadataMatched = !pending && !offChain && onChainMetadataHash === metadataHash
@@ -244,7 +260,7 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
       registeredAt: agent.createdAt,
       explorerUrl: pending
         ? null
-        : `https://sto.ssafy.io/v1/tokens/0x41e2e64a79b19e9329f82d3d55be5e767a6f571d/documents/${transactionHash}`,
+        : `https://sto.ssafy.io/v1/tokens/0x41e2e64a79b19e9329f82d3d55be5e767a6f571d/documents/${documentId(`${agent.agentId}:document`)}`,
     },
     verification: {
       offChainOwnerAddress: walletAddress,
@@ -265,7 +281,7 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
               : !metadataMatched
                 ? 'METADATA_CHANGED'
                 : null,
-      verifiedAt: pending ? null : new Date().toISOString(),
+      verifiedAt: pending ? null : verifiedAt,
     },
   }
 }
