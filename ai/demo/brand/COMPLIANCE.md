@@ -28,7 +28,7 @@ CLI 종료 코드·리포트 저장·가짜 어댑터 호출 경로를 검증한
 A의 `ai/spike/linear-mvp/src/llm.py`와 `catalog.response_schema()`를 재사용한다.
 기존 가정통신문 검사기의 OpenAI 호환 호출 경로는 사용하지 않는다.
 `LLM_API_KEY`를 로컬 환경 또는 Runtime `.env`에 설정한다. 키를 채팅이나 커밋에 넣지 않는다.
-GMS 경유 `gemini-2.5-flash`만 허용하며 기본값은 Runtime과 같다.
+GMS 경유 Gemini만 허용하며 기본값은 Runtime과 같다(09-26부터 `gemini-2.5-pro`. `LLM_MODEL` 환경변수로 바꾼다). 결과 파일에 모델명이 남는다.
 
 ```powershell
 cd ai/spike/linear-mvp

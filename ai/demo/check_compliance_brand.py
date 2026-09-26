@@ -265,9 +265,11 @@ def main(argv=None):
         from src.llm import LLM, DEFAULT_BASE_URL
         if os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/") != DEFAULT_BASE_URL:
             raise ValueError("이 평가기는 GMS 경유만 사용합니다")
-        model = os.getenv("LLM_MODEL") or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        if model != "gemini-2.5-flash":
-            raise ValueError("이 평가기는 gemini-2.5-flash만 사용합니다")
+        from src.llm import DEFAULT_MODEL
+        # 09-26 기본 모델 Pro 전환 — Runtime 과 같은 모델로 잰다. Gemini 계열만 허용한다
+        model = os.getenv("LLM_MODEL") or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
+        if not model.startswith("gemini-"):
+            raise ValueError(f"이 평가기는 GMS 경유 Gemini만 사용합니다 (받은 값: {model})")
         system, user = build_prompt(args.node, context)
         llm = LLM(model=model)
         response_schema = catalog.response_schema(f"biz.{NODES[args.node][1]}@1")
