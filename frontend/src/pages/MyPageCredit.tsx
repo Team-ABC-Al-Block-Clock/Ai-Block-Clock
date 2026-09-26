@@ -6,6 +6,7 @@ import { getCreditBalance } from '@/api/credits'
 import { WITHDRAWAL_LIMITS } from '@/api/withdrawals'
 import { useAbcCharge, type AbcCharge } from '@/hooks/useAbcCharge'
 import { usePayoutWithdrawal } from '@/hooks/usePayoutWithdrawal'
+import { useWalletAbcBalance } from '@/hooks/useWalletAbcBalance'
 import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
 import { chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
@@ -97,8 +98,12 @@ export default function MyPageCredit() {
     queryFn: getCreditBalance,
   })
 
-  // 예치금·지갑 잔액은 충전 API 가 열리면 붙인다.
-  const WALLET = 3120
+  const walletBalance = useWalletAbcBalance()
+  // 충전이 끝나면 지갑에서 토큰이 빠졌으니 다시 읽는다.
+  const { refetch: refetchWallet } = walletBalance
+  useEffect(() => {
+    if (charge.phase === 'confirmed') void refetchWallet()
+  }, [charge.phase, refetchWallet])
   // 프리셋 계산에만 숫자를 쓴다. 표시는 서버 문자열 그대로다.
   const payout = Number(balance.data?.payoutAmount ?? 0)
   // 1,000 을 넘겨 보내면 PAYMENT_010 이다.
@@ -173,7 +178,7 @@ export default function MyPageCredit() {
     ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
     : convert
       ? '금액 · 횟수 제한 없음 · 전환한 ABC 는 정산금으로 되돌릴 수 없습니다'
-      : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
+      : `지갑 잔액 ${walletBalance.amount === null ? '—' : priceLabel(walletBalance.amount)} · ABC 는 다른 사용자에게 양도할 수 없습니다`
   const inputPlaceholder = usesPayout
     ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
     : '예치할 금액을 입력하세요'
