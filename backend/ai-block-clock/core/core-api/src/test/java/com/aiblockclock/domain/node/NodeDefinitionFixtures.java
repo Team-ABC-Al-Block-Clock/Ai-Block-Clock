@@ -4,6 +4,7 @@ import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 
 import java.math.BigDecimal;
 
@@ -19,6 +20,6 @@ public final class NodeDefinitionFixtures {
     }
 
     public static NodeSpec spec(String name) {
-        return new NodeSpec(name, NodeType.LLM, AiModel.defaultModel(), COST);
+        return new NodeSpec(name, NodeType.LLM, AiModel.defaultModel(), COST, new NodeOutput(OutputKind.TEXT, null));
     }
 }

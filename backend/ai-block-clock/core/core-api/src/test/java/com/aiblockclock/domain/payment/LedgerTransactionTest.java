@@ -163,6 +163,26 @@ class LedgerTransactionTest {
     }
 
     @Test
+    void 플랫폼_탓으로_실패한_실행은_플랫폼_부담_계정에서_빼_정산금으로_옮긴다() {
+        UUID executionId = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
+        Map<UserId, AbcAmount> payouts = new LinkedHashMap<>();
+        payouts.put(UserId.of(8L), AbcAmount.of(new BigDecimal("1.5")));
+        payouts.put(UserId.of(9L), AbcAmount.of(new BigDecimal("0.25")));
+
+        LedgerTransaction settlement = LedgerTransaction.forPlatformCoveredSettlement(executionId, payouts);
+
+        assertThat(settlement.eventType()).isEqualTo(LedgerEventType.SETTLEMENT);
+        assertThat(settlement.idempotencyKey()).isEqualTo("execution-settlement:" + executionId);
+        assertThat(settlement.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.PLATFORM_EXPENSE, "PLATFORM", new BigDecimal("-1.750000")),
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("1.500000")),
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "9", new BigDecimal("0.250000")));
+        assertThat(settlement.isBalanced()).isTrue();
+    }
+
+    @Test
     void 받을_주인이_없으면_정산_거래를_만들_수_없다() {
         assertThatThrownBy(() -> LedgerTransaction.forExecutionSettlement(
                 UUID.randomUUID(), UserId.of(7L), Map.of()))
@@ -364,6 +384,20 @@ class LedgerTransactionTest {
                 new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
                 new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("4")),
                 new LedgerEntry(LedgerAccountType.ABC_BALANCE, "9", new BigDecimal("6")));
+    }
+
+    @Test
+    void 플랫폼_부담은_플랫폼_계정이_아닌_참조로_꺼낼_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.PLATFORM_EXPENSE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 플랫폼_부담에서도_정산금이_아닌_잔액으로_넣을_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.PLATFORM_EXPENSE, "PLATFORM", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
     }
 
     @Test

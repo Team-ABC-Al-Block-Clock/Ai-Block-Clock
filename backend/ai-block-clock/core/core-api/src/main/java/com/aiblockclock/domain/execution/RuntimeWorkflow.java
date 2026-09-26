@@ -1,9 +1,11 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import java.util.ArrayList;
@@ -15,10 +17,10 @@ import java.util.stream.Collectors;
 
 import tools.jackson.databind.json.JsonMapper;
 
+// 엔진 계약 v2.0 의 워크플로우 JSON 이다. 노드마다 내는 형식(output)을 밝혀야 하고, 판매자가 노드에 저장한 형식을 그대로 싣는다.
+// 판매자 테스트 실행도 같은 자리를 거친다 — json 은 엔진이 검사하고 교정하므로 토큰이 더 들어, 글로 재면 원가가 낮게 잡힌다.
+// 단가 · 원가는 싣지 않는다. 엔진은 돈을 모르고 받을 값은 우리가 매긴다 (계약 8.2).
 public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) {
-    private static final String STEP_SCHEMA = "common.text@1";
-    private static final String RESULT_SCHEMA = "common.document@1";
-
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     public RuntimeWorkflow {
@@ -34,12 +36,12 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         for (int index = 0; index < plan.prompts().size(); index++) {
             String nodeId = stepIdOf(index);
             PlannedPrompt prompt = plan.prompts().get(index);
-            boolean last = index == plan.prompts().size() - 1;
+            List<RefFile> sent = sentRefFiles(prompt);
 
-            nodes.add(node(nodeId, prompt, agents.get(prompt.placedKey()), last));
+            nodes.add(node(nodeId, prompt, agents.get(prompt.placedKey()), sent));
 
-            if (!prompt.refFiles().isEmpty()) {
-                refFiles.put(nodeId, prompt.refFiles());
+            if (!sent.isEmpty()) {
+                refFiles.put(nodeId, sent);
             }
 
             if (index > 0) {
@@ -50,9 +52,25 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
                 "id", workflow.getId().value().toString(),
                 "name", workflow.getName(),
+                "model", plan.model().key(),
                 "nodes", nodes,
                 "edges", edges,
-                "output", Map.of("schema_id", RESULT_SCHEMA))), refFiles);
+                "output", Map.of("title", workflow.getName()))), refFiles);
+    }
+
+    // 판매자 테스트 실행은 노드 하나만 돈다. 실행과 같은 모양이라 엔진은 같은 규칙으로 돌리고 원가를 잰다.
+    public static RuntimeWorkflow forTest(String id, PlannedPrompt prompt) {
+        String nodeId = stepIdOf(0);
+        List<RefFile> sent = sentRefFiles(prompt);
+        Map<String, List<RefFile>> refFiles = sent.isEmpty() ? Map.of() : Map.of(nodeId, sent);
+
+        return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
+                "id", id,
+                "name", prompt.name(),
+                "model", prompt.model().key(),
+                "nodes", List.of(node(nodeId, prompt, null, sent)),
+                "edges", List.of(),
+                "output", Map.of("title", prompt.name()))), refFiles);
     }
 
     // 엔진은 이 번호로 단계마다 결과를 돌려준다. 끝난 뒤 값을 셀 때도 같은 번호로 찾는다.
@@ -67,8 +85,16 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 .collect(Collectors.toMap(GraphNode::key, placed -> placed.reference().referenceId()));
     }
 
+    // 엔진이 받지 않는 형식(계약 v2.0 전에 붙인 이미지)은 싣지 않는다. 실으면 엔진이 그 단계를 공급자 탓으로 실패시키고,
+    // 이미지는 어차피 엔진이 읽지 않아 빼도 잃는 것이 없다. 파일 이름 목록과 파일 파트가 같은 순서여야 한다.
+    private static List<RefFile> sentRefFiles(PlannedPrompt prompt) {
+        return prompt.refFiles().stream()
+                .filter(RefFile::acceptedByRuntime)
+                .toList();
+    }
+
     // agent_id 는 엔진이 단계마다 그대로 돌려준다. 실패한 단계가 어느 에이전트의 것인지 이것으로 안다.
-    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent, boolean last) {
+    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent, List<RefFile> refFiles) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("id", id);
         node.put("type", "llm");
@@ -80,12 +106,18 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         }
 
         node.put("prompt", prompt.prompt().value());
-        node.put("output_schema_id", last ? RESULT_SCHEMA : STEP_SCHEMA);
+        node.put("output", outputOf(prompt.output()));
 
-        if (!prompt.refFiles().isEmpty()) {
-            node.put("ref_files", prompt.refFiles().stream().map(RefFile::filename).toList());
+        if (!refFiles.isEmpty()) {
+            node.put("ref_files", refFiles.stream().map(RefFile::filename).toList());
         }
 
         return node;
+    }
+
+    private static Map<String, Object> outputOf(NodeOutput output) {
+        return output.kind() == OutputKind.JSON
+                ? Map.of("kind", "json", "example", MAPPER.readTree(output.example()))
+                : Map.of("kind", "text");
     }
 }

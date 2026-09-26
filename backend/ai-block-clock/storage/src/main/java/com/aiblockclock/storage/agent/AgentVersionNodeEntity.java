@@ -2,6 +2,7 @@ package com.aiblockclock.storage.agent;
 
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -59,8 +60,16 @@ public class AgentVersionNodeEntity {
     @Column(name = "base_cost", precision = 41, scale = 6, nullable = false, updatable = false)
     private BigDecimal baseCost;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "output_kind", length = 10, nullable = false, updatable = false)
+    private OutputKind outputKind;
+
+    @Column(name = "output_example", columnDefinition = "text", updatable = false)
+    private String outputExample;
+
     public AgentVersionNodeEntity(UUID agentVersionId, String nodeKey, Long ownerId, String name,
-                                  NodeType nodeType, String prompt, AiModel model, BigDecimal baseCost) {
+                                  NodeType nodeType, String prompt, AiModel model, BigDecimal baseCost,
+                                  OutputKind outputKind, String outputExample) {
         this.agentVersionId = agentVersionId;
         this.nodeKey = nodeKey;
         this.ownerId = ownerId;
@@ -69,5 +78,7 @@ public class AgentVersionNodeEntity {
         this.prompt = prompt;
         this.model = model;
         this.baseCost = baseCost;
+        this.outputKind = outputKind;
+        this.outputExample = outputExample;
     }
 }
