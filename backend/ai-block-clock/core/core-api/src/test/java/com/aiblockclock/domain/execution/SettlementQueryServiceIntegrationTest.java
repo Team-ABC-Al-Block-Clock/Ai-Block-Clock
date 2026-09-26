@@ -107,7 +107,7 @@ class SettlementQueryServiceIntegrationTest {
     }
 
     private static RunStatus run(RunStatus.Node... steps) {
-        return new RunStatus("run-1", "succeeded", null, List.of(steps), List.of(), List.of(), null, null);
+        return new RunStatus("run-1", "succeeded", null, List.of(steps), List.of(), List.of(), null, null, false, null);
     }
 
     private static RunStatus.Node soldStep(String id, String costAbc, UserId seller) {

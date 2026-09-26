@@ -35,11 +35,13 @@ springdoc:
     path: /swagger-ui.html
     persist-authorization: true
 
+# 기한 = 단계 수 × per-step + grace. 엔진 계약 v2.0 10장의 폴링 중단 기준이다.
+# 기본 모델이 gemini-2.5-pro 로 바뀌며(09-26) 노드당 최대 32초가 재져 단계당 40초에서 60초로 올랐다.
 execution:
   polling:
     workers: ${EXECUTION_POLL_WORKERS:4}
     interval: ${EXECUTION_POLL_INTERVAL:2s}
-    per-step: ${EXECUTION_POLL_PER_STEP:40s}
+    per-step: ${EXECUTION_POLL_PER_STEP:60s}
     grace: ${EXECUTION_POLL_GRACE:60s}
 
 file-store:

@@ -4,6 +4,7 @@ import com.aiblockclock.client.ai.AiClientError;
 import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
+import com.aiblockclock.client.ai.RunMode;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.execution.ExecutionFileStore;
@@ -176,8 +177,9 @@ class ExecutionControllerTest {
                 .contains("\"type\":\"llm\"")
                 .contains("점수를 비교한다")
                 .contains("\"from\":\"n1\"")
-                .contains("output_schema_id");
+                .contains("\"output\":{\"kind\":\"text\"}");
         assertThat(sent.getValue().mock()).isFalse();
+        assertThat(sent.getValue().mode()).isEqualTo(RunMode.RUN);
     }
 
     @Test
@@ -680,7 +682,7 @@ class ExecutionControllerTest {
                 new RunStatus.Progress(2, 2, 100, null, null),
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null, null, null)),
-                List.of(), List.of(), null, null);
+                List.of(), List.of(), null, null, false, null);
     }
 
     // 엔진은 우리가 보낸 주인을 단계마다 그대로 돌려준다. 두 노드 모두 실행한 사람이 만든 것이다.
@@ -693,7 +695,7 @@ class ExecutionControllerTest {
                                 new BigDecimal(firstCost), null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, owner,
                                 new BigDecimal(secondCost), null)),
-                List.of(), List.of(), null, null);
+                List.of(), List.of(), null, null, false, null);
     }
 
     // 뒤에서 따라가던 실행이 끝난 것처럼 만든다. 끝나면 따라가던 기억도 지운다(ExecutionMonitor.stop).
@@ -714,7 +716,7 @@ class ExecutionControllerTest {
     private static RunStatus running() {
         return new RunStatus("20260919-1", "running",
                 new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
-                List.of(), List.of(), List.of(), null, null);
+                List.of(), List.of(), List.of(), null, null, false, null);
     }
 
     private static RunStatus failed() {
@@ -723,7 +725,7 @@ class ExecutionControllerTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, null, null, null)),
                 List.of(), List.of(), null,
-                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true));
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true), false, null);
     }
 
     private static Path createTempDirectory() {

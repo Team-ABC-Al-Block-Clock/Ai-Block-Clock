@@ -74,7 +74,7 @@ public record AgentRunOutcomes(Set<AgentId> succeeded, Set<AgentId> failed) {
         boolean finished = steps.stream()
                 .allMatch(step -> step.isSucceeded() || step.isSkipped());
         boolean measured = steps.stream()
-                .anyMatch(step -> step.isSucceeded() && step.costAbc() != null && step.costAbc().signum() > 0);
+                .anyMatch(step -> step.isSucceeded() && step.costUsd() != null && step.costUsd().signum() > 0);
 
         return finished && measured;
     }

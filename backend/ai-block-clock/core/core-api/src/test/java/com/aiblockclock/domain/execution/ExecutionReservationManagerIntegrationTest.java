@@ -763,7 +763,7 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     private static RunStatus run(String state, RunStatus.Failure failure, RunStatus.Node... steps) {
-        return new RunStatus("run-1", state, null, List.of(steps), List.of(), List.of(), null, failure);
+        return new RunStatus("run-1", state, null, List.of(steps), List.of(), List.of(), null, failure, false, null);
     }
 
     // 워크플로우의 노드는 모두 OWNER 가 만든 것이라, 따로 적지 않은 단계는 OWNER 의 것이다 (자기 것을 자기가 쓰는 실행).

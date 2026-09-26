@@ -44,6 +44,25 @@ class RuntimeWorkflowTest {
         assertThat(nodes.get(2).get("owner_id").asText()).isEqualTo("7001");
     }
 
+    // 계약 v2.0 은 output_schema_id · output.schema_id 를 한 버전 동안만 별칭으로 읽고 다음 버전에서 없앤다.
+    @Test
+    void 모든_단계는_글을_낸다고_밝히고_옛_형식_칸은_싣지_않는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, WorkflowGraph.of(
+                List.of(GraphFixtures.node("n1"), GraphFixtures.node("n2")),
+                List.of(GraphFixtures.edge("e1", "n1", "n2"))));
+        ExecutionPlan plan = new ExecutionPlan(List.of(
+                prompt("n1", "시장 조사", REQUESTER), prompt("n2", "요약", REQUESTER)));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+
+        assertThat(sent.get("nodes")).allSatisfy(node -> {
+            assertThat(node.get("output").get("kind").asText()).isEqualTo("text");
+            assertThat(node.has("output_schema_id")).isFalse();
+        });
+        assertThat(sent.get("output").get("title").asText()).isEqualTo(workflow.getName());
+        assertThat(sent.get("output").has("schema_id")).isFalse();
+    }
+
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
         return new PlannedPrompt(NodeKey.of(placedKey), name, owner, Prompt.of(name + "을 한다"),
                 InputSource.defaultSource(), List.of());

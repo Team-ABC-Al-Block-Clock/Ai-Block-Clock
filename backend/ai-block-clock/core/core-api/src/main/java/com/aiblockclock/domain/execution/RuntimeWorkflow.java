@@ -15,9 +15,11 @@ import java.util.stream.Collectors;
 
 import tools.jackson.databind.json.JsonMapper;
 
+// 엔진 계약 v2.0 의 워크플로우 JSON 이다. 노드마다 내는 형식(output)을 밝혀야 하고, 판매자가 고른 형식을 아직 저장하지 않아
+// 모든 단계가 글(text)을 낸다. 글 출력은 형식 검사 · 교정이 없어 어떤 프롬프트든 그대로 돈다.
+// 단가 · 원가는 싣지 않는다. 엔진은 돈을 모르고 받을 값은 우리가 매긴다 (계약 8.2).
 public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) {
-    private static final String STEP_SCHEMA = "common.text@1";
-    private static final String RESULT_SCHEMA = "common.document@1";
+    private static final Map<String, String> TEXT_OUTPUT = Map.of("kind", "text");
 
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
@@ -34,9 +36,8 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         for (int index = 0; index < plan.prompts().size(); index++) {
             String nodeId = stepIdOf(index);
             PlannedPrompt prompt = plan.prompts().get(index);
-            boolean last = index == plan.prompts().size() - 1;
 
-            nodes.add(node(nodeId, prompt, agents.get(prompt.placedKey()), last));
+            nodes.add(node(nodeId, prompt, agents.get(prompt.placedKey())));
 
             if (!prompt.refFiles().isEmpty()) {
                 refFiles.put(nodeId, prompt.refFiles());
@@ -52,7 +53,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 "name", workflow.getName(),
                 "nodes", nodes,
                 "edges", edges,
-                "output", Map.of("schema_id", RESULT_SCHEMA))), refFiles);
+                "output", Map.of("title", workflow.getName()))), refFiles);
     }
 
     // 엔진은 이 번호로 단계마다 결과를 돌려준다. 끝난 뒤 값을 셀 때도 같은 번호로 찾는다.
@@ -68,7 +69,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
     }
 
     // agent_id 는 엔진이 단계마다 그대로 돌려준다. 실패한 단계가 어느 에이전트의 것인지 이것으로 안다.
-    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent, boolean last) {
+    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("id", id);
         node.put("type", "llm");
@@ -80,7 +81,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         }
 
         node.put("prompt", prompt.prompt().value());
-        node.put("output_schema_id", last ? RESULT_SCHEMA : STEP_SCHEMA);
+        node.put("output", TEXT_OUTPUT);
 
         if (!prompt.refFiles().isEmpty()) {
             node.put("ref_files", prompt.refFiles().stream().map(RefFile::filename).toList());

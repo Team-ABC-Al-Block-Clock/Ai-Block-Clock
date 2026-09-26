@@ -5,6 +5,7 @@ import com.aiblockclock.domain.node.RefFileStore;
 import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
+import com.aiblockclock.client.ai.RunMode;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.user.UserId;
@@ -163,7 +164,8 @@ public class ExecutionService {
     }
 
     private RunRequest runRequestOf(RuntimeWorkflow runtime, ExecutionFile inputFile, String comment, boolean mock) {
-        return new RunRequest(runtime.json(), null, comment, pathOf(inputFile), refFilePathsOf(runtime), mock);
+        return new RunRequest(runtime.json(), null, comment, pathOf(inputFile), refFilePathsOf(runtime), mock,
+                RunMode.RUN);
     }
 
     private Path pathOf(ExecutionFile inputFile) {

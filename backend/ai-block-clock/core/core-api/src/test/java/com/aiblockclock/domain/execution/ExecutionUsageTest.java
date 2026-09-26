@@ -261,7 +261,7 @@ class ExecutionUsageTest {
 
     private static RunStatus run(RunStatus.Failure failure, RunStatus.Node... steps) {
         return new RunStatus("run-1", failure == null ? "succeeded" : "failed", null, List.of(steps),
-                List.of(), List.of(), null, failure);
+                List.of(), List.of(), null, failure, false, null);
     }
 
     // 엔진은 우리가 보낸 주인을 단계마다 그대로 돌려준다. 따로 적지 않은 단계는 모두 SUPPLIER 의 것이다.

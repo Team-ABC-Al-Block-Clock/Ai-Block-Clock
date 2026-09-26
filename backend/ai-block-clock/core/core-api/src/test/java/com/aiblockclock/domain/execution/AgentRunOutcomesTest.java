@@ -154,7 +154,7 @@ class AgentRunOutcomesTest {
 
     private static RunStatus run(RunStatus.Failure failure, RunStatus.Node... steps) {
         return new RunStatus("run-1", failure == null ? "succeeded" : "failed", null, List.of(steps),
-                List.of(), List.of(), null, failure);
+                List.of(), List.of(), null, failure, false, null);
     }
 
     // 엔진은 우리가 보낸 주인과 에이전트를 단계마다 그대로 돌려준다.

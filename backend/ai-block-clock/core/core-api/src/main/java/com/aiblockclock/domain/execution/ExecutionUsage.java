@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 
 // 끝난 실행에서 쓴 만큼과 돌려줄 만큼, 쓴 만큼을 누구에게 주는지다.
 // 떼어 둔 것 = 쓴 만큼 + 돌려줄 만큼이고, 쓴 만큼 = 정산금의 합이다. 닫힌 실행의 예치에는 아무것도 남지 않는다.
-// 쓴 만큼은 성공한 단계의 실측 원가(cost_abc)에 접수할 때 정한 배율을 곱해 더한다.
+// 쓴 만큼은 성공한 단계의 실측 원가(cost_usd, 1달러 = 1 ABC)에 접수할 때 정한 배율을 곱해 더한다.
 // 실패한 단계와 돌지 않은 단계는 세지 않는다. 결과물을 받지 못한 단계에 값을 받지 않는다.
 // 주인을 가리킬 수 없는 단계도 세지 않는다. 받을 사람이 없는 값을 사용자에게 받지 않는다.
 public record ExecutionUsage(BigDecimal used, BigDecimal refund, List<ExecutionSettlement> settlements) {
@@ -68,8 +68,8 @@ public record ExecutionUsage(BigDecimal used, BigDecimal refund, List<ExecutionS
 
         return nodes.stream()
                 .filter(RunStatus.Node::isSucceeded)
-                .filter(node -> node.costAbc() != null && node.costAbc().signum() > 0)
-                .map(node -> new Charge(node, StepOwner.of(node), node.costAbc().multiply(rates.of(node.id()))))
+                .filter(node -> node.costUsd() != null && node.costUsd().signum() > 0)
+                .map(node -> new Charge(node, StepOwner.of(node), node.costUsd().multiply(rates.of(node.id()))))
                 .filter(charge -> charge.owner().isKnown())
                 .toList();
     }

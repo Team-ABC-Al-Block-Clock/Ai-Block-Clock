@@ -151,17 +151,17 @@ class ExecutionMonitorTest {
     private static RunStatus running(int done) {
         return new RunStatus("20260919-1", "running",
                 new RunStatus.Progress(done, 2, done * 50, "n1", "성적 분석"),
-                List.of(), List.of(), List.of(), null, null);
+                List.of(), List.of(), List.of(), null, null, false, null);
     }
 
     private static RunStatus unknown() {
-        return new RunStatus("20260919-1", "canceled", null, List.of(), List.of(), List.of(), null, null);
+        return new RunStatus("20260919-1", "canceled", null, List.of(), List.of(), List.of(), null, null, false, null);
     }
 
     private static RunStatus succeeded() {
         return new RunStatus("20260919-1", "succeeded",
                 new RunStatus.Progress(2, 2, 100, null, null),
-                List.of(), List.of(), List.of(), null, null);
+                List.of(), List.of(), List.of(), null, null, false, null);
     }
 
     private static final class RecordingListener implements ExecutionProgressListener {
