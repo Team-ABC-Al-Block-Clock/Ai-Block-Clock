@@ -30,6 +30,14 @@ export function priceLabel(price: string | number) {
   return `${amountLabel(price)} ABC`
 }
 
+/** 충전이 보내는 소수 6자리를 그대로 적는다. `priceLabel` 은 2자리에서 끊어 보낸 값과 달라진다. */
+const CHARGE_AMOUNT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 6 })
+
+/** '1.123456' → '1.123456 ABC', '2500' → '2,500 ABC' */
+export function chargeAmountLabel(amount: string | number) {
+  return `${CHARGE_AMOUNT.format(amount as Intl.StringNumericLiteral)} ABC`
+}
+
 /** 4.7 · 35 → '4.7 (35)', 리뷰 0건 → '—' */
 export function ratingLabel(averageRating: number | null, reviewCount: number) {
   if (averageRating === null || reviewCount === 0) return '—'
@@ -131,8 +139,10 @@ export function josa(name: string) {
 
 /** `Record<ItemNodeType, string>` 이라 유형이 늘어나면 채울 때까지 컴파일이 실패한다. */
 const NODE_TYPE_LABELS: Record<ItemNodeType, string> = {
+  // 서버 `NodeType` 은 아직 TRIGGER·TOOL 을 들고 있지만 팔레트에는 에이전트만 오르고
+  // 캔버스에서 만드는 것은 LLM 뿐이라, 화면에 실제로 나오는 것은 아래 둘이다.
   TRIGGER: '트리거',
-  LLM: 'LLM',
+  LLM: '기본',
   TOOL: '도구',
   AGENT: '에이전트',
 }

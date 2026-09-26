@@ -27,7 +27,7 @@ export interface WalletSession {
 export interface ConnectedWallet {
   provider: string
   address: string
-  /** MVP 는 `POLYGON_AMOY` */
+  /** MVP 는 `SSAFY` (체인 31221) */
   network: string
   chainId: number
 }

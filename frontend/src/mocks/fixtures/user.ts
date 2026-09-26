@@ -9,8 +9,8 @@ export const PROFILE: UserProfile = {
   wallet: {
     provider: 'MetaMask',
     address: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
-    network: 'POLYGON_AMOY',
-    chainId: 80002,
+    network: 'SSAFY',
+    chainId: 31221,
   },
   onboardingCompleted: true,
   createdAt: '2026-09-08T15:02:00Z',

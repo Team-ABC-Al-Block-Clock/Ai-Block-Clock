@@ -77,6 +77,13 @@ export const queryKeys = {
     },
   },
 
+  /** /nodes */
+  nodes: {
+    all: ['nodes'] as const,
+    details: () => [...queryKeys.nodes.all, 'detail'] as const,
+    detail: (nodeId: string) => [...queryKeys.nodes.details(), nodeId] as const,
+  },
+
   /** /executions */
   executions: {
     all: ['executions'] as const,
@@ -99,6 +106,7 @@ export const queryKeys = {
       lists: () => [...queryKeys.credits.all, 'transactions'] as const,
       list: (params: ListParams) => [...queryKeys.credits.transactions.lists(), params] as const,
     },
+    charge: (chargeId: string) => [...queryKeys.credits.all, 'charges', chargeId] as const,
   },
 
   /** /settlements */

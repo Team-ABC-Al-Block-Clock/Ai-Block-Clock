@@ -14,12 +14,13 @@ type NodePalettePanelProps = {
   isError: Palette['isError']
   isFetchNextPageError: Palette['isFetchNextPageError']
   isFetchingNextPage: Palette['isFetchingNextPage']
+  hasNextPage: Palette['hasNextPage']
   onSearch: Palette['handleSearch']
   onRetryNextPage: Palette['handleRetryNextPage']
   refs: Palette['refs']
 }
 
-/** 패널 아래쪽 — 캔버스로 끌어다 놓을 노드를 찾는 자리. */
+/** 패널 아래쪽 — 캔버스로 끌어다 놓을 마켓 에이전트를 찾는 자리. */
 export default function NodePalettePanel({
   q,
   cards,
@@ -27,6 +28,7 @@ export default function NodePalettePanel({
   isError,
   isFetchNextPageError,
   isFetchingNextPage,
+  hasNextPage,
   onSearch: handleSearch,
   onRetryNextPage: handleRetryNextPage,
   refs: { paletteRef, sentinelRef },
@@ -106,7 +108,7 @@ export default function NodePalettePanel({
             title="캔버스로 드래그하세요"
             style={{
               // 폭은 주지 않고 그리드 열을 그대로 채운다.
-              height: '160px',
+              height: '134px',
               borderRadius: '12px',
               transition: 'background .18s,transform .18s',
               // 자신의 에이전트와 다른 사람 에이전트를 구분할 수 있게 테두리와 칩으로 표시한다.
@@ -143,19 +145,13 @@ export default function NodePalettePanel({
             </div>
             <div
               className="absolute truncate text-[15.5px] font-semibold tracking-[-.005em] text-white"
-              style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '74px' }}
+              style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '72px' }}
             >
               {item.name}
             </div>
             <div
-              className="absolute text-[13px] font-medium"
-              style={{ left: `${CARD_GUTTER}px`, top: '100px', color: 'rgba(255,224,238,.85)' }}
-            >
-              {item.typeLabel}
-            </div>
-            <div
               className="absolute text-[13px]"
-              style={{ left: `${CARD_GUTTER}px`, top: '123px', color: 'rgba(255,236,246,.7)' }}
+              style={{ left: `${CARD_GUTTER}px`, top: '99px', color: 'rgba(255,236,246,.7)' }}
             >
               {item.unit}
             </div>
@@ -165,7 +161,7 @@ export default function NodePalettePanel({
                 className="absolute text-[12px] font-bold tracking-[-.005em]"
                 style={{
                   right: '12px',
-                  top: '120px',
+                  top: '96px',
                   height: '20px',
                   padding: '0 8px',
                   lineHeight: '20px',
@@ -234,6 +230,18 @@ export default function NodePalettePanel({
           </div>
         ))}
         <div ref={sentinelRef} style={{ gridColumn: '1 / -1', height: '1px' }}></div>
+        {!isFetchNextPageError && cards.length > 0 && (
+          <div
+            className="text-center text-[12.5px]"
+            style={{
+              gridColumn: '1 / -1',
+              paddingTop: '6px',
+              color: 'rgba(255,236,246,.45)',
+            }}
+          >
+            {isFetchingNextPage ? '더 불러오는 중…' : hasNextPage ? '' : '목록의 끝입니다'}
+          </div>
+        )}
         {/* observer 가 꺼진 뒤라 손으로 눌러야 다음 장이 다시 온다. */}
         {isFetchNextPageError && (
           <div

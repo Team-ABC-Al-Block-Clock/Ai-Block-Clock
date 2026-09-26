@@ -1,9 +1,10 @@
 import { http } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
-import type { PaletteScope, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
+import type { NodePlacement, PaletteScope, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { PLACEABLE_ITEMS, byMineThenUsed } from '@/mocks/fixtures/nodePalette'
+import { createLlmNode, knowsNode } from '@/mocks/handlers/nodes'
 import { WORKFLOWS } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -50,7 +51,7 @@ function fixtureDetail(workflowId: string): WorkflowDetail | undefined {
   const flow = WORKFLOWS.find((item) => item.workflowId === workflowId)
   if (!flow) return undefined
 
-  const picks = PLACEABLE_ITEMS.filter((item) => item.itemType === 'NODE' && item.mine).slice(0, 3)
+  const picks = PLACEABLE_ITEMS.filter((item) => item.mine).slice(0, 3)
   const graph: WorkflowGraph = {
     nodes: picks.map((item, i) => ({
       nodeKey: `n${i + 1}`,
@@ -76,7 +77,9 @@ function putSaved(detail: WorkflowDetail) {
   writeSaved(all)
 }
 
-const PLACEABLE = new Set(PLACEABLE_ITEMS.map((item) => item.itemId))
+/** 팔레트에 실리지 않아도 서버는 앞서 만든 노드를 안다. */
+const isPlaceable = (sourceId: string) =>
+  PLACEABLE_ITEMS.some((item) => item.itemId === sourceId) || knowsNode(sourceId)
 
 /**
  * 서버가 그래프를 받아 줄지. 거절하면 오류 응답을, 통과하면 null 을 준다.
@@ -93,8 +96,13 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   const keys = new Set(graph.nodes.map((node) => node.nodeKey))
   if (keys.size !== graph.nodes.length)
     return fail(400, 'WORKFLOW_013', '노드 키가 중복되었습니다.')
-  if (graph.nodes.some((node) => !PLACEABLE.has(node.sourceId)))
+  // 기본 노드는 저장하며 만들어진다 — 가리킬 원본이 아직 없는 것이 정상이다.
+  if (graph.nodes.some((node) => !isNewLlm(node) && !isPlaceable(node.sourceId ?? '')))
     return fail(404, 'WORKFLOW_015', '배치할 노드를 찾을 수 없습니다.')
+  if (graph.nodes.some((node) => isNewLlm(node) && !node.prompt?.trim()))
+    return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', {
+      prompt: '프롬프트를 입력해야 합니다.',
+    })
 
   const edges = graph.edges ?? []
   if (edges.some((edge) => !keys.has(edge.sourceNodeKey) || !keys.has(edge.targetNodeKey)))
@@ -121,6 +129,10 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   return null
 }
 
+/** 원본 없이 이름·프롬프트만 실려 온 기본 노드. 저장하며 만든다. */
+const isNewLlm = (node: NodePlacement) =>
+  node.sourceType === 'NODE' && node.nodeType === 'LLM' && !node.sourceId
+
 const toDetail = (
   workflowId: string,
   revision: number,
@@ -132,16 +144,29 @@ const toDetail = (
   name,
   description,
   revision,
-  nodes: graph.nodes.map((node) => ({ ...node, versionId: null, inputSource: 'PREV' })),
+  nodes: graph.nodes.map((node) => ({
+    nodeKey: node.nodeKey,
+    sourceType: node.sourceType,
+    // 저장하며 만든 노드는 여기서 id 를 얻는다. 화면은 이 값으로 상세를 다시 읽는다.
+    sourceId: node.sourceId ?? createLlmNode(node),
+    versionId: null,
+    inputSource: 'PREV' as const,
+  })),
   edges: graph.edges ?? [],
   lastExecutedAt: null,
   updatedAt: new Date().toISOString(),
 })
 
-const saved = ({ workflowId, name, revision }: WorkflowDetail) => ({
+const saved = ({ workflowId, name, revision, nodes }: WorkflowDetail) => ({
   workflowId,
   name,
   revision,
+  // 저장하며 만든 노드는 여기서 id 를 받는다. 화면이 이 값을 캔버스에 되쓴다.
+  nodes: nodes.map((node) => ({
+    nodeKey: node.nodeKey,
+    sourceType: node.sourceType,
+    sourceId: node.sourceId,
+  })),
 })
 
 export const workflowsHandlers = [
