@@ -1,5 +1,6 @@
 package com.aiblockclock.api.v1.response;
 
+import com.aiblockclock.domain.agent.AgentIntegrity;
 import com.aiblockclock.domain.agent.AgentProvenance;
 import com.aiblockclock.domain.agent.AgentProvenanceView;
 import com.aiblockclock.domain.agent.OnChainAgentProvenance;
@@ -21,6 +22,7 @@ public record AgentProvenanceResponse(
 ) {
     public static AgentProvenanceResponse from(AgentProvenanceView view) {
         AgentProvenance current = view.current();
+        AgentIntegrity integrity = view.integrity();
         OnChainAgentProvenance onChain = view.onChain();
 
         return new AgentProvenanceResponse(
@@ -38,11 +40,13 @@ public record AgentProvenanceResponse(
                 new VerificationResponse(
                         view.offChainOwnerAddress(),
                         onChain == null ? null : onChain.ownerWalletAddress(),
-                        current.getMetadataHash(),
+                        integrity.currentMetadataHash(),
                         onChain == null ? null : onChain.metadataHash(),
                         view.ownerMatched(),
                         view.metadataMatched(),
-                        view.verified()));
+                        view.verified(),
+                        integrity.mismatchReason() == null ? null : integrity.mismatchReason().name(),
+                        integrity.checkedAt()));
     }
 
     @Schema(description = "원작자. 우리 DB 가 아는 값이다")
@@ -87,7 +91,8 @@ public record AgentProvenanceResponse(
     ) {
     }
 
-    @Schema(description = "우리 DB 값(offChain)과 체인에서 방금 읽은 값(onChain)의 대조. 확정 전에는 onChain 이 null 이고 모두 false 다")
+    @Schema(description = "우리 DB 값(offChain)과 체인에서 방금 읽은 값(onChain)의 대조 (CHN-003). "
+            + "확정 전에는 offChain 해시 · onChain 이 null 이고 모두 false 다")
     public record VerificationResponse(
             @Schema(description = "DB 의 원작자 지갑", example = "0x535abafa3b650ab9fd7b2cd98c7ad06b18d37a3b")
             String offChainOwnerAddress,
@@ -96,7 +101,8 @@ public record AgentProvenanceResponse(
                     example = "0x535abafa3b650ab9fd7b2cd98c7ad06b18d37a3b")
             String onChainOwnerAddress,
 
-            @Schema(description = "기록할 때 계산해 DB 에 둔 메타데이터 해시", nullable = true,
+            @Schema(description = "지금 DB 의 내용으로 방금 다시 만든 메타데이터 해시. 공개 뒤 내용이 바뀌면 체인 값과 달라진다",
+                    nullable = true,
                     example = "0x3f1c0b7e9a2d4c6b8a0f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d1c2b")
             String offChainMetadataHash,
 
@@ -110,8 +116,20 @@ public record AgentProvenanceResponse(
             @Schema(description = "메타데이터 해시가 같은가")
             boolean metadataMatched,
 
-            @Schema(description = "확정됐고 두 대조가 모두 맞는가")
-            boolean verified
+            @Schema(description = "확정됐고 원작자 · 지금 내용 · 적을 때 남긴 해시가 모두 체인과 맞는가")
+            boolean verified,
+
+            @Schema(description = """
+                    검증되지 않은 까닭. verified 가 true 면 null 이다.
+                    NOT_CONFIRMED(아직 체인에 적히지 않음) · NOT_ON_CHAIN(체인에 기록이 없음) ·
+                    OWNER_MISMATCH(원작자 지갑이 다름) · METADATA_CHANGED(공개 뒤 내용이 바뀜) ·
+                    RECORD_MISMATCH(적을 때 남긴 해시가 체인과 다름)
+                    """, example = "METADATA_CHANGED", nullable = true)
+            String mismatchReason,
+
+            @Schema(description = "이번에 대조한 시각. 확정 전에는 대조하지 않아 null 이다",
+                    example = "2026-09-27T05:30:00Z", nullable = true)
+            Instant verifiedAt
     ) {
     }
 }

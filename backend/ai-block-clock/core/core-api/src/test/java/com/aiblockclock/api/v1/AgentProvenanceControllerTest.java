@@ -10,6 +10,8 @@ import com.aiblockclock.client.blockchain.SsafyStoDocumentClient;
 import com.aiblockclock.domain.agent.AgentProvenanceService;
 import com.aiblockclock.domain.agent.AgentVersionId;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.agent.AgentIntegrityMismatchReason;
+import com.aiblockclock.enums.agent.AgentIntegrityResult;
 import com.aiblockclock.enums.agent.AgentProvenanceStatus;
 import com.aiblockclock.storage.agent.AgentProvenanceEntity;
 import com.aiblockclock.storage.agent.AgentProvenanceRepository;
@@ -45,6 +47,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -148,7 +151,10 @@ class AgentProvenanceControllerTest {
                 .andExpect(jsonPath("$.data.blockchain.blockNumber").isEmpty())
                 .andExpect(jsonPath("$.data.blockchain.registeredAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.verification.onChainOwnerAddress").isEmpty())
-                .andExpect(jsonPath("$.data.verification.verified").value(false));
+                .andExpect(jsonPath("$.data.verification.offChainMetadataHash").isEmpty())
+                .andExpect(jsonPath("$.data.verification.verified").value(false))
+                .andExpect(jsonPath("$.data.verification.mismatchReason").value("NOT_CONFIRMED"))
+                .andExpect(jsonPath("$.data.verification.verifiedAt").isEmpty());
     }
 
     @Test
@@ -181,11 +187,20 @@ class AgentProvenanceControllerTest {
                 .andExpect(jsonPath("$.data.verification.onChainMetadataHash").value(hash.getValue()))
                 .andExpect(jsonPath("$.data.verification.ownerMatched").value(true))
                 .andExpect(jsonPath("$.data.verification.metadataMatched").value(true))
-                .andExpect(jsonPath("$.data.verification.verified").value(true));
+                .andExpect(jsonPath("$.data.verification.verified").value(true))
+                .andExpect(jsonPath("$.data.verification.mismatchReason").isEmpty())
+                .andExpect(jsonPath("$.data.verification.verifiedAt").isNotEmpty());
+
+        entityManager.clear();
+        assertThat(rowsOf(agentId).get(0)).satisfies(row -> {
+            assertThat(row.getIntegrityResult()).isEqualTo(AgentIntegrityResult.MATCHED);
+            assertThat(row.getIntegrityMismatchReason()).isNull();
+            assertThat(row.getIntegrityCheckedAt()).isNotNull();
+        });
     }
 
     @Test
-    @DisplayName("체인 기록의 해시가 DB 와 다르면 불일치로 보여 준다")
+    @DisplayName("체인 기록의 해시가 지금 내용과 다르면 내용이 바뀐 것으로 보여 준다")
     void flagsTamperedRecord() throws Exception {
         String agentId = registerAgent(createWorkflow());
         confirm(agentId);
@@ -198,7 +213,55 @@ class AgentProvenanceControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.verification.ownerMatched").value(true))
                 .andExpect(jsonPath("$.data.verification.metadataMatched").value(false))
-                .andExpect(jsonPath("$.data.verification.verified").value(false));
+                .andExpect(jsonPath("$.data.verification.verified").value(false))
+                .andExpect(jsonPath("$.data.verification.mismatchReason").value("METADATA_CHANGED"));
+    }
+
+    @Test
+    @DisplayName("공개한 뒤 DB 에서 프롬프트를 고치면, 다시 만든 해시가 체인과 달라 불일치가 남는다")
+    void detectsPromptChangedAfterPublishing() throws Exception {
+        String agentId = registerAgent(createWorkflow());
+        String registeredHash = confirmAndServeFromChain(agentId);
+
+        entityManager.createNativeQuery("update agent_version_node set prompt = :prompt where agent_version_id = :version")
+                .setParameter("prompt", "몰래 바꾼 프롬프트")
+                .setParameter("version", versionOf(agentId).value().toString())
+                .executeUpdate();
+        entityManager.clear();
+
+        mockMvc.perform(get(provenanceOf(agentId)).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verification.onChainMetadataHash").value(registeredHash))
+                .andExpect(jsonPath("$.data.verification.offChainMetadataHash").value(not(registeredHash)))
+                .andExpect(jsonPath("$.data.verification.metadataMatched").value(false))
+                .andExpect(jsonPath("$.data.verification.verified").value(false))
+                .andExpect(jsonPath("$.data.verification.mismatchReason").value("METADATA_CHANGED"));
+
+        entityManager.clear();
+        assertThat(rowsOf(agentId).get(0)).satisfies(row -> {
+            assertThat(row.getIntegrityResult()).isEqualTo(AgentIntegrityResult.MISMATCHED);
+            assertThat(row.getIntegrityMismatchReason()).isEqualTo(AgentIntegrityMismatchReason.METADATA_CHANGED);
+            assertThat(row.getIntegrityCheckedAt()).isNotNull();
+        });
+    }
+
+    @Test
+    @DisplayName("내용은 그대로인데 기록 칸의 해시만 고치면 기록이 어긋난 것으로 보여 준다")
+    void detectsRecordedHashChanged() throws Exception {
+        String agentId = registerAgent(createWorkflow());
+        confirmAndServeFromChain(agentId);
+
+        entityManager.createNativeQuery("update agent_provenance set metadata_hash = :hash where agent_version_id = :version")
+                .setParameter("hash", "0x" + "00".repeat(32))
+                .setParameter("version", versionOf(agentId).value().toString())
+                .executeUpdate();
+        entityManager.clear();
+
+        mockMvc.perform(get(provenanceOf(agentId)).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verification.metadataMatched").value(true))
+                .andExpect(jsonPath("$.data.verification.verified").value(false))
+                .andExpect(jsonPath("$.data.verification.mismatchReason").value("RECORD_MISMATCH"));
     }
 
     @Test
@@ -212,6 +275,9 @@ class AgentProvenanceControllerTest {
         mockMvc.perform(get(provenanceOf(agentId)).with(as(owner)))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("BLOCKCHAIN_004"));
+
+        entityManager.clear();
+        assertThat(rowsOf(agentId).get(0).getIntegrityCheckedAt()).isNull();
     }
 
     @Test
@@ -270,6 +336,20 @@ class AgentProvenanceControllerTest {
                 .willReturn(new ChainDocumentReceipt(REGISTRY, TRANSACTION_HASH, BigInteger.valueOf(15230417)));
 
         assertThat(registerNow(agentId)).isTrue();
+    }
+
+    // 체인에 적힌 주소 · 해시를 그대로 돌려주는 체인을 흉내 낸다. 적힌 해시를 돌려준다
+    private String confirmAndServeFromChain(String agentId) {
+        confirm(agentId);
+
+        ArgumentCaptor<String> uri = ArgumentCaptor.captor();
+        ArgumentCaptor<String> hash = ArgumentCaptor.captor();
+        String documentName = rowsOf(agentId).get(0).getDocumentName();
+        then(ssafyStoDocumentClient).should().setDocument(eq(documentName), uri.capture(), hash.capture());
+        given(ssafyStoDocumentClient.findDocument(REGISTRY, documentName))
+                .willReturn(Optional.of(new ChainDocument(uri.getValue(), hash.getValue())));
+
+        return hash.getValue();
     }
 
     private boolean registerNow(String agentId) {

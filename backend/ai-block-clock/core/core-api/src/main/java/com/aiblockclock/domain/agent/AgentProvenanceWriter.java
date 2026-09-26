@@ -36,4 +36,11 @@ public class AgentProvenanceWriter {
                 metadata.documentUri(), receipt.contractAddress(), receipt.transactionHash(), receipt.blockNumber(),
                 clock.instant());
     }
+
+    // 조회할 때마다 마지막 결과로 덮어쓴다. 동시에 두 번 조회해도 같은 대조라 나중 것이 남아도 괜찮다
+    @Transactional
+    public void recordIntegrity(AgentVersionId versionId, AgentIntegrity integrity) {
+        agentProvenanceRepository.recordIntegrity(versionId.value(), integrity.result(), integrity.mismatchReason(),
+                integrity.checkedAt());
+    }
 }
