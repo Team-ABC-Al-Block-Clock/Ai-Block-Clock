@@ -2,6 +2,8 @@ package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.node.Prompt;
+import com.aiblockclock.domain.node.RefFile;
+import com.aiblockclock.domain.node.RefFileId;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodeKey;
@@ -20,6 +22,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 class RuntimeWorkflowTest {
     private static final UserId REQUESTER = UserId.of(7001L);
@@ -63,6 +66,39 @@ class RuntimeWorkflowTest {
         });
         assertThat(sent.get("output").get("title").asText()).isEqualTo(workflow.getName());
         assertThat(sent.get("output").has("schema_id")).isFalse();
+    }
+
+    // 계약 v2.0 전에 붙인 이미지는 엔진이 받지 않는다. 실으면 그 단계가 공급자 탓으로 실패한다.
+    @Test
+    void 엔진이_받지_않는_형식의_참고_자료는_이름도_파일도_싣지_않는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, WorkflowGraph.of(
+                List.of(GraphFixtures.node("n1")), List.of()));
+        RefFile criteria = refFile("채점 기준표.pdf");
+        RefFile image = refFile("예시.png");
+        PlannedPrompt prompt = new PlannedPrompt(NodeKey.of("n1"), "채점", REQUESTER, Prompt.of("채점한다"),
+                InputSource.defaultSource(), List.of(image, criteria), AbcAmount.of(new BigDecimal("0.0135")));
+
+        RuntimeWorkflow runtime = RuntimeWorkflow.of(workflow, new ExecutionPlan(List.of(prompt)));
+
+        assertThat(runtime.refFiles()).containsExactly(entry("n1", List.of(criteria)));
+        assertThat(mapper.readTree(runtime.json()).get("nodes").get(0).get("ref_files"))
+                .extracting(JsonNode::asText)
+                .containsExactly("채점 기준표.pdf");
+    }
+
+    @Test
+    void 엔진이_받는_참고_자료가_하나도_없으면_ref_files_를_싣지_않는다() {
+        PlannedPrompt prompt = new PlannedPrompt(NodeKey.of("n1"), "채점", REQUESTER, Prompt.of("채점한다"),
+                InputSource.defaultSource(), List.of(refFile("예시.jpg")), AbcAmount.of(new BigDecimal("0.0135")));
+
+        RuntimeWorkflow runtime = RuntimeWorkflow.forTest("test-1", prompt);
+
+        assertThat(runtime.refFiles()).isEmpty();
+        assertThat(mapper.readTree(runtime.json()).get("nodes").get(0).has("ref_files")).isFalse();
+    }
+
+    private static RefFile refFile(String filename) {
+        return new RefFile(RefFileId.of(UUID.randomUUID()), UUID.randomUUID() + ".bin", filename, 1024);
     }
 
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {

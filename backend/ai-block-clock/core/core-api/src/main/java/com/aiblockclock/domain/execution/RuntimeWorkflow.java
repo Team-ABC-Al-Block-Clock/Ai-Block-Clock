@@ -36,11 +36,12 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         for (int index = 0; index < plan.prompts().size(); index++) {
             String nodeId = stepIdOf(index);
             PlannedPrompt prompt = plan.prompts().get(index);
+            List<RefFile> sent = sentRefFiles(prompt);
 
-            nodes.add(node(nodeId, prompt, agents.get(prompt.placedKey())));
+            nodes.add(node(nodeId, prompt, agents.get(prompt.placedKey()), sent));
 
-            if (!prompt.refFiles().isEmpty()) {
-                refFiles.put(nodeId, prompt.refFiles());
+            if (!sent.isEmpty()) {
+                refFiles.put(nodeId, sent);
             }
 
             if (index > 0) {
@@ -59,14 +60,13 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
     // 판매자 테스트 실행은 노드 하나만 돈다. 실행과 같은 모양이라 엔진은 같은 규칙으로 돌리고 원가를 잰다.
     public static RuntimeWorkflow forTest(String id, PlannedPrompt prompt) {
         String nodeId = stepIdOf(0);
-        Map<String, List<RefFile>> refFiles = prompt.refFiles().isEmpty()
-                ? Map.of()
-                : Map.of(nodeId, prompt.refFiles());
+        List<RefFile> sent = sentRefFiles(prompt);
+        Map<String, List<RefFile>> refFiles = sent.isEmpty() ? Map.of() : Map.of(nodeId, sent);
 
         return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
                 "id", id,
                 "name", prompt.name(),
-                "nodes", List.of(node(nodeId, prompt, null)),
+                "nodes", List.of(node(nodeId, prompt, null, sent)),
                 "edges", List.of(),
                 "output", Map.of("title", prompt.name()))), refFiles);
     }
@@ -83,8 +83,16 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 .collect(Collectors.toMap(GraphNode::key, placed -> placed.reference().referenceId()));
     }
 
+    // 엔진이 받지 않는 형식(계약 v2.0 전에 붙인 이미지)은 싣지 않는다. 실으면 엔진이 그 단계를 공급자 탓으로 실패시키고,
+    // 이미지는 어차피 엔진이 읽지 않아 빼도 잃는 것이 없다. 파일 이름 목록과 파일 파트가 같은 순서여야 한다.
+    private static List<RefFile> sentRefFiles(PlannedPrompt prompt) {
+        return prompt.refFiles().stream()
+                .filter(RefFile::acceptedByRuntime)
+                .toList();
+    }
+
     // agent_id 는 엔진이 단계마다 그대로 돌려준다. 실패한 단계가 어느 에이전트의 것인지 이것으로 안다.
-    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent) {
+    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent, List<RefFile> refFiles) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("id", id);
         node.put("type", "llm");
@@ -98,8 +106,8 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         node.put("prompt", prompt.prompt().value());
         node.put("output", TEXT_OUTPUT);
 
-        if (!prompt.refFiles().isEmpty()) {
-            node.put("ref_files", prompt.refFiles().stream().map(RefFile::filename).toList());
+        if (!refFiles.isEmpty()) {
+            node.put("ref_files", refFiles.stream().map(RefFile::filename).toList());
         }
 
         return node;

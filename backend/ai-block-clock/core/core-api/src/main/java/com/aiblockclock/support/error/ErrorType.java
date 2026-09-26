@@ -128,7 +128,7 @@ public enum ErrorType {
             "빈 파일은 붙일 수 없습니다.", LogLevel.WARN),
 
     REF_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
-            "PDF · 텍스트 · 마크다운 · CSV · 이미지만 붙일 수 있습니다.", LogLevel.WARN),
+            "PDF · 텍스트 · 마크다운 · CSV 만 붙일 수 있습니다.", LogLevel.WARN),
 
     REF_FILE_TOTAL_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.NODE_007,
             "노드에 붙인 참고 자료의 합계가 10MB 를 넘습니다.", LogLevel.WARN),

@@ -21,15 +21,16 @@ class RefFileValidatorTest {
     private final RefFileValidator validator = new RefFileValidator();
 
     @ParameterizedTest
-    @ValueSource(strings = {"기준표.pdf", "설명.txt", "설명.md", "표.csv", "예시.png", "예시.jpg", "예시.JPEG"})
+    @ValueSource(strings = {"기준표.pdf", "설명.txt", "설명.md", "표.csv", "기준표.PDF"})
     @DisplayName("계약이 받는 형식은 통과한다")
     void 계약이_받는_형식은_통과한다(String filename) {
         assertThatCode(() -> validator.validate(file(filename, 1024), List.of()))
                 .doesNotThrowAnyException();
     }
 
+    // 계약 v2.0 은 참고 자료로 pdf · txt · md · csv 만 받는다. 이미지를 붙여 두면 실행이 REF_FILE_REJECTED 로 깨진다.
     @ParameterizedTest
-    @ValueSource(strings = {"기준표.xlsx", "기준표.docx", "기준표.zip", "기준표"})
+    @ValueSource(strings = {"기준표.xlsx", "기준표.docx", "기준표.zip", "기준표", "예시.png", "예시.jpg", "예시.JPEG"})
     @DisplayName("계약에 없는 형식은 붙일 때 막는다")
     void 계약에_없는_형식은_막는다(String filename) {
         assertError(() -> validator.validate(file(filename, 1024), List.of()),
