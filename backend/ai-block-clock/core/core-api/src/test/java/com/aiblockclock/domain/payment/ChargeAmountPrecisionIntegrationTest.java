@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.client.blockchain.SsafyChainClient;
+import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
@@ -9,12 +11,15 @@ import com.aiblockclock.storage.payment.LedgerEntryEntity;
 import com.aiblockclock.storage.payment.LedgerEntryRepository;
 import com.aiblockclock.storage.payment.LedgerTransactionEntity;
 import com.aiblockclock.storage.payment.LedgerTransactionRepository;
+import com.aiblockclock.storage.user.UserEntity;
+import com.aiblockclock.storage.user.UserRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.context.transaction.AfterTransaction;
 
@@ -22,13 +27,18 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 
 @Tag("integration")
-@SpringBootTest
+@SpringBootTest(properties = {
+        ChargeChainFixtures.CHAIN_ID_PROPERTY,
+        ChargeChainFixtures.CUSTODY_PROPERTY,
+        ChargeChainFixtures.TOKEN_PROPERTY,
+        ChargeChainFixtures.CONFIRMATIONS_PROPERTY
+})
 @Transactional
 class ChargeAmountPrecisionIntegrationTest {
 
-    private static final String USER_REFERENCE_ID = "user-amount-precision";
     private static final String SENDER_ADDRESS = "0x1111111111111111111111111111111111111111";
     private static final String TRANSACTION_HASH =
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -54,10 +64,18 @@ class ChargeAmountPrecisionIntegrationTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private SsafyChainClient ssafyChainClient;
+
+    private String userReferenceId;
+
     @AfterTransaction
     void cleanUpCommittedRequest() {
         chargeRequestRepository.findByChainIdAndTransactionHash(12345L, TRANSACTION_HASH)
-                .filter(request -> USER_REFERENCE_ID.equals(request.getUserReferenceId()))
+                .filter(request -> request.getUserReferenceId().equals(userReferenceId))
                 .ifPresent(chargeRequestRepository::delete);
     }
 
@@ -65,31 +83,18 @@ class ChargeAmountPrecisionIntegrationTest {
     @ValueSource(strings = {"0.000001", "1.000001", "10.123456"})
     void 소수_6자리_충전이_등록부터_원장과_잔액까지_손실_없이_저장된다(String amount) {
         BigDecimal requestedAmount = new BigDecimal(amount);
-        ChargeNetworkPolicy networkPolicy = new ChargeNetworkPolicy(
-                12345L,
-                "0x2222222222222222222222222222222222222222",
-                "0x3333333333333333333333333333333333333333",
-                5L
-        );
+        UserEntity user = userRepository.saveAndFlush(UserEntity.of(SENDER_ADDRESS));
+        userReferenceId = Long.toString(user.getId());
+        given(ssafyChainClient.readTransaction(TRANSACTION_HASH))
+                .willReturn(ChargeChainFixtures.deposited(SENDER_ADDRESS, requestedAmount));
+
         ChargeRequest request = chargeRequestService.createChargeRequest(
-                USER_REFERENCE_ID,
-                SENDER_ADDRESS,
-                networkPolicy,
+                UserId.of(user.getId()),
                 TRANSACTION_HASH,
                 requestedAmount
         );
-        OnChainTokenTransfer transfer = new OnChainTokenTransfer(
-                OnChainTransactionStatus.SUCCESS,
-                networkPolicy.chainId(),
-                TRANSACTION_HASH,
-                SENDER_ADDRESS,
-                networkPolicy.custodyAddress(),
-                networkPolicy.depositTokenContractAddress(),
-                requestedAmount,
-                networkPolicy.requiredConfirmations()
-        );
 
-        ChargeRequest result = chargeProcessingService.process(request.getId(), transfer, networkPolicy);
+        ChargeRequest result = chargeProcessingService.process(request.getId()).chargeRequest();
         entityManager.flush();
         entityManager.clear();
 
@@ -100,7 +105,7 @@ class ChargeAmountPrecisionIntegrationTest {
         assertExactAmount(savedRequest.getCreditedAbcAmount(), requestedAmount);
 
         LedgerTransactionEntity transaction = ledgerTransactionRepository
-                .findByChainIdAndTransactionHash(networkPolicy.chainId(), TRANSACTION_HASH).orElseThrow();
+                .findByChainIdAndTransactionHash(ChargeChainFixtures.CHAIN_ID, TRANSACTION_HASH).orElseThrow();
         List<LedgerEntryEntity> entries = ledgerEntryRepository
                 .findAllByTransactionIdOrderByIdAsc(transaction.getId());
         assertThat(entries).hasSize(2);
@@ -110,7 +115,7 @@ class ChargeAmountPrecisionIntegrationTest {
             assertExactAmount(entry.getAmountDelta(), expectedDelta);
         }
         assertExactAmount(ledgerAccountRepository.findByAccountTypeAndReferenceId(
-                LedgerAccountType.ABC_BALANCE, USER_REFERENCE_ID).orElseThrow().getBalance(), requestedAmount);
+                LedgerAccountType.ABC_BALANCE, userReferenceId).orElseThrow().getBalance(), requestedAmount);
         assertExactAmount(ledgerAccountRepository.findByAccountTypeAndReferenceId(
                 LedgerAccountType.ABC_ISSUANCE, "SYSTEM").orElseThrow().getBalance(), requestedAmount.negate());
         assertThat(entries.stream().map(LedgerEntryEntity::getAmountDelta)

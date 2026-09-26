@@ -56,10 +56,10 @@ public record UserProfileResponse(
             @Schema(description = "지갑 주소 (소문자)", example = "0xfb6916095ca1df60bb79ce92ce3ea74c37c5d359")
             String address,
 
-            @Schema(description = "네트워크", example = "POLYGON_AMOY")
+            @Schema(description = "네트워크", example = "SSAFY")
             WalletNetwork network,
 
-            @Schema(description = "체인 ID", example = "80002")
+            @Schema(description = "체인 ID", example = "31221")
             long chainId
     ) {
         static WalletResponse of(String address, WalletNetwork network) {

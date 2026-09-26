@@ -25,7 +25,7 @@ backend/ai-block-clock/
 │   ├── logging/             로깅 — logback-spring.xml
 │   └── monitoring/          모니터링 — monitoring.yml
 └── client/                  wrapper
-    ├── blockchain/          SSAFY 토큰증권 API 연동 — blockchain.yml
+    ├── blockchain/          SSAFY 토큰증권 API · 체인 RPC 연동 — blockchain.yml
     └── ai/                  AI 파트 서비스 연동 (추천 · 실행 엔진) — ai.yml
 ```
 
@@ -61,7 +61,7 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) { ... }
 | `:support:logging` | leaf | 프로파일별 logback 설정 | jar (리소스만) |
 | `:support:monitoring` | leaf | 액추에이터·메트릭 설정 | jar |
 | `:client` | wrapper | 외부 시스템 연동 모듈을 묶는다 | 없음 |
-| `:client:blockchain` | leaf | SSAFY 토큰증권 API 연동 (조회 전용) | jar |
+| `:client:blockchain` | leaf | SSAFY 토큰증권 API · 체인 RPC 연동 (조회 전용) | jar |
 | `:client:ai` | leaf | AI 파트 서비스 연동 (추천 엔진 · 실행 엔진) | jar |
 
 그룹·버전은 전 모듈 공통으로 `com.aiblockclock:0.0.1-SNAPSHOT` 이다.
@@ -244,27 +244,34 @@ spring:
 
 ### 3.6 `:client:blockchain`
 
-SSAFY 토큰증권 API 어댑터다. 패키지는 `com.aiblockclock.client.blockchain` 이고, **API 접속 설정을 이 모듈이 소유한다.**
+SSAFY 체인에 붙는 어댑터다. 패키지는 `com.aiblockclock.client.blockchain` 이고, **접속 설정을 이 모듈이 소유한다.**
+창구가 둘이다.
+
+| 창구 | 클래스 | 무엇을 읽나 |
+| --- | --- | --- |
+| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoClient` | 토큰 정보 · 잔액 · 총공급량 · 민터 권한 · 발행 가능 상태 |
+| 체인 노드 JSON-RPC (`rpc.ssafy-blockchain.com`) | `SsafyChainClient` | 거래 해시 하나의 상태 · 블록 번호 · 토큰 전송 로그. 토큰증권 API 에 없어서 따로 둔다 ([abc-charge.md](abc-charge.md) 2장) |
 
 ```
 client/blockchain/src/main/resources/
-└── blockchain.yml            SSAFY API 주소·제한 시간·컨트랙트 주소
+└── blockchain.yml            토큰증권 API 주소 · 체인 RPC 주소 · 제한 시간 · 컨트랙트 주소
 ```
 
-- **조회만 한다.** 토큰 정보·잔액·총공급량·민터 권한·발행 가능 상태를 읽는 메서드만 둔다.
-  배포·발행처럼 결과를 되돌릴 수 없는 쓰기 동작은 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
+- **조회만 한다.** 배포·발행처럼 결과를 되돌릴 수 없는 쓰기 동작은 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
 - **예외는 `BlockchainClientException` 하나다.** 사유는 `BlockchainClientError` 로 가른다
-  (`INVALID_ADDRESS` · `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
+  (`INVALID_ADDRESS` · `INVALID_TRANSACTION_HASH` · `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
   `REQUEST_FAILED` 만 체인 결과를 알 수 없는 상황이고, 나머지는 실패가 확인된 상황이다.
   `core-api` 는 `CoreException` 을 이 모듈에 내릴 수 없으므로(2.3 규칙 1) 호출 경계에서 변환한다 (RULE.md 7.1)
-- 의존성: `spring-web`, `spring-boot-starter`.
+- **체인 RPC 는 web3j(`org.web3j:core`)의 HTTP 연결만 쓴다.** JSON-RPC 요청·응답 모양과 이벤트 서명 계산을
+  라이브러리에 맡긴다. 쓰지 않는 AWS KMS 서명 · 유닉스 소켓 · WebSocket 연결 의존성은 `exclude` 로 뺐다.
+  `Web3j` 연결 객체는 이 모듈 안의 빈이고 `SsafyChainClient` 만 쓴다
+- 의존성: `spring-web`, `spring-boot-starter`, `org.web3j:core`.
   서버 스타터(`spring-boot-starter-webmvc`)에 얹히지 않도록 클라이언트 쪽만 선언한다.
-  응답을 전부 `String` 으로 받아 직접 변환하므로 JSON 변환기(Jackson)는 선언하지 않는다.
-  객체 응답을 받는 조회가 생기면 그 변경에서 함께 추가한다
+  토큰증권 API 응답은 값 하나라 `String` 으로 받아 직접 변환한다. 체인 RPC 의 JSON 은 web3j 가 푼다
 - 프로파일 변형 파일을 두지 않는다. 환경별로 달라지는 값은 `${SSAFY_STO_BASE_URL:...}` 처럼
   환경 변수로 받는다
-- 외부 API 를 실제로 호출하는 테스트는 `@Tag("integration")` 과 환경 변수 가드를 함께 건다.
-  `SSAFY_STO_EXTERNAL_TEST=true` 일 때만 실행된다
+- 외부를 실제로 호출하는 테스트는 `@Tag("integration")` 과 환경 변수 가드를 함께 건다.
+  토큰증권 API 는 `SSAFY_STO_EXTERNAL_TEST=true`, 체인 RPC 는 `SSAFY_CHAIN_EXTERNAL_TEST=true` 일 때만 실행된다
 
 `core` · `storage` · `support` 와 나란한 최상위 wrapper `:client` 아래에 둔다. 외부 시스템 어댑터는 계층을 가로지르는 공통 헬퍼가 아니므로 `com.aiblockclock.support` 에 두지 않는다 (ARCHITECTURE.md 5장). 다른 외부 연동(AI API 등)이 생기면 `:client` 아래에 leaf 를 하나 더 만든다.
 
@@ -353,7 +360,11 @@ spring:
 | `SERVER_PORT` | 전체 | 8080 |
 | `SSAFY_STO_BASE_URL` | 전체 | `https://sto.ssafy.io` |
 | `SSAFY_STO_CONNECT_TIMEOUT`, `SSAFY_STO_READ_TIMEOUT` | 전체 | 3s / 10s |
-| `SSAFY_TOKEN_CONTRACT_ADDRESS` | 전체 | 없음 (비어 있으면 온체인 조회 불가) |
+| `SSAFY_TOKEN_CONTRACT_ADDRESS` | 전체 | abcToken `0x56DC…C63c` (충전 대조에도 쓴다. 비우면 기동하지 않는다) |
+| `SSAFY_CHAIN_RPC_URL` | 전체 | `https://rpc.ssafy-blockchain.com` |
+| `SSAFY_CHAIN_CONNECT_TIMEOUT`, `SSAFY_CHAIN_READ_TIMEOUT` | 전체 | 3s / 10s |
+| `PAYMENT_CHARGE_*` | 전체 | [abc-charge.md](abc-charge.md) 4장 |
+| `WALLET_AUTH_CHAIN_ID` | 전체 | 31221 (SSAFY 체인) |
 | `AI_RECOMMEND_BASE_URL` | 전체 | `http://ai-block-clock-recommend:8100` |
 | `AI_RECOMMEND_CONNECT_TIMEOUT`, `AI_RECOMMEND_READ_TIMEOUT` | 전체 | 2s / 5s |
 | `AI_RUNTIME_BASE_URL` | 전체 | `http://ai-block-clock-ai-runtime:8000` |

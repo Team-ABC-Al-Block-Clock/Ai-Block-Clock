@@ -18,7 +18,11 @@ import java.lang.annotation.Target;
         "spring.datasource.hikari.transaction-isolation=TRANSACTION_REPEATABLE_READ",
         "spring.datasource.hikari.maximum-pool-size=20",
         "spring.jpa.show-sql=false",
-        "spring.jpa.hibernate.ddl-auto=validate"
+        "spring.jpa.hibernate.ddl-auto=validate",
+        ChargeChainFixtures.CHAIN_ID_PROPERTY,
+        ChargeChainFixtures.CUSTODY_PROPERTY,
+        ChargeChainFixtures.TOKEN_PROPERTY,
+        ChargeChainFixtures.CONFIRMATIONS_PROPERTY
 })
 @Import(MySqlTestConfiguration.class)
 public @interface PaymentMySqlTest {

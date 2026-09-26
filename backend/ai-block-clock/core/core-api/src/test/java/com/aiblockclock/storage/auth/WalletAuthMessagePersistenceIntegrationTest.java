@@ -36,7 +36,7 @@ class WalletAuthMessagePersistenceIntegrationTest {
 
                 URI: https://j15a403.p.ssafy.io/
                 Version: 1
-                Chain ID: 80002
+                Chain ID: 31221
                 Nonce: %s
                 Issued At: %s
                 Expiration Time: %s""".formatted(walletAddress, nonce, ISSUED_AT, EXPIRES_AT);

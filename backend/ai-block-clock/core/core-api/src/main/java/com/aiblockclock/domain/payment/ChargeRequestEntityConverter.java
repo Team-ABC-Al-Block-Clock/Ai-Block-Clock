@@ -20,6 +20,7 @@ final class ChargeRequestEntityConverter {
                 entity.getChainId(),
                 entity.getTransactionHash(),
                 DepositAmount.of(entity.getRequestedDepositAmount()),
+                entity.getCreatedAt(),
                 toAbcAmount(entity.getCreditedAbcAmount()),
                 entity.getStatus(),
                 entity.getStatusReason(),
