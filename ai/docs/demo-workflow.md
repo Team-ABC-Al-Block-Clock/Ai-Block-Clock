@@ -137,6 +137,6 @@ uv run python -m src.runner --workflow brand_campaign --input ../../demo/brand/b
 | 미실행 | `a1.n3b` / `branch_not_taken` |
 | 정산 입력 | `contribution` 7건 — **판매자 A · B · C 계정 3개**. 금액은 백엔드 단가 |
 | 사용량 | `agents[]` 4건(에이전트별 토큰 · USD) |
-| 견적 | `validate` → `estimate.worst_case_nodes` 9개 id(최악 분기 조합). 금액은 백엔드가 단가를 합산 |
+| 견적 | `validate` → `estimate.worst_case_nodes` **7개** id — LLM 노드만, 최악 분기 조합의 한쪽(분기 노드 · 안 가는 쪽 제외). 금액은 백엔드가 단가를 합산. EC2 배포본에서 확인(09-26) |
 | 실호출 (09-26 · Flash · 참고 PDF 첨부) | 107.2초 · $0.013157 · 교정 0. Pro 기준으로는 약 3분 · $0.055 예상 |
 | 종단 | `biz.execution_plan@1` 봉투 → `GET /v1/runs/{id}/artifact` |
