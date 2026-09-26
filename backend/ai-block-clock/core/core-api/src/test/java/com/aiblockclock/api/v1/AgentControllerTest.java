@@ -303,7 +303,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("GET 하면 판매 중인 내 에이전트만 받은 정산금 · 실행 수 · 7일 추이와 함께 나온다")
+    @DisplayName("GET 하면 판매 중인 내 에이전트만 받은 정산금 · 실행 수 · 즐겨찾기 · 7일 추이와 함께 나온다")
     void listsMyAgentsWithSales() throws Exception {
         String agentId = registerAgent(createWorkflow(nodeId, nodeId));
         registerAgentOf(other);
@@ -311,6 +311,9 @@ class AgentControllerTest {
         settle(sold, "n1", agentId, "1.5");
         settle(sold, "n2", agentId, "0.25");
         agentGradeMetricRepository.addRuns(agentId, 2, 1, Instant.now());
+        mockMvc.perform(post("/api/v1/marketplace/agents/" + agentId + "/favorites")
+                        .with(as(owner)).with(csrf().asHeader()))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/agents").with(as(owner)))
                 .andExpect(status().isOk())
@@ -324,7 +327,7 @@ class AgentControllerTest {
                 .andExpect(jsonPath("$.data.content[0].price").value("6.000000"))
                 .andExpect(jsonPath("$.data.content[0].revenue").value("1.750000"))
                 .andExpect(jsonPath("$.data.content[0].executionCount").value(3))
-                .andExpect(jsonPath("$.data.content[0].favorited").value(false))
+                .andExpect(jsonPath("$.data.content[0].favorited").value(true))
                 .andExpect(jsonPath("$.data.content[0].trend.length()").value(7))
                 .andExpect(jsonPath("$.data.content[0].trend[6]").value(1))
                 .andExpect(jsonPath("$.data.content[0].createdAt").exists());

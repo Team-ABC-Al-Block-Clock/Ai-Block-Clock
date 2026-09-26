@@ -36,8 +36,9 @@ class MyAgentServiceTest {
     private final AgentReader agentReader = mock(AgentReader.class);
     private final AgentGradeMetricReader agentGradeMetricReader = mock(AgentGradeMetricReader.class);
     private final AgentSalesReader agentSalesReader = mock(AgentSalesReader.class);
-    private final MyAgentService service = new MyAgentService(
-            agentReader, agentGradeMetricReader, agentSalesReader, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final AgentFavoriteReader agentFavoriteReader = mock(AgentFavoriteReader.class);
+    private final MyAgentService service = new MyAgentService(agentReader, agentGradeMetricReader, agentSalesReader,
+            agentFavoriteReader, Clock.fixed(NOW, ZoneOffset.UTC));
 
     private final SellingAgent oldest = selling("성적 분석", "성적을 분석한다", "2026-09-01T00:00:00Z");
     private final SellingAgent middle = selling("가정통신문", "가정에 보낼 글을 쓴다", "2026-09-02T00:00:00Z");

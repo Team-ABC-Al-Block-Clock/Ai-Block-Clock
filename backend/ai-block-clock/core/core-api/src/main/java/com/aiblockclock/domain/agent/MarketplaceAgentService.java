@@ -22,27 +22,32 @@ public class MarketplaceAgentService {
     private final AgentReader agentReader;
     private final AgentGradeMetricReader agentGradeMetricReader;
     private final UserReader userReader;
+    private final AgentFavoriteReader agentFavoriteReader;
 
-    public CursorPage<MarketplaceListing> find(String keyword, String cursor, int size) {
+    public CursorPage<MarketplaceListing> find(UserId requester, String keyword, String cursor, int size) {
         String search = keyword == null || keyword.isBlank() ? null : keyword.strip();
         CursorPage<MarketplaceAgent> page = agentReader.searchMarketplace(search, cursor, size);
 
-        List<MarketplaceListing> content = listingsOf(page.content());
+        List<MarketplaceListing> content = listingsOf(requester, page.content());
 
         return new CursorPage<>(content, page.nextCursor(), page.hasNext());
     }
 
-    public MarketplaceListing get(AgentId id) {
-        return listingsOf(List.of(agentReader.readMarketplace(id))).get(0);
+    public MarketplaceAgentDetail get(UserId requester, AgentId id) {
+        MarketplaceListing listing = listingsOf(requester, List.of(agentReader.readMarketplace(id))).get(0);
+
+        return new MarketplaceAgentDetail(listing, agentFavoriteReader.read(requester, id).favoriteCount());
     }
 
-    private List<MarketplaceListing> listingsOf(List<MarketplaceAgent> agents) {
-        Map<AgentId, AgentGradeMetric> metrics = agentGradeMetricReader.readAll(
-                agents.stream().map(MarketplaceAgent::id).toList());
+    private List<MarketplaceListing> listingsOf(UserId requester, List<MarketplaceAgent> agents) {
+        List<AgentId> ids = agents.stream().map(MarketplaceAgent::id).toList();
+        Map<AgentId, AgentGradeMetric> metrics = agentGradeMetricReader.readAll(ids);
         Map<UserId, String> nicknames = nicknamesOf(agents);
+        Set<AgentId> favorited = agentFavoriteReader.readFavorited(requester, ids);
 
         return agents.stream()
-                .map(agent -> new MarketplaceListing(agent, nicknames.get(agent.owner()), metrics.get(agent.id())))
+                .map(agent -> new MarketplaceListing(agent, nicknames.get(agent.owner()), metrics.get(agent.id()),
+                        favorited.contains(agent.id())))
                 .toList();
     }
 

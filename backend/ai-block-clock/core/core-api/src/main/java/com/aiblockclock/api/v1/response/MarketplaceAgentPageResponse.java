@@ -56,7 +56,7 @@ public record MarketplaceAgentPageResponse(
             @Schema(description = "평가 수", example = "3")
             int reviewCount,
 
-            @Schema(description = "즐겨찾기했는지. 즐겨찾기가 붙기 전까지 늘 false", example = "false")
+            @Schema(description = "요청한 사람이 즐겨찾기했는지", example = "false")
             boolean favorited,
 
             @Schema(description = "소유자")
@@ -77,7 +77,7 @@ public record MarketplaceAgentPageResponse(
                     listing.executionCount(),
                     listing.metric().averageRating(),
                     listing.metric().reviewCount(),
-                    false,
+                    listing.favorited(),
                     new MarketplaceOwnerResponse(listing.ownerNickname()),
                     agent.createdAt());
         }

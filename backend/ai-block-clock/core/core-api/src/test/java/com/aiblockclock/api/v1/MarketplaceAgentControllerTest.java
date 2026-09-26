@@ -216,6 +216,36 @@ class MarketplaceAgentControllerTest {
     }
 
     @Test
+    @DisplayName("즐겨찾기하면 목록과 상세에 내가 즐겨찾기했다고 싣고, 상세에는 즐겨찾기한 사람 수를 싣는다")
+    void reflectsFavorites() throws Exception {
+        String favorite = registerAgent("성적 분석", "성적을 분석한다", 1);
+        String other = registerAgent("가정통신문", "안내문을 쓴다", 2);
+        long another = createUser("다른 구매자");
+
+        mockMvc.perform(post(MARKETPLACE + "/" + favorite + "/favorites").with(as(buyer)).with(csrf().asHeader()))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(MARKETPLACE + "/" + favorite + "/favorites").with(as(another)).with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get(MARKETPLACE).with(as(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].agentId").value(other))
+                .andExpect(jsonPath("$.data.content[0].favorited").value(false))
+                .andExpect(jsonPath("$.data.content[1].agentId").value(favorite))
+                .andExpect(jsonPath("$.data.content[1].favorited").value(true));
+
+        mockMvc.perform(get(MARKETPLACE + "/" + favorite).with(as(buyer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.favorited").value(true))
+                .andExpect(jsonPath("$.data.favoriteCount").value(2));
+
+        mockMvc.perform(get(MARKETPLACE + "/" + favorite).with(as(seller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.favorited").value(false))
+                .andExpect(jsonPath("$.data.favoriteCount").value(2));
+    }
+
+    @Test
     @DisplayName("실행이 한 번도 없으면 성공률을 0 으로 내린다")
     void reportsZeroSuccessRateWithoutRuns() throws Exception {
         String agentId = registerAgent("성적 분석", "성적을 분석한다", 1);

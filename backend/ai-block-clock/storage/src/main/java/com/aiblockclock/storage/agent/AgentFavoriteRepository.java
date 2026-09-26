@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +31,12 @@ public interface AgentFavoriteRepository extends JpaRepository<AgentFavoriteEnti
     boolean existsByUserIdAndAgentId(Long userId, UUID agentId);
 
     long countByAgentId(UUID agentId);
+
+    @Query("select f.agentId from AgentFavoriteEntity f where f.userId = :userId and f.agentId in :agentIds")
+    List<UUID> findAgentIdsByUserIdAndAgentIdIn(
+            @Param("userId") Long userId,
+            @Param("agentIds") Collection<UUID> agentIds
+    );
 
     @Query("""
             select f from AgentFavoriteEntity f

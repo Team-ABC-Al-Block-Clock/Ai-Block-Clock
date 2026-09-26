@@ -52,7 +52,7 @@ public record MyAgentPageResponse(
                     example = "3")
             long executionCount,
 
-            @Schema(description = "즐겨찾기 여부. 즐겨찾기가 아직 없어 늘 false", example = "false")
+            @Schema(description = "내가 즐겨찾기했는지", example = "false")
             boolean favorited,
 
             @Schema(description = "최근 7일 동안 하루마다 정산을 남긴 실행 수. 엿새 전부터 오늘까지 차례로 담는다 (UTC)",
@@ -73,7 +73,7 @@ public record MyAgentPageResponse(
                     listing.price().value().toPlainString(),
                     agent.revenue().toPlainString(),
                     agent.executionCount(),
-                    false,
+                    agent.favorited(),
                     agent.trend(),
                     agent.selling().createdAt());
         }

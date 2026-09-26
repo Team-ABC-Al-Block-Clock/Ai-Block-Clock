@@ -12,7 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -25,6 +28,17 @@ public class AgentFavoriteReader {
                 agent,
                 agentFavoriteRepository.existsByUserIdAndAgentId(user.value(), agent.value()),
                 agentFavoriteRepository.countByAgentId(agent.value()));
+    }
+
+    public Set<AgentId> readFavorited(UserId user, Collection<AgentId> agents) {
+        if (agents.isEmpty()) {
+            return Set.of();
+        }
+
+        return agentFavoriteRepository.findAgentIdsByUserIdAndAgentIdIn(
+                        user.value(), agents.stream().map(AgentId::value).toList()).stream()
+                .map(AgentId::of)
+                .collect(Collectors.toSet());
     }
 
     public CursorPage<AgentFavoriteEntry> readPage(UserId user, String cursor, int size) {

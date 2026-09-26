@@ -1,6 +1,7 @@
 package com.aiblockclock.api.v1.response;
 
 import com.aiblockclock.domain.agent.MarketplaceAgent;
+import com.aiblockclock.domain.agent.MarketplaceAgentDetail;
 import com.aiblockclock.domain.agent.MarketplaceListing;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -47,10 +48,10 @@ public record MarketplaceAgentDetailResponse(
         @Schema(description = "평가 수", example = "3")
         int reviewCount,
 
-        @Schema(description = "즐겨찾기했는지. 즐겨찾기가 붙기 전까지 늘 false", example = "false")
+        @Schema(description = "요청한 사람이 즐겨찾기했는지", example = "false")
         boolean favorited,
 
-        @Schema(description = "즐겨찾기한 사람 수. 즐겨찾기가 붙기 전까지 늘 0", example = "0")
+        @Schema(description = "즐겨찾기한 사람 수", example = "4")
         long favoriteCount,
 
         @Schema(description = "소유자")
@@ -59,7 +60,8 @@ public record MarketplaceAgentDetailResponse(
         @Schema(description = "등록 시각")
         Instant createdAt
 ) {
-    public static MarketplaceAgentDetailResponse from(MarketplaceListing listing) {
+    public static MarketplaceAgentDetailResponse from(MarketplaceAgentDetail detail) {
+        MarketplaceListing listing = detail.listing();
         MarketplaceAgent agent = listing.agent();
 
         return new MarketplaceAgentDetailResponse(
@@ -75,8 +77,8 @@ public record MarketplaceAgentDetailResponse(
                 listing.successRate(),
                 listing.metric().averageRating(),
                 listing.metric().reviewCount(),
-                false,
-                0,
+                listing.favorited(),
+                detail.favoriteCount(),
                 new MarketplaceOwnerDetailResponse(Long.toString(agent.owner().value()), listing.ownerNickname(), null),
                 agent.createdAt());
     }
