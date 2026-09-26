@@ -11,8 +11,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-// 마켓의 에이전트 하나가 누구의 것인지 체인 기록으로 보여 준다 (CHN-002, MKT-006).
-// 체인을 읽는 조회라 트랜잭션을 열지 않는다. DB 읽기는 각 Reader 가 짧게 끝낸다.
+// 마켓의 에이전트 하나가 누구의 것인지 체인 기록으로 보여 주고, 지금 내용이 그 기록과 같은지 검증한다 (CHN-002/003, MKT-006).
+// 체인을 읽는 조회라 트랜잭션을 열지 않는다. DB 읽기는 각 Reader 가, 검증 결과를 남기는 쓰기는 Writer 가 짧게 끝낸다.
 @Service
 @RequiredArgsConstructor
 public class AgentProvenanceQueryService {
@@ -20,6 +20,7 @@ public class AgentProvenanceQueryService {
     private final UserReader userReader;
     private final AgentProvenanceReader agentProvenanceReader;
     private final AgentProvenanceChainReader agentProvenanceChainReader;
+    private final AgentIntegrityVerifier agentIntegrityVerifier;
     private final AgentProvenanceProperties agentProvenanceProperties;
 
     public AgentProvenanceView provenanceOf(AgentId agentId) {
@@ -32,13 +33,13 @@ public class AgentProvenanceQueryService {
 
         if (!current.isConfirmed()) {
             return new AgentProvenanceView(agentId, owner.nickname(), owner.walletAddress(), current,
-                    first.getRequestedAt(), null, null,
+                    first.getRequestedAt(), null, AgentIntegrity.notConfirmed(),
                     agentProvenanceProperties.chainId(), agentProvenanceProperties.networkName());
         }
 
         return new AgentProvenanceView(agentId, owner.nickname(), owner.walletAddress(), current,
                 first.getRequestedAt(), agentProvenanceChainReader.documentUrl(current),
-                agentProvenanceChainReader.find(current).orElse(null),
+                agentIntegrityVerifier.verify(current),
                 agentProvenanceProperties.chainId(), agentProvenanceProperties.networkName());
     }
 

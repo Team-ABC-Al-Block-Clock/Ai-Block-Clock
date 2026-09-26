@@ -1,8 +1,8 @@
 # 에이전트 원본 증명
 
 에이전트 버전을 공개하면 서버가 **"이 버전은 이 지갑이 올렸고, 내용의 지문은 이것이다"** 를 SSAFY 체인의
-**등기부 토큰**에 적는다 (CHN-001). 마켓 상세 화면은 그 기록을 체인에서 다시 읽어 우리 DB 와 대조해 보여 준다
-(CHN-002, MKT-006 `GET /api/v1/marketplace/agents/{agentId}/provenance`).
+**등기부 토큰**에 적는다 (CHN-001). 마켓 상세 화면은 그 기록을 체인에서 다시 읽고, 지금 DB 의 내용으로 지문을
+다시 만들어 대조해 보여 준다 (CHN-002 · CHN-003, MKT-006 `GET /api/v1/marketplace/agents/{agentId}/provenance`).
 
 우리 DB 는 우리가 고칠 수 있다. 체인 기록은 우리도 고칠 수 없다. 그래서 체인 기록과 DB 가 같으면
 "DB 가 말하는 원작자 · 내용이 공개 뒤에 바뀌지 않았다" 를 바깥에서 확인할 수 있다.
@@ -103,16 +103,67 @@ MetaMask `personal_sign` 과 같은 방식으로 서명한다.** 칸 순서는 A
 | `owner` | DB 의 원작자 닉네임 · 지갑 |
 | `blockchain.*` | DB 의 기록. PENDING 이면 계약 · 거래 · 블록 · `explorerUrl` 이 null |
 | `blockchain.explorerUrl` | 토큰증권 API 의 문서 조회 주소. SSAFY 체인은 탐색기가 없어, 누구나 브라우저로 열어 체인 값을 보는 주소다 |
-| `verification.offChain*` | DB. 지갑은 원작자의 지금 지갑, 해시는 기록할 때 계산해 둔 값 |
+| `verification.offChainOwnerAddress` | DB 의 원작자 지금 지갑 |
+| `verification.offChainMetadataHash` | **지금 DB 의 내용으로 방금 다시 만든 해시**(4.1). PENDING 이면 null |
 | `verification.onChain*` | **조회할 때마다 체인에서 다시 읽은 값.** PENDING 이면 null |
-| `verified` | CONFIRMED 이고 지갑 · 해시가 모두 같다 |
+| `verified` | CONFIRMED 이고 원작자 · 지금 내용 · 적을 때 남긴 해시가 모두 체인과 같다 |
+| `verification.mismatchReason` | 검증되지 않은 까닭(4.1). `verified=true` 면 null |
+| `verification.verifiedAt` | 이번에 대조한 시각. PENDING 이면 null |
 
 | 상황 | 응답 |
 | --- | --- |
 | 공개된 에이전트가 없다 | 404 `MARKET_001` |
 | 에이전트는 있는데 기록이 없다 | 404 `BLOCKCHAIN_003` |
-| 체인에 닿지 못했다 | 503 `BLOCKCHAIN_004` — 불일치로 보여 주지 않는다 |
-| 체인에 기록이 없다(확정인데) | 200, `onChain*` null, `verified=false` |
+| 체인에 닿지 못했다 | 503 `BLOCKCHAIN_004` — 불일치로 보여 주지 않고, 대조 결과도 남기지 않는다 |
+| 체인에 기록이 없다(확정인데) | 200, `onChain*` null, `verified=false`, `mismatchReason=NOT_ON_CHAIN` |
+
+### 4.1 무결성 검증 (CHN-003)
+
+체인에 적힌 해시와 비교할 우리 쪽 값이 "적을 때 DB 에 남겨 둔 해시" 뿐이면, 누가 DB 에서 프롬프트를 고쳐도
+남겨 둔 해시는 그대로라 일치로 나온다. 그래서 조회할 때마다 **지금 내용을 3.1 규칙으로 다시 해시**한다.
+원본 기록을 보낼 때와 같은 `AgentVersionMetadataReader` · `AgentVersionMetadata.hash()` 를 쓴다.
+
+```
+AgentProvenanceQueryService.provenanceOf
+  └ 확정된 기록이면 AgentIntegrityVerifier.verify
+      ├ 체인에서 기록을 읽는다                  AgentProvenanceChainReader   (닿지 못하면 503, 아무것도 남기지 않는다)
+      ├ 지금 내용을 모아 해시를 다시 만든다      AgentVersionMetadataReader → AgentVersionMetadata.hash
+      ├ 세 해시 + 지갑을 대조한다               AgentIntegrity.check
+      └ 결과를 기록 줄에 덮어쓴다               AgentProvenanceWriter.recordIntegrity
+```
+
+| 사유 | 뜻 | 대조 |
+| --- | --- | --- |
+| `NOT_CONFIRMED` | 아직 체인에 적히지 않았다. 대조하지 않는다 | — |
+| `NOT_ON_CHAIN` | 확정했다는데 체인에 기록이 없다 | 체인 값 없음 |
+| `OWNER_MISMATCH` | 원작자 지갑이 다르다 | DB 지갑 ≠ 체인 지갑 |
+| `METADATA_CHANGED` | **공개 뒤 DB 의 내용이 바뀌었다** | 지금 해시 ≠ 체인 해시 |
+| `RECORD_MISMATCH` | 내용은 맞는데 기록 칸의 해시가 다르다 | 지금 해시 = 체인 해시, 남긴 해시 ≠ 체인 해시 |
+
+- 여럿이 겹치면 **표의 위쪽 것 하나**만 댄다. 지갑은 해시 재료라 지갑이 바뀌면 해시도 함께 어긋나서, 더 구체적인 지갑 쪽을 댄다
+- 내용을 고치고 기록 칸의 해시까지 새 값으로 맞춰 둬도, 체인 해시와 다르므로 `METADATA_CHANGED` 로 잡힌다
+- 프로필(이름 · 설명) · 등급 · 단가는 해시 재료가 아니다(3.1). 고쳐도 불일치가 아니다
+
+**결과를 남기는 곳.** `agent_provenance` 의 세 칸이다(V41, 표는 V40). 버전 하나에 기록 하나라 이력 표를 따로 두지 않고,
+조회할 때마다 마지막 결과로 덮어쓴다. 확정 전 기록에는 남기지 않는다.
+
+| 칸 | 값 |
+| --- | --- |
+| `integrity_result` | `MATCHED` / `MISMATCHED` |
+| `integrity_mismatch_reason` | `MISMATCHED` 일 때의 사유 (`NOT_CONFIRMED` 는 남지 않는다) |
+| `integrity_checked_at` | 마지막으로 대조한 시각 |
+
+불일치가 난 기록은 DB 에서 바로 찾을 수 있다.
+
+```sql
+select agent_id, version_no, integrity_mismatch_reason, integrity_checked_at
+from agent_provenance
+where integrity_result = 'MISMATCHED';
+```
+
+**조회가 쓰기를 하는 까닭.** 지금도 조회할 때마다 체인을 읽어 대조한다. 같은 대조를 따로 돌리는 배치를 두면
+스케줄러와 설정이 하나씩 늘고, 결과는 조회 응답과 같다. 쓰기는 체인을 읽은 뒤 `Writer` 의 짧은 트랜잭션 하나다.
+동시에 두 번 조회해도 같은 대조라 나중 것이 남아도 괜찮다.
 
 ---
 
@@ -161,6 +212,13 @@ MetaMask `personal_sign` 과 같은 방식으로 서명한다.** 칸 순서는 A
    넣고 다시 띄운다. 주소는 기본값이라 넣지 않는다
 5. 에이전트를 하나 공개하고, 30초쯤 뒤 원본 증명 조회가 `CONFIRMED` · `verified=true` 인지 본다.
    `explorerUrl` 을 브라우저로 열면 체인에 적힌 값이 보인다
+6. (무결성 검증 확인 · 시연용) 그 버전의 프롬프트를 DB 에서 직접 고치고 다시 조회하면
+   `metadataMatched=false` · `mismatchReason=METADATA_CHANGED` 가 나온다. 확인한 뒤 프롬프트를 되돌리면 다시 `verified=true` 다
+
+   ```sql
+   update agent_version_node set prompt = concat(prompt, '.')
+   where agent_version_id = '<공개된 버전 ID>';
+   ```
 
 ---
 
