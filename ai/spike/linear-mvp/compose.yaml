@@ -19,8 +19,11 @@
 services:
   ai-runtime:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # 빌드 컨텍스트는 ai/ 다(Dockerfile 이 spike/linear-mvp · prompts 를 복사한다). ai:build 의
+      # `docker build -f Dockerfile ../..` 와 같아야 한다 — 09-22 Dockerfile 만 바꾸고 여기를 안 바꿔
+      # 09-26 ai:deploy 가 "/spike/linear-mvp not found" 로 실패했다. 무시 목록은 ai/.dockerignore.
+      context: ../..
+      dockerfile: spike/linear-mvp/Dockerfile
     image: ai-block-clock-ai-runtime:${IMAGE_TAG:-local}
     container_name: ai-block-clock-ai-runtime
     environment:
