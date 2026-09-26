@@ -8,6 +8,8 @@ import com.aiblockclock.enums.payment.LedgerEventType;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -167,6 +169,72 @@ class LedgerTransactionTest {
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.LEDGER_INVALID_TRANSACTION));
     }
 
+    @ParameterizedTest
+    @EnumSource(LedgerEventType.class)
+    void 어떤_거래_종류로도_한_사용자의_잔액을_다른_사용자의_잔액으로_옮길_수_없다(LedgerEventType eventType) {
+        assertRejected(eventType,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 선차감은_다른_사용자의_예치로_옮길_수_없다() {
+        assertRejected(LedgerEventType.RESERVE,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 환불은_다른_사용자의_잔액으로_돌릴_수_없다() {
+        assertRejected(LedgerEventType.REFUND,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 방향이_뒤집힌_선차감은_만들_수_없다() {
+        assertRejected(LedgerEventType.RESERVE,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 정산은_예치가_아닌_쓸_수_있는_잔액에서_뺄_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 정산은_공급자의_쓸_수_있는_잔액으로_넣을_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("4")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "9", new BigDecimal("6")));
+    }
+
+    @Test
+    void 충전은_발행_계정이_아닌_곳에서_ABC를_꺼낼_수_없다() {
+        assertRejected(LedgerEventType.CHARGE,
+                new LedgerEntry(LedgerAccountType.ABC_ISSUANCE, "8", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 빠지는_칸이_둘인_거래는_만들_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-6")),
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "8", new BigDecimal("-4")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "9", new BigDecimal("10")));
+    }
+
+    private void assertRejected(LedgerEventType eventType, LedgerEntry... entries) {
+        assertThatThrownBy(() -> new LedgerTransaction(
+                eventType, "key-1", "EXECUTION", "reference-1", null, null, List.of(entries)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.LEDGER_INVALID_TRANSACTION));
+    }
+
     private ChargeRequest persistedPendingChargeRequest() {
         return ChargeRequest.restore(
                 100L,
@@ -175,6 +243,7 @@ class LedgerTransactionTest {
                 12345L,
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 DepositAmount.of(new BigDecimal("10.000000")),
+                null,
                 null,
                 ChargeStatus.PENDING,
                 null,

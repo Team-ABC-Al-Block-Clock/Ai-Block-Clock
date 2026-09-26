@@ -12,6 +12,11 @@ public record ChargeNetworkPolicy(
                 && chainId.equals(requestedChainId);
     }
 
+    // 보관 지갑이 스스로에게 보내면 토큰은 제자리인데 ABC 만 늘어난다
+    public boolean isCustody(String walletAddress) {
+        return custodyAddress != null && custodyAddress.equalsIgnoreCase(walletAddress);
+    }
+
     public ChargeVerificationCriteria createVerificationCriteria(
             ChargeRequest chargeRequest
     ) {

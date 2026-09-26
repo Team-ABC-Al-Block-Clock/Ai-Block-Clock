@@ -56,6 +56,10 @@ public record LedgerTransaction(
                     ErrorType.LEDGER_INVALID_TRANSACTION
             );
         }
+
+        if (!hasAllowedShape(eventType, entries)) {
+            throw new CoreException(ErrorType.LEDGER_INVALID_TRANSACTION);
+        }
     }
 
     public static LedgerTransaction forCharge(
@@ -201,7 +205,8 @@ public record LedgerTransaction(
     }
 
     // 장부 계정은 가입 때 LedgerAccountWriter 가 같은 규칙(사용자 ID 의 십진 문자열)으로 만든다.
-    private static String referenceIdOf(UserId userId) {
+    // 장부 계정과 충전 요청이 사용자를 가리키는 문자열이다. 두 곳이 같은 규칙을 써야 서로 이어진다
+    static String referenceIdOf(UserId userId) {
         return Long.toString(userId.value());
     }
 
@@ -213,5 +218,58 @@ public record LedgerTransaction(
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return totalAmountDelta.compareTo(BigDecimal.ZERO) == 0;
+    }
+
+    // ABC 는 사용자끼리 넘길 수 없다(PAY-004). 합계가 0 이어도 A 의 잔액에서 B 의 잔액으로 가는 거래가 있으므로
+    // 거래 종류마다 빠지는 칸과 들어가는 칸을 정해 두고 그 모양만 받는다. 남에게 가는 길은 정산금 적립 하나뿐이다.
+    // 생성자에서 보므로 팩터리를 거치지 않은 거래도 걸리고, 종류가 늘면 switch 가 컴파일을 막는다.
+    private static boolean hasAllowedShape(
+            LedgerEventType eventType,
+            List<LedgerEntry> entries
+    ) {
+        List<LedgerEntry> outflows = entries.stream()
+                .filter(entry -> entry.amountDelta().signum() < 0)
+                .toList();
+        List<LedgerEntry> inflows = entries.stream()
+                .filter(entry -> entry.amountDelta().signum() > 0)
+                .toList();
+
+        if (outflows.size() != 1) {
+            return false;
+        }
+
+        LedgerEntry outflow = outflows.get(0);
+
+        return switch (eventType) {
+            case CHARGE -> outflow.accountType() == LedgerAccountType.ABC_ISSUANCE
+                    && outflow.accountReferenceId().equals(SYSTEM_ACCOUNT_REFERENCE_ID)
+                    && inflows.size() == 1
+                    && inflows.get(0).accountType() == LedgerAccountType.ABC_BALANCE;
+            case RESERVE -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.ABC_BALANCE, LedgerAccountType.EXECUTION_ESCROW);
+            case REFUND -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.EXECUTION_ESCROW, LedgerAccountType.ABC_BALANCE);
+            case SETTLEMENT -> outflow.accountType() == LedgerAccountType.EXECUTION_ESCROW
+                    && inflows.stream()
+                            .allMatch(inflow -> inflow.accountType() == LedgerAccountType.PAYOUT_BALANCE);
+        };
+    }
+
+    // 한 사람의 칸 사이에서만 옮긴다. 받는 칸이 하나이고 주인이 빠지는 칸과 같아야 한다.
+    private static boolean isOwnMove(
+            LedgerEntry outflow,
+            List<LedgerEntry> inflows,
+            LedgerAccountType from,
+            LedgerAccountType to
+    ) {
+        if (inflows.size() != 1) {
+            return false;
+        }
+
+        LedgerEntry inflow = inflows.get(0);
+
+        return outflow.accountType() == from
+                && inflow.accountType() == to
+                && inflow.accountReferenceId().equals(outflow.accountReferenceId());
     }
 }

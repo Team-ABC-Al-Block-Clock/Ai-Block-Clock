@@ -84,8 +84,8 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.wallet.provider").value("METAMASK"))
                 .andExpect(jsonPath("$.data.wallet.address").value(WALLET_ADDRESS))
-                .andExpect(jsonPath("$.data.wallet.network").value("POLYGON_AMOY"))
-                .andExpect(jsonPath("$.data.wallet.chainId").value(80002));
+                .andExpect(jsonPath("$.data.wallet.network").value("SSAFY"))
+                .andExpect(jsonPath("$.data.wallet.chainId").value(31221));
     }
 
     @Test
