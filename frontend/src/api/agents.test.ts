@@ -284,6 +284,24 @@ describe('getAgentProvenance', () => {
     expect(verification.verified).toBe(false)
   })
 
+  it('서버 기록만 어긋나면 두 값은 일치인데 verified 가 false 다', async () => {
+    const { verification } = await getAgentProvenance('agt_27')
+
+    expect(verification.ownerMatched).toBe(true)
+    expect(verification.metadataMatched).toBe(true)
+    expect(verification.verified).toBe(false)
+    expect(verification.mismatchReason).toBe('RECORD_MISMATCH')
+  })
+
+  it('체인에 기록이 없으면 체인 값이 null 이고 이유가 NOT_ON_CHAIN 이다', async () => {
+    const { verification } = await getAgentProvenance('agt_26')
+
+    expect(verification.onChainOwnerAddress).toBeNull()
+    expect(verification.onChainMetadataHash).toBeNull()
+    expect(verification.verified).toBe(false)
+    expect(verification.mismatchReason).toBe('NOT_ON_CHAIN')
+  })
+
   it('블록 번호는 UUID 로 등록한 건에서도 안전한 정수다', async () => {
     const created = await createAgent({
       workflowId: '33567ab2-e08b-461b-a0f2-51a857df5ec7',

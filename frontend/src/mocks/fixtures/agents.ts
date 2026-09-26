@@ -195,6 +195,10 @@ const NO_RECORD = 'agt_30'
 const PENDING = 'agt_29'
 /** 주소와 해시가 둘 다 어긋난 건. 화면의 ✗ 두 줄을 한 번에 확인한다. */
 const TAMPERED = 'agt_28'
+/** 원작자 · 해시는 맞는데 서버 기록이 체인과 다른 건. 줄은 ✓ 둘에 ✗ 하나가 된다. */
+const RECORD_DRIFT = 'agt_27'
+/** 서버에는 기록이 있는데 체인에서 찾지 못한 건. */
+const OFF_CHAIN = 'agt_26'
 
 /** 난수로 만들면 refetch 마다 해시가 바뀌어 값이 달라진 것처럼 보인다. */
 function hex(seed: string, length: number) {
@@ -213,6 +217,8 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
 
   const pending = agent.agentId === PENDING
   const stale = agent.agentId === TAMPERED
+  const drift = agent.agentId === RECORD_DRIFT
+  const offChain = agent.agentId === OFF_CHAIN
 
   const walletAddress = `0x${hex(agent.owner.userId, 40)}`
   const transactionHash = `0x${hex(`${agent.agentId}:tx`, 64)}`
@@ -220,9 +226,9 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
   const onChainOwnerAddress = stale ? `0x${hex(`${agent.agentId}:stale-owner`, 40)}` : walletAddress
   const onChainMetadataHash = stale ? `0x${hex(`${agent.agentId}:stale-hash`, 64)}` : metadataHash
 
-  const ownerMatched = !pending && onChainOwnerAddress === walletAddress
-  const metadataMatched = !pending && onChainMetadataHash === metadataHash
-  const verified = ownerMatched && metadataMatched
+  const ownerMatched = !pending && !offChain && onChainOwnerAddress === walletAddress
+  const metadataMatched = !pending && !offChain && onChainMetadataHash === metadataHash
+  const verified = ownerMatched && metadataMatched && !drift
 
   return {
     agentId: agent.agentId,
@@ -242,19 +248,23 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
     },
     verification: {
       offChainOwnerAddress: walletAddress,
-      onChainOwnerAddress: pending ? null : onChainOwnerAddress,
+      onChainOwnerAddress: pending || offChain ? null : onChainOwnerAddress,
       offChainMetadataHash: pending ? null : metadataHash,
-      onChainMetadataHash: pending ? null : onChainMetadataHash,
+      onChainMetadataHash: pending || offChain ? null : onChainMetadataHash,
       ownerMatched,
       metadataMatched,
       verified,
       mismatchReason: pending
         ? 'NOT_CONFIRMED'
-        : !ownerMatched
-          ? 'OWNER_MISMATCH'
-          : !metadataMatched
-            ? 'METADATA_CHANGED'
-            : null,
+        : offChain
+          ? 'NOT_ON_CHAIN'
+          : drift
+            ? 'RECORD_MISMATCH'
+            : !ownerMatched
+              ? 'OWNER_MISMATCH'
+              : !metadataMatched
+                ? 'METADATA_CHANGED'
+                : null,
       verifiedAt: pending ? null : new Date().toISOString(),
     },
   }

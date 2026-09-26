@@ -310,6 +310,19 @@ export default function Detail() {
     ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…`
     : ''
   const proofPending = proof?.blockchain.transactionStatus === 'PENDING'
+  const proofReason = proof?.verification.mismatchReason ?? null
+  // 체인에 없으면 대조할 값이 비어 있다. 빈칸 대신 이유를 적는다.
+  const onChainMissing = proofReason === 'NOT_ON_CHAIN' ? '체인 기록 없음' : ''
+  const proofRows: [string, boolean, string][] = proof
+    ? [
+        ['원작자 주소', proof.verification.ownerMatched, onChainOwner || onChainMissing],
+        ['메타데이터 해시', proof.verification.metadataMatched, onChainHash || onChainMissing],
+        // 두 값은 맞는데 서버에 적어 둔 기록이 체인과 다르다. 어긋난 줄을 따로 보여 준다.
+        ...(proofReason === 'RECORD_MISMATCH'
+          ? [['서버 기록', false, '서버 기록이 체인과 달라요'] as [string, boolean, string]]
+          : []),
+      ]
+    : []
   // 확정 대기는 배지가 이미 말한다.
   const mismatchText =
     proof && !proof.verification.verified && !proofPending
@@ -920,12 +933,7 @@ export default function Detail() {
                 </div>
 
                 <div style={{ marginTop: '18px' }}>
-                  {(
-                    [
-                      ['원작자 주소', proof.verification.ownerMatched, onChainOwner],
-                      ['메타데이터 해시', proof.verification.metadataMatched, onChainHash],
-                    ] as const
-                  ).map(([label, matched, value], i) => (
+                  {proofRows.map(([label, matched, value], i) => (
                     <div
                       className="flex items-center"
                       key={label}

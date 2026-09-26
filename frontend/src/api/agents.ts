@@ -224,11 +224,7 @@ export interface AgentProvenance {
 }
 
 export type ProvenanceMismatchReason =
-  | 'NOT_CONFIRMED'
-  | 'NOT_ON_CHAIN'
-  | 'OWNER_MISMATCH'
-  | 'METADATA_CHANGED'
-  | 'RECORD_MISMATCH'
+  'NOT_CONFIRMED' | 'NOT_ON_CHAIN' | 'OWNER_MISMATCH' | 'METADATA_CHANGED' | 'RECORD_MISMATCH'
 
 export interface AgentReview {
   reviewId: string
