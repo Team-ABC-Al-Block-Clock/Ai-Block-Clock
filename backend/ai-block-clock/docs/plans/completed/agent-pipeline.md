@@ -654,7 +654,7 @@ ABC 는 사용자끼리 주고받을 수 없는 이용권이다. 넘기는 API �
 | `REFUND` (되돌리기 · 환불) | `EXECUTION_ESCROW` | `ABC_BALANCE` 한 줄 | **같은 사람** |
 | `SETTLEMENT` | `EXECUTION_ESCROW` (실행한 사람) | `PAYOUT_BALANCE` 한 줄 이상 | 달라도 된다 — 쓴 값을 치르는 것이다 |
 | `WITHDRAWAL_HOLD` (출금 신청) | `PAYOUT_BALANCE` | `WITHDRAWAL_ESCROW` 한 줄 | **같은 사람** |
-| `WITHDRAWAL_RELEASE` (출금 취소 · 반려) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 2장 |
+| `WITHDRAWAL_RELEASE` (출금 취소 · 반려 · 지급 실패) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 2장 |
 | `PAYOUT_CONVERSION` (정산금 옮기기) | `PAYOUT_BALANCE` | `ABC_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 8장 |
 | `WITHDRAWAL_PAYOUT` (출금 지급 완료) | `WITHDRAWAL_ESCROW` | `ABC_ISSUANCE` (`SYSTEM`) 한 줄 | 장부 밖(체인)으로 나간다 — [abc-withdrawal.md](../../abc-withdrawal.md) 9.3 |
 

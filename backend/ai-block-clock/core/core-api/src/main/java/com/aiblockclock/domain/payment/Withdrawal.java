@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @Getter
@@ -82,7 +83,6 @@ public final class Withdrawal {
     public boolean isPaid() {
         return status == WithdrawalStatus.PAID;
     }
-
     // 심사를 기다리는 신청만 사용자가 거둘 수 있다. 승인된 뒤에는 지급이 진행 중이라 멈출 수 없다
     public void cancel() {
         checkRequested();
@@ -115,16 +115,43 @@ public final class Withdrawal {
         payoutTransaction = transaction;
     }
 
-    // 체인에서 성공을 확인한 뒤에만 끝낸다. 묶은 금액을 내보내는 장부 거래는 같은 트랜잭션에서 적는다
-    public void completePayout() {
+    // 보낸 뒤 이만큼 지나도 결과를 모르면 보류로 넘길 때다. 이미 보류면 다시 넘기지 않는다
+    public boolean isPayoutOverdue(Duration holdAfter, Instant now) {
+        return status == WithdrawalStatus.PAYING
+                && !now.isBefore(payoutSubmittedAt.plus(holdAfter));
+    }
+
+    // 결과를 모른 채 오래 지났다. 돈이 나갔을 수도 있어 금액은 풀지 않는다. 체인이 답하면 끝내거나 실패로 닫는다
+    public void holdPayout() {
         checkStatus(WithdrawalStatus.PAYING);
 
+        status = WithdrawalStatus.ON_HOLD;
+    }
+
+    // 체인에서 성공을 확인한 뒤에만 끝낸다. 보류 중에 늦게 성공이 보여도 끝낸다. 묶은 금액을 내보내는 장부 거래는 같은 트랜잭션에서 적는다
+    public void completePayout() {
+        checkPayoutSent();
+
         status = WithdrawalStatus.PAID;
+    }
+
+    // 체인이 전송을 되돌려 토큰이 나가지 않은 것이 확실할 때만 닫는다. 묶은 금액을 돌려놓는 장부 거래는 같은 트랜잭션에서 적는다
+    public void failPayout() {
+        checkPayoutSent();
+
+        status = WithdrawalStatus.FAILED;
     }
 
     // 취소와 심사는 모두 심사 대기에서만 한다. 한 번 닫히거나 승인된 신청은 되돌리지 않는다
     private void checkRequested() {
         checkStatus(WithdrawalStatus.REQUESTED);
+    }
+
+    // 체인에 거래를 보낸 뒤(지급 중 · 보류)에만 체인이 답한 결과로 닫는다
+    private void checkPayoutSent() {
+        if (status != WithdrawalStatus.PAYING && status != WithdrawalStatus.ON_HOLD) {
+            throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
+        }
     }
 
     private void checkStatus(WithdrawalStatus expected) {

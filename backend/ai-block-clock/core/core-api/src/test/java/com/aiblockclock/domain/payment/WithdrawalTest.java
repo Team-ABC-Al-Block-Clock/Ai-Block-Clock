@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -114,9 +115,10 @@ class WithdrawalTest {
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
     }
 
-    @Test
-    void 지급_중인_신청을_끝내면_지급_완료가_된다() {
-        Withdrawal withdrawal = saved(WithdrawalStatus.PAYING);
+    @ParameterizedTest
+    @EnumSource(value = WithdrawalStatus.class, names = {"PAYING", "ON_HOLD"})
+    void 체인에_보낸_신청은_성공하면_지급_완료가_된다(WithdrawalStatus status) {
+        Withdrawal withdrawal = saved(status);
 
         withdrawal.completePayout();
 
@@ -124,13 +126,70 @@ class WithdrawalTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = WithdrawalStatus.class, names = "PAYING", mode = EnumSource.Mode.EXCLUDE)
-    void 지급_중이_아닌_신청은_지급을_끝낼_수_없다(WithdrawalStatus status) {
+    @EnumSource(value = WithdrawalStatus.class, names = {"PAYING", "ON_HOLD"}, mode = EnumSource.Mode.EXCLUDE)
+    void 체인에_보내지_않은_신청은_지급을_끝낼_수_없다(WithdrawalStatus status) {
         Withdrawal withdrawal = saved(status);
 
         assertThatThrownBy(withdrawal::completePayout)
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = WithdrawalStatus.class, names = {"PAYING", "ON_HOLD"})
+    void 체인에_보낸_신청은_되돌려지면_실패로_닫힌다(WithdrawalStatus status) {
+        Withdrawal withdrawal = saved(status);
+
+        withdrawal.failPayout();
+
+        assertThat(withdrawal.getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = WithdrawalStatus.class, names = {"PAYING", "ON_HOLD"}, mode = EnumSource.Mode.EXCLUDE)
+    void 체인에_보내지_않은_신청은_실패로_닫을_수_없다(WithdrawalStatus status) {
+        Withdrawal withdrawal = saved(status);
+
+        assertThatThrownBy(withdrawal::failPayout)
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
+    }
+
+    @Test
+    void 지급_중인_신청은_보류로_넘길_수_있다() {
+        Withdrawal withdrawal = saved(WithdrawalStatus.PAYING);
+
+        withdrawal.holdPayout();
+
+        assertThat(withdrawal.getStatus()).isEqualTo(WithdrawalStatus.ON_HOLD);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = WithdrawalStatus.class, names = "PAYING", mode = EnumSource.Mode.EXCLUDE)
+    void 지급_중이_아닌_신청은_보류로_넘길_수_없다(WithdrawalStatus status) {
+        Withdrawal withdrawal = saved(status);
+
+        assertThatThrownBy(withdrawal::holdPayout)
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
+    }
+
+    @Test
+    void 보낸_뒤_보류_기준만큼_지나야_보류로_넘길_때다() {
+        Instant submittedAt = Instant.parse("2026-09-26T10:00:00Z");
+        Withdrawal withdrawal = sent(WithdrawalStatus.PAYING, submittedAt);
+        Duration holdAfter = Duration.ofMinutes(10);
+
+        assertThat(withdrawal.isPayoutOverdue(holdAfter, submittedAt.plus(Duration.ofMinutes(9)))).isFalse();
+        assertThat(withdrawal.isPayoutOverdue(holdAfter, submittedAt.plus(holdAfter))).isTrue();
+    }
+
+    @Test
+    void 이미_보류인_신청은_다시_보류로_넘길_때가_아니다() {
+        Instant submittedAt = Instant.parse("2026-09-26T10:00:00Z");
+        Withdrawal withdrawal = sent(WithdrawalStatus.ON_HOLD, submittedAt);
+
+        assertThat(withdrawal.isPayoutOverdue(Duration.ofMinutes(10), submittedAt.plus(Duration.ofHours(1)))).isFalse();
     }
 
     @Test
@@ -146,5 +205,11 @@ class WithdrawalTest {
         return Withdrawal.restore(31L, WithdrawalRequestId.of(UUID.randomUUID()), OWNER, AbcAmount.of(BigDecimal.TEN),
                 "0x1111111111111111111111111111111111111111", status, Instant.parse("2026-09-26T09:00:00Z"),
                 null, null, null, null, null, null);
+    }
+
+    private Withdrawal sent(WithdrawalStatus status, Instant submittedAt) {
+        return Withdrawal.restore(31L, WithdrawalRequestId.of(UUID.randomUUID()), OWNER, AbcAmount.of(BigDecimal.TEN),
+                "0x1111111111111111111111111111111111111111", status, Instant.parse("2026-09-26T09:00:00Z"),
+                ADMIN, Instant.parse("2026-09-26T09:30:00Z"), null, TRANSACTION, submittedAt, null);
     }
 }

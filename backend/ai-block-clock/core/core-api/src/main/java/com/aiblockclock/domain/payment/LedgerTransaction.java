@@ -231,8 +231,8 @@ public record LedgerTransaction(
         );
     }
 
-    // 지급하지 않고 닫힌 출금(사용자 취소 · 관리자 반려)은 묶은 금액을 정산금으로 돌려놓는다.
-    // 취소와 반려가 같은 키를 써서, 둘이 겹쳐도 한 신청에 한 번만 풀린다.
+    // 지급하지 않고 닫힌 출금(사용자 취소 · 관리자 반려 · 체인이 되돌린 지급)은 묶은 금액을 정산금으로 돌려놓는다.
+    // 셋이 같은 키를 써서, 겹쳐도 한 신청에 한 번만 풀린다.
     public static LedgerTransaction forWithdrawalRelease(
             Long withdrawalId,
             UserId owner,
