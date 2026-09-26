@@ -61,7 +61,7 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) { ... }
 | `:support:logging` | leaf | 프로파일별 logback 설정 | jar (리소스만) |
 | `:support:monitoring` | leaf | 액추에이터·메트릭 설정 | jar |
 | `:client` | wrapper | 외부 시스템 연동 모듈을 묶는다 | 없음 |
-| `:client:blockchain` | leaf | SSAFY 토큰증권 API · 체인 RPC 연동 (조회 전용) | jar |
+| `:client:blockchain` | leaf | SSAFY 토큰증권 API · 체인 RPC 연동 (조회 + 출금 전송 서명 · 보내기) | jar |
 | `:client:ai` | leaf | AI 파트 서비스 연동 (추천 엔진 · 실행 엔진) | jar |
 
 그룹·버전은 전 모듈 공통으로 `com.aiblockclock:0.0.1-SNAPSHOT` 이다.
@@ -245,25 +245,26 @@ spring:
 ### 3.6 `:client:blockchain`
 
 SSAFY 체인에 붙는 어댑터다. 패키지는 `com.aiblockclock.client.blockchain` 이고, **접속 설정을 이 모듈이 소유한다.**
-창구가 둘이다.
+창구가 둘이고, 서명은 따로 한 곳에서 한다.
 
-| 창구 | 클래스 | 무엇을 읽나 |
+| 창구 | 클래스 | 무엇을 하나 |
 | --- | --- | --- |
-| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoClient` | 토큰 정보 · 잔액 · 총공급량 · 민터 권한 · 발행 가능 상태 |
-| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoDocumentClient` | 에이전트 등기부 토큰의 문서 칸 쓰기 · 읽기 ([agent-provenance.md](agent-provenance.md)) |
-| 체인 노드 JSON-RPC (`rpc.ssafy-blockchain.com`) | `SsafyChainClient` | 거래 해시 하나의 상태 · 블록 번호 · 토큰 전송 로그. 토큰증권 API 에 없어서 따로 둔다 ([abc-charge.md](abc-charge.md) 2장) |
+| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoClient` | 토큰 정보 · 잔액 · 총공급량 · 민터 권한 · 발행 가능 상태를 읽는다 |
+| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoDocumentClient` | 에이전트 등기부 토큰의 문서 칸을 등기부 지갑으로 서명해 쓰고 읽는다 ([agent-provenance.md](agent-provenance.md)) |
+| 체인 노드 JSON-RPC (`rpc.ssafy-blockchain.com`) | `SsafyChainClient` | 거래 해시 하나의 상태 · 블록 번호 · 토큰 전송 로그를 읽는다(토큰증권 API 에 없어서 따로 둔다, [abc-charge.md](abc-charge.md) 2장). 출금 지급에 쓸 다음 거래 번호 · 가스를 재고, 서명된 거래를 보낸다 |
+| (네트워크 없음) | `SsafyChainSigner` | 보관 지갑 키(`ssafy.chain.signer.private-key`)로 abcToken `transfer` 에 서명한다. 키는 이 클래스 밖으로 나가지 않는다 ([abc-withdrawal.md](abc-withdrawal.md) 9장) |
 
 ```
 client/blockchain/src/main/resources/
-└── blockchain.yml            토큰증권 API 주소 · 체인 RPC 주소 · 제한 시간 · 컨트랙트 주소 · 등기부 주소 · 키
+└── blockchain.yml            토큰증권 API 주소 · 체인 RPC 주소 · 제한 시간 · 컨트랙트 주소 · 등기부 주소 · 서명 키(환경 변수)
 ```
 
-- **쓰는 것은 에이전트 등기부의 문서 칸 하나뿐이다.** 토큰 배포 · 발행처럼 되돌릴 수 없고 한 번만 하는 쓰기는
-  애플리케이션에 두지 않는다 (1.1 의 `scripts/`). 문서 쓰기는 공개할 때마다 일어나고, 같은 값을 다시 적어도
-  달라지는 것이 없어 애플리케이션이 맡는다. 등기부 지갑의 개인키로 서명하며, 키는 서버에만 둔다
+- **체인에 쓰는 일은 둘이다.** 출금 지급은 보관 지갑이 서명한 전송을 보내고, 에이전트 원본 기록은 등기부 지갑이
+  서명한 문서 쓰기를 토큰증권 API 로 보낸다. 문서 쓰기는 공개할 때마다 일어나고 같은 값을 다시 적어도 달라지는 것이
+  없다. 배포 · 발행처럼 권한 키가 필요하고 한 번만 하는 쓰기는 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
 - **예외는 `BlockchainClientException` 하나다.** 사유는 `BlockchainClientError` 로 가른다
-  (`INVALID_ADDRESS` · `INVALID_TRANSACTION_HASH` · `INVALID_DOCUMENT` · `INVALID_CONFIGURATION` ·
-  `MALFORMED_RESPONSE` · `TRANSACTION_REVERTED` · `REQUEST_FAILED`).
+  (`INVALID_ADDRESS` · `INVALID_TRANSACTION_HASH` · `INVALID_DOCUMENT` · `INVALID_TRANSACTION` · `INVALID_AMOUNT` ·
+  `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `TRANSACTION_REVERTED` · `REQUEST_FAILED`).
   `REQUEST_FAILED` 만 체인 결과를 알 수 없는 상황이고, 나머지는 실패가 확인된 상황이다.
   `core-api` 는 `CoreException` 을 이 모듈에 내릴 수 없으므로(2.3 규칙 1) 호출 경계에서 변환한다 (RULE.md 7.1)
 - **체인 RPC 는 web3j(`org.web3j:core`)의 HTTP 연결만 쓴다.** JSON-RPC 요청·응답 모양과 이벤트 서명 계산을
@@ -370,7 +371,9 @@ spring:
 | `SSAFY_TOKEN_CONTRACT_ADDRESS` | 전체 | abcToken `0x56DC…C63c` (충전 대조에도 쓴다. 비우면 기동하지 않는다) |
 | `SSAFY_CHAIN_RPC_URL` | 전체 | `https://rpc.ssafy-blockchain.com` |
 | `SSAFY_CHAIN_CONNECT_TIMEOUT`, `SSAFY_CHAIN_READ_TIMEOUT` | 전체 | 3s / 10s |
+| `SSAFY_CHAIN_SIGNER_PRIVATE_KEY` | 전체 | 비어 있음 (출금 지급을 켜는 운영 서버의 `backend.env` 에만, [abc-withdrawal.md](abc-withdrawal.md) 9.4) |
 | `PAYMENT_CHARGE_*` | 전체 | [abc-charge.md](abc-charge.md) 4장 |
+| `PAYMENT_WITHDRAWAL_*` | 전체 | [abc-withdrawal.md](abc-withdrawal.md) 5장 |
 | `WALLET_AUTH_CHAIN_ID` | 전체 | 31221 (SSAFY 체인) |
 | `AI_RECOMMEND_BASE_URL` | 전체 | `http://ai-block-clock-recommend:8100` |
 | `AI_RECOMMEND_CONNECT_TIMEOUT`, `AI_RECOMMEND_READ_TIMEOUT` | 전체 | 2s / 5s |

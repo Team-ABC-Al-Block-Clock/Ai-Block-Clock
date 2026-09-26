@@ -15,6 +15,7 @@ import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Event;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.protocol.Web3j;
+import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.Request;
 import org.web3j.protocol.core.Response;
 import org.web3j.protocol.core.methods.response.Log;
@@ -22,7 +23,8 @@ import org.web3j.protocol.core.methods.response.Transaction;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.utils.Numeric;
 
-// SSAFY 체인 노드에 JSON-RPC 로 묻는다. 읽기만 하고 거래를 보내지 않는다.
+// SSAFY 체인 노드에 JSON-RPC 로 묻는다. 거래를 읽고, 이미 서명된 거래(SsafyChainSigner)를 보낸다.
+// 서명은 하지 않는다 — 키를 쥐는 곳을 한 군데로 둔다.
 @Component
 @RequiredArgsConstructor
 public class SsafyChainClient {
@@ -38,6 +40,7 @@ public class SsafyChainClient {
     // 이벤트 서명 + 보낸 주소 + 받은 주소. 수량은 인덱싱되지 않아 data 에 있다
     private static final int TRANSFER_TOPIC_COUNT = 3;
     private static final Pattern TRANSACTION_HASH_PATTERN = Pattern.compile("^0x[0-9a-fA-F]{64}$");
+    private static final Pattern RAW_TRANSACTION_PATTERN = Pattern.compile("^0x([0-9a-fA-F]{2})+$");
 
     private final Web3j ssafyChainWeb3j;
 
@@ -72,6 +75,42 @@ public class SsafyChainClient {
                 latestBlockNumber,
                 tokenTransfersOf(receipt.get())
         );
+    }
+
+    // 아직 블록에 적히지 않은 거래까지 센 다음 거래 번호다. 보낸 거래가 블록에 오르기 전에 다음 것을 서명해도 번호가 겹치지 않는다
+    public BigInteger readPendingNonce(String address) {
+        SsafyBlockchainAddress.requireValid(address, "address");
+
+        return send(ssafyChainWeb3j.ethGetTransactionCount(address, DefaultBlockParameterName.PENDING), "nonce")
+                .getTransactionCount();
+    }
+
+    // 보낼 transfer 가 쓸 가스를 노드가 지금 상태로 실행해 잰다. 보내는 쪽 잔액이 모자라면 되돌려져 오류로 온다
+    public BigInteger estimateTokenTransferGas(
+            String fromAddress,
+            String tokenContractAddress,
+            String toAddress,
+            BigInteger rawAmount
+    ) {
+        SsafyBlockchainAddress.requireValid(fromAddress, "fromAddress");
+        SsafyBlockchainAddress.requireValid(tokenContractAddress, "tokenContractAddress");
+
+        // 응답 쪽 Transaction 과 이름이 같아 요청 쪽은 전체 이름으로 쓴다
+        var call = org.web3j.protocol.core.methods.request.Transaction.createEthCallTransaction(
+                fromAddress, tokenContractAddress, TokenTransferCall.encode(toAddress, rawAmount));
+
+        return send(ssafyChainWeb3j.ethEstimateGas(call), "gas estimate").getAmountUsed();
+    }
+
+    // 서명된 거래를 노드에 넘긴다. 답을 받지 못해도(REQUEST_FAILED) 거래가 퍼졌을 수 있어, 부르는 쪽은 해시로 결과를 다시 본다.
+    // 이미 받은 거래를 다시 넘기면 노드가 오류로 답하지만 같은 거래라 두 번 처리되지 않는다
+    public void submitRawTransaction(String rawTransaction) {
+        if (rawTransaction == null || !RAW_TRANSACTION_PATTERN.matcher(rawTransaction).matches()) {
+            throw new BlockchainClientException(BlockchainClientError.INVALID_TRANSACTION,
+                    "rawTransaction must be 0x-prefixed hex");
+        }
+
+        send(ssafyChainWeb3j.ethSendRawTransaction(rawTransaction), "raw transaction");
     }
 
     // 노드에 닿지 못했거나 노드가 오류로 답한 것은 체인 결과를 알 수 없는 상황이다. 실패로 단정하지 않는다.

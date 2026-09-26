@@ -1,7 +1,8 @@
 package com.aiblockclock.enums.node;
 
 public enum AiModel {
-    GEMINI_2_5_FLASH("gemini-2.5-flash");
+    GEMINI_2_5_FLASH("gemini-2.5-flash"),
+    GEMINI_2_5_PRO("gemini-2.5-pro");
 
     private final String key;
 

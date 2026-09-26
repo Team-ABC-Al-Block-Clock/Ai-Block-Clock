@@ -5,6 +5,7 @@ import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
+import com.aiblockclock.enums.payment.WithdrawalStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Test;
@@ -187,6 +188,158 @@ class LedgerTransactionTest {
                 UUID.randomUUID(), UserId.of(7L), Map.of()))
                 .isInstanceOfSatisfying(CoreException.class, exception ->
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.LEDGER_INVALID_TRANSACTION));
+    }
+
+    @Test
+    void 출금_신청은_정산금에서_출금_예치로_옮겨_묶고_신청마다_키가_하나다() {
+        LedgerTransaction hold = LedgerTransaction.forWithdrawalHold(
+                31L, UserId.of(7L), AbcAmount.of(new BigDecimal("12.5")));
+
+        assertThat(hold.eventType()).isEqualTo(LedgerEventType.WITHDRAWAL_HOLD);
+        assertThat(hold.idempotencyKey()).isEqualTo("withdrawal-hold:31");
+        assertThat(hold.referenceType()).isEqualTo("WITHDRAWAL");
+        assertThat(hold.referenceId()).isEqualTo("31");
+        assertThat(hold.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("-12.500000")),
+                        tuple(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("12.500000")));
+        assertThat(hold.isBalanced()).isTrue();
+    }
+
+    @Test
+    void 출금_풀기는_출금_예치를_정산금으로_돌리고_묶기와_다른_키를_쓴다() {
+        LedgerTransaction release = LedgerTransaction.forWithdrawalRelease(
+                31L, UserId.of(7L), AbcAmount.of(new BigDecimal("12.5")));
+
+        assertThat(release.eventType()).isEqualTo(LedgerEventType.WITHDRAWAL_RELEASE);
+        assertThat(release.idempotencyKey()).isEqualTo("withdrawal-release:31");
+        assertThat(release.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-12.500000")),
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("12.500000")));
+        assertThat(release.isBalanced()).isTrue();
+    }
+
+    @Test
+    void 출금_신청으로_다른_사용자의_출금_예치에_묶을_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_HOLD,
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 출금_풀기로_다른_사용자의_정산금에_돌려놓을_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_RELEASE,
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 출금_풀기로_쓸_수_있는_잔액에_넣을_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_RELEASE,
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 출금_신청은_쓸_수_있는_잔액을_묶을_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_HOLD,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 출금_지급은_출금_예치를_발행_계정으로_돌리고_체인_거래를_함께_적는다() {
+        String hash = "0x" + "b".repeat(64);
+        Withdrawal paid = Withdrawal.restore(31L, WithdrawalRequestId.of(UUID.randomUUID()), UserId.of(7L),
+                AbcAmount.of(new BigDecimal("12.5")), "0x1111111111111111111111111111111111111111",
+                WithdrawalStatus.PAID, null, null, null, null, new PayoutTransaction(hash, "0xf86c"), null, null);
+
+        LedgerTransaction payout = LedgerTransaction.forWithdrawalPayout(paid, 31221L);
+
+        assertThat(payout.eventType()).isEqualTo(LedgerEventType.WITHDRAWAL_PAYOUT);
+        assertThat(payout.idempotencyKey()).isEqualTo("withdrawal-payout:31");
+        assertThat(payout.referenceType()).isEqualTo("WITHDRAWAL");
+        assertThat(payout.referenceId()).isEqualTo("31");
+        assertThat(payout.chainId()).isEqualTo(31221L);
+        assertThat(payout.transactionHash()).isEqualTo(hash);
+        assertThat(payout.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-12.500000")),
+                        tuple(LedgerAccountType.ABC_ISSUANCE, "SYSTEM", new BigDecimal("12.500000")));
+        assertThat(payout.isBalanced()).isTrue();
+    }
+
+    @Test
+    void 출금_지급으로_다른_사용자의_잔액에_넣을_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_PAYOUT,
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 출금_지급은_묶지_않은_정산금을_내보낼_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_PAYOUT,
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_ISSUANCE, "SYSTEM", new BigDecimal("10")));
+    }
+
+    @Test
+    void 출금_지급은_시스템이_아닌_발행_계정으로_보낼_수_없다() {
+        assertRejected(LedgerEventType.WITHDRAWAL_PAYOUT,
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_ISSUANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 정산금_옮기기는_정산금을_같은_사람의_쓸_수_있는_잔액으로_옮기고_사용자와_요청_번호마다_키가_하나다() {
+        UUID requestId = UUID.fromString("5d2c8a1e-7b3f-4e6a-9c10-2f4e6a8b0c12");
+
+        LedgerTransaction conversion = LedgerTransaction.forPayoutConversion(
+                UserId.of(7L), PayoutConversionRequestId.of(requestId), AbcAmount.of(new BigDecimal("2.5")));
+
+        assertThat(conversion.eventType()).isEqualTo(LedgerEventType.PAYOUT_CONVERSION);
+        assertThat(conversion.idempotencyKey()).isEqualTo("payout-conversion:7:" + requestId);
+        assertThat(conversion.referenceType()).isEqualTo("PAYOUT_CONVERSION");
+        assertThat(conversion.referenceId()).isEqualTo(requestId.toString());
+        assertThat(conversion.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("-2.500000")),
+                        tuple(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("2.500000")));
+        assertThat(conversion.isBalanced()).isTrue();
+    }
+
+    @Test
+    void 같은_요청_번호라도_사용자가_다르면_옮기기_키가_다르다() {
+        PayoutConversionRequestId requestId = PayoutConversionRequestId.of(UUID.randomUUID());
+
+        assertThat(LedgerTransaction.payoutConversionKeyOf(UserId.of(7L), requestId))
+                .isNotEqualTo(LedgerTransaction.payoutConversionKeyOf(UserId.of(8L), requestId));
+    }
+
+    @Test
+    void 정산금_옮기기로_다른_사용자의_잔액에_넣을_수_없다() {
+        assertRejected(LedgerEventType.PAYOUT_CONVERSION,
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 방향이_뒤집힌_정산금_옮기기는_만들_수_없다() {
+        assertRejected(LedgerEventType.PAYOUT_CONVERSION,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 정산금_옮기기로_출금_예치를_꺼낼_수_없다() {
+        assertRejected(LedgerEventType.PAYOUT_CONVERSION,
+                new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("10")));
     }
 
     @ParameterizedTest

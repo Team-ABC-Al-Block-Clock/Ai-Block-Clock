@@ -45,7 +45,8 @@ public class CatalogNodeSourceResolver implements NodeSourceResolver {
 
     private UUID create(UserId requester, NodeDraft draft) {
         Prompt prompt = Prompt.of(draft.prompt());
-        NodeSpec spec = specAssembler.assemble(draft.name(), draft.model());
+        NodeSpec spec = specAssembler.assemble(draft.name(), draft.model(),
+                new NodeOutput(draft.outputKind(), draft.outputExample()));
 
         return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt))
                 .getId().value();

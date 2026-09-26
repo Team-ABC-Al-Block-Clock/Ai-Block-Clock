@@ -1,17 +1,19 @@
 package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeKey;
+import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
 
 import java.util.List;
 
 public record NodeUnit(
-        InputSource inputSource, UserId owner, String name, Prompt prompt, List<RefFile> refFiles,
-        AbcAmount baseCost)
+        InputSource inputSource, UserId owner, String name, Prompt prompt, AiModel model, NodeOutput output,
+        List<RefFile> refFiles, AbcAmount baseCost)
         implements ExecutionUnit {
     public NodeUnit {
         refFiles = List.copyOf(refFiles);
@@ -19,6 +21,7 @@ public record NodeUnit(
 
     @Override
     public List<PlannedPrompt> flatten(NodeKey placedKey) {
-        return List.of(new PlannedPrompt(placedKey, name, owner, prompt, inputSource, refFiles, baseCost));
+        return List.of(new PlannedPrompt(placedKey, name, owner, prompt, model, output, inputSource,
+                refFiles, baseCost));
     }
 }
