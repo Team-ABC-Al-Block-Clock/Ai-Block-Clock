@@ -215,7 +215,10 @@ public enum ErrorType {
             "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN),
 
     ABC_BALANCE_INSUFFICIENT(HttpStatus.PAYMENT_REQUIRED, ErrorCode.PAYMENT_008,
-            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN);
+            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN),
+
+    CHARGE_SENDER_IS_CUSTODY(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_009,
+            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;
