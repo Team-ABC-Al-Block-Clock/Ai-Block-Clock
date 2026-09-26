@@ -325,7 +325,7 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     @Test
-    void 플랫폼_탓으로_실패하면_성공한_단계까지_전부_돌려준다() {
+    void 플랫폼_탓으로_실패하면_사용자에게는_성공한_단계까지_전부_돌려준다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
@@ -534,18 +534,26 @@ class ExecutionReservationManagerIntegrationTest {
         assertBalancesMatchEntries();
     }
 
+    // 사용자는 떼어 둔 6 을 모두 돌려받고, 앞서 성공한 n1 의 판매자는 단가 3 을 받는다. 그 3 은 플랫폼 부담 계정이 낸다.
     @Test
-    void 플랫폼_탓으로_실패하면_판매자에게도_주지_않는다() {
+    void 플랫폼_탓으로_실패해도_앞서_성공한_판매자는_제_단가를_플랫폼에게서_받는다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
         finish(reserved, run("failed", failure("platform"),
                 soldStep("n1", "succeeded", "0.5", SELLER), soldStep("n2", "failed", "0.3", OTHER_SELLER)));
 
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isZero();
-        assertThat(executionSettlementRepository.count()).isZero();
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("3");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, OTHER_SELLER)).isZero();
+        assertThat(platformExpense()).isEqualByComparingTo("-3");
+        assertThat(executionSettlementRepository.findAll())
+                .extracting(ExecutionSettlementEntity::getStepId, ExecutionSettlementEntity::getSupplierId)
+                .containsExactly(tuple("n1", SELLER.value()));
         assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-settlement:" + reserved.getId().value()))
-                .isEmpty();
+                .get().extracting(LedgerTransactionEntity::getEventType).isEqualTo(LedgerEventType.SETTLEMENT);
+        assertBalancesMatchEntries();
     }
 
     @Test
@@ -796,6 +804,12 @@ class ExecutionReservationManagerIntegrationTest {
 
     private BigDecimal balanceOf(LedgerAccountType accountType) {
         return balanceOf(accountType, OWNER);
+    }
+
+    private BigDecimal platformExpense() {
+        return ledgerAccountRepository.findByAccountTypeAndReferenceId(LedgerAccountType.PLATFORM_EXPENSE, "PLATFORM")
+                .map(LedgerAccountEntity::getBalance)
+                .orElse(BigDecimal.ZERO);
     }
 
     private BigDecimal balanceOf(LedgerAccountType accountType, UserId user) {

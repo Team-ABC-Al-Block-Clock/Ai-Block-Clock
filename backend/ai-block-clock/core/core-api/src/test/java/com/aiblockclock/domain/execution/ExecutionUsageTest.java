@@ -62,7 +62,7 @@ class ExecutionUsageTest {
     }
 
     @Test
-    void 플랫폼_탓이면_성공한_단계까지_전부_돌려준다() {
+    void 플랫폼_탓이면_사용자에게는_성공한_단계까지_전부_돌려준다() {
         ExecutionUsage usage = usage(run(failure("platform"), step("n1", "succeeded"), step("n2", "failed")));
 
         assertThat(usage.used()).isZero();
@@ -95,11 +95,13 @@ class ExecutionUsageTest {
     }
 
     @Test
-    void 책임을_알_수_없는_실패는_플랫폼_탓으로_보고_전부_돌려준다() {
+    void 책임을_알_수_없는_실패는_플랫폼_탓으로_보고_사용자에게_전부_돌려주되_앞선_단계는_플랫폼이_준다() {
         ExecutionUsage usage = usage(run(failure(null), step("n1", "succeeded"), step("n2", "failed")));
 
         assertThat(usage.used()).isZero();
         assertThat(usage.refund()).isEqualByComparingTo("6");
+        assertThat(usage.coveredByPlatform()).isTrue();
+        assertThat(usage.settlements()).extracting(ExecutionSettlement::stepId).containsExactly("n1");
     }
 
     @Test
@@ -159,12 +161,38 @@ class ExecutionUsageTest {
         assertBalanced(usage);
     }
 
+    // 사용자는 6 을 모두 돌려받고, 성공한 n1 · n3 의 주인은 제 단가 2 · 3 을 받는다. 그 5 는 플랫폼이 낸다.
     @Test
-    void 플랫폼_탓이면_공급자에게도_주지_않는다() {
-        ExecutionUsage usage = usage(run(failure("platform"), step("n1", "succeeded"), step("n2", "failed")));
+    void 플랫폼_탓이면_앞서_성공한_단계의_주인은_제_단가를_플랫폼에게서_받는다() {
+        ExecutionUsage usage = usage(run(failure("platform"),
+                owned("n1", "succeeded", "7001", null),
+                owned("n3", "succeeded", "7002", null),
+                owned("n2", "failed", "7002", null)));
 
-        assertThat(usage.settlements()).isEmpty();
+        assertThat(usage.coveredByPlatform()).isTrue();
+        assertThat(usage.used()).isZero();
+        assertThat(usage.refund()).isEqualByComparingTo("6");
+        assertThat(usage.settlements())
+                .extracting(ExecutionSettlement::stepId, ExecutionSettlement::supplier,
+                        settlement -> settlement.amount().value())
+                .containsExactly(
+                        tuple("n1", SUPPLIER, new BigDecimal("2.000000")),
+                        tuple("n3", OTHER_SUPPLIER, new BigDecimal("3.000000")));
+    }
+
+    @Test
+    void 플랫폼_탓이어도_성공한_단계가_없으면_줄_것이_없다() {
+        ExecutionUsage usage = usage(run(failure("platform"), step("n1", "failed")));
+
         assertThat(usage.hasSettlement()).isFalse();
+        assertThat(usage.refund()).isEqualByComparingTo("6");
+    }
+
+    @Test
+    void 사용자가_쓴_만큼에서_주는_실행은_플랫폼이_내지_않는다() {
+        ExecutionUsage usage = usage(run(failure("supplier"), step("n1", "succeeded"), step("n2", "failed")));
+
+        assertThat(usage.coveredByPlatform()).isFalse();
         assertBalanced(usage);
     }
 

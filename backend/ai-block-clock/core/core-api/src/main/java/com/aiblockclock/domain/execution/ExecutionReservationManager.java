@@ -84,8 +84,16 @@ public class ExecutionReservationManager {
 
         if (usage.hasSettlement()) {
             executionWriter.appendSettlements(id, usage.settlements());
-            ledgerTransactionWriter.append(LedgerTransaction.forExecutionSettlement(
-                    id.value(), execution.getRequester(), usage.payouts()));
+            ledgerTransactionWriter.append(settlementOf(id, execution, usage));
         }
+    }
+
+    // 정산금은 보통 사용자의 예치에서 나가고, 플랫폼 탓으로 실패한 실행은 플랫폼이 대신 낸다.
+    private static LedgerTransaction settlementOf(ExecutionId id, Execution execution, ExecutionUsage usage) {
+        if (usage.coveredByPlatform()) {
+            return LedgerTransaction.forPlatformCoveredSettlement(id.value(), usage.payouts());
+        }
+
+        return LedgerTransaction.forExecutionSettlement(id.value(), execution.getRequester(), usage.payouts());
     }
 }
