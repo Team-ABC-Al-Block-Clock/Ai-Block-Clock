@@ -121,11 +121,7 @@ describe('describeRunFileProblem', () => {
   })
 })
 
-/**
- * 접수는 폼 조립까지만 확인한다. jsdom 의 `FormData` 는 undici 의 것과 달라 요청에 실리지
- * 못하고 `[object FormData]` 라는 문자열로 나간다 — 핸들러까지 가지 못하는 것은 환경 탓이라
- * 여기서 흉내 내 봐야 서로 다른 것을 검사하게 된다. 접수 경로 자체는 브라우저에서 확인한다.
- */
+/** 여기서는 폼 조립까지만 본다. 요청에 실려 가는지는 executions.multipart.node.test.ts 가 본다. */
 describe('startExecution', () => {
   const sentForm = async (input: Parameters<typeof startExecution>[0]) => {
     const post = vi.spyOn(client, 'post').mockResolvedValue({} as never)
