@@ -89,6 +89,18 @@ class ExecutionUsageTest {
         assertThat(usage.hasSettlement()).isFalse();
     }
 
+    // 엔진이 mock 칸을 빠뜨리거나 false 로 보내도, 접수할 때 mock 으로 적었으면 가짜 결과물에 값을 받지 않는다.
+    @Test
+    void 접수할_때_mock_으로_적은_실행은_엔진이_mock_을_알리지_않아도_전부_돌려준다() {
+        RunStatus reportedAsReal = run(null, step("n1", "succeeded"), step("n2", "succeeded"));
+
+        ExecutionUsage usage = ExecutionUsage.of(RESERVED, reportedAsReal, null, PRICES, true);
+
+        assertThat(usage.used()).isZero();
+        assertThat(usage.refund()).isEqualByComparingTo("6");
+        assertThat(usage.hasSettlement()).isFalse();
+    }
+
     @Test
     void 단가를_남기지_않은_단계는_받지_않는다() {
         ExecutionUsage usage = usage(run(null, step("n1", "succeeded"), step("n9", "succeeded")));
@@ -142,7 +154,7 @@ class ExecutionUsageTest {
         StepPrices prices = prices("n1", "0.333334", "n2", "0.666667");
 
         ExecutionUsage usage = ExecutionUsage.of(AbcAmount.of(BigDecimal.ONE), run(null,
-                owned("n1", "succeeded", "7001", null), owned("n2", "succeeded", "7002", null)), null, prices);
+                owned("n1", "succeeded", "7001", null), owned("n2", "succeeded", "7002", null)), null, prices, false);
 
         assertThat(usage.used()).isEqualByComparingTo("1");
         assertThat(usage.refund()).isZero();
@@ -252,7 +264,7 @@ class ExecutionUsageTest {
     private static ExecutionUsage usage(RunStatus run) {
         boolean failed = run == null || !run.isSucceeded();
 
-        return ExecutionUsage.of(RESERVED, run, failed ? ExecutionFailure.judge(run) : null, PRICES);
+        return ExecutionUsage.of(RESERVED, run, failed ? ExecutionFailure.judge(run) : null, PRICES, false);
     }
 
     private static StepPrices prices(String... stepAndPrice) {

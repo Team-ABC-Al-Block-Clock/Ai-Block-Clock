@@ -103,7 +103,7 @@ class SettlementQueryServiceIntegrationTest {
 
     private Execution requested() {
         return Execution.requested(ExecutionId.newId(), ExecutionRequestId.of(UUID.randomUUID()),
-                workflow.getId(), BUYER, 2, null);
+                workflow.getId(), BUYER, 2, null, false);
     }
 
     private static RunStatus run(RunStatus.Node... steps) {

@@ -791,7 +791,7 @@ AI 파트가 09-25 에 계약을 v2.0 으로 올렸다(MR !108, `ai/docs/integra
 | 요청 종류 | 없음 | `mode` — `run` 또는 `test` | `RunRequest` · `RunMode` |
 | 청구 | 성공한 단계의 실측 × 배율 | **성공한 단계마다 접수할 때 정한 단가(원가 × 배율)** | `StepPrices` · `ExecutionUsage` · V29 |
 | 플랫폼 탓 실패 | 전부 환불, 정산 없음 | **사용자에게 전부 환불 + 앞서 성공한 판매자 정산 유지. 판매자 몫은 플랫폼 부담** | `LedgerAccountType.PLATFORM_EXPENSE` |
-| mock | 실측 0 이라 결과적으로 전부 환불 | 응답의 `mock` 을 보고 전부 환불 | `ExecutionUsage` |
+| mock | 실측 0 이라 결과적으로 전부 환불 | **접수할 때 `execution.mock` 에 적은 값(V32)** 으로 전부 환불하고 등급 재료로도 세지 않는다. 엔진이 알린 `mock` 도 함께 본다 | `Execution` · `ExecutionUsage` |
 | 노드 원가 | 3 ABC 고정 | 테스트 실행 중앙값 × 1.5, 없으면 0.0135 ABC. 3 ABC 는 V30 으로 바로잡음 | `BaseCostCalculator` · V30 |
 | 폴링 기한 | 단계당 40초 + 60초 | 단계당 60초 + 60초 (기본 모델 gemini-2.5-pro) | `application.yaml` |
 

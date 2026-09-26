@@ -68,15 +68,19 @@ public class ExecutionReservationManager {
         }
 
         Execution execution = closed.get();
-        AgentRunOutcomes outcomes = AgentRunOutcomes.of(run, failure, execution.getRequester());
-        agentGradeMetricWriter.countRuns(outcomes.succeeded(), outcomes.failed());
+
+        // mock 실행은 모델을 부르지 않아 성공도 실패도 판매자의 것이 아니다. 등급 재료로 세지 않는다.
+        if (!execution.isMock()) {
+            AgentRunOutcomes outcomes = AgentRunOutcomes.of(run, failure, execution.getRequester());
+            agentGradeMetricWriter.countRuns(outcomes.succeeded(), outcomes.failed());
+        }
 
         if (!execution.isReserved()) {
             return;
         }
 
         ExecutionUsage usage = ExecutionUsage.of(
-                execution.getReserved(), run, failure, executionReader.readStepPrices(id));
+                execution.getReserved(), run, failure, executionReader.readStepPrices(id), execution.isMock());
 
         if (usage.hasRefund()) {
             ledgerTransactionWriter.append(LedgerTransaction.forExecutionRefund(

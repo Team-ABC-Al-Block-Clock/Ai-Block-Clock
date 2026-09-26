@@ -32,13 +32,15 @@ public record ExecutionUsage(BigDecimal used, BigDecimal refund, List<ExecutionS
         settlements = List.copyOf(settlements);
     }
 
-    // failure 는 실패한 실행의 책임 판정이다. 성공한 실행은 비어 있다.
-    public static ExecutionUsage of(AbcAmount reserved, RunStatus run, ExecutionFailure failure, StepPrices prices) {
+    // failure 는 실패한 실행의 책임 판정이다. 성공한 실행은 비어 있다. mock 은 접수할 때 적은 값이다.
+    public static ExecutionUsage of(AbcAmount reserved, RunStatus run, ExecutionFailure failure, StepPrices prices,
+                                    boolean mock) {
         BigDecimal held = reserved.value();
 
         // 엔진이 기한 안에 끝을 알리지 않아 우리가 끊은 실행(run 이 비어 있음)은 어느 단계가 성공했는지 모른다.
-        // mock 은 모델을 부르지 않아 결과물이 가짜다. 둘 다 받을 것도 줄 것도 없어 모두 돌려준다.
-        if (run == null || run.isMock()) {
+        // mock 은 모델을 부르지 않아 결과물이 가짜다. 접수할 때 적은 값으로 보고, 엔진도 mock 이라 알리면 함께 믿는다.
+        // 둘 다 받을 것도 줄 것도 없어 모두 돌려준다.
+        if (run == null || mock || run.isMock()) {
             return nothingUsed(held);
         }
 

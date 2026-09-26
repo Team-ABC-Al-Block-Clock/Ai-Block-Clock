@@ -773,6 +773,39 @@ class ExecutionReservationManagerIntegrationTest {
                 .isEmpty();
     }
 
+    // 엔진이 mock 칸을 빠뜨려도 접수할 때 적은 값으로 판정한다. 원가가 잰 값처럼 와도 받지 않는다.
+    @Test
+    void 접수할_때_mock_으로_적은_실행은_엔진이_알리지_않아도_전부_돌려주고_정산하지_않는다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(mockRequested(), workflow, plan);
+
+        finish(reserved, run("succeeded", null,
+                soldStep("n1", "succeeded", "0.004", SELLER), soldStep("n2", "succeeded", "0.004", SELLER)));
+
+        assertThat(entityOf(reserved).isMock()).isTrue();
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isZero();
+        assertThat(executionSettlementRepository.count()).isZero();
+        assertBalancesMatchEntries();
+    }
+
+    // mock 은 모델을 부르지 않아 성공도 실패도 판매자의 것이 아니다. 공급자 탓 실패로 세면 등급이 억울하게 내려간다.
+    @Test
+    void mock_실행은_성공도_공급자_탓_실패도_등급_재료로_세지_않는다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(mockRequested(), workflow, plan);
+
+        finish(reserved, run("failed", new RunStatus.Failure("n2", "MODEL_TIMEOUT", "supplier", true),
+                agentStep("n1", "succeeded", "0.004", SELLER, AgentId.newId()),
+                agentStep("n2", "failed", "0.001", OTHER_SELLER, AgentId.newId())));
+
+        assertThat(agentGradeMetricRepository.count()).isZero();
+    }
+
+    private Execution mockRequested() {
+        return Execution.requested(ExecutionId.newId(), newRequestId(), workflow.getId(), OWNER, 2, null, true);
+    }
+
     private enum Outcome { DONE, INSUFFICIENT, ALREADY_REQUESTED }
 
     private List<Outcome> runConcurrently(List<Callable<?>> tasks) throws Exception {
@@ -820,7 +853,7 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     private Execution requested(ExecutionRequestId requestId) {
-        return Execution.requested(ExecutionId.newId(), requestId, workflow.getId(), OWNER, 2, null);
+        return Execution.requested(ExecutionId.newId(), requestId, workflow.getId(), OWNER, 2, null, false);
     }
 
     private static ExecutionRequestId newRequestId() {

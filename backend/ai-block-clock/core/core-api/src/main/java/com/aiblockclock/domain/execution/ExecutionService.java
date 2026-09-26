@@ -65,7 +65,7 @@ public class ExecutionService {
         try {
             RunRequest runRequest = runRequestOf(RuntimeWorkflow.of(workflow, plan), inputFile, comment, mock);
             Execution requested = Execution.requested(
-                    id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
+                    id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile, mock);
             Execution reserved = executionReservationManager.reserve(requested, workflow, plan);
 
             return ExecutionStart.newlyCreated(dispatch(reserved, runRequest));

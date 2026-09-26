@@ -149,7 +149,7 @@ class ExecutionMonitorTest {
     private static Execution execution() {
         return Execution.restore(ExecutionId.of(ID), ExecutionRequestId.of(UUID.randomUUID()),
                 WorkflowId.of(UUID.randomUUID()), UserId.of(1L),
-                RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2, null, null);
+                RunId.of("20260919-1"), ExecutionStatus.QUEUED, 2, null, false, null);
     }
 
     private static RunStatus running(int done) {

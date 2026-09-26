@@ -566,6 +566,7 @@ class ExecutionControllerTest {
 
         executionService.pollOnce(ExecutionId.of(executionId));
 
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().isMock()).isTrue();
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
     }
