@@ -81,7 +81,7 @@ class ExecutionResultHarvestIntegrationTest {
     void setUp() {
         executionId = ExecutionId.newId();
         executionWriter.append(Execution.requested(executionId, ExecutionRequestId.of(UUID.randomUUID()),
-                WorkflowId.newId(), REQUESTER, 2, null));
+                WorkflowId.newId(), REQUESTER, 2, null, false));
         executionWriter.markDispatched(executionId, RunId.of(RUN_ID));
 
         given(aiRuntimeClient.readArtifact(RUN_ID)).willReturn(ARTIFACT);
@@ -235,6 +235,6 @@ class ExecutionResultHarvestIntegrationTest {
 
     private static RunStatus status(String state) {
         return new RunStatus(RUN_ID, state, new RunStatus.Progress(2, 2, 100, null, null),
-                List.of(), List.of(), List.of(), null, null);
+                List.of(), List.of(), List.of(), null, null, false, null);
     }
 }

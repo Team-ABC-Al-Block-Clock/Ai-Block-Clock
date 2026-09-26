@@ -2,6 +2,7 @@ package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.agent.AgentGradeMetricWriter;
 import com.aiblockclock.domain.payment.AbcBalanceReader;
 import com.aiblockclock.domain.payment.LedgerTransaction;
 import com.aiblockclock.domain.payment.LedgerTransactionWriter;
@@ -26,14 +27,15 @@ public class ExecutionReservationManager {
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
     private final LedgerTransactionWriter ledgerTransactionWriter;
+    private final AgentGradeMetricWriter agentGradeMetricWriter;
 
     // 실행을 먼저 적어 같은 요청 번호가 동시에 오면 늦은 쪽이 막히게 하고, 잔액을 잠근 채 확인한 뒤 예치로 옮긴다.
-    // 끝난 뒤 사용액을 셀 배율도 이때 함께 적는다. 모자라면 예외가 나서 실행 기록까지 함께 되돌려진다.
+    // 끝난 뒤 받을 단계마다의 단가도 이때 함께 적는다. 모자라면 예외가 나서 실행 기록까지 함께 되돌려진다.
     @Transactional
     public Execution reserve(Execution requested, Workflow workflow, ExecutionPlan plan) {
         CostEstimate estimate = costEstimateAssembler.assemble(workflow);
         Execution reserved = executionWriter.append(requested.reserve(estimate.total()));
-        executionWriter.appendChargeRates(reserved.getId(), ChargeRates.of(plan, estimate));
+        executionWriter.appendStepPrices(reserved.getId(), StepPrices.of(plan, estimate));
 
         CostQuote.of(estimate, abcBalanceReader.readForUpdate(reserved.getRequester())).ensureExecutable();
         ledgerTransactionWriter.append(LedgerTransaction.forExecutionReserve(
@@ -52,22 +54,33 @@ public class ExecutionReservationManager {
     }
 
     // 실행을 닫는 자리는 여기 하나다. 뒤에서 따라가는 모니터도, 모니터가 놓친 실행을 조회가 볼 때도 여기로 온다.
-    // 닫기 · 책임 판정 · 환불 · 정산이 한 트랜잭션이라, 닫혔는데 돌려주지 않았거나 공급자에게 주지 않아
-    // 예치에 남은 실행, 누구 탓인지 모르는 실행이 생기지 않는다.
-    // 이미 닫힌 실행이면 아무것도 하지 않아, 모니터와 조회가 겹쳐도 한 번만 돌려주고 한 번만 적립한다.
+    // 닫기 · 책임 판정 · 등급 재료 · 환불 · 정산이 한 트랜잭션이라, 닫혔는데 돌려주지 않았거나 공급자에게 주지 않아
+    // 예치에 남은 실행, 누구 탓인지 모르는 실행, 등급에 세지 않은 실행이 생기지 않는다.
+    // 이미 닫힌 실행이면 아무것도 하지 않아, 모니터와 조회가 겹쳐도 한 번만 세고 한 번만 돌려주고 한 번만 적립한다.
     // run 은 엔진이 알린 마지막 상태다. 기한 안에 끝을 알리지 않아 우리가 끊은 실행은 비어 있다.
     @Transactional
     public void finish(ExecutionId id, ExecutionStatus status, RunStatus run) {
         ExecutionFailure failure = status == ExecutionStatus.FAILED ? ExecutionFailure.judge(run) : null;
         Optional<Execution> closed = executionWriter.finish(id, status, failure);
 
-        if (closed.isEmpty() || !closed.get().isReserved()) {
+        if (closed.isEmpty()) {
             return;
         }
 
         Execution execution = closed.get();
+
+        // mock 실행은 모델을 부르지 않아 성공도 실패도 판매자의 것이 아니다. 등급 재료로 세지 않는다.
+        if (!execution.isMock()) {
+            AgentRunOutcomes outcomes = AgentRunOutcomes.of(run, failure, execution.getRequester());
+            agentGradeMetricWriter.countRuns(outcomes.succeeded(), outcomes.failed());
+        }
+
+        if (!execution.isReserved()) {
+            return;
+        }
+
         ExecutionUsage usage = ExecutionUsage.of(
-                execution.getReserved(), run, failure, executionReader.readChargeRates(id));
+                execution.getReserved(), run, failure, executionReader.readStepPrices(id), execution.isMock());
 
         if (usage.hasRefund()) {
             ledgerTransactionWriter.append(LedgerTransaction.forExecutionRefund(
@@ -76,8 +89,16 @@ public class ExecutionReservationManager {
 
         if (usage.hasSettlement()) {
             executionWriter.appendSettlements(id, usage.settlements());
-            ledgerTransactionWriter.append(LedgerTransaction.forExecutionSettlement(
-                    id.value(), execution.getRequester(), usage.payouts()));
+            ledgerTransactionWriter.append(settlementOf(id, execution, usage));
         }
+    }
+
+    // 정산금은 보통 사용자의 예치에서 나가고, 플랫폼 탓으로 실패한 실행은 플랫폼이 대신 낸다.
+    private static LedgerTransaction settlementOf(ExecutionId id, Execution execution, ExecutionUsage usage) {
+        if (usage.coveredByPlatform()) {
+            return LedgerTransaction.forPlatformCoveredSettlement(id.value(), usage.payouts());
+        }
+
+        return LedgerTransaction.forExecutionSettlement(id.value(), execution.getRequester(), usage.payouts());
     }
 }

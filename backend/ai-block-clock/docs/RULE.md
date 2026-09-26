@@ -682,7 +682,7 @@ private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
 | 노드 순서 | 저장하지 않는다. `edges` 를 따라 걸어서 되찾는다 (`WorkflowGraph.nodesInOrder`) | 분기가 들어오면 전순서가 안 나온다. 그때는 좌표 저장 정책을 다시 본다 |
 | `ApiResult` 와 명세서 | `{status: SUCCESS/FAIL, data, error{code,message,data}}` | 명세서는 `{status: success/error, code, message}` 평면형 |
 | `AGENT_006`, `AGENT_007`, `AGENT_009` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
-| `PAYMENT_008`(잔액 부족, 402), `EXECUTION_006`(같은 요청 처리 중, 409) | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
+| `PAYMENT_008`(잔액 부족, 402), `EXECUTION_006`(같은 요청 처리 중, 409), `EXECUTION_007`(그 형식의 결과 없음, 404), `EXECUTION_008`(실패로 끝난 실행, 404) | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
 | `PAYMENT_009`(보관 지갑으로 로그인한 사용자의 충전, 403) | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
 | 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. 소유권은 이제 `AgentReader` 로 물을 수 있고 조립 위치만 남았다 |
 | 출처 워크플로우 삭제 금지 (`WORKFLOW_009`) | 걷어냈다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 막으면 에이전트를 한 번 만든 워크플로우를 영영 못 지운다 |

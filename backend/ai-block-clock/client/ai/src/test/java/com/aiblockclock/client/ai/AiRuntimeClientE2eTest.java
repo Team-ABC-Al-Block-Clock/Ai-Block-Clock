@@ -14,17 +14,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @EnabledIfEnvironmentVariable(named = "AI_RUNTIME_E2E", matches = "https?://.+")
 class AiRuntimeClientE2eTest {
+    // 계약 v2.0 모양이다. 노드는 output 으로 내는 형식을 밝히고, 최상위 output 은 PDF 제목만 둔다.
     private static final String WORKFLOW = """
             { "id": "e2e", "name": "성적 리포트",
               "nodes": [
                 { "id": "n1", "type": "llm", "name": "성적 분석",
                   "prompt": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다",
-                  "output_schema_id": "common.text@1", "owner_id": "u_1" },
+                  "output": { "kind": "text" }, "owner_id": "1" },
                 { "id": "n2", "type": "llm", "name": "가정통신문 작성",
                   "prompt": "분석 결과로 가정통신문을 쓴다",
-                  "output_schema_id": "common.document@1", "owner_id": "u_1" } ],
+                  "output": { "kind": "text" }, "owner_id": "1" } ],
               "edges": [ { "from": "n1", "to": "n2" } ],
-              "output": { "schema_id": "common.document@1", "template_id": null } }
+              "output": { "title": "성적 리포트" } }
             """;
 
     @Test
