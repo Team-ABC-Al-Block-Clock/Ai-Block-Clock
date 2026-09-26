@@ -72,8 +72,11 @@ export default function MyPageUsage() {
   }, [periodOpen])
 
   return (
-    <>
-      <Sidebar active="usage" />
+    <div
+      className="absolute"
+      style={{ left: '18px', top: '-17px', width: '1440px', height: '1024px' }}
+    >
+      <Sidebar active="usage" height={805} />
 
       <div
         className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
@@ -389,49 +392,51 @@ export default function MyPageUsage() {
           left: '442px',
           top: '570px',
           width: '900px',
-          height: '363px',
+          height: '395px',
           padding: '16px 20px',
           borderRadius: '16px',
           animation: 'rise .7s .34s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[15px] font-semibold tracking-[-.01em] text-white">최근 사용 내역</div>
+        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">최근 사용 내역</div>
         <div
-          className="flex text-[10.5px] font-semibold"
-          style={{ marginTop: '14px', color: 'rgba(255,236,246,.55)' }}
+          className="flex text-[13.5px] font-semibold"
+          style={{ marginTop: '14px', color: 'rgba(255,236,246,.72)' }}
         >
-          <div style={{ width: '150px' }}>날짜/시간</div>
-          <div style={{ width: '110px' }}>유형</div>
-          <div style={{ width: '160px' }}>금액</div>
-          <div style={{ width: '200px' }}>실행</div>
+          <div style={{ width: '170px' }}>날짜/시간</div>
+          <div style={{ width: '120px' }}>유형</div>
+          <div style={{ width: '190px' }}>금액</div>
+          <div style={{ width: '220px' }}>실행</div>
           <div style={{ width: '160px' }}>트랜잭션</div>
         </div>
         <div
           className="flex flex-col overflow-y-auto"
-          style={{ marginTop: '6px', height: '214px' }}
+          style={{ marginTop: '8px', height: '240px' }}
         >
           {history.map((h) => (
             <Fragment key={h.transactionId}>
               <div
                 style={{
-                  height: '27px',
+                  height: '44px',
                   color: 'var(--color-body)',
                   fontVariantNumeric: 'tabular-nums',
                   borderRadius: '6px',
                   transition: 'background .14s',
                 }}
-                className="hover:bg-surface-inset flex flex-none items-center text-[11.5px]"
+                className="hover:bg-surface-inset flex flex-none items-center text-[15.5px]"
               >
-                <div style={{ width: '150px' }}>{timeLabel(h.occurredAt)}</div>
+                <div style={{ width: '170px' }}>{timeLabel(h.occurredAt)}</div>
                 <div
                   className="font-semibold"
-                  style={{ width: '110px', color: TYPE_COLORS[h.transactionType] }}
+                  style={{ width: '120px', color: TYPE_COLORS[h.transactionType] }}
                 >
                   {TYPE_LABELS[h.transactionType] ?? h.transactionType}
                 </div>
-                <div style={{ width: '160px' }}>{priceLabel(h.amount)}</div>
+                <div className="font-semibold text-white" style={{ width: '190px' }}>
+                  {priceLabel(h.amount)}
+                </div>
                 {/* 실행 상세 화면이 생기면 링크를 붙인다. */}
-                <div style={{ width: '200px', color: 'rgba(255,255,255,.45)' }}>
+                <div style={{ width: '220px', color: 'rgba(255,255,255,.7)' }}>
                   {h.executionId ?? '—'}
                 </div>
                 <div style={{ width: '160px', color: 'rgba(255,255,255,.7)' }}>
@@ -442,17 +447,17 @@ export default function MyPageUsage() {
           ))}
 
           {transactions.isPending && (
-            <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
               사용 내역을 불러오는 중입니다.
             </div>
           )}
           {transactions.isError && (
-            <div className="text-[11.5px]" style={{ color: '#ffb0cd' }}>
+            <div className="text-[13px]" style={{ color: '#ffb0cd' }}>
               사용 내역을 불러오지 못했습니다.
             </div>
           )}
           {isEmpty && (
-            <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
               {period.label}에 사용 내역이 없습니다.
             </div>
           )}
@@ -465,7 +470,7 @@ export default function MyPageUsage() {
               onClick={() => void transactions.fetchNextPage()}
               disabled={transactions.isFetchingNextPage}
               style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
-              className="flex cursor-pointer items-center text-[11.5px] font-semibold hover:text-[#fff]"
+              className="flex cursor-pointer items-center text-[13px] font-semibold hover:text-[#fff]"
             >
               {transactions.isFetchingNextPage ? '불러오는 중' : '더 보기'}
               <span className="text-[12px]">→</span>
@@ -473,6 +478,6 @@ export default function MyPageUsage() {
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
