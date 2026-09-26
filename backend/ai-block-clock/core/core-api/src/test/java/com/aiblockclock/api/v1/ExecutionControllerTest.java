@@ -182,7 +182,7 @@ class ExecutionControllerTest {
                 .contains("\"type\":\"llm\"")
                 .contains("점수를 비교한다")
                 .contains("\"from\":\"n1\"")
-                .contains("output_schema_id");
+                .contains("\"output\":{\"kind\":\"text\"}");
         assertThat(sent.getValue().mock()).isFalse();
     }
 

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public class NodeSpecAssembler {
     private final BaseCostCalculator baseCostCalculator;
 
-    public NodeSpec assemble(String name, Prompt prompt, AiModel model) {
-        return new NodeSpec(name, NodeType.LLM, model, baseCostCalculator.calculate(prompt, model));
+    public NodeSpec assemble(String name, Prompt prompt, AiModel model, NodeOutput output) {
+        return new NodeSpec(name, NodeType.LLM, model, baseCostCalculator.calculate(prompt, model), output);
     }
 }

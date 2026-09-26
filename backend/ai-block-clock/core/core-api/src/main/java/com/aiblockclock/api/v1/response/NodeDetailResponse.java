@@ -3,6 +3,7 @@ package com.aiblockclock.api.v1.response;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.node.OutputKind;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -22,6 +23,9 @@ public record NodeDetailResponse(
         @Schema(description = "쓰는 모델")
         AiModel model,
 
+        @Schema(description = "결과를 내는 형식")
+        OutputResponse output,
+
         @Schema(description = "1회 실행 원가", example = "3.000000")
         String baseCost,
 
@@ -37,8 +41,19 @@ public record NodeDetailResponse(
                 node.getSpec().name(),
                 node.getPrompt().value(),
                 node.getSpec().model(),
+                new OutputResponse(node.getSpec().output().kind(), node.getSpec().output().sample()),
                 node.getSpec().baseCost().value().toPlainString(),
                 AbcPricing.CURRENCY,
                 RefFileResponse.from(refFiles));
+    }
+
+    @Schema(description = "결과를 내는 형식")
+    public record OutputResponse(
+            @Schema(description = "형식 종류", example = "JSON")
+            OutputKind kind,
+
+            @Schema(description = "견본 ID. `TEXT` 면 null", example = "biz.market_research@1", nullable = true)
+            String sample
+    ) {
     }
 }

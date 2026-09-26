@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.NodeSpec;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.node.RefFile;
@@ -29,7 +30,9 @@ public final class AgentVersionNodeEntityConverter {
                 spec.nodeType(),
                 node.prompt().value(),
                 spec.model(),
-                spec.baseCost().value());
+                spec.baseCost().value(),
+                spec.output().kind(),
+                spec.output().sample());
     }
 
     public static List<AgentVersionNodeRefFileEntity> toRefFileEntities(
@@ -46,7 +49,8 @@ public final class AgentVersionNodeEntityConverter {
                 NodeKey.of(entity.getNodeKey()),
                 UserId.of(entity.getOwnerId()),
                 new NodeSpec(entity.getName(), entity.getNodeType(), entity.getModel(),
-                        AbcAmount.of(entity.getBaseCost())),
+                        AbcAmount.of(entity.getBaseCost()),
+                        new NodeOutput(entity.getOutputKind(), entity.getOutputSample())),
                 Prompt.of(entity.getPrompt()),
                 refFiles);
     }

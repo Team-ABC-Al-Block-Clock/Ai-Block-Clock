@@ -5,6 +5,7 @@ import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
 import com.aiblockclock.domain.node.NodeDefinitionSummary;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.NodeSpec;
 import com.aiblockclock.domain.user.User;
 import com.aiblockclock.domain.user.UserId;
@@ -12,6 +13,7 @@ import com.aiblockclock.domain.user.UserReader;
 import com.aiblockclock.enums.agent.Tier;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.PlaceableScope;
 import com.aiblockclock.support.paging.CursorPage;
 
@@ -97,7 +99,8 @@ class PlaceableItemServiceTest {
 
     private static NodeDefinitionSummary node(String name) {
         return new NodeDefinitionSummary(NodeDefinitionId.newId(),
-                new NodeSpec(name, NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3"))),
+                new NodeSpec(name, NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3")),
+                        new NodeOutput(OutputKind.TEXT, null)),
                 Timestamps.unsaved());
     }
 

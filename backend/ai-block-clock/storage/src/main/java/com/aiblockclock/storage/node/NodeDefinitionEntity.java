@@ -2,6 +2,7 @@ package com.aiblockclock.storage.node;
 
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.storage.audit.BaseTimeEntity;
 
 import jakarta.persistence.Column;
@@ -51,8 +52,15 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
     @Column(name = "base_cost", precision = 41, scale = 6, nullable = false)
     private BigDecimal baseCost;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "output_kind", length = 10, nullable = false)
+    private OutputKind outputKind;
+
+    @Column(name = "output_sample", length = 64)
+    private String outputSample;
+
     public NodeDefinitionEntity(UUID id, Long ownerId, String name, NodeType nodeType, String prompt,
-                                AiModel model, BigDecimal baseCost) {
+                                AiModel model, BigDecimal baseCost, OutputKind outputKind, String outputSample) {
         this.id = id;
         this.ownerId = ownerId;
         this.name = name;
@@ -60,12 +68,17 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
         this.prompt = prompt;
         this.model = model;
         this.baseCost = baseCost;
+        this.outputKind = outputKind;
+        this.outputSample = outputSample;
     }
 
-    public void edit(String name, String prompt, AiModel model, BigDecimal baseCost) {
+    public void edit(String name, String prompt, AiModel model, BigDecimal baseCost, OutputKind outputKind,
+                     String outputSample) {
         this.name = name;
         this.prompt = prompt;
         this.model = model;
         this.baseCost = baseCost;
+        this.outputKind = outputKind;
+        this.outputSample = outputSample;
     }
 }

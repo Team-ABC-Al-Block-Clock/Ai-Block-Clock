@@ -6,6 +6,7 @@ import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.NodePlacement;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.IoType;
@@ -61,6 +62,9 @@ public record NodePlacementRequest(
 
         @Schema(description = "새로 만들 노드가 쓸 모델. 비우면 서버 기본 모델", nullable = true)
         AiModel model,
+
+        @Schema(description = "새로 만들 노드가 결과를 내는 형식. `LLM` 일 때만 쓴다. 비우면 `TEXT`", nullable = true)
+        @Valid NodeOutputRequest output,
 
         @Schema(description = """
                 이 자리가 무엇을 입력으로 받나.
@@ -146,7 +150,13 @@ public record NodePlacementRequest(
     }
 
     private NodeDraft toDraft() {
-        return carriesBody() ? new NodeDraft(name, prompt, modelOrDefault()) : null;
+        if (!carriesBody()) {
+            return null;
+        }
+
+        return output == null
+                ? new NodeDraft(name, prompt, modelOrDefault(), OutputKind.TEXT, null)
+                : new NodeDraft(name, prompt, modelOrDefault(), output.kind(), output.sample());
     }
 
     public List<InputField> toFields() {
@@ -170,7 +180,7 @@ public record NodePlacementRequest(
     }
 
     private boolean carriesBody() {
-        return name != null || prompt != null || model != null;
+        return name != null || prompt != null || model != null || output != null;
     }
 
     private AiModel modelOrDefault() {
