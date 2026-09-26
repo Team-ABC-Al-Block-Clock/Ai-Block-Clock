@@ -1,0 +1,7 @@
+{
+  "_note": "백엔드가 시연 에이전트를 등록한 뒤 실제 값으로 채워 registered_ids.json 으로 저장한다. build_index_payload.py --ids 가 읽는다",
+  "ag_brand_01": { "agent_id": "<백엔드 에이전트 ID>", "owner_id": "<판매자 A 계정 ID>" },
+  "ag_brand_02": { "agent_id": "<백엔드 에이전트 ID>", "owner_id": "<판매자 B 계정 ID>" },
+  "ag_brand_03": { "agent_id": "<백엔드 에이전트 ID>", "owner_id": "<판매자 C 계정 ID>" },
+  "ag_brand_04": { "agent_id": "<백엔드 에이전트 ID>", "owner_id": "<판매자 B 계정 ID>" }
+}
