@@ -3,12 +3,13 @@ import { Fragment, useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import MyPageFrame from '@/components/MyPageFrame'
 import type { CreditTransactionType } from '@/api/credits'
-import { getCreditBalance, getCreditTransactions } from '@/api/credits'
+import { getCreditBalance, getCreditHistory, getCreditTransactions } from '@/api/credits'
 import { paths } from '@/routes/paths'
 import StatusDot from '@/components/StatusDot'
 import { amountLabel, priceLabel, shortAddress, timeLabel } from '@/lib/format'
 import { PERIODS, rangeOf } from '@/lib/period'
 import { queryKeys } from '@/lib/queryKeys'
+import { historyStatus, type HistoryTone } from '@/lib/withdrawalMessage'
 
 /** 마켓(9)·마이페이지 목록(10)과 다르다. */
 const PAGE_SIZE = 20
@@ -21,6 +22,13 @@ const TYPE_LABELS: Record<CreditTransactionType, string> = {
 }
 
 /** 들어오는 것은 초록, 나가는 것은 분홍. */
+const WALLET_POLL_MS = 15_000
+const TONE_COLORS: Record<HistoryTone, string> = {
+  done: '#9ad0b4',
+  progress: '#c9a9dd',
+  closed: '#ff8a8a',
+}
+
 const TYPE_COLORS: Record<CreditTransactionType, string> = {
   CHARGE: '#9ad0b4',
   RESERVE: '#ffb0cd',
@@ -48,9 +56,29 @@ export default function MyPageUsage() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })
 
+  const [listTab, setListTab] = useState<'usage' | 'wallet'>('usage')
+  // 충전 · 출금은 기간 조건이 없다. 처리 중인 줄이 있으면 다시 불러 상태를 따라간다.
+  const wallet = useInfiniteQuery({
+    queryKey: queryKeys.credits.history.list({ size: PAGE_SIZE }),
+    queryFn: ({ pageParam }) => getCreditHistory({ size: PAGE_SIZE, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled: listTab === 'wallet',
+    refetchInterval: (query) =>
+      query.state.data?.pages[0]?.content.some(
+        (h) => historyStatus(h.type, h.status).tone === 'progress',
+      )
+        ? WALLET_POLL_MS
+        : false,
+  })
+  const walletRows = wallet.data?.pages.flatMap((page) => page.content) ?? []
+  const walletTab = listTab === 'wallet'
+  const list = walletTab ? wallet : transactions
+
   const history = transactions.data?.pages.flatMap((page) => page.content) ?? []
   // 불러오는 중을 빈 목록으로 보면 요청마다 '없음' 이 깜빡인다.
-  const isEmpty = !transactions.isPending && !transactions.isError && history.length === 0
+  const isEmpty =
+    !list.isPending && !list.isError && (walletTab ? walletRows : history).length === 0
 
   const available = balance.data?.availableAmount
   const reserved = balance.data?.reservedAmount
@@ -114,7 +142,7 @@ export default function MyPageUsage() {
           }}
           className="box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
         >
-          <div className="text-[12px]" style={{ color: 'rgba(255,240,247,.84)' }}>
+          <div className="text-[13.5px]" style={{ color: 'rgba(255,240,247,.84)' }}>
             {period.label}
           </div>
           <div
@@ -163,7 +191,7 @@ export default function MyPageUsage() {
                   color: i === periodAt ? '#f0dcea' : 'rgba(255,240,247,.78)',
                   background: i === periodAt ? 'rgba(185,141,169,.28)' : 'transparent',
                 }}
-                className="flex cursor-pointer items-center text-[12px] hover:bg-[rgba(255,255,255,.12)]"
+                className="flex cursor-pointer items-center text-[13.5px] hover:bg-[rgba(255,255,255,.12)]"
               >
                 {p.label}
               </button>
@@ -187,7 +215,7 @@ export default function MyPageUsage() {
         <div className="text-[17px] font-semibold tracking-[-.01em] text-white">사용량 추이</div>
         {/* 서버에 통계 API 가 없어 아래 꺾은선과 요약 문구는 임의 값이다. */}
         <div
-          className="text-[11.5px] tracking-[-.01em]"
+          className="text-[13px] tracking-[-.01em]"
           style={{ marginTop: '5px', width: '534px', color: 'rgba(255,236,246,.6)' }}
         >
           총 호출 수 1,248회 (+18.3%) · 가장 많이 사용 GPT-4o · 피크 14:00 ~ 16:00
@@ -195,13 +223,19 @@ export default function MyPageUsage() {
         <div className="flex" style={{ marginTop: '10px', gap: '18px' }}>
           <div className="flex items-center" style={{ gap: '7px' }}>
             <StatusDot color="#e9aec4" />
-            <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
+            <div
+              className="text-[12.5px] whitespace-nowrap"
+              style={{ color: 'var(--color-muted)' }}
+            >
               사용 코인
             </div>
           </div>
           <div className="flex items-center" style={{ gap: '7px' }}>
             <StatusDot color="#dba18b" />
-            <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
+            <div
+              className="text-[12.5px] whitespace-nowrap"
+              style={{ color: 'var(--color-muted)' }}
+            >
               호출 수
             </div>
           </div>
@@ -270,7 +304,7 @@ export default function MyPageUsage() {
             />
           </svg>
           <div
-            className="absolute left-0 flex justify-between text-[10px]"
+            className="absolute left-0 flex justify-between text-[12px]"
             style={{ top: '142px', width: '534px', color: 'rgba(255,236,246,.5)' }}
           >
             <span>08/01</span>
@@ -306,7 +340,7 @@ export default function MyPageUsage() {
                 background: 'rgba(185,141,169,.28)',
                 color: '#f0dcea',
               }}
-              className="flex items-center text-[11.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(185,141,169,.44)] hover:text-[#fff]"
+              className="flex items-center text-[13px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(185,141,169,.44)] hover:text-[#fff]"
             >
               예치
             </a>
@@ -318,21 +352,21 @@ export default function MyPageUsage() {
                 borderRadius: '9px',
                 color: 'rgba(255,240,247,.86)',
               }}
-              className="flex items-center bg-[rgba(255,255,255,.10)] text-[11.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
+              className="flex items-center bg-[rgba(255,255,255,.10)] text-[13px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
             >
               출금
             </a>
           </div>
         </div>
-        <div className="relative" style={{ marginTop: '14px', width: '266px', height: '150px' }}>
+        <div className="relative" style={{ marginTop: '10px', width: '266px', height: '124px' }}>
           <svg
             className="absolute top-0 left-0"
             width="266"
-            height="150"
-            viewBox="0 0 266 150"
+            height="124"
+            viewBox="0 0 266 124"
             fill="none"
           >
-            <g transform="translate(133,75) rotate(-90) scale(0.76)">
+            <g transform="translate(133,62) rotate(-90) scale(0.76)">
               <circle r="72" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="12" />
               <circle
                 r="72"
@@ -345,7 +379,7 @@ export default function MyPageUsage() {
               />
             </g>
           </svg>
-          <div className="absolute left-0 text-center" style={{ top: '56px', width: '266px' }}>
+          <div className="absolute left-0 text-center" style={{ top: '43px', width: '266px' }}>
             <div
               className="text-[22px] font-semibold tracking-[-.02em] text-white"
               style={{ lineHeight: '1.1' }}
@@ -353,31 +387,31 @@ export default function MyPageUsage() {
               {available ? amountLabel(available) : '—'}
             </div>
             <div
-              className="text-[10px]"
+              className="text-[12px]"
               style={{ marginTop: '1px', color: 'rgba(255,236,246,.6)', lineHeight: '1.2' }}
             >
               ABC 사용 가능
             </div>
           </div>
         </div>
-        <div className="flex flex-col" style={{ marginTop: '14px', gap: '7px' }}>
+        <div className="flex flex-col" style={{ marginTop: '10px', gap: '6px' }}>
           <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+            <span className="text-[13px]" style={{ color: 'rgba(255,236,246,.62)' }}>
               실행에 잠긴 코인
             </span>
-            <span className="text-[11.5px] font-semibold" style={{ color: '#c9a9dd' }}>
+            <span className="text-[13px] font-semibold" style={{ color: '#c9a9dd' }}>
               {reserved ? priceLabel(reserved) : '—'}
             </span>
           </div>
           {/* 예치금·이번 달 사용은 잔액 응답에 없다. */}
           <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+            <span className="text-[13px]" style={{ color: 'rgba(255,236,246,.62)' }}>
               잠긴 코인은 실행이 끝나면 정산되거나 되돌아옵니다
             </span>
           </div>
           {/* PAY-004 — 남에게 ABC 가 가는 길은 정산금 적립 하나뿐이다. */}
           <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+            <span className="text-[13px]" style={{ color: 'rgba(255,236,246,.62)' }}>
               ABC 는 다른 사용자에게 양도할 수 없습니다
             </span>
           </div>
@@ -390,88 +424,172 @@ export default function MyPageUsage() {
           left: '442px',
           top: '570px',
           width: '900px',
-          height: '395px',
+          height: '425px',
           padding: '16px 20px',
           borderRadius: '16px',
           animation: 'rise .7s .34s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">최근 사용 내역</div>
+        <div className="flex" style={{ gap: '20px', height: '30px' }}>
+          <div
+            className="relative flex cursor-pointer items-start text-[16px] font-semibold tracking-[-.01em]"
+            onClick={() => setListTab('usage')}
+            style={{
+              height: '30px',
+              color: listTab === 'usage' ? '#fff' : 'rgba(255,240,247,.6)',
+              transition: 'color .16s',
+            }}
+          >
+            사용 내역
+            <div
+              className="absolute left-0"
+              style={{
+                bottom: '0',
+                width: '100%',
+                height: '2px',
+                borderRadius: '1px',
+                background: listTab === 'usage' ? '#c9a9dd' : 'transparent',
+              }}
+            ></div>
+          </div>
+          <div
+            className="relative flex cursor-pointer items-start text-[16px] font-semibold tracking-[-.01em]"
+            onClick={() => setListTab('wallet')}
+            style={{
+              height: '30px',
+              color: listTab === 'wallet' ? '#fff' : 'rgba(255,240,247,.6)',
+              transition: 'color .16s',
+            }}
+          >
+            충전 · 출금
+            <div
+              className="absolute left-0"
+              style={{
+                bottom: '0',
+                width: '100%',
+                height: '2px',
+                borderRadius: '1px',
+                background: listTab === 'wallet' ? '#c9a9dd' : 'transparent',
+              }}
+            ></div>
+          </div>
+        </div>
         <div
           className="flex text-[13.5px] font-semibold"
           style={{ marginTop: '14px', color: 'rgba(255,236,246,.72)' }}
         >
           <div style={{ width: '170px' }}>날짜/시간</div>
-          <div style={{ width: '120px' }}>유형</div>
+          <div style={{ width: '120px' }}>{walletTab ? '구분' : '유형'}</div>
           <div style={{ width: '190px' }}>금액</div>
-          <div style={{ width: '220px' }}>실행</div>
+          <div style={{ width: '220px' }}>{walletTab ? '상태' : '실행'}</div>
           <div style={{ width: '160px' }}>트랜잭션</div>
         </div>
         <div
           className="flex flex-col overflow-y-auto"
-          style={{ marginTop: '8px', height: '240px' }}
+          style={{ marginTop: '8px', height: '256px' }}
         >
-          {history.map((h) => (
-            <Fragment key={h.transactionId}>
-              <div
-                style={{
-                  height: '44px',
-                  color: 'var(--color-body)',
-                  fontVariantNumeric: 'tabular-nums',
-                  borderRadius: '6px',
-                  transition: 'background .14s',
-                }}
-                className="hover:bg-surface-inset flex flex-none items-center text-[15.5px]"
-              >
-                <div style={{ width: '170px' }}>{timeLabel(h.occurredAt)}</div>
+          {walletTab &&
+            walletRows.map((h) => {
+              const status = historyStatus(h.type, h.status)
+              return (
                 <div
-                  className="font-semibold"
-                  style={{ width: '120px', color: TYPE_COLORS[h.transactionType] }}
+                  key={h.type + h.id}
+                  style={{
+                    height: '44px',
+                    color: 'var(--color-body)',
+                    fontVariantNumeric: 'tabular-nums',
+                    borderRadius: '6px',
+                    transition: 'background .14s',
+                  }}
+                  className="hover:bg-surface-inset flex flex-none items-center text-[15.5px]"
                 >
-                  {TYPE_LABELS[h.transactionType] ?? h.transactionType}
+                  <div style={{ width: '170px' }}>{timeLabel(h.requestedAt)}</div>
+                  <div
+                    className="font-semibold"
+                    style={{ width: '120px', color: h.type === 'CHARGE' ? '#9ad0b4' : '#ffb0cd' }}
+                  >
+                    {h.type === 'CHARGE' ? '충전' : '출금'}
+                  </div>
+                  <div className="font-semibold text-white" style={{ width: '190px' }}>
+                    {priceLabel(h.amount)}
+                  </div>
+                  <div
+                    className="truncate font-semibold"
+                    style={{ width: '220px', color: TONE_COLORS[status.tone] }}
+                    title={h.rejectReason ?? undefined}
+                  >
+                    {status.label}
+                  </div>
+                  <div style={{ width: '160px', color: 'rgba(255,255,255,.7)' }}>
+                    {h.transactionHash ? shortAddress(h.transactionHash) : '—'}
+                  </div>
                 </div>
-                <div className="font-semibold text-white" style={{ width: '190px' }}>
-                  {priceLabel(h.amount)}
+              )
+            })}
+          {!walletTab &&
+            history.map((h) => (
+              <Fragment key={h.transactionId}>
+                <div
+                  style={{
+                    height: '44px',
+                    color: 'var(--color-body)',
+                    fontVariantNumeric: 'tabular-nums',
+                    borderRadius: '6px',
+                    transition: 'background .14s',
+                  }}
+                  className="hover:bg-surface-inset flex flex-none items-center text-[15.5px]"
+                >
+                  <div style={{ width: '170px' }}>{timeLabel(h.occurredAt)}</div>
+                  <div
+                    className="font-semibold"
+                    style={{ width: '120px', color: TYPE_COLORS[h.transactionType] }}
+                  >
+                    {TYPE_LABELS[h.transactionType] ?? h.transactionType}
+                  </div>
+                  <div className="font-semibold text-white" style={{ width: '190px' }}>
+                    {priceLabel(h.amount)}
+                  </div>
+                  {/* 실행 상세 화면이 생기면 링크를 붙인다. */}
+                  <div style={{ width: '220px', color: 'rgba(255,255,255,.7)' }}>
+                    {h.executionId ?? '—'}
+                  </div>
+                  <div style={{ width: '160px', color: 'rgba(255,255,255,.7)' }}>
+                    {h.transactionHash ? shortAddress(h.transactionHash) : '—'}
+                  </div>
                 </div>
-                {/* 실행 상세 화면이 생기면 링크를 붙인다. */}
-                <div style={{ width: '220px', color: 'rgba(255,255,255,.7)' }}>
-                  {h.executionId ?? '—'}
-                </div>
-                <div style={{ width: '160px', color: 'rgba(255,255,255,.7)' }}>
-                  {h.transactionHash ? shortAddress(h.transactionHash) : '—'}
-                </div>
-              </div>
-            </Fragment>
-          ))}
+              </Fragment>
+            ))}
 
-          {transactions.isPending && (
+          {list.isPending && (
             <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
-              사용 내역을 불러오는 중입니다.
+              내역을 불러오는 중입니다.
             </div>
           )}
-          {transactions.isError && (
+          {list.isError && (
             <div className="text-[13px]" style={{ color: '#ffb0cd' }}>
-              사용 내역을 불러오지 못했습니다.
+              내역을 불러오지 못했습니다.
             </div>
           )}
           {isEmpty && (
             <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
-              {period.label}에 사용 내역이 없습니다.
+              {walletTab
+                ? '아직 충전 · 출금 내역이 없습니다.'
+                : `${period.label}에 사용 내역이 없습니다.`}
             </div>
           )}
         </div>
 
         <div className="flex" style={{ marginTop: '12px', justifyContent: 'flex-end' }}>
-          {transactions.hasNextPage && (
+          {list.hasNextPage && (
             <button
               type="button"
-              onClick={() => void transactions.fetchNextPage()}
-              disabled={transactions.isFetchingNextPage}
+              onClick={() => void list.fetchNextPage()}
+              disabled={list.isFetchingNextPage}
               style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
               className="flex cursor-pointer items-center text-[13px] font-semibold hover:text-[#fff]"
             >
-              {transactions.isFetchingNextPage ? '불러오는 중' : '더 보기'}
-              <span className="text-[12px]">→</span>
+              {list.isFetchingNextPage ? '불러오는 중' : '더 보기'}
+              <span className="text-[13.5px]">→</span>
             </button>
           )}
         </div>

@@ -4,14 +4,7 @@ import { api } from '@/api/client'
 
 /** REQUESTED → APPROVED → PAYING → PAID. CANCELED · REJECTED · FAILED 로 빠지고, 확인이 늦으면 ON_HOLD 에 머문다. */
 export type WithdrawalStatus =
-  | 'REQUESTED'
-  | 'APPROVED'
-  | 'PAYING'
-  | 'ON_HOLD'
-  | 'PAID'
-  | 'CANCELED'
-  | 'REJECTED'
-  | 'FAILED'
+  'REQUESTED' | 'APPROVED' | 'PAYING' | 'ON_HOLD' | 'PAID' | 'CANCELED' | 'REJECTED' | 'FAILED'
 
 /** 아직 끝나지 않은 출금. 이런 출금이 있으면 새로 신청하지 못한다 */
 export const IN_PROGRESS_WITHDRAWAL: readonly WithdrawalStatus[] = [
