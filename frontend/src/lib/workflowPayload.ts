@@ -148,6 +148,9 @@ export function toCanvasWorkflow(
   const depthOf = (key: string): number => {
     const seen = depths.get(key)
     if (seen !== undefined) return seen
+    // 먼저 자리를 잡아 두어야 고리가 섞여 와도 끝없이 되돌지 않는다. 트리에서는 제 조상이
+    // 될 수 없어 이 값이 다시 읽히는 일이 없다.
+    depths.set(key, 0)
     const parent = parentOf.get(key)
     const at = parent === undefined ? 0 : depthOf(parent) + 1
     depths.set(key, at)
