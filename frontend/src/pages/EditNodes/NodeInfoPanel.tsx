@@ -162,8 +162,15 @@ function BranchForm({
   const [right, setRight] = useState(initial ? formatConditionRight(initial.right) : '')
 
   const parsed = parseConditionRight(right, operator)
-  const picked = sources.some((source) => source.id === fromId)
-  const canApply = picked && !!path.trim() && parsed !== null
+  /**
+   * 고른 값이 후보에 없으면 첫 후보로 본다.
+   *
+   * 폼은 분기 id 로만 다시 서서, 분기를 고른 채 앞에 노드를 이으면 후보만 늘고 `fromId` 는
+   * 빈 채로 남는다. 그대로 두면 `select` 는 첫 후보를 보여주는데 값은 비어 있어 「적용」이
+   * 영영 죽는다 — 후보가 하나뿐이면 골라서 빠져나올 수도 없다.
+   */
+  const picked = sources.some((source) => source.id === fromId) ? fromId : (sources[0]?.id ?? '')
+  const canApply = !!picked && !!path.trim() && parsed !== null
 
   if (sources.length === 0)
     return (
@@ -187,7 +194,7 @@ function BranchForm({
       <Picker
         top="198px"
         label="읽을 노드"
-        value={fromId}
+        value={picked}
         onChange={setFromId}
         options={sources.map((source) => ({ value: source.id, label: source.name }))}
       />
@@ -250,7 +257,7 @@ function BranchForm({
           type="button"
           disabled={!canApply}
           onClick={() =>
-            canApply && onApply({ fromId, path: path.trim(), operator, right: parsed })
+            canApply && onApply({ fromId: picked, path: path.trim(), operator, right: parsed })
           }
           title={canApply ? '조건을 캔버스에 반영합니다' : '빈 칸을 채워 주세요'}
           className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
