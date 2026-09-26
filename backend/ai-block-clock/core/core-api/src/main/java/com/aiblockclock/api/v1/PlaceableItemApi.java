@@ -23,7 +23,7 @@ public interface PlaceableItemApi {
                     에이전트가 온다. 각각은 최신순이다. 기본 노드는 담지 않는다 — 배치 본문으로 저장할 때 만들어진다.
 
                     `MINE` 은 내 에이전트만, `ALL` 은 다른 사람의 에이전트까지 담는다.
-                    검색어는 이름만 본다. 실행 이력이 아직 없어 `executionCount` 는 0 이다.
+                    검색어는 이름만 본다. `executionCount` 는 성공한 실행과 공급자 탓으로 실패한 실행을 더해 센다.
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 완료"),

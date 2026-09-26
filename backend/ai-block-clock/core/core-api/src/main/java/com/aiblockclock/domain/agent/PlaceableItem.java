@@ -10,6 +10,7 @@ public record PlaceableItem(
         boolean mine,
         String ownerNickname,
         AbcAmount price,
-        String summary
+        String summary,
+        long executionCount
 ) {
 }

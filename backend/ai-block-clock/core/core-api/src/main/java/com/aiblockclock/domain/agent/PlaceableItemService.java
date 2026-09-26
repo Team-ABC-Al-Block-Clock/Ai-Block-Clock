@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PlaceableItemService {
     private final AgentReader agentReader;
+    private final AgentGradeMetricReader agentGradeMetricReader;
     private final UserReader userReader;
 
     public CursorPage<PlaceableItem> find(
@@ -37,14 +38,18 @@ public class PlaceableItemService {
                 .toList();
 
         Map<UserId, String> nicknames = nicknamesOf(agents);
+        Map<AgentId, AgentGradeMetric> metrics = agentGradeMetricReader.readAll(
+                agents.stream().map(PublicAgent::id).toList());
 
         List<PlaceableItem> items = new ArrayList<>();
         agents.stream()
                 .filter(agent -> agent.owner().equals(requester))
-                .forEach(agent -> items.add(fromAgent(agent, true, nicknames.get(agent.owner()))));
+                .forEach(agent -> items.add(
+                        fromAgent(agent, true, nicknames.get(agent.owner()), metrics.get(agent.id()))));
         agents.stream()
                 .filter(agent -> !agent.owner().equals(requester))
-                .forEach(agent -> items.add(fromAgent(agent, false, nicknames.get(agent.owner()))));
+                .forEach(agent -> items.add(
+                        fromAgent(agent, false, nicknames.get(agent.owner()), metrics.get(agent.id()))));
 
         List<PlaceableItem> content = items.stream().skip(offset).limit(size).toList();
         boolean hasNext = items.size() > offset + size;
@@ -67,13 +72,15 @@ public class PlaceableItemService {
         return search == null || name.toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT));
     }
 
-    private static PlaceableItem fromAgent(PublicAgent agent, boolean mine, String ownerNickname) {
+    private static PlaceableItem fromAgent(
+            PublicAgent agent, boolean mine, String ownerNickname, AgentGradeMetric metric) {
         return new PlaceableItem(
                 agent.id().value(),
                 agent.name(),
                 mine,
                 ownerNickname,
                 mine ? agent.baseCost() : agent.price(),
-                agent.summary());
+                agent.summary(),
+                metric.countedRuns());
     }
 }

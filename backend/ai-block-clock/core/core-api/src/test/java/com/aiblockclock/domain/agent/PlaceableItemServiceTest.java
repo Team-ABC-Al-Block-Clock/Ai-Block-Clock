@@ -13,7 +13,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -26,12 +31,19 @@ class PlaceableItemServiceTest {
     private static final UserId OTHER = UserId.of(9402L);
 
     private final AgentReader agentReader = mock(AgentReader.class);
+    private final AgentGradeMetricReader agentGradeMetricReader = mock(AgentGradeMetricReader.class);
     private final UserReader userReader = mock(UserReader.class);
-    private final PlaceableItemService service = new PlaceableItemService(agentReader, userReader);
+    private final PlaceableItemService service =
+            new PlaceableItemService(agentReader, agentGradeMetricReader, userReader);
 
     @BeforeEach
-    void 닉네임을_준비한다() {
+    void 닉네임과_실행_횟수를_준비한다() {
         given(userReader.readAll(anyCollection())).willReturn(List.of(user(ME, "나"), user(OTHER, "남")));
+        given(agentGradeMetricReader.readAll(anyCollection())).willAnswer(invocation -> {
+            Collection<AgentId> agents = invocation.getArgument(0);
+
+            return agents.stream().collect(Collectors.toMap(Function.identity(), AgentGradeMetric::fresh));
+        });
     }
 
     @Test
@@ -66,6 +78,19 @@ class PlaceableItemServiceTest {
         assertThat(service.find(ME, PlaceableScope.ALL, " 성적 ", null, 20).content())
                 .extracting(PlaceableItem::name)
                 .containsExactly("성적 리포트");
+    }
+
+    @Test
+    @DisplayName("성공한 실행과 공급자 탓 실패를 더해 실행 횟수로 담는다")
+    void countsExecutionsFromMetric() {
+        PublicAgent agent = agent(OTHER, "성적 리포트");
+        given(agentReader.readPublic()).willReturn(List.of(agent));
+        given(agentGradeMetricReader.readAll(anyCollection())).willReturn(
+                Map.of(agent.id(), new AgentGradeMetric(agent.id(), 7, 3, 0, null, Instant.now())));
+
+        assertThat(service.find(ME, PlaceableScope.ALL, null, null, 20).content())
+                .extracting(PlaceableItem::executionCount)
+                .containsExactly(10L);
     }
 
     @Test

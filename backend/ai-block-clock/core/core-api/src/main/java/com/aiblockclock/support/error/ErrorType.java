@@ -199,6 +199,9 @@ public enum ErrorType {
     AGENT_VERSION_NOT_NEWER(HttpStatus.CONFLICT, ErrorCode.AGENT_009,
             "이미 공개된 버전보다 이전 버전은 공개할 수 없습니다.", LogLevel.WARN),
 
+    MARKET_AGENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.MARKET_001,
+            "마켓에서 에이전트를 찾을 수 없습니다.", LogLevel.WARN),
+
     CHARGE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_001,
             "충전 요청을 찾을 수 없습니다.", LogLevel.WARN),
 
