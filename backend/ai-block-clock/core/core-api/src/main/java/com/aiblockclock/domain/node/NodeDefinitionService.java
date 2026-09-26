@@ -25,7 +25,7 @@ public class NodeDefinitionService {
     private final RefFileStore refFileStore;
 
     public NodeDefinition create(UserId requester, String name, Prompt prompt, AiModel model) {
-        NodeSpec spec = specAssembler.assemble(name, prompt, model);
+        NodeSpec spec = specAssembler.assemble(name, model);
 
         return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt));
     }
@@ -45,7 +45,7 @@ public class NodeDefinitionService {
     public NodeDefinition update(NodeDefinitionId id, UserId requester, String name, Prompt prompt, AiModel model) {
         validator.ensureEditable(id, requester);
 
-        return nodeWriter.update(id, specAssembler.assemble(name, prompt, model), prompt);
+        return nodeWriter.update(id, specAssembler.assemble(name, model), prompt);
     }
 
     public List<RefFile> getRefFiles(NodeDefinitionId id, UserId requester) {

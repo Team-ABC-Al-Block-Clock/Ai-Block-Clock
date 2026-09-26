@@ -7,12 +7,15 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class NodeSpecAssembler {
     private final BaseCostCalculator baseCostCalculator;
 
-    public NodeSpec assemble(String name, Prompt prompt, AiModel model) {
-        return new NodeSpec(name, NodeType.LLM, model, baseCostCalculator.calculate(prompt, model));
+    // 새 노드는 아직 테스트 실행으로 잰 적이 없어 기본 원가로 시작한다.
+    public NodeSpec assemble(String name, AiModel model) {
+        return new NodeSpec(name, NodeType.LLM, model, baseCostCalculator.calculate(List.of()));
     }
 }
