@@ -39,7 +39,7 @@ public class ExecutionUnitAssembler {
                         refFileReader.read(nodeId), node.getSpec().baseCost());
             }
             case AGENT -> expand(placed);
-            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            case CONTROL -> new ControlUnit();
             case IO -> new IoUnit();
         };
     }

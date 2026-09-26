@@ -176,7 +176,7 @@ public enum ErrorType {
             "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
-            "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
+            "안에 분기가 있는 에이전트는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
             "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
