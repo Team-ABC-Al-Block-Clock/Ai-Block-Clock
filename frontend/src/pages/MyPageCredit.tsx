@@ -177,19 +177,29 @@ export default function MyPageCredit() {
       : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
   const inputPlaceholder = usesPayout
     ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
-    : '예치할 코인을 입력하세요'
+    : '예치할 금액을 입력하세요'
   const summaryTitle = withdraw ? '출금 요약' : convert ? '전환 요약' : '예치 요약'
   const sumLabel = withdraw ? '출금 정산금' : convert ? '전환 정산금' : '예치 코인'
   const ctaLabel = withdraw ? '출금 신청' : convert ? 'ABC로 전환하기' : '예치하기'
-  const afterConvert = isSendableAmount(amount)
-    ? priceLabel(available + Number(trimAbcAmount(amount)))
-    : '—'
-  const detail = withdraw
-    ? { label: '받을 지갑', value: wallet ? shortAddress(wallet) : '—' }
+  const picked = isSendableAmount(amount) ? Number(trimAbcAmount(amount)) : null
+  // 정산금을 넘는 금액은 뺀 결과가 음수라 비워 둔다.
+  const payoutAfter = picked !== null && picked <= payout ? priceLabel(payout - picked) : '—'
+  const availableAfter = picked !== null ? priceLabel(available + picked) : '—'
+  const details = withdraw
+    ? [
+        { label: '출금 후 정산금', value: payoutAfter },
+        { label: '받을 지갑', value: wallet ? shortAddress(wallet) : '—' },
+      ]
     : convert
-      ? { label: '전환 후 사용 가능', value: afterConvert }
-      : // 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다.
-        { label: '예상 가스비', value: '0 SSF' }
+      ? [
+          { label: '전환 후 사용 가능', value: availableAfter },
+          { label: '전환 후 정산금', value: payoutAfter },
+        ]
+      : [
+          { label: '예치 후 사용 가능', value: availableAfter },
+          // 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다.
+          { label: '예상 가스비', value: '0 SSF' },
+        ]
 
   const blocked = withdraw
     ? withdrawBlock(amount, payout)
@@ -409,7 +419,7 @@ export default function MyPageCredit() {
             left: '442px',
             top: '716px',
             width: '896px',
-            height: '196px',
+            height: '224px',
             padding: '26px 30px',
             borderRadius: '16px',
             backdropFilter: 'blur(18px) saturate(115%)',
@@ -530,19 +540,24 @@ export default function MyPageCredit() {
                     {sumCredit}
                   </span>
                 </div>
-                <div
-                  className="flex items-baseline justify-between"
-                  style={{ paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,.1)' }}
-                >
-                  <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
-                    {detail.label}
-                  </span>
-                  <span
-                    className="text-[15.5px] font-semibold"
-                    style={{ color: 'rgba(255,255,255,.86)' }}
-                  >
-                    {detail.value}
-                  </span>
+                <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,.1)' }}>
+                  {details.map((d, i) => (
+                    <div
+                      key={d.label}
+                      className="flex items-baseline justify-between"
+                      style={{ marginTop: i === 0 ? 0 : '8px' }}
+                    >
+                      <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
+                        {d.label}
+                      </span>
+                      <span
+                        className="text-[15.5px] font-semibold"
+                        style={{ color: 'rgba(255,255,255,.86)' }}
+                      >
+                        {d.value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
                 {!withdraw && charge.error && (
