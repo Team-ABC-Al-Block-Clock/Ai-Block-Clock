@@ -6,6 +6,9 @@ import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.user.UserId;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -208,6 +211,30 @@ class ExecutionUsageTest {
                 .extracting(ExecutionSettlement::stepId)
                 .containsExactly("n3");
         assertBalanced(usage);
+    }
+
+    // 번호가 없으면 단가도 찾을 수 없고 정산 내역의 단계 칸(not null)도 채울 수 없다.
+    @Test
+    void 단계_번호가_빈_성공_단계도_받지도_주지도_않는다() {
+        ExecutionUsage usage = usage(run(null,
+                owned(null, "succeeded", "7001", null),
+                owned("n2", "succeeded", "7001", null)));
+
+        assertThat(usage.used()).isEqualByComparingTo("1");
+        assertThat(usage.settlements())
+                .extracting(ExecutionSettlement::stepId)
+                .containsExactly("n2");
+        assertBalanced(usage);
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void 주인을_알_수_없어_건너뛴_성공_단계는_어느_실행의_어느_단계인지_로그로_남긴다(CapturedOutput output) {
+        usage(run(null, owned("n1", "succeeded", "u_7001", null), step("n2", "succeeded")));
+
+        assertThat(output.getOut())
+                .contains("주인을 알 수 없는 성공 단계라 받지도 주지도 않는다: run=run-1 step=n1 owner=u_7001")
+                .doesNotContain("step=n2");
     }
 
     @Test

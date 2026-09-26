@@ -11,6 +11,16 @@ import com.aiblockclock.enums.payment.ChargeStatusReason;
 class OnChainChargeVerifierTest {
 
     @Test
+    void 체인에_닿지_못했으면_기다림과_구분해_UNREACHABLE을_반환한다() {
+        ChargeVerificationResult result = new OnChainChargeVerifier().verify(
+                criteria("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                OnChainTokenTransfer.unknown("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+
+        assertThat(result.outcome()).isEqualTo(ChargeVerificationOutcome.UNREACHABLE);
+        assertThat(result.reason()).isNull();
+    }
+
+    @Test
     void 온체인_거래를_찾지_못하면_WAITING을_반환한다() {
         ChargeVerificationCriteria criteria =
                 criteria("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");

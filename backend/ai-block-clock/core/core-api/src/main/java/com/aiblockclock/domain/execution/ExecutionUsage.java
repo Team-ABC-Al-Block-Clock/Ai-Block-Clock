@@ -4,6 +4,8 @@ import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -11,7 +13,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -22,6 +23,7 @@ import java.util.stream.IntStream;
 // (계약 v2.0 8.1 · 10장). 엔진이 잰 달러 원가는 여기서 쓰지 않고, 판매자 테스트 실행으로 원가를 새로 잴 때만 쓴다.
 // 실패한 단계와 돌지 않은 단계는 받지 않는다. 결과물을 받지 못한 단계에 값을 받지 않는다.
 // 주인을 가리킬 수 없는 단계와 단가를 남기지 않은 단계도 받지 않는다. 받을 사람이나 받을 값이 없다.
+@Slf4j
 public record ExecutionUsage(BigDecimal used, BigDecimal refund, List<ExecutionSettlement> settlements,
                              boolean coveredByPlatform) {
     private static final int DECIMAL_PLACES = 6;
@@ -40,7 +42,7 @@ public record ExecutionUsage(BigDecimal used, BigDecimal refund, List<ExecutionS
             return nothingUsed(held);
         }
 
-        List<Charge> charges = chargesOf(run.nodes(), prices);
+        List<Charge> charges = chargesOf(run, prices);
         BigDecimal priced = totalOf(charges);
 
         // 플랫폼 탓으로 실패하면 사용자에게 성공한 단계까지 모두 돌려주되, 그 단계의 주인은 제 단가를 받는다.
@@ -79,21 +81,34 @@ public record ExecutionUsage(BigDecimal used, BigDecimal refund, List<ExecutionS
         return BigDecimal.ZERO.setScale(DECIMAL_PLACES);
     }
 
-    private static List<Charge> chargesOf(List<RunStatus.Node> nodes, StepPrices prices) {
-        if (nodes == null) {
+    // 단계 번호가 비었거나 주인을 읽지 못한 성공 단계는 받지도 주지도 않는다. 엔진이 우리가 보낸 값을 잃은 것이다.
+    // 그러면 사용자는 돌려받고 판매자 수익은 0 이 되는데 실행은 멀쩡히 닫혀 티가 나지 않으므로 로그로 남긴다.
+    // 단가를 남기기 전에 접수한 실행의 단계는 받을 값이 없어 받지 않는다.
+    private static List<Charge> chargesOf(RunStatus run, StepPrices prices) {
+        if (run.nodes() == null) {
             return List.of();
         }
 
-        return nodes.stream()
-                .filter(RunStatus.Node::isSucceeded)
-                .map(node -> chargeOf(node, prices.of(node.id())))
-                .flatMap(Optional::stream)
-                .filter(charge -> charge.owner().isKnown())
-                .toList();
-    }
+        List<Charge> charges = new ArrayList<>();
 
-    private static Optional<Charge> chargeOf(RunStatus.Node step, Optional<StepPrice> price) {
-        return price.map(found -> new Charge(step, StepOwner.of(step), found.price().value()));
+        for (RunStatus.Node node : run.nodes()) {
+            if (!node.isSucceeded()) {
+                continue;
+            }
+
+            StepOwner owner = StepOwner.of(node);
+
+            if (node.id() == null || !owner.isKnown()) {
+                log.warn("주인을 알 수 없는 성공 단계라 받지도 주지도 않는다: run={} step={} owner={}",
+                        run.runId(), node.id(), node.ownerId());
+                continue;
+            }
+
+            prices.of(node.id())
+                    .ifPresent(price -> charges.add(new Charge(node, owner, price.price().value())));
+        }
+
+        return charges;
     }
 
     // 줄 만큼을 단계마다 단가에 비례해 나눈다. 상한에 걸리지 않으면 각자 제 단가이고, 걸리면 모두 같은 비율로 줄어든다.

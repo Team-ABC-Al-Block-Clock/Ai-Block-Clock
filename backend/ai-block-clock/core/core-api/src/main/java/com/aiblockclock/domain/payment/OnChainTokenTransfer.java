@@ -14,6 +14,23 @@ public record OnChainTokenTransfer(
         long confirmations
 ) {
 
+    public static OnChainTokenTransfer unknown(String transactionHash) {
+        return new OnChainTokenTransfer(
+                OnChainTransactionStatus.UNKNOWN,
+                null,
+                transactionHash,
+                null,
+                null,
+                null,
+                null,
+                0L
+        );
+    }
+
+    public boolean isUnknown() {
+        return status == OnChainTransactionStatus.UNKNOWN;
+    }
+
     public boolean isWaitingForConfirmation() {
         return status == OnChainTransactionStatus.NOT_FOUND
                 || status == OnChainTransactionStatus.PENDING;

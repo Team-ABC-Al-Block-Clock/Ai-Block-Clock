@@ -14,6 +14,13 @@ public record ChargeVerificationResult(
         );
     }
 
+    public static ChargeVerificationResult unreachable() {
+        return new ChargeVerificationResult(
+                ChargeVerificationOutcome.UNREACHABLE,
+                null
+        );
+    }
+
     public static ChargeVerificationResult verified() {
         return new ChargeVerificationResult(
                 ChargeVerificationOutcome.VERIFIED,

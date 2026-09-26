@@ -15,6 +15,8 @@ import com.aiblockclock.storage.agent.AgentGradeMetricRepository;
 import com.aiblockclock.storage.execution.ExecutionChargeRateEntity;
 import com.aiblockclock.storage.execution.ExecutionChargeRateRepository;
 import com.aiblockclock.storage.execution.ExecutionEntity;
+import com.aiblockclock.storage.execution.ExecutionFailureEntity;
+import com.aiblockclock.storage.execution.ExecutionFailureRepository;
 import com.aiblockclock.storage.execution.ExecutionRepository;
 import com.aiblockclock.storage.execution.ExecutionSettlementEntity;
 import com.aiblockclock.storage.execution.ExecutionSettlementRepository;
@@ -35,6 +37,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -99,6 +102,9 @@ class ExecutionReservationManagerIntegrationTest {
     private ExecutionSettlementRepository executionSettlementRepository;
 
     @Autowired
+    private ExecutionFailureRepository executionFailureRepository;
+
+    @Autowired
     private AgentGradeMetricReader agentGradeMetricReader;
 
     @Autowired
@@ -125,6 +131,7 @@ class ExecutionReservationManagerIntegrationTest {
         ledgerAccountRepository.deleteAllInBatch();
         executionChargeRateRepository.deleteAllInBatch();
         executionSettlementRepository.deleteAllInBatch();
+        executionFailureRepository.deleteAllInBatch();
         executionRepository.deleteAllInBatch();
         agentGradeMetricRepository.deleteAllInBatch();
     }
@@ -189,11 +196,11 @@ class ExecutionReservationManagerIntegrationTest {
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(entityOf(requested))
-                .satisfies(execution -> {
-                    assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.FAILED);
-                    assertThat(execution.getFailureFault()).isEqualTo(ExecutionFault.PLATFORM);
-                    assertThat(execution.getFailureCode()).isEqualTo(ExecutionFailure.UNREACHABLE);
+        assertThat(statusOf(requested)).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(failureOf(requested))
+                .satisfies(failure -> {
+                    assertThat(failure.getFault()).isEqualTo(ExecutionFault.PLATFORM);
+                    assertThat(failure.getFailureCode()).isEqualTo(ExecutionFailure.UNREACHABLE);
                 });
         assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-release:" + requested.getId().value()))
                 .get().extracting(LedgerTransactionEntity::getEventType).isEqualTo(LedgerEventType.REFUND);
@@ -300,7 +307,7 @@ class ExecutionReservationManagerIntegrationTest {
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
         assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("6");
         assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.SUCCEEDED);
-        assertThat(entityOf(reserved).getFailureFault()).isNull();
+        assertThat(executionFailureRepository.findById(reserved.getId().value())).isEmpty();
         assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-refund:" + reserved.getId().value()))
                 .isEmpty();
         assertBalancesMatchEntries();
@@ -406,10 +413,10 @@ class ExecutionReservationManagerIntegrationTest {
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
         assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.FAILED);
-        assertThat(entityOf(reserved))
-                .satisfies(execution -> {
-                    assertThat(execution.getFailureFault()).isEqualTo(ExecutionFault.PLATFORM);
-                    assertThat(execution.getFailureCode()).isEqualTo(ExecutionProgress.STALLED);
+        assertThat(failureOf(reserved))
+                .satisfies(failure -> {
+                    assertThat(failure.getFault()).isEqualTo(ExecutionFault.PLATFORM);
+                    assertThat(failure.getFailureCode()).isEqualTo(ExecutionProgress.STALLED);
                 });
         assertBalancesMatchEntries();
     }
@@ -423,15 +430,15 @@ class ExecutionReservationManagerIntegrationTest {
         finish(reserved, run("failed", new RunStatus.Failure("n2", "MODEL_TIMEOUT", "supplier", true),
                 step("n1", "succeeded", "0.5"), ownedStep("n2", "failed", "9602", agent)));
 
-        assertThat(entityOf(reserved))
-                .satisfies(execution -> {
-                    assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.FAILED);
-                    assertThat(execution.getFailedStepId()).isEqualTo("n2");
-                    assertThat(execution.getFailureCode()).isEqualTo("MODEL_TIMEOUT");
-                    assertThat(execution.getFailureFault()).isEqualTo(ExecutionFault.SUPPLIER);
-                    assertThat(execution.getFailureAffectsSuccessRate()).isTrue();
-                    assertThat(execution.getFaultSupplierId()).isEqualTo(9602L);
-                    assertThat(execution.getFaultAgentId()).isEqualTo(agent);
+        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(failureOf(reserved))
+                .satisfies(failure -> {
+                    assertThat(failure.getFailedStepId()).isEqualTo("n2");
+                    assertThat(failure.getFailureCode()).isEqualTo("MODEL_TIMEOUT");
+                    assertThat(failure.getFault()).isEqualTo(ExecutionFault.SUPPLIER);
+                    assertThat(failure.isAffectsSuccessRate()).isTrue();
+                    assertThat(failure.getSupplierId()).isEqualTo(9602L);
+                    assertThat(failure.getAgentId()).isEqualTo(agent);
                 });
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
     }
@@ -444,12 +451,12 @@ class ExecutionReservationManagerIntegrationTest {
         finish(reserved, run("failed", new RunStatus.Failure("n1", "FILE_PARSE_FAILED", "consumer", false),
                 ownedStep("n1", "failed", "9602", UUID.randomUUID()), step("n2", "pending", "0")));
 
-        assertThat(entityOf(reserved))
-                .satisfies(execution -> {
-                    assertThat(execution.getFailureFault()).isEqualTo(ExecutionFault.CONSUMER);
-                    assertThat(execution.getFailureAffectsSuccessRate()).isFalse();
-                    assertThat(execution.getFaultSupplierId()).isNull();
-                    assertThat(execution.getFaultAgentId()).isNull();
+        assertThat(failureOf(reserved))
+                .satisfies(failure -> {
+                    assertThat(failure.getFault()).isEqualTo(ExecutionFault.CONSUMER);
+                    assertThat(failure.isAffectsSuccessRate()).isFalse();
+                    assertThat(failure.getSupplierId()).isNull();
+                    assertThat(failure.getAgentId()).isNull();
                 });
     }
 
@@ -463,8 +470,40 @@ class ExecutionReservationManagerIntegrationTest {
         finish(reserved, run("failed", failure("platform"),
                 step("n1", "succeeded", "0.5"), step("n2", "failed", "0")));
 
-        assertThat(entityOf(reserved).getFailureFault()).isEqualTo(ExecutionFault.SUPPLIER);
+        assertThat(failureOf(reserved).getFault()).isEqualTo(ExecutionFault.SUPPLIER);
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
+    }
+
+    @Test
+    void 엔진이_칸보다_긴_값을_보내도_잘라_넣고_실행을_닫아_돌려준다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        String longStep = "a1.".repeat(10) + "n2";
+        String longCode = "MODEL_API_ERROR_".repeat(10);
+
+        finish(reserved, run("failed", new RunStatus.Failure(longStep, longCode, "supplier", true),
+                step("n1", "succeeded", "0.5")));
+
+        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(failureOf(reserved))
+                .satisfies(failure -> {
+                    assertThat(failure.getFailedStepId()).isEqualTo(longStep.substring(0, 16));
+                    assertThat(failure.getFailureCode()).isEqualTo(longCode.substring(0, 64));
+                });
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
+    }
+
+    @Test
+    void 같은_실행의_판정을_두_번_적으면_DB_가_막는다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        finish(reserved, run("failed", failure("supplier"),
+                step("n1", "succeeded", "0.5"), step("n2", "failed", "0")));
+
+        assertThatThrownBy(() -> executionFailureRepository.saveAndFlush(new ExecutionFailureEntity(
+                reserved.getId().value(), "n1", "RATE_LIMITED", ExecutionFault.PLATFORM, false, null, null)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(failureOf(reserved).getFault()).isEqualTo(ExecutionFault.SUPPLIER);
     }
 
     @Test
@@ -515,6 +554,42 @@ class ExecutionReservationManagerIntegrationTest {
                         tuple(reserved.getId().value(), "n2", "노드 n2", OTHER_SELLER.value(), new BigDecimal("3")));
         assertThat(executionSettlementRepository.findAll())
                 .allSatisfy(settlement -> assertThat(settlement.getCreatedAt()).isNotNull());
+    }
+
+    @Test
+    void 엔진이_칸보다_긴_노드_이름을_돌려줘도_잘라_넣고_실행을_닫아_정산한다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        String longName = "가정통신문 작성 ".repeat(10);
+
+        finish(reserved, run("failed", failure("supplier"),
+                new RunStatus.Node("n1", longName, "llm", "succeeded", null, Long.toString(SELLER.value()),
+                        new BigDecimal("0.5"), null),
+                step("n2", "failed", "0.1")));
+
+        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(executionSettlementRepository.findAll())
+                .singleElement()
+                .satisfies(settlement -> assertThat(settlement.getNodeName()).isEqualTo(longName.substring(0, 40)));
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("3");
+        assertBalancesMatchEntries();
+    }
+
+    // 우리는 단계를 n1 · n2 로 매겨 보내고 그 번호로 단가를 남긴다. 엔진이 보내지 않은 번호를 돌려주면 받을 값이 없다.
+    @Test
+    void 엔진이_보내지_않은_단계_번호를_돌려주면_단가가_없어_받지_않고_돌려준다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        String longStep = "a1.".repeat(10) + "n1";
+
+        finish(reserved, run("succeeded", null, new RunStatus.Node(longStep, "노드", "llm", "succeeded", null,
+                Long.toString(SELLER.value()), new BigDecimal("0.5"), null)));
+
+        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.SUCCEEDED);
+        assertThat(executionSettlementRepository.count()).isZero();
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
+        assertBalancesMatchEntries();
     }
 
     @Test
@@ -762,6 +837,10 @@ class ExecutionReservationManagerIntegrationTest {
 
     private ExecutionEntity entityOf(Execution execution) {
         return executionRepository.findById(execution.getId().value()).orElseThrow();
+    }
+
+    private ExecutionFailureEntity failureOf(Execution execution) {
+        return executionFailureRepository.findById(execution.getId().value()).orElseThrow();
     }
 
     private static RunStatus run(String state, RunStatus.Failure failure, RunStatus.Node... steps) {
