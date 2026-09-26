@@ -268,7 +268,7 @@ export default function MyPageUsage() {
               className="text-[12.5px] whitespace-nowrap"
               style={{ color: 'var(--color-muted)' }}
             >
-              사용 코인
+              사용 ABC
             </div>
           </div>
           <div className="flex items-center" style={{ gap: '7px' }}>

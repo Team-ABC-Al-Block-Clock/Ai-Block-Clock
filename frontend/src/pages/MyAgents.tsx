@@ -64,7 +64,7 @@ const EMPTY = {
   selling: {
     heading: '판매 중인 에이전트가 없습니다',
     body:
-      '직접 만든 에이전트를 등록하면 다른 사람이 쓸 때마다 코인이 쌓입니다.\n ' +
+      '직접 만든 에이전트를 등록하면 다른 사람이 쓸 때마다 정산금이 쌓입니다.\n ' +
       '등록한 에이전트는 여기서 실행 횟수와 수익을 확인할 수 있습니다.',
     actions: JSON.stringify([{ label: '에이전트 등록하기', href: paths.register, primary: true }]),
   },
@@ -300,7 +300,7 @@ export default function MyAgents() {
               favorited: a.favorited,
               metrics: [
                 `사용 ${runLabel(a.myExecutionCount)}`,
-                `사용 코인 ${priceLabel(a.totalSpent)}`,
+                `사용 금액 ${priceLabel(a.totalSpent)}`,
               ],
               trend: [],
             }))

@@ -409,7 +409,7 @@ export default function RunWaiting() {
             style={{ marginTop: '16px', alignItems: 'baseline' }}
           >
             <span className="text-[16px]" style={{ color: 'rgba(255,236,246,.82)' }}>
-              사용 가능 코인
+              사용 가능 ABC
             </span>
             <span className="text-[17px] font-semibold" style={{ color: '#d7bce8' }}>
               {cost ? priceLabel(cost.availableAmount) : '—'}

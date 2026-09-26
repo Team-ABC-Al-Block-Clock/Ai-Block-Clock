@@ -154,21 +154,20 @@ export default function MyPageCredit() {
     ? '출금 가능 정산금'
     : convert
       ? '전환 가능 정산금'
-      : '현재 사용 가능 코인'
+      : '현재 사용 가능 ABC'
   // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
   const bannerValue = balance.data
     ? priceLabel(usesPayout ? balance.data.payoutAmount : balance.data.availableAmount)
     : '—'
   const reserved = balance.data?.reservedAmount
-  const reservedNote =
-    reserved && Number(reserved) > 0 ? `실행에 잠긴 코인 ${priceLabel(reserved)} · ` : ''
+  const reservedNote = reserved && Number(reserved) > 0 ? `실행 중 ${priceLabel(reserved)} · ` : ''
   const bannerNote = balance.isError
     ? '잔액을 불러오지 못했습니다'
     : withdraw
       ? '판매로 받은 정산금을 연결된 지갑으로 보냅니다'
       : convert
         ? '정산금을 실행에 쓸 수 있는 ABC 로 바꿉니다'
-        : reservedNote + '충전한 코인은 서비스 안에서만 쓰며 출금되지 않습니다'
+        : reservedNote + '충전한 ABC 는 서비스 안에서만 쓰며 출금되지 않습니다'
   const pickerTitle = withdraw ? '출금 금액 선택' : convert ? '전환 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
     ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
@@ -179,7 +178,7 @@ export default function MyPageCredit() {
     ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
     : '예치할 금액을 입력하세요'
   const summaryTitle = withdraw ? '출금 요약' : convert ? '전환 요약' : '예치 요약'
-  const sumLabel = withdraw ? '출금 정산금' : convert ? '전환 정산금' : '예치 코인'
+  const sumLabel = withdraw ? '출금 정산금' : convert ? '전환 정산금' : '예치 금액'
   const ctaLabel = withdraw ? '출금 신청' : convert ? 'ABC로 전환하기' : '예치하기'
   const picked = isSendableAmount(amount) ? Number(trimAbcAmount(amount)) : null
   // 정산금을 넘는 금액은 뺀 결과가 음수라 비워 둔다.
@@ -271,7 +270,7 @@ export default function MyPageCredit() {
             animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          지갑의 ABC 코인을 서비스에 예치하거나, 판매로 받은 정산금을 연결된 지갑으로 보냅니다.
+          지갑의 ABC 를 서비스에 예치하거나, 판매로 받은 정산금을 연결된 지갑으로 보냅니다.
         </div>
 
         <div
