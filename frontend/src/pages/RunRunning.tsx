@@ -122,6 +122,14 @@ export default function RunRunning() {
    * 한 칸씩 밀려, 도는 중인 카드가 아닌 옆 카드가 켜진다.
    */
   const runnable = useMemo(() => defs.filter((node) => !node.controlType && !node.ioType), [defs])
+  /**
+   * 갈래가 있으면 어느 쪽이 도는지 알 수 없다.
+   *
+   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는데, `runnable` 에는 두 갈래가 다 들어 있고
+   * 서버는 실제로 지나간 쪽만 센다. 짝지으면 가지 않은 갈래가 「진행 중」으로 켜진다.
+   * 게이지와 로그는 그대로 두고 카드·선 표시만 접는다.
+   */
+  const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
 
   const canSell = canSellWorkflow(defs)
@@ -143,14 +151,19 @@ export default function RunRunning() {
     : settled
   // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
-  const active = Math.min(runnable.length - 1, progress?.done ?? 0)
-  /** 도는 중인 단계가 카드 목록에서 몇 번째인가. 선을 칠할 때 쓴다. */
+  const active = branching ? -1 : Math.min(runnable.length - 1, progress?.done ?? 0)
+  /**
+   * 도는 중인 단계가 카드 목록에서 몇 번째인가. 선을 칠할 때 쓴다.
+   *
+   * 갈래가 없을 때만 센다 — 그때는 선도 카드와 같은 차례라 선 index 와 견줄 수 있다.
+   */
   const activeAt = runnable[active] ? defs.findIndex((node) => node.id === runnable[active].id) : -1
   /**
    * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
    * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
    */
-  const aligned = progress && progress.steps.length === runnable.length ? progress.steps : null
+  const aligned =
+    !branching && progress && progress.steps.length === runnable.length ? progress.steps : null
   /**
    * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
    * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
@@ -178,12 +191,11 @@ export default function RunRunning() {
     const i = stepAt.get(d.id)
     const step = i === undefined ? undefined : aligned?.[i]
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
-    const stepDone = step
-      ? step.status === 'succeeded'
-      : i !== undefined && !lost && (i < active || finished)
+    const known = i !== undefined && !branching
+    const stepDone = step ? step.status === 'succeeded' : known && !lost && (i < active || finished)
     const stepRunning = step
       ? step.status === 'running'
-      : i !== undefined && !lost && i === active && !finished
+      : known && !lost && i === active && !finished
     const stepFailed = step?.status === 'failed'
     return {
       ...d,
@@ -207,7 +219,7 @@ export default function RunRunning() {
             : 'rgba(255,236,246,.4)',
       stateLabel: step
         ? labelOf(step.status)
-        : i === undefined
+        : !known
           ? ''
           : stepRunning
             ? '진행 중'
