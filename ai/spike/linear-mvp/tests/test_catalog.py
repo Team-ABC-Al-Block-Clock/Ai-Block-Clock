@@ -67,18 +67,11 @@ def test_없는_형식을_찾으면_UnknownSchema():
         catalog.get("biz.없는형식@1")
 
 
-# --- 연결 호환 판정 (WRK-005) ----------------------------------------------
+# --- 연결 호환 판정은 없다 (계약 v2.0 §5.3) --------------------------------
 
-def test_같은_형식끼리만_연결된다():
-    assert catalog.is_compatible("biz.market_research@1", "biz.market_research@1")
-    assert not catalog.is_compatible("biz.market_research@1", "biz.product_analysis@1")
-    # MVP 는 느슨한 변환을 허용하지 않는다. biz.* → common.document 도 막힌다
-    assert not catalog.is_compatible("biz.brand_strategy@1", "common.document@1")
-
-
-def test_합류하는_두_노드는_같은_출력_형식을_쓴다():
-    # 차별화 전략(n3a)과 대중 공략 전략(n3b)이 같은 형식이라 n4 가 받을 수 있다
-    assert catalog.is_compatible("biz.strategy_draft@1", "biz.strategy_draft@1")
+def test_연결_호환_판정_함수는_없다():
+    # 입력 형식이 폐지되어 어떤 노드든 이어진다. 판정이 되살아나면 여기서 잡는다
+    assert not hasattr(catalog, "is_compatible")
 
 
 # --- 형식 검증 (EXE-009) ---------------------------------------------------

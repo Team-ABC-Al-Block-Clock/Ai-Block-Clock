@@ -4,11 +4,11 @@
 넘어가고, 봉투는 백엔드가 이력 · 정산 · 결과물 조회에 쓴다.
 
     {
-      "a2a_version": "1.0", "run_id": …, "node_id": …, "produced_at": …,
+      "a2a_version": "2.0", "run_id": …, "node_id": …, "produced_at": …,
       "schema_id": "biz.market_research@1",
       "payload": { … },
       "meta": { "model", "usage": {input_tokens, output_tokens},
-                "cost_abc", "duration_ms", "retry_count", "repair_count" },
+                "cost_usd", "duration_ms", "retry_count", "repair_count" },
       "error": null
     }
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-A2A_VERSION = "1.0"
+A2A_VERSION = "2.0"
 
 
 def now() -> str:
@@ -27,12 +27,12 @@ def now() -> str:
 
 
 def meta(model: str, *, input_tokens: int = 0, output_tokens: int = 0, duration_ms: int = 0,
-         retry_count: int = 0, repair_count: int = 0, cost_abc: float | None = None) -> dict[str, Any]:
-    """봉투의 meta. `cost_abc`는 실측 원가 환산(-266)에서 채운다 — 지금은 자리만 둔다."""
+         retry_count: int = 0, repair_count: int = 0, cost_usd: float | None = None) -> dict[str, Any]:
+    """봉투의 meta. `cost_usd`는 토큰 × 공시 단가(`pricing.cost_usd`). ABC 는 여기 없다(계약 v2.0 §8.1)."""
     return {
         "model": model,
         "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
-        "cost_abc": cost_abc,
+        "cost_usd": cost_usd,
         "duration_ms": duration_ms,
         "retry_count": retry_count,
         "repair_count": repair_count,

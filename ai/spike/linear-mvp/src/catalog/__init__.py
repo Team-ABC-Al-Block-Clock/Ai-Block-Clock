@@ -84,13 +84,49 @@ def runtime_fields(schema_id: str) -> set[str]:
     return {k for k, v in props.items() if v.get("x-source") == "runtime"}
 
 
-def is_compatible(output_schema_id: str, input_schema_id: str) -> bool:
-    """연결 호환 판정(WRK-005) — MVP 는 **schema_id 완전 일치만** 허용한다.
+# 연결 호환 판정(`is_compatible`)은 v2.0 에서 없앴다 — 입력 형식이 폐지되어 어떤 노드든 이어진다.
+# 다음 노드는 앞 결과 전체를 받고 프롬프트가 필요한 것만 읽는다(계약 v2.0 §5.3 · §5.4).
 
-    느슨한 변환(biz.* → common.document 등)은 v2. 규칙이 한 줄이라 프론트 캔버스와
-    백엔드가 같은 판정을 내리고, 판정이 어긋나 생기는 버그가 없다.
+
+SCALAR_KINDS = ("enum", "string", "number", "boolean")
+
+
+def field_kind(schema_id: str, path: str) -> str | None:
+    """견본 필드의 종류 — enum · string · number · boolean · array · object. 경로가 없으면 None.
+
+    분기 조건 `left` 가 **선언된 스칼라 필드**를 가리키는지 저장 시점에 검사하는 데 쓴다
+    (계약 v2.0 §5.4). 경로는 점 표기이며 배열 인덱스(`competitors.0.name`)도 따라간다.
     """
-    return output_schema_id == input_schema_id
+    node: dict[str, Any] = _inline_defs(get(schema_id).model.model_json_schema())
+    for key in [p for p in path.split(".") if p]:
+        node = _unwrap_nullable(node)
+        props = node.get("properties")
+        if isinstance(props, dict):
+            if key not in props:
+                return None
+            node = props[key]
+        elif node.get("type") == "array" and key.isdigit():
+            node = node.get("items") or {}
+        else:
+            return None
+    node = _unwrap_nullable(node)
+    if "enum" in node:
+        return "enum"
+    kind = node.get("type")
+    if kind in ("integer", "number"):
+        return "number"
+    if kind in ("string", "boolean", "array", "object"):
+        return kind
+    return "object" if "properties" in node else None
+
+
+def _unwrap_nullable(node: dict[str, Any]) -> dict[str, Any]:
+    """`str | None` 은 anyOf[..., null] 로 나온다 → 실제 타입 쪽만 남긴다."""
+    if "anyOf" in node:
+        branches = [b for b in node["anyOf"] if b.get("type") != "null"]
+        if len(branches) == 1:
+            return {**branches[0], **{k: v for k, v in node.items() if k != "anyOf"}}
+    return node
 
 
 def sample(schema_id: str, overrides: dict[str, Any] | None = None) -> dict[str, Any]:

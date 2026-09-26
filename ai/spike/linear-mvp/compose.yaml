@@ -27,7 +27,7 @@ services:
       # LLM 은 SSAFY GMS 를 경유한다. 키는 GitLab CI/CD Variables 의 LLM_API_KEY(GMS 팀 키)에서 온다.
       LLM_API_KEY: ${LLM_API_KEY:?LLM_API_KEY 가 필요하다}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com}
-      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-pro}
       ABC_SERVICE_TOKEN: ${ABC_SERVICE_TOKEN:-}
     ports:
       - "${AI_RUNTIME_BIND:-0.0.0.0}:${AI_RUNTIME_PORT:-8000}:8000"

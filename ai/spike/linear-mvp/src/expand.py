@@ -1,23 +1,23 @@
-"""에이전트 전개 — 백엔드가 끼워 보낸 에이전트 정의를 Runtime 이 펼친다. 계약 §5.2.
+"""에이전트 전개 — 백엔드가 끼워 보낸 에이전트 정의를 Runtime 이 펼친다. 계약 v2.0 §5.2.
 
 사용자에게는 블록 하나로 보이지만 그 안에 노드 여럿과 분기가 들어 있다. 백엔드는 저장된
-정의를 **그대로** 보내고, 펼치는 것도 경계를 검사하는 것도 정산을 귀속하는 것도 Runtime 이 한다.
+정의를 **그대로** 보내고, 펼치는 것도 정산을 귀속하는 것도 Runtime 이 한다.
 평평한 프롬프트 배열로는 펼 수 없기 때문이다 — 안에 분기 · 분할 · 병합이 있다.
 
 펼치는 규칙
   1. 내부 노드 id 에 `<에이전트 id>.` 접두를 붙인다. 부모 그래프와 섞이지 않는다
   2. 들어오는 엣지는 **내부 진입 노드**로, 나가는 엣지는 **내부 종단 노드**로 잇는다
   3. 내부 노드에 `owner_id` 가 없으면 에이전트 소유자로 채운다 — 정산 귀속 키다
-  4. 종단 노드에 경계 표시를 남긴다. 실행 후 그 payload 가 에이전트가 공개한
-     `output_schema_id` 를 만족하는지 Runtime 이 검사한다(어기면 공급자 책임)
-  5. 중첩은 깊이 1까지. 에이전트 안의 에이전트는 거부한다
+  4. 중첩은 깊이 1까지. 에이전트 안의 에이전트는 거부한다
+
+에이전트의 **공개 입출력은 따로 선언하지 않는다** — 내부 진입 노드의 `input` 과 종단 노드의
+`output` 에서 파생된다(`public_io`). 옛 `agent.input_schema_id` · `output_schema_id` 는 무시한다.
 """
 from __future__ import annotations
 
 from typing import Any
 
 SEP = "."
-BOUNDARY_KEY = "_agent_boundary"
 
 
 class ExpandError(Exception):
@@ -66,6 +66,21 @@ def expand(wf: dict) -> tuple[dict, dict]:
     return flat, stats
 
 
+def public_io(node: dict) -> dict[str, Any]:
+    """에이전트의 공개 입출력 — 내부 진입 노드의 `input` · 종단 노드의 `output` 에서 파생(계약 v2.0 §5.2).
+
+    마켓 카드 · 백엔드 저장용. 진입 노드에 `input.sample` 이 없으면 입력은 "자유"(None)다.
+    """
+    from . import graph as graph_mod        # graph 가 expand 를 쓰므로 여기서만 지역 import
+
+    inner_nodes, _, entries, terminals = _expand_one(node)
+    by_id = {n["id"]: n for n in inner_nodes}
+    samples = [graph_mod.entry_input_sample(by_id[e]) for e in entries]
+    outputs = [graph_mod.output_spec_of(by_id[t]) for t in terminals if by_id[t].get("type") != "branch"]
+    return {"input": {"sample": samples[0]} if samples and samples[0] else None,
+            "output": outputs[0] if outputs else None}
+
+
 def _linear_edges(nodes: list[dict]) -> list[dict]:
     ids = [n.get("id") for n in nodes]
     return [{"from": a, "to": b} for a, b in zip(ids, ids[1:])]
@@ -99,8 +114,6 @@ def _expand_one(node: dict) -> tuple[list[dict], list[dict], list[str], list[str
     entries = [nid for nid, count in incoming_inner.items() if count == 0]
     terminals = [nid for nid, count in outgoing_inner.items() if count == 0]
 
-    boundary = {"agent_id": agent.get("agent_id"), "node_id": agent_id,
-                "schema_id": agent.get("output_schema_id")}
     inner_nodes = []
     for n in inner:
         copied = dict(n)
@@ -112,8 +125,6 @@ def _expand_one(node: dict) -> tuple[list[dict], list[dict], list[str], list[str
         copied.setdefault("owner_id", agent.get("owner_id"))
         copied.setdefault("owner_name", node.get("owner_name"))
         copied["agent_id"] = agent.get("agent_id")
-        if copied["id"] in terminals and boundary["schema_id"]:
-            copied[BOUNDARY_KEY] = boundary
         inner_nodes.append(copied)
 
     return inner_nodes, inner_edges, entries, terminals
@@ -133,10 +144,6 @@ def _rewire(edge: dict, rewired: dict[str, dict[str, list[str]]]) -> list[dict]:
                 new_edge.setdefault("port", src)
             out.append(new_edge)
     return out
-
-
-def boundary_of(node: dict) -> dict[str, Any] | None:
-    return node.get(BOUNDARY_KEY)
 
 
 def _prefix_ref(ref: object, prefixed: dict[str, str]) -> object:

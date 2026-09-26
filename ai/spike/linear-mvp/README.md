@@ -32,7 +32,7 @@ cp .env.example .env      # LLM_API_KEY(GMS 팀 키)를 채운다
 ```
 LLM_API_KEY=GMS 팀 키
 LLM_BASE_URL=https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com   # 비우면 Google 직접 호출
-LLM_MODEL=gemini-2.5-flash
+LLM_MODEL=gemini-2.5-pro
 ABC_SERVICE_TOKEN=          # 비우면 API 인증 검사를 건너뛴다
 ```
 
