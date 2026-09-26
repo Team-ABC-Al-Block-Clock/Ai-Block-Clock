@@ -954,7 +954,7 @@ export default function Detail() {
 
                 {proof.verification.verifiedAt && (
                   <div className="text-faint text-[12.5px]" style={{ marginTop: '10px' }}>
-                    마지막 검증 {timeLabel(proof.verification.verifiedAt)}
+                    마지막 검증 {dateTimeLabel(proof.verification.verifiedAt)}
                   </div>
                 )}
 
