@@ -107,6 +107,26 @@ class NodeControllerTest {
     }
 
     @Test
+    @DisplayName("모델로 Gemini 2.5 Pro 를 고르면 그대로 저장하고 돌려준다")
+    void savesProModel() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/nodes")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "name": "성적 분석", "prompt": "점수를 비교한다", "model": "GEMINI_2_5_PRO" }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String nodeId = mapper.readTree(created.getResponse().getContentAsString()).get("data").get("nodeId").asText();
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.model").value("GEMINI_2_5_PRO"));
+    }
+
+    @Test
     @DisplayName("자료를 붙이면 노드 상세에 딸려 나오고, 떼면 사라진다")
     void attachesAndDetachesRefFiles() throws Exception {
         String nodeId = create("채점");

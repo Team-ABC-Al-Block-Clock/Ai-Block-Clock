@@ -56,6 +56,17 @@ class RuntimeWorkflowTest {
         assertThat(sent.get("nodes").get(0).has("model")).isFalse();
     }
 
+    @Test
+    void 공급자가_고른_Pro_모델을_그대로_싣는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, GraphFixtures.chainOf(1));
+        ExecutionPlan plan = new ExecutionPlan(List.of(new PlannedPrompt(NodeKey.of("n1"), "분석", REQUESTER,
+                Prompt.of("분석을 한다"), AiModel.GEMINI_2_5_PRO, InputSource.defaultSource(), List.of())));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+
+        assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-pro");
+    }
+
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
         return new PlannedPrompt(NodeKey.of(placedKey), name, owner, Prompt.of(name + "을 한다"),
                 AiModel.defaultModel(), InputSource.defaultSource(), List.of());
