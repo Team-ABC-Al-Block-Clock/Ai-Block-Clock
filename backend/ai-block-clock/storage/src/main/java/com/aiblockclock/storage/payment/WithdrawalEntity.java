@@ -60,6 +60,20 @@ public class WithdrawalEntity extends BaseTimeEntity {
     @Column(name = "reject_reason", length = 200)
     private String rejectReason;
 
+    // 아래 넷은 지급을 시작한 뒤에만 있다. 조건부 UPDATE(WithdrawalRepository.updatePayoutStartIfApproved ·
+    // updatePaidIfPaying)로만 적는다
+    @Column(name = "payout_transaction_hash", length = 66)
+    private String payoutTransactionHash;
+
+    @Column(name = "payout_raw_transaction", columnDefinition = "text")
+    private String payoutRawTransaction;
+
+    @Column(name = "payout_submitted_at")
+    private Instant payoutSubmittedAt;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
     public static WithdrawalEntity of(
             UUID requestId,
             Long requesterId,

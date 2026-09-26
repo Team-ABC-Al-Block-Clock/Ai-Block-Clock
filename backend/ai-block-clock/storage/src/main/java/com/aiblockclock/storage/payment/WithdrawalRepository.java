@@ -68,4 +68,41 @@ public interface WithdrawalRepository extends JpaRepository<WithdrawalEntity, Lo
     );
 
     List<WithdrawalEntity> findAllByStatusOrderByCreatedAtAscIdAsc(WithdrawalStatus status);
+
+    // 승인이 오래된 것부터 지급한다. 승인 시각이 같으면 먼저 신청한 것부터다
+    Optional<WithdrawalEntity> findFirstByStatusOrderByReviewedAtAscIdAsc(WithdrawalStatus status);
+
+    // 보낸 전송과 새 상태를 한 번에 적는다. 이미 다른 차례가 지급을 시작했으면 0 을 돌려준다 — 한 신청에 거래는 하나다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE WithdrawalEntity withdrawal
+               SET withdrawal.status = com.aiblockclock.enums.payment.WithdrawalStatus.PAYING,
+                   withdrawal.payoutTransactionHash = :transactionHash,
+                   withdrawal.payoutRawTransaction = :rawTransaction,
+                   withdrawal.payoutSubmittedAt = :submittedAt,
+                   withdrawal.updatedAt = :submittedAt
+             WHERE withdrawal.id = :withdrawalId
+               AND withdrawal.status = com.aiblockclock.enums.payment.WithdrawalStatus.APPROVED
+            """)
+    int updatePayoutStartIfApproved(
+            @Param("withdrawalId") Long withdrawalId,
+            @Param("transactionHash") String transactionHash,
+            @Param("rawTransaction") String rawTransaction,
+            @Param("submittedAt") Instant submittedAt
+    );
+
+    // 지급 중인 신청만 끝낸다. 두 차례가 같은 성공을 봐도 한쪽만 끝내고, 늦은 쪽은 0 을 받는다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE WithdrawalEntity withdrawal
+               SET withdrawal.status = com.aiblockclock.enums.payment.WithdrawalStatus.PAID,
+                   withdrawal.paidAt = :paidAt,
+                   withdrawal.updatedAt = :paidAt
+             WHERE withdrawal.id = :withdrawalId
+               AND withdrawal.status = com.aiblockclock.enums.payment.WithdrawalStatus.PAYING
+            """)
+    int updatePaidIfPaying(
+            @Param("withdrawalId") Long withdrawalId,
+            @Param("paidAt") Instant paidAt
+    );
 }

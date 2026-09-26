@@ -4,6 +4,7 @@ import com.aiblockclock.domain.auth.AdminProperties;
 import com.aiblockclock.domain.auth.WalletAuthProperties;
 import com.aiblockclock.domain.file.FileStoreProperties;
 import com.aiblockclock.domain.payment.ChargeProperties;
+import com.aiblockclock.domain.payment.WithdrawalPayoutProperties;
 import com.aiblockclock.domain.payment.WithdrawalProperties;
 
 import org.springframework.boot.SpringApplication;
@@ -12,7 +13,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 
 @SpringBootApplication
 @EnableConfigurationProperties({WalletAuthProperties.class, FileStoreProperties.class, ChargeProperties.class,
-        WithdrawalProperties.class, AdminProperties.class})
+        WithdrawalProperties.class, WithdrawalPayoutProperties.class, AdminProperties.class})
 public class AiBlockClockApplication {
 
     public static void main(String[] args) {

@@ -71,6 +71,11 @@ payment:
     maximum-amount: ${PAYMENT_WITHDRAWAL_MAXIMUM_AMOUNT:1000}
     # 마지막 신청(취소 · 반려 제외)에서 이만큼 지나야 다시 신청할 수 있다. 0 이면 주기 없이 처리 중인 출금만 막는다
     request-interval: ${PAYMENT_WITHDRAWAL_REQUEST_INTERVAL:24h}
+    payout:
+      # 보관 지갑 키(SSAFY_CHAIN_SIGNER_PRIVATE_KEY)를 넣은 서버에서만 켠다. 꺼 두면 승인된 출금은 APPROVED 로 기다린다
+      enabled: ${PAYMENT_WITHDRAWAL_PAYOUT_ENABLED:false}
+      # 블록이 약 10초마다 생겨서, 보낸 거래를 더 자주 물어도 새 답이 없다
+      poll-interval: ${PAYMENT_WITHDRAWAL_PAYOUT_POLL_INTERVAL:10s}
 
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}

@@ -29,6 +29,10 @@ public final class Withdrawal {
     private UserId reviewer;
     private final Instant reviewedAt;
     private String rejectReason;
+    // 아래 셋은 지급을 시작한 뒤에만 있다. 보낸 시각 · 끝난 시각은 Writer 가 적는다
+    private PayoutTransaction payoutTransaction;
+    private final Instant payoutSubmittedAt;
+    private final Instant paidAt;
 
     public static Withdrawal requested(
             WithdrawalRequestId requestId,
@@ -36,8 +40,8 @@ public final class Withdrawal {
             AbcAmount amount,
             String walletAddress
     ) {
-        return new Withdrawal(
-                null, requestId, requester, amount, walletAddress, WithdrawalStatus.REQUESTED, null, null, null, null);
+        return new Withdrawal(null, requestId, requester, amount, walletAddress, WithdrawalStatus.REQUESTED,
+                null, null, null, null, null, null, null);
     }
 
     public static Withdrawal restore(
@@ -50,10 +54,13 @@ public final class Withdrawal {
             Instant requestedAt,
             UserId reviewer,
             Instant reviewedAt,
-            String rejectReason
+            String rejectReason,
+            PayoutTransaction payoutTransaction,
+            Instant payoutSubmittedAt,
+            Instant paidAt
     ) {
-        return new Withdrawal(
-                id, requestId, requester, amount, walletAddress, status, requestedAt, reviewer, reviewedAt, rejectReason);
+        return new Withdrawal(id, requestId, requester, amount, walletAddress, status, requestedAt,
+                reviewer, reviewedAt, rejectReason, payoutTransaction, payoutSubmittedAt, paidAt);
     }
 
     public boolean isRequestedBy(UserId candidate) {
@@ -70,6 +77,10 @@ public final class Withdrawal {
 
     public boolean isRejected() {
         return status == WithdrawalStatus.REJECTED;
+    }
+
+    public boolean isPaid() {
+        return status == WithdrawalStatus.PAID;
     }
 
     // 심사를 기다리는 신청만 사용자가 거둘 수 있다. 승인된 뒤에는 지급이 진행 중이라 멈출 수 없다
@@ -96,9 +107,28 @@ public final class Withdrawal {
         rejectReason = reason;
     }
 
+    // 서명한 전송을 보내기 전에 해시와 함께 지급 중으로 적는다. 보내고 나서 적으면, 그 사이 서버가 멈췄을 때 보냈는지 알 길이 없다
+    public void startPayout(PayoutTransaction transaction) {
+        checkStatus(WithdrawalStatus.APPROVED);
+
+        status = WithdrawalStatus.PAYING;
+        payoutTransaction = transaction;
+    }
+
+    // 체인에서 성공을 확인한 뒤에만 끝낸다. 묶은 금액을 내보내는 장부 거래는 같은 트랜잭션에서 적는다
+    public void completePayout() {
+        checkStatus(WithdrawalStatus.PAYING);
+
+        status = WithdrawalStatus.PAID;
+    }
+
     // 취소와 심사는 모두 심사 대기에서만 한다. 한 번 닫히거나 승인된 신청은 되돌리지 않는다
     private void checkRequested() {
-        if (status != WithdrawalStatus.REQUESTED) {
+        checkStatus(WithdrawalStatus.REQUESTED);
+    }
+
+    private void checkStatus(WithdrawalStatus expected) {
+        if (status != expected) {
             throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
         }
     }

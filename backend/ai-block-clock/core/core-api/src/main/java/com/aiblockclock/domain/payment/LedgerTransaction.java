@@ -38,6 +38,7 @@ public record LedgerTransaction(
     private static final String WITHDRAWAL_RELEASE_KEY_PREFIX = "withdrawal-release:";
     private static final String PAYOUT_CONVERSION_REFERENCE_TYPE = "PAYOUT_CONVERSION";
     private static final String PAYOUT_CONVERSION_KEY_PREFIX = "payout-conversion:";
+    private static final String WITHDRAWAL_PAYOUT_KEY_PREFIX = "withdrawal-payout:";
 
     public LedgerTransaction {
         if (eventType == null
@@ -254,6 +255,25 @@ public record LedgerTransaction(
         );
     }
 
+    // 체인에서 지급이 성공한 출금의 묶은 금액을 발행 계정으로 돌려 장부 밖으로 내보낸다. 충전이 발행 계정에서 꺼내 온 것의 반대다.
+    // 키가 출금 ID 라 한 신청에 한 번만 적히고, 체인 거래 해시도 함께 적어 한 거래가 두 번 쓰이지 못한다.
+    public static LedgerTransaction forWithdrawalPayout(Withdrawal withdrawal, long chainId) {
+        return new LedgerTransaction(
+                LedgerEventType.WITHDRAWAL_PAYOUT,
+                WITHDRAWAL_PAYOUT_KEY_PREFIX + withdrawal.getId(),
+                WITHDRAWAL_REFERENCE_TYPE,
+                withdrawal.getId().toString(),
+                chainId,
+                withdrawal.getPayoutTransaction().transactionHash(),
+                List.of(
+                        new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, referenceIdOf(withdrawal.getRequester()),
+                                withdrawal.getAmount().value().negate()),
+                        new LedgerEntry(LedgerAccountType.ABC_ISSUANCE, SYSTEM_ACCOUNT_REFERENCE_ID,
+                                withdrawal.getAmount().value())
+                )
+        );
+    }
+
     // 정산금을 같은 사람의 쓸 수 있는 잔액으로 옮긴다. 출금했다가 다시 충전하지 않고 번 ABC 를 실행에 쓰게 한다.
     public static LedgerTransaction forPayoutConversion(
             UserId owner,
@@ -341,6 +361,10 @@ public record LedgerTransaction(
                     LedgerAccountType.WITHDRAWAL_ESCROW, LedgerAccountType.PAYOUT_BALANCE);
             case PAYOUT_CONVERSION -> isOwnMove(outflow, inflows,
                     LedgerAccountType.PAYOUT_BALANCE, LedgerAccountType.ABC_BALANCE);
+            case WITHDRAWAL_PAYOUT -> outflow.accountType() == LedgerAccountType.WITHDRAWAL_ESCROW
+                    && inflows.size() == 1
+                    && inflows.get(0).accountType() == LedgerAccountType.ABC_ISSUANCE
+                    && inflows.get(0).accountReferenceId().equals(SYSTEM_ACCOUNT_REFERENCE_ID);
         };
     }
 
