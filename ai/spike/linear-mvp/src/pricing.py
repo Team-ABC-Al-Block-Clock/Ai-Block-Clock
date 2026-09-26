@@ -19,8 +19,9 @@ from typing import Any
 # 모델별 공시 단가(USD / 1M tokens). 모델을 늘리면 여기에 추가한다.
 MODEL_PRICES: dict[str, tuple[float, float]] = {
     "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-pro": (1.25, 10.00),       # 09-26 기본 모델. 공시 단가 (≤200k 토큰 구간)
 }
-DEFAULT_PRICE = MODEL_PRICES["gemini-2.5-flash"]
+DEFAULT_PRICE = MODEL_PRICES["gemini-2.5-pro"]
 USD_DECIMALS = 6                       # 노드 1회가 0.001 USD 대라 소수 6자리는 있어야 한다
 
 

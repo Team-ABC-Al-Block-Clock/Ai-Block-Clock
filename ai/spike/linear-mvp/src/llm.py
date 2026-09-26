@@ -6,7 +6,7 @@ base_url 만 바꿔 끼운다. Google 직접 호출로 돌리려면 LLM_BASE_URL
 
     LLM_API_KEY    GMS 팀 키 (구 GEMINI_API_KEY 도 읽는다)
     LLM_BASE_URL   기본 https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com
-    LLM_MODEL      기본 gemini-2.5-flash (구 GEMINI_MODEL 도 읽는다)
+    LLM_MODEL      기본 gemini-2.5-pro (구 GEMINI_MODEL 도 읽는다). 09-26 Flash → Pro
 
 이 파일은 이후 ai/runtime/app/nodes/ 의 모델 어댑터 골격으로 재사용할 수 있게
 외부 의존을 이 안에만 가둔다.
@@ -18,9 +18,9 @@ import os
 import time
 from dataclasses import dataclass
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-2.5-pro"
 DEFAULT_BASE_URL = "https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com"
-TIMEOUT_MS = 60_000
+TIMEOUT_MS = 120_000                  # Pro 는 노드 1회가 길다. Flash 실측 최대 20s 의 6배
 RETRY_STATUS = {429, 503}
 RETRY_WAIT_SEC = 10
 MAX_RETRIES = 2

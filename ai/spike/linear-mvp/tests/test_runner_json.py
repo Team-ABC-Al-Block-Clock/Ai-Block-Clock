@@ -114,6 +114,9 @@ def test_실측_원가는_토큰과_단가에서_결정적으로_나온다():
     assert pricing.cost_usd("gemini-2.5-flash", 1_000_000, 0) == 0.30
     assert pricing.cost_usd("gemini-2.5-flash", 0, 1_000_000) == 2.50
     assert pricing.cost_usd("gemini-2.5-flash", 1281, 1349) == 0.003757
+    assert pricing.cost_usd("gemini-2.5-pro", 1_000_000, 0) == 1.25          # 09-26 기본 모델
+    assert pricing.cost_usd("gemini-2.5-pro", 0, 1_000_000) == 10.0
+    assert pricing.cost_usd("unknown-model", 1_000_000, 0) == 1.25          # 모르는 모델은 기본 모델 단가
     assert pricing.cost_usd("mock", 9999, 9999) == 0.0        # 모델을 부르지 않았다
     assert not hasattr(pricing, "cost_abc") and not hasattr(pricing, "abc_per_usd")
 
