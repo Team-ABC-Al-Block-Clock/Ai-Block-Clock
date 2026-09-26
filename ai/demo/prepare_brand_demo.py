@@ -29,7 +29,7 @@ def seed_score(row):
 
 def prepare():
     catalog = {}
-    for path in sorted((AI / "schemas" / "catalog").glob("*.json")):
+    for path in sorted((AI / "demo" / "brand" / "eval_schemas").glob("*.json")):
         item = read(path)
         if "schema_id" not in item:
             continue

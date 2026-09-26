@@ -49,9 +49,9 @@ def main() -> None:
         brand.append({
             "agent_id": mapped.get("agent_id") or key,
             "name": m["name"], "description": m["description"], "tags": m["tags"], "category": m["category"],
-            # v2.0: 입력 = 진입 노드 폼 견본(없으면 자유), 출력 = 종단 노드 견본(글이면 "text"). 표시용이다
-            "input_schema_id": (io.get("input") or {}).get("sample"),
-            "output_schema_id": out.get("sample") or ("text" if out.get("kind") == "text" else m["output_schema_id"]),
+            # v2.1: 견본이 없다. 표시용으로 입력은 예시가 있으면 "json"(없으면 자유 = None), 출력은 "json" · "text"
+            "input_schema_id": "json" if io.get("input") else None,
+            "output_schema_id": out.get("kind") or "json",
             "owner_id": mapped.get("owner_id"),
             "tier": stats[key]["tier"], "success_rate": stats[key]["success_rate"], "is_public": True,
         })

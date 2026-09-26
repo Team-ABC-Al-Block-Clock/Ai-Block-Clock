@@ -10,7 +10,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from src import graph, runner
+from src import graph, runner, shape
 from src.api import app
 
 BRIEF = {
@@ -22,8 +22,8 @@ BRIEF = {
 }
 
 
-def _text_node(node_id: str, schema: str = "common.text@1") -> dict:
-    return {"id": node_id, "prompt": "p", "output_schema_id": schema}
+def _text_node(node_id: str) -> dict:
+    return {"id": node_id, "prompt": "p", "output": {"kind": "text"}}
 
 
 def _uc1(**kw) -> dict:
@@ -31,7 +31,7 @@ def _uc1(**kw) -> dict:
                           input_payload=BRIEF, **kw)
 
 
-LOW = {"biz.market_research@1": {"competition_level": "low"}}
+LOW = {"n1.competition_level": "low"}
 
 
 # --- 위상 정렬 · 순환 --------------------------------------------------------
@@ -123,7 +123,7 @@ def test_합류하는_경로들의_출력_형식이_달라도_된다():
     wf = runner.load_workflow("brand_agent")
     for node in wf["nodes"]:
         if node["id"] == "n3b":
-            node["output_schema_id"] = "biz.campaign_plan@1"
+            node["output"] = {"kind": "json", "example": {"전혀": "다른 모양"}}
     report = graph.validate(wf)
     assert report["valid"] and not any(e["code"] == "JOIN_SCHEMA_MISMATCH" for e in report["errors"])
 
@@ -135,10 +135,10 @@ def test_옛_필드는_무시하고_경고만_낸다():
     report = graph.validate(wf)
     dep = [w for w in report["warnings"] if w["code"] == "DEPRECATED_FIELD"]
     assert report["valid"] and len(dep) == 2                     # 노드 1 + output.schema_id 1
-    assert any("input_schema_id" in w["message"] and "output_schema_id" in w["message"]
-               and w["node_id"] == "n1" for w in dep)
+    assert any("biz.brand_brief@1" in w["message"] and "biz.market_research@1" in w["message"]
+               and "unit_price" in w["message"] and w["node_id"] == "n1" for w in dep)
     assert any(w["node_id"] is None and "output.schema_id" in w["message"] for w in dep)
-    assert graph.validate(runner.load_workflow("brand_agent"))["warnings"] == []   # 견본은 v2.0 형식
+    assert graph.validate(runner.load_workflow("brand_agent"))["warnings"] == []   # 견본 워크플로우는 v2.1 형식
 
 
 def test_분기_노드는_when_true_false_간선이_각각_하나여야_한다():
@@ -148,7 +148,7 @@ def test_분기_노드는_when_true_false_간선이_각각_하나여야_한다()
     assert "BRANCH_EDGES_INVALID" in codes
 
 
-def test_견본에_없는_형식은_거부한다():
+def test_옛_견본_id_중_모르는_것은_거부한다():
     wf = {"nodes": [{"id": "a", "prompt": "p", "output": {"kind": "json", "sample": "biz.없는것@1"}}]}
     assert [e["code"] for e in graph.validate(wf)["errors"]] == ["UNKNOWN_SAMPLE"]
     wf = {"nodes": [{"id": "a", "prompt": "p", "input": {"sample": "biz.없는것@1"},
@@ -158,9 +158,14 @@ def test_견본에_없는_형식은_거부한다():
 
 def test_출력_선언이_없거나_틀리면_거부한다():
     assert [e["code"] for e in graph.validate({"nodes": [{"id": "a", "prompt": "p"}]})["errors"]] == ["MISSING_OUTPUT"]
-    for bad in ({"kind": "pdf"}, {"kind": "json"}):
+    wf = {"nodes": [{"id": "a", "prompt": "p", "output": {"kind": "pdf"}}]}
+    assert [e["code"] for e in graph.validate(wf)["errors"]] == ["OUTPUT_KIND_INVALID"]
+    for bad in ({"kind": "json"}, {"kind": "json", "example": {}}, {"kind": "json", "example": [1]},
+                {"kind": "json", "example": {"a": {}}}):
         wf = {"nodes": [{"id": "a", "prompt": "p", "output": bad}]}
-        assert [e["code"] for e in graph.validate(wf)["errors"]] == ["OUTPUT_KIND_INVALID"], bad
+        assert [e["code"] for e in graph.validate(wf)["errors"]] == ["OUTPUT_EXAMPLE_INVALID"], bad
+    wf = {"nodes": [{"id": "a", "prompt": "p", "input": {"example": {}}, "output": {"kind": "text"}}]}
+    assert [e["code"] for e in graph.validate(wf)["errors"]] == ["OUTPUT_EXAMPLE_INVALID"]
 
 
 def test_규모_상한을_넘으면_거부한다():
@@ -183,7 +188,7 @@ def test_글_출력_워크플로우는_경고_없이_통과한다():
     wf = runner.load_workflow("report")
     report = graph.validate(wf)
     assert report["valid"] and report["warnings"] == [] and report["errors"] == []
-    assert all(graph.output_spec_of(n) == {"kind": "text", "sample": None} for n in wf["nodes"])
+    assert all(graph.output_spec_of(n) == {"kind": "text", "example": None} for n in wf["nodes"])
 
 
 # --- UC1 실행: 1단계 관문 ----------------------------------------------------
@@ -193,7 +198,7 @@ def test_경쟁_강도가_high_면_차별화_전략으로_간다():
     status = {n["id"]: n["status"] for n in run["nodes"]}
     assert run["status"] == "succeeded"
     assert status["n3a"] == "succeeded" and status["n3b"] == "skipped"
-    assert run["result"]["envelope"]["schema_id"] == "biz.brand_strategy@1"
+    assert run["result"]["envelope"]["schema_id"] == "json"
     assert run["result"]["pdf"]
 
 
@@ -255,12 +260,11 @@ def test_글_출력_노드는_분기_기준이_될_수_없다():
 def test_필드_종류에_맞지_않는_연산자는_거부한다():
     bad = graph.validate(_with_condition({"left": "n1.competition_level", "op": ">", "right": "high"}))
     assert [e["code"] for e in bad["errors"]] == ["BRANCH_OP_TYPE_MISMATCH"]
-    from src import catalog
-    assert catalog.field_kind("biz.market_research@1", "competition_level") == "enum"
-    assert catalog.field_kind("biz.market_research@1", "level_reason") == "string"
-    assert catalog.field_kind("biz.market_research@1", "competitors") == "array"
-    assert catalog.field_kind("biz.market_research@1", "competitors.0.name") == "string"
-    assert catalog.field_kind("biz.market_research@1", "없는필드") is None
+    ex = next(n for n in runner.load_workflow("brand_agent")["nodes"] if n["id"] == "n1")["output"]["example"]
+    assert shape.field_kind(ex, "competition_level") == "string"
+    assert shape.field_kind(ex, "competitors") == "array"
+    assert shape.field_kind(ex, "competitors.0.name") == "string"
+    assert shape.field_kind(ex, "없는필드") is None
 
 
 def test_전개된_에이전트_안의_분기도_접두_경로로_검사된다():
@@ -271,15 +275,14 @@ def test_전개된_에이전트_안의_분기도_접두_경로로_검사된다()
 def test_형식이_다른_노드도_이어지고_끝까지_돈다():
     wf = runner.load_workflow("brand_agent")
     wf["nodes"].append({"id": "n5", "name": "법률 검토", "prompt": "앞 결과의 브랜드 전략을 검토한다",
-                        "input_schema_id": "biz.ad_copy@1",             # 옛 필드 — 형식이 달라도 무시된다
-                        "output_schema_id": "biz.campaign_plan@1", "owner_id": "u_seller_d"})
+                        "output": {"kind": "json", "example": {"검토 의견": "…", "위험도": "낮음"}},
+                        "owner_id": "u_seller_d"})
     wf["edges"].append({"from": "n4", "to": "n5"})
     report = graph.validate(wf)
     assert report["valid"], report["errors"]
-    assert any(w["code"] == "DEPRECATED_FIELD" and w["node_id"] == "n5" for w in report["warnings"])
     run = runner.execute(wf, mock=True, input_payload=BRIEF)
     assert run["status"] == "succeeded"
-    assert run["result"]["envelope"]["schema_id"] == "biz.campaign_plan@1"
+    assert run["result"]["envelope"]["payload"] == {"검토 의견": "…", "위험도": "낮음"}   # mock = 예시
     assert {c["owner_id"] for c in run["contribution"]} == {"u_seller_a", "u_seller_d"}
 
 
@@ -290,14 +293,14 @@ def test_입력_블록은_절마다_출처와_형식을_단다():
     sources = graph.fan_in_sources(g, "n3a", payloads, {"br1": True})
     assert sources == [("n1", "market"), ("n2", "product")]           # 분기를 통과해 원천이 보인다
     msg = runner.build_input_message(runner.input_sections(g, sources, merged, None, ""), "코멘트")
-    assert msg.startswith("## 입력\n### market — ") and "(n1 · 시장 조사 결과)" in msg
-    assert "### product — " in msg and "(n2 · 제품 분석 결과)" in msg
+    assert msg.startswith("## 입력\n### market — ") and "(n1 · JSON)" in msg
+    assert "### product — " in msg and "(n2 · JSON)" in msg
     assert '"competition_level": "high"' in msg and msg.endswith("## 사용자 코멘트\n코멘트")
 
     single = graph.fan_in_sources(g, "n4", {"n3a": {"approach": "차별화"}}, {"br1": True})
     assert single == [("n3a", None)]
     one = runner.build_input_message(runner.input_sections(g, single, {"approach": "차별화"}, None, ""), "")
-    assert one.count("### ") == 1 and "(n3a · 전략 초안)" in one
+    assert one.count("### ") == 1 and "(n3a · JSON)" in one
     assert runner.build_input_message([("메모", {"text": "본문 그대로"})], "") == "## 입력\n### 메모\n본문 그대로"
 
 
@@ -334,16 +337,9 @@ def test_검증_엔드포인트는_실행하지_않고_판정만_돌려준다():
     assert client.post("/v1/workflows/validate", json={}).status_code == 400
 
 
-def test_엑셀은_common_table_payload_로_들어온다():
-    from src import catalog
-    from src.excel_to_text import excel_to_common_table
-
-    table = excel_to_common_table("data/demo_scores.xlsx")
-    catalog.parse("common.table@1", table)
-    assert [c["label"] for c in table["columns"]][:1] == ["이름"]
-    assert all(c["key"].startswith("col_") for c in table["columns"])
-    assert len(table["rows"]) == 20
-    assert json.dumps(table, ensure_ascii=False)          # 직렬화 가능
+def test_엑셀은_표_문서로_자유_입력에_들어온다():
+    text = runner.build_user_input("코멘트", "data/demo_scores.xlsx")
+    assert text.startswith("## 코멘트\n코멘트") and "## 올린 파일" in text and "이름" in text
 
 
 # --- 견적 (분기 조합 중 노드가 가장 많은 경우 · 금액 없음, 계약 v2.0 §7.5) ---------

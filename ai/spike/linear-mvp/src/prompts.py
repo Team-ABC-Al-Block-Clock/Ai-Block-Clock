@@ -75,20 +75,12 @@ def parse(text: str) -> Prompt:
                   fewshot=blocks.get("fewshot", "").strip())
 
 
-def short_name(schema_id: str | None) -> str | None:
-    """`biz.strategy_draft@1` → `strategy_draft`. 상위 결과를 자리표시자 이름으로 부를 때 쓴다."""
-    if not schema_id:
-        return None
-    return schema_id.split("@")[0].split(".")[-1]
-
-
-def values_for(received: Any, *, input_payload: dict | None, comment: str,
-               upstream_schema_id: str | None) -> dict[str, Any]:
+def values_for(received: Any, *, input_payload: dict | None, comment: str) -> dict[str, Any]:
     """자리표시자에 넣을 값. 뒤에 오는 것이 앞의 것을 덮는다.
 
       1. 실행 입력(브리프)의 필드          — {brand_name} {category} …
       2. 받은 것이 dict 면 그 키들          — 병합이면 {market} {product}, 단일이면 그 payload 의 필드
-      3. 상위 노드 출력 형식의 짧은 이름     — {strategy_draft} {brand_strategy} = 받은 payload 전체
+      3. {input}                            — 받은 것 전체(단일이면 그 payload, 병합이면 port 묶음)
       4. 사용자 코멘트                      — {comment}
     """
     values: dict[str, Any] = {}
@@ -96,9 +88,8 @@ def values_for(received: Any, *, input_payload: dict | None, comment: str,
         values.update(input_payload)
     if isinstance(received, dict):
         values.update(received)
-    name = short_name(upstream_schema_id)
-    if name and received is not None:
-        values[name] = received
+    if received is not None:
+        values["input"] = received
     if comment:
         values["comment"] = comment
     return values

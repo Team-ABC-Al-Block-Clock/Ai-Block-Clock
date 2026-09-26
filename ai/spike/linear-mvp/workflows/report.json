@@ -7,16 +7,23 @@
       "id": "analyze",
       "name": "성적 분석",
       "prompt": "prompts/analyze.md",
-      "output": { "kind": "text" },
+      "output": {
+        "kind": "text"
+      },
       "owner_id": "u_demo_analyst"
     },
     {
       "id": "letter",
       "name": "가정통신문 작성",
       "prompt": "prompts/letter.md",
-      "output": { "kind": "text" },
+      "output": {
+        "kind": "text"
+      },
       "owner_id": "u_demo_writer"
     }
   ],
-  "output": { "type": "pdf", "title": "3월 성적 리포트" }
+  "output": {
+    "type": "pdf",
+    "title": "3월 성적 리포트"
+  }
 }

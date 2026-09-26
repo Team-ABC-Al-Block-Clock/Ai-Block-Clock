@@ -32,19 +32,18 @@ def _run(input_payload=BRIEF, workflow="brand_agent"):
 def test_UC1_이_JSON_으로_완주하고_봉투가_나온다():
     run = _run()
     assert run["status"] == "succeeded"
-    assert [(n["output"] or {}).get("sample") for n in run["nodes"]] == [
-        "biz.market_research@1", "biz.product_analysis@1", None,
-        "biz.strategy_draft@1", "biz.strategy_draft@1", "biz.brand_strategy@1"]
+    assert [(n["output"] or {}).get("kind") for n in run["nodes"]] == [
+        "json", "json", None, "json", "json", "json"]
     env = run["result"]["envelope"]
     assert env["a2a_version"] == "2.0"
-    assert env["schema_id"] == "biz.brand_strategy@1"
+    assert env["schema_id"] == "json"
     assert env["error"] is None and env["meta"]["repair_count"] == 0
 
 
-def test_발행일과_작성기관은_Runtime_이_채운다():
-    payload = _run()["result"]["envelope"]["payload"]
-    assert payload["author_org"] == "김전략 브랜딩"      # 노드의 owner_name
-    assert payload["issued_on"].startswith("2026년")
+def test_mock_결과는_판매자가_준_예시_그대로다():
+    wf = runner.load_workflow("brand_agent")
+    example = next(n for n in wf["nodes"] if n["id"] == "n4")["output"]["example"]
+    assert _run()["result"]["envelope"]["payload"] == example
 
 
 def test_실행된_노드마다_정산_기여가_쌓인다():
@@ -60,12 +59,12 @@ def test_결과_PDF_가_만들어진다():
 # --- 실패 책임 --------------------------------------------------------------
 
 def test_입력이_형식과_다르면_수요자_책임으로_멈춘다():
-    run = _run({**BRIEF, "price_tier": "초고가"})
+    run = _run({k: v for k, v in BRIEF.items() if k != "brand_name"})
     assert run["status"] == "failed"
     assert run["error"]["code"] == "SCHEMA_VALIDATION_FAILED"
     assert run["error"]["fault"] == "consumer"
     assert run["error"]["affects_success_rate"] is False
-    assert "price_tier" in run["error"]["detail"]          # 사유는 detail 에만
+    assert "brand_name" in run["error"]["detail"]          # 사유는 detail 에만
     assert run["failure"]["refund_scope"]["settled_node_ids"] == []
 
 
@@ -88,22 +87,21 @@ def test_글_출력_워크플로우는_봉투에_text_를_담고_PDF_를_만든�
     run = runner.execute(runner.load_workflow("report"), comment="회귀", mock=True,
                          file_path="data/demo_scores.xlsx")
     assert run["status"] == "succeeded"
-    assert all(n["output"] == {"kind": "text", "sample": None} for n in run["nodes"])
+    assert all(n["output"] == {"kind": "text", "example": None} for n in run["nodes"])
     env = run["result"]["envelope"]
     assert env["schema_id"] == "text" and set(env["payload"]) == {"text"}
     assert env["meta"]["repair_count"] == 0 and run["result"]["pdf"]
-    assert run["result"]["output"] == {"kind": "text", "sample": None}
+    assert run["result"]["output"] == {"kind": "text", "example": None}
 
 
 # --- 스키마 API -------------------------------------------------------------
 
-def test_스키마_목록과_전문을_API_로_받는다():
+def test_견본_API_는_없어졌고_빈_목록을_돌려준다():
     client = TestClient(app)
-    listing = client.get("/v1/schemas")
-    assert listing.status_code == 200 and len(listing.json()["schemas"]) == 11
-    one = client.get("/v1/schemas/biz.brand_brief@1")
-    assert one.status_code == 200 and one.json()["title"] == "브랜드 기획 요청서"
-    assert client.get("/v1/schemas/biz.없는것@1").status_code == 404
+    listing = client.get("/v1/schemas").json()
+    assert listing["deprecated"] is True and listing["schemas"] == []
+    gone = client.get("/v1/schemas/biz.brand_brief@1")
+    assert gone.status_code == 404 and gone.json()["detail"]["code"] == "SCHEMA_NOT_FOUND"
 
 
 # --- 실측 원가 (NOD-007 · EXE-013) -------------------------------------------
@@ -153,14 +151,13 @@ def test_에이전트별_합계는_노드_합과_같다():
 def test_교정_재요청분_토큰도_원가에_들어간다():
     import json as _json
 
-    from src import catalog, nodes
-    from tests.test_nodes import FakeLLM, _market
+    from src import nodes
+    from tests.test_nodes import MARKET_EXAMPLE, FakeLLM, _market
 
-    bad = _json.dumps(_market(competition_level="medium"), ensure_ascii=False)
+    bad = _json.dumps(_market(competition_level=3), ensure_ascii=False)
     good = _json.dumps(_market(), ensure_ascii=False)
     run = nodes.run_llm_node(FakeLLM(bad, good), run_id="r", node_id="n1",
-                             schema_id="biz.market_research@1", system="s", message="m")
+                             example=MARKET_EXAMPLE, system="s", message="m")
     assert run.ok and run.repair_count == 1
     meta = run.envelope["meta"]
     assert meta["usage"]["input_tokens"] == 20 and meta["usage"]["output_tokens"] == 40   # 2회 합산
-    assert catalog.CATALOG_VERSION

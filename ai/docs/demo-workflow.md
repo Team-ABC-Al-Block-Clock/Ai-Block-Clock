@@ -7,8 +7,8 @@
 | 입력 | **시연** `ai/demo/brand/brief_high.json`(칫솔 → high) · `brief_low.json`(클라이밍 테이프 → low). 테스트용 `ai/spike/linear-mvp/data/brand_brief.json`(간편식 → low) |
 | 참고 파일 | `ai/demo/brand/ref/` — 시장 조사 체크리스트(md) · 보고서 작성 가이드(PDF) · 광고 카피 금지 표현(txt) |
 | 실패 시연 | `ai/demo/brand/failure/README.md` — 사용자 · 판매자 · 플랫폼 책임 3케이스 |
-| 계약 | `integration-guide.md` **v2.0** §5(워크플로우 정의) · §6(견본 · 봉투) |
-| 버전 | v2.0 · 09-26 (계약 v2.0 반영 — 입력 형식 없음, 출력 선언, ABC 없음, 기본 모델 Pro) |
+| 계약 | `integration-guide.md` **v2.1** §5(워크플로우 정의 · 출력 예시) · §6(봉투) |
+| 버전 | v2.1 · 09-26 저녁 (계약 v2.1 — 견본 삭제, 출력 JSON 예시. v2.0 같은 날: 입력 형식 없음 · ABC 없음 · 기본 모델 Pro) |
 
 ## 그림
 
@@ -29,21 +29,21 @@
 
 | ID | 이름 | 받는 것 | 출력 선언 `output` | 비고 |
 | --- | --- | --- | --- | --- |
-| `n1` | 시장 조사 | 사용자 입력(폼 견본 `input.sample = biz.brand_brief@1`) | `{kind: json, sample: biz.market_research@1}` | `competition_level` 이 분기 기준값. 참고 파일: 시장 조사 체크리스트 |
-| `n2` | 제품 분석 | 사용자 입력 | `{kind: json, sample: biz.product_analysis@1}` | n1 과 병렬(MVP 는 순차 실행) |
+| `n1` | 시장 조사 | 사용자 입력(입력 예시 `input.example` — 브랜드명 · 카테고리 · 핵심 고객 · 가격대 · 차별점 · 추가 요청) | `{kind: json, example: {market_overview_md, competitors[], trends[], competition_level, level_reason}}` | `competition_level` 이 분기 기준값. 참고 파일: 시장 조사 체크리스트 |
+| `n2` | 제품 분석 | 사용자 입력 | `{kind: json, example: {strengths[], weaknesses[], opportunities[]}}` | n1 과 병렬(MVP 는 순차 실행) |
 | `br1` | 경쟁 강도 분기 | 병합 `{market, product}` | — | `type: "branch"`. LLM 을 부르지 않고 과금하지 않는다. 받은 것을 그대로 넘긴다 |
-| `n3a` | 차별화 전략 | 병합 `{market, product}` | `{kind: json, sample: biz.strategy_draft@1}` | `when: true` |
-| `n3b` | 대중 공략 전략 | 병합 `{market, product}` | `{kind: json, sample: biz.strategy_draft@1}` | `when: false` |
-| `n4` | 브랜드 전략 보고서 | n3a 또는 n3b 결과 전체 | `{kind: json, sample: biz.brand_strategy@1}` | 종단 = 에이전트의 출력. 발행일 · 작성 기관은 Runtime 이 주입. 참고 파일: 보고서 작성 가이드(PDF) |
+| `n3a` | 차별화 전략 | 병합 `{market, product}` | `{kind: json, example: {approach, positioning, rationale_md, core_strategies[]}}` | `when: true` |
+| `n3b` | 대중 공략 전략 | 병합 `{market, product}` | `{kind: json, example: (n3a와 같다)}` | `when: false` |
+| `n4` | 브랜드 전략 보고서 | n3a 또는 n3b 결과 전체(`{input}`) | `{kind: json, example: {brand_name, headline, purpose[], positioning[], reasons[], core_strategy[], messages{}, summary_md: null}}` | 종단 = 에이전트의 출력. 참고 파일: 보고서 작성 가이드(PDF) |
 
-v2.0에는 **입력 형식이 없다.** 각 노드는 앞 노드(들)의 결과 전체를 `## 입력` 아래 `### 노드 이름 (id · 견본 이름)` 절로 받는다(계약 §5.4). 분기 조건 `n1.competition_level` 은 저장 시 n1 이 견본 노드이고 그 필드가 enum 인지 코드로 검사한다.
+v2.0에는 **입력 형식이 없다.** 각 노드는 앞 노드(들)의 결과 전체를 `## 입력` 아래 `### 노드 이름 (id · JSON)` 절로 받는다(계약 §5.4). 분기 조건 `n1.competition_level` 은 저장 시 n1 이 견본 노드이고 그 필드가 enum 인지 코드로 검사한다.
 
 ## 확인 방법
 
 ```bash
 cd ai/spike/linear-mvp
 
-# mock — high 경로(카탈로그 샘플 값) · low 경로(값 지정)
+# mock — high 경로(출력 예시 값 그대로) · low 경로(값 지정 — 대소문자 무시)
 uv run python -m src.runner --workflow brand_agent --input ../../demo/brand/brief_high.json --mock
 uv run python -m src.runner --workflow brand_agent --input ../../demo/brand/brief_high.json --mock \
     --mock-set "biz.market_research@1.competition_level=low"
@@ -94,7 +94,7 @@ uv run python -c "import json;from src import graph,runner;print(graph.validate(
 ## 프롬프트
 
 `ai/prompts/brand/01 ~ 07*.md` — **트랙 B(조유진) 작성, 09-26부터 트랙 A(김정윤)가 관리.** 마커 3블록(`system` · `user` · `fewshot`)과
-자리표시자를 Runtime 이 해석한다(`src/prompts.py`). 견본 워크플로우는 이 파일을 `../../prompts/brand/…` 로 가리키며,
+자리표시자를 Runtime 이 해석한다(`src/prompts.py`). 예시 워크플로우는 이 파일을 `../../prompts/brand/…` 로 가리키며,
 컨테이너에서는 같은 상대 경로가 `/prompts/brand/…` 로 풀린다.
 
 ---
@@ -120,7 +120,7 @@ uv run python -c "import json;from src import graph,runner;print(graph.validate(
 끼워 보내고, 펼치는 것도 정산을 귀속하는 것도 Runtime 이 한다(계약 §5.2). 등록용 정의는 `ai/demo/brand/agents/`.
 
 - 내부 노드 id 에 `a1.` 접두가 붙는다. 내부 분기 조건(`n1.competition_level`)도 함께 바뀐다
-- 에이전트의 공개 입출력은 따로 선언하지 않는다 — 내부 진입 노드의 `input.sample` · 종단 노드의 `output`이 곧 에이전트의 입출력이다(v2.0에서 경계 검증 폐지)
+- 에이전트의 공개 입출력은 따로 선언하지 않는다 — 내부 진입 노드의 `input.example` · 종단 노드의 `output`이 곧 에이전트의 입출력이다(v2.0에서 경계 검증 폐지)
 - 정산은 내부 노드의 `owner_id` 로 귀속된다 — 에이전트 소유자를 물려받는다
 
 ## 확인 방법

@@ -1,4 +1,4 @@
-"""그래프 실행 — edges · 위상 정렬 · fan-in · 조건 분기 · 출력 선언 · 규모 상한. 계약 v2.0 §5.
+"""그래프 실행 — edges · 위상 정렬 · fan-in · 조건 분기 · 출력 선언 · 규모 상한. 계약 v2.1 §5.
 
 **연결 호환 검사는 없다.** 어떤 노드 사이에도 선을 그을 수 있고, 다음 노드는 앞 결과 전체를
 받는다(입력 형식 폐지, 09-25). 실행 규칙은 하나다.
@@ -11,8 +11,8 @@
 **분기 조건 평가는 코드가 한다. LLM 을 쓰지 않는다**(설계 원칙 1) — 같은 입력이면
 항상 같은 경로가 나와야 정산과 견적의 근거가 된다.
 
-노드의 출력은 판매자가 선언한다 — `output: {kind: "text"}` 또는 `{kind: "json", sample: <견본 id>}`.
-카탈로그(`src/catalog`)는 강제 규격이 아니라 **견본**이다.
+노드의 출력은 판매자가 선언한다 — `output: {kind: "text"}` 또는 `{kind: "json", example: {...}}`.
+플랫폼 견본(카탈로그)은 09-26 에 없앴다. JSON 예시의 모양이 곧 강제 규격이다(`src/shape`).
 """
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ import operator
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import catalog
 from . import expand as expand_mod
+from . import shape
 
 # 계약 §5.6 — 넷 다 정의만 보면 정해지는 정적인 값이다
 LIMIT_CANVAS_NODES = 8
@@ -42,7 +42,6 @@ OPS = {
 
 # 계약 v2.0 §5.4 — 필드 종류별로 허용하는 분기 연산자. 배열 · 객체는 분기 기준이 될 수 없다
 BRANCH_OPS_BY_KIND = {
-    "enum": {"==", "!=", "in"},
     "string": {"==", "!=", "in"},
     "number": set(OPS) | {"in"},
     "boolean": {"==", "!="},
@@ -140,9 +139,9 @@ def reaches(graph: Graph, src: str, dst: str) -> bool:
 
 
 def check_branch_ref(graph: Graph, node_id: str, condition: dict) -> tuple[str, str] | None:
-    """분기 조건 `left` 가 상위 노드의 **선언된 스칼라 필드**를 가리키고 연산자가 타입에 맞는가.
+    """분기 조건 `left` 가 상위 노드 **출력 예시의 스칼라 필드**를 가리키고 연산자가 타입에 맞는가.
 
-    저장 시점 판정(계약 v2.0 §5.4 · §5.7). 어기면 `(오류 코드, 메시지)`, 맞으면 None.
+    저장 시점 판정(계약 v2.1 §5.4 · §5.7). 어기면 `(오류 코드, 메시지)`, 맞으면 None.
     실행 시점의 `BRANCH_CONDITION_INVALID`(선택 필드가 비어 옴)는 여기서 다 막지 못하므로 남겨 둔다.
     """
     left = str(condition.get("left") or "")
@@ -157,15 +156,14 @@ def check_branch_ref(graph: Graph, node_id: str, condition: dict) -> tuple[str, 
     spec = output_spec_of(graph.node(src))
     if not spec or spec.get("kind") != "json":
         return "BRANCH_ON_TEXT_OUTPUT", f"{src} 는 글 출력이라 분기 기준이 될 수 없습니다"
-    if spec["sample"] not in catalog.CATALOG:
-        return None                                   # UNKNOWN_SAMPLE 이 따로 잡는다
+    if not isinstance(spec.get("example"), dict):
+        return None                                   # OUTPUT_EXAMPLE_INVALID · UNKNOWN_SAMPLE 이 따로 잡는다
     path = left[len(src):].lstrip(".")
-    kind = catalog.field_kind(spec["sample"], path)
-    title = catalog.get(spec["sample"]).title
+    kind = shape.field_kind(spec["example"], path)
     if kind is None:
-        return "BRANCH_REF_UNKNOWN_FIELD", f"{src}({title})에 {path or '(필드 없음)'} 필드가 없습니다"
-    if kind not in catalog.SCALAR_KINDS:
-        return "BRANCH_REF_UNKNOWN_FIELD", f"{src}({title}).{path} 은(는) {kind} 라 비교할 수 없습니다 — 스칼라 필드를 쓰세요"
+        return "BRANCH_REF_UNKNOWN_FIELD", f"{src} 의 출력 예시에 {path or '(필드 없음)'} 필드가 없습니다"
+    if kind not in shape.SCALAR_KINDS:
+        return "BRANCH_REF_UNKNOWN_FIELD", f"{src}.{path} 은(는) {kind} 라 비교할 수 없습니다 — 문자 · 숫자 · 참거짓 필드를 쓰세요"
     op = condition.get("op")
     if op not in BRANCH_OPS_BY_KIND[kind]:
         allowed = " ".join(sorted(BRANCH_OPS_BY_KIND[kind]))
@@ -185,32 +183,57 @@ def longest_path(graph: Graph) -> int:
 # --- 출력 · 입력 선언 (계약 v2.0 §5.2 · §5.5) ---------------------------------
 
 def output_spec_of(node: dict) -> dict[str, Any] | None:
-    """노드가 선언한 출력 `{kind, sample}`. 분기 노드는 None.
+    """노드가 선언한 출력 `{kind, example}`. 분기 노드는 None. 계약 v2.1 §5.5.
 
-    v1.x 별칭 `output_schema_id` 는 `{kind: "json", sample: <id>}` 로 읽는다 — 한 버전만.
+    옛 형식은 한 버전 동안 읽는다(경고) — `output.sample` · `output_schema_id` 의 견본 id 를
+    `shape.LEGACY_EXAMPLES` 의 예시로 바꾼다. `common.text@1` 은 글. 모르는 id 면 `example: None`
+    과 `legacy` 를 담아 돌려주고 검증이 `UNKNOWN_SAMPLE` 로 잡는다.
     """
     if node.get("type") == "branch":
         return None
     out = node.get("output")
+    legacy = None
     if isinstance(out, dict) and out.get("kind"):
-        return {"kind": out.get("kind"), "sample": out.get("sample")}
-    legacy = node.get("output_schema_id")
-    if legacy:
-        return {"kind": "json", "sample": legacy}
-    return None
+        if out.get("kind") != "json" or "example" in out:
+            return {"kind": out.get("kind"), "example": out.get("example")}
+        legacy = out.get("sample")
+    legacy = legacy or node.get("output_schema_id")
+    if not legacy:
+        return {"kind": "json", "example": None} if isinstance(out, dict) and out.get("kind") == "json" else None
+    return _legacy_spec(legacy)
 
 
-def uses_output_alias(node: dict) -> bool:
-    out = node.get("output")
-    return bool(node.get("output_schema_id")) and not (isinstance(out, dict) and out.get("kind"))
+def _legacy_spec(sample_id: str) -> dict[str, Any]:
+    if sample_id in shape.LEGACY_TEXT_IDS:
+        return {"kind": "text", "example": None, "legacy": sample_id}
+    return {"kind": "json", "example": shape.LEGACY_EXAMPLES.get(sample_id), "legacy": sample_id}
 
 
-def entry_input_sample(node: dict) -> str | None:
-    """진입 노드의 사용자 입력 폼 견본(`input.sample`). 별칭 `input_schema_id` 도 읽는다."""
+def output_alias_of(node: dict) -> str | None:
+    """옛 견본 id 로 출력을 선언했으면 그 id. 경고 문구에 쓴다."""
+    spec = output_spec_of(node)
+    return spec.get("legacy") if spec else None
+
+
+def public_output(spec: dict[str, Any] | None) -> dict[str, Any] | None:
+    """응답 · 마켓 카드용 — 내부 표시(`legacy`)를 뺀 `{kind, example}`."""
+    return {"kind": spec["kind"], "example": spec.get("example")} if spec else None
+
+
+def entry_input_example(node: dict) -> dict | None:
+    """진입 노드의 사용자 입력 예시(`input.example`). 옛 `input.sample` · `input_schema_id` 도 읽는다."""
     inp = node.get("input")
-    if isinstance(inp, dict) and inp.get("sample"):
-        return inp["sample"]
-    return node.get("input_schema_id")
+    if isinstance(inp, dict) and isinstance(inp.get("example"), dict):
+        return inp["example"]
+    legacy = (inp.get("sample") if isinstance(inp, dict) else None) or node.get("input_schema_id")
+    return shape.LEGACY_EXAMPLES.get(legacy) if legacy else None
+
+
+def input_alias_of(node: dict) -> str | None:
+    inp = node.get("input")
+    if isinstance(inp, dict) and isinstance(inp.get("example"), dict):
+        return None
+    return (inp.get("sample") if isinstance(inp, dict) else None) or node.get("input_schema_id")
 
 
 def upstream_output_spec(graph: Graph, node_id: str) -> dict[str, Any] | None:
@@ -223,12 +246,6 @@ def upstream_output_spec(graph: Graph, node_id: str) -> dict[str, Any] | None:
         if found:
             return found
     return None
-
-
-def output_schema_of(graph: Graph, node_id: str) -> str | None:
-    """노드가 내는 견본 id. 글 출력이면 None. 자리표시자 이름(`prompts.short_name`)에 쓴다."""
-    spec = upstream_output_spec(graph, node_id)
-    return spec["sample"] if spec and spec.get("kind") == "json" else None
 
 
 # --- fan-in · 분기 -----------------------------------------------------------
@@ -313,6 +330,8 @@ def evaluate(condition: dict, payloads: dict[str, Any]) -> bool:
 
     op = condition.get("op")
     right = condition.get("right")
+    # 문자열은 대소문자 · 앞뒤 공백을 무시한다 — AI 가 "High " 로 써도 high 로 본다(09-26 결정)
+    value, right = _fold(value), _fold(right)
     if op == "in":
         if not isinstance(right, (list, tuple, str)):
             raise ConditionInvalid("in 조건의 right 는 배열이어야 합니다")
@@ -323,6 +342,14 @@ def evaluate(condition: dict, payloads: dict[str, Any]) -> bool:
         return bool(OPS[op](value, right))
     except TypeError as e:
         raise ConditionInvalid(f"비교할 수 없는 값입니다: {left_ref}") from e
+
+
+def _fold(v: Any) -> Any:
+    if isinstance(v, str):
+        return v.strip().lower()
+    if isinstance(v, (list, tuple)):
+        return [_fold(x) for x in v]
+    return v
 
 
 def executed_nodes(graph: Graph, taken: dict[str, bool]) -> list[str]:
@@ -424,24 +451,36 @@ def validate(wf: dict) -> dict:
         spec = output_spec_of(node)
         if spec is None:
             err("MISSING_OUTPUT", node_id,
-                'output 이 없습니다 — {"kind": "text"} 또는 {"kind": "json", "sample": "<견본 id>"}')
-        elif spec["kind"] not in OUTPUT_KINDS or (spec["kind"] == "json" and not spec.get("sample")):
-            err("OUTPUT_KIND_INVALID", node_id,
-                "output.kind 는 text · json 이어야 하고, json 이면 sample 이 필요합니다")
-        elif spec["kind"] == "json" and spec["sample"] not in catalog.CATALOG:
-            err("UNKNOWN_SAMPLE", node_id, f"견본 목록에 없는 형식입니다: {spec['sample']}")
+                'output 이 없습니다 — {"kind": "text"} 또는 {"kind": "json", "example": {...}}')
+        elif spec["kind"] not in OUTPUT_KINDS:
+            err("OUTPUT_KIND_INVALID", node_id, "output.kind 는 text · json 이어야 합니다")
+        elif spec["kind"] == "json" and spec.get("legacy") and spec.get("example") is None:
+            err("UNKNOWN_SAMPLE", node_id,
+                f"견본 목록은 없어졌습니다(v2.1) — output.example 에 JSON 예시를 주세요: {spec['legacy']}")
+        elif spec["kind"] == "json":
+            problem = shape.check_example(spec.get("example"))
+            if problem:
+                err("OUTPUT_EXAMPLE_INVALID", node_id, f"output.example — {problem}")
 
-        sample_in = entry_input_sample(node)
-        if sample_in and sample_in not in catalog.CATALOG:
-            err("UNKNOWN_SAMPLE", node_id, f"견본 목록에 없는 입력 형식입니다: {sample_in}")
+        in_alias = input_alias_of(node)
+        if in_alias and in_alias not in shape.LEGACY_EXAMPLES:
+            err("UNKNOWN_SAMPLE", node_id,
+                f"견본 목록은 없어졌습니다(v2.1) — input.example 에 JSON 예시를 주세요: {in_alias}")
+        inp = node.get("input")
+        if isinstance(inp, dict) and "example" in inp:
+            problem = shape.check_example(inp.get("example"))
+            if problem:
+                err("OUTPUT_EXAMPLE_INVALID", node_id, f"input.example — {problem}")
 
-        # v2.0 에서 없어진 필드 — 무시(별칭은 읽음)하고 경고만. 백엔드가 옛 형식을 보내도 실행은 된다
-        deprecated = [k for k in DEPRECATED_NODE_FIELDS if k in node]
-        if uses_output_alias(node):
-            deprecated.append("output_schema_id(output.sample 로 읽음)")
+        # 없어진 필드 — 무시(견본 id 는 예시로 바꿔 읽음)하고 경고만. 백엔드가 옛 형식을 보내도 실행은 된다
+        deprecated = [k for k in DEPRECATED_NODE_FIELDS if k in node and k != "input_schema_id"]
+        if output_alias_of(node):
+            deprecated.append(f"견본 id {output_alias_of(node)}(출력 — 예시로 바꿔 읽음)")
+        if in_alias:
+            deprecated.append(f"견본 id {in_alias}(입력 — 예시로 바꿔 읽음)")
         if deprecated:
             warn("DEPRECATED_FIELD", node_id,
-                 ", ".join(deprecated) + " 은(는) v2.0 에서 쓰지 않습니다. 다음 버전에서 사라집니다")
+                 ", ".join(deprecated) + " — 견본 · 옛 필드는 v2.1 에서 쓰지 않습니다. 다음 버전에서 사라집니다")
 
     # 연결 호환 검사는 없다(계약 v2.0 §5.3). 어떤 노드든 이어지고 합류 양쪽 형식이 달라도 된다.
     for canvas_node in nodes_list:

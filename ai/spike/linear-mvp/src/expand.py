@@ -69,15 +69,16 @@ def expand(wf: dict) -> tuple[dict, dict]:
 def public_io(node: dict) -> dict[str, Any]:
     """에이전트의 공개 입출력 — 내부 진입 노드의 `input` · 종단 노드의 `output` 에서 파생(계약 v2.0 §5.2).
 
-    마켓 카드 · 백엔드 저장용. 진입 노드에 `input.sample` 이 없으면 입력은 "자유"(None)다.
+    마켓 카드 · 백엔드 저장용. 진입 노드에 `input.example` 이 없으면 입력은 "자유"(None)다.
     """
     from . import graph as graph_mod        # graph 가 expand 를 쓰므로 여기서만 지역 import
 
     inner_nodes, _, entries, terminals = _expand_one(node)
     by_id = {n["id"]: n for n in inner_nodes}
-    samples = [graph_mod.entry_input_sample(by_id[e]) for e in entries]
-    outputs = [graph_mod.output_spec_of(by_id[t]) for t in terminals if by_id[t].get("type") != "branch"]
-    return {"input": {"sample": samples[0]} if samples and samples[0] else None,
+    examples = [graph_mod.entry_input_example(by_id[e]) for e in entries]
+    outputs = [graph_mod.public_output(graph_mod.output_spec_of(by_id[t]))
+               for t in terminals if by_id[t].get("type") != "branch"]
+    return {"input": {"example": examples[0]} if examples and examples[0] else None,
             "output": outputs[0] if outputs else None}
 
 

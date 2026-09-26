@@ -1,15 +1,14 @@
-"""LLM 노드 한 개를 "정해진 모양"으로 실행한다 — 구조화 출력 · 검증 · 교정 · 봉투.
+"""LLM 노드 한 개를 "판매자가 준 모양"으로 실행한다 — 구조화 출력 · 검사 · 교정 · 봉투. 계약 v2.1.
 
 흐름
-  1) 카탈로그에서 응답 스키마를 꺼내 LLM에게 준다(구조화 출력)
+  1) 판매자의 출력 JSON 예시로 응답 스키마를 만들어 LLM에게 준다(구조화 출력, `src/shape`)
   2) 돌아온 JSON을 뜯는다. 코드블록으로 감싸 오는 경우까지만 관용한다
-  3) Runtime이 채우는 필드를 주입한다(발행일 · 작성 기관 — LLM에게 묻지 않는다)
-  4) Pydantic으로 검증한다(EXE-009)
-  5) 틀리면 어긋난 곳을 알려주고 다시 요청한다. **교정은 2회까지**
-  6) 통과하면 Runtime이 봉투를 씌운다
+  3) 예시의 모양(키 · 타입)을 지켰는지 코드로 검사한다(EXE-009)
+  4) 틀리면 어긋난 곳을 알려주고 다시 요청한다. **교정은 2회까지**
+  5) 통과하면 Runtime이 봉투를 씌운다
 
 판정은 전부 코드가 한다. 교정 2회를 넘기면 `SCHEMA_VALIDATION_FAILED` · **공급자 책임**이고
-(계약 §9.2), 입력 payload가 형식과 안 맞으면 같은 코드에 **수요자 책임**이다.
+(계약 §9.2), 진입 노드의 사용자 입력이 입력 예시와 안 맞으면 같은 코드에 **수요자 책임**이다.
 """
 from __future__ import annotations
 
@@ -18,13 +17,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import ValidationError
-
-from . import catalog, envelope, pricing
+from . import envelope, pricing, shape
 from .llm import LLM
 
 MAX_REPAIRS = 2                      # 계약 §6.2 — 교정은 2회까지
-TEXT_SCHEMA = "text"                 # 글 출력 노드의 봉투 schema_id (계약 v2.0 §5.5)
+TEXT_SCHEMA = "text"                 # 글 출력 노드의 봉투 schema_id (계약 v2.1 §5.5)
+JSON_SCHEMA = "json"                 # JSON 출력 노드의 봉투 schema_id — 모양은 노드의 example
 _FENCE = re.compile(r"```(?:json)?\s*(.+?)\s*```", re.S)
 
 
@@ -43,23 +41,17 @@ class NodeRun:
         return self.envelope.get("error")
 
 
-def check_input(schema_id: str | None, payload: Any) -> str | None:
-    """입력 payload가 형식에 맞는지. 맞으면 None, 아니면 사람이 읽는 사유.
+def check_input(example: dict | None, payload: Any) -> str | None:
+    """진입 노드의 사용자 입력이 입력 예시(`input.example`)의 모양인지. 맞으면 None, 아니면 사유.
 
-    여기서 실패하면 **수요자 책임**이다 — 조합하거나 입력한 쪽이 틀린 것이다(PAY-011).
-    `schema_id`가 없으면 검증하지 않는다(계약 §5 `input_schema_id` 선택).
+    여기서 실패하면 **수요자 책임**이다 — 입력한 쪽이 틀린 것이다(PAY-011). 예시가 없으면 검사하지 않는다.
     """
-    if not schema_id:
+    if not example:
         return None
     if not isinstance(payload, dict):
-        return "입력 payload가 JSON 객체가 아닙니다"
-    try:
-        catalog.parse(schema_id, payload)
-    except catalog.UnknownSchema:
-        return f"카탈로그에 없는 형식입니다: {schema_id}"
-    except ValidationError as e:
-        return _explain(e)
-    return None
+        return "입력이 JSON 객체가 아닙니다"
+    found = shape.problems(payload, example)
+    return " / ".join(found) if found else None
 
 
 def run_llm_node(
@@ -67,23 +59,19 @@ def run_llm_node(
     *,
     run_id: str,
     node_id: str,
-    schema_id: str,
+    example: dict,
     system: str,
     message: str,
-    runtime_values: dict[str, Any] | None = None,
     mock_overrides: dict[str, Any] | None = None,
     attachments: list[tuple[bytes, str, str]] | None = None,
 ) -> NodeRun:
     """노드 하나를 실행해 봉투를 돌려준다. 예외를 던지지 않는다.
 
-    `mock_overrides` 는 mock 실행에서 쓸 값이다 — 분기 기준값을 바꿔 양쪽 경로를
-    모두 돌려 보는 데 쓴다.
+    `example` 은 판매자가 준 출력 JSON 예시다. `mock_overrides` 는 mock 실행에서 예시 위에 덮을
+    값(`{"점.경로": 값}`)이다 — 분기 기준값을 바꿔 양쪽 경로를 모두 돌려 보는 데 쓴다.
     """
-    response_schema = catalog.response_schema(schema_id)
-    mock_json = catalog.sample(schema_id, mock_overrides) if llm.mock else None
-    if mock_json:
-        for name in catalog.runtime_fields(schema_id):
-            mock_json.pop(name, None)      # 주입 필드는 LLM이 만들지 않는다
+    response_schema = shape.response_schema(example)
+    mock_json = shape.mock(example, mock_overrides) if llm.mock else None
 
     tokens_in = tokens_out = duration = retries = 0
     model = "unknown"
@@ -115,19 +103,16 @@ def run_llm_node(
         if payload is None:
             reason = "JSON 객체를 찾지 못했습니다"
         else:
-            payload.update(runtime_values or {})
-            try:
-                validated = catalog.parse(schema_id, payload)
-            except ValidationError as e:
-                reason = _explain(e)
+            found = shape.problems(payload, example)
+            if found:
+                reason = " / ".join(found)
             else:
                 attempts.append("")
                 meta = envelope.meta(model, input_tokens=tokens_in, output_tokens=tokens_out,
                                      duration_ms=duration, retry_count=retries, repair_count=attempt,
                                      cost_usd=pricing.cost_usd(model, tokens_in, tokens_out))
-                return NodeRun(ok=True, payload=validated.model_dump(),
-                               envelope=envelope.build(run_id, node_id, schema_id,
-                                                       validated.model_dump(), meta),
+                return NodeRun(ok=True, payload=payload,
+                               envelope=envelope.build(run_id, node_id, JSON_SCHEMA, payload, meta),
                                repair_count=attempt, attempts=attempts)
 
         attempts.append(reason)
@@ -140,7 +125,7 @@ def run_llm_node(
                          cost_usd=pricing.cost_usd(model, tokens_in, tokens_out))
     return NodeRun(
         ok=False,
-        envelope=envelope.failed(run_id, node_id, schema_id,
+        envelope=envelope.failed(run_id, node_id, JSON_SCHEMA,
                                  code="SCHEMA_VALIDATION_FAILED",
                                  message=f"교정 {MAX_REPAIRS}회 후에도 형식을 만족하지 못했습니다 — {attempts[-1]}",
                                  fault="supplier", meta_=meta),
@@ -182,16 +167,6 @@ def _loads(text: str) -> dict[str, Any] | None:
         if isinstance(value, dict):
             return value
     return None
-
-
-def _explain(e: ValidationError) -> str:
-    """검증 오류를 사람이 읽는 한 줄로. **입력값은 싣지 않는다**(프롬프트 · 산출물 유출 방지)."""
-    parts = []
-    for err in e.errors()[:5]:
-        where = ".".join(str(x) for x in err["loc"]) or "(최상위)"
-        parts.append(f"{where}: {err['msg']}")
-    more = len(e.errors()) - 5
-    return " / ".join(parts) + (f" 외 {more}건" if more > 0 else "")
 
 
 def _repair_message(original: str, bad_output: str, reason: str) -> str:

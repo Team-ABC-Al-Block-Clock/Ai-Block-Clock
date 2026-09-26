@@ -118,7 +118,7 @@ issued_on 과 author_org 는 **출력하지 않는다.**
 {brand_name}
 
 [전략 초안]
-{strategy_draft}
+{input}
 
 위 초안을 브랜드 전략 보고서 형식으로 정리해 주세요.
 ```
