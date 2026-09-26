@@ -8,7 +8,7 @@ import { toCanvasWorkflow, toWorkflowGraph } from './workflowPayload'
 const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData => ({
   id,
   name: id,
-  nodeType: 'TOOL',
+  nodeType: 'LLM',
   sourceType: 'NODE',
   sourceId: `src-${id}`,
   price: '1',
@@ -389,7 +389,7 @@ describe('toCanvasWorkflow', () => {
     sourceId === 'node_001'
       ? {
           name: '파일 수집',
-          nodeType: 'TRIGGER' as const,
+          nodeType: 'LLM' as const,
           price: '4',
           summary: '폴더를 훑어 새 파일을 집어 온다',
           prompt: null,
@@ -431,7 +431,7 @@ describe('toCanvasWorkflow', () => {
   it('팔레트가 아는 노드는 이름과 종류와 단가를 채운다', () => {
     const [first] = toCanvasWorkflow(detail(2), known).nodes
 
-    expect(first).toMatchObject({ name: '파일 수집', nodeType: 'TRIGGER', price: '4', mine: true })
+    expect(first).toMatchObject({ name: '파일 수집', nodeType: 'LLM', price: '4', mine: true })
   })
 
   // 카드를 빼 버리면 저장된 구성이 조용히 바뀐다. 자리는 남기고 이름만 비운다.

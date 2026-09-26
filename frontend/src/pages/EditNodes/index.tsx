@@ -112,7 +112,6 @@ function describeSaveError(error: unknown): string | null {
   if (error.code === 'WORKFLOW_013')
     return '연결이 서버 규칙에 맞지 않습니다. 시작·분기·종료 연결을 확인해 주세요'
   if (error.code === 'WORKFLOW_014') return '노드를 하나 이상 놓아야 저장할 수 있습니다'
-  if (error.code === 'WORKFLOW_017') return '놓인 노드의 종류가 서버와 다릅니다. 다시 놓아 주세요'
   if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
   if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
   if (error.code === 'COMMON_001') return '이름을 확인해 주세요'

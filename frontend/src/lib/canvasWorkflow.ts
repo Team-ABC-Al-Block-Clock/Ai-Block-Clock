@@ -117,7 +117,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-1',
     name: '파일 수집',
-    nodeType: 'TRIGGER',
+    nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_001',
     price: '4',
@@ -149,7 +149,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-3',
     name: '분류 및 태깅',
-    nodeType: 'TOOL',
+    nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_003',
     price: '6',
@@ -181,7 +181,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-5',
     name: '결과 전달',
-    nodeType: 'TOOL',
+    nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_005',
     price: '3',

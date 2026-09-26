@@ -167,7 +167,7 @@ export const deleteWorkflow = (workflowId: string) =>
   api.delete<DeletedWorkflow>(`/workflows/${workflowId}`)
 
 /** 직접 만들 수 있는 노드 종류 */
-export type NodeType = 'TRIGGER' | 'LLM' | 'TOOL'
+export type NodeType = 'LLM'
 
 /** 검색 결과의 유형. 다른 사람의 에이전트는 내부 구성을 공개하지 않아 'AGENT' 로만 온다. */
 export type ItemNodeType = NodeType | 'AGENT'

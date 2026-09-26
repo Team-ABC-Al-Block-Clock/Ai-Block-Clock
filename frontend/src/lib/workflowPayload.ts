@@ -210,9 +210,7 @@ export function toCanvasWorkflow(
           : (node.name ?? label?.name ?? '알 수 없는 노드'),
       // 제어·입출력은 종류를 `controlType`·`ioType` 이 든다.
       nodeType:
-        control || io
-          ? null
-          : (label?.nodeType ?? (node.sourceType === 'AGENT' ? 'AGENT' : 'TOOL')),
+        control || io ? null : (label?.nodeType ?? (node.sourceType === 'AGENT' ? 'AGENT' : 'LLM')),
       sourceType: node.sourceType,
       controlType: control,
       ioType: io,

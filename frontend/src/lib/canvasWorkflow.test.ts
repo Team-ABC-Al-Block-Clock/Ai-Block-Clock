@@ -71,7 +71,7 @@ const apart = (nodes: CanvasNodeData[], id: string, x: number, y: number) =>
 const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   id,
   name: id,
-  nodeType: 'TOOL',
+  nodeType: 'LLM',
   sourceType: 'NODE',
   sourceId: `src-${id}`,
   price: '1',
