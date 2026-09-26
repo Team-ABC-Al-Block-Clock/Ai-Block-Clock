@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.NodeSpec;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
@@ -10,6 +11,7 @@ import com.aiblockclock.enums.agent.AgentIntegrityResult;
 import com.aiblockclock.enums.agent.AgentProvenanceStatus;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 
 import org.junit.jupiter.api.Test;
 
@@ -120,7 +122,8 @@ class AgentIntegrityTest {
     private static AgentVersionMetadata metadata(String owner, String prompt) {
         return new AgentVersionMetadata(AGENT, VERSION, VersionNumber.first(), owner,
                 List.of(new VersionNode(NodeKey.of("n1"), UserId.of(1L),
-                        new NodeSpec("요약 노드", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3"))),
+                        new NodeSpec("요약 노드", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3")),
+                                new NodeOutput(OutputKind.TEXT, null)),
                         Prompt.of(prompt), List.of())));
     }
 }
