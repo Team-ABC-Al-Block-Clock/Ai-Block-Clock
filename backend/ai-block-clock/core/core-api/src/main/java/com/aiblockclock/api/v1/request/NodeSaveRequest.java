@@ -1,9 +1,12 @@
 package com.aiblockclock.api.v1.request;
 
+import jakarta.validation.Valid;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.enums.node.AiModel;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import com.aiblockclock.enums.node.OutputKind;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -16,9 +19,18 @@ public record NodeSaveRequest(
         @NotBlank String prompt,
 
         @Schema(description = "쓸 모델. 비우면 서버 기본 모델", nullable = true)
-        AiModel model
+        AiModel model,
+
+        @Schema(description = "결과를 내는 형식. 비우면 `TEXT`", nullable = true)
+        @Valid NodeOutputRequest output
 ) {
     public AiModel modelOrDefault() {
         return model == null ? AiModel.defaultModel() : model;
+    }
+
+    public NodeOutput outputOrDefault() {
+        return output == null
+                ? new NodeOutput(OutputKind.TEXT, null)
+                : new NodeOutput(output.kind(), output.exampleJson());
     }
 }

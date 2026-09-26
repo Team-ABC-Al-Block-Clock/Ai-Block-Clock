@@ -31,7 +31,7 @@ public interface AbcApi {
     ApiResult<AbcBalanceResponse> getBalance(UserId userId);
 
     @Operation(summary = "내 ABC 사용 내역",
-            description = "충전·실행 선차감·환불을 최신순으로 준다. 기간은 시작·종료를 함께 주거나 둘 다 생략한다.")
+            description = "충전·실행 선차감·환불·정산금에서 옮겨 온 것을 최신순으로 준다. 기간은 시작·종료를 함께 주거나 둘 다 생략한다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회됨"),
             @ApiResponse(responseCode = "400", description = "기간이 한쪽만 있거나 순서가 뒤집혔거나 커서가 잘못됨", content = @io.swagger.v3.oas.annotations.media.Content),
@@ -39,7 +39,7 @@ public interface AbcApi {
     })
     ApiResult<AbcTransactionPageResponse> getTransactions(
             UserId userId,
-            @Parameter(description = "CHARGE · RESERVE · REFUND 중 하나. 생략하면 전부") LedgerEventType transactionType,
+            @Parameter(description = "CHARGE · RESERVE · REFUND · PAYOUT_CONVERSION 중 하나. 생략하면 전부") LedgerEventType transactionType,
             @Parameter(description = "조회 시작일 (YYYY-MM-DD, UTC)") LocalDate from,
             @Parameter(description = "조회 종료일 (YYYY-MM-DD, UTC, 포함)") LocalDate to,
             @Parameter(description = "이전 응답의 nextCursor") String cursor,

@@ -1,4 +1,6 @@
 # :client:blockchain 이 소유하는 설정이다. core-api 는 application.yaml 에서 가져오기만 한다.
+# 체인에 쓰는 일은 둘이다. 출금 지급은 보관 지갑이 서명한 전송을 RPC 로 보내고,
+# 에이전트 원본 기록은 등기부 지갑이 서명한 문서 쓰기를 토큰증권 API 로 보낸다.
 ssafy:
   sto:
     base-url: ${SSAFY_STO_BASE_URL:https://sto.ssafy.io}
@@ -20,3 +22,6 @@ ssafy:
     rpc-url: ${SSAFY_CHAIN_RPC_URL:https://rpc.ssafy-blockchain.com}
     connect-timeout: ${SSAFY_CHAIN_CONNECT_TIMEOUT:3s}
     read-timeout: ${SSAFY_CHAIN_READ_TIMEOUT:10s}
+    signer:
+      # 출금을 보내는 보관 지갑의 개인키. 서버의 backend.env 에만 적는다. 비우면 서명하지 않는다
+      private-key: ${SSAFY_CHAIN_SIGNER_PRIVATE_KEY:}

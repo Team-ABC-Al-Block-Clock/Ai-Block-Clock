@@ -1,6 +1,7 @@
 package com.aiblockclock.api.config;
 
 import com.aiblockclock.api.support.auth.ApiAuthenticationEntryPoint;
+import com.aiblockclock.api.support.auth.SessionAuthenticationManager;
 
 import jakarta.servlet.DispatcherType;
 
@@ -61,12 +62,15 @@ public class SecurityConfig {
                                 "/api/v1/auth/wallet/message",
                                 "/api/v1/auth/wallet/login"
                         ).permitAll()
+                        // 문서는 Nginx 가 백엔드로 넘기는 /api 아래에 둔다. 배포 서버에서도 관리자가 Swagger 로 심사한다
                         .requestMatchers(
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
+                                "/api/swagger-ui.html",
+                                "/api/swagger-ui/**",
+                                "/api/v3/api-docs/**",
                                 "/actuator/**"
                         ).permitAll()
+                        // 로그인만으로는 안 되고, 로그인할 때 관리자 권한을 받은 지갑이어야 한다(AdminProperties)
+                        .requestMatchers("/api/v1/admin/**").hasRole(SessionAuthenticationManager.ADMIN_ROLE)
                         .anyRequest().authenticated())
                 .build();
     }

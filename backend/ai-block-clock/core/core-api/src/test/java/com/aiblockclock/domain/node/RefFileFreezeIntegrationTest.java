@@ -15,6 +15,7 @@ import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.support.error.CoreException;
@@ -69,7 +70,7 @@ class RefFileFreezeIntegrationTest {
 
     @BeforeEach
     void 자료를_붙인_노드를_하나_둔다() {
-        node = nodeService.create(OWNER, "성적 분석", Prompt.of("기준표대로 채점한다"), AiModel.defaultModel());
+        node = nodeService.create(OWNER, "성적 분석", Prompt.of("기준표대로 채점한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
         nodeService.attachRefFile(node.getId(), OWNER, upload("채점 기준표.pdf", "1등급은 90점"));
     }
 

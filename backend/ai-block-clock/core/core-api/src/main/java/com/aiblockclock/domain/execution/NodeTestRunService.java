@@ -186,9 +186,11 @@ public class NodeTestRunService {
                 .orElse(null);
     }
 
+    // 저장한 출력 형식 그대로 돌린다. 글로 재면 엔진의 형식 검사 · 교정이 없어 토큰이 덜 들고, 그만큼 원가가 낮게 잡힌다.
     private PlannedPrompt promptOf(NodeDefinition node) {
         return new PlannedPrompt(TESTED_SLOT, node.getSpec().name(), node.getOwner(), node.getPrompt(),
-                InputSource.defaultSource(), refFileReader.read(node.getId()), node.getSpec().baseCost());
+                node.getSpec().model(), node.getSpec().output(), InputSource.defaultSource(),
+                refFileReader.read(node.getId()), node.getSpec().baseCost());
     }
 
     private Map<String, List<Path>> refFilePathsOf(RuntimeWorkflow workflow) {

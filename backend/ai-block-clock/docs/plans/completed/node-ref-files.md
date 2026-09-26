@@ -1,4 +1,8 @@
-# 노드 참고 자료 — 설계
+# 끝난 설계 — 노드 참고 자료
+
+**구현이 끝나 `plans/` 에서 통째로 옮겼다.** 지금 코드가 왜 그 모양인지 되짚을 때만 본다. 남은 것은 둘이고
+다른 문서가 맡는다 — `ref_files` 값의 모양은 [`../ai-runtime-questions.md`](../ai-runtime-questions.md) 1장,
+안 쓰는 파일 폐기는 [`../agent-pipeline.md`](../agent-pipeline.md) 11.1 의 보관 기간이다.
 
 공급자가 작업 노드를 만들 때 채점 기준표 · 양식 같은 자료를 붙여 두면, 실행할 때마다 우리가 그 노드와
 함께 AI Runtime 에 보낸다.
@@ -117,7 +121,7 @@ PlannedPrompt(자료 목록)  ──►  nodes[].ref_files 로 쓴다
 객체 배열인지, `<n>` 이 0부터인지 1부터인지 알 수 없다.
 
 **이름 배열 · 0부터로 가정하고 보낸다.** 한 메서드 안에 가둬 두어 답이 오면 한 줄로 바꾼다.
-[`ai-runtime-questions.md`](ai-runtime-questions.md) 에 물어 둔다.
+[`../ai-runtime-questions.md`](../ai-runtime-questions.md) 에 물어 둔다.
 
 ---
 
@@ -139,7 +143,7 @@ PlannedPrompt(자료 목록)  ──►  nodes[].ref_files 로 쓴다
 | | 언제 |
 | --- | --- |
 | 자료 내려받기 · 미리보기 | 노드 편집 화면을 만들 때 |
-| 안 쓰는 파일 폐기 | 보관 기간이 정해진 뒤 (2장) |
+| 안 쓰는 파일 폐기 | 보관 기간이 정해진 뒤 (2장, `../agent-pipeline.md` 11.1) |
 | 에이전트 단위 자료 | 계약에 자리가 없다. 필요해지면 AI 파트에 먼저 묻는다 |
 
 ---
@@ -163,7 +167,7 @@ PlannedPrompt(자료 목록)  ──►  nodes[].ref_files 로 쓴다
 쓰고 찾고 지우는 일은 같다.
 
 **`node` 가 `execution` 을 알게 둘 수는 없다.** 의존 방향이 `execution -> node` 라
-(`agent-pipeline.md` 9장) 실행 쪽 저장소를 노드가 가져다 쓰면 방향이 뒤집힌다.
+(`../agent-pipeline.md` 9장) 실행 쪽 저장소를 노드가 가져다 쓰면 방향이 뒤집힌다.
 
 | 자리 | 키 |
 | --- | --- |

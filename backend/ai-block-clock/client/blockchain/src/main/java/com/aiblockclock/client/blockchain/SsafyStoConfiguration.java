@@ -12,7 +12,7 @@ import org.springframework.web.client.RestClient;
 @EnableConfigurationProperties({SsafyStoProperties.class, SsafyTokenProperties.class,
         SsafyAgentRegistryProperties.class})
 public class SsafyStoConfiguration {
-    // 토큰 배포 · 발행은 운영자가 스크립트로 한다. 애플리케이션이 쓰는 것은 에이전트 등기부의 문서 칸뿐이다.
+    // 토큰 배포 · 발행은 운영자가 스크립트로 한다. 토큰증권 API 에 애플리케이션이 쓰는 것은 에이전트 등기부의 문서 칸뿐이다.
     @Bean
     public RestClient ssafyStoQueryRestClient(SsafyStoProperties properties) {
         return restClient(properties, properties.readTimeout());

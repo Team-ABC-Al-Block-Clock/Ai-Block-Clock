@@ -51,6 +51,18 @@ public enum ErrorType {
     USER_ALREADY_ONBOARDED(HttpStatus.CONFLICT, ErrorCode.USER_006,
             "이미 가입을 마쳤습니다.", LogLevel.WARN),
 
+    IDENTITY_VERIFICATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, ErrorCode.USER_007,
+            "제출한 본인 확인을 심사하고 있습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_ALREADY_APPROVED(HttpStatus.CONFLICT, ErrorCode.USER_008,
+            "이미 본인 확인을 마쳤습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.USER_009,
+            "본인 확인을 제출한 적이 없습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.USER_010,
+            "현재 상태에서는 본인 확인을 심사할 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
@@ -164,7 +176,7 @@ public enum ErrorType {
             "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
-            "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
+            "안에 분기가 있는 에이전트는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
             "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
@@ -237,7 +249,40 @@ public enum ErrorType {
             "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN),
 
     CHARGE_SENDER_IS_CUSTODY(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_009,
-            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN);
+            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, ErrorCode.PAYMENT_010,
+            "출금 금액이 한 번에 신청할 수 있는 범위를 벗어났습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_PAYOUT_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_011,
+            "출금할 수 있는 정산금이 부족합니다.", LogLevel.WARN),
+
+    WITHDRAWAL_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, ErrorCode.PAYMENT_012,
+            "처리 중인 출금이 있어 새로 신청할 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_TOO_FREQUENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_013,
+            "출금 신청 주기가 지나지 않았습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_014,
+            "같은 출금 신청이 처리 중입니다. 잠시 뒤 다시 확인해 주세요.", LogLevel.WARN),
+
+    WITHDRAWAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_015,
+            "출금 신청을 찾을 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.PAYMENT_016,
+            "현재 상태에서는 출금 신청을 바꿀 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_IDENTITY_NOT_VERIFIED(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_017,
+            "본인 확인을 마쳐야 출금을 신청할 수 있습니다.", LogLevel.WARN),
+
+    PAYOUT_CONVERSION_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_018,
+            "옮길 수 있는 정산금이 부족합니다.", LogLevel.WARN),
+
+    WITHDRAWAL_PAYER_MISMATCH(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_019,
+            "출금을 보낼 지갑이 설정되지 않았거나 입금 보관 지갑과 다릅니다.", LogLevel.ERROR),
+
+    WITHDRAWAL_PAYOUT_UNSENDABLE(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_020,
+            "출금을 보낼 거래를 만들 수 없습니다.", LogLevel.ERROR);
 
     private final HttpStatus status;
     private final ErrorCode code;
