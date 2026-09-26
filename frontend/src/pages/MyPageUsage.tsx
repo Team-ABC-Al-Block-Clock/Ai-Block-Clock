@@ -163,7 +163,7 @@ export default function MyPageUsage() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        에이전트 사용량, 토큰 소비량과 블록체인 결제 내역을 확인합니다.
+        ABC 사용량과 잔액, 충전·출금 내역을 확인합니다.
       </div>
 
       <div className="absolute" style={{ left: '1210px', top: '160px', width: '128px', zIndex: 5 }}>
@@ -375,7 +375,7 @@ export default function MyPageUsage() {
           animation: 'rise .7s .26s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">코인 잔액</div>
+        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">ABC 잔액</div>
         <div className="relative" style={{ marginTop: '8px', width: '266px', height: '160px' }}>
           <svg
             className="absolute top-0 left-0"
