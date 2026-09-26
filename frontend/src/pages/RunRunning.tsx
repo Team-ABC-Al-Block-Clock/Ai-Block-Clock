@@ -6,6 +6,7 @@ import { useEasedPercent } from '@/hooks/useEasedPercent'
 import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
+import ControlNode from '@/components/ControlNode'
 import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
@@ -115,6 +116,14 @@ export default function RunRunning() {
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
+  /**
+   * 서버가 세는 단계. 제어·입출력은 일을 하지 않아 빠진다.
+   *
+   * `progress.done` 과 `steps` 는 이 수를 센다. 카드 목록으로 그대로 짝지으면 시작 노드 하나에
+   * 한 칸씩 밀려, 도는 중인 카드가 아닌 옆 카드가 켜진다.
+   */
+  const runnable = useMemo(() => defs.filter((node) => !node.controlType && !node.ioType), [defs])
+  const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
 
   const canSell = canSellWorkflow(defs)
 
@@ -147,21 +156,23 @@ export default function RunRunning() {
   // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
   // 워크플로우를 못 받으면 캔버스가 비어 있다. 나누는 수가 0 이 되지 않게 막는다.
-  const per = 100 / Math.max(1, defs.length)
+  const per = 100 / Math.max(1, runnable.length)
   const active = progress
-    ? Math.min(defs.length - 1, progress.done)
-    : Math.min(defs.length - 1, Math.floor(pctR / per))
+    ? Math.min(runnable.length - 1, progress.done)
+    : Math.min(runnable.length - 1, Math.floor(pctR / per))
+  /** 도는 중인 단계가 카드 목록에서 몇 번째인가. 선을 칠할 때 쓴다. */
+  const activeAt = runnable[active] ? defs.findIndex((node) => node.id === runnable[active].id) : -1
   /**
    * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
    * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
    */
-  const aligned = progress && progress.steps.length === defs.length ? progress.steps : null
+  const aligned = progress && progress.steps.length === runnable.length ? progress.steps : null
   /**
    * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
    * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
    */
   const finished = progress ? progress.status === 'SUCCEEDED' : pctR >= 100
-  const g: CanvasNodeData | undefined = defs[active]
+  const g: CanvasNodeData | undefined = runnable[active]
   const glowStyle: CSSProperties =
     g && !finished
       ? {
@@ -178,11 +189,17 @@ export default function RunRunning() {
           transition: 'left .6s cubic-bezier(.2,.8,.25,1),top .6s cubic-bezier(.2,.8,.25,1)',
         }
       : { display: 'none' }
-  const nodes = defs.map((d, i) => {
-    const step = aligned?.[i]
+  const nodes = defs.map((d) => {
+    // 제어·입출력은 단계가 아니다. 도는 표시도 완료 표시도 붙지 않는다.
+    const i = stepAt.get(d.id)
+    const step = i === undefined ? undefined : aligned?.[i]
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
-    const stepDone = step ? step.status === 'succeeded' : !lost && (i < active || finished)
-    const stepRunning = step ? step.status === 'running' : !lost && i === active && !finished
+    const stepDone = step
+      ? step.status === 'succeeded'
+      : i !== undefined && !lost && (i < active || finished)
+    const stepRunning = step
+      ? step.status === 'running'
+      : i !== undefined && !lost && i === active && !finished
     const stepFailed = step?.status === 'failed'
     return {
       ...d,
@@ -206,18 +223,20 @@ export default function RunRunning() {
             : 'rgba(255,236,246,.4)',
       stateLabel: step
         ? labelOf(step.status)
-        : stepRunning
-          ? '진행 중'
-          : stepDone
-            ? '완료'
-            : '대기',
+        : i === undefined
+          ? ''
+          : stepRunning
+            ? '진행 중'
+            : stepDone
+              ? '완료'
+              : '대기',
     }
   })
   const edges = geometry.map((edge, i) => ({
     ...edge,
-    stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
+    stroke: i < activeAt ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
-  const liveEdges = geometry.slice(0, Math.max(0, active))
+  const liveEdges = geometry.slice(0, Math.max(0, activeAt))
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
@@ -415,24 +434,39 @@ export default function RunRunning() {
               </g>
             </CanvasEdgeLayer>
 
-            {nodes.map((n) => (
-              <CanvasNode
-                key={n.id}
-                index={chainAt?.get(n.id)}
-                name={n.name}
-                sublabel={n.stateLabel}
-                x={n.x}
-                y={n.y}
-                mine={n.mine}
-                floaty={n.floaty}
-                enter={n.enter}
-                background={n.background}
-                numberColor={n.numberColor}
-                nameColor={n.nameColor}
-                sublabelColor={n.sublabelColor}
-                glass
-              />
-            ))}
+            {nodes.map((n) => {
+              const kind = n.controlType ?? n.ioType
+              if (kind)
+                return (
+                  <ControlNode
+                    key={n.id}
+                    kind={kind}
+                    x={n.x}
+                    y={n.y}
+                    floaty={n.floaty}
+                    enter={n.enter}
+                    glass
+                  />
+                )
+              return (
+                <CanvasNode
+                  key={n.id}
+                  index={chainAt?.get(n.id)}
+                  name={n.name}
+                  sublabel={n.stateLabel}
+                  x={n.x}
+                  y={n.y}
+                  mine={n.mine}
+                  floaty={n.floaty}
+                  enter={n.enter}
+                  background={n.background}
+                  numberColor={n.numberColor}
+                  nameColor={n.nameColor}
+                  sublabelColor={n.sublabelColor}
+                  glass
+                />
+              )
+            })}
           </div>
         </div>
       </CanvasPane>
