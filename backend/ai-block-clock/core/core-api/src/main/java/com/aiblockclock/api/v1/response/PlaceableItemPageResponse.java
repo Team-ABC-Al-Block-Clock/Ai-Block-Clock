@@ -33,17 +33,17 @@ public record PlaceableItemPageResponse(
 
     @Schema(description = "놓을 수 있는 항목 하나")
     public record PlaceableItemResponse(
-            @Schema(description = "노드 ID 또는 에이전트 ID. 저장할 때 `sourceId` 로 보낸다",
+            @Schema(description = "에이전트 ID. 저장할 때 `sourceId` 로 보낸다",
                     example = "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13")
             String itemId,
 
-            @Schema(description = "노드인지 에이전트인지")
+            @Schema(description = "늘 `AGENT`")
             SourceType itemType,
 
             @Schema(description = "이름", example = "성적 분석")
             String name,
 
-            @Schema(description = "노드 종류. 에이전트면 `AGENT`", example = "LLM")
+            @Schema(description = "늘 `AGENT`", example = "AGENT")
             String nodeType,
 
             @Schema(description = "아이콘 주소. 아직 업로드가 없어 늘 null", nullable = true)
@@ -61,15 +61,15 @@ public record PlaceableItemPageResponse(
             @Schema(description = "실행 1회당 단가. 소수점 오차를 막기 위해 문자열이다", example = "3.000000")
             String price,
 
-            @Schema(description = "한 줄 소개. 노드면 null", nullable = true)
+            @Schema(description = "한 줄 소개", nullable = true)
             String summary
     ) {
         static PlaceableItemResponse from(PlaceableItem item) {
             return new PlaceableItemResponse(
                     item.itemId().toString(),
-                    item.itemType(),
+                    SourceType.AGENT,
                     item.name(),
-                    item.itemType() == SourceType.AGENT ? SourceType.AGENT.name() : item.nodeType().name(),
+                    SourceType.AGENT.name(),
                     null,
                     item.mine(),
                     new OwnerResponse(item.ownerNickname()),
