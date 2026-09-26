@@ -21,7 +21,7 @@
 > [`completed/file-upload.md`](completed/file-upload.md) 10장이 미뤄 둔 `input` 자리는 6장에서 채운다.
 
 > **09-26 계약 v2.0 이 5장의 3-1 에 답했다 — 둘 중 어느 갈래도 아니다.** 입출력 노드를 따로 그리지 않고,
-> 입력은 진입 노드의 `input.sample`(폼 견본), 출력은 종단 노드가 제 `output {kind, sample}` 로 낸 결과다.
+> 입력은 진입 노드의 `input.example`(폼 예시), 출력은 종단 노드가 제 `output {kind, example}` 로 낸 결과다(v2.1).
 > `input_schema_id` · `output.schema_id` 는 없어졌다. 6.1 ~ 6.3 의 갈래 A · B 는 이 답 전의 고민이라 기록으로만 남긴다.
 
 ---
@@ -106,7 +106,7 @@ LLM 호출이 하나 늘고, 판매자 없는 단계라 실패하면 플랫폼 �
 아래 6.1 ~ 6.3 은 v2.0 전에 갈래를 고르던 기록이다.
 
 **폼에 채운 값을 그대로 실행 요청의 `input` 으로 보낸다.** 계약 v2.0 이 `POST /v1/runs` 의 `input` 을
-"진입 노드의 사용자 입력을 JSON 문자열로 (폼에서 받은 값)" 으로 받고(§7.1), 진입 노드에 `input.sample`
+"진입 노드의 사용자 입력을 JSON 문자열로 (폼에서 받은 값)" 으로 받고(§7.1), 진입 노드에 `input.example`
 이 있으면 Runtime 이 그 견본으로 검증한다. 우리가 번역해 넣을 자리가 없다.
 
 **시작 · 끝 노드는 작업 단계로 펴지 않는다.** 계약은 입출력 노드를 단계로 받지 않는다 — 캔버스의 노드로
@@ -196,10 +196,10 @@ LLM 호출이 하나 늘고, 판매자 없는 단계라 실패하면 플랫폼 �
 
 | | 언제 |
 | --- | --- |
-| 노드마다 출력 형식 저장 | [`contract-v2.md`](contract-v2.md). 연결 가부 판정은 v2.0 이 없앴다 |
+| 노드마다 출력 형식 저장 | MR !131 ([`contract-v2.md`](contract-v2.md) 2장). 연결 가부 판정은 v2.0 이 없앴다 |
 | `POST /v1/workflows/validate` 호출과 견적 저장 | 같은 항목 |
 | `output.template_id` | 5장 4-3 의 답 뒤 |
-| 분기와 함께 쓰기 | 분기는 아직 실행에 실리지 않는다 ([`ai-runtime-contract-gap.md`](ai-runtime-contract-gap.md) 7장) |
+| 분기와 함께 쓰기 | 분기 실행은 MR !134 ([`contract-v2.md`](contract-v2.md) 5장) |
 | 병합의 `port` | v2 (WRK-016) |
 | 이미지 입력 | v2 (NOD-012) |
 | 파일을 받는 시작 노드 | 지금은 파일 상자가 시작 노드와 무관하게 늘 떠 있다. 파일 항목과 함께 다시 본다 |

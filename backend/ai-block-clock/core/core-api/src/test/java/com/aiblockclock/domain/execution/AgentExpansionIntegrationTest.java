@@ -75,7 +75,7 @@ class AgentExpansionIntegrationTest {
     @Test
     @DisplayName("안에 분기가 있는 에이전트는 아직 펴지 않는다")
     void refusesAgentWithBranchInside() {
-        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
                 new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
         Workflow source = workflowService.save(OWNER, "분기를 품은 워크플로우", null,
@@ -87,8 +87,7 @@ class AgentExpansionIntegrationTest {
         AgentRegistration branched = agentService.register(OWNER, source, Revision.initial(), profile());
 
         Workflow placed = workflowService.save(OWNER, "분기 에이전트를 놓은 워크플로우", null,
-                List.of(new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, null,
-                        branched.agent().getId().value(), InputSource.defaultSource(),
+                List.of(new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, branched.agent().getId().value(), InputSource.defaultSource(),
                         null, null, null, null, null, null, null)),
                 List.of());
 
@@ -196,8 +195,7 @@ class AgentExpansionIntegrationTest {
     }
 
     private NodePlacement agentPlacement(String key) {
-        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agent.agent().getId().value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
+        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, agent.agent().getId().value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
     }
 
     private static AgentProfile profile() {

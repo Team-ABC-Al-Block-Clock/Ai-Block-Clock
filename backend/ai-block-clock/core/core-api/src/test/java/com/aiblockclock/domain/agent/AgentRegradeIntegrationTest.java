@@ -341,8 +341,7 @@ class AgentRegradeIntegrationTest {
     }
 
     private NodePlacement agentPlacement(String key) {
-        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agentId().value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
+        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, agentId().value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
     }
 
     private static AgentProfile profile() {

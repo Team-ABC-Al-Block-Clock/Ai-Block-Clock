@@ -30,7 +30,7 @@ public final class GraphFixtures {
     }
 
     public static NodePlacement placement(String key, UUID sourceId, InputSource inputSource) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE, null, sourceId, inputSource,
+        return new NodePlacement(NodeKey.of(key), SourceType.NODE, sourceId, inputSource,
                 null, null, null, null, null, null, null);
     }
 
@@ -51,12 +51,12 @@ public final class GraphFixtures {
     }
 
     public static NodePlacement startPlacement(String key, List<InputField> fields) {
-        return new NodePlacement(NodeKey.of(key), SourceType.IO, null, null, InputSource.defaultSource(),
+        return new NodePlacement(NodeKey.of(key), SourceType.IO, null, InputSource.defaultSource(),
                 null, null, null, IoType.START, fields, null, null);
     }
 
     public static NodePlacement endPlacement(String key, ResultShape shape, ResultFormat format) {
-        return new NodePlacement(NodeKey.of(key), SourceType.IO, null, null, InputSource.defaultSource(),
+        return new NodePlacement(NodeKey.of(key), SourceType.IO, null, InputSource.defaultSource(),
                 null, null, null, IoType.END, null, shape, format);
     }
 

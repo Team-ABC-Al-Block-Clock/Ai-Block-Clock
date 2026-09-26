@@ -127,7 +127,7 @@ class ExecutionPlanAssemblerIntegrationTest {
     void leavesBranchOutOfPrompts() {
         NodeDefinition step = nodeService.create(OWNER, "시장 조사",
                 Prompt.of("당신은 시장 조사 분석가입니다."), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
-        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
                 new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
 
