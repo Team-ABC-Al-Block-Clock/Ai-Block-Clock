@@ -174,6 +174,8 @@ public interface WorkflowApi {
                     결과를 어떤 구조로 낼지(`resultShape`)와 어떤 형식으로 받을지(`resultFormat`)를 든다.
                     실행할 때 시작 노드의 `fields` 에 채운 값은 실행 요청의 `input` 으로 받는다.
                     엔진은 입출력 노드를 단계로 받지 않으므로 두 노드는 작업 단계 목록에 넣지 않는다.
+                    **`resultShape` · `resultFormat` 은 아직 저장하고 돌려줄 뿐 실행에 싣지 않는다** —
+                    무엇을 고르든 결과는 기본 문서형(`common.document@1`)으로 나오고 JSON 과 PDF 로 받는다.
 
                     구조 검사는 다섯 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
                     시작점이 하나이고 분기 노드가 아니면 갈라지지 않을 것, 분기 노드(`sourceType: CONTROL`)는 참 · 거짓 갈래를
