@@ -228,6 +228,10 @@ export const CANVAS_EDGES: CanvasEdge[] = [
   seedEdge('seed-4', 'seed-5'),
 ]
 
+/** 분기 조건이 읽을 수 있는 종류. 제어·입출력은 낼 결과가 없다. */
+export const isConditionSource = (node: CanvasNodeData) =>
+  node.sourceType === 'NODE' || node.sourceType === 'AGENT'
+
 /** `from` 에서 선을 따라 `to` 에 닿는지. */
 function reaches(edges: CanvasEdge[], from: string, to: string): boolean {
   const seen = new Set<string>()
@@ -517,7 +521,7 @@ export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): Canva
 const branchFirst = (next: CanvasEdge[]) =>
   [...next].sort((a, b) => Number(b.when === true) - Number(a.when === true))
 
-/** 분기 조건이 읽는 자리가 아직 제 앞에 있는 기본 노드인가. */
+/** 분기 조건이 읽는 자리가 아직 제 앞에 있는 노드·에이전트인가. */
 function readsUpstream(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[],
@@ -526,7 +530,7 @@ function readsUpstream(
   const from = branch.condition?.fromId
   if (!from) return false
   return upstreamOf(nodes, edges, branch.id).some(
-    (node) => node.id === from && node.sourceType === 'NODE',
+    (node) => node.id === from && isConditionSource(node),
   )
 }
 

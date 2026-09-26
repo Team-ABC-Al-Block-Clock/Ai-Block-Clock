@@ -24,7 +24,13 @@ import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { useNodeRefFiles } from '@/hooks/useNodeRefFiles'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
-import { chainPositions, graphProblem, runProblem, upstreamOf } from '@/lib/canvasWorkflow'
+import {
+  chainPositions,
+  graphProblem,
+  isConditionSource,
+  runProblem,
+  upstreamOf,
+} from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { describeCondition } from '@/lib/branchCondition'
@@ -433,16 +439,11 @@ export default function EditNodes() {
           price: n.price,
         }
       : undefined
-  /**
-   * 고른 것이 분기일 때 조건이 읽을 수 있는 자리.
-   *
-   * 앞에 놓인 기본 노드만이다 — 에이전트는 내부 구성을 열지 않아 결과 안의 경로를 알 수
-   * 없고, 제어·입출력은 낼 결과가 없다(`WorkflowGraph.ensureConditionReadsUpstream`).
-   */
+  /** 고른 것이 분기일 때 조건이 읽을 수 있는 자리(`WorkflowGraph.ensureConditionReadsUpstream`). */
   const selBranch = useMemo(() => {
     if (!n?.controlType) return undefined
     const sources = upstreamOf(nodes, edges, n.id)
-      .filter((node) => node.sourceType === 'NODE')
+      .filter(isConditionSource)
       .map((node) => ({ id: node.id, name: node.name }))
     return { id: n.id, condition: n.condition ?? null, sources }
   }, [n, nodes, edges])

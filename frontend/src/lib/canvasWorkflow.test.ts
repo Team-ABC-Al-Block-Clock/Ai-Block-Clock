@@ -399,6 +399,17 @@ describe('graphProblem', () => {
     expect(graphProblem(nodes, edges)).toBe('분기 조건이 읽을 노드를 다시 골라 주세요')
   })
 
+  it('조건은 에이전트도 읽는다', () => {
+    const agent = { ...nodeAt('a', 0, 0), sourceType: 'AGENT' as const, nodeType: 'AGENT' as const }
+    const nodes = [agent, branch('br'), nodeAt('t', 0, 0), nodeAt('f', 0, 0)]
+    const edges = [
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+    ]
+    expect(graphProblem(nodes, edges)).toBeNull()
+  })
+
   it('이을 수 있는 구성이면 까닭이 없다', () => {
     const nodes = [io('s', 'START'), nodeAt('a', 0, 0)]
     expect(graphProblem(nodes, [link('s', 'a')])).toBeNull()

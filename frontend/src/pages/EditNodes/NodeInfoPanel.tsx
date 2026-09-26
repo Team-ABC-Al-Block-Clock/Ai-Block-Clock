@@ -157,10 +157,7 @@ function Picker<T extends string>({
  * 분기 조건을 고치는 자리.
  *
  * 읽을 노드는 고르게만 한다 — 손으로 적게 두면 앞에 없는 노드를 가리켜 `WORKFLOW_013` 을
- * 받는데, 코드 하나에 여섯 가지 원인이 몰려 있어 무엇이 틀렸는지 돌려주지 못한다.
- *
- * 후보에 에이전트는 없다. 서버가 `sourceType` 이 `NODE` 인 자리만 받는다
- * (`WorkflowGraph.ensureConditionReadsUpstream`).
+ * 받는데, 코드 하나에 여러 원인이 몰려 있어 무엇이 틀렸는지 돌려주지 못한다.
  */
 function BranchForm({
   id,
@@ -199,8 +196,7 @@ function BranchForm({
           className="absolute text-[15.5px] leading-[1.7]"
           style={{ ...rowStyle('180px'), color: 'rgba(255,236,246,.66)' }}
         >
-          조건은 분기 앞에 놓인 노드의 결과를 읽습니다. 에이전트는 내부 구성을 열지 않아 고를 수
-          없으니, 「노드 추가」로 만든 노드를 분기 앞에 이어 주세요.
+          조건은 분기 앞에 놓인 노드나 에이전트의 결과를 읽습니다. 읽을 것을 분기 앞에 이어 주세요.
         </div>
       </>
     )
@@ -459,7 +455,7 @@ type NodeInfoPanelProps = {
   summary?: string | null
   /** 에이전트의 단가·실행 횟수·만든 사람. 모르는 값은 비워 둔다. */
   meta?: { price: string | null; executionCount?: number | null; owner?: string | null }
-  /** 고른 것이 분기 노드일 때. `sources` 는 앞에 놓인 기본 노드다. */
+  /** 고른 것이 분기 노드일 때. `sources` 는 어느 길로 와도 앞에 있는 노드·에이전트다. */
   branch?: { id: string; condition: CanvasCondition | null; sources: ConditionSource[] }
   /** 고친 조건을 캔버스에 돌려준다. */
   onApplyCondition: (id: string, condition: CanvasCondition) => void

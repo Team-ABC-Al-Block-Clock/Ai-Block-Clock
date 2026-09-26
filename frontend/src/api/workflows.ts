@@ -195,8 +195,8 @@ export type ConditionLiteral = string | number | boolean
 /**
  * 분기 조건. 앞 노드 결과의 값 하나를 리터럴과 견준다.
  *
- * `left` 가 가리킬 수 있는 것은 이 분기보다 앞에 놓인 기본 노드뿐이다 — 에이전트와 제어
- * 노드는 서버가 `WORKFLOW_013` 으로 물린다(`WorkflowGraph.ensureConditionReadsUpstream`).
+ * `left` 는 어느 길로 와도 이 분기 앞에 있는 노드·에이전트만 가리킨다. 제어·입출력은 서버가
+ * `WORKFLOW_013` 으로 물린다(`WorkflowGraph.ensureConditionReadsUpstream`).
  */
 export interface BranchCondition {
   /** `<nodeKey>.<결과 안의 경로>`. 예: `n1.competition_level` */
