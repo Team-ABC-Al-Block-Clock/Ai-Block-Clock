@@ -103,6 +103,7 @@ class NodeTestRunControllerTest {
         assertThat(workflow.get("nodes")).hasSize(1);
         assertThat(workflow.get("nodes").get(0).get("prompt").asText()).isEqualTo("당신은 학원 성적 데이터 분석가입니다.");
         assertThat(workflow.get("nodes").get(0).get("output").get("kind").asText()).isEqualTo("text");
+        assertThat(workflow.get("model").asText()).isEqualTo("gemini-2.5-flash");
         assertThat(workflow.get("edges")).isEmpty();
     }
 

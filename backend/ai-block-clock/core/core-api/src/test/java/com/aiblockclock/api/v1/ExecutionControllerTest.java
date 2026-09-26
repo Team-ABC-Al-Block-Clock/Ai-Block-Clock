@@ -184,6 +184,7 @@ class ExecutionControllerTest {
                 .contains("\"type\":\"llm\"")
                 .contains("점수를 비교한다")
                 .contains("\"from\":\"n1\"")
+                .contains("\"model\":\"gemini-2.5-flash\"")
                 .contains("\"output\":{\"kind\":\"text\"}");
         assertThat(sent.getValue().mock()).isFalse();
         assertThat(sent.getValue().mode()).isEqualTo(RunMode.RUN);

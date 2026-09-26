@@ -4,6 +4,7 @@ import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeKey;
+import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -60,8 +61,8 @@ class StepPricesTest {
     }
 
     private static PlannedPrompt prompt(NodeKey placedKey, String baseCost) {
-        return new PlannedPrompt(placedKey, "단계", UserId.of(1L), Prompt.of("프롬프트"), InputSource.PREV, List.of(),
-                AbcAmount.of(new BigDecimal(baseCost)));
+        return new PlannedPrompt(placedKey, "단계", UserId.of(1L), Prompt.of("프롬프트"), AiModel.defaultModel(),
+                InputSource.PREV, List.of(), AbcAmount.of(new BigDecimal(baseCost)));
     }
 
     private static CostItem item(NodeKey key, SourceType sourceType, BigDecimal multiplier) {

@@ -188,7 +188,8 @@ public class NodeTestRunService {
 
     private PlannedPrompt promptOf(NodeDefinition node) {
         return new PlannedPrompt(TESTED_SLOT, node.getSpec().name(), node.getOwner(), node.getPrompt(),
-                InputSource.defaultSource(), refFileReader.read(node.getId()), node.getSpec().baseCost());
+                node.getSpec().model(), InputSource.defaultSource(), refFileReader.read(node.getId()),
+                node.getSpec().baseCost());
     }
 
     private Map<String, List<Path>> refFilePathsOf(RuntimeWorkflow workflow) {

@@ -10,6 +10,7 @@ import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowFixtures;
 import com.aiblockclock.domain.workflow.WorkflowGraph;
+import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
 
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,36 @@ class RuntimeWorkflowTest {
         assertThat(nodes.get(2).get("owner_id").asText()).isEqualTo("7001");
     }
 
+    @Test
+    void 단계가_쓰는_모델을_실행_한_건의_모델로_최상위에_싣는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, GraphFixtures.chainOf(2));
+        ExecutionPlan plan = new ExecutionPlan(List.of(prompt("n1", "분석", REQUESTER), prompt("n2", "요약", REQUESTER)));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+
+        assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-flash");
+        assertThat(sent.get("nodes").get(0).has("model")).isFalse();
+    }
+
+    @Test
+    void 공급자가_고른_Pro_모델을_그대로_싣는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, GraphFixtures.chainOf(1));
+        ExecutionPlan plan = new ExecutionPlan(List.of(promptOf("n1", "분석", AiModel.GEMINI_2_5_PRO)));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+
+        assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-pro");
+    }
+
+    @Test
+    void 판매자_테스트_실행도_그_노드의_모델로_돈다() {
+        JsonNode sent = mapper.readTree(
+                RuntimeWorkflow.forTest("test-1", promptOf("n1", "분석", AiModel.GEMINI_2_5_PRO)).json());
+
+        assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-pro");
+        assertThat(sent.get("nodes").get(0).has("model")).isFalse();
+    }
+
     // 계약 v2.0 은 output_schema_id · output.schema_id 를 한 버전 동안만 별칭으로 읽고 다음 버전에서 없앤다.
     @Test
     void 모든_단계는_글을_낸다고_밝히고_옛_형식_칸은_싣지_않는다() {
@@ -76,7 +107,8 @@ class RuntimeWorkflowTest {
         RefFile criteria = refFile("채점 기준표.pdf");
         RefFile image = refFile("예시.png");
         PlannedPrompt prompt = new PlannedPrompt(NodeKey.of("n1"), "채점", REQUESTER, Prompt.of("채점한다"),
-                InputSource.defaultSource(), List.of(image, criteria), AbcAmount.of(new BigDecimal("0.0135")));
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of(image, criteria),
+                AbcAmount.of(new BigDecimal("0.0135")));
 
         RuntimeWorkflow runtime = RuntimeWorkflow.of(workflow, new ExecutionPlan(List.of(prompt)));
 
@@ -89,7 +121,8 @@ class RuntimeWorkflowTest {
     @Test
     void 엔진이_받는_참고_자료가_하나도_없으면_ref_files_를_싣지_않는다() {
         PlannedPrompt prompt = new PlannedPrompt(NodeKey.of("n1"), "채점", REQUESTER, Prompt.of("채점한다"),
-                InputSource.defaultSource(), List.of(refFile("예시.jpg")), AbcAmount.of(new BigDecimal("0.0135")));
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of(refFile("예시.jpg")),
+                AbcAmount.of(new BigDecimal("0.0135")));
 
         RuntimeWorkflow runtime = RuntimeWorkflow.forTest("test-1", prompt);
 
@@ -103,6 +136,12 @@ class RuntimeWorkflowTest {
 
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
         return new PlannedPrompt(NodeKey.of(placedKey), name, owner, Prompt.of(name + "을 한다"),
-                InputSource.defaultSource(), List.of(), AbcAmount.of(new BigDecimal("0.018")));
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of(),
+                AbcAmount.of(new BigDecimal("0.018")));
+    }
+
+    private static PlannedPrompt promptOf(String placedKey, String name, AiModel model) {
+        return new PlannedPrompt(NodeKey.of(placedKey), name, REQUESTER, Prompt.of(name + "을 한다"),
+                model, InputSource.defaultSource(), List.of(), AbcAmount.of(new BigDecimal("0.018")));
     }
 }
