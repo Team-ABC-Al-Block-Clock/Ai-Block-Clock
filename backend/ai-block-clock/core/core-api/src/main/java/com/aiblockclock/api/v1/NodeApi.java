@@ -1,10 +1,12 @@
 package com.aiblockclock.api.v1;
 
 import com.aiblockclock.api.v1.request.NodeSaveRequest;
+import com.aiblockclock.api.v1.request.NodeTestRunRequest;
 import com.aiblockclock.api.v1.request.RefFileAttachRequest;
 import com.aiblockclock.api.v1.response.NodeDeleteResponse;
 import com.aiblockclock.api.v1.response.NodeDetailResponse;
 import com.aiblockclock.api.v1.response.NodePageResponse;
+import com.aiblockclock.api.v1.response.NodeTestRunResponse;
 import com.aiblockclock.api.v1.response.RefFileResponse;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.support.response.ApiResult;
@@ -62,7 +64,7 @@ public interface NodeApi {
                     **실행할 때마다 이 노드와 함께 실행 엔진으로 나간다.** 수요자가 실행할 때 올리는
                     파일과는 다르다.
 
-                    PDF · 텍스트 · 마크다운 · CSV · 이미지만 받고, **한 노드에 붙인 자료의 합계가 10MB**
+                    PDF · 텍스트 · 마크다운 · CSV 만 받고(실행 엔진이 받는 형식), **한 노드에 붙인 자료의 합계가 10MB**
                     를 넘을 수 없다. 이미 공개한 에이전트 버전은 공개 시점의 자료를 계속 본다.
                     """)
     @ApiResponses({
@@ -95,6 +97,48 @@ public interface NodeApi {
             UserId owner,
             @Parameter(description = "노드 ID", required = true) UUID nodeId,
             @Parameter(description = "자료 ID", required = true) UUID refFileId);
+
+    @Operation(summary = "노드 테스트 실행",
+            description = """
+                    내 노드 하나를 실행 엔진에 **실제로 한 번 돌린다.** 붙여 둔 참고 자료도 함께 나간다.
+                    결과물을 확인하고, 엔진이 잰 원가로 **노드 원가를 새로 정한다** — 최근 5번의 중앙값 × 1.5.
+
+                    - 무료다. ABC 가 움직이지 않는다
+                    - 한 노드에 **하루(UTC) 5번**까지다. 엔진에 넘기지 못한 테스트는 횟수에 넣지 않는다
+                    - 곧바로 202 와 `RUNNING` 이 온다. 끝은 `GET .../test-runs/{testRunId}` 를 2초쯤 간격으로 조회해 안다
+                    - `mock` 이면 모델을 부르지 않아 결과물이 가짜이고 원가를 재지 않는다
+                    - 이미 공개한 에이전트 버전의 가격은 바뀌지 않는다. 새 원가는 다음 버전부터 쓴다
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "엔진에 넘겼다"),
+            @ApiResponse(responseCode = "400", description = "comment 가 500자를 넘는다 (`COMMON_001`)",
+                    content = @Content),
+            @ApiResponse(responseCode = "403", description = "남의 노드다 (`NODE_002`)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "없는 노드다 (`NODE_001`)", content = @Content),
+            @ApiResponse(responseCode = "429", description = "오늘 이 노드의 테스트를 모두 썼다 (`NODE_009`)",
+                    content = @Content),
+            @ApiResponse(responseCode = "502", description = "실행 엔진이 받지 않았다. 횟수는 쓰지 않았다 (`EXECUTION_002`)",
+                    content = @Content)
+    })
+    ApiResult<NodeTestRunResponse> startTestRun(
+            UserId owner,
+            @Parameter(description = "노드 ID", required = true) UUID nodeId,
+            @Valid NodeTestRunRequest request);
+
+    @Operation(summary = "노드 테스트 실행 조회",
+            description = """
+                    아직 도는 중이면 엔진에 물어 끝났는지 본다. 끝났으면 결과물(`result`)과 새로 정한 원가(`baseCost`)가 함께 온다.
+                    엔진이 잠시 답하지 못하면 `RUNNING` 그대로 온다. 다시 조회하면 된다.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회됨"),
+            @ApiResponse(responseCode = "404", description = "없는 테스트이거나, 남의 테스트이거나, 이 노드의 테스트가 아니다 (`NODE_008`)",
+                    content = @Content)
+    })
+    ApiResult<NodeTestRunResponse> getTestRun(
+            UserId owner,
+            @Parameter(description = "노드 ID", required = true) UUID nodeId,
+            @Parameter(description = "테스트 실행 ID", required = true) UUID testRunId);
 
     @Operation(summary = "내 노드 목록", description = "최근 만든 순. 프롬프트 원문은 담지 않는다.")
     ApiResult<NodePageResponse> findMine(

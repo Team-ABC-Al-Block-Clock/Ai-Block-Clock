@@ -35,11 +35,13 @@ springdoc:
     path: /swagger-ui.html
     persist-authorization: true
 
+# 기한 = 단계 수 × per-step + grace. 엔진 계약 v2.0 10장의 폴링 중단 기준이다.
+# 기본 모델이 gemini-2.5-pro 로 바뀌며(09-26) 노드당 최대 32초가 재져 단계당 40초에서 60초로 올랐다.
 execution:
   polling:
     workers: ${EXECUTION_POLL_WORKERS:4}
     interval: ${EXECUTION_POLL_INTERVAL:2s}
-    per-step: ${EXECUTION_POLL_PER_STEP:40s}
+    per-step: ${EXECUTION_POLL_PER_STEP:60s}
     grace: ${EXECUTION_POLL_GRACE:60s}
 
 payment:
@@ -62,6 +64,21 @@ payment:
 
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}
+
+# 노드 원가(Base Cost, NOD-007). 엔진은 달러 원가만 주고 ABC 원가는 우리가 정한다 (엔진 계약 v2.0 8.1).
+# 판매자가 테스트 실행으로 잰 달러 원가가 있으면 최근 sample-size 번의 중앙값 × margin × abc-per-usd 이고, 없으면 default-cost 다.
+#   default-cost  gemini-2.5-pro 기본(09-26) 노드당 최대 실측 0.009 달러 × 1.5 = 0.0135. AI 파트가 09-26 에 알린
+#                 Pro 실측(노드당 0.005 ~ 0.009 달러)에 계약이 권하는 "실측 최댓값의 1.5 배"를 적용했다
+#   abc-per-usd   1 ABC = 1 달러 (팀 결정)
+node:
+  base-cost:
+    default-cost: ${NODE_BASE_COST_DEFAULT:0.0135}
+    abc-per-usd: ${ABC_PER_USD:1}
+    margin: ${NODE_BASE_COST_MARGIN:1.5}
+    sample-size: ${NODE_BASE_COST_SAMPLE_SIZE:5}
+  # 판매자 테스트 실행은 무료라 모델 요금을 플랫폼이 낸다. 노드마다 하루(UTC) 이 횟수까지 받는다.
+  test-run:
+    daily-limit: ${NODE_TEST_RUN_DAILY_LIMIT:5}
 
 # 등급(PAY-016 ~ 020) 수식의 조정값. AI grading-formula.md v1.0 의 초기값이고 팀 합의로 바뀔 수 있다.
 agent-grade:
