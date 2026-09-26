@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 public class ExecutionService {
     private final ExecutionPlanAssembler executionPlanAssembler;
     private final ExecutionFileValidator executionFileValidator;
+    private final ExecutionInputValidator executionInputValidator;
     private final ExecutionFileStore executionFileStore;
     private final RefFileStore refFileStore;
     private final ExecutionReservationManager executionReservationManager;
@@ -46,7 +47,7 @@ public class ExecutionService {
     // 같은 요청 번호로 이미 접수했으면 다시 떼지 않고 그 실행을 돌려준다.
     // 새 요청이면 엔진에 보낼 요청을 다 만든 뒤에 떼어 두고 엔진에 넘긴다. 잔액이 모자라면 엔진을 부르지 않는다.
     public ExecutionStart start(UserId requester, Workflow workflow, ExecutionRequestId requestId,
-                                String comment, boolean mock, UploadedFile upload) {
+                                String input, String comment, boolean mock, UploadedFile upload) {
         Optional<Execution> earlier = executionReader.find(requester, requestId);
 
         if (earlier.isPresent()) {
@@ -57,12 +58,14 @@ public class ExecutionService {
             executionFileValidator.validate(upload);
         }
 
+        String checkedInput = executionInputValidator.validate(workflow.getGraph(), input);
         ExecutionPlan plan = executionPlanAssembler.assemble(workflow);
         ExecutionId id = ExecutionId.newId();
         ExecutionFile inputFile = upload == null ? null : executionFileStore.write(id, upload);
 
         try {
-            RunRequest runRequest = runRequestOf(RuntimeWorkflow.of(workflow, plan), inputFile, comment, mock);
+            RunRequest runRequest = runRequestOf(RuntimeWorkflow.of(workflow, plan), checkedInput, inputFile, comment,
+                    mock);
             Execution requested = Execution.requested(
                     id, requestId, workflow.getId(), requester, plan.promptCount(), inputFile);
             Execution reserved = executionReservationManager.reserve(requested, workflow, plan);
@@ -198,8 +201,9 @@ public class ExecutionService {
         }
     }
 
-    private RunRequest runRequestOf(RuntimeWorkflow runtime, ExecutionFile inputFile, String comment, boolean mock) {
-        return new RunRequest(runtime.json(), null, comment, pathOf(inputFile), refFilePathsOf(runtime), mock);
+    private RunRequest runRequestOf(RuntimeWorkflow runtime, String input, ExecutionFile inputFile, String comment,
+                                    boolean mock) {
+        return new RunRequest(runtime.json(), input, comment, pathOf(inputFile), refFilePathsOf(runtime), mock);
     }
 
     private Path pathOf(ExecutionFile inputFile) {

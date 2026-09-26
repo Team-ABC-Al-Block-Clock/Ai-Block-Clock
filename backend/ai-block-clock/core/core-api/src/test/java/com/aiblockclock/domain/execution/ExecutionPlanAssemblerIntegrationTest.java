@@ -18,6 +18,8 @@ import com.aiblockclock.domain.workflow.WorkflowWriter;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.ControlType;
 import com.aiblockclock.enums.workflow.InputSource;
+import com.aiblockclock.enums.workflow.ResultFormat;
+import com.aiblockclock.enums.workflow.ResultShape;
 import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.domain.workflow.BranchCondition;
 import com.aiblockclock.domain.workflow.ConditionOperator;
@@ -96,6 +98,25 @@ class ExecutionPlanAssemblerIntegrationTest {
                 .containsExactly(InputSource.USER, InputSource.PREV);
         assertThat(plan.prompts().get(0).prompt().value())
                 .isEqualTo("당신은 학원 성적 데이터 분석가입니다.");
+    }
+
+    @Test
+    @DisplayName("시작 · 끝 노드는 돌릴 프롬프트가 없어 건너뛴다")
+    void skipsStartAndEndNodes() {
+        NodeDefinition analyze = nodeService.create(OWNER, "성적 분석",
+                Prompt.of("당신은 학원 성적 데이터 분석가입니다."), AiModel.defaultModel());
+
+        Workflow workflow = workflowService.save(OWNER, "성적 리포트", null,
+                List.of(
+                        GraphFixtures.startPlacement("s1", List.of(GraphFixtures.field("brand_name"))),
+                        GraphFixtures.placement("n1", analyze.getId().value()),
+                        GraphFixtures.endPlacement("e1", ResultShape.DOCUMENT, ResultFormat.PDF)),
+                List.of(GraphFixtures.edge("g1", "s1", "n1"), GraphFixtures.edge("g2", "n1", "e1")));
+        workflowId = workflow.getId();
+
+        ExecutionPlan plan = executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER));
+
+        assertThat(plan.prompts()).extracting(PlannedPrompt::name).containsExactly("성적 분석");
     }
 
     @Test

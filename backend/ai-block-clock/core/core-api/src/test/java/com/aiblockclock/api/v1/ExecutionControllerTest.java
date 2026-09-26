@@ -187,6 +187,70 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @DisplayName("시작 노드의 입력 값을 input 으로 실어 보내고, 입출력 노드는 작업 단계로 넣지 않는다")
+    void sendsStartInputWithoutIoSteps() throws Exception {
+        workflowId = saveWithStartAndEnd();
+
+        MvcResult accepted = mockMvc.perform(run().param("input", "{\"brand_name\":\"하루\"}")
+                        .with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isAccepted())
+                .andReturn();
+
+        String executionId = mapper.readTree(accepted.getResponse().getContentAsString())
+                .get("data").get("executionId").asText();
+
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getPromptCount())
+                .isEqualTo(1);
+
+        ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
+        then(aiRuntimeClient).should().start(sent.capture());
+
+        assertThat(sent.getValue().input()).isEqualTo("{\"brand_name\":\"하루\"}");
+        assertThat(sent.getValue().workflow()).contains("브랜드 분석").doesNotContain("\"n2\"");
+    }
+
+    @Test
+    @DisplayName("입력 값이 시작 노드의 입력 항목과 맞지 않으면 실행 엔진을 부르지 않는다")
+    void refusesInputNotMatchingStartFields() throws Exception {
+        workflowId = saveWithStartAndEnd();
+
+        mockMvc.perform(run().param("input", "{}").with(as(requester)).with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_007"))
+                .andExpect(jsonPath("$.error.data.key").value("brand_name"));
+
+        then(aiRuntimeClient).should(never()).start(any());
+    }
+
+    private String saveWithStartAndEnd() throws Exception {
+        MvcResult saved = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(requester)).with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "브랜드 분석",
+                                  "nodes": [
+                                    { "nodeKey": "s1", "sourceType": "IO", "ioType": "START",
+                                      "fields": [ { "key": "brand_name", "label": "브랜드명", "type": "TEXT",
+                                                    "required": true } ] },
+                                    { "nodeKey": "n1", "sourceType": "NODE", "nodeType": "LLM",
+                                      "name": "브랜드 분석", "prompt": "브랜드를 분석한다" },
+                                    { "nodeKey": "e1", "sourceType": "IO", "ioType": "END",
+                                      "resultShape": "DOCUMENT", "resultFormat": "PDF" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "g1", "sourceNodeKey": "s1", "targetNodeKey": "n1" },
+                                    { "edgeKey": "g2", "sourceNodeKey": "n1", "targetNodeKey": "e1" }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return mapper.readTree(saved.getResponse().getContentAsString()).get("data").get("workflowId").asText();
+    }
+
+    @Test
     @DisplayName("정산이 귀속될 주인을 노드마다 실어 보낸다")
     void sendsNodeOwnerForSettlement() throws Exception {
         start();

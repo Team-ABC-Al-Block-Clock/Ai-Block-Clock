@@ -45,13 +45,18 @@ public interface ExecutionApi {
                     `requestId` 는 누름 한 번에 하나다. 같은 값으로 다시 보내면 새로 떼지 않고 앞서 접수한 실행을 돌려준다.
 
                     `mock` 을 켜면 모델을 부르지 않고 파이프라인만 돈다. 형식을 맞춰 볼 때 쓴다.
+
+                    **시작 노드의 입력 항목에 채운 값은 `input` 으로 받는다.** 항목 정의와 맞는지 본 뒤 엔진의 `input` 으로 싣는다.
+                    엔진은 입출력 노드를 단계로 받지 않으므로 시작 · 끝 노드는 작업 단계 목록에 넣지 않는다.
+                    결과는 끝 노드 자리에서 JSON 과 PDF 로 받는다.
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "202", description = "접수됨. 실행은 뒤에서 돈다. 같은 `requestId` 로 다시 보내도 같은 실행이 나온다"),
             @ApiResponse(responseCode = "400", description = """
                     요청 본문이 올바르지 않다 (`COMMON_001`).
                     빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`).
-                    분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`)""", content = @Content),
+                    분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`).
+                    `input` 이 시작 노드의 입력 항목과 맞지 않는다 (`EXECUTION_007`). `error.data.key` 에 걸린 항목이 온다""", content = @Content),
             @ApiResponse(responseCode = "402", description = """
                     ABC 잔액이 모자란다 (`PAYMENT_008`). `error.data` 에 `estimatedAmount` · `availableAmount` ·
                     `shortageAmount` 가 온다""", content = @Content),
