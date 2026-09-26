@@ -194,7 +194,7 @@ export interface AgentProvenance {
     nickname: string
     walletAddress: string
   }
-  /** PENDING 이면 registeredAt 말고는 전부 null 이다 */
+  /** PENDING 이면 계약 · 거래 · 블록 · 조회 주소가 null 이다 — network · chainId 는 그대로 온다 */
   blockchain: {
     network: string
     chainId: number
