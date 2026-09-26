@@ -216,7 +216,8 @@ public interface WorkflowApi {
                     소유자만 조회할 수 있다.
 
                     노드마다 `name` 과 `mine` 이 함께 나간다. 이름은 카드에 그대로 박으면 되고,
-                    `mine` 이 전부 `true` 일 때만 이 워크플로우를 에이전트로 등록할 수 있다.
+                    `mine` 이 `false` 인 자리가 하나라도 있으면 이 워크플로우를 에이전트로 등록할 수 없다.
+                    원본이 없는 제어 · 입출력 자리는 판정할 것이 없어 `null` 로 나가고, 등록을 막지 않는다.
                     등록을 막는 기준은 서버가 쥐고 있으므로 화면이 소유자를 따로 대조할 필요가 없다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 완료", useReturnTypeSchema = true,
