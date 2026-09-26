@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import PeriodMenu from '@/components/PeriodMenu'
 import MyPageFrame from '@/components/MyPageFrame'
 import { getMyAgents } from '@/api/agents'
 import { getCreditBalance } from '@/api/credits'
@@ -8,7 +9,7 @@ import { getSettlementStatistics, getSettlements } from '@/api/settlements'
 import { priceLabel, runLabel, timeLabel } from '@/lib/format'
 import { growthPercent, monthRanges, PERIODS, rangeOf } from '@/lib/period'
 import { queryKeys } from '@/lib/queryKeys'
-import { dailySeries, trendPath } from '@/lib/salesTrend'
+import { dailySeries, trendPath, trendTicks } from '@/lib/salesTrend'
 import { paths } from '@/routes/paths'
 
 const PAGE_SIZE = 20
@@ -22,7 +23,6 @@ const shareOf = (amount: string, total: number) =>
 export default function MyPageSales() {
   const [tab, setTab] = useState('entry')
   const [periodAt, setPeriodAt] = useState(1)
-  const [periodOpen, setPeriodOpen] = useState(false)
 
   const period = PERIODS[periodAt]
   const range = rangeOf(period.days)
@@ -111,10 +111,7 @@ export default function MyPageSales() {
     CHART_W,
     CHART_H,
   )
-  const ticks =
-    series.length > 1
-      ? [0, 1, 2, 3, 4].map((k) => series[Math.round(((series.length - 1) * k) / 4)].day.slice(5))
-      : series.map((p) => p.day.slice(5))
+  const ticks = trendTicks(series)
 
   // 판매는 에이전트로만 일어난다. 에이전트 없는 묶음은 합계에만 남기고 순위에서는 뺀다.
   const soldAgents = (stats?.agents ?? []).filter((a) => a.agentId !== null)
@@ -145,7 +142,10 @@ export default function MyPageSales() {
       `${shareOf(a.amount, total)}%`,
     ]),
   }
-  const entryRows = entries.data?.pages.flatMap((page) => page.content) ?? []
+  // 판매는 에이전트로만 일어난다. 에이전트 없는 노드 줄은 목록에서 뺀다(합계에는 남는다).
+  const entryRows = (entries.data?.pages.flatMap((page) => page.content) ?? []).filter(
+    (e) => e.agentId !== null,
+  )
   const byEntry = {
     columns: [
       { label: '일시', w: '190px' },
@@ -194,19 +194,6 @@ export default function MyPageSales() {
   const barEntry = byAgentTab ? 'transparent' : LILAC
   const handlePickByAgent = () => setTab('agent')
   const handlePickByEntry = () => setTab('entry')
-  const handlePickPeriod = (at: number) => {
-    setPeriodAt(at)
-    setPeriodOpen(false)
-  }
-
-  useEffect(() => {
-    if (!periodOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPeriodOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [periodOpen])
 
   return (
     <MyPageFrame>
@@ -236,77 +223,7 @@ export default function MyPageSales() {
         내 에이전트를 판매한 정산금과 출금할 수 있는 금액을 확인합니다.
       </div>
 
-      <div className="absolute" style={{ left: '1210px', top: '160px', width: '128px', zIndex: 5 }}>
-        {/* 등장 모션은 버튼에만 건다 — transform 이 걸린 조상 안에서는 아래 메뉴의 유리가 죽는다. */}
-        <button
-          type="button"
-          onClick={() => setPeriodOpen(!periodOpen)}
-          style={{
-            width: '128px',
-            height: '38px',
-            borderRadius: '19px',
-            padding: '0 15px',
-            animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
-          }}
-          className="box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
-        >
-          <div className="text-[13.5px]" style={{ color: 'rgba(255,240,247,.84)' }}>
-            {period.label}
-          </div>
-          <div
-            style={{
-              width: '0',
-              height: '0',
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '5px solid rgba(255,255,255,.6)',
-            }}
-          ></div>
-        </button>
-
-        {/* 바깥을 덮어 어디를 눌러도 닫는다 — `profile-menu` 와 같은 방식이다. */}
-        {periodOpen && (
-          <div
-            className="fixed inset-0"
-            style={{ zIndex: 4 }}
-            onClick={() => setPeriodOpen(false)}
-          ></div>
-        )}
-
-        {periodOpen && (
-          <div
-            className="bg-surface-menu relative box-border flex flex-col overflow-hidden"
-            style={{
-              marginTop: '6px',
-              width: '128px',
-              borderRadius: '12px',
-              padding: '4px',
-              // veil 보다 위에 와야 항목이 눌린다.
-              zIndex: 5,
-              backdropFilter: 'blur(18px) saturate(115%)',
-              WebkitBackdropFilter: 'blur(18px) saturate(115%)',
-            }}
-          >
-            {PERIODS.map((p, i) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => handlePickPeriod(i)}
-                style={{
-                  height: '32px',
-                  padding: '0 11px',
-                  borderRadius: '8px',
-                  color: i === periodAt ? '#f0dcea' : 'rgba(255,240,247,.78)',
-                  background: i === periodAt ? 'rgba(185,141,169,.28)' : 'transparent',
-                }}
-                className="flex cursor-pointer items-center text-[13.5px] hover:bg-[rgba(255,255,255,.12)]"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <PeriodMenu at={periodAt} onPick={setPeriodAt} />
 
       <div
         className="absolute flex"

@@ -15,14 +15,21 @@ export function rangeOf(days: number): { from?: string; to?: string } {
   return { from: utcDay(now - (days - 1) * 86_400_000), to: utcDay(now) }
 }
 
-/** 이번 달은 1일부터 오늘까지, 지난달은 한 달 전부. UTC 기준이다. */
+/**
+ * 이번 달 1일 ~ 오늘과, 지난달 1일 ~ 같은 날. UTC 기준이다.
+ * 지난달 전체와 비교하면 월초마다 크게 줄어든 것처럼 보인다. 지난달이 더 짧으면 말일에서 멈춘다.
+ */
 export function monthRanges(now = Date.now()) {
   const d = new Date(now)
   const y = d.getUTCFullYear()
   const m = d.getUTCMonth()
+  const lastDayOfPrevious = new Date(Date.UTC(y, m, 0)).getUTCDate()
   return {
     current: { from: utcDay(Date.UTC(y, m, 1)), to: utcDay(now) },
-    previous: { from: utcDay(Date.UTC(y, m - 1, 1)), to: utcDay(Date.UTC(y, m, 0)) },
+    previous: {
+      from: utcDay(Date.UTC(y, m - 1, 1)),
+      to: utcDay(Date.UTC(y, m - 1, Math.min(d.getUTCDate(), lastDayOfPrevious))),
+    },
   }
 }
 

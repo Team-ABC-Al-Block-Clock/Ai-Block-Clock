@@ -36,3 +36,9 @@ export function trendPath(values: number[], width: number, height: number, top =
     .map((v, i) => `${i === 0 ? 'M' : 'L'}${Number((i * step).toFixed(1))} ${y(v)}`)
     .join(' ')
 }
+
+/** 눈금 다섯 개. 날이 적으면 있는 날만 쓴다. `09-26` 꼴이다. */
+export function trendTicks(series: { day: string }[]) {
+  if (series.length <= 1) return series.map((p) => p.day.slice(5))
+  return [0, 1, 2, 3, 4].map((k) => series[Math.round(((series.length - 1) * k) / 4)].day.slice(5))
+}

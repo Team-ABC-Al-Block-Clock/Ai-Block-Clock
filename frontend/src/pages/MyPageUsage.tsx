@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import PeriodMenu from '@/components/PeriodMenu'
 import MyPageFrame from '@/components/MyPageFrame'
 import type { CreditTransaction, CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditHistory, getCreditTransactions } from '@/api/credits'
@@ -8,7 +9,7 @@ import StatusDot from '@/components/StatusDot'
 import { amountLabel, priceLabel, runLabel, shortAddress, timeLabel } from '@/lib/format'
 import { PERIODS, rangeOf } from '@/lib/period'
 import { queryKeys } from '@/lib/queryKeys'
-import { dailySeries, trendPath } from '@/lib/salesTrend'
+import { dailySeries, trendPath, trendTicks } from '@/lib/salesTrend'
 import { usagePeriods, usageTotals } from '@/lib/usageTrend'
 import { historyStatus, type HistoryTone } from '@/lib/withdrawalMessage'
 
@@ -41,9 +42,24 @@ const TYPE_COLORS: Record<CreditTransactionType, string> = {
   PAYOUT_CONVERSION: '#9ad0b4',
 }
 
+/** 한 유형을 50건씩 끝까지 읽는다. TREND_PAGE_LIMIT 장에서 끊는다. */
+async function readAll(
+  transactionType: CreditTransactionType,
+  range: { from?: string; to?: string },
+) {
+  const rows: CreditTransaction[] = []
+  let cursor: string | undefined
+  for (let i = 0; i < TREND_PAGE_LIMIT; i++) {
+    const page = await getCreditTransactions({ ...range, transactionType, size: 50, cursor })
+    rows.push(...page.content)
+    if (!page.hasNext || !page.nextCursor) return { rows, cut: false }
+    cursor = page.nextCursor
+  }
+  return { rows, cut: true }
+}
+
 export default function MyPageUsage() {
   const [periodAt, setPeriodAt] = useState(1)
-  const [periodOpen, setPeriodOpen] = useState(false)
 
   const period = PERIODS[periodAt]
   const range = rangeOf(period.days)
@@ -63,17 +79,14 @@ export default function MyPageUsage() {
 
   const trend = useQuery({
     queryKey: queryKeys.credits.usageTrend(range),
+    // 사용량에 드는 것은 선차감과 환불뿐이다. 둘만 따로, 나란히 읽는다.
     queryFn: async () => {
-      const rows: CreditTransaction[] = []
-      let cursor: string | undefined
-      for (let i = 0; i < TREND_PAGE_LIMIT; i++) {
-        const page = await getCreditTransactions({ ...range, size: 50, cursor })
-        rows.push(...page.content)
-        if (!page.hasNext || !page.nextCursor) return { rows, cut: false }
-        cursor = page.nextCursor
-      }
+      const [reserves, refunds] = await Promise.all([
+        readAll('RESERVE', range),
+        readAll('REFUND', range),
+      ])
       // 끊긴 채로 합계를 보여 주면 적게 쓴 것처럼 보인다. 끊겼다고 알린다.
-      return { rows, cut: true }
+      return { rows: [...reserves.rows, ...refunds.rows], cut: reserves.cut || refunds.cut }
     },
   })
   const trendRows = trend.data?.rows ?? []
@@ -90,10 +103,7 @@ export default function MyPageUsage() {
     CHART_H,
     40,
   )
-  const ticks =
-    series.length > 1
-      ? [0, 1, 2, 3, 4].map((k) => series[Math.round(((series.length - 1) * k) / 4)].day.slice(5))
-      : series.map((p) => p.day.slice(5))
+  const ticks = trendTicks(series)
 
   const [listTab, setListTab] = useState<'usage' | 'wallet'>('usage')
   // 충전 · 출금은 기간 조건이 없다. 처리 중인 줄이 있으면 다시 불러 상태를 따라간다.
@@ -125,20 +135,6 @@ export default function MyPageUsage() {
   const total = Number(available ?? 0) + Number(reserved ?? 0)
   const gaugeArc = total > 0 ? (452.39 * Number(available ?? 0)) / total : 0
 
-  const handlePickPeriod = (at: number) => {
-    setPeriodAt(at)
-    setPeriodOpen(false)
-  }
-
-  useEffect(() => {
-    if (!periodOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPeriodOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [periodOpen])
-
   return (
     <MyPageFrame>
       <Sidebar active="usage" />
@@ -167,77 +163,7 @@ export default function MyPageUsage() {
         ABC 사용량과 잔액, 충전·출금 내역을 확인합니다.
       </div>
 
-      <div className="absolute" style={{ left: '1210px', top: '160px', width: '128px', zIndex: 5 }}>
-        {/* 등장 모션은 버튼에만 건다 — transform 이 걸린 조상 안에서는 아래 메뉴의 유리가 죽는다. */}
-        <button
-          type="button"
-          onClick={() => setPeriodOpen(!periodOpen)}
-          style={{
-            width: '128px',
-            height: '38px',
-            borderRadius: '19px',
-            padding: '0 15px',
-            animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
-          }}
-          className="box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
-        >
-          <div className="text-[13.5px]" style={{ color: 'rgba(255,240,247,.84)' }}>
-            {period.label}
-          </div>
-          <div
-            style={{
-              width: '0',
-              height: '0',
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '5px solid rgba(255,255,255,.6)',
-            }}
-          ></div>
-        </button>
-
-        {/* 바깥을 덮어 어디를 눌러도 닫는다 — `profile-menu` 와 같은 방식이다. */}
-        {periodOpen && (
-          <div
-            className="fixed inset-0"
-            style={{ zIndex: 4 }}
-            onClick={() => setPeriodOpen(false)}
-          ></div>
-        )}
-
-        {periodOpen && (
-          <div
-            className="bg-surface-menu relative box-border flex flex-col overflow-hidden"
-            style={{
-              marginTop: '6px',
-              width: '128px',
-              borderRadius: '12px',
-              padding: '4px',
-              // veil 보다 위에 와야 항목이 눌린다.
-              zIndex: 5,
-              backdropFilter: 'blur(18px) saturate(115%)',
-              WebkitBackdropFilter: 'blur(18px) saturate(115%)',
-            }}
-          >
-            {PERIODS.map((p, i) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => handlePickPeriod(i)}
-                style={{
-                  height: '32px',
-                  padding: '0 11px',
-                  borderRadius: '8px',
-                  color: i === periodAt ? '#f0dcea' : 'rgba(255,240,247,.78)',
-                  background: i === periodAt ? 'rgba(185,141,169,.28)' : 'transparent',
-                }}
-                className="flex cursor-pointer items-center text-[13.5px] hover:bg-[rgba(255,255,255,.12)]"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <PeriodMenu at={periodAt} onPick={setPeriodAt} />
 
       <div
         className="bg-surface-card absolute box-border"
@@ -257,7 +183,7 @@ export default function MyPageUsage() {
           style={{ marginTop: '5px', width: '534px', color: 'rgba(255,236,246,.6)' }}
         >
           {trend.data
-            ? `${period.label} 총 사용 ${priceLabel(totals.spent)} · 실행 ${runLabel(totals.executionCount)}${trend.data.cut ? ' · 최근 1,000건 기준' : ''}`
+            ? `${period.label} 총 사용 ${priceLabel(totals.spent)} · 실행 ${runLabel(totals.executionCount)}${trend.data.cut ? ' · 최근 내역 일부 기준' : ''}`
             : trend.isError
               ? '사용량을 불러오지 못했습니다.'
               : '사용량을 불러오는 중입니다.'}

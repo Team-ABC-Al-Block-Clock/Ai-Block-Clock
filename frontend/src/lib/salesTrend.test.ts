@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { dailySeries, trendPath } from '@/lib/salesTrend'
+import { dailySeries, trendPath, trendTicks } from '@/lib/salesTrend'
 
 describe('dailySeries', () => {
   it('받은 것이 없는 날을 0 으로 채운다', () => {
@@ -34,5 +34,17 @@ describe('trendPath', () => {
 
   it('전부 0 이어도 NaN 없이 바닥에 눕는다', () => {
     expect(trendPath([0, 0], 100, 50)).toBe('M0 50 L100 50')
+  })
+})
+
+describe('trendTicks', () => {
+  it('처음 · 끝을 포함해 다섯 칸을 고르게 뽑는다', () => {
+    const series = Array.from({ length: 9 }, (_, i) => ({ day: `2026-09-0${i + 1}` }))
+
+    expect(trendTicks(series)).toEqual(['09-01', '09-03', '09-05', '09-07', '09-09'])
+  })
+
+  it('하루뿐이면 그날 하나다', () => {
+    expect(trendTicks([{ day: '2026-09-01' }])).toEqual(['09-01'])
   })
 })
