@@ -1,5 +1,5 @@
 import { BaseElement, define } from './base'
-import { OceanTheme } from './theme-store'
+import { OceanTheme } from '../stores/themeStore'
 import type { Theme } from './types'
 
 const ROW_STYLE =

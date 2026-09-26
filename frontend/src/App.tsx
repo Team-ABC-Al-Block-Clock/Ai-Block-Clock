@@ -20,6 +20,8 @@ import { REQUIRES_AUTH } from './routes/access'
 import { paths, routePatterns, type ScreenKey } from './routes/paths'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAuthStore } from './stores/authStore'
+// 웹 컴포넌트가 window.OceanTheme 로 읽으므로 등록보다 먼저 불러 둔다.
+import './stores/themeStore'
 import './components/index'
 
 import Detail from './pages/Detail'

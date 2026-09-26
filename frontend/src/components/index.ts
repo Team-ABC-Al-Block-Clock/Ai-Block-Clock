@@ -6,7 +6,6 @@
  */
 export * from './types'
 export { BaseElement, define } from './base'
-export { OceanTheme, THEME_OPTIONS } from './theme-store'
 export { OceanBg } from './ocean-bg'
 export { ScreenFrame } from './screen-frame'
 export { AppHeader } from './app-header'
