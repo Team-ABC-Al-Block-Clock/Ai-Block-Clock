@@ -4,15 +4,14 @@
 
 | 문서 | 범위 |
 | --- | --- |
-| [`contract-v2.md`](contract-v2.md) | **09-26 계약 v2.0 과 FE 요청.** 처리 현황(MR !116 · !117 · !119 · !125 · !126), 노드별 출력 형식, `TRIGGER` · `TOOL`, AI 파트에 물을 것 |
+| [`contract-v2.md`](contract-v2.md) | **09-26 계약 v2.0 · v2.1 과 FE 요청.** 처리 현황, 노드별 출력 형식(!131), 분기 실행(!134), `TRIGGER` · `TOOL`, AI 파트에 물을 것 |
 | [`agent-pipeline.md`](agent-pipeline.md) | 작업 노드 · 그래프 확장 · 에이전트 가격 · AI Runtime 실행에서 **남은 것** — 정산 · 이력 목록 · 마켓 API · 실행 길이 상한 |
 | [`io-nodes.md`](io-nodes.md) | **시작 · 끝 노드를 실행 요청으로 옮기기.** 저장 · 조회 · 결과 받기는 끝났다 |
-| [`ai-runtime-contract-gap.md`](ai-runtime-contract-gap.md) | **AI Runtime 계약과 우리 코드가 어긋난 자리.** 09-22 기준이다 — v2.0 은 머리말과 `contract-v2.md` |
 | [`ai-runtime-questions.md`](ai-runtime-questions.md) | **AI 파트에 보내는 확인 요청.** 답이 오면 `agent-pipeline.md` 에 반영하고 걷어낸다 |
 | [`completed/`](completed/) | **구현이 끝나 걷어낸 장.** 왜 그 모양인지 되짚을 때만 본다. 현재 규칙의 원본이 아니다 |
 
 `completed/` 에는 `agent-pipeline.md` · `io-nodes.md` 에서 걷어낸 장과, 통째로 끝난 `file-upload.md` ·
-`node-ref-files.md` 가 있다.
+`node-ref-files.md`, v2.0 이 대신한 09-22 기준 `ai-runtime-contract-gap.md` 가 있다.
 
 ## 다른 문서와의 경계
 

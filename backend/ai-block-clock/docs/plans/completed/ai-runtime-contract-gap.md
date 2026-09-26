@@ -7,15 +7,12 @@
 > | `output_schema_id` 필수, 노드 스키마 칸이 없어 못 한다 (1 · 4장) | v2.0 에서 `output {kind, sample}` 로 바뀌고 `input_schema_id` · `output.schema_id` 는 없어졌다. **v2.1(!137)이 견본 카탈로그 11종을 걷어내고 `output {kind, example}` · `input {example}` 로 다시 바꿨다.** 연결 형식 검사 · 경계 검증도 없다 |
 > | 모델을 안 보내도 결과가 같다 (5장) | 기본 모델이 `gemini-2.5-pro` 로 바뀌었다. 우리는 Flash 를 저장하고 Pro 로 돌았다. MR !126 이 노드 모델을 최상위 `model` 로 싣는다 |
 > | `owner_id` · 결과 PDF · 실패 필드 · 폴링 기한이 없다 (1 · 3 · 9장) | **우리 쪽이 이미 채웠다.** `owner_id` · `agent_id` 를 싣고, `/pdf` 를 받고, `error_code` · `fault` 를 읽고, 기한을 둔다 |
-> | 원가는 `cost_abc` 로 온다 (8장) | **`cost_usd` 로만 온다.** `unit_price` · `cost_abc` · `refund_abc` 는 사라졌다. 그대로 두면 사용액이 0 이 되어 성공한 실행도 전액 환불된다 — **MR !118** 이 고쳤다([`agent-pipeline.md`](agent-pipeline.md) 12장) |
+> | 원가는 `cost_abc` 로 온다 (8장) | **`cost_usd` 로만 온다.** `unit_price` · `cost_abc` · `refund_abc` 는 사라졌다. 그대로 두면 사용액이 0 이 되어 성공한 실행도 전액 환불된다 — **MR !118** 이 고쳤다([`agent-pipeline.md`](../agent-pipeline.md) 12장) |
 >
-> **아직 운영에는 안 올라갔다.** 엔진 v2.0 은 09-26 13:04 에 운영(master)에 떴는데, `backend:deploy` 는 master 에서만
-> 도는데다 `develop-BE` 는 09-08 이후 master 에 올라간 적이 없다(운영 백엔드 마지막 배포 09-16). **`develop-BE` 가
-> master 에 배포되기 전까지 운영에서는 성공한 실행도 사용액이 0 으로 계산돼 전액 환불되고, 정산은 0 이다.**
+> "스키마 칸이 없다" 는 !131 이 노드마다 출력 형식(`output {kind, example}`)을 저장하며 풀었다.
 >
-> "스키마 칸이 없다" 는 v2.0 에서도 그대로다 — 판매자가 고르는 출력 형식을 아직 저장하지 않아 모든 단계를 글(`text`)로 보낸다(!131).
->
-> v2.0 에 맞춰 할 일은 [`contract-v2.md`](contract-v2.md) 에 모았다. 이 문서는 그 일이 끝나면 다시 쓰거나 걷어낸다.
+> **09-27 에 `completed/` 로 옮겼다.** v2.0 · v2.1 에 맞춰 할 일은 [`contract-v2.md`](../contract-v2.md) 에 있다. 여기 적힌
+> 어긋남은 09-22 기준의 기록이다 — 현재 규칙의 원본이 아니다.
 
 **실행은 돌아가지만, 저장 구조가 계약보다 한 세대 앞의 모델에 머물러 있다.** 우리는 노드를
 "프롬프트 + 모델 + 원가" 로 들고 있고, 계약은 노드를 "입출력 형식을 가진 부품" 으로 본다.
@@ -322,7 +319,7 @@ payload 를 찾기 때문이다.
 
 | | 우리 가정 | 어디에 물었나 |
 | --- | --- | --- |
-| `ref_files` 값의 모양 | 원래 이름의 배열 | [`ai-runtime-questions.md`](ai-runtime-questions.md) 1-1 |
+| `ref_files` 값의 모양 | 원래 이름의 배열 | [`ai-runtime-questions.md`](../ai-runtime-questions.md) 1-1 |
 | `ref_file_*` 의 `<n>` 시작 | 0 | 1-2 |
 | 한글 파일 이름 | 파트에는 `{자료 ID}.확장자`, 원래 이름은 `ref_files` 에만 | 1-3 |
 | 에이전트 단위 참고 자료 | 없다 | 묻지 않았다. 계약에 자리가 없다 |
