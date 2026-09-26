@@ -108,6 +108,18 @@ agent-grade:
     cron: ${AGENT_GRADE_REGRADE_CRON:0 0 3 * * *}
     zone: ${AGENT_GRADE_REGRADE_ZONE:Asia/Seoul}
 
+# 에이전트 원본 증명(CHN-001/002). 버전을 공개하면 PENDING 기록이 쌓이고, 주기 작업이 등기부 토큰에 적는다.
+# 보내기는 등기부 주소 · 키(ssafy.sto.agent-registry)를 넣은 서버에서만 켠다. 꺼 두면 기록이 PENDING 으로 기다린다.
+agent-provenance:
+  registration-enabled: ${AGENT_PROVENANCE_REGISTRATION_ENABLED:false}
+  # 한 건을 적는 데 블록 하나(약 10초)를 기다린다. 공개 직후 화면이 확정을 오래 기다리지 않게 짧게 둔다
+  registration-interval: ${AGENT_PROVENANCE_REGISTRATION_INTERVAL:15s}
+  # 한 차례에 적는 최대 건수. 건마다 블록을 기다려서 너무 크면 한 차례가 길어진다
+  registration-batch-size: ${AGENT_PROVENANCE_REGISTRATION_BATCH_SIZE:5}
+  # 충전과 같은 SSAFY 체인이다
+  chain-id: ${payment.charge.chain-id}
+  network-name: ${AGENT_PROVENANCE_NETWORK_NAME:SSAFY}
+
 wallet-auth:
   domain: ${WALLET_AUTH_DOMAIN:j15a403.p.ssafy.io}
   uri: ${WALLET_AUTH_URI:https://j15a403.p.ssafy.io/}

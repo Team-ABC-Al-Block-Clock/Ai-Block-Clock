@@ -61,6 +61,11 @@ public enum ErrorCode {
     AGENT_007,
     AGENT_009,
 
+    MARKET_001,
+
+    BLOCKCHAIN_003,
+    BLOCKCHAIN_004,
+
     PAYMENT_001,
     PAYMENT_002,
     PAYMENT_003,

@@ -199,6 +199,16 @@ public enum ErrorType {
     AGENT_VERSION_NOT_NEWER(HttpStatus.CONFLICT, ErrorCode.AGENT_009,
             "이미 공개된 버전보다 이전 버전은 공개할 수 없습니다.", LogLevel.WARN),
 
+    // FE 가 원본 증명 화면에서 "에이전트 없음" 과 "기록 없음" 을 코드로 가른다. 둘 다 404 라 상태로는 못 가른다
+    MARKETPLACE_AGENT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.MARKET_001,
+            "에이전트를 찾을 수 없습니다.", LogLevel.WARN),
+
+    AGENT_PROVENANCE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.BLOCKCHAIN_003,
+            "에이전트의 원본 증명 기록을 찾을 수 없습니다.", LogLevel.WARN),
+
+    AGENT_PROVENANCE_CHAIN_UNREACHABLE(HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.BLOCKCHAIN_004,
+            "블록체인에서 원본 증명 기록을 읽지 못했습니다. 잠시 뒤 다시 시도해 주세요.", LogLevel.ERROR),
+
     CHARGE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_001,
             "충전 요청을 찾을 수 없습니다.", LogLevel.WARN),
 
