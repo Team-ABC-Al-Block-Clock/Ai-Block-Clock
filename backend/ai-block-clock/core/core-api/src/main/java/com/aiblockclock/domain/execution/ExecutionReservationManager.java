@@ -42,10 +42,11 @@ public class ExecutionReservationManager {
         return reserved;
     }
 
-    // 엔진이 받지 않은 실행이다. 떼어 둔 금액을 돌려주고 실행은 플랫폼 탓 실패로 남긴다.
+    // 엔진이 받지 않은 실행이다. 떼어 둔 금액을 돌려주고 실행은 플랫폼 탓 실패로 닫는다.
+    // 닫는 길은 끝난 실행과 같다. 이미 닫혔으면 판정을 다시 적지 않는다.
     @Transactional
     public void release(Execution reserved) {
-        executionWriter.fail(reserved.getId(), ExecutionFailure.undispatched());
+        executionWriter.finish(reserved.getId(), ExecutionStatus.FAILED, ExecutionFailure.undispatched());
         ledgerTransactionWriter.append(LedgerTransaction.forExecutionRelease(
                 reserved.getId().value(), reserved.getRequester(), reserved.getReserved()));
     }

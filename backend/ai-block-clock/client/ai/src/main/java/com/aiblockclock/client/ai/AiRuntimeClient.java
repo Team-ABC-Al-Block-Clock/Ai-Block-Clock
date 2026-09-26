@@ -3,21 +3,25 @@ package com.aiblockclock.client.ai;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 public class AiRuntimeClient {
     private static final String RUNS_PATH = "/v1/runs";
     private static final String RUN_PATH = "/v1/runs/{runId}";
     private static final String ARTIFACT_PATH = "/v1/runs/{runId}/artifact";
+    private static final String PDF_PATH = "/v1/runs/{runId}/pdf";
     private static final String HEALTH_PATH = "/v1/health";
 
     private final RestClient runtimeRestClient;
@@ -50,6 +54,20 @@ public class AiRuntimeClient {
 
     public String readArtifact(String runId) {
         return require(get(ARTIFACT_PATH, runId, String.class, "artifact"), "artifact");
+    }
+
+    public Optional<byte[]> readPdf(String runId) {
+        try {
+            return Optional.ofNullable(runtimeRestClient.get().uri(PDF_PATH, runId).retrieve().body(byte[].class));
+        } catch (RestClientException exception) {
+            if (exception instanceof HttpClientErrorException http
+                    && http.getStatusCode() == HttpStatus.CONFLICT) {
+                return Optional.empty();
+            }
+
+            throw new AiClientException(AiClientError.REQUEST_FAILED,
+                    "pdf request for run " + runId + " failed", exception);
+        }
     }
 
     public RuntimeHealth health() {
