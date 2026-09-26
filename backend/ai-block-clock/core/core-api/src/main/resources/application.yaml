@@ -78,6 +78,8 @@ payment:
       enabled: ${PAYMENT_WITHDRAWAL_PAYOUT_ENABLED:false}
       # 블록이 약 10초마다 생겨서, 보낸 거래를 더 자주 물어도 새 답이 없다
       poll-interval: ${PAYMENT_WITHDRAWAL_PAYOUT_POLL_INTERVAL:10s}
+      # 보낸 뒤 이만큼 결과를 모르면 보류로 넘긴다. 정상이면 한두 블록 안에 적히는데, 10분은 블록 약 60개 동안 적히지 않은 것이다
+      hold-after: ${PAYMENT_WITHDRAWAL_PAYOUT_HOLD_AFTER:10m}
 
 file-store:
   root: ${FILE_STORE_ROOT:/var/lib/ai-block-clock/files}

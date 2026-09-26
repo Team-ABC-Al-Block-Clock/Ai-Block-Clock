@@ -3,9 +3,10 @@
 공급자가 **정산금**(실행에서 받은 ABC, 장부 `PAYOUT_BALANCE`)을 로그인한 지갑으로 abcToken 으로 보내 달라고 신청한다.
 ABC 1 = abcToken 1개다. 본인 확인(ACC-004) → 신청(PAY-023) → 관리자 심사(PAY-024) → 체인 지급(PAY-025) 순이다.
 
-이 문서는 **본인 확인 · 신청 · 취소 · 관리자 심사 · 체인 지급**을 다룬다.
+이 문서는 **본인 확인 · 신청 · 취소 · 관리자 심사 · 체인 지급 · 지급 실패와 보류 · 충전 · 출금 내역**을 다룬다.
 정산금을 출금하지 않고 쓸 수 있는 ABC 로 옮기는 길도 여기 적는다(8장).
 심사까지는 체인에 아무것도 보내지 않는다. 승인된 신청만 보관 지갑이 서명한 전송으로 체인에 보낸다(9장).
+보낸 전송이 되돌려지거나 오래 결과를 모를 때의 처리는 10장, 사용자가 보는 내역은 11장이다.
 
 ---
 
@@ -19,6 +20,8 @@ ABC 1 = abcToken 1개다. 본인 확인(ACC-004) → 신청(PAY-023) → 관리�
 ④ (심사 전) 공급자가 취소하면 묶은 금액을 돌려놓는다  POST /api/v1/withdrawals/{withdrawalId}/cancel
 ⑤ 관리자가 승인하거나 반려한다                        POST /api/v1/admin/withdrawals/{withdrawalId}/approve · reject   (7장)
 ⑥ 승인된 신청을 한 건씩 체인으로 보낸다              WithdrawalPayoutScheduler → WithdrawalPayoutService   (9장)
+⑦ 되돌려지면 실패로 닫고, 오래 모르면 보류한다        같은 차례 (10장)
+⑧ 공급자가 충전과 함께 한 목록으로 본다              GET /api/v1/credits/history   (11장)
 ```
 
 | 상태 | 뜻 | 처리 중 | 신청 주기에 셈 |
@@ -28,24 +31,32 @@ ABC 1 = abcToken 1개다. 본인 확인(ACC-004) → 신청(PAY-023) → 관리�
 | `APPROVED` | 관리자가 승인. 지급을 기다린다. 금액은 계속 묶여 있다 | ✓ | ✓ |
 | `REJECTED` | 관리자가 반려. 사유가 남고 금액이 정산금으로 돌아왔다 | | |
 | `PAYING` | 서명한 전송을 체인에 보냈다. 거래 해시가 적혀 있고 금액은 계속 묶여 있다 | ✓ | ✓ |
+| `ON_HOLD` | 보낸 지 오래됐는데 체인에서 결과를 모른다. 금액은 계속 묶여 있고 체인이 답할 때까지 본다 | ✓ | ✓ |
 | `PAID` | 체인에서 성공을 확인했다. 묶은 금액을 장부에서 내보냈다 | | ✓ |
+| `FAILED` | 체인이 전송을 되돌렸다. 토큰이 나가지 않아 금액을 정산금으로 돌려놓았다 | | |
 
-상태가 늘 때 두 칸을 `WithdrawalStatus` 에 함께 정한다. 취소 · 반려처럼 돈이 나가지 않고 닫힌 것은 신청 주기에 세지 않는다.
+상태가 늘 때 두 칸을 `WithdrawalStatus` 에 함께 정한다. 취소 · 반려 · 실패처럼 돈이 나가지 않고 닫힌 것은 신청 주기에 세지 않는다.
 
 ```
 REQUESTED ──취소(공급자)──▶ CANCELED
     │
-    ├──승인(관리자)──▶ APPROVED ──서명 · 전송──▶ PAYING ──체인 성공──▶ PAID
+    ├──반려(관리자)──▶ REJECTED
     │
-    └──반려(관리자)──▶ REJECTED
+    └──승인(관리자)──▶ APPROVED ──서명 · 전송──▶ PAYING ──10분 동안 결과 모름──▶ ON_HOLD
+                                                  │                              │
+                                                  ├──체인 성공───────────────────┼──▶ PAID
+                                                  │                              │
+                                                  └──체인이 되돌림───────────────┴──▶ FAILED
 ```
+
+`PAYING` 과 `ON_HOLD` 는 체인이 답하면 똑같이 닫힌다. 성공이면 `PAID`, 되돌렸으면 `FAILED` 다.
 
 취소 · 승인 · 반려는 모두 `REQUESTED` 에서만 한다. 한 번 닫히거나 승인된 신청은 되돌리지 않는다.
 승인한 뒤에 공급자가 취소하면 409 `PAYMENT_016` 이다. 지급이 시작된 신청을 멈추면 장부와 체인이 어긋난다.
 
-**신청 주기는 아직 걸리지 않는다.** 주기에 세는 상태가 처리 중인 `REQUESTED` · `APPROVED` 뿐이라, 그런 출금이 있으면
-처리 중인 출금 검사(`PAYMENT_012`)에서 먼저 막히고 없으면 마지막 신청 시각이 비어 주기 검사를 건너뛴다.
-"끝났지만 세는" 지급 완료 상태가 생기는 지급(PAY-025)부터 걸린다. 그때 주입한 `Clock` 으로 주기 경계를 통합 테스트한다.
+**신청 주기는 지급을 마친 출금(`PAID`)부터 걸린다.** 처리 중인 출금(`REQUESTED` · `APPROVED` · `PAYING` · `ON_HOLD`)이 있으면
+처리 중인 출금 검사(`PAYMENT_012`)에서 먼저 막힌다. "끝났지만 세는" 상태는 `PAID` 하나라, 지급을 마친 뒤 24시간 안에 다시 신청하면
+`PAYMENT_013` 이다(`WithdrawalPayoutServiceIntegrationTest`). 주기 경계(딱 24시간)는 `WithdrawalPolicyTest` 가 본다.
 
 ---
 
@@ -57,7 +68,7 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 | 거래 | 빠지는 칸 (−) | 들어가는 칸 (+) | 키 |
 | --- | --- | --- | --- |
 | `WITHDRAWAL_HOLD` (신청) | `PAYOUT_BALANCE` | `WITHDRAWAL_ESCROW` | `withdrawal-hold:{출금ID}` |
-| `WITHDRAWAL_RELEASE` (취소 · 반려) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` | `withdrawal-release:{출금ID}` |
+| `WITHDRAWAL_RELEASE` (취소 · 반려 · 지급 실패) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` | `withdrawal-release:{출금ID}` |
 
 두 거래 모두 **같은 사람의 칸 사이**에서만 옮긴다. 장부 생성자의 모양 검사(PAY-004,
 [agent-pipeline.md](plans/completed/agent-pipeline.md) 8.8)가 막으므로 출금을 핑계로 남에게 ABC 를 넘길 수 없다.
@@ -65,7 +76,7 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 
 승인은 장부를 건드리지 않는다. 금액은 지급(PAY-025)이 끝날 때까지 출금 예치에 남는다.
 
-`GET /credits/balance` 의 `payoutAmount` 는 묶인 금액을 뺀 값이다. 묶인 금액은 출금 이력(PAY-026)에서 보여 준다.
+`GET /credits/balance` 의 `payoutAmount` 는 묶인 금액을 뺀 값이다. 묶인 금액은 충전 · 출금 내역(11장)의 처리 중인 출금으로 보여 준다.
 
 ---
 
@@ -78,8 +89,8 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 | --- | --- | --- |
 | 본인 확인을 승인받았다 (6장) | — | 403 `PAYMENT_017` |
 | 한 번에 신청할 수 있는 금액 | 1 ~ 1,000 ABC | 400 `PAYMENT_010` (`data`: `minimumAmount` · `maximumAmount`) |
-| 처리 중인 출금은 하나 (`REQUESTED` · `APPROVED`) | — | 409 `PAYMENT_012` |
-| 마지막 신청에서 지나야 할 시간 | 24시간 | 409 `PAYMENT_013` (`data`: `availableAt`). 지급(PAY-025)부터 걸린다 (1장) |
+| 처리 중인 출금은 하나 (`REQUESTED` · `APPROVED` · `PAYING` · `ON_HOLD`) | — | 409 `PAYMENT_012` |
+| 마지막 신청에서 지나야 할 시간 | 24시간 | 409 `PAYMENT_013` (`data`: `availableAt`) |
 | 정산금 안에서만 | — | 409 `PAYMENT_011` (`data`: `payoutAmount`) |
 
 | 정한 것 | 까닭 |
@@ -133,6 +144,7 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 | `springdoc.*.enabled` (prod) | `API_DOCS_ENABLED` | `true` | 관리자가 배포 서버의 Swagger 로 심사한다. 끄면 심사할 화면이 없다 |
 | `payment.withdrawal.payout.enabled` | `PAYMENT_WITHDRAWAL_PAYOUT_ENABLED` | `false` | 승인된 출금을 체인으로 보낸다. 보관 지갑 키가 있는 서버에서만 켠다 (9.4) |
 | `payment.withdrawal.payout.poll-interval` | `PAYMENT_WITHDRAWAL_PAYOUT_POLL_INTERVAL` | `10s` | 지급 차례 간격. 블록이 약 10초마다 생긴다 |
+| `payment.withdrawal.payout.hold-after` | `PAYMENT_WITHDRAWAL_PAYOUT_HOLD_AFTER` | `10m` | 보낸 뒤 이만큼 결과를 모르면 `ON_HOLD` 로 넘긴다. 지급 간격보다 길어야 한다 (10장) |
 | `ssafy.chain.signer.private-key` (소유: `:client:blockchain`) | `SSAFY_CHAIN_SIGNER_PRIVATE_KEY` | 비어 있음 | 보관 지갑 개인키. 서버의 `backend.env` 에만. 키의 주소가 `payment.charge.custody-address` 와 다르면 기동하지 않는다 |
 
 체인 ID · 보관 지갑 · 토큰 주소는 충전 설정(`payment.charge.*`, [abc-charge.md](abc-charge.md) 4장)을 그대로 쓴다. 넣은 지갑에서 내보내기 때문이다.
@@ -169,7 +181,7 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 | 이미 승인(반려)한 것을 다시 승인(반려) | 그대로 돌려준다. 반려 사유는 처음 것이 남는다 |
 
 **개인정보를 암호화하지 않고 저장한다.** 실명 · 생년월일만 받고, 관리자 API 와 본인에게만 보인다.
-암호화 키를 서버 설정으로 새로 들여야 해서 이번에는 넣지 않았다 (10장).
+암호화 키를 서버 설정으로 새로 들여야 해서 이번에는 넣지 않았다 (12장).
 
 ---
 
@@ -277,18 +289,20 @@ Nginx 가 `/api/` 만 백엔드로 넘기므로 문서도 `/api/swagger-ui.html`
 ### 9.1 한 차례에 하는 일
 
 ```
-① 지급 중(PAYING)인 출금이 있으면 그 거래를 체인에서 읽는다     OnChainPayoutSender.readStatus
-   · 성공      → PAID + 장부 WITHDRAWAL_PAYOUT (한 트랜잭션)     WithdrawalPayoutManager
+① 보낸 출금(PAYING · ON_HOLD)이 있으면 그 거래를 체인에서 읽는다   OnChainPayoutSender.readStatus
+   · 성공      → PAID + 장부 WITHDRAWAL_PAYOUT (한 트랜잭션)       WithdrawalPayoutManager.complete
+   · 되돌려짐   → FAILED + 장부 WITHDRAWAL_RELEASE (한 트랜잭션)    WithdrawalPayoutManager.fail   (10장)
    · 아직      → 기다린다
    · 노드가 모름 → 적어 둔 거래를 그대로 다시 보낸다
-   · 되돌려짐   → 멈춘다 (뒤의 출금도 보내지 않는다, 10장)
-② 지급 중인 것이 없거나 방금 끝났으면, 승인이 오래된 APPROVED 하나를 고른다
+   · 체인에 닿지 못함 → 다음 차례에 다시 본다
+   · 성공 · 되돌림이 아닌 채 10분이 지남 → ON_HOLD 로 넘긴다 (10장)
+② 보낸 출금이 없거나 방금 닫혔으면(PAID · FAILED), 승인이 오래된 APPROVED 하나를 고른다
 ③ 보관 지갑 잔액(토큰증권 API) → 다음 거래 번호 · 가스(RPC) → 서명     OnChainPayoutSender.prepare
 ④ 해시 · 서명한 거래를 적고 PAYING 으로 바꾼다 (APPROVED 일 때만)    WithdrawalWriter.startPayout
 ⑤ 체인에 보낸다                                                       OnChainPayoutSender.submit
 ```
 
-체인 호출은 트랜잭션 밖이고, ④ 와 ①의 끝내기만 각자 짧은 트랜잭션이다(ARCHITECTURE 4.2).
+체인 호출은 트랜잭션 밖이고, ④ 와 ①의 상태 바꾸기만 각자 짧은 트랜잭션이다(ARCHITECTURE 4.2).
 
 ### 9.2 두 번 보내지 않는 길
 
@@ -298,7 +312,7 @@ Nginx 가 `/api/` 만 백엔드로 넘기므로 문서도 `/api/swagger-ui.html`
 | 다시 보낼 땐 같은 거래 | 노드가 거래를 모르거나 답이 끊기면 새로 서명하지 않고 적어 둔 `payout_raw_transaction` 을 그대로 보낸다. 체인은 같은 해시를 한 번만 처리한다 |
 | 한 신청에 거래 하나 | `APPROVED → PAYING` 은 조건부 UPDATE(`updatePayoutStartIfApproved`)다. 두 차례가 겹치면 늦은 쪽은 서명한 거래를 버린다 |
 | 한 거래는 한 출금에 | `withdrawal.payout_transaction_hash` UNIQUE |
-| 장부에도 한 번 | 키 `withdrawal-payout:{출금ID}` UNIQUE, 체인 해시도 `(chain_id, transaction_hash)` UNIQUE. `PAYING → PAID` 도 조건부 UPDATE 다 |
+| 장부에도 한 번 | 키 `withdrawal-payout:{출금ID}` UNIQUE, 체인 해시도 `(chain_id, transaction_hash)` UNIQUE. `PAYING`(`ON_HOLD`) `→ PAID` 도 읽었을 때의 상태를 조건으로 건 UPDATE(`updatePaidIfCurrent`)다 |
 
 ### 9.3 장부 — 지급을 마치면 내보낸다
 
@@ -324,12 +338,103 @@ Nginx 가 `/api/` 만 백엔드로 넘기므로 문서도 `/api/swagger-ui.html`
 
 ---
 
-## 10. 아직 하지 않은 것
+## 10. 지급 실패와 보류 (PAY-026 · CHN-007/008)
+
+보낸 전송의 결과는 셋 중 하나다. **확실한 성공 · 확실한 실패 · 모름.** 금액을 푸는 것은 확실한 실패일 때뿐이다.
+
+| 체인의 답 | 돈이 나갔나 | 하는 일 |
+| --- | --- | --- |
+| 성공 (`SUCCEEDED`) | 나갔다 | `PAID`, 묶은 금액을 장부에서 내보낸다 (9.3) |
+| 되돌림 (`FAILED`) | 안 나갔다. 거래는 블록에 적혔지만 전송이 취소됐다 | `FAILED`, 묶은 금액을 정산금으로 돌려놓는다 |
+| 아직 (`PENDING`) · 노드가 모름 (`NOT_FOUND`) · 체인에 못 닿음 | 모른다 | 기다린다. 보낸 지 10분이 지나면 `ON_HOLD` 로 넘긴다. **금액은 풀지 않는다** |
+
+### 10.1 되돌려지면 — 실패로 닫고 돌려놓는다
+
+`WithdrawalPayoutManager.fail` 이 **한 트랜잭션**에서 상태를 `FAILED` 로 바꾸고 `WITHDRAWAL_RELEASE` 를 적는다.
+
+| 거래 | 빠지는 칸 (−) | 들어가는 칸 (+) | 키 |
+| --- | --- | --- | --- |
+| `WITHDRAWAL_RELEASE` (지급 실패) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` | `withdrawal-release:{출금ID}` |
+
+| 정한 것 | 까닭 |
+| --- | --- |
+| 다시 보내지 않고 닫는다 | 되돌려진 까닭(보관 지갑 잔액 · 컨트랙트 상태)이 그대로면 다시 보내도 또 되돌려진다. 공급자가 다시 신청한다 |
+| 취소 · 반려와 같은 거래 · 같은 키 | 한 신청은 한 번만 닫히므로 키가 겹칠 일이 없고, 겹쳐도 한 번만 풀린다 |
+| 신청 주기에 세지 않는다 | 돈이 나가지 않았다. 반려처럼 곧바로 다시 신청할 수 있다 |
+| 닫은 뒤 다음 출금을 보낸다 | 되돌려진 거래도 블록에 적혀 거래 번호를 썼다. 다음 출금은 다음 번호로 서명하면 된다 |
+
+### 10.2 오래 모르면 — 보류한다
+
+보낸 시각(`payout_submitted_at`)에서 `hold-after`(10분)가 지나도 성공 · 되돌림이 아니면 `ON_HOLD` 로 넘기고 에러 로그를 남긴다.
+정상이면 한두 블록(10~20초) 안에 적히므로, 10분은 무언가 잘못된 것이다.
+
+| 정한 것 | 까닭 |
+| --- | --- |
+| 금액을 풀지 않는다 | 풀었는데 나중에 체인에서 성공하면 **토큰도 나가고 정산금도 돌아와** 두 번 받는다 |
+| 뒤의 출금도 보내지 않는다 | 보류된 거래가 아직 그 거래 번호를 잡고 있을 수 있다. 다음 출금을 같은 번호로 서명하면 둘 중 하나만 들어가 번호가 꼬인다 |
+| 보류 뒤에도 차례마다 같은 거래를 확인하고, 노드가 모르면 **같은 거래**를 다시 내민다 | 새로 서명하지 않으므로 두 번 나갈 수 없다. 노드가 재시작해 대기열을 잃은 경우 다시 내밀어야 적힌다 |
+| 체인이 답하면 `PAYING` 과 똑같이 닫는다 | 늦게라도 성공이 보이면 `PAID`, 되돌림이 보이면 `FAILED` 다 |
+| 사람이 강제로 닫는 API 는 두지 않는다 | 잘못 "실패" 로 닫으면 이중 지급이다. 체인이 답할 때까지 기다린다 |
+| 재시도 한도를 횟수가 아니라 시간으로 잰다 | 보낸 시각이 이미 적혀 있어 칸이 늘지 않고, 궁금한 것도 "얼마나 오래 모르나" 다 |
+
+보류는 **"사람이 봐야 한다"** 는 표시다. 운영자는 `보류로 넘겼다` 에러 로그를 보면 SSAFY 체인 탐색기에서 그 해시를 찾아본다.
+
+### 10.3 겹치는 차례
+
+차례는 스레드 하나라 겹치지 않지만, 겹쳐도 되게 만들었다.
+
+| 경우 | 결과 |
+| --- | --- |
+| 두 차례가 같은 되돌림을 봄 | `PAYING`(`ON_HOLD`) `→ FAILED` 가 조건부 UPDATE 라 한쪽만 닫고, 금액은 한 번만 풀린다 |
+| 한 차례가 보류로 넘기는 사이 다른 차례가 성공을 봄 | 늦은 쪽의 UPDATE 가 0 건이라 덮지 않는다. 다음 차례에 `ON_HOLD` 에서 다시 성공을 보고 끝낸다 |
+
+`WithdrawalPayoutServiceIntegrationTest` 가 H2 에서, `WithdrawalPayoutServiceMySqlTest` 가 MySQL 에서 같은 경우를 돌린다.
+시간이 흐른 것은 보낸 시각을 DB 에서 과거로 옮겨 만든다.
+
+---
+
+## 11. 충전 · 출금 내역
+
+FE 화면 "코인 예치/출금" 이 충전과 출금을 **한 목록**으로 그린다. 둘 다 사용자 지갑과 보관 지갑 사이에서 abcToken 이 오가는 일이다.
+
+`GET /api/v1/credits/history?type=&cursor=&size=` — 로그인 사용자 것만, 요청 시각의 최신순.
+
+| 파라미터 | 뜻 |
+| --- | --- |
+| `type` | `CHARGE` · `WITHDRAWAL`. 생략하면 둘 다 |
+| `cursor` | 이전 응답의 `nextCursor` |
+| `size` | 기본 20, 최대 50 |
+
+| 칸 | 충전 | 출금 |
+| --- | --- | --- |
+| `type` | `CHARGE` | `WITHDRAWAL` |
+| `id` | 충전 요청 번호 | 출금 신청 번호 |
+| `status` | `PENDING` · `CONFIRMED` · `FAILED` | 1장의 여덟 상태 |
+| `amount` | 적립됐으면 적립액, 아니면 요청액 | 신청액 |
+| `walletAddress` | 보낸 지갑 | 받을 지갑 |
+| `transactionHash` | 사용자가 보낸 거래 | 보관 지갑이 보낸 거래. `PAYING` 부터 있다 |
+| `requestedAt` | 요청 시각 | 신청 시각 |
+| `completedAt` | 적립 시각 | 지급 완료 시각 |
+| `failureReason` | 실패 사유 코드 | null |
+| `rejectReason` | null | 반려 사유 |
+
+| 정한 것 | 까닭 |
+| --- | --- |
+| 체인에 묻지 않는다 | 상태와 해시는 충전 확인 · 지급 차례가 이미 적어 둔 값이다. 목록을 열 때마다 체인을 부르면 느리고 체인이 멈추면 목록도 멈춘다 |
+| 두 표를 SQL 로 합치지 않는다 | 각 표에서 최신순으로 (건너뛸 만큼 + 한 페이지 + 1) 개씩 읽어 서버에서 합친다(`CreditHistoryService`). 합친 목록의 앞 N 개는 각 표의 앞 N 개 안에 반드시 있다. DB 방언에 기대지 않는다 |
+| 커서는 offset 을 감싼 것 | 다른 목록(`/credits/transactions` · 배치 가능한 항목)과 같다. 페이지를 넘기는 사이 새 줄이 생기면 한 줄 밀릴 수 있다 |
+| 같은 시각이면 종류 · 번호로 줄을 세운다 | 페이지를 넘겨도 순서가 흔들리지 않는다 |
+
+`CreditHistoryControllerTest` 가 섞는 순서 · 페이지 넘김 · 종류 거르기 · 남의 것 숨기기를 본다.
+
+---
+
+## 12. 아직 하지 않은 것
 
 | 무엇 | 어디서 |
 | --- | --- |
-| 체인이 되돌린 거래(`PAYING` 에 멈춤)의 복구 · 오래 모르는 거래의 보류 · 재시도 한도 | PAY-026 · CHN-007/008 |
-| 충전 · 출금을 한 목록으로 보는 내역 API (FE 가 한 목록을 원함) | PAY-026 |
-| 실제 체인으로 1 ABC 를 보내 처음부터 끝까지 보기 | 보관 지갑 키를 서버에 넣은 뒤 |
+| 실제 체인으로 1 ABC 를 보내 처음부터 끝까지 보기 (성공 · 보류 · 되돌림) | 보관 지갑 키를 서버에 넣은 뒤 (331 통합 검증) |
+| 보류를 알림(메일 · 슬랙)으로 알리기 | 지금은 에러 로그만 남긴다 |
+| 출금 한 건만 보는 상세 API | 내역 목록이 상태 · 해시를 모두 주므로 두지 않았다. FE 가 필요하다고 하면 더한다 |
 | 본인 확인 실명 · 생년월일 암호화 저장 | 암호화 키를 서버 설정으로 들이는 작업과 함께 |
 | 플랫폼 부담으로 준 정산금만큼 보관 지갑을 채우기 | 지급 전에 운영자가 한다 (엔진 계약 v2.0 대응의 플랫폼 부담 정산이 들어온 뒤) |

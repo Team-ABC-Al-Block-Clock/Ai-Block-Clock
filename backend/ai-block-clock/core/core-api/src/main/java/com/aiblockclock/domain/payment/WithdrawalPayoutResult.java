@@ -12,12 +12,19 @@ public record WithdrawalPayoutResult(Outcome outcome, Long withdrawalId) {
         WAITING,
         // 체인에서 성공을 확인하고 끝냈다
         PAID,
+        // 체인이 거래를 되돌려 실패로 닫고 묶은 금액을 정산금으로 돌려놓았다
+        FAILED,
+        // 보낸 지 오래됐는데 결과를 몰라 보류로 넘겼다. 금액은 묶여 있고 뒤의 출금도 기다린다
+        HELD,
         // 보관 지갑 잔액이 모자라 보내지 않았다
         CUSTODY_BALANCE_SHORT,
-        // 체인이 거래를 되돌렸다. 거래 번호를 다시 맞춰야 해서 뒤의 출금도 멈춘다(복구는 PAY-026 · CHN-008)
-        FAILED_ON_CHAIN,
         // 체인에 닿지 못했다. 다음 차례에 다시 본다
-        UNREACHABLE
+        UNREACHABLE;
+
+        // 보낸 출금이 닫혀 보관 지갑이 다음 출금을 보낼 수 있다
+        boolean closesPayout() {
+            return this == PAID || this == FAILED;
+        }
     }
 
     static WithdrawalPayoutResult idle() {

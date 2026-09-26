@@ -24,6 +24,7 @@ import com.aiblockclock.storage.payment.WithdrawalRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
 import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.support.error.ErrorType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -58,6 +60,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -122,6 +125,9 @@ class WithdrawalPayoutServiceIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private final List<Long> createdUserIds = new ArrayList<>();
 
@@ -284,19 +290,171 @@ class WithdrawalPayoutServiceIntegrationTest {
     }
 
     @Test
-    void 체인이_거래를_되돌리면_지급_중으로_남기고_뒤의_출금도_보내지_않는다() {
+    void 체인이_거래를_되돌리면_실패로_닫고_묶은_금액을_정산금으로_돌려놓은_뒤_다음_출금을_보낸다() {
         Withdrawal first = approvedWithdrawal("0x5000000000000000000000000000000000000009", "10");
         Withdrawal second = approvedWithdrawal("0x5000000000000000000000000000000000000010", "10");
         withdrawalPayoutService.payNext();
-        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.FAILED));
+        given(ssafyChainClient.readTransaction(hashOf(first))).willReturn(chain(ChainTransactionStatus.FAILED));
+        given(ssafyChainClient.readPendingNonce(anyString())).willReturn(BigInteger.ONE);
 
         WithdrawalPayoutResult result = withdrawalPayoutService.payNext();
 
-        assertThat(result).isEqualTo(new WithdrawalPayoutResult(Outcome.FAILED_ON_CHAIN, first.getId()));
-        assertThat(reload(first).getStatus()).isEqualTo(WithdrawalStatus.PAYING);
+        assertThat(result).isEqualTo(new WithdrawalPayoutResult(Outcome.SUBMITTED, second.getId()));
+        assertThat(reload(first).getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+        assertThat(reload(second).getStatus()).isEqualTo(WithdrawalStatus.PAYING);
+        assertThat(balanceOf(first.getRequester(), LedgerAccountType.WITHDRAWAL_ESCROW)).isEqualByComparingTo("0");
+        assertThat(balanceOf(first.getRequester(), LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("10");
+        assertThat(ledgerTransactionRepository.findAll())
+                .filteredOn(transaction -> transaction.getEventType() == LedgerEventType.WITHDRAWAL_RELEASE)
+                .extracting(LedgerTransactionEntity::getIdempotencyKey)
+                .containsExactly("withdrawal-release:" + first.getId());
+    }
+
+    @Test
+    void 실패로_닫힌_출금은_신청_주기에_세지_않아_곧바로_다시_신청할_수_있다() {
+        Withdrawal failed = approvedWithdrawal("0x5000000000000000000000000000000000000015", "10");
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.FAILED));
+        withdrawalPayoutService.payNext();
+
+        Withdrawal again = withdrawalService.request(
+                failed.getRequester(), WithdrawalRequestId.of(UUID.randomUUID()), AbcAmount.of(BigDecimal.TEN));
+
+        assertThat(reload(failed).getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+        assertThat(again.getStatus()).isEqualTo(WithdrawalStatus.REQUESTED);
+    }
+
+    @Test
+    void 지급을_마친_출금은_신청_주기에_세어_24시간_안에는_다시_신청할_수_없다() {
+        Withdrawal paid = approvedWithdrawal("0x5000000000000000000000000000000000000025", "10");
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.SUCCEEDED));
+        withdrawalPayoutService.payNext();
+
+        assertThat(reload(paid).isPaid()).isTrue();
+        assertThatThrownBy(() -> withdrawalService.request(
+                paid.getRequester(), WithdrawalRequestId.of(UUID.randomUUID()), AbcAmount.of(BigDecimal.ONE)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_TOO_FREQUENT));
+    }
+
+    @Test
+    void 되돌림을_여러_차례가_동시에_봐도_금액은_한_번만_돌려놓는다() throws Exception {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000016", "10");
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.FAILED));
+
+        concurrently(() -> withdrawalPayoutService.payNext().outcome());
+
+        assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+        assertThat(balanceOf(approved.getRequester(), LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("10");
+        assertThat(ledgerTransactionRepository.findAll())
+                .filteredOn(transaction -> transaction.getEventType() == LedgerEventType.WITHDRAWAL_RELEASE)
+                .hasSize(1);
+    }
+
+    @Test
+    void 보낸_지_보류_기준이_지나도_블록에_적히지_않으면_보류로_넘기고_금액은_묶어_둔다() {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000017", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(approved, 11);
+
+        WithdrawalPayoutResult result = withdrawalPayoutService.payNext();
+
+        assertThat(result).isEqualTo(new WithdrawalPayoutResult(Outcome.HELD, approved.getId()));
+        assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.ON_HOLD);
+        assertThat(balanceOf(approved.getRequester(), LedgerAccountType.WITHDRAWAL_ESCROW)).isEqualByComparingTo("10");
+    }
+
+    @Test
+    void 보류_기준이_지나기_전이면_결과를_몰라도_지급_중으로_둔다() {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000018", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(approved, 9);
+
+        WithdrawalPayoutResult result = withdrawalPayoutService.payNext();
+
+        assertThat(result).isEqualTo(new WithdrawalPayoutResult(Outcome.WAITING, approved.getId()));
+        assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.PAYING);
+    }
+
+    @Test
+    void 체인에_닿지_못한_채_보류_기준이_지나도_보류로_넘긴다() {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000019", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(approved, 11);
+        given(ssafyChainClient.readTransaction(anyString()))
+                .willThrow(new BlockchainClientException(BlockchainClientError.REQUEST_FAILED, "timeout"));
+
+        WithdrawalPayoutResult result = withdrawalPayoutService.payNext();
+
+        assertThat(result.outcome()).isEqualTo(Outcome.HELD);
+        assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.ON_HOLD);
+    }
+
+    @Test
+    void 보류_중에는_뒤의_출금을_보내지_않는다() {
+        Withdrawal first = approvedWithdrawal("0x5000000000000000000000000000000000000020", "10");
+        Withdrawal second = approvedWithdrawal("0x5000000000000000000000000000000000000021", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(first, 11);
+        withdrawalPayoutService.payNext();
+
+        WithdrawalPayoutResult result = withdrawalPayoutService.payNext();
+
+        assertThat(result).isEqualTo(new WithdrawalPayoutResult(Outcome.WAITING, first.getId()));
+        assertThat(reload(first).getStatus()).isEqualTo(WithdrawalStatus.ON_HOLD);
         assertThat(reload(second).getStatus()).isEqualTo(WithdrawalStatus.APPROVED);
-        assertThat(balanceOf(first.getRequester(), LedgerAccountType.WITHDRAWAL_ESCROW)).isEqualByComparingTo("10");
         verify(ssafyChainClient, times(1)).submitRawTransaction(anyString());
+    }
+
+    @Test
+    void 보류된_출금도_체인에서_성공이_보이면_지급을_끝낸다() {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000022", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(approved, 11);
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.SUCCEEDED));
+
+        withdrawalPayoutService.payNext();
+
+        assertThat(reload(approved).isPaid()).isTrue();
+        assertThat(balanceOf(approved.getRequester(), LedgerAccountType.WITHDRAWAL_ESCROW)).isEqualByComparingTo("0");
+        assertThat(ledgerTransactionRepository.findAll())
+                .filteredOn(transaction -> transaction.getEventType() == LedgerEventType.WITHDRAWAL_PAYOUT)
+                .hasSize(1);
+    }
+
+    @Test
+    void 보류된_출금도_체인이_되돌리면_실패로_닫고_금액을_돌려놓는다() {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000023", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(approved, 11);
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.FAILED));
+
+        withdrawalPayoutService.payNext();
+
+        assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.FAILED);
+        assertThat(balanceOf(approved.getRequester(), LedgerAccountType.WITHDRAWAL_ESCROW)).isEqualByComparingTo("0");
+        assertThat(balanceOf(approved.getRequester(), LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("10");
+    }
+
+    @Test
+    void 보류_중에도_노드가_거래를_모르면_새로_서명하지_않고_같은_거래를_다시_보낸다() {
+        Withdrawal approved = approvedWithdrawal("0x5000000000000000000000000000000000000024", "10");
+        withdrawalPayoutService.payNext();
+        sentMinutesAgo(approved, 11);
+        withdrawalPayoutService.payNext();
+        given(ssafyChainClient.readTransaction(anyString())).willReturn(chain(ChainTransactionStatus.NOT_FOUND));
+
+        WithdrawalPayoutResult result = withdrawalPayoutService.payNext();
+
+        assertThat(result.outcome()).isEqualTo(Outcome.WAITING);
+        assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.ON_HOLD);
+        assertThat(submittedRawTransactions()).hasSize(2).containsOnly(
+                reload(approved).getPayoutTransaction().rawTransaction());
+        verify(ssafyChainClient, times(1)).readPendingNonce(anyString());
     }
 
     @Test
@@ -411,6 +569,17 @@ class WithdrawalPayoutServiceIntegrationTest {
         });
 
         return UserId.of(id);
+    }
+
+    private String hashOf(Withdrawal withdrawal) {
+        return reload(withdrawal).getPayoutTransaction().transactionHash();
+    }
+
+    // 보낸 시각을 과거로 옮겨 시간이 흐른 것처럼 만든다. DB 가 계산하게 해 시간대 변환이 끼지 않는다
+    private void sentMinutesAgo(Withdrawal withdrawal, int minutes) {
+        jdbcTemplate.update(
+                "update withdrawal set payout_submitted_at = timestampadd(MINUTE, ?, payout_submitted_at) where id = ?",
+                -minutes, withdrawal.getId());
     }
 
     private Withdrawal reload(Withdrawal withdrawal) {

@@ -93,11 +93,11 @@ public class WithdrawalWriter {
         return reread(withdrawal);
     }
 
-    // 도메인에서 끝낸 지급을 적는다. 지급 중이 아니게 됐으면(다른 차례가 먼저 끝냄) 덮지 않고 실패한다.
+    // 도메인에서 끝낸 지급을 적는다. 읽었을 때의 상태가 아니게 됐으면(다른 차례가 먼저 끝냄 · 보류로 넘김) 덮지 않고 실패한다.
     @Transactional
-    public Withdrawal completePayout(Withdrawal withdrawal) {
-        int updatedRowCount = withdrawalRepository.updatePaidIfPaying(
-                withdrawal.getId(), Instant.now().truncatedTo(ChronoUnit.MICROS));
+    public Withdrawal completePayout(Withdrawal withdrawal, WithdrawalStatus expectedStatus) {
+        int updatedRowCount = withdrawalRepository.updatePaidIfCurrent(
+                withdrawal.getId(), expectedStatus, Instant.now().truncatedTo(ChronoUnit.MICROS));
 
         if (updatedRowCount != 1) {
             throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);

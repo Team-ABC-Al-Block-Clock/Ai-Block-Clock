@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "payment.withdrawal.payout.enabled=true",
         "payment.withdrawal.payout.poll-interval=1h",
+        "payment.withdrawal.payout.hold-after=2h",
         "ssafy.chain.signer.private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
         "payment.charge.custody-address=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 })

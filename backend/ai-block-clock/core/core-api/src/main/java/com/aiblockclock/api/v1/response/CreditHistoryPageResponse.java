@@ -1,0 +1,28 @@
+package com.aiblockclock.api.v1.response;
+
+import com.aiblockclock.domain.payment.CreditHistoryItem;
+import com.aiblockclock.support.paging.CursorPage;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.util.List;
+
+@Schema(description = "충전 · 출금 내역 목록. 요청 시각의 최신순")
+public record CreditHistoryPageResponse(
+        @Schema(description = "이번 페이지의 내역")
+        List<CreditHistoryItemResponse> content,
+
+        @Schema(description = "다음 페이지 커서. 마지막 페이지면 null", example = "MjA", nullable = true)
+        String nextCursor,
+
+        @Schema(description = "더 불러올 것이 있는지", example = "true")
+        boolean hasNext
+) {
+    public static CreditHistoryPageResponse from(CursorPage<CreditHistoryItem> page) {
+        List<CreditHistoryItemResponse> content = page.content().stream()
+                .map(CreditHistoryItemResponse::from)
+                .toList();
+
+        return new CreditHistoryPageResponse(content, page.nextCursor(), page.hasNext());
+    }
+}
