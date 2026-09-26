@@ -98,7 +98,7 @@ class NodeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(name, "당신은 학원 성적 데이터 분석가입니다.")))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.baseCost").value("3.000000"))
+                .andExpect(jsonPath("$.data.baseCost").value("0.013500"))
                 .andExpect(jsonPath("$.data.currency").value("ABC"))
                 .andReturn();
 

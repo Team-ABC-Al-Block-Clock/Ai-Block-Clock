@@ -14,7 +14,7 @@ import java.io.IOException;
 
 @Schema(description = "노드에 붙일 참고 자료")
 public record RefFileAttachRequest(
-        @Schema(description = "PDF · 텍스트 · 마크다운 · CSV · 이미지. 노드당 합계 10MB",
+        @Schema(description = "PDF · 텍스트 · 마크다운 · CSV. 노드당 합계 10MB",
                 format = "binary")
         @NotNull MultipartFile file
 ) {

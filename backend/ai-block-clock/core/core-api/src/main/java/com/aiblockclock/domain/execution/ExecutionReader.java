@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.storage.execution.ExecutionChargeRateEntity;
 import com.aiblockclock.storage.execution.ExecutionChargeRateRepository;
@@ -32,9 +33,11 @@ public class ExecutionReader {
                 .map(ExecutionEntityConverter::toDomain);
     }
 
-    public ChargeRates readChargeRates(ExecutionId id) {
-        return new ChargeRates(executionChargeRateRepository.findAllByExecutionId(id.value()).stream()
+    // 단가 칸이 생기기 전에 접수한 실행의 줄은 받을 값이 없어 싣지 않는다.
+    public StepPrices readStepPrices(ExecutionId id) {
+        return new StepPrices(executionChargeRateRepository.findAllByExecutionId(id.value()).stream()
+                .filter(rate -> rate.getUnitPrice() != null)
                 .collect(Collectors.toMap(ExecutionChargeRateEntity::getStepId,
-                        ExecutionChargeRateEntity::getPriceMultiplier)));
+                        rate -> new StepPrice(rate.getPriceMultiplier(), AbcAmount.of(rate.getUnitPrice())))));
     }
 }

@@ -35,7 +35,7 @@ public class ExecutionUnitAssembler {
                 NodeDefinition node = nodeReader.read(nodeId);
 
                 yield new NodeUnit(placed.inputSource(), node.getOwner(), node.getSpec().name(),
-                        node.getPrompt(), refFileReader.read(nodeId));
+                        node.getPrompt(), refFileReader.read(nodeId), node.getSpec().baseCost());
             }
             case AGENT -> expand(placed);
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
@@ -59,7 +59,7 @@ public class ExecutionUnitAssembler {
                 VersionNode node = require(frozen, placed.key());
 
                 yield new NodeUnit(placed.inputSource(), node.owner(), node.spec().name(), node.prompt(),
-                        node.refFiles());
+                        node.refFiles(), node.spec().baseCost());
             }
             case AGENT -> expand(placed);
             case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
