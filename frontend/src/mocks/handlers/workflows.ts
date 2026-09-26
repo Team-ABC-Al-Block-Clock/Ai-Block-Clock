@@ -10,7 +10,7 @@ import type {
 } from '@/api/workflows'
 import { cursorOk, matchKeyword } from '@/mocks/cursor'
 import { PLACEABLE_ITEMS, byMineThenUsed } from '@/mocks/fixtures/nodePalette'
-import { createLlmNode, knowsNode } from '@/mocks/handlers/nodes'
+import { createLlmNode, findNode, knowsNode } from '@/mocks/handlers/nodes'
 import { WORKFLOWS } from '@/mocks/fixtures/workflows'
 import { fail, ok } from '@/mocks/response'
 import { scene } from '@/mocks/scenario'
@@ -193,6 +193,15 @@ const needsSource = (node: NodePlacement) =>
 const isNewLlm = (node: NodePlacement) =>
   node.sourceType === 'NODE' && node.nodeType === 'LLM' && !node.sourceId
 
+/** 서버가 상세에 싣는 이름과 판매 판정. 원본이 없는 제어·입출력은 null 이다. */
+function labelOf(sourceId: string | null) {
+  if (!sourceId) return { name: null, mine: null }
+  const item = PLACEABLE_ITEMS.find((it) => it.itemId === sourceId)
+  if (item) return { name: item.name, mine: item.mine }
+  const node = findNode(sourceId)
+  return { name: node?.name ?? null, mine: node ? true : false }
+}
+
 const toDetail = (
   workflowId: string,
   revision: number,
@@ -204,19 +213,25 @@ const toDetail = (
   name,
   description,
   revision,
-  nodes: graph.nodes.map((node) => ({
-    nodeKey: node.nodeKey,
-    sourceType: node.sourceType,
+  nodes: graph.nodes.map((node) => {
     // 저장하며 만든 노드는 여기서 id 를 얻는다. 화면은 이 값으로 상세를 다시 읽는다.
-    sourceId: needsSource(node) || isNewLlm(node) ? (node.sourceId ?? createLlmNode(node)) : null,
-    versionId: null,
-    controlType: node.controlType ?? null,
-    condition: node.condition ?? null,
-    ioType: node.ioType ?? null,
-    resultShape: node.resultShape ?? null,
-    resultFormat: node.resultFormat ?? null,
-    inputSource: 'PREV' as const,
-  })),
+    const sourceId =
+      needsSource(node) || isNewLlm(node) ? (node.sourceId ?? createLlmNode(node)) : null
+    return {
+      nodeKey: node.nodeKey,
+      sourceType: node.sourceType,
+      sourceId,
+      ...labelOf(sourceId),
+      versionId: null,
+      controlType: node.controlType ?? null,
+      condition: node.condition ?? null,
+      ioType: node.ioType ?? null,
+      fields: node.fields ?? [],
+      resultShape: node.resultShape ?? null,
+      resultFormat: node.resultFormat ?? null,
+      inputSource: 'PREV' as const,
+    }
+  }),
   edges: graph.edges ?? [],
   lastExecutedAt: null,
   updatedAt: new Date().toISOString(),

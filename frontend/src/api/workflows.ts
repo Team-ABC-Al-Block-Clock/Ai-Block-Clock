@@ -59,6 +59,8 @@ export interface NodePlacement {
   condition?: BranchCondition
   /** `sourceType` 이 IO 일 때만 */
   ioType?: IoType
+  /** 시작 노드만. 실행 화면이 이것으로 입력란을 그린다 */
+  fields?: InputField[]
   /** 끝 노드만. 서버가 둘 다 있어야 받는다(`NodePlacementRequest.matchesIoType`) */
   resultShape?: ResultShape
   resultFormat?: ResultFormat
@@ -111,12 +113,18 @@ export interface PlacedNode {
   sourceId: string | null
   versionId: string | null
   inputSource: 'USER' | 'PREV' | 'PREV_AND_USER'
+  /** 원본을 찾지 못하면 null */
+  name: string | null
+  /** 판매 등록을 막지 않는가. 서버가 판정한다. 제어·입출력은 null */
+  mine: boolean | null
   /** 제어 노드가 아니면 null */
   controlType: ControlType | null
   /** 분기 노드가 아니면 null */
   condition: BranchCondition | null
   /** 입출력 노드가 아니면 null */
   ioType: IoType | null
+  /** 시작 노드가 아니면 빈 배열 */
+  fields: InputField[]
   /** 끝 노드가 아니면 null */
   resultShape: ResultShape | null
   resultFormat: ResultFormat | null
@@ -175,6 +183,17 @@ export type ControlType = 'BRANCH'
 
 /** 입출력 노드 종류 */
 export type IoType = 'START' | 'END'
+
+/** 시작 노드가 실행할 때 받을 입력란 하나. */
+export interface InputField {
+  /** 영문 소문자로 시작. `comment` 는 쓸 수 없다 */
+  key: string
+  label: string
+  type: 'TEXT' | 'LONG_TEXT' | 'NUMBER' | 'CHOICE' | 'BOOLEAN'
+  required: boolean
+  /** `CHOICE` 일 때만 */
+  choices: string[]
+}
 
 /**
  * 끝 노드가 내는 결과의 구조와 형식.

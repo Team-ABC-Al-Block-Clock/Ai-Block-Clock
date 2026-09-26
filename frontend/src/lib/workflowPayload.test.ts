@@ -33,9 +33,12 @@ const placed = (
   sourceId: null,
   versionId: null,
   inputSource: 'PREV',
+  name: null,
+  mine: null,
   controlType: null,
   condition: null,
   ioType: null,
+  fields: [],
   resultShape: null,
   resultFormat: null,
   ...over,
@@ -138,6 +141,18 @@ describe('toWorkflowGraph — 분기·입출력', () => {
     const end = graph!.nodes.find((it) => it.ioType === 'END')
 
     expect(end).toMatchObject({ resultShape: 'TABLE', resultFormat: 'CSV' })
+  })
+
+  // 고르는 화면이 없어도 불러온 입력란은 다시 저장할 때 잃지 않는다.
+  it('시작 노드의 입력란을 그대로 싣는다', () => {
+    const fields = [
+      { key: 'brand', label: '브랜드', type: 'TEXT' as const, required: true, choices: [] },
+    ]
+    const { nodes, edges } = scene()
+    nodes[0] = { ...nodes[0], fields }
+    const graph = toWorkflowGraph(nodes, edges)
+
+    expect(graph?.nodes[0]).toMatchObject({ ioType: 'START', fields })
   })
 
   it('시작 노드에는 결과 형식을 싣지 않는다', () => {
@@ -352,9 +367,12 @@ describe('toCanvasWorkflow', () => {
       sourceId: `node_00${i + 1}`,
       versionId: null,
       inputSource: 'PREV' as const,
+      name: null,
+      mine: null,
       controlType: null,
       condition: null,
       ioType: null,
+      fields: [],
       resultShape: null,
       resultFormat: null,
     })),
@@ -425,6 +443,14 @@ describe('toCanvasWorkflow', () => {
     expect(nodes[1].sourceId).toBe('node_002')
     // 0 으로 채우면 카드가 공짜로 보여 견적과 어긋난다.
     expect(nodes[1].price).toBeNull()
+  })
+
+  it('이름과 판매 판정은 서버 값이 먼저다', () => {
+    const served = detail(1)
+    served.nodes[0] = { ...served.nodes[0], name: '서버 이름', mine: false }
+    const [first] = toCanvasWorkflow(served, known).nodes
+
+    expect(first).toMatchObject({ name: '서버 이름', mine: false, price: '4' })
   })
 
   it('되돌린 캔버스를 그대로 다시 보낼 수 있다', () => {

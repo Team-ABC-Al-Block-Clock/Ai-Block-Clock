@@ -76,6 +76,7 @@ export function toWorkflowGraph(
       placements.push({
         ...placed,
         ioType: node.ioType,
+        ...(node.ioType === 'START' && node.fields?.length ? { fields: node.fields } : {}),
         ...(node.ioType === 'END'
           ? {
               resultShape: node.resultShape ?? DEFAULT_RESULT.shape,
@@ -163,9 +164,8 @@ function toCanvasCondition(
  * 서버는 좌표를 저장하지 않아 이어진 모양만 온다. 선을 따라 깊이를 재 다시 늘어놓으면
  * 원래 배치와 달라도 읽는 데는 지장이 없다.
  *
- * 이름·종류·내 것인지도 서버가 주지 않는다(`NodeResponse` 는 `sourceId` 까지다). 팔레트에서
- * 찾아 넘겨받고, 못 찾으면 자리만 만들어 둔다 — 카드가 통째로 사라지면 저장된 구성이
- * 바뀌어 버린다.
+ * 이름·판매 판정은 서버가 준다. 단가·종류·프롬프트는 주지 않아 밖에서 찾아 넘겨받고, 못
+ * 찾으면 자리만 만들어 둔다 — 카드가 통째로 사라지면 저장된 구성이 바뀌어 버린다.
  */
 export function toCanvasWorkflow(
   detail: WorkflowDetail,
@@ -204,7 +204,10 @@ export function toCanvasWorkflow(
     return {
       id: idOf.get(node.nodeKey)!,
       // 제어·입출력은 가리킬 원본이 없어 팔레트에서 이름을 찾을 수 없다.
-      name: control || io ? controlKindName(control ?? io!) : (label?.name ?? '알 수 없는 노드'),
+      name:
+        control || io
+          ? controlKindName(control ?? io!)
+          : (node.name ?? label?.name ?? '알 수 없는 노드'),
       // 제어·입출력은 종류를 `controlType`·`ioType` 이 든다.
       nodeType:
         control || io
@@ -213,6 +216,7 @@ export function toCanvasWorkflow(
       sourceType: node.sourceType,
       controlType: control,
       ioType: io,
+      fields: io === 'START' ? node.fields : null,
       condition: toCanvasCondition(node.condition, idOf),
       resultShape: node.resultShape,
       resultFormat: node.resultFormat,
@@ -228,9 +232,8 @@ export function toCanvasWorkflow(
       owner: label?.owner ?? null,
       x: RESTORE_X0 + depth * RESTORE_STEP,
       y: RESTORE_Y[depth % RESTORE_Y.length] + row * RESTORE_ROW,
-      // 모르는 것은 남의 것으로 둔다. 잘못 팔 수 있게 두는 쪽이 더 나쁘다. 제어·입출력은
-      // 가리킬 원본이 없어 아예 판정 대상이 아니다.
-      mine: control || io ? null : (label?.mine ?? false),
+      // 서버 판정이 먼저다. 모르는 것은 남의 것으로 둔다 — 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
+      mine: control || io ? null : (node.mine ?? label?.mine ?? false),
       floaty: '',
     } satisfies CanvasNodeData
   })

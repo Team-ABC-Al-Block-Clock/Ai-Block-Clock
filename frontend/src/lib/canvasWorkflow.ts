@@ -3,6 +3,7 @@ import type {
   ConditionLiteral,
   ConditionOperator,
   ControlType,
+  InputField,
   IoType,
   ItemNodeType,
   PlacedSourceType,
@@ -66,6 +67,8 @@ export interface CanvasNodeData {
   ioType?: IoType | null
   /** 분기 노드만. 조건을 채우지 않으면 저장이 물린다 */
   condition?: CanvasCondition | null
+  /** 시작 노드만. 고르는 화면은 아직 없고 불러온 값을 다시 저장할 때 싣는다 */
+  fields?: InputField[] | null
   /** 끝 노드만. 고르는 화면은 아직 없고 기본값을 싣고 다닌다 */
   resultShape?: ResultShape | null
   resultFormat?: ResultFormat | null
