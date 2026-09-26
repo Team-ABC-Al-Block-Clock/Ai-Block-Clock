@@ -84,16 +84,13 @@ public record RunStatus(
     }
 
     // fault 는 실패 책임이다. supplier · consumer · platform 중 하나가 온다 (계약 8.5).
+    // affects_success_rate 는 공급자 성공률에 넣을지다. 공급자 탓이어도 넣지 않는 오류가 있다 (계약 9.2).
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Failure(
             @JsonProperty("node_id") String nodeId,
             @JsonProperty("error_code") String errorCode,
-            String fault
+            String fault,
+            @JsonProperty("affects_success_rate") Boolean affectsSuccessRate
     ) {
-        private static final String PLATFORM_FAULT = "platform";
-
-        public boolean isPlatformFault() {
-            return PLATFORM_FAULT.equals(fault);
-        }
     }
 }

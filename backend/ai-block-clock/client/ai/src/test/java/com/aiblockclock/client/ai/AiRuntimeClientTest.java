@@ -183,7 +183,7 @@ class AiRuntimeClientTest {
         assertThat(status.isFinished()).isTrue();
         assertThat(status.isSucceeded()).isFalse();
         assertThat(status.failure()).isEqualTo(
-                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier"));
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true));
         server.verify();
     }
 
@@ -205,7 +205,8 @@ class AiRuntimeClientTest {
 
         assertThat(status.nodes()).extracting(RunStatus.Node::isSucceeded).containsExactly(true, false);
         assertThat(status.nodes().get(0).costAbc()).isEqualByComparingTo("0.0021");
-        assertThat(status.failure().isPlatformFault()).isTrue();
+        assertThat(status.failure().fault()).isEqualTo("platform");
+        assertThat(status.failure().affectsSuccessRate()).isFalse();
         server.verify();
     }
 

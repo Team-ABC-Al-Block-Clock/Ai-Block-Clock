@@ -291,7 +291,7 @@ payload 를 찾기 때문이다.
 
 | 항목 | 계약 | 우리 |
 | --- | --- | --- |
-| 실패 | `failure {node_id, error_code, fault, affects_success_rate, refund_scope}` | `RunStatus.Failure(code, message, node_id, fault)`. `fault` 는 환불에 쓴다(`platform` 이면 전액). `code` 는 늘 `null`, `refund_scope` 는 버려진다 |
+| 실패 | `failure {node_id, error_code, fault, affects_success_rate, refund_scope}` | `RunStatus.Failure(node_id, error_code, fault, affects_success_rate)`. 환불(`platform` 이면 전액)과 책임 기록(`agent-pipeline` completed 8.5)에 쓴다. `refund_scope` 는 버려진다 |
 | 결과 PDF | `GET /v1/runs/{id}/pdf`, 없으면 409 `PDF_NOT_READY` | 클라이언트에 없다 |
 | 결과 JSON | `GET /v1/runs/{id}/artifact` — 종단 봉투 | 문자열로 받는다 |
 | 노드 출력 전문 | `?include_node_output=true` | 쓰지 않는다 |

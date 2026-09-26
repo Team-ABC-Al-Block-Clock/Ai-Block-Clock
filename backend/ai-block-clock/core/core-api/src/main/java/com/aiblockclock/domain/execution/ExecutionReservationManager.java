@@ -42,28 +42,31 @@ public class ExecutionReservationManager {
         return reserved;
     }
 
-    // 엔진이 받지 않은 실행이다. 떼어 둔 금액을 돌려주고 실행은 실패로 남긴다.
+    // 엔진이 받지 않은 실행이다. 떼어 둔 금액을 돌려주고 실행은 플랫폼 탓 실패로 닫는다.
+    // 닫는 길은 끝난 실행과 같다. 이미 닫혔으면 판정을 다시 적지 않는다.
     @Transactional
     public void release(Execution reserved) {
-        executionWriter.moveTo(reserved.getId(), ExecutionStatus.FAILED);
+        executionWriter.finish(reserved.getId(), ExecutionStatus.FAILED, ExecutionFailure.undispatched());
         ledgerTransactionWriter.append(LedgerTransaction.forExecutionRelease(
                 reserved.getId().value(), reserved.getRequester(), reserved.getReserved()));
     }
 
     // 실행을 닫는 자리는 여기 하나다. 뒤에서 따라가는 모니터도, 모니터가 놓친 실행을 조회가 볼 때도 여기로 온다.
-    // 닫기와 환불이 한 트랜잭션이라 닫혔는데 돌려주지 않은 실행이 남지 않는다.
+    // 닫기 · 책임 판정 · 환불이 한 트랜잭션이라 닫혔는데 돌려주지 않았거나 누구 탓인지 모르는 실행이 남지 않는다.
     // 이미 닫힌 실행이면 아무것도 하지 않아, 모니터와 조회가 겹쳐도 한 번만 돌려준다.
     // run 은 엔진이 알린 마지막 상태다. 기한 안에 끝을 알리지 않아 우리가 끊은 실행은 비어 있다.
     @Transactional
     public void finish(ExecutionId id, ExecutionStatus status, RunStatus run) {
-        Optional<Execution> closed = executionWriter.finish(id, status);
+        ExecutionFailure failure = status == ExecutionStatus.FAILED ? ExecutionFailure.judge(run) : null;
+        Optional<Execution> closed = executionWriter.finish(id, status, failure);
 
         if (closed.isEmpty() || !closed.get().isReserved()) {
             return;
         }
 
         Execution execution = closed.get();
-        ExecutionUsage usage = ExecutionUsage.of(execution.getReserved(), run, executionReader.readChargeRates(id));
+        ExecutionUsage usage = ExecutionUsage.of(
+                execution.getReserved(), run, failure, executionReader.readChargeRates(id));
 
         if (usage.hasRefund()) {
             ledgerTransactionWriter.append(LedgerTransaction.forExecutionRefund(
