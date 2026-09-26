@@ -41,6 +41,18 @@ public class WithdrawalReader {
                 .orElse(null));
     }
 
+    // 지급 중인 신청이다. 보관 지갑은 한 번에 한 건만 보내므로 많아야 하나다
+    public Optional<Withdrawal> findPaying() {
+        return withdrawalRepository.findFirstByStatusOrderByReviewedAtAscIdAsc(WithdrawalStatus.PAYING)
+                .map(WithdrawalEntityConverter::toDomain);
+    }
+
+    // 다음에 보낼 신청이다. 승인이 오래된 것부터다
+    public Optional<Withdrawal> findNextApproved() {
+        return withdrawalRepository.findFirstByStatusOrderByReviewedAtAscIdAsc(WithdrawalStatus.APPROVED)
+                .map(WithdrawalEntityConverter::toDomain);
+    }
+
     // 심사를 기다리는 신청을 오래된 것부터 준다. 관리자가 위에서부터 차례로 심사한다
     public List<Withdrawal> readAllRequested() {
         return withdrawalRepository.findAllByStatusOrderByCreatedAtAscIdAsc(WithdrawalStatus.REQUESTED).stream()

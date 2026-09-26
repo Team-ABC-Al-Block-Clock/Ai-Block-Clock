@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WithdrawalTest {
     private static final UserId OWNER = UserId.of(7L);
     private static final UserId ADMIN = UserId.of(1L);
+    private static final PayoutTransaction TRANSACTION = new PayoutTransaction("0x" + "a".repeat(64), "0xf86c");
 
     @Test
     void 새_신청은_심사_대기다() {
@@ -93,9 +94,57 @@ class WithdrawalTest {
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
     }
 
+    @Test
+    void 승인된_신청은_서명한_거래와_함께_지급_중이_된다() {
+        Withdrawal withdrawal = saved(WithdrawalStatus.APPROVED);
+
+        withdrawal.startPayout(TRANSACTION);
+
+        assertThat(withdrawal.getStatus()).isEqualTo(WithdrawalStatus.PAYING);
+        assertThat(withdrawal.getPayoutTransaction()).isEqualTo(TRANSACTION);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = WithdrawalStatus.class, names = "APPROVED", mode = EnumSource.Mode.EXCLUDE)
+    void 승인되지_않은_신청은_지급을_시작할_수_없다(WithdrawalStatus status) {
+        Withdrawal withdrawal = saved(status);
+
+        assertThatThrownBy(() -> withdrawal.startPayout(TRANSACTION))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
+    }
+
+    @Test
+    void 지급_중인_신청을_끝내면_지급_완료가_된다() {
+        Withdrawal withdrawal = saved(WithdrawalStatus.PAYING);
+
+        withdrawal.completePayout();
+
+        assertThat(withdrawal.isPaid()).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = WithdrawalStatus.class, names = "PAYING", mode = EnumSource.Mode.EXCLUDE)
+    void 지급_중이_아닌_신청은_지급을_끝낼_수_없다(WithdrawalStatus status) {
+        Withdrawal withdrawal = saved(status);
+
+        assertThatThrownBy(withdrawal::completePayout)
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
+    }
+
+    @Test
+    void 지급_중인_신청은_공급자가_취소할_수_없다() {
+        Withdrawal withdrawal = saved(WithdrawalStatus.PAYING);
+
+        assertThatThrownBy(withdrawal::cancel)
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.WITHDRAWAL_INVALID_STATE));
+    }
+
     private Withdrawal saved(WithdrawalStatus status) {
         return Withdrawal.restore(31L, WithdrawalRequestId.of(UUID.randomUUID()), OWNER, AbcAmount.of(BigDecimal.TEN),
                 "0x1111111111111111111111111111111111111111", status, Instant.parse("2026-09-26T09:00:00Z"),
-                null, null, null);
+                null, null, null, null, null, null);
     }
 }

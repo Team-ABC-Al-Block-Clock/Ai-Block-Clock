@@ -266,7 +266,13 @@ public enum ErrorType {
             "본인 확인을 마쳐야 출금을 신청할 수 있습니다.", LogLevel.WARN),
 
     PAYOUT_CONVERSION_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_018,
-            "옮길 수 있는 정산금이 부족합니다.", LogLevel.WARN);
+            "옮길 수 있는 정산금이 부족합니다.", LogLevel.WARN),
+
+    WITHDRAWAL_PAYER_MISMATCH(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_019,
+            "출금을 보낼 지갑이 설정되지 않았거나 입금 보관 지갑과 다릅니다.", LogLevel.ERROR),
+
+    WITHDRAWAL_PAYOUT_UNSENDABLE(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.PAYMENT_020,
+            "출금을 보낼 거래를 만들 수 없습니다.", LogLevel.ERROR);
 
     private final HttpStatus status;
     private final ErrorCode code;
