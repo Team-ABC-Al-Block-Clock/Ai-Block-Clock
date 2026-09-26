@@ -103,7 +103,7 @@ export function usePayoutWithdrawal() {
     onSuccess: (result) => {
       conversionId.clear()
       queryClient.setQueryData(queryKeys.credits.balance(), result.balance)
-      setNotice(`${chargeAmountLabel(result.convertedAmount)} 를 쓸 수 있는 ABC 로 옮겼습니다.`)
+      setNotice(`${chargeAmountLabel(result.convertedAmount)} 를 ABC 로 전환했습니다.`)
       void queryClient.invalidateQueries({ queryKey: queryKeys.credits.transactions.lists() })
     },
     onError: (e) => setError(withdrawalErrorText(e)),

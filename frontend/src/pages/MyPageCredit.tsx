@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import MyPageFrame from '@/components/MyPageFrame'
 import { getCreditBalance } from '@/api/credits'
@@ -14,6 +14,20 @@ import { withdrawalStatusText } from '@/lib/withdrawalMessage'
 import { useAuthStore } from '@/stores/authStore'
 
 const { MIN_AMOUNT, MAX_AMOUNT } = WITHDRAWAL_LIMITS
+
+type Mode = 'deposit' | 'withdraw' | 'convert'
+const MODES: { key: Mode; label: string }[] = [
+  { key: 'deposit', label: '예치' },
+  { key: 'withdraw', label: '출금' },
+  { key: 'convert', label: 'ABC 전환' },
+]
+
+/** 전환은 정산금 안이면 금액 · 주기 제한이 없다. */
+function convertBlock(amount: string, payout: number) {
+  if (!isSendableAmount(amount)) return '전환할 금액을 입력해 주세요.'
+  if (Number(trimAbcAmount(amount)) > payout) return '정산금이 부족합니다.'
+  return null
+}
 
 /** 출금은 정산금 안에서, 한 번에 1 ~ 1,000 ABC 다. 막혔으면 이유를 준다. */
 function withdrawBlock(amount: string, payout: number) {
@@ -71,7 +85,8 @@ function describeCharge(charge: AbcCharge, finish: () => void) {
 
 export default function MyPageCredit() {
   const [pick, setPick] = useState(2)
-  const [mode, setMode] = useState('deposit')
+  const [mode, setMode] = useState<Mode>('deposit')
+  const [asking, setAsking] = useState<string | null>(null)
   const [typed, setTyped] = useState('')
   const charge = useAbcCharge()
   const payoutFlow = usePayoutWithdrawal()
@@ -90,6 +105,9 @@ export default function MyPageCredit() {
   // 1,000 을 넘겨 보내면 PAYMENT_010 이다.
   const payoutMax = Math.min(Math.floor(payout * 1e6) / 1e6, MAX_AMOUNT)
   const withdraw = mode === 'withdraw'
+  const convert = mode === 'convert'
+  const available = Number(balance.data?.availableAmount ?? 0)
+  const payoutFloor = Math.floor(payout * 1e6) / 1e6
   const raw = withdraw
     ? [
         { amount: 100 },
@@ -106,12 +124,27 @@ export default function MyPageCredit() {
         amount: p.amount,
         disabled: p.amount > payout || p.amount < MIN_AMOUNT,
       }))
-    : [500, 1000, 2500, 5000].map((amount) => ({
-        credit: amount.toLocaleString() + ' ABC',
-        price: '예치 후 ' + (DEPOSITED + amount).toLocaleString() + ' ABC',
-        amount,
-        disabled: false,
-      }))
+    : convert
+      ? [
+          { amount: 100 },
+          { amount: 200 },
+          { amount: 400 },
+          { amount: payoutFloor, note: '전액 전환' },
+        ].map((p) => ({
+          credit: p.amount.toLocaleString() + ' ABC',
+          price:
+            p.amount > payout
+              ? '정산금 부족'
+              : p.note || '전환 후 ' + (available + p.amount).toLocaleString() + ' ABC',
+          amount: p.amount,
+          disabled: p.amount > payout || p.amount <= 0,
+        }))
+      : [500, 1000, 2500, 5000].map((amount) => ({
+          credit: amount.toLocaleString() + ' ABC',
+          price: '예치 후 ' + (DEPOSITED + amount).toLocaleString() + ' ABC',
+          amount,
+          disabled: false,
+        }))
   // 고른 칸이 잔액 부족이면 고를 수 있는 마지막 칸으로 내린다. 없으면 그대로 둔다.
   const pickable = raw.findLastIndex((p) => !p.disabled)
   const at = raw[pick]?.disabled && pickable >= 0 ? pickable : Math.min(pick, raw.length - 1)
@@ -133,24 +166,21 @@ export default function MyPageCredit() {
   const amount = typed.trim() || String(cur.amount)
   // 요약은 실제로 보낼 값을 그대로 보여 준다 — 프리셋만 따르면 직접 입력한 금액이 화면에서 사라진다.
   const sumCredit = isSendableAmount(amount) ? chargeAmountLabel(trimAbcAmount(amount)) : '—'
-  const handlePickDeposit = () => {
-    setMode('deposit')
+  const handlePickMode = (next: Mode) => {
+    setMode(next)
     setPick(2)
+    setTyped('')
     payoutFlow.clearMessages()
   }
-  const handlePickWithdraw = () => {
-    setMode('withdraw')
-    setPick(2)
-    payoutFlow.clearMessages()
-  }
-  const bgDeposit = withdraw ? 'rgba(255,255,255,.09)' : 'rgba(255,255,255,.9)'
-  const fgDeposit = withdraw ? 'rgba(255,240,247,.78)' : '#3a1030'
-  const bgWithdraw = withdraw ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)'
-  const fgWithdraw = withdraw ? '#3a1030' : 'rgba(255,240,247,.78)'
-  const bannerLabel = withdraw ? '출금 가능 정산금' : '현재 사용 가능 코인'
+  const usesPayout = withdraw || convert
+  const bannerLabel = withdraw
+    ? '출금 가능 정산금'
+    : convert
+      ? '전환 가능 정산금'
+      : '현재 사용 가능 코인'
   // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
   const bannerValue = balance.data
-    ? priceLabel(withdraw ? balance.data.payoutAmount : balance.data.availableAmount)
+    ? priceLabel(usesPayout ? balance.data.payoutAmount : balance.data.availableAmount)
     : '—'
   const reserved = balance.data?.reservedAmount
   const reservedNote =
@@ -159,423 +189,454 @@ export default function MyPageCredit() {
     ? '잔액을 불러오지 못했습니다'
     : withdraw
       ? '판매로 받은 정산금을 연결된 지갑으로 보냅니다'
-      : reservedNote + '충전한 코인은 서비스 안에서만 쓰며 출금되지 않습니다'
-  const pickerTitle = withdraw ? '출금 금액 선택' : '예치 금액 선택'
+      : convert
+        ? '정산금을 실행에 쓸 수 있는 ABC 로 바꿉니다'
+        : reservedNote + '충전한 코인은 서비스 안에서만 쓰며 출금되지 않습니다'
+  const pickerTitle = withdraw ? '출금 금액 선택' : convert ? '전환 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
     ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
-    : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
-  const inputPlaceholder = withdraw ? '출금할 정산금을 입력하세요' : '예치할 코인을 입력하세요'
-  const summaryTitle = withdraw ? '출금 요약' : '예치 요약'
-  const sumLabel = withdraw ? '출금 정산금' : '예치 코인'
-  const ctaLabel = withdraw ? '출금 신청' : '예치하기'
+    : convert
+      ? '금액 · 횟수 제한 없음 · 전환한 ABC 는 정산금으로 되돌릴 수 없습니다'
+      : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
+  const inputPlaceholder = usesPayout
+    ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
+    : '예치할 코인을 입력하세요'
+  const summaryTitle = withdraw ? '출금 요약' : convert ? '전환 요약' : '예치 요약'
+  const sumLabel = withdraw ? '출금 정산금' : convert ? '전환 정산금' : '예치 코인'
+  const ctaLabel = withdraw ? '출금 신청' : convert ? 'ABC로 전환하기' : '예치하기'
+  const afterConvert = isSendableAmount(amount)
+    ? priceLabel(available + Number(trimAbcAmount(amount)))
+    : '—'
+  const detail = withdraw
+    ? { label: '받을 지갑', value: wallet ? shortAddress(wallet) : '—' }
+    : convert
+      ? { label: '전환 후 사용 가능', value: afterConvert }
+      : // 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다.
+        { label: '예상 가스비', value: '0 SSF' }
 
-  const blocked = withdraw ? withdrawBlock(amount, payout) : null
-  const canConvert = withdraw && isSendableAmount(amount) && Number(trimAbcAmount(amount)) <= payout
+  const blocked = withdraw
+    ? withdrawBlock(amount, payout)
+    : convert
+      ? convertBlock(amount, payout)
+      : null
   const withdrawal = withdraw ? payoutFlow.withdrawal : null
   const withdrawalCard = withdrawal && withdrawalStatusText(withdrawal.status)
 
-  const charging = !withdraw && charge.phase !== 'idle'
+  const charging = mode === 'deposit' && charge.phase !== 'idle'
   const chargeCard = describeCharge(charge, () => {
     charge.reset()
     setTyped('')
   })
   const handleCta = () => {
-    if (!withdraw) return void charge.send(amount)
+    if (mode === 'deposit') return void charge.send(amount)
     if (blocked || payoutFlow.busy) return
+    // 전환은 되돌릴 수 없어 한 번 더 묻는다.
+    if (convert) return setAsking(trimAbcAmount(amount))
     payoutFlow.request(amount)
-  }
-  const handleConvert = () => {
-    if (!canConvert || payoutFlow.busy) return
-    payoutFlow.convert(amount)
   }
   const handleDismissWithdrawal = () => {
     payoutFlow.dismiss()
     setTyped('')
   }
 
+  const confirmRef = useRef<HTMLElement>(null)
+  // 의존성 배열을 두지 않는다 — 처음 렌더의 asking 이 굳는다.
+  useEffect(() => {
+    const el = confirmRef.current
+    if (!el) return
+    const onConfirm = () => {
+      if (asking) payoutFlow.convert(asking)
+      setAsking(null)
+      setTyped('')
+    }
+    const onCancel = () => setAsking(null)
+    el.addEventListener('confirm', onConfirm)
+    el.addEventListener('cancel', onCancel)
+    return () => {
+      el.removeEventListener('confirm', onConfirm)
+      el.removeEventListener('cancel', onCancel)
+    }
+  })
+
   return (
-    <MyPageFrame>
-      <Sidebar active="credit" />
+    <>
+      <MyPageFrame>
+        <Sidebar active="credit" />
 
-      <div
-        className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-        style={{
-          left: '442px',
-          top: '158px',
-          textShadow: '0 2px 20px rgba(35,8,45,.6)',
-          animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        예치/출금
-      </div>
-      <div
-        className="absolute text-[13px] tracking-[-.01em]"
-        style={{
-          left: '442px',
-          top: '206px',
-          width: '820px',
-          color: 'rgba(255,236,246,.7)',
-          animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        지갑의 ABC 코인을 서비스에 예치하거나, 판매로 받은 정산금을 연결된 지갑으로 보냅니다.
-      </div>
-
-      <div
-        className="absolute flex"
-        style={{
-          left: '442px',
-          top: '250px',
-          height: '38px',
-          gap: '10px',
-          animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
         <div
-          className="flex cursor-pointer items-center text-[14.5px] font-semibold transition-colors duration-[160ms]"
-          onClick={handlePickDeposit}
+          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
           style={{
-            height: '38px',
-            padding: '0 20px',
-            borderRadius: '11px',
-            background: `${bgDeposit}`,
-            color: `${fgDeposit}`,
+            left: '442px',
+            top: '158px',
+            textShadow: '0 2px 20px rgba(35,8,45,.6)',
+            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          예치
+          예치/출금
         </div>
         <div
-          className="flex cursor-pointer items-center text-[14.5px] font-semibold transition-colors duration-[160ms]"
-          onClick={handlePickWithdraw}
+          className="absolute text-[13px] tracking-[-.01em]"
           style={{
-            height: '38px',
-            padding: '0 20px',
-            borderRadius: '11px',
-            background: `${bgWithdraw}`,
-            color: `${fgWithdraw}`,
+            left: '442px',
+            top: '206px',
+            width: '820px',
+            color: 'rgba(255,236,246,.7)',
+            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          출금
+          지갑의 ABC 코인을 서비스에 예치하거나, 판매로 받은 정산금을 연결된 지갑으로 보냅니다.
         </div>
-      </div>
 
-      <div
-        className="bg-surface-card absolute box-border flex items-center justify-between"
-        style={{
-          left: '442px',
-          top: '300px',
-          width: '896px',
-          height: '90px',
-          padding: '0 24px',
-          borderRadius: '12px',
-          backdropFilter: 'blur(18px) saturate(115%)',
-          WebkitBackdropFilter: 'blur(18px) saturate(115%)',
-          animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <div>
-          <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-            {bannerLabel}
-          </div>
-          <div
-            className="text-[26px] font-semibold tracking-[-.01em] text-white"
-            style={{ marginTop: '4px' }}
-          >
-            {bannerValue}
-          </div>
-        </div>
-        <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
-          {bannerNote}
-        </div>
-      </div>
-
-      <div
-        className="absolute flex"
-        style={{
-          left: '442px',
-          top: '424px',
-          alignItems: 'baseline',
-          gap: '14px',
-          animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <div className="text-[18px] font-semibold tracking-[-.01em] text-white">{pickerTitle}</div>
-        <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
-          {pickerNote}
-        </div>
-      </div>
-
-      <div
-        className="absolute flex"
-        style={{ left: '442px', top: '460px', width: '896px', gap: '16px' }}
-      >
-        {presets.map((p, i) => (
-          <Fragment key={i}>
+        <div
+          className="absolute flex"
+          style={{
+            left: '442px',
+            top: '250px',
+            height: '38px',
+            gap: '10px',
+            animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          {MODES.map((m) => (
             <div
-              onClick={p.pick}
+              key={m.key}
+              className="flex cursor-pointer items-center text-[14.5px] font-semibold transition-colors duration-[160ms]"
+              onClick={() => handlePickMode(m.key)}
               style={{
-                width: '212px',
-                height: '130px',
-                padding: '30px 22px',
-                borderRadius: '12px',
-                background: `${p.bg}`,
-                boxShadow: `${p.ring}`,
-                transition: 'background .16s,box-shadow .16s',
-                animation: `${p.anim}`,
+                height: '38px',
+                padding: '0 20px',
+                borderRadius: '11px',
+                background: mode === m.key ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)',
+                color: mode === m.key ? '#3a1030' : 'rgba(255,240,247,.78)',
               }}
-              className={`box-border flex-none ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
             >
-              <div
-                className="text-[24px] font-semibold tracking-[-.01em]"
-                style={{ color: `${p.fg}` }}
-              >
-                {p.credit}
-              </div>
-              <div
-                className="text-[15.5px]"
-                style={{ marginTop: '12px', color: 'rgba(255,236,246,.62)' }}
-              >
-                {p.price}
-              </div>
+              {m.label}
             </div>
-          </Fragment>
-        ))}
-      </div>
-
-      <div
-        className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
-        style={{ left: '442px', top: '624px' }}
-      >
-        직접 입력
-      </div>
-      <div
-        className="absolute box-border flex items-center justify-between"
-        style={{
-          left: '442px',
-          top: '654px',
-          width: '896px',
-          height: '64px',
-          padding: '0 22px',
-          borderRadius: '10px',
-          background: 'rgba(255,255,255,.06)',
-        }}
-      >
-        <input
-          className="flex-1 border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
-          id="creditInput"
-          type="text"
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder={inputPlaceholder}
-          style={{ height: '32px' }}
-          value={typed}
-        />
-        <div className="text-[16px] font-semibold" style={{ color: 'rgba(255,236,246,.6)' }}>
-          ABC
+          ))}
         </div>
-      </div>
 
-      <div
-        className="bg-surface-card absolute box-border flex items-center justify-between"
-        style={{
-          left: '442px',
-          top: '750px',
-          width: '896px',
-          height: '196px',
-          padding: '26px 30px',
-          borderRadius: '16px',
-          backdropFilter: 'blur(18px) saturate(115%)',
-          WebkitBackdropFilter: 'blur(18px) saturate(115%)',
-        }}
-      >
-        {/* 충전이 시작되면 요약 자리를 진행 상태가 가져간다 — 보내는 버튼을 남겨 두면 두 번 보낸다. */}
-        {charging ? (
-          <>
-            <div style={{ width: '530px' }}>
-              <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
-                {chargeCard.title}
-              </div>
-              <div
-                className="text-[15.5px]"
-                style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
-              >
-                {chargeCard.note}
-              </div>
-              {/* 해시는 문의할 때 유일한 단서다. 끝날 때까지 지우지 않는다. */}
-              {charge.transactionHash && (
-                <div
-                  className="truncate text-[15.5px]"
-                  style={{ marginTop: '8px', color: 'rgba(255,236,246,.5)' }}
-                >
-                  거래 해시 {charge.transactionHash}
-                </div>
-              )}
+        <div
+          className="bg-surface-card absolute box-border flex items-center justify-between"
+          style={{
+            left: '442px',
+            top: '300px',
+            width: '896px',
+            height: '90px',
+            padding: '0 24px',
+            borderRadius: '12px',
+            backdropFilter: 'blur(18px) saturate(115%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(115%)',
+            animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          <div>
+            <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+              {bannerLabel}
             </div>
-            {chargeCard.action && (
+            <div
+              className="text-[26px] font-semibold tracking-[-.01em] text-white"
+              style={{ marginTop: '4px' }}
+            >
+              {bannerValue}
+            </div>
+          </div>
+          <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+            {bannerNote}
+          </div>
+        </div>
+
+        <div
+          className="absolute flex"
+          style={{
+            left: '442px',
+            top: '424px',
+            alignItems: 'baseline',
+            gap: '14px',
+            animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          <div className="text-[18px] font-semibold tracking-[-.01em] text-white">
+            {pickerTitle}
+          </div>
+          <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+            {pickerNote}
+          </div>
+        </div>
+
+        <div
+          className="absolute flex"
+          style={{ left: '442px', top: '460px', width: '896px', gap: '16px' }}
+        >
+          {presets.map((p, i) => (
+            <Fragment key={i}>
               <div
-                onClick={chargeCard.action.run}
+                onClick={p.pick}
                 style={{
-                  width: '300px',
-                  height: '60px',
-                  borderRadius: '10px',
-                  background: 'var(--color-accent)',
-                  color: 'var(--color-accent-ink)',
-                  transition: 'filter .16s',
+                  width: '212px',
+                  height: '130px',
+                  padding: '30px 22px',
+                  borderRadius: '12px',
+                  background: `${p.bg}`,
+                  boxShadow: `${p.ring}`,
+                  transition: 'background .16s,box-shadow .16s',
+                  animation: `${p.anim}`,
                 }}
-                className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
+                className={`box-border flex-none ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
               >
-                {chargeCard.action.label}
+                <div
+                  className="text-[24px] font-semibold tracking-[-.01em]"
+                  style={{ color: `${p.fg}` }}
+                >
+                  {p.credit}
+                </div>
+                <div
+                  className="text-[15.5px]"
+                  style={{ marginTop: '12px', color: 'rgba(255,236,246,.62)' }}
+                >
+                  {p.price}
+                </div>
               </div>
-            )}
-          </>
-        ) : withdrawal && withdrawalCard ? (
-          <>
-            <div style={{ width: '530px' }}>
-              <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
-                {withdrawalCard.title} · {chargeAmountLabel(withdrawal.amount)}
-              </div>
-              <div
-                className="text-[15.5px]"
-                style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
-              >
-                {withdrawal.rejectReason
-                  ? `${withdrawalCard.note} 사유: ${withdrawal.rejectReason}`
-                  : withdrawalCard.note}
-              </div>
-              <div
-                className="truncate text-[15.5px]"
-                style={{ marginTop: '8px', color: 'rgba(255,196,214,.9)' }}
-              >
-                {payoutFlow.error ?? (
-                  <span style={{ color: 'rgba(255,236,246,.5)' }}>
-                    받을 지갑 {shortAddress(withdrawal.walletAddress)} · 신청 번호 {withdrawal.id}
-                    {withdrawal.transactionHash &&
-                      ` · 거래 해시 ${shortAddress(withdrawal.transactionHash)}`}
-                  </span>
+            </Fragment>
+          ))}
+        </div>
+
+        <div
+          className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
+          style={{ left: '442px', top: '624px' }}
+        >
+          직접 입력
+        </div>
+        <div
+          className="absolute box-border flex items-center justify-between"
+          style={{
+            left: '442px',
+            top: '654px',
+            width: '896px',
+            height: '64px',
+            padding: '0 22px',
+            borderRadius: '10px',
+            background: 'rgba(255,255,255,.06)',
+          }}
+        >
+          <input
+            className="flex-1 border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
+            id="creditInput"
+            type="text"
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={inputPlaceholder}
+            style={{ height: '32px' }}
+            value={typed}
+          />
+          <div className="text-[16px] font-semibold" style={{ color: 'rgba(255,236,246,.6)' }}>
+            ABC
+          </div>
+        </div>
+
+        <div
+          className="bg-surface-card absolute box-border flex items-center justify-between"
+          style={{
+            left: '442px',
+            top: '750px',
+            width: '896px',
+            height: '196px',
+            padding: '26px 30px',
+            borderRadius: '16px',
+            backdropFilter: 'blur(18px) saturate(115%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(115%)',
+          }}
+        >
+          {/* 충전이 시작되면 요약 자리를 진행 상태가 가져간다 — 보내는 버튼을 남겨 두면 두 번 보낸다. */}
+          {charging ? (
+            <>
+              <div style={{ width: '530px' }}>
+                <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
+                  {chargeCard.title}
+                </div>
+                <div
+                  className="text-[15.5px]"
+                  style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
+                >
+                  {chargeCard.note}
+                </div>
+                {/* 해시는 문의할 때 유일한 단서다. 끝날 때까지 지우지 않는다. */}
+                {charge.transactionHash && (
+                  <div
+                    className="truncate text-[15.5px]"
+                    style={{ marginTop: '8px', color: 'rgba(255,236,246,.5)' }}
+                  >
+                    거래 해시 {charge.transactionHash}
+                  </div>
                 )}
               </div>
-            </div>
-            {/* PAYING 부터는 체인으로 나가는 중이라 취소가 없다. */}
-            <div className="flex flex-col" style={{ gap: '8px' }}>
-              <div
-                onClick={handleDismissWithdrawal}
-                style={{
-                  width: '300px',
-                  height: withdrawal.status === 'REQUESTED' ? '50px' : '60px',
-                  borderRadius: '10px',
-                  background: 'var(--color-accent)',
-                  color: 'var(--color-accent-ink)',
-                  transition: 'filter .16s',
-                }}
-                className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
-              >
-                확인
-              </div>
-              {withdrawal.status === 'REQUESTED' && (
+              {chargeCard.action && (
                 <div
-                  onClick={payoutFlow.busy ? undefined : payoutFlow.cancel}
-                  className="flex cursor-pointer items-center justify-center text-[15.5px] font-semibold hover:text-white"
-                  style={{ height: '24px', color: 'rgba(255,236,246,.72)' }}
-                >
-                  {payoutFlow.busy ? '취소하는 중' : '신청 취소'}
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ width: '500px' }}>
-              <div className="text-[14px] font-semibold" style={{ color: 'rgba(255,236,246,.62)' }}>
-                {summaryTitle}
-              </div>
-              <div
-                className="flex items-baseline justify-between"
-                style={{ marginTop: '10px', paddingBottom: '14px' }}
-              >
-                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
-                  {sumLabel}
-                </span>
-                <span className="text-[26px] font-semibold tracking-[-.02em] text-white">
-                  {sumCredit}
-                </span>
-              </div>
-              <div
-                className="flex items-baseline justify-between"
-                style={{ paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,.1)' }}
-              >
-                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
-                  {withdraw ? '받을 지갑' : '예상 가스비'}
-                </span>
-                {/* 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다. */}
-                <span
-                  className="text-[15.5px] font-semibold"
-                  style={{ color: 'rgba(255,255,255,.86)' }}
-                >
-                  {withdraw ? (wallet ? shortAddress(wallet) : '—') : '0 SSF'}
-                </span>
-              </div>
-              {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
-              {!withdraw && charge.error && (
-                <div
-                  className="text-[15px]"
-                  style={{ marginTop: '10px', color: 'rgba(255,196,214,.9)' }}
-                >
-                  {charge.error}
-                </div>
-              )}
-              {withdraw && (payoutFlow.error || payoutFlow.notice || (typed.trim() && blocked)) && (
-                <div
-                  className="text-[15px]"
+                  onClick={chargeCard.action.run}
                   style={{
-                    marginTop: '10px',
-                    color:
-                      payoutFlow.error || !payoutFlow.notice ? 'rgba(255,196,214,.9)' : '#9ad0b4',
+                    width: '300px',
+                    height: '60px',
+                    borderRadius: '10px',
+                    background: 'var(--color-accent)',
+                    color: 'var(--color-accent-ink)',
+                    transition: 'filter .16s',
                   }}
+                  className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
                 >
-                  {payoutFlow.error ?? payoutFlow.notice ?? blocked}
+                  {chargeCard.action.label}
                 </div>
               )}
-            </div>
-            <div
-              className="flex flex-col justify-center self-stretch"
-              style={{
-                gap: '12px',
-                paddingLeft: '30px',
-                borderLeft: '1px solid rgba(255,255,255,.1)',
-              }}
-            >
-              <div
-                onClick={handleCta}
-                style={{
-                  width: '280px',
-                  height: '58px',
-                  borderRadius: '14px',
-                  background: 'var(--color-accent)',
-                  color: 'var(--color-accent-ink)',
-                  opacity: blocked ? 0.5 : 1,
-                  transition: 'filter .16s',
-                }}
-                className={`flex items-center justify-center text-[17px] font-semibold tracking-[-.01em] ${blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-[1.06]'}`}
-              >
-                {withdraw && payoutFlow.busy ? '처리 중' : ctaLabel}
-              </div>
-              {/* 반대 방향(ABC → 정산금)은 없다. */}
-              {withdraw && (
+            </>
+          ) : withdrawal && withdrawalCard ? (
+            <>
+              <div style={{ width: '530px' }}>
+                <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
+                  {withdrawalCard.title} · {chargeAmountLabel(withdrawal.amount)}
+                </div>
                 <div
-                  onClick={handleConvert}
-                  title="정산금을 실행에 쓸 수 있는 ABC 로 옮깁니다. 되돌릴 수 없습니다."
-                  className={`flex items-center justify-center text-[15.5px] font-semibold ${canConvert ? 'cursor-pointer hover:text-white' : 'cursor-not-allowed'}`}
-                  style={{
-                    height: '24px',
-                    color: canConvert ? 'rgba(255,236,246,.72)' : 'rgba(255,236,246,.35)',
-                  }}
+                  className="text-[15.5px]"
+                  style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
                 >
-                  대신 서비스에서 쓸 ABC 로 옮기기
+                  {withdrawal.rejectReason
+                    ? `${withdrawalCard.note} 사유: ${withdrawal.rejectReason}`
+                    : withdrawalCard.note}
                 </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </MyPageFrame>
+                <div
+                  className="truncate text-[15.5px]"
+                  style={{ marginTop: '8px', color: 'rgba(255,196,214,.9)' }}
+                >
+                  {payoutFlow.error ?? (
+                    <span style={{ color: 'rgba(255,236,246,.5)' }}>
+                      받을 지갑 {shortAddress(withdrawal.walletAddress)} · 신청 번호 {withdrawal.id}
+                      {withdrawal.transactionHash &&
+                        ` · 거래 해시 ${shortAddress(withdrawal.transactionHash)}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* PAYING 부터는 체인으로 나가는 중이라 취소가 없다. */}
+              <div className="flex flex-col" style={{ gap: '8px' }}>
+                <div
+                  onClick={handleDismissWithdrawal}
+                  style={{
+                    width: '300px',
+                    height: withdrawal.status === 'REQUESTED' ? '50px' : '60px',
+                    borderRadius: '10px',
+                    background: 'var(--color-accent)',
+                    color: 'var(--color-accent-ink)',
+                    transition: 'filter .16s',
+                  }}
+                  className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
+                >
+                  확인
+                </div>
+                {withdrawal.status === 'REQUESTED' && (
+                  <div
+                    onClick={payoutFlow.busy ? undefined : payoutFlow.cancel}
+                    className="flex cursor-pointer items-center justify-center text-[15.5px] font-semibold hover:text-white"
+                    style={{ height: '24px', color: 'rgba(255,236,246,.72)' }}
+                  >
+                    {payoutFlow.busy ? '취소하는 중' : '신청 취소'}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ width: '500px' }}>
+                <div
+                  className="text-[14px] font-semibold"
+                  style={{ color: 'rgba(255,236,246,.62)' }}
+                >
+                  {summaryTitle}
+                </div>
+                <div
+                  className="flex items-baseline justify-between"
+                  style={{ marginTop: '10px', paddingBottom: '14px' }}
+                >
+                  <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
+                    {sumLabel}
+                  </span>
+                  <span className="text-[26px] font-semibold tracking-[-.02em] text-white">
+                    {sumCredit}
+                  </span>
+                </div>
+                <div
+                  className="flex items-baseline justify-between"
+                  style={{ paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,.1)' }}
+                >
+                  <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
+                    {detail.label}
+                  </span>
+                  <span
+                    className="text-[15.5px] font-semibold"
+                    style={{ color: 'rgba(255,255,255,.86)' }}
+                  >
+                    {detail.value}
+                  </span>
+                </div>
+                {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
+                {!withdraw && charge.error && (
+                  <div
+                    className="text-[15px]"
+                    style={{ marginTop: '10px', color: 'rgba(255,196,214,.9)' }}
+                  >
+                    {charge.error}
+                  </div>
+                )}
+                {usesPayout &&
+                  (payoutFlow.error || payoutFlow.notice || (typed.trim() && blocked)) && (
+                    <div
+                      className="text-[15px]"
+                      style={{
+                        marginTop: '10px',
+                        color:
+                          payoutFlow.error || !payoutFlow.notice
+                            ? 'rgba(255,196,214,.9)'
+                            : '#9ad0b4',
+                      }}
+                    >
+                      {payoutFlow.error ?? payoutFlow.notice ?? blocked}
+                    </div>
+                  )}
+              </div>
+              <div
+                className="flex flex-col justify-center self-stretch"
+                style={{
+                  gap: '12px',
+                  paddingLeft: '30px',
+                  borderLeft: '1px solid rgba(255,255,255,.1)',
+                }}
+              >
+                <div
+                  onClick={handleCta}
+                  style={{
+                    width: '280px',
+                    height: '58px',
+                    borderRadius: '14px',
+                    background: 'var(--color-accent)',
+                    color: 'var(--color-accent-ink)',
+                    opacity: blocked ? 0.5 : 1,
+                    transition: 'filter .16s',
+                  }}
+                  className={`flex items-center justify-center text-[17px] font-semibold tracking-[-.01em] ${blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-[1.06]'}`}
+                >
+                  {usesPayout && payoutFlow.busy ? '처리 중' : ctaLabel}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </MyPageFrame>
+
+      {/* 프레임 밖에 둔다 — 안에 두면 가운데로 민 만큼 덮개가 비껴 난다. */}
+      <confirm-dialog
+        ref={confirmRef}
+        open={asking ? '' : undefined}
+        heading="정산금을 ABC 로 전환할까요?"
+        body-text={'전환한 ABC 는 실행에만 쓸 수 있고\n정산금으로 되돌릴 수 없습니다.'}
+        note-text={asking ? `${chargeAmountLabel(asking)} 전환` : undefined}
+        confirm-label="전환하기"
+        cancel-label="취소"
+      />
+    </>
   )
 }

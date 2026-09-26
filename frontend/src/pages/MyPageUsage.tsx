@@ -19,7 +19,7 @@ const TYPE_LABELS: Record<CreditTransactionType, string> = {
   CHARGE: '충전',
   RESERVE: '사용',
   REFUND: '환불',
-  PAYOUT_CONVERSION: '정산금 옮김',
+  PAYOUT_CONVERSION: '정산금 전환',
 }
 
 /** 들어오는 것은 초록, 나가는 것은 분홍. */
