@@ -25,8 +25,8 @@ public class NodeDefinitionService {
     private final RefFileStore refFileStore;
     private final NodeTestRunWriter nodeTestRunWriter;
 
-    public NodeDefinition create(UserId requester, String name, Prompt prompt, AiModel model) {
-        NodeSpec spec = specAssembler.assemble(name, model);
+    public NodeDefinition create(UserId requester, String name, Prompt prompt, AiModel model, NodeOutput output) {
+        NodeSpec spec = specAssembler.assemble(name, model, output);
 
         return nodeWriter.append(NodeDefinition.create(NodeDefinitionId.newId(), requester, spec, prompt));
     }
@@ -43,10 +43,11 @@ public class NodeDefinitionService {
     }
 
     @Transactional
-    public NodeDefinition update(NodeDefinitionId id, UserId requester, String name, Prompt prompt, AiModel model) {
+    public NodeDefinition update(NodeDefinitionId id, UserId requester, String name, Prompt prompt, AiModel model,
+                                 NodeOutput output) {
         validator.ensureEditable(id, requester);
 
-        return nodeWriter.update(id, specAssembler.assembleEdited(id, name, model), prompt);
+        return nodeWriter.update(id, specAssembler.assembleEdited(id, name, model, output), prompt);
     }
 
     public List<RefFile> getRefFiles(NodeDefinitionId id, UserId requester) {

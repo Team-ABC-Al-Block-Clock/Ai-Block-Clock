@@ -4,6 +4,7 @@ import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.Timestamps;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.NodeSpec;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
@@ -14,6 +15,7 @@ import com.aiblockclock.domain.workflow.WorkflowFixtures;
 import com.aiblockclock.domain.workflow.WorkflowGraph;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -114,7 +116,7 @@ class AgentVersionPolicyTest {
                         owner,
                         Timestamps.unsaved(),
                         new NodeSpec("시드 노드", NodeType.LLM, AiModel.defaultModel(),
-                                AbcAmount.of(new BigDecimal("3"))),
+                                AbcAmount.of(new BigDecimal("3")), new NodeOutput(OutputKind.TEXT, null)),
                         Prompt.of("프롬프트 원문")))
                 .toList();
     }

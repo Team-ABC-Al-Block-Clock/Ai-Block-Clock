@@ -5,6 +5,7 @@ import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionService;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
@@ -14,6 +15,7 @@ import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -54,7 +56,7 @@ class AgentExpansionIntegrationTest {
 
     @BeforeEach
     void 프롬프트_둘짜리_에이전트를_굳혀_둔다() {
-        soldNode = nodeService.create(OWNER, "성적 분석", Prompt.of("점수를 비교한다"), AiModel.defaultModel());
+        soldNode = nodeService.create(OWNER, "성적 분석", Prompt.of("점수를 비교한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         Workflow source = workflowService.save(OWNER, "굳힐 워크플로우", null,
                 List.of(GraphFixtures.placement("n1", soldNode.getId().value()),
@@ -109,7 +111,7 @@ class AgentExpansionIntegrationTest {
                 List.of(agentPlacement("a1")), List.of());
 
         nodeService.update(soldNode.getId(), OWNER, "완전히 다른 이름",
-                Prompt.of("완전히 다른 일을 한다"), AiModel.defaultModel());
+                Prompt.of("완전히 다른 일을 한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         assertThat(executionPlanAssembler.assemble(placed).prompts())
                 .extracting(PlannedPrompt::name, prompt -> prompt.prompt().value())
@@ -125,7 +127,7 @@ class AgentExpansionIntegrationTest {
                 List.of(GraphFixtures.placement("n1", soldNode.getId().value())), List.of());
 
         nodeService.update(soldNode.getId(), OWNER, "고친 이름",
-                Prompt.of("고친 일을 한다"), AiModel.defaultModel());
+                Prompt.of("고친 일을 한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         assertThat(executionPlanAssembler.assemble(placed).prompts())
                 .extracting(PlannedPrompt::name, prompt -> prompt.prompt().value())
@@ -156,7 +158,7 @@ class AgentExpansionIntegrationTest {
     }
 
     private NodePlacement node(String key, String name, String prompt) {
-        NodeDefinition created = nodeService.create(OWNER, name, Prompt.of(prompt), AiModel.defaultModel());
+        NodeDefinition created = nodeService.create(OWNER, name, Prompt.of(prompt), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         return GraphFixtures.placement(key, created.getId().value());
     }

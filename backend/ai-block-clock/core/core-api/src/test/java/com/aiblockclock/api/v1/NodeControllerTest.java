@@ -33,6 +33,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -104,6 +105,56 @@ class NodeControllerTest {
 
         return mapper.readTree(result.getResponse().getContentAsString())
                 .get("data").get("nodeId").asText();
+    }
+
+    @Test
+    @DisplayName("출력 형식으로 JSON 예시를 적으면 저장하고 돌려준다. 비우면 글이다")
+    void savesOutputKind() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/nodes")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "name": "시장 조사", "prompt": "시장을 조사한다",
+                                  "output": { "kind": "JSON", "example": { "competition_level": "high", "note": null } } }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.output.kind").value("JSON"))
+                .andExpect(jsonPath("$.data.output.example.competition_level").value("high"))
+                .andReturn();
+
+        String nodeId = mapper.readTree(created.getResponse().getContentAsString()).get("data").get("nodeId").asText();
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.output.kind").value("JSON"))
+                .andExpect(jsonPath("$.data.output.example.competition_level").value("high"))
+                .andExpect(jsonPath("$.data.output.example.note").isEmpty());
+
+        String textId = create("성적 분석");
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", textId).with(as(owner)))
+                .andExpect(jsonPath("$.data.output.kind").value("TEXT"))
+                .andExpect(jsonPath("$.data.output.example").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("JSON 인데 예시가 없거나 키 있는 객체가 아니면, 글인데 예시가 있으면 400 이다")
+    void rejectsMismatchedOutput() throws Exception {
+        for (String output : List.of(
+                "{ \"kind\": \"JSON\" }",
+                "{ \"kind\": \"JSON\", \"example\": {} }",
+                "{ \"kind\": \"JSON\", \"example\": [ \"a\" ] }",
+                "{ \"kind\": \"JSON\", \"example\": \"biz.market_research@1\" }",
+                "{ \"kind\": \"TEXT\", \"example\": { \"a\": 1 } }")) {
+            mockMvc.perform(post("/api/v1/nodes")
+                            .with(as(owner))
+                            .with(csrf().asHeader())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{ \"name\": \"시장 조사\", \"prompt\": \"시장을 조사한다\", \"output\": " + output + " }"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("COMMON_001"));
+        }
     }
 
     @Test

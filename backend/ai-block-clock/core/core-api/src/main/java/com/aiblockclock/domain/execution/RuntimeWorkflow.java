@@ -1,9 +1,11 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.RefFile;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.SourceType;
 
 import java.util.ArrayList;
@@ -15,12 +17,10 @@ import java.util.stream.Collectors;
 
 import tools.jackson.databind.json.JsonMapper;
 
-// 엔진 계약 v2.0 의 워크플로우 JSON 이다. 노드마다 내는 형식(output)을 밝혀야 하고, 판매자가 고른 형식을 아직 저장하지 않아
-// 모든 단계가 글(text)을 낸다. 글 출력은 형식 검사 · 교정이 없어 어떤 프롬프트든 그대로 돈다.
+// 엔진 계약 v2.0 의 워크플로우 JSON 이다. 노드마다 내는 형식(output)을 밝혀야 하고, 판매자가 노드에 저장한 형식을 그대로 싣는다.
+// 판매자 테스트 실행도 같은 자리를 거친다 — json 은 엔진이 검사하고 교정하므로 토큰이 더 들어, 글로 재면 원가가 낮게 잡힌다.
 // 단가 · 원가는 싣지 않는다. 엔진은 돈을 모르고 받을 값은 우리가 매긴다 (계약 8.2).
 public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) {
-    private static final Map<String, String> TEXT_OUTPUT = Map.of("kind", "text");
-
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     public RuntimeWorkflow {
@@ -106,12 +106,18 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         }
 
         node.put("prompt", prompt.prompt().value());
-        node.put("output", TEXT_OUTPUT);
+        node.put("output", outputOf(prompt.output()));
 
         if (!refFiles.isEmpty()) {
             node.put("ref_files", refFiles.stream().map(RefFile::filename).toList());
         }
 
         return node;
+    }
+
+    private static Map<String, Object> outputOf(NodeOutput output) {
+        return output.kind() == OutputKind.JSON
+                ? Map.of("kind", "json", "example", MAPPER.readTree(output.example()))
+                : Map.of("kind", "text");
     }
 }
