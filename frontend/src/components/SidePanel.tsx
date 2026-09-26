@@ -8,6 +8,17 @@ export const PANEL_INSET = 30
 export const PANEL_CONTENT_WIDTH = PANEL_WIDTH - PANEL_INSET * 2
 /** 카드 안 요소가 카드 좌우 변에서 떨어지는 거리. 위아래 간격은 카드마다 다르다. */
 export const CARD_GUTTER = 16
+/** 설계 캔버스 세로. 패널 안 절대 좌표가 이 높이를 기준으로 놓인다(`CanvasPane` 의 `PANE_HEIGHT` 와 같다). */
+export const PANEL_HEIGHT = 1024
+/** 패널 바닥 여백 */
+export const PANEL_BOTTOM = 24
+/**
+ * 위아래를 가르는 선. 위는 고른 노드, 아래는 팔레트다.
+ *
+ * 위쪽은 절대 배치라 늘어나지 않는다 — 칸이 모자라면 이 값을 내리고 아래를 덜어 온다.
+ * 팔레트는 카드 한 줄이 148px 이라, 여기서 더 내리면 두 줄이 온전히 서지 못한다.
+ */
+export const PANEL_SPLIT_Y = 600
 
 type Props = {
   children: ReactNode
