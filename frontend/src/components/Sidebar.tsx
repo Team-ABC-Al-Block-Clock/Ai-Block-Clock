@@ -12,7 +12,7 @@ const TABS = [
 ] as const
 
 const TAB =
-  'flex items-center justify-center text-[12px] font-semibold whitespace-nowrap tracking-[-.01em]'
+  'flex items-center justify-center text-[14.5px] font-semibold whitespace-nowrap tracking-[-.01em]'
 const BOX = { width: '126px', height: '38px', borderRadius: '11px' }
 
 type Tab = (typeof TABS)[number]['key']
@@ -196,12 +196,12 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           {shortAddress(profile?.wallet.address ?? '')}
         </div>
         {/* 네트워크는 서버가 알려준다 — 배포 설정이라 화면이 정할 값이 아니다 */}
-        <div className="text-[12px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
+        <div className="text-[13.5px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
           {profile ? chainNameOf(profile.wallet.chainId) : chainLabel}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
           <StatusDot size={8} color="#84bf9f" />
-          <div className="text-[12px] font-semibold" style={{ color: '#9ad0b4' }}>
+          <div className="text-[13.5px] font-semibold" style={{ color: '#9ad0b4' }}>
             정상 연결
           </div>
         </div>

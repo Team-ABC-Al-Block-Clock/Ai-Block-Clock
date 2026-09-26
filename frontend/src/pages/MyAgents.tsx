@@ -445,7 +445,7 @@ export default function MyAgents() {
 
         {/* 개수 — 커서 목록은 전체 개수를 주지 않는다. 불러온 만큼만 세고 더 있으면 '+' */}
         <div
-          className="absolute text-right text-[12px] tracking-[-.01em]"
+          className="absolute text-right text-[13.5px] tracking-[-.01em]"
           style={{
             left: '1178px',
             top: '260px',
@@ -504,7 +504,7 @@ export default function MyAgents() {
             className={`${CHIP} absolute box-border justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.16)]`}
           >
             <div
-              className="text-[12px] whitespace-nowrap"
+              className="text-[13.5px] whitespace-nowrap"
               style={{ color: 'rgba(255,240,247,.82)' }}
             >
               {sortLabel}
@@ -528,7 +528,7 @@ export default function MyAgents() {
             left: '430px',
             top: '366px',
             width: '946px',
-            height: '570px',
+            height: '629px',
             paddingRight: '26px',
             overflowY: 'auto',
             scrollbarWidth: 'thin',
@@ -572,14 +572,14 @@ export default function MyAgents() {
                 }}
               >
                 <div
-                  className="text-[12.5px] tracking-[-.01em]"
+                  className="text-[14px] tracking-[-.01em]"
                   style={{ color: 'rgba(255,196,214,.9)' }}
                 >
                   다음 목록을 불러오지 못했습니다
                 </div>
                 <div
                   onClick={handleRetryNextPage}
-                  className={`${CHIP} justify-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
+                  className={`${CHIP} justify-center text-[14px] font-semibold text-white hover:bg-[rgba(255,255,255,.16)]`}
                   style={{
                     height: '30px',
                     padding: '0 14px',
@@ -664,7 +664,7 @@ export default function MyAgents() {
             {/* 실패를 조용히 넘기지 않는다. 토스트가 없어 버튼 위에 한 줄로 둔다. */}
             {deleteMessage && (
               <div
-                className="text-[12.5px] tracking-[-.01em]"
+                className="text-[14px] tracking-[-.01em]"
                 style={{
                   marginTop: '14px',
                   color: 'rgba(255,196,214,.9)',
@@ -761,7 +761,7 @@ function AgentRow({
           </div>
           {row.mine && (
             <div
-              className="flex flex-none items-center text-[10px] font-bold text-white"
+              className="flex flex-none items-center text-[12px] font-bold text-white"
               style={{
                 height: '18px',
                 padding: '0 7px',
@@ -785,7 +785,7 @@ function AgentRow({
           </div>
         </div>
         <div
-          className="overflow-hidden text-[12px] tracking-[-.01em] whitespace-nowrap"
+          className="overflow-hidden text-[13.5px] tracking-[-.01em] whitespace-nowrap"
           style={{
             marginTop: '7px',
             maxWidth: '340px',
@@ -796,7 +796,7 @@ function AgentRow({
           {row.desc}
         </div>
         <div
-          className="flex text-[11.5px]"
+          className="flex text-[13px]"
           style={{
             marginTop: '8px',
             gap: '18px',
@@ -836,7 +836,7 @@ function AgentRow({
         </svg>
         {row.note && (
           <div
-            className="text-[11px] whitespace-nowrap"
+            className="text-[12.5px] whitespace-nowrap"
             style={{ color: 'rgba(255,240,247,.55)', fontVariantNumeric: 'tabular-nums' }}
           >
             {row.note}
@@ -853,7 +853,7 @@ function AgentRow({
           borderRadius: '17px',
           color: 'rgba(255,255,255,.85)',
         }}
-        className="flex flex-none items-center justify-center bg-[rgba(255,255,255,.10)] text-[12px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)] hover:text-[#fff]"
+        className="flex flex-none items-center justify-center bg-[rgba(255,255,255,.10)] text-[13.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)] hover:text-[#fff]"
       >
         상세 보기 →
       </a>
@@ -904,7 +904,7 @@ function WorkflowCard({
         <div className="text-[16px] font-semibold tracking-[-.01em] text-white">{name}</div>
         <div className="flex" style={{ marginLeft: 'auto', gap: '8px' }}>
           <div
-            className={`${CHIP} text-[12px] font-semibold tracking-[-.01em] hover:brightness-[1.08]`}
+            className={`${CHIP} text-[13.5px] font-semibold tracking-[-.01em] hover:brightness-[1.08]`}
             style={{
               height: '34px',
               padding: '0 16px',
@@ -917,7 +917,7 @@ function WorkflowCard({
           </div>
           <div
             onClick={handleDelete}
-            className={`${CHIP} text-[12px] font-semibold tracking-[-.01em] hover:bg-[rgba(233,174,196,.24)] hover:text-[#ffd7e6]`}
+            className={`${CHIP} text-[13.5px] font-semibold tracking-[-.01em] hover:bg-[rgba(233,174,196,.24)] hover:text-[#ffd7e6]`}
             style={{
               height: '34px',
               padding: '0 14px',
@@ -932,14 +932,14 @@ function WorkflowCard({
       </div>
 
       <div
-        className="text-[12.5px] tracking-[-.01em]"
+        className="text-[14px] tracking-[-.01em]"
         style={{ marginTop: '9px', color: 'rgba(255,236,246,.62)' }}
       >
         {summary}
       </div>
 
       <div
-        className="flex text-[11.5px]"
+        className="flex text-[13px]"
         style={{
           marginTop: '14px',
           gap: '20px',

@@ -301,7 +301,7 @@ export default function MyPageEdit() {
           <div className="flex flex-1 flex-col" style={{ gap: '20px' }}>
             <div className="flex" style={{ gap: '24px' }}>
               <div className="flex-1">
-                <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                   이름
                 </div>
                 <div
@@ -323,7 +323,7 @@ export default function MyPageEdit() {
                 </div>
                 {nicknameError && (
                   <div
-                    className="text-[11.5px] tracking-[-.01em]"
+                    className="text-[13px] tracking-[-.01em]"
                     style={{ marginTop: '6px', color: '#ffb4c8' }}
                   >
                     {nicknameError}
@@ -331,7 +331,7 @@ export default function MyPageEdit() {
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                   한 줄 소개
                 </div>
                 <div
@@ -352,7 +352,7 @@ export default function MyPageEdit() {
                   />
                 </div>
                 <div
-                  className="flex items-center justify-between text-[11.5px] tracking-[-.01em]"
+                  className="flex items-center justify-between text-[13px] tracking-[-.01em]"
                   style={{ marginTop: '6px' }}
                 >
                   <span style={{ color: '#ffb4c8' }}>{introError}</span>
@@ -393,7 +393,7 @@ export default function MyPageEdit() {
                 }}
               >
                 <div
-                  className="flex flex-none items-center justify-center text-[11px] font-semibold"
+                  className="flex flex-none items-center justify-center text-[12.5px] font-semibold"
                   style={{
                     width: '44px',
                     height: '44px',
@@ -405,7 +405,7 @@ export default function MyPageEdit() {
                   {p.icon}
                 </div>
                 <div className="flex-1">
-                  <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                  <div className="text-[13.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                     {p.label}
                   </div>
                   <div
@@ -418,10 +418,10 @@ export default function MyPageEdit() {
                     </div>
                   </div>
                   <div className="flex" style={{ marginTop: '4px', gap: '7px' }}>
-                    <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+                    <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.58)' }}>
                       {p.subLabel}
                     </div>
-                    <div className="text-[11.5px]" style={{ color: 'rgba(255,255,255,.8)' }}>
+                    <div className="text-[13px]" style={{ color: 'rgba(255,255,255,.8)' }}>
                       {p.subValue}
                     </div>
                   </div>
@@ -433,7 +433,7 @@ export default function MyPageEdit() {
                     borderRadius: '10px',
                     color: 'rgba(255,255,255,.9)',
                   }}
-                  className="flex flex-none cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[12.5px] font-semibold whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
+                  className="flex flex-none cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[14px] font-semibold whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
                 >
                   {p.action}
                 </div>
@@ -445,14 +445,14 @@ export default function MyPageEdit() {
 
       <div
         className="absolute bg-[rgba(255,255,255,.12)]"
-        style={{ left: '442px', top: '876px', width: '900px', height: '1px' }}
+        style={{ left: '442px', top: '929px', width: '900px', height: '1px' }}
       ></div>
 
       <div
         className="absolute flex"
         style={{
           left: '1104px',
-          top: '898px',
+          top: '951px',
           width: '238px',
           height: '44px',
           justifyContent: 'flex-end',

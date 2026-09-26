@@ -247,7 +247,7 @@ export default function MyPageSales() {
           }}
           className="box-border flex cursor-pointer items-center justify-between bg-[rgba(255,255,255,.09)] hover:bg-[rgba(255,255,255,.18)]"
         >
-          <div className="text-[12px]" style={{ color: 'rgba(255,240,247,.84)' }}>
+          <div className="text-[13.5px]" style={{ color: 'rgba(255,240,247,.84)' }}>
             {period.label}
           </div>
           <div
@@ -296,7 +296,7 @@ export default function MyPageSales() {
                   color: i === periodAt ? '#f0dcea' : 'rgba(255,240,247,.78)',
                   background: i === periodAt ? 'rgba(185,141,169,.28)' : 'transparent',
                 }}
-                className="flex cursor-pointer items-center text-[12px] hover:bg-[rgba(255,255,255,.12)]"
+                className="flex cursor-pointer items-center text-[13.5px] hover:bg-[rgba(255,255,255,.12)]"
               >
                 {p.label}
               </button>
@@ -323,7 +323,7 @@ export default function MyPageSales() {
             >
               <div>
                 <div
-                  className="text-[12.5px] tracking-[-.01em]"
+                  className="text-[14px] tracking-[-.01em]"
                   style={{ color: 'rgba(255,236,246,.62)', lineHeight: '1.3' }}
                 >
                   {m.label}
@@ -337,14 +337,14 @@ export default function MyPageSales() {
                 {m.href ? (
                   <a
                     href={m.href}
-                    className="block text-[11.5px] hover:text-white"
+                    className="block text-[13px] hover:text-white"
                     style={{ marginTop: '8px', color: '#dcaebf', lineHeight: '1.2' }}
                   >
                     {m.delta}
                   </a>
                 ) : (
                   <div
-                    className="text-[11.5px]"
+                    className="text-[13px]"
                     style={{ marginTop: '8px', color: '#dcaebf', lineHeight: '1.2' }}
                   >
                     {m.delta}
@@ -424,7 +424,7 @@ export default function MyPageSales() {
           </svg>
           {stats && total === 0 && (
             <div
-              className="absolute left-0 flex items-center justify-center text-[12px]"
+              className="absolute left-0 flex items-center justify-center text-[13.5px]"
               style={{ top: '0', width: '534px', height: '134px', color: 'rgba(255,236,246,.55)' }}
             >
               {period.label}에 받은 정산금이 없습니다.
@@ -432,14 +432,14 @@ export default function MyPageSales() {
           )}
           {statistics.isError && (
             <div
-              className="absolute left-0 flex items-center justify-center text-[12px]"
+              className="absolute left-0 flex items-center justify-center text-[13.5px]"
               style={{ top: '0', width: '534px', height: '134px', color: '#ffb0cd' }}
             >
               정산 통계를 불러오지 못했습니다.
             </div>
           )}
           <div
-            className="absolute left-0 flex justify-between text-[10px]"
+            className="absolute left-0 flex justify-between text-[12px]"
             style={{ top: '142px', width: '534px', color: 'rgba(255,236,246,.5)' }}
           >
             {ticks.map((t, i) => (
@@ -468,7 +468,7 @@ export default function MyPageSales() {
         >
           {topAgent ? priceLabel(topAgent.amount) : '—'}
         </div>
-        <div className="text-[11px]" style={{ marginTop: '4px', color: 'rgba(255,236,246,.6)' }}>
+        <div className="text-[12.5px]" style={{ marginTop: '4px', color: 'rgba(255,236,246,.6)' }}>
           {topAgent ? agentName(topAgent.agentId) : ''}
         </div>
         <div className="flex flex-col" style={{ marginTop: '14px', gap: '10px' }}>
@@ -476,10 +476,10 @@ export default function MyPageSales() {
             <Fragment key={i}>
               <div>
                 <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-                  <div className="text-[11px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                  <div className="text-[12.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                     {t.label}
                   </div>
-                  <div className="text-[11px] font-semibold text-white">{t.value}</div>
+                  <div className="text-[12.5px] font-semibold text-white">{t.value}</div>
                 </div>
                 <div
                   className="overflow-hidden bg-[rgba(255,255,255,.09)]"
@@ -628,7 +628,7 @@ export default function MyPageSales() {
               className="flex cursor-pointer items-center text-[13px] font-semibold hover:text-[#fff]"
             >
               {entries.isFetchingNextPage ? '불러오는 중' : '더 보기'}
-              <span className="text-[12px]">→</span>
+              <span className="text-[13.5px]">→</span>
             </button>
           )}
         </div>

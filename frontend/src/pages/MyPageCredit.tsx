@@ -226,17 +226,17 @@ export default function MyPageCredit() {
         style={{
           left: '442px',
           top: '250px',
-          height: '34px',
+          height: '38px',
           gap: '10px',
           animation: 'rise .7s .12s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
         <div
-          className="flex cursor-pointer items-center text-[13px] font-semibold transition-colors duration-[160ms]"
+          className="flex cursor-pointer items-center text-[14.5px] font-semibold transition-colors duration-[160ms]"
           onClick={handlePickDeposit}
           style={{
-            height: '34px',
-            padding: '0 18px',
+            height: '38px',
+            padding: '0 20px',
             borderRadius: '11px',
             background: `${bgDeposit}`,
             color: `${fgDeposit}`,
@@ -245,11 +245,11 @@ export default function MyPageCredit() {
           예치
         </div>
         <div
-          className="flex cursor-pointer items-center text-[13px] font-semibold transition-colors duration-[160ms]"
+          className="flex cursor-pointer items-center text-[14.5px] font-semibold transition-colors duration-[160ms]"
           onClick={handlePickWithdraw}
           style={{
-            height: '34px',
-            padding: '0 18px',
+            height: '38px',
+            padding: '0 20px',
             borderRadius: '11px',
             background: `${bgWithdraw}`,
             color: `${fgWithdraw}`,
@@ -263,9 +263,9 @@ export default function MyPageCredit() {
         className="bg-surface-card absolute box-border flex items-center justify-between"
         style={{
           left: '442px',
-          top: '294px',
+          top: '300px',
           width: '896px',
-          height: '64px',
+          height: '90px',
           padding: '0 24px',
           borderRadius: '12px',
           backdropFilter: 'blur(18px) saturate(115%)',
@@ -274,17 +274,17 @@ export default function MyPageCredit() {
         }}
       >
         <div>
-          <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+          <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
             {bannerLabel}
           </div>
           <div
-            className="text-[20px] font-semibold tracking-[-.01em] text-white"
-            style={{ marginTop: '3px' }}
+            className="text-[26px] font-semibold tracking-[-.01em] text-white"
+            style={{ marginTop: '4px' }}
           >
             {bannerValue}
           </div>
         </div>
-        <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+        <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
           {bannerNote}
         </div>
       </div>
@@ -293,21 +293,21 @@ export default function MyPageCredit() {
         className="absolute flex"
         style={{
           left: '442px',
-          top: '392px',
+          top: '424px',
           alignItems: 'baseline',
           gap: '14px',
           animation: 'rise .7s .18s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">{pickerTitle}</div>
-        <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+        <div className="text-[18px] font-semibold tracking-[-.01em] text-white">{pickerTitle}</div>
+        <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
           {pickerNote}
         </div>
       </div>
 
       <div
         className="absolute flex"
-        style={{ left: '442px', top: '424px', width: '896px', gap: '16px' }}
+        style={{ left: '442px', top: '460px', width: '896px', gap: '16px' }}
       >
         {presets.map((p, i) => (
           <Fragment key={i}>
@@ -315,8 +315,8 @@ export default function MyPageCredit() {
               onClick={p.pick}
               style={{
                 width: '212px',
-                height: '88px',
-                padding: '16px 18px',
+                height: '130px',
+                padding: '30px 22px',
                 borderRadius: '12px',
                 background: `${p.bg}`,
                 boxShadow: `${p.ring}`,
@@ -326,14 +326,14 @@ export default function MyPageCredit() {
               className={`box-border flex-none ${p.disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-[rgba(255,255,255,.14)]'}`}
             >
               <div
-                className="text-[18px] font-semibold tracking-[-.01em]"
+                className="text-[24px] font-semibold tracking-[-.01em]"
                 style={{ color: `${p.fg}` }}
               >
                 {p.credit}
               </div>
               <div
-                className="text-[12.5px]"
-                style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}
+                className="text-[15.5px]"
+                style={{ marginTop: '12px', color: 'rgba(255,236,246,.62)' }}
               >
                 {p.price}
               </div>
@@ -343,8 +343,8 @@ export default function MyPageCredit() {
       </div>
 
       <div
-        className="absolute text-[13px] font-semibold tracking-[-.01em] text-white"
-        style={{ left: '442px', top: '540px' }}
+        className="absolute text-[15px] font-semibold tracking-[-.01em] text-white"
+        style={{ left: '442px', top: '624px' }}
       >
         직접 입력
       </div>
@@ -352,16 +352,16 @@ export default function MyPageCredit() {
         className="absolute box-border flex items-center justify-between"
         style={{
           left: '442px',
-          top: '564px',
+          top: '654px',
           width: '896px',
-          height: '52px',
-          padding: '0 20px',
+          height: '64px',
+          padding: '0 22px',
           borderRadius: '10px',
           background: 'rgba(255,255,255,.06)',
         }}
       >
         <input
-          className="flex-1 border-0 bg-transparent font-[inherit] text-[14px] tracking-[-.01em] text-white outline-0"
+          className="flex-1 border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
           id="creditInput"
           type="text"
           onChange={(e) => setTyped(e.target.value)}
@@ -369,7 +369,7 @@ export default function MyPageCredit() {
           style={{ height: '32px' }}
           value={typed}
         />
-        <div className="text-[14px] font-semibold" style={{ color: 'rgba(255,236,246,.6)' }}>
+        <div className="text-[16px] font-semibold" style={{ color: 'rgba(255,236,246,.6)' }}>
           ABC
         </div>
       </div>
@@ -378,10 +378,10 @@ export default function MyPageCredit() {
         className="bg-surface-card absolute box-border flex items-center justify-between"
         style={{
           left: '442px',
-          top: '660px',
+          top: '750px',
           width: '896px',
-          height: '120px',
-          padding: '20px 24px',
+          height: '245px',
+          padding: '28px 32px',
           borderRadius: '14px',
           backdropFilter: 'blur(18px) saturate(115%)',
           WebkitBackdropFilter: 'blur(18px) saturate(115%)',
@@ -391,11 +391,11 @@ export default function MyPageCredit() {
         {charging ? (
           <>
             <div style={{ width: '530px' }}>
-              <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
+              <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
                 {chargeCard.title}
               </div>
               <div
-                className="text-[12.5px]"
+                className="text-[15.5px]"
                 style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
               >
                 {chargeCard.note}
@@ -403,7 +403,7 @@ export default function MyPageCredit() {
               {/* 해시는 문의할 때 유일한 단서다. 끝날 때까지 지우지 않는다. */}
               {charge.transactionHash && (
                 <div
-                  className="truncate text-[11.5px]"
+                  className="truncate text-[15.5px]"
                   style={{ marginTop: '8px', color: 'rgba(255,236,246,.5)' }}
                 >
                   거래 해시 {charge.transactionHash}
@@ -414,14 +414,14 @@ export default function MyPageCredit() {
               <div
                 onClick={chargeCard.action.run}
                 style={{
-                  width: '262px',
-                  height: '52px',
+                  width: '300px',
+                  height: '60px',
                   borderRadius: '10px',
                   background: 'var(--color-accent)',
                   color: 'var(--color-accent-ink)',
                   transition: 'filter .16s',
                 }}
-                className="flex cursor-pointer items-center justify-center text-[16px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
+                className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
               >
                 {chargeCard.action.label}
               </div>
@@ -430,11 +430,11 @@ export default function MyPageCredit() {
         ) : withdrawal && withdrawalCard ? (
           <>
             <div style={{ width: '530px' }}>
-              <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
+              <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
                 {withdrawalCard.title} · {chargeAmountLabel(withdrawal.amount)}
               </div>
               <div
-                className="text-[12.5px]"
+                className="text-[15.5px]"
                 style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
               >
                 {withdrawal.rejectReason
@@ -442,7 +442,7 @@ export default function MyPageCredit() {
                   : withdrawalCard.note}
               </div>
               <div
-                className="truncate text-[11.5px]"
+                className="truncate text-[15.5px]"
                 style={{ marginTop: '8px', color: 'rgba(255,196,214,.9)' }}
               >
                 {payoutFlow.error ?? (
@@ -459,22 +459,22 @@ export default function MyPageCredit() {
               <div
                 onClick={handleDismissWithdrawal}
                 style={{
-                  width: '262px',
-                  height: withdrawal.status === 'REQUESTED' ? '40px' : '52px',
+                  width: '300px',
+                  height: withdrawal.status === 'REQUESTED' ? '50px' : '60px',
                   borderRadius: '10px',
                   background: 'var(--color-accent)',
                   color: 'var(--color-accent-ink)',
                   transition: 'filter .16s',
                 }}
-                className="flex cursor-pointer items-center justify-center text-[15px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
+                className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
               >
                 확인
               </div>
               {withdrawal.status === 'REQUESTED' && (
                 <div
                   onClick={payoutFlow.busy ? undefined : payoutFlow.cancel}
-                  className="flex cursor-pointer items-center justify-center text-[12.5px] font-semibold hover:text-white"
-                  style={{ height: '20px', color: 'rgba(255,236,246,.72)' }}
+                  className="flex cursor-pointer items-center justify-center text-[15.5px] font-semibold hover:text-white"
+                  style={{ height: '24px', color: 'rgba(255,236,246,.72)' }}
                 >
                   {payoutFlow.busy ? '취소하는 중' : '신청 취소'}
                 </div>
@@ -484,28 +484,28 @@ export default function MyPageCredit() {
         ) : (
           <>
             <div style={{ width: '530px' }}>
-              <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
+              <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
                 {summaryTitle}
               </div>
               <div
                 className="flex justify-between"
-                style={{ marginTop: '14px', alignItems: 'baseline' }}
+                style={{ marginTop: '18px', alignItems: 'baseline' }}
               >
-                <span className="text-[12px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                   {sumLabel}
                 </span>
-                <span className="text-[13px] font-semibold text-white">{sumCredit}</span>
+                <span className="text-[15.5px] font-semibold text-white">{sumCredit}</span>
               </div>
               <div
                 className="flex justify-between"
-                style={{ marginTop: '8px', alignItems: 'baseline' }}
+                style={{ marginTop: '12px', alignItems: 'baseline' }}
               >
-                <span className="text-[12px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                   {withdraw ? '받을 지갑' : '예상 가스비'}
                 </span>
                 {/* 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다. */}
                 <span
-                  className="text-[13px] font-semibold"
+                  className="text-[15.5px] font-semibold"
                   style={{ color: 'rgba(255,255,255,.86)' }}
                 >
                   {withdraw ? (wallet ? shortAddress(wallet) : '—') : '0 SSF'}
@@ -514,7 +514,7 @@ export default function MyPageCredit() {
               {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
               {!withdraw && charge.error && (
                 <div
-                  className="text-[12px]"
+                  className="text-[15px]"
                   style={{ marginTop: '10px', color: 'rgba(255,196,214,.9)' }}
                 >
                   {charge.error}
@@ -522,7 +522,7 @@ export default function MyPageCredit() {
               )}
               {withdraw && (payoutFlow.error || payoutFlow.notice || (typed.trim() && blocked)) && (
                 <div
-                  className="text-[12px]"
+                  className="text-[15px]"
                   style={{
                     marginTop: '10px',
                     color:
@@ -537,15 +537,15 @@ export default function MyPageCredit() {
               <div
                 onClick={handleCta}
                 style={{
-                  width: '262px',
-                  height: withdraw ? '40px' : '52px',
+                  width: '300px',
+                  height: withdraw ? '50px' : '60px',
                   borderRadius: '10px',
                   background: 'var(--color-accent)',
                   color: 'var(--color-accent-ink)',
                   opacity: blocked ? 0.5 : 1,
                   transition: 'filter .16s',
                 }}
-                className={`flex items-center justify-center text-[16px] font-semibold tracking-[-.01em] ${blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-[1.06]'}`}
+                className={`flex items-center justify-center text-[17px] font-semibold tracking-[-.01em] ${blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-[1.06]'}`}
               >
                 {withdraw && payoutFlow.busy ? '처리 중' : ctaLabel}
               </div>
@@ -554,9 +554,9 @@ export default function MyPageCredit() {
                 <div
                   onClick={handleConvert}
                   title="정산금을 실행에 쓸 수 있는 ABC 로 옮깁니다. 되돌릴 수 없습니다."
-                  className={`flex items-center justify-center text-[12.5px] font-semibold ${canConvert ? 'cursor-pointer hover:text-white' : 'cursor-not-allowed'}`}
+                  className={`flex items-center justify-center text-[15.5px] font-semibold ${canConvert ? 'cursor-pointer hover:text-white' : 'cursor-not-allowed'}`}
                   style={{
-                    height: '20px',
+                    height: '24px',
                     color: canConvert ? 'rgba(255,236,246,.72)' : 'rgba(255,236,246,.35)',
                   }}
                 >
