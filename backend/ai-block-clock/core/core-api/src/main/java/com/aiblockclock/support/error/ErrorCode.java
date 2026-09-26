@@ -16,6 +16,10 @@ public enum ErrorCode {
     USER_002,
     USER_003,
     USER_006,
+    USER_007,
+    USER_008,
+    USER_009,
+    USER_010,
 
     WORKFLOW_002,
     WORKFLOW_003,
@@ -63,6 +67,9 @@ public enum ErrorCode {
 
     MARKET_001,
 
+    BLOCKCHAIN_003,
+    BLOCKCHAIN_004,
+
     PAYMENT_001,
     PAYMENT_002,
     PAYMENT_003,
@@ -78,5 +85,9 @@ public enum ErrorCode {
     PAYMENT_013,
     PAYMENT_014,
     PAYMENT_015,
-    PAYMENT_016
+    PAYMENT_016,
+    PAYMENT_017,
+    PAYMENT_018,
+    PAYMENT_019,
+    PAYMENT_020
 }

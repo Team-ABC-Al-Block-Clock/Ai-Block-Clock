@@ -1,7 +1,10 @@
 package com.aiblockclock.api.v1;
 
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.identity.IdentityVerificationStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
+import com.aiblockclock.storage.identity.IdentityVerificationEntity;
+import com.aiblockclock.storage.identity.IdentityVerificationRepository;
 import com.aiblockclock.storage.payment.LedgerAccountEntity;
 import com.aiblockclock.storage.payment.LedgerAccountRepository;
 import com.aiblockclock.storage.user.UserEntity;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,6 +50,9 @@ class WithdrawalControllerTest {
 
     @Autowired
     private LedgerAccountRepository ledgerAccountRepository;
+
+    @Autowired
+    private IdentityVerificationRepository identityVerificationRepository;
 
     @Test
     void 신청하면_심사_대기로_받고_묶은_만큼_정산금에서_빠진다() throws Exception {
@@ -150,6 +157,17 @@ class WithdrawalControllerTest {
     }
 
     @Test
+    void 본인_확인을_승인받지_않았으면_403으로_막는다() throws Exception {
+        long sellerId = unverifiedSellerWithPayout(WALLET, "30");
+
+        mockMvc.perform(post("/api/v1/withdrawals").with(as(sellerId)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(UUID.randomUUID(), "10")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("PAYMENT_017"));
+    }
+
+    @Test
     void 로그인하지_않으면_신청할_수_없다() throws Exception {
         mockMvc.perform(post("/api/v1/withdrawals").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -167,7 +185,15 @@ class WithdrawalControllerTest {
         return response.replaceAll(".*\"withdrawalId\":\"(\\d+)\".*", "$1");
     }
 
+    // 출금은 본인 확인을 승인받아야 신청할 수 있어 승인받은 판매자로 만든다
     private long sellerWithPayout(String walletAddress, String payout) {
+        long sellerId = unverifiedSellerWithPayout(walletAddress, payout);
+        identityVerificationRepository.saveAndFlush(IdentityVerificationEntity.of(
+                sellerId, "판매자", LocalDate.of(1990, 1, 1), IdentityVerificationStatus.APPROVED, Instant.now()));
+        return sellerId;
+    }
+
+    private long unverifiedSellerWithPayout(String walletAddress, String payout) {
         long sellerId = userRepository.saveAndFlush(UserEntity.of(walletAddress)).getId();
         LedgerAccountEntity account = ledgerAccountRepository.save(
                 LedgerAccountEntity.of(LedgerAccountType.PAYOUT_BALANCE, Long.toString(sellerId)));

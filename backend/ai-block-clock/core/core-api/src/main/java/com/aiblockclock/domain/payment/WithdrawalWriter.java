@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 @Component
@@ -50,6 +51,62 @@ public class WithdrawalWriter {
             throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
         }
 
+        return withdrawalRepository.findById(withdrawal.getId())
+                .map(WithdrawalEntityConverter::toDomain)
+                .orElseThrow(() -> new CoreException(ErrorType.WITHDRAWAL_NOT_FOUND));
+    }
+
+    // 도메인에서 내린 심사 결과를 적는다. 심사 대기가 아니게 됐으면(사용자 취소 · 다른 관리자의 심사) 덮지 않고 실패한다.
+    @Transactional
+    public Withdrawal modifyReview(Withdrawal withdrawal) {
+        int updatedRowCount = withdrawalRepository.updateReviewIfCurrent(
+                withdrawal.getId(),
+                WithdrawalStatus.REQUESTED,
+                withdrawal.getStatus(),
+                withdrawal.getReviewer().value(),
+                Instant.now().truncatedTo(ChronoUnit.MICROS),
+                withdrawal.getRejectReason());
+
+        if (updatedRowCount != 1) {
+            throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
+        }
+
+        return withdrawalRepository.findById(withdrawal.getId())
+                .map(WithdrawalEntityConverter::toDomain)
+                .orElseThrow(() -> new CoreException(ErrorType.WITHDRAWAL_NOT_FOUND));
+    }
+
+    // 도메인에서 시작한 지급(서명한 거래)을 적는다. 다른 차례가 먼저 지급을 시작했으면 덮지 않고 실패한다.
+    @Transactional
+    public Withdrawal startPayout(Withdrawal withdrawal) {
+        PayoutTransaction transaction = withdrawal.getPayoutTransaction();
+        int updatedRowCount = withdrawalRepository.updatePayoutStartIfApproved(
+                withdrawal.getId(),
+                transaction.transactionHash(),
+                transaction.rawTransaction(),
+                Instant.now().truncatedTo(ChronoUnit.MICROS));
+
+        if (updatedRowCount != 1) {
+            throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
+        }
+
+        return reread(withdrawal);
+    }
+
+    // 도메인에서 끝낸 지급을 적는다. 읽었을 때의 상태가 아니게 됐으면(다른 차례가 먼저 끝냄 · 보류로 넘김) 덮지 않고 실패한다.
+    @Transactional
+    public Withdrawal completePayout(Withdrawal withdrawal, WithdrawalStatus expectedStatus) {
+        int updatedRowCount = withdrawalRepository.updatePaidIfCurrent(
+                withdrawal.getId(), expectedStatus, Instant.now().truncatedTo(ChronoUnit.MICROS));
+
+        if (updatedRowCount != 1) {
+            throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
+        }
+
+        return reread(withdrawal);
+    }
+
+    private Withdrawal reread(Withdrawal withdrawal) {
         return withdrawalRepository.findById(withdrawal.getId())
                 .map(WithdrawalEntityConverter::toDomain)
                 .orElseThrow(() -> new CoreException(ErrorType.WITHDRAWAL_NOT_FOUND));

@@ -40,6 +40,17 @@ Spring Security의 `Authentication`을 HttpSession에 저장하고, Spring Sessi
 세션 생성·조회·저장·삭제와 미사용 만료 판정은 직접 구현하지 않고 Spring Session JDBC에 맡긴다.
 만료된 세션은 조회되지 않으므로 인증 실패로 처리된다.
 
+## 관리자 권한
+
+로그인한 지갑이 `admin.wallet-addresses`(환경변수 `ADMIN_WALLET_ADDRESSES`, 쉼표 구분)에 있으면
+`SessionAuthenticationManager`가 `Authentication`에 `ROLE_ADMIN` 권한을 붙여 세션에 저장한다.
+`SecurityConfig`는 `/api/v1/admin/**`에 `hasRole("ADMIN")`을 걸어 관리자가 아닌 로그인 사용자를 `403`으로 막는다.
+권한 판정은 Spring Security 기본 기능에 맡기고, 우리 코드는 로그인 때 권한을 붙이는 일만 한다.
+
+- 권한은 세션에 함께 저장되므로 목록을 바꾸면 그 지갑이 다시 로그인해야 반영된다.
+- 관리자 화면이 없어 관리자는 배포 서버의 Swagger(`/api/swagger-ui.html`)로 심사한다.
+  절차는 [abc-withdrawal.md](abc-withdrawal.md) 7.4 를 따른다.
+
 ## 쿠키 정책
 
 | 속성 | 값 | 이유 |
@@ -74,6 +85,7 @@ FE는 앱 시작 시, 로그인 성공 후, 로그아웃 후 `GET /api/v1/auth/c
 |---|---|---|
 | `AUTH_SESSION_TIMEOUT` | `2h` | 세션 미사용 만료 시간 (`spring.session.timeout`) |
 | `AUTH_COOKIE_SECURE` | 운영 `true`, 로컬 `false` | Secure 쿠키 사용 여부 |
+| `ADMIN_WALLET_ADDRESSES` | 비어 있음 | 로그인하면 `ROLE_ADMIN`을 받는 지갑(쉼표 구분). 형식이 틀리면 기동하지 않는다 |
 
 ## DB 마이그레이션
 

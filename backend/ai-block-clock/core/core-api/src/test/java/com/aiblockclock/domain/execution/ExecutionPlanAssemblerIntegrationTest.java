@@ -4,6 +4,7 @@ import com.aiblockclock.storage.workflow.WorkflowRepository;
 import com.aiblockclock.domain.workflow.GraphId;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionService;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphEdge;
@@ -24,6 +25,7 @@ import com.aiblockclock.enums.workflow.SourceType;
 import com.aiblockclock.domain.workflow.BranchCondition;
 import com.aiblockclock.domain.workflow.ConditionOperator;
 import com.aiblockclock.domain.workflow.NodePlacement;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -78,9 +80,9 @@ class ExecutionPlanAssemblerIntegrationTest {
     @DisplayName("연결 순서대로 프롬프트를 펴고 배치의 입력 출처를 함께 담는다")
     void flattensInOrder() {
         NodeDefinition analyze = nodeService.create(OWNER, "성적 분석",
-                Prompt.of("당신은 학원 성적 데이터 분석가입니다."), AiModel.defaultModel());
+                Prompt.of("당신은 학원 성적 데이터 분석가입니다."), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
         NodeDefinition letter = nodeService.create(OWNER, "가정통신문 작성",
-                Prompt.of("당신은 교육 심리 전문가입니다."), AiModel.defaultModel());
+                Prompt.of("당신은 교육 심리 전문가입니다."), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         Workflow workflow = workflowService.save(OWNER, "성적 리포트", null,
                 List.of(
@@ -104,7 +106,8 @@ class ExecutionPlanAssemblerIntegrationTest {
     @DisplayName("시작 · 끝 노드는 돌릴 프롬프트가 없어 건너뛴다")
     void skipsStartAndEndNodes() {
         NodeDefinition analyze = nodeService.create(OWNER, "성적 분석",
-                Prompt.of("당신은 학원 성적 데이터 분석가입니다."), AiModel.defaultModel());
+                Prompt.of("당신은 학원 성적 데이터 분석가입니다."), AiModel.defaultModel(),
+                new NodeOutput(OutputKind.TEXT, null));
 
         Workflow workflow = workflowService.save(OWNER, "성적 리포트", null,
                 List.of(
@@ -120,10 +123,10 @@ class ExecutionPlanAssemblerIntegrationTest {
     }
 
     @Test
-    @DisplayName("분기가 있으면 아직 펴지 않는다")
-    void refusesBranch() {
+    @DisplayName("분기 노드는 돌릴 프롬프트가 없어 단계로 펴지 않는다")
+    void leavesBranchOutOfPrompts() {
         NodeDefinition step = nodeService.create(OWNER, "시장 조사",
-                Prompt.of("당신은 시장 조사 분석가입니다."), AiModel.defaultModel());
+                Prompt.of("당신은 시장 조사 분석가입니다."), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
                 new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
@@ -139,10 +142,9 @@ class ExecutionPlanAssemblerIntegrationTest {
                         GraphFixtures.branchEdge("e3", "br1", "n3", false)));
         workflowId = workflow.getId();
 
-        assertThatThrownBy(() -> executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER)))
-                .isInstanceOf(CoreException.class)
-                .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+        assertThat(executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER)).prompts())
+                .extracting(prompt -> prompt.placedKey().value())
+                .containsExactly("n1", "n2", "n3");
     }
 
     private GraphId graphIdOf(WorkflowId id) {

@@ -1,10 +1,16 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.support.error.ErrorType;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.enums.workflow.ControlType;
+import com.aiblockclock.domain.workflow.ConditionOperator;
+import com.aiblockclock.domain.workflow.BranchCondition;
 import com.aiblockclock.domain.agent.AgentProfile;
 import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionService;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
@@ -14,6 +20,7 @@ import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowService;
 import com.aiblockclock.enums.node.AiModel;
+import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
 
@@ -28,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 @Tag("integration")
@@ -54,7 +62,7 @@ class AgentExpansionIntegrationTest {
 
     @BeforeEach
     void 프롬프트_둘짜리_에이전트를_굳혀_둔다() {
-        soldNode = nodeService.create(OWNER, "성적 분석", Prompt.of("점수를 비교한다"), AiModel.defaultModel());
+        soldNode = nodeService.create(OWNER, "성적 분석", Prompt.of("점수를 비교한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         Workflow source = workflowService.save(OWNER, "굳힐 워크플로우", null,
                 List.of(GraphFixtures.placement("n1", soldNode.getId().value()),
@@ -62,6 +70,32 @@ class AgentExpansionIntegrationTest {
                 List.of(GraphFixtures.edge("e1", "n1", "n2")));
 
         agent = agentService.register(OWNER, source, Revision.initial(), profile());
+    }
+
+    @Test
+    @DisplayName("안에 분기가 있는 에이전트는 아직 펴지 않는다")
+    void refusesAgentWithBranchInside() {
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+                InputSource.defaultSource(), null, ControlType.BRANCH,
+                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
+        Workflow source = workflowService.save(OWNER, "분기를 품은 워크플로우", null,
+                List.of(GraphFixtures.placement("n1", soldNode.getId().value()), branch,
+                        node("n2", "고급 전략", "고급 전략을 쓴다"), node("n3", "보급 전략", "보급 전략을 쓴다")),
+                List.of(GraphFixtures.edge("e1", "n1", "br1"),
+                        GraphFixtures.branchEdge("e2", "br1", "n2", true),
+                        GraphFixtures.branchEdge("e3", "br1", "n3", false)));
+        AgentRegistration branched = agentService.register(OWNER, source, Revision.initial(), profile());
+
+        Workflow placed = workflowService.save(OWNER, "분기 에이전트를 놓은 워크플로우", null,
+                List.of(new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, null,
+                        branched.agent().getId().value(), InputSource.defaultSource(),
+                        null, null, null, null, null, null, null)),
+                List.of());
+
+        assertThatThrownBy(() -> executionPlanAssembler.assemble(placed))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
     }
 
     @Test
@@ -109,7 +143,7 @@ class AgentExpansionIntegrationTest {
                 List.of(agentPlacement("a1")), List.of());
 
         nodeService.update(soldNode.getId(), OWNER, "완전히 다른 이름",
-                Prompt.of("완전히 다른 일을 한다"), AiModel.defaultModel());
+                Prompt.of("완전히 다른 일을 한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         assertThat(executionPlanAssembler.assemble(placed).prompts())
                 .extracting(PlannedPrompt::name, prompt -> prompt.prompt().value())
@@ -125,7 +159,7 @@ class AgentExpansionIntegrationTest {
                 List.of(GraphFixtures.placement("n1", soldNode.getId().value())), List.of());
 
         nodeService.update(soldNode.getId(), OWNER, "고친 이름",
-                Prompt.of("고친 일을 한다"), AiModel.defaultModel());
+                Prompt.of("고친 일을 한다"), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         assertThat(executionPlanAssembler.assemble(placed).prompts())
                 .extracting(PlannedPrompt::name, prompt -> prompt.prompt().value())
@@ -156,7 +190,7 @@ class AgentExpansionIntegrationTest {
     }
 
     private NodePlacement node(String key, String name, String prompt) {
-        NodeDefinition created = nodeService.create(OWNER, name, Prompt.of(prompt), AiModel.defaultModel());
+        NodeDefinition created = nodeService.create(OWNER, name, Prompt.of(prompt), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
 
         return GraphFixtures.placement(key, created.getId().value());
     }

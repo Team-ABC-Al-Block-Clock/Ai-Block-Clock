@@ -92,7 +92,7 @@ public class AgentReader {
     public MarketplaceAgent readMarketplace(AgentId id) {
         return agentVersionRepository.findPublicByAgentId(id.value())
                 .map(AgentReader::toMarketplaceAgent)
-                .orElseThrow(() -> new CoreException(ErrorType.MARKET_AGENT_NOT_FOUND));
+                .orElseThrow(() -> new CoreException(ErrorType.MARKETPLACE_AGENT_NOT_FOUND));
     }
 
     private static List<PublicAgent> toPublicAgents(List<AgentVersionEntity> versions) {

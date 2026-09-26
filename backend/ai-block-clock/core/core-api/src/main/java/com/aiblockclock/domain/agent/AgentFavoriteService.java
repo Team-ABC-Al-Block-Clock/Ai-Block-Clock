@@ -69,7 +69,7 @@ public class AgentFavoriteService {
 
     private void checkOnMarket(AgentId agent) {
         if (agentReader.findPublicVersion(agent).isEmpty()) {
-            throw new CoreException(ErrorType.MARKET_AGENT_NOT_FOUND);
+            throw new CoreException(ErrorType.MARKETPLACE_AGENT_NOT_FOUND);
         }
     }
 

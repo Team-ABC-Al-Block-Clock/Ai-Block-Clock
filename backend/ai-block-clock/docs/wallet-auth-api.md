@@ -108,5 +108,7 @@ await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
 | `AUTH_011` | 인증 메시지를 사용할 수 없음 |
 | `AUTH_012` | 먼저 발급받은 인증 메시지가 없음 |
 
-Swagger는 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 확인한다. Swagger의 보호 API에는
-`SESSION` 쿠키 인증 방식이 표시된다.
+Swagger는 `/api/swagger-ui.html`, OpenAPI JSON은 `/api/v3/api-docs`에서 확인한다. Nginx가 `/api/` 아래만
+백엔드로 넘기므로 배포 서버에서도 같은 주소다. Swagger의 보호 API에는 `SESSION` 쿠키와 `X-CSRF-TOKEN`
+헤더 인증 방식이 표시된다. 바꾸는 요청을 Swagger로 보낼 때는 `GET /api/v1/auth/csrf`의 `token`을
+Authorize의 `X-CSRF-TOKEN`에 넣는다.
