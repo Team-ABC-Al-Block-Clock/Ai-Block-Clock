@@ -76,6 +76,8 @@ export type PlacedSeed = Pick<
   | 'controlType'
   | 'ioType'
   | 'condition'
+  | 'resultShape'
+  | 'resultFormat'
 >
 
 /**

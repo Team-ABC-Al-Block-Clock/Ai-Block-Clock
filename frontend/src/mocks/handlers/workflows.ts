@@ -126,6 +126,23 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
     return fail(400, 'WORKFLOW_013', '시작 노드는 하나만 놓을 수 있습니다.')
   if (graph.nodes.filter((node) => node.ioType === 'END').length > 1)
     return fail(400, 'WORKFLOW_013', '종료 노드는 하나만 놓을 수 있습니다.')
+  // `NodePlacementRequest.matchesIoType` — 끝 노드는 둘 다 있어야 하고 시작은 둘 다 없어야 한다.
+  if (
+    graph.nodes.some(
+      (node) => node.ioType === 'END' && (node.resultShape == null || node.resultFormat == null),
+    )
+  )
+    return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', {
+      resultShape: '끝 노드는 결과 구조와 형식을 보내야 합니다.',
+    })
+  if (
+    graph.nodes.some(
+      (node) => node.ioType === 'START' && (node.resultShape != null || node.resultFormat != null),
+    )
+  )
+    return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', {
+      resultShape: '시작 노드에는 결과 구조와 형식을 보낼 수 없습니다.',
+    })
 
   for (const node of graph.nodes) {
     const next = out.get(node.nodeKey) ?? []
@@ -195,6 +212,8 @@ const toDetail = (
     controlType: node.controlType ?? null,
     condition: node.condition ?? null,
     ioType: node.ioType ?? null,
+    resultShape: node.resultShape ?? null,
+    resultFormat: node.resultFormat ?? null,
     inputSource: 'PREV' as const,
   })),
   edges: graph.edges ?? [],

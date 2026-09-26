@@ -1,4 +1,22 @@
-import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
+import type {
+  EdgePlacement,
+  NodePlacement,
+  ResultFormat,
+  ResultShape,
+  WorkflowDetail,
+  WorkflowGraph,
+} from '@/api/workflows'
+
+/**
+ * 끝 노드가 낼 결과. 고르는 화면이 없어 여기서 정한다.
+ *
+ * 실행 결과 화면이 내려받을 수 있는 것이 PDF 라(`ExecutionResultHarvester` 가 JSON 과 PDF 를
+ * 거둔다) 문서·PDF 로 둔다. 화면이 생기면 노드가 제 값을 들고 다닌다.
+ */
+const DEFAULT_RESULT: { shape: ResultShape; format: ResultFormat } = {
+  shape: 'DOCUMENT',
+  format: 'PDF',
+}
 import type { AiModel } from '@/api/nodes'
 import { controlKindName } from '@/lib/format'
 import {
@@ -53,7 +71,18 @@ export function toWorkflowGraph(
 
     if (node.sourceType === 'IO') {
       if (!node.ioType) return null
-      placements.push({ ...placed, ioType: node.ioType })
+      // 끝 노드는 결과 구조와 형식이 둘 다 있어야 서버가 받는다
+      // (`NodePlacementRequest.matchesIoType`). 고르는 화면이 아직 없어 기본값을 싣는다.
+      placements.push({
+        ...placed,
+        ioType: node.ioType,
+        ...(node.ioType === 'END'
+          ? {
+              resultShape: node.resultShape ?? DEFAULT_RESULT.shape,
+              resultFormat: node.resultFormat ?? DEFAULT_RESULT.format,
+            }
+          : {}),
+      })
       continue
     }
 
@@ -179,6 +208,8 @@ export function toCanvasWorkflow(
       controlType: control,
       ioType: io,
       condition: toCanvasCondition(node.condition, idOf),
+      resultShape: node.resultShape,
+      resultFormat: node.resultFormat,
       sourceId: node.sourceId ?? '',
       // 모르는 노드의 단가는 지어내지 않는다. 카드가 0 원짜리로 보이면 견적과 어긋난다.
       price: label?.price ?? null,

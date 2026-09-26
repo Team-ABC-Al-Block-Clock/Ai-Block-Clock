@@ -57,6 +57,9 @@ export interface NodePlacement {
   condition?: BranchCondition
   /** `sourceType` 이 IO 일 때만 */
   ioType?: IoType
+  /** 끝 노드만. 서버가 둘 다 있어야 받는다(`NodePlacementRequest.matchesIoType`) */
+  resultShape?: ResultShape
+  resultFormat?: ResultFormat
 }
 
 export interface EdgePlacement {
@@ -112,6 +115,9 @@ export interface PlacedNode {
   condition: BranchCondition | null
   /** 입출력 노드가 아니면 null */
   ioType: IoType | null
+  /** 끝 노드가 아니면 null */
+  resultShape: ResultShape | null
+  resultFormat: ResultFormat | null
 }
 
 export interface WorkflowDetail extends SavedWorkflow {
@@ -167,6 +173,15 @@ export type ControlType = 'BRANCH'
 
 /** 입출력 노드 종류 */
 export type IoType = 'START' | 'END'
+
+/**
+ * 끝 노드가 내는 결과의 구조와 형식.
+ *
+ * 내려받을 때 고르는 `api/executions.ts` 의 `ResultFormat`(JSON·PDF)과는 다른 값이다 —
+ * 이쪽은 워크플로우가 무엇을 만들지를 정한다.
+ */
+export type ResultShape = 'TEXT' | 'DOCUMENT' | 'TABLE'
+export type ResultFormat = 'PDF' | 'MD' | 'XLSX' | 'CSV'
 
 /** 제어·입출력 노드의 종류. 한 노드는 이 중 하나를 갖는다 */
 export type ControlKind = ControlType | IoType

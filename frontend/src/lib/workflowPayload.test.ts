@@ -36,6 +36,8 @@ const placed = (
   controlType: null,
   condition: null,
   ioType: null,
+  resultShape: null,
+  resultFormat: null,
   ...over,
 })
 
@@ -82,7 +84,14 @@ describe('toWorkflowGraph — 분기·입출력', () => {
       sourceType: 'IO',
       ioType: 'START',
     })
-    expect(byKey.get(keyOf('e'))).toEqual({ nodeKey: keyOf('e'), sourceType: 'IO', ioType: 'END' })
+    // 끝 노드는 결과 구조·형식이 둘 다 있어야 서버가 받는다.
+    expect(byKey.get(keyOf('e'))).toEqual({
+      nodeKey: keyOf('e'),
+      sourceType: 'IO',
+      ioType: 'END',
+      resultShape: 'DOCUMENT',
+      resultFormat: 'PDF',
+    })
     expect(byKey.get(keyOf('br'))).toMatchObject({ sourceType: 'CONTROL', controlType: 'BRANCH' })
   })
 
@@ -117,6 +126,26 @@ describe('toWorkflowGraph — 분기·입출력', () => {
     const order = graph!.nodes.map((placed) => graph!.nodeIdByKey[placed.nodeKey])
 
     expect(order).toEqual(['s', 'a', 'br', 't', 'e', 'f'])
+  })
+
+  // 노드가 제 값을 들고 있으면 그것을 보낸다. 기본값이 덮어쓰면 다시 저장할 때 값이 바뀐다.
+  it('끝 노드가 든 결과 형식을 그대로 싣는다', () => {
+    const { nodes, edges } = scene()
+    const kept = nodes.map((it) =>
+      it.id === 'e' ? { ...it, resultShape: 'TABLE' as const, resultFormat: 'CSV' as const } : it,
+    )
+    const graph = toWorkflowGraph(kept, edges)
+    const end = graph!.nodes.find((it) => it.ioType === 'END')
+
+    expect(end).toMatchObject({ resultShape: 'TABLE', resultFormat: 'CSV' })
+  })
+
+  it('시작 노드에는 결과 형식을 싣지 않는다', () => {
+    const { nodes, edges } = scene()
+    const start = toWorkflowGraph(nodes, edges)!.nodes.find((it) => it.ioType === 'START')
+
+    expect(start).not.toHaveProperty('resultShape')
+    expect(start).not.toHaveProperty('resultFormat')
   })
 
   it('조건이 없는 분기는 저장할 수 없다', () => {
@@ -298,6 +327,8 @@ describe('toCanvasWorkflow', () => {
       controlType: null,
       condition: null,
       ioType: null,
+      resultShape: null,
+      resultFormat: null,
     })),
     edges: Array.from({ length: Math.max(0, nodeCount - 1) }, (_, i) => ({
       edgeKey: `e${i + 1}`,

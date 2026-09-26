@@ -6,6 +6,8 @@ import type {
   IoType,
   ItemNodeType,
   PlacedSourceType,
+  ResultFormat,
+  ResultShape,
 } from '@/api/workflows'
 
 import { roundedPath, routeEdge } from './edgeRoute'
@@ -63,6 +65,9 @@ export interface CanvasNodeData {
   ioType?: IoType | null
   /** 분기 노드만. 조건을 채우지 않으면 저장이 물린다 */
   condition?: CanvasCondition | null
+  /** 끝 노드만. 고르는 화면은 아직 없고 기본값을 싣고 다닌다 */
+  resultShape?: ResultShape | null
+  resultFormat?: ResultFormat | null
   /**
    * 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다.
    *

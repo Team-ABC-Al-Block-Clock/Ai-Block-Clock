@@ -409,6 +409,22 @@ describe('getWorkflow', () => {
 })
 
 describe('mock 이 실서버와 같은 선에서 거절한다', () => {
+  // 서버 `NodePlacementRequest.matchesIoType` 과 같은 선. 여기서 뭉개면 화면이 mock 에서만 통과한다.
+  it('끝 노드는 결과 구조·형식이 없으면 거절한다', async () => {
+    const graph = {
+      nodes: [
+        { nodeKey: 'n1', sourceType: 'NODE' as const, sourceId: 'node_001' },
+        { nodeKey: 'n2', sourceType: 'IO' as const, ioType: 'END' as const },
+      ],
+      edges: [{ edgeKey: 'e1', sourceNodeKey: 'n1', targetNodeKey: 'n2' }],
+    }
+
+    await expect(saveWorkflow({ ...graph, name: '끝' })).rejects.toMatchObject({
+      code: 'COMMON_001',
+      status: 400,
+    })
+  })
+
   it('머리에서 닿지 못하는 고리는 개수만으로는 걸러지지 않는다', async () => {
     const cyclic = {
       nodes: line('node_001', 'node_002', 'node_003').nodes,
