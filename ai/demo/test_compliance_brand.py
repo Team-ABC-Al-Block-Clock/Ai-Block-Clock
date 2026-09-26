@@ -174,7 +174,8 @@ class ComplianceTests(unittest.TestCase):
         llm = Mock()
         llm.generate.side_effect = [response(json.dumps(self.market)), response("invalid"), TimeoutError("private request")]
         fake_catalog = SimpleNamespace(response_schema=Mock(return_value={"type": "object"}))
-        fake_llm = SimpleNamespace(LLM=Mock(return_value=llm), DEFAULT_BASE_URL="https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com")
+        fake_llm = SimpleNamespace(LLM=Mock(return_value=llm), DEFAULT_MODEL="gemini-2.5-pro",   # 09-26 실제 모듈과 맞춤
+                                   DEFAULT_BASE_URL="https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com")
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             inp = base / "input.json"
