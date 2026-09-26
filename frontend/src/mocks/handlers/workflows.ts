@@ -113,14 +113,8 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   const edges = graph.edges ?? []
   if (edges.some((edge) => !keys.has(edge.sourceNodeKey) || !keys.has(edge.targetNodeKey)))
     return fail(400, 'WORKFLOW_013', '연결선이 존재하지 않는 노드를 가리킵니다.')
-  // 트리다 — 들어오는 선은 자리마다 하나뿐이라 합류가 없다.
-  const ins = new Set<string>()
-  // `Set.add` 는 Set 을 돌려준다. 이미 있는지는 `has` 로 먼저 봐야 한다.
-  for (const edge of edges) {
-    if (ins.has(edge.targetNodeKey))
-      return fail(400, 'WORKFLOW_013', '한 노드에 두 선이 들어올 수 없습니다.')
-    ins.add(edge.targetNodeKey)
-  }
+  // 들어오는 선은 여럿이어도 된다(합류).
+  const ins = new Set(edges.map((edge) => edge.targetNodeKey))
 
   const out = new Map<string, EdgePlacement[]>()
   for (const edge of edges)

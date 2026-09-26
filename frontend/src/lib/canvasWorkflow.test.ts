@@ -28,6 +28,7 @@ import {
   portPoint,
   removeNode,
   treeOrder,
+  upstreamOf,
   type CanvasEdge,
   type CanvasNodeData,
 } from './canvasWorkflow'
@@ -289,6 +290,50 @@ describe('treeOrder — 선 차례', () => {
     expect(order?.nodes.map((n) => n.id)).toEqual(['a', 'br', 't', 'z', 'f'])
     expect(order?.edges.map((e) => e.id)).toEqual(['a__br', 'br__t', 'br__f', 't__z'])
   })
+
+  // 서버 `walk` 는 들어오는 선을 다 채운 뒤에야 합류를 센다.
+  it('합류는 두 갈래를 다 지난 뒤에 센다', () => {
+    const nodes = [
+      nodeAt('a', 0, 0),
+      branch('br'),
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      nodeAt('j', 0, 0),
+    ]
+    const edges = [
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'j'),
+      link('f', 'j'),
+    ]
+    const order = treeOrder(nodes, edges)
+
+    expect(order?.nodes.map((n) => n.id)).toEqual(['a', 'br', 't', 'f', 'j'])
+    expect(order?.edges.map((e) => e.id)).toEqual(['a__br', 'br__t', 'br__f', 't__j', 'f__j'])
+  })
+})
+
+describe('upstreamOf', () => {
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const nodes = ['a', 'br', 't', 'f', 'j', 'z'].map((id) => nodeAt(id, 0, 0))
+  const edges = [
+    link('a', 'br'),
+    { ...link('br', 't'), when: true },
+    { ...link('br', 'f'), when: false },
+    link('t', 'j'),
+    link('f', 'j'),
+    link('j', 'z'),
+  ]
+
+  it('한 줄이면 앞의 것 전부, 가까운 것부터', () => {
+    expect(upstreamOf(nodes, edges, 't').map((n) => n.id)).toEqual(['br', 'a'])
+  })
+
+  // 한쪽 갈래에만 있는 노드는 다른 갈래로 오면 값이 없다.
+  it('합류 뒤에서는 어느 길로 와도 거치는 것만', () => {
+    expect(upstreamOf(nodes, edges, 'z').map((n) => n.id)).toEqual(['j', 'br', 'a'])
+  })
 })
 
 describe('graphProblem', () => {
@@ -369,7 +414,7 @@ describe('graphProblem', () => {
       expect(treeOrder(nodes, edges)).toBeNull()
     }
 
-    it('합류', () => {
+    it('머리가 둘', () => {
       blocked(
         [nodeAt('a', 0, 0), nodeAt('b', 0, 0), nodeAt('c', 0, 0)],
         [link('a', 'c'), link('b', 'c')],
@@ -698,8 +743,14 @@ describe('canConnect', () => {
     expect(canConnect(노드, 사슬, 'c', 'd')).toBe(true)
   })
 
-  it('입력이 이미 찬 노드로는 못 잇는다 — 선은 하나만 받는다', () => {
-    expect(canConnect(노드, 사슬, 'd', 'c')).toBe(false)
+  it('입력이 찬 노드로도 잇는다 — 합류', () => {
+    expect(canConnect(노드, 사슬, 'd', 'c')).toBe(true)
+  })
+
+  it('분기의 참·거짓을 한 노드로 보내지는 못한다', () => {
+    const nodes = [분기('br'), nodeAt('d', 0, 0)]
+    const 참 = [{ id: 'br__d', from: 'br', to: 'd', when: true }]
+    expect(canConnect(nodes, 참, 'br', 'd', false)).toBe(false)
   })
 
   // 갈래를 내려면 분기 노드를 놓아야 한다. 일하는 노드는 어느 쪽으로 갈지 정할 곳이 없다.

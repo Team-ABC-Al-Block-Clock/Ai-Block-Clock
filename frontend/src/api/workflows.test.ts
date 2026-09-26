@@ -425,7 +425,7 @@ describe('mock 이 실서버와 같은 선에서 거절한다', () => {
     })
   })
 
-  it('합류는 고리가 아니라 트리 규칙으로 걸린다', async () => {
+  it('머리가 둘이면 고리가 아니라 WORKFLOW_013 으로 걸린다', async () => {
     const graph = {
       nodes: ['node_001', 'node_002', 'node_003'].map((sourceId, i) => ({
         nodeKey: `n${i + 1}`,
@@ -438,7 +438,7 @@ describe('mock 이 실서버와 같은 선에서 거절한다', () => {
       ],
     }
 
-    await expect(saveWorkflow({ ...graph, name: '합류' })).rejects.toMatchObject({
+    await expect(saveWorkflow({ ...graph, name: '머리 둘' })).rejects.toMatchObject({
       code: 'WORKFLOW_013',
       status: 400,
     })

@@ -227,7 +227,7 @@ describe('포트 연결', () => {
     expect(edgeIdsOf(after)).toEqual(['a__b'])
   })
 
-  it('입력은 하나만 받는다', () => {
+  it('입력이 찬 노드로도 잇는다 — 합류', () => {
     const after = canvasReducer(
       stateOf({
         nodes: [nodeAt('a', 0, 0), nodeAt('b', 400, 0), nodeAt('c', 800, 0)],
@@ -236,7 +236,7 @@ describe('포트 연결', () => {
       }),
       { type: 'endLink', targetId: 'b', port: { side: 'in' } },
     )
-    expect(edgeIdsOf(after)).toEqual(['a__b'])
+    expect(edgeIdsOf(after)).toEqual(['a__b', 'c__b'])
   })
 
   it('포트가 아닌 곳에서 손을 떼면 끌던 선만 사라진다', () => {

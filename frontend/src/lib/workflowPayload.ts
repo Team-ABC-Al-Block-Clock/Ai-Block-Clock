@@ -171,17 +171,21 @@ export function toCanvasWorkflow(
 ): { nodes: CanvasNodeData[]; edges: CanvasEdge[] } {
   const idOf = new Map(detail.nodes.map((node, i) => [node.nodeKey, `loaded-${i + 1}`]))
 
-  // 트리라 부모는 자리마다 하나다. 부모의 깊이에 한 칸 더한 것이 제 깊이다.
-  const parentOf = new Map(detail.edges.map((edge) => [edge.targetNodeKey, edge.sourceNodeKey]))
+  // 합류는 부모가 여럿이다. 가장 깊은 부모 다음 칸에 둬야 선이 뒤로 꺾이지 않는다.
+  const parentsOf = new Map<string, string[]>()
+  for (const edge of detail.edges)
+    parentsOf.set(edge.targetNodeKey, [
+      ...(parentsOf.get(edge.targetNodeKey) ?? []),
+      edge.sourceNodeKey,
+    ])
   const depths = new Map<string, number>()
   const depthOf = (key: string): number => {
     const seen = depths.get(key)
     if (seen !== undefined) return seen
-    // 먼저 자리를 잡아 두어야 고리가 섞여 와도 끝없이 되돌지 않는다. 트리에서는 제 조상이
-    // 될 수 없어 이 값이 다시 읽히는 일이 없다.
+    // 고리가 섞여 와도 끝없이 되돌지 않게 먼저 자리를 잡아 둔다.
     depths.set(key, 0)
-    const parent = parentOf.get(key)
-    const at = parent === undefined ? 0 : depthOf(parent) + 1
+    const parents = parentsOf.get(key) ?? []
+    const at = parents.length ? Math.max(...parents.map(depthOf)) + 1 : 0
     depths.set(key, at)
     return at
   }

@@ -243,13 +243,10 @@ function reaches(edges: CanvasEdge[], from: string, to: string): boolean {
 }
 
 /**
- * 이어도 되는 짝인지. 서버가 받는 트리 모양을 그을 때부터 지킨다.
+ * 이어도 되는 짝인지. 서버 규칙(`WorkflowGraph.walk`)을 그을 때부터 지킨다.
  *
- * 들어오는 선은 자리마다 하나다 — 여럿이면 어느 것을 기다릴지 알 수 없고, 서버도 합류를
- * 받지 않는다. 나가는 선도 하나다. 갈래를 내려면 분기 노드를 놓아야 한다 — 일하는 노드에서
- * 두 갈래가 나가면 어느 쪽으로 갈지 정할 곳이 없다.
- *
- * `when` 은 분기에서 나가는 선이 어느 갈래인지다. 분기는 참·거짓을 하나씩만 갖는다.
+ * 들어오는 선은 여럿이어도 된다 — 분기의 두 갈래를 한 노드로 모으는 합류다. 나가는 선은
+ * 분기만 참·거짓 둘이고 나머지는 하나다.
  */
 export function canConnect(
   nodes: CanvasNodeData[],
@@ -268,7 +265,8 @@ export function canConnect(
   if (target.ioType === 'START' || source.ioType === 'END') return false
   // 시작과 종료를 맞붙이면 하는 일이 없는 워크플로우가 된다.
   if (source.ioType === 'START' && target.ioType === 'END') return false
-  if (edges.some((edge) => edge.to === to)) return false
+  // 선 id 가 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막힌다.
+  if (edges.some((edge) => edge.from === from && edge.to === to)) return false
 
   const out = edges.filter((edge) => edge.from === from)
   if (source.controlType) {
@@ -385,25 +383,45 @@ export function nodesBounds(nodes: CanvasNodeData[]): ContentBox | null {
 }
 
 /**
- * 이 자리보다 앞에 놓인 노드들. 가까운 것부터.
+ * 어느 길로 와도 `id` 앞에서 거치는 노드. 가까운 것부터.
  *
- * 트리라 부모는 자리마다 하나여서 선을 거슬러 한 줄로 올라가면 된다. 분기 조건이 읽을 수
- * 있는 것도 이 안의 기본 노드뿐이다(`WorkflowGraph.ensureConditionReadsUpstream`).
+ * 분기 조건은 이 안의 것만 읽는다 — 합류 뒤에서 한쪽 갈래에만 있는 노드를 읽으면 다른 갈래로
+ * 왔을 때 값이 없다(`WorkflowGraph.passedOnEveryPath`).
  */
 export function upstreamOf(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[],
   id: string,
 ): CanvasNodeData[] {
-  const parentOf = new Map(edges.map((edge) => [edge.to, edge.from]))
-  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const parents = new Map<string, string[]>()
+  for (const edge of edges) parents.set(edge.to, [...(parents.get(edge.to) ?? []), edge.from])
 
+  const memo = new Map<string, Set<string>>()
+  const passed = (at: string): Set<string> => {
+    const known = memo.get(at)
+    if (known) return known
+    // 고리가 섞여 와도 끝없이 되돌지 않게 먼저 비워 둔다.
+    memo.set(at, new Set())
+    const through = (parents.get(at) ?? []).map((parent) => new Set([...passed(parent), parent]))
+    const common = through.length
+      ? through.reduce((a, b) => new Set([...a].filter((key) => b.has(key))))
+      : new Set<string>()
+    memo.set(at, common)
+    return common
+  }
+  const onEveryPath = passed(id)
+
+  const byId = new Map(nodes.map((node) => [node.id, node]))
   const walked: CanvasNodeData[] = []
   const seen = new Set<string>([id])
-  for (let at = parentOf.get(id); at && !seen.has(at); at = parentOf.get(at)) {
+  const queue = [...(parents.get(id) ?? [])]
+  while (queue.length > 0) {
+    const at = queue.shift()!
+    if (seen.has(at)) continue
     seen.add(at)
     const node = byId.get(at)
-    if (node) walked.push(node)
+    if (node && onEveryPath.has(at)) walked.push(node)
+    queue.push(...(parents.get(at) ?? []))
   }
   return walked
 }
@@ -419,7 +437,7 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
   if (!order) return problem
 
   const has = (type: IoType) => order.nodes.some((node) => node.ioType === type)
-  // 갈래 끝마다 종료를 붙일 수는 없다 — 서버가 종료를 하나만 받는다. 하나라도 있으면 된다.
+  // 종료는 하나뿐이다. 갈래를 종료로 모으려면 두 갈래에서 같은 종료로 선을 긋는다(합류).
   if (!has('START') && !has('END')) return '시작·종료 노드는 필수입니다'
   if (!has('START')) return '시작 노드를 놓아 주세요'
   if (!has('END')) return '종료 노드를 놓아 주세요'
@@ -463,15 +481,7 @@ export function chainPositions(
   return positions
 }
 
-/**
- * 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`.
- *
- * 캔버스는 갈래를 만들 수 있게 두고(`canConnect`) 여기서 판정만 한다 — 서버가 아직 선형만
- * 받으므로(`WORKFLOW_013`) 저장 버튼 옆에 가능 여부를 띄우는 데 쓴다. 서버가 갈래를 받게 되면
- * 이 함수만 풀면 되고 편집 화면은 그대로다.
- *
- * 판정과 순서를 함께 낸다. 저장할 때 이 순서로 `n1…nN` 키를 매기기 때문에 두 번 훑을 이유가 없다.
- */
+/** 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`. 카드 순번에만 쓴다. */
 export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): CanvasNodeData[] | null {
   if (nodes.length === 0) return null
   // 한 줄이면 선은 노드보다 정확히 하나 적다. 남거나 모자라면 끊겼거나 겹친 것이다.
@@ -530,7 +540,7 @@ interface GraphCheck {
 /**
  * 그을 때 이미 막은 것들에 쓰는 문구.
  *
- * 합류·일하는 노드의 갈래·종료에서 나가는 선·맨 앞이 아닌 시작·둘씩 놓인 시작과 종료는
+ * 일하는 노드의 갈래·종료에서 나가는 선·맨 앞이 아닌 시작·둘씩 놓인 시작과 종료는
  * `canConnect` 와 팔레트 칩이 손대기 전에 막는다. 그래도 검사는 남긴다 — 서버에서 불러온
  * 구성이 규칙을 어길 수 있고, 그때 `treeOrder` 가 엉뚱한 차례를 내면 저장이 조용히 망가진다.
  * 화면에 뜰 자리가 없으니 따로 문구를 두지 않는다.
@@ -546,12 +556,10 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
 
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const out = new Map<string, CanvasEdge[]>()
-  const targeted = new Set<string>()
+  const waiting = new Map(nodes.map((node) => [node.id, 0]))
   for (const edge of edges) {
     if (!byId.has(edge.from) || !byId.has(edge.to)) return fail(LOOSE)
-    // 들어오는 선이 둘이면 합류다. 서버는 트리만 받는다.
-    if (targeted.has(edge.to)) return fail(LOOSE)
-    targeted.add(edge.to)
+    waiting.set(edge.to, waiting.get(edge.to)! + 1)
     out.set(edge.from, [...(out.get(edge.from) ?? []), edge])
   }
 
@@ -576,22 +584,27 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
     if (node.ioType === 'END' && next.length > 0) return fail(LOOSE)
   }
 
-  const roots = nodes.filter((node) => !targeted.has(node.id))
+  const roots = nodes.filter((node) => waiting.get(node.id) === 0)
   if (roots.length !== 1) return fail(LOOSE)
   // 시작 노드를 놓았으면 그것이 맨 앞이어야 한다.
   if (nodes.some((node) => node.ioType === 'START' && node.id !== roots[0].id)) return fail(LOOSE)
 
+  // 서버 `walk` 와 같은 차례 — 합류는 들어오는 선을 다 채운 뒤에, 갈래는 참 쪽부터.
+  // 노드 키와 선 키가 이 차례로 매겨진다.
   const walked: CanvasNodeData[] = []
   const walkedEdges: CanvasEdge[] = []
-  const walk = (id: string) => {
+  const pending = [roots[0].id]
+  while (pending.length > 0) {
+    const id = pending.pop()!
     walked.push(byId.get(id)!)
-    // 서버는 노드를 훑은 뒤 노드마다 제 갈래를 모은다(`edgesInOrder`). 갈래를 먼저 다 담고
-    // 나서 내려가야 선 키 차례가 같아진다.
     const next = branchFirst(out.get(id) ?? [])
     walkedEdges.push(...next)
-    for (const edge of next) walk(edge.to)
+    for (const edge of [...next].reverse()) {
+      const left = waiting.get(edge.to)! - 1
+      waiting.set(edge.to, left)
+      if (left === 0) pending.push(edge.to)
+    }
   }
-  walk(roots[0].id)
 
   // 루트에서 못 닿은 자리가 남으면 끊겼거나 고리다.
   if (walked.length !== nodes.length) return fail(LOOSE)
@@ -601,8 +614,8 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
 /**
  * 저장할 수 있는 모양이면 서버가 훑는 순서, 아니면 `null`.
  *
- * 서버가 받는 그래프는 트리뿐이다(`WorkflowGraph.walk`) — 루트 하나, 들어오는 선은 자리마다
- * 하나(합류 불가), 분기는 참·거짓 두 갈래, 종료 노드는 나가는 선이 없다.
+ * 서버 규칙(`WorkflowGraph.walk`) — 루트 하나, 분기는 참·거짓 두 갈래, 나머지는 나가는 선
+ * 하나, 종료 노드는 나가는 선이 없다. 들어오는 선은 여럿이어도 된다(합류).
  *
  * 선도 같은 순서로 낸다 — 노드 키와 선 키가 서버가 돌려주는 차례와 같아야 다시 불러왔을 때
  * 자리가 흔들리지 않는다.

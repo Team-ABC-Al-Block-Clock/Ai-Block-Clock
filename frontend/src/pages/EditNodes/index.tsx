@@ -835,10 +835,14 @@ export default function EditNodes() {
                   onClick={() => handlePlaceControl('END')}
                 />
                 <ControlChip label="조건 분기" onClick={() => handlePlaceControl('BRANCH')} />
-                {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 반복은 타입이 없고,
-                    병합은 그래프가 트리라 들어오는 선을 둘 받지 못한다. 자리만 남겨 둔다. */}
+                {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 병합은 노드 없이 두 갈래를 같은 노드로 잇는다. */}
                 <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
-                <ControlChip label="병합" disabled title={UNSUPPORTED} onClick={() => {}} />
+                <ControlChip
+                  label="병합"
+                  disabled
+                  title="두 갈래에서 같은 노드로 선을 이으면 합쳐집니다"
+                  onClick={() => {}}
+                />
               </div>
             </div>
 
