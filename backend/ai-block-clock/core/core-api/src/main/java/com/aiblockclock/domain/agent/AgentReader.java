@@ -63,15 +63,26 @@ public class AgentReader {
                 agentVersionRepository.findPublicByAgentIds(ids.stream().map(AgentId::value).toList()));
     }
 
+    public List<SellingAgent> readSellingBy(UserId owner) {
+        return agentVersionRepository.findPublicByOwnerId(owner.value()).stream()
+                .map(version -> new SellingAgent(toPublicAgent(version),
+                        version.getAgent().getThumbnailUrl(), version.getAgent().getCreatedAt()))
+                .toList();
+    }
+
     private static List<PublicAgent> toPublicAgents(List<AgentVersionEntity> versions) {
         return versions.stream()
-                .map(version -> new PublicAgent(
-                        AgentId.of(version.getAgent().getId()),
-                        UserId.of(version.getAgent().getOwnerId()),
-                        version.getAgent().getName(),
-                        version.getAgent().getSummary(),
-                        version.getTier(),
-                        AbcAmount.of(version.getBaseCost())))
+                .map(AgentReader::toPublicAgent)
                 .toList();
+    }
+
+    private static PublicAgent toPublicAgent(AgentVersionEntity version) {
+        return new PublicAgent(
+                AgentId.of(version.getAgent().getId()),
+                UserId.of(version.getAgent().getOwnerId()),
+                version.getAgent().getName(),
+                version.getAgent().getSummary(),
+                version.getTier(),
+                AbcAmount.of(version.getBaseCost()));
     }
 }

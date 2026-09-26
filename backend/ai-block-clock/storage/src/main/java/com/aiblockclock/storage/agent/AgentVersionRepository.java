@@ -24,5 +24,13 @@ public interface AgentVersionRepository extends JpaRepository<AgentVersionEntity
             """)
     List<AgentVersionEntity> findPublicByAgentIds(@Param("ids") Collection<UUID> ids);
 
+    @Query("""
+            select v from AgentVersionEntity v
+            join fetch v.agent a
+            where a.publicVersionId = v.id and a.ownerId = :ownerId
+            order by a.createdAt desc, a.id desc
+            """)
+    List<AgentVersionEntity> findPublicByOwnerId(@Param("ownerId") Long ownerId);
+
     List<AgentVersionEntity> findAllByAgentIdOrderByVersionNoAsc(UUID agentId);
 }
