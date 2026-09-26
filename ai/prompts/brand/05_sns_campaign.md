@@ -78,7 +78,7 @@
 <!-- prompt:user -->
 ```
 [브랜드 전략 보고서]
-{brand_strategy}
+{input}
 
 위 보고서를 바탕으로 SNS 캠페인 계획을 세워 주세요.
 ```
