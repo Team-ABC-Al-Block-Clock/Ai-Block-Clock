@@ -39,7 +39,7 @@ execution:
   polling:
     workers: ${EXECUTION_POLL_WORKERS:4}
     interval: ${EXECUTION_POLL_INTERVAL:2s}
-    per-step: ${EXECUTION_POLL_PER_STEP:40s}
+    per-step: ${EXECUTION_POLL_PER_STEP:60s}
     grace: ${EXECUTION_POLL_GRACE:60s}
 
 payment:
