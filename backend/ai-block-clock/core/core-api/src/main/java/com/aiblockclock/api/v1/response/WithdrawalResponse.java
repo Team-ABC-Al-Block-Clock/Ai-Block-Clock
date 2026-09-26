@@ -13,7 +13,10 @@ public record WithdrawalResponse(
         @Schema(description = "출금 신청 번호. 취소 · 심사할 때 쓴다", example = "42")
         String withdrawalId,
 
-        @Schema(description = "REQUESTED(심사 대기) · CANCELED(취소) · APPROVED(승인, 지급 대기) · REJECTED(반려)",
+        @Schema(description = """
+                REQUESTED(심사 대기) · CANCELED(취소) · APPROVED(승인, 지급 대기) · REJECTED(반려) ·
+                PAYING(체인에 보냄, 확인 중) · ON_HOLD(결과 확인이 늦어짐, 금액은 묶여 있음) · PAID(지급 완료) ·
+                FAILED(체인이 되돌림, 금액은 정산금으로 돌아옴)""",
                 example = "REQUESTED")
         WithdrawalStatus status,
 

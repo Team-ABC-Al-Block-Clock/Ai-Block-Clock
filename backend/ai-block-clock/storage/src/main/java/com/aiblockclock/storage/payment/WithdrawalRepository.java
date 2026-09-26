@@ -91,7 +91,7 @@ public interface WithdrawalRepository extends JpaRepository<WithdrawalEntity, Lo
             @Param("submittedAt") Instant submittedAt
     );
 
-    // 지급 중인 신청만 끝낸다. 두 차례가 같은 성공을 봐도 한쪽만 끝내고, 늦은 쪽은 0 을 받는다.
+    // 읽었을 때의 상태(지급 중 · 보류)가 그대로일 때만 끝낸다. 두 차례가 같은 성공을 봐도 한쪽만 끝내고, 늦은 쪽은 0 을 받는다.
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE WithdrawalEntity withdrawal
@@ -99,10 +99,14 @@ public interface WithdrawalRepository extends JpaRepository<WithdrawalEntity, Lo
                    withdrawal.paidAt = :paidAt,
                    withdrawal.updatedAt = :paidAt
              WHERE withdrawal.id = :withdrawalId
-               AND withdrawal.status = com.aiblockclock.enums.payment.WithdrawalStatus.PAYING
+               AND withdrawal.status = :expectedStatus
             """)
-    int updatePaidIfPaying(
+    int updatePaidIfCurrent(
             @Param("withdrawalId") Long withdrawalId,
+            @Param("expectedStatus") WithdrawalStatus expectedStatus,
             @Param("paidAt") Instant paidAt
     );
+
+    // 체인에 보낸 뒤 아직 끝나지 않은 신청(지급 중 · 보류)이다. 한 번에 한 건만 보내므로 많아야 하나다
+    Optional<WithdrawalEntity> findFirstByStatusInOrderByReviewedAtAscIdAsc(Collection<WithdrawalStatus> statuses);
 }

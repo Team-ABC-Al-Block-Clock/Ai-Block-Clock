@@ -3,9 +3,9 @@ package com.aiblockclock.enums.payment;
 import java.util.Arrays;
 import java.util.List;
 
-// 출금 신청의 상태다. 신청 · 사용자 취소(PAY-023), 관리자 승인 · 반려(PAY-024), 체인 지급(PAY-025)까지 있다.
+// 출금 신청의 상태다. 신청 · 사용자 취소(PAY-023), 관리자 승인 · 반려(PAY-024), 체인 지급(PAY-025), 지급 보류 · 실패(PAY-026)까지 있다.
 // inProgress 는 아직 끝나지 않은 출금이다. 이런 출금이 있으면 새로 신청하지 못한다(PAY-027).
-// countedForInterval 은 신청 주기에 세는 출금이다. 취소 · 반려처럼 돈이 나가지 않고 닫힌 것은 세지 않아 곧바로 다시 신청할 수 있다.
+// countedForInterval 은 신청 주기에 세는 출금이다. 취소 · 반려 · 실패처럼 돈이 나가지 않고 닫힌 것은 세지 않아 곧바로 다시 신청할 수 있다.
 public enum WithdrawalStatus {
     REQUESTED(true, true),
     CANCELED(false, false),
@@ -14,8 +14,12 @@ public enum WithdrawalStatus {
     REJECTED(false, false),
     // 서명한 전송을 체인에 보냈고 블록에 적히기를 기다린다. 거래 해시가 이미 적혀 있다
     PAYING(true, true),
+    // 보낸 지 오래됐는데 체인에서 결과를 알 수 없다. 돈이 나갔을 수도 있어 금액을 묶어 둔 채 결과가 나올 때까지 본다
+    ON_HOLD(true, true),
     // 체인에서 전송이 성공했고 묶은 금액을 장부에서 내보냈다
-    PAID(false, true);
+    PAID(false, true),
+    // 체인이 전송을 되돌렸다. 토큰이 나가지 않았으므로 묶은 금액을 정산금으로 돌려놓았다
+    FAILED(false, false);
 
     private final boolean inProgress;
     private final boolean countedForInterval;

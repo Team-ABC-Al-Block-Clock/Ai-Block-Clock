@@ -41,9 +41,10 @@ public class WithdrawalReader {
                 .orElse(null));
     }
 
-    // 지급 중인 신청이다. 보관 지갑은 한 번에 한 건만 보내므로 많아야 하나다
-    public Optional<Withdrawal> findPaying() {
-        return withdrawalRepository.findFirstByStatusOrderByReviewedAtAscIdAsc(WithdrawalStatus.PAYING)
+    // 체인에 보냈고 아직 끝나지 않은 신청(지급 중 · 보류)이다. 보관 지갑은 한 번에 한 건만 보내므로 많아야 하나다
+    public Optional<Withdrawal> findSent() {
+        return withdrawalRepository.findFirstByStatusInOrderByReviewedAtAscIdAsc(
+                        List.of(WithdrawalStatus.PAYING, WithdrawalStatus.ON_HOLD))
                 .map(WithdrawalEntityConverter::toDomain);
     }
 
