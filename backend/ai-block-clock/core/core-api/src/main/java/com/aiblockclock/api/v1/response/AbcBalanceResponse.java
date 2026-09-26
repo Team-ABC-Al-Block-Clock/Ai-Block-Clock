@@ -10,12 +10,16 @@ public record AbcBalanceResponse(
         String availableAmount,
 
         @Schema(description = "실행 시작 때 선차감되어 결과를 기다리는 ABC", example = "30.000000")
-        String reservedAmount
+        String reservedAmount,
+
+        @Schema(description = "공급자로서 받은 정산금. 실행에는 쓸 수 없고 출금할 수 있다", example = "12.500000")
+        String payoutAmount
 ) {
     public static AbcBalanceResponse from(AbcBalance balance) {
         return new AbcBalanceResponse(
                 balance.available().toPlainString(),
-                balance.reserved().toPlainString()
+                balance.reserved().toPlainString(),
+                balance.payout().toPlainString()
         );
     }
 }

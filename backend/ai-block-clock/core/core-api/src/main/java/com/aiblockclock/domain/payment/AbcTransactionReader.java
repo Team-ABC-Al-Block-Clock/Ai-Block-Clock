@@ -33,8 +33,8 @@ public class AbcTransactionReader {
                 LedgerAccountType.ABC_BALANCE,
                 userReferenceId,
                 condition.eventType(),
-                condition.startAtInclusive(),
-                condition.endAtExclusive(),
+                condition.period().startAtInclusive(),
+                condition.period().endAtExclusive(),
                 OffsetPageable.of(offset, size + 1)
         );
 

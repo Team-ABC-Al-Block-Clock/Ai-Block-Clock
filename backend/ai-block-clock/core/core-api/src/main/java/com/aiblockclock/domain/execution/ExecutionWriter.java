@@ -4,7 +4,11 @@ import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.storage.execution.ExecutionChargeRateEntity;
 import com.aiblockclock.storage.execution.ExecutionChargeRateRepository;
 import com.aiblockclock.storage.execution.ExecutionEntity;
+import com.aiblockclock.storage.execution.ExecutionFailureEntity;
+import com.aiblockclock.storage.execution.ExecutionFailureRepository;
 import com.aiblockclock.storage.execution.ExecutionRepository;
+import com.aiblockclock.storage.execution.ExecutionSettlementEntity;
+import com.aiblockclock.storage.execution.ExecutionSettlementRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -16,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -27,6 +32,8 @@ public class ExecutionWriter {
 
     private final ExecutionRepository executionRepository;
     private final ExecutionChargeRateRepository executionChargeRateRepository;
+    private final ExecutionFailureRepository executionFailureRepository;
+    private final ExecutionSettlementRepository executionSettlementRepository;
 
     // 같은 요청 번호가 동시에 두 번 들어오면 늦은 쪽이 여기서 막힌다.
     // 제약 위반을 이 자리에서 알아채려고 SQL 을 곧바로 내보낸다. 트랜잭션이 실패하면 함께 되돌려진다.
@@ -51,6 +58,17 @@ public class ExecutionWriter {
                 .toList());
     }
 
+    // 실행을 닫는 트랜잭션(finish) 안에서만 적는다. 닫기가 한 번뿐이라 정산 내역도 한 번만 남는다.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void appendSettlements(ExecutionId id, List<ExecutionSettlement> settlements) {
+        executionSettlementRepository.saveAll(settlements.stream()
+                .map(settlement -> new ExecutionSettlementEntity(id.value(), settlement.stepId(), settlement.nodeName(),
+                        settlement.supplier().value(),
+                        settlement.agent() == null ? null : settlement.agent().value(),
+                        settlement.amount().value()))
+                .toList());
+    }
+
     @Transactional
     public void moveTo(ExecutionId id, ExecutionStatus status) {
         entityOf(id).moveTo(status);
@@ -58,8 +76,9 @@ public class ExecutionWriter {
 
     // 실행 행을 잠그고 끝난 상태로 옮겨 닫은 실행을 돌려준다. 이미 끝나 있으면 옮기지 않고 비워 돌려준다.
     // 모니터와 조회가 같은 끝을 동시에 봐도 늦은 쪽은 앞쪽이 커밋할 때까지 기다렸다가 끝난 것을 본다.
+    // 실패했으면 닫은 뒤 바로 누구 탓인지를 적는다. 성공한 실행은 failure 가 비어 있다.
     @Transactional(propagation = Propagation.MANDATORY)
-    public Optional<Execution> finish(ExecutionId id, ExecutionStatus status) {
+    public Optional<Execution> finish(ExecutionId id, ExecutionStatus status, ExecutionFailure failure) {
         ExecutionEntity entity = executionRepository.findForUpdate(id.value())
                 .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_NOT_FOUND));
 
@@ -68,6 +87,10 @@ public class ExecutionWriter {
         }
 
         entity.moveTo(status);
+
+        if (failure != null) {
+            executionFailureRepository.save(toEntity(id, failure));
+        }
 
         return Optional.of(ExecutionEntityConverter.toDomain(entity));
     }
@@ -78,6 +101,13 @@ public class ExecutionWriter {
         entity.markDispatched(runId.value());
 
         return ExecutionEntityConverter.toDomain(entity);
+    }
+
+    private static ExecutionFailureEntity toEntity(ExecutionId id, ExecutionFailure failure) {
+        return new ExecutionFailureEntity(id.value(), failure.stepId(), failure.errorCode(), failure.fault(),
+                failure.affectsSuccessRate(),
+                failure.supplier() == null ? null : failure.supplier().value(),
+                failure.agent() == null ? null : failure.agent().value());
     }
 
     private ExecutionEntity entityOf(ExecutionId id) {

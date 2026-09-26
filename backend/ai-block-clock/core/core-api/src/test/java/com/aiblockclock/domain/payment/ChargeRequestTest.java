@@ -8,6 +8,7 @@ import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,5 +131,60 @@ class ChargeRequestTest {
                         new BigDecimal("10.000000")
                 )
         );
+    }
+
+    @Test
+    void 요청_시각부터_대기_한도가_지나면_확인_기한을_넘긴_것이다() {
+        Instant requestedAt = Instant.parse("2026-09-25T00:00:00Z");
+        ChargeRequest chargeRequest = savedPendingAt(requestedAt);
+
+        assertThat(chargeRequest.isVerificationOverdue(requestedAt.plus(Duration.ofMinutes(29)), Duration.ofMinutes(30)))
+                .isFalse();
+        assertThat(chargeRequest.isVerificationOverdue(requestedAt.plus(Duration.ofMinutes(30)), Duration.ofMinutes(30)))
+                .isTrue();
+    }
+
+    @Test
+    void 저장되기_전_요청은_기한을_재지_않는다() {
+        ChargeRequest chargeRequest = ChargeRequest.pending("user", "0x1111111111111111111111111111111111111111",
+                12345L, "0xhash", DepositAmount.of(BigDecimal.ONE));
+
+        assertThat(chargeRequest.isVerificationOverdue(Instant.MAX, Duration.ZERO)).isFalse();
+    }
+
+    @Test
+    void 보낸_사람_금액_대기_한도로_닫힌_요청은_다시_열_수_있다() {
+        for (ChargeStatusReason reason : new ChargeStatusReason[]{
+                ChargeStatusReason.SENDER_WALLET_MISMATCH,
+                ChargeStatusReason.AMOUNT_MISMATCH,
+                ChargeStatusReason.VERIFICATION_TIMEOUT}) {
+            ChargeRequest chargeRequest = savedPendingAt(Instant.EPOCH);
+            chargeRequest.fail(reason);
+
+            assertThat(chargeRequest.isReopenable()).as(reason.name()).isTrue();
+        }
+    }
+
+    @Test
+    void 거래_자체가_어긋나_닫힌_요청은_다시_열지_않는다() {
+        ChargeRequest chargeRequest = savedPendingAt(Instant.EPOCH);
+        chargeRequest.fail(ChargeStatusReason.ONCHAIN_TRANSACTION_FAILED);
+
+        assertThat(chargeRequest.isReopenable()).isFalse();
+    }
+
+    @Test
+    void 확인_중이거나_적립된_요청은_다시_열_대상이_아니다() {
+        ChargeRequest pending = savedPendingAt(Instant.EPOCH);
+        ChargeRequest confirmed = savedPendingAt(Instant.EPOCH);
+        confirmed.confirm(AbcAmount.of(BigDecimal.ONE), Instant.EPOCH);
+
+        assertThat(pending.isReopenable()).isFalse();
+        assertThat(confirmed.isReopenable()).isFalse();
+    }
+
+    private ChargeRequest savedPendingAt(Instant requestedAt) {
+        return ChargeRequest.restore(1L, "user", "0x1111111111111111111111111111111111111111", 12345L, "0xhash",
+                DepositAmount.of(BigDecimal.ONE), requestedAt, null, ChargeStatus.PENDING, null, null, 0L);
     }
 }

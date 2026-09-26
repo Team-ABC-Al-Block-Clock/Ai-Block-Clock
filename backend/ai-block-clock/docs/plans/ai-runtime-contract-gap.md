@@ -278,7 +278,8 @@ payload 를 찾기 때문이다.
 | | 계약 | 우리 |
 | --- | --- | --- |
 | 단가 단위 | 노드마다 `unit_price`. 견적 `max_charge_abc` 는 분기 조합별 노드 단가 합의 최댓값 | 에이전트 버전 단위 (`agent-pipeline.md` 7장) |
-| 귀속 | 노드 `owner_id` → `contribution[]` | 보내지 않는다. 돌아오는 귀속이 비어 있다 |
+| 귀속 | 노드 `owner_id` → `contribution[]` | 단계마다 `owner_id` 를 보내고, 돌아온 `nodes[].owner_id` 로 우리가 나눈다. `contribution[]` 은 쓰지 않는다 (`agent-pipeline` completed 8.6) |
+| 플랫폼 탓 실패의 정산 | 수요자 전액 환원 + 앞선 성공 단계 정산 유지, 차액은 플랫폼 부담 (8.5) | **정산하지 않는다.** 플랫폼 계정을 두지 않아 차액을 낼 곳이 없다. AI 팀에 알려야 한다 |
 | 원가 | Runtime 이 토큰으로 실측해 `cost_abc` 로 준다 | `BaseCostCalculator` 고정값을 노드와 버전에 박는다 |
 | 미실행 환원 | `not_executed[].refund_abc` — 보낸 `unit_price` 를 되돌려 준다 | 단가를 안 보내므로 비어서 온다 |
 | 실패 환원 | `failure.refund_scope` | 쓰지 않는다. 단계 상태와 `fault` 로 우리가 센다 (`agent-pipeline` completed 8.4) |
@@ -291,7 +292,7 @@ payload 를 찾기 때문이다.
 
 | 항목 | 계약 | 우리 |
 | --- | --- | --- |
-| 실패 | `failure {node_id, error_code, fault, affects_success_rate, refund_scope}` | `RunStatus.Failure(code, message, node_id, fault)`. `fault` 는 환불에 쓴다(`platform` 이면 전액). `code` 는 늘 `null`, `refund_scope` 는 버려진다 |
+| 실패 | `failure {node_id, error_code, fault, affects_success_rate, refund_scope}` | `RunStatus.Failure(node_id, error_code, fault, affects_success_rate)`. 환불(`platform` 이면 전액)과 책임 기록(`agent-pipeline` completed 8.5)에 쓴다. `refund_scope` 는 버려진다 |
 | 결과 PDF | `GET /v1/runs/{id}/pdf`, 없으면 409 `PDF_NOT_READY` | 클라이언트에 없다 |
 | 결과 JSON | `GET /v1/runs/{id}/artifact` — 종단 봉투 | 문자열로 받는다 |
 | 노드 출력 전문 | `?include_node_output=true` | 쓰지 않는다 |

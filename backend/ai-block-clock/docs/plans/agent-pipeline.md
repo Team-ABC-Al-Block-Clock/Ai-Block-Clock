@@ -54,7 +54,8 @@
 | 실행 견적 `POST /executions/cost-estimates` | **들어감** — 노드는 원가, 에이전트는 판매가(내 에이전트는 원가)를 더하고 쓸 수 있는 잔액과 비교한다. 차감은 하지 않는다 |
 | 선차감 (접수할 때 잔액 확인 · 예치) | **들어감** — 엔진에 넘기기 전에 견적만큼 예치로 옮긴다. 모자라면 `PAYMENT_008`, 엔진이 받지 않으면 되돌린다. 요청 번호로 두 번 떼지 않는다 ([`completed/`](completed/agent-pipeline.md) 8.3) |
 | 끝난 뒤 환불 | **들어감** — 성공한 단계의 실측 원가 × 등급 배율만 쓰고 나머지를 돌려준다. 플랫폼 탓이면 전부 ([`completed/`](completed/agent-pipeline.md) 8.4) |
-| 정산 | 남음 (7장) — 예치에 남은 쓴 만큼을 공급자 정산금으로 옮긴다 |
+| 실패 책임 | **들어감** — 엔진의 `failure.fault` 를 정리해 실행을 닫을 때 함께 남긴다. 공급자 탓이면 어느 공급자 · 에이전트인지도 ([`completed/`](completed/agent-pipeline.md) 8.5) |
+| 정산 | **들어감** — 쓴 만큼 전부를 성공한 단계의 주인 정산금으로 옮긴다. 수수료 없음, 플랫폼 탓이면 없음 ([`completed/`](completed/agent-pipeline.md) 8.6) |
 
 **구현된 것은 이 문서에서 걷어낸다.** 걷어낸 장은 [`completed/`](completed/agent-pipeline.md) 에 남긴다.
 
@@ -521,7 +522,8 @@ A 3판이 B 1판을 담고 있는데 나중에 B 4판이 A 3판을 담아도, A 
 주문서는 노드마다 `owner_id` · `unit_price` 를 요구한다. 에이전트 단위 가격과 맞지 않는다.
 
 **쓰지 않는다.** 형식만 채워 보내고, 돌아온 값 중 우리가 보는 것은 `nodes[].status` · `nodes[].cost_abc` ·
-`failure.fault` 셋이다(환불, 295). AI 는 받은 값을 되돌려 줄 뿐 계산하지 않으므로 나머지는 무시해도 된다.
+`failure.fault` 셋이다(환불 295 · 책임 298). 책임을 남길 때는 실패한 단계의, 정산할 때는 성공한 단계의
+`owner_id` · `agent_id` 도 읽는다(301) — 우리가 보낸 값이 그대로 돌아온다. 정산 귀속에 `contribution[]` 은 쓰지 않는다. AI 는 받은 값을 되돌려 줄 뿐 계산하지 않으므로 나머지는 무시해도 된다.
 
 ### 7.3 원가는 버전에 박아 둔다
 
@@ -737,6 +739,7 @@ AI Runtime 은 중첩 깊이 1 이라(integration-guide 5.2) 요구사항과 어
 
 **실패 책임까지 AI 가 판정해 준다.** `failure.fault` 가 `supplier` · `consumer` · `platform` 로 오고
 `refund_scope` 가 환원 대상과 정산 유지 대상을 나눠 준다. PAY-011 을 우리가 역산하지 않아도 된다.
+받은 판정을 남기는 규칙은 [`completed/`](completed/agent-pipeline.md) 8.5.
 
 ### 11.3 이미 어긋나 있는 것
 

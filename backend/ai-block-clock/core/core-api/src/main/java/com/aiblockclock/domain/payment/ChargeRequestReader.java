@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.enums.payment.ChargeStatus;
 import com.aiblockclock.storage.payment.ChargeRequestEntity;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.support.error.CoreException;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -27,6 +29,10 @@ public class ChargeRequestReader {
                         );
 
         return ChargeRequestEntityConverter.toDomain(entity);
+    }
+
+    public List<Long> readPendingIds() {
+        return chargeRequestRepository.findIdsByStatus(ChargeStatus.PENDING);
     }
 
     public Optional<ChargeRequest> findByChainAndTransactionHash(
