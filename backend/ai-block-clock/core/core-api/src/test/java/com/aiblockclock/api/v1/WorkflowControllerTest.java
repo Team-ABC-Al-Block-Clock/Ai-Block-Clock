@@ -362,6 +362,48 @@ class WorkflowControllerTest {
                 .andExpect(jsonPath("$.error.data.left").value("n2.tier"));
     }
 
+    @Test
+    @DisplayName("분기의 두 갈래를 끝 노드 하나로 모아 저장하고 그대로 돌려준다")
+    void savesBothSidesJoiningAtEndNode() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/workflows")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "등급으로 갈랐다가 모은다",
+                                  "nodes": [
+                                    { "nodeKey": "n1", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "br1", "sourceType": "CONTROL", "controlType": "BRANCH",
+                                      "condition": { "left": "n1.tier", "operator": "EQ", "right": "gold" } },
+                                    { "nodeKey": "n2", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "n3", "sourceType": "NODE", "sourceId": "%s" },
+                                    { "nodeKey": "end", "sourceType": "IO", "ioType": "END",
+                                      "resultShape": "DOCUMENT", "resultFormat": "PDF" }
+                                  ],
+                                  "edges": [
+                                    { "edgeKey": "e1", "sourceNodeKey": "n1", "targetNodeKey": "br1" },
+                                    { "edgeKey": "e2", "sourceNodeKey": "br1", "targetNodeKey": "n2", "when": true },
+                                    { "edgeKey": "e3", "sourceNodeKey": "br1", "targetNodeKey": "n3", "when": false },
+                                    { "edgeKey": "e4", "sourceNodeKey": "n2", "targetNodeKey": "end" },
+                                    { "edgeKey": "e5", "sourceNodeKey": "n3", "targetNodeKey": "end" }
+                                  ]
+                                }
+                                """.formatted(nodeId, nodeId, nodeId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String workflowId = mapper.readTree(created.getResponse().getContentAsString())
+                .get("data").get("workflowId").asText();
+
+        mockMvc.perform(get("/api/v1/workflows/{id}", workflowId)
+                        .with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes.length()").value(5))
+                .andExpect(jsonPath("$.data.nodes[4].nodeKey").value("end"))
+                .andExpect(jsonPath("$.data.edges.length()").value(5));
+    }
+
     private String branchBody(String condition) {
         return """
                 {
