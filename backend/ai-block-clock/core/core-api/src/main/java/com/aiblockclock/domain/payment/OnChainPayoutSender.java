@@ -97,7 +97,9 @@ public class OnChainPayoutSender {
         return switch (exception.getError()) {
             case REQUEST_FAILED, MALFORMED_RESPONSE -> unknown;
             case INVALID_CONFIGURATION -> throw new CoreException(ErrorType.WITHDRAWAL_PAYER_MISMATCH);
-            case INVALID_ADDRESS, INVALID_TRANSACTION_HASH, INVALID_TRANSACTION, INVALID_AMOUNT ->
+            // INVALID_DOCUMENT · TRANSACTION_REVERTED 는 등기부 문서 쓰기에서만 나와 지급에는 오지 않는다. 와도 실패가 확인된 것이다
+            case INVALID_ADDRESS, INVALID_TRANSACTION_HASH, INVALID_TRANSACTION, INVALID_AMOUNT,
+                 INVALID_DOCUMENT, TRANSACTION_REVERTED ->
                     throw new CoreException(ErrorType.WITHDRAWAL_PAYOUT_UNSENDABLE);
         };
     }

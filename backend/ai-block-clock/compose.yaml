@@ -46,6 +46,8 @@ services:
       AI_RUNTIME_BASE_URL: ${AI_RUNTIME_BASE_URL:-http://ai-block-clock-ai-runtime:8000}
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-}
       FILE_STORE_ROOT: ${FILE_STORE_ROOT:-/var/lib/ai-block-clock/files}
+      SSAFY_AGENT_REGISTRY_SIGNER_PRIVATE_KEY: ${SSAFY_AGENT_REGISTRY_SIGNER_PRIVATE_KEY:-}
+      AGENT_PROVENANCE_REGISTRATION_ENABLED: ${AGENT_PROVENANCE_REGISTRATION_ENABLED:-false}
       # 관리자 지갑(쉼표 구분). 운영은 서버의 backend.env 에 적는다. 비우면 아무도 심사할 수 없다
       ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
       # 출금 지급. 보관 지갑 개인키와 함께 운영 서버의 backend.env 에만 적는다. 키가 없으면 켜지 않는다

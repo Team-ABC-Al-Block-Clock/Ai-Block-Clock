@@ -684,6 +684,8 @@ private void replaceNodes(UUID workflowId, List<WorkflowNodeEntity> nodes) {
 | `AGENT_006`, `AGENT_007`, `AGENT_009` | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
 | `PAYMENT_008`(잔액 부족, 402), `EXECUTION_006`(같은 요청 처리 중, 409), `EXECUTION_007`(그 형식의 결과 없음, 404), `EXECUTION_008`(실패로 끝난 실행, 404) | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
 | `PAYMENT_009`(보관 지갑으로 로그인한 사용자의 충전, 403) | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
+| `MARKET_001`(공개된 에이전트 없음, 404), `BLOCKCHAIN_003`(원본 기록 없음, 404) | FE 가 원본 증명 화면에서 쓰는 코드를 그대로 받았다 | Notion API 명세서에 등록 |
+| `BLOCKCHAIN_004`(체인에서 원본 기록을 읽지 못함, 503) | 코드를 임의로 붙였다 | Notion API 명세서에 등록 |
 | 워크플로우 `usageType` | 응답에서 뺐다 | 타인 에이전트 포함 여부 판정. 소유권은 이제 `AgentReader` 로 물을 수 있고 조립 위치만 남았다 |
 | 출처 워크플로우 삭제 금지 (`WORKFLOW_009`) | 걷어냈다 | 스냅샷이 값 복사라 원본이 없어도 실행된다. 막으면 에이전트를 한 번 만든 워크플로우를 영영 못 지운다 |
 | `domain` → Spring 의존 | `ErrorType` 이 `HttpStatus`·`LogLevel` 을 쓴다 | 아래 참고 |

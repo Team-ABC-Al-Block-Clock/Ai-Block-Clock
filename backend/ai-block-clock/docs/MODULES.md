@@ -250,26 +250,32 @@ SSAFY 체인에 붙는 어댑터다. 패키지는 `com.aiblockclock.client.block
 | 창구 | 클래스 | 무엇을 하나 |
 | --- | --- | --- |
 | 토큰증권 API (`sto.ssafy.io`) | `SsafyStoClient` | 토큰 정보 · 잔액 · 총공급량 · 민터 권한 · 발행 가능 상태를 읽는다 |
+| 토큰증권 API (`sto.ssafy.io`) | `SsafyStoDocumentClient` | 에이전트 등기부 토큰의 문서 칸을 등기부 지갑으로 서명해 쓰고 읽는다 ([agent-provenance.md](agent-provenance.md)) |
 | 체인 노드 JSON-RPC (`rpc.ssafy-blockchain.com`) | `SsafyChainClient` | 거래 해시 하나의 상태 · 블록 번호 · 토큰 전송 로그를 읽는다(토큰증권 API 에 없어서 따로 둔다, [abc-charge.md](abc-charge.md) 2장). 출금 지급에 쓸 다음 거래 번호 · 가스를 재고, 서명된 거래를 보낸다 |
 | (네트워크 없음) | `SsafyChainSigner` | 보관 지갑 키(`ssafy.chain.signer.private-key`)로 abcToken `transfer` 에 서명한다. 키는 이 클래스 밖으로 나가지 않는다 ([abc-withdrawal.md](abc-withdrawal.md) 9장) |
 
 ```
 client/blockchain/src/main/resources/
-└── blockchain.yml            토큰증권 API 주소 · 체인 RPC 주소 · 제한 시간 · 컨트랙트 주소 · 서명 키(환경 변수)
+└── blockchain.yml            토큰증권 API 주소 · 체인 RPC 주소 · 제한 시간 · 컨트랙트 주소 · 등기부 주소 · 서명 키(환경 변수)
 ```
 
-- **체인에 쓰는 일은 출금 지급 하나다.** 보관 지갑이 서명한 전송만 보낸다. 배포 · 발행처럼 권한 키가 필요한 쓰기는 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
+- **체인에 쓰는 일은 둘이다.** 출금 지급은 보관 지갑이 서명한 전송을 보내고, 에이전트 원본 기록은 등기부 지갑이
+  서명한 문서 쓰기를 토큰증권 API 로 보낸다. 문서 쓰기는 공개할 때마다 일어나고 같은 값을 다시 적어도 달라지는 것이
+  없다. 배포 · 발행처럼 권한 키가 필요하고 한 번만 하는 쓰기는 애플리케이션에 두지 않는다 (1.1 의 `scripts/`)
 - **예외는 `BlockchainClientException` 하나다.** 사유는 `BlockchainClientError` 로 가른다
-  (`INVALID_ADDRESS` · `INVALID_TRANSACTION_HASH` · `INVALID_TRANSACTION` · `INVALID_AMOUNT` · `INVALID_CONFIGURATION` ·
-  `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
+  (`INVALID_ADDRESS` · `INVALID_TRANSACTION_HASH` · `INVALID_DOCUMENT` · `INVALID_TRANSACTION` · `INVALID_AMOUNT` ·
+  `INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `TRANSACTION_REVERTED` · `REQUEST_FAILED`).
   `REQUEST_FAILED` 만 체인 결과를 알 수 없는 상황이고, 나머지는 실패가 확인된 상황이다.
   `core-api` 는 `CoreException` 을 이 모듈에 내릴 수 없으므로(2.3 규칙 1) 호출 경계에서 변환한다 (RULE.md 7.1)
 - **체인 RPC 는 web3j(`org.web3j:core`)의 HTTP 연결만 쓴다.** JSON-RPC 요청·응답 모양과 이벤트 서명 계산을
   라이브러리에 맡긴다. 쓰지 않는 AWS KMS 서명 · 유닉스 소켓 · WebSocket 연결 의존성은 `exclude` 로 뺐다.
   `Web3j` 연결 객체는 이 모듈 안의 빈이고 `SsafyChainClient` 만 쓴다
-- 의존성: `spring-web`, `spring-boot-starter`, `org.web3j:core`.
+- 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`, `org.web3j:core`.
   서버 스타터(`spring-boot-starter-webmvc`)에 얹히지 않도록 클라이언트 쪽만 선언한다.
-  토큰증권 API 응답은 값 하나라 `String` 으로 받아 직접 변환한다. 체인 RPC 의 JSON 은 web3j 가 푼다
+  토큰증권 API 의 조회 응답은 값 하나라 `String` 으로 받아 직접 변환한다. 등기부 문서의 조회 응답과
+  쓰기 영수증은 객체라 JSON 변환기로 푼다. 체인 RPC 의 JSON 은 web3j 가 푼다
+- `RestClient` 를 더 빈으로 내놓지 않는다. 조회용(`ssafyStoQueryRestClient`) 하나가 이미 빈이라, 둘이 되면
+  타입으로 주입받는 쪽이 어느 것을 받을지 알 수 없다. `SsafyStoDocumentClient` 는 제 것을 들고 있는다
 - 프로파일 변형 파일을 두지 않는다. 환경별로 달라지는 값은 `${SSAFY_STO_BASE_URL:...}` 처럼
   환경 변수로 받는다
 - 외부를 실제로 호출하는 테스트는 `@Tag("integration")` 과 환경 변수 가드를 함께 건다.
