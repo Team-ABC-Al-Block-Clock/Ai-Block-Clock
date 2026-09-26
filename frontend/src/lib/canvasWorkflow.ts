@@ -1,4 +1,4 @@
-import type { AiModel } from '@/api/nodes'
+import type { AiModel, NodeOutput } from '@/api/nodes'
 import type {
   ConditionLiteral,
   ConditionOperator,
@@ -78,6 +78,8 @@ export interface CanvasNodeData {
   prompt: string | null
   /** 기본 노드가 쓸 모델. 에이전트는 null */
   model: AiModel | null
+  /** 기본 노드의 출력 형식. 에이전트와 아직 모르는 노드는 비운다 */
+  output?: NodeOutput | null
   /** 에이전트의 누적 실행 횟수. 모르면 비운다 — 0 과 「모름」은 다르다 */
   executionCount?: number | null
   /** 에이전트를 등록한 사람. 모르면 비운다 */

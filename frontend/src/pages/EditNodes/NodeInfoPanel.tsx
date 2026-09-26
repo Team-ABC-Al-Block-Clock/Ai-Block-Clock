@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import { NODE_NAME_MAX, type AiModel, type NodeOutput } from '@/api/nodes'
 import type { ConditionOperator } from '@/api/workflows'
 import {
   CONDITION_OPERATORS,
@@ -9,7 +9,10 @@ import {
 } from '@/lib/branchCondition'
 import type { CanvasCondition } from '@/lib/canvasWorkflow'
 import { priceLabel } from '@/lib/format'
+import type { NodeValues } from '@/lib/canvasReducer'
+import { EXAMPLE_INVALID, readOutputDraft, sameOutput, toOutputDraft } from '@/lib/nodeOutput'
 import ModelSelect from '@/components/ModelSelect'
+import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
@@ -36,8 +39,6 @@ const rowStyle = (top: string) => ({
   width: `${PANEL_CONTENT_WIDTH}px`,
 })
 
-type FormValues = { name: string; prompt: string; model: AiModel }
-
 /**
  * 폼의 세로 좌표. 라벨은 칸에서 22px 위다.
  *
@@ -49,7 +50,11 @@ const MODEL_Y = FILES_Y + REF_FIELD_HEIGHT + 30
 const PROMPT_Y = MODEL_Y + 72
 /** 안쪽 여백을 빼면 다섯 줄이 선다. 두 줄로는 프롬프트를 적다가 바로 스크롤이 생긴다. */
 const PROMPT_HEIGHT = 150
-const FOOT_Y = PROMPT_Y + PROMPT_HEIGHT + 10
+/** JSON 이면 예시 칸이 프롬프트 자리를 나눠 쓴다. 늘리면 팔레트 경계를 넘는다. */
+const PROMPT_HEIGHT_JSON = 68
+const EXAMPLE_HEIGHT = 68
+/** 모델과 출력 형식은 한 줄에 반씩. */
+const HALF_WIDTH = (PANEL_CONTENT_WIDTH - 8) / 2
 
 /** 에이전트 쪽 세로 좌표. 설명은 길이에 따라 늘고, 메타 세 줄은 그 아래 고정이다. */
 const SUMMARY_Y = 206
@@ -344,18 +349,29 @@ function NodeForm({
   files,
   onApply,
 }: {
-  initial: FormValues
+  initial: { name: string; prompt: string; model: AiModel; output: NodeOutput | null }
   /** 서버가 매긴 1회 실행 원가. 저장하기 전에는 없다 */
   price: string | null
   files: RefFileSlot
-  onApply: (v: FormValues) => void
+  onApply: (v: NodeValues) => void
 }) {
   const [name, setName] = useState(initial.name)
   const [prompt, setPrompt] = useState(initial.prompt)
   const [model, setModel] = useState<AiModel>(initial.model)
+  const [outputDraft, setOutputDraft] = useState(() => toOutputDraft(initial.output))
 
-  const changed = name !== initial.name || prompt !== initial.prompt || model !== initial.model
-  const canApply = changed && !!name.trim() && !!prompt.trim()
+  const output = readOutputDraft(outputDraft)
+  const json = outputDraft.kind === 'JSON'
+  const changed =
+    name !== initial.name ||
+    prompt !== initial.prompt ||
+    model !== initial.model ||
+    !sameOutput(output, initial.output ?? readOutputDraft(toOutputDraft()))
+  const canApply = changed && !!name.trim() && !!prompt.trim() && !!output
+
+  const promptHeight = json ? PROMPT_HEIGHT_JSON : PROMPT_HEIGHT
+  const exampleY = PROMPT_Y + promptHeight + 30
+  const footY = json ? exampleY + EXAMPLE_HEIGHT + 10 : PROMPT_Y + PROMPT_HEIGHT + 10
 
   return (
     <>
@@ -383,7 +399,34 @@ function NodeForm({
       <ModelSelect
         value={model}
         onChange={setModel}
-        style={{ ...rowStyle(`${MODEL_Y}px`), height: '42px', fontSize: '16.5px' }}
+        style={{
+          ...rowStyle(`${MODEL_Y}px`),
+          width: `${HALF_WIDTH}px`,
+          height: '42px',
+          fontSize: '16.5px',
+        }}
+      />
+      <div
+        className="absolute text-[15px]"
+        style={{
+          left: `${PANEL_INSET + HALF_WIDTH + 8}px`,
+          top: `${MODEL_Y - 22}px`,
+          color: 'rgba(255,214,232,.85)',
+        }}
+      >
+        출력 형식
+      </div>
+      <OutputKindToggle
+        value={outputDraft.kind}
+        onChange={(kind) => setOutputDraft((it) => ({ ...it, kind }))}
+        style={{
+          position: 'absolute',
+          left: `${PANEL_INSET + HALF_WIDTH + 8}px`,
+          top: `${MODEL_Y}px`,
+          width: `${HALF_WIDTH}px`,
+          height: '42px',
+          fontSize: '15.5px',
+        }}
       />
 
       <FieldLabel top={`${PROMPT_Y - 22}px`}>프롬프트</FieldLabel>
@@ -391,7 +434,7 @@ function NodeForm({
         className="bg-surface-card absolute"
         style={{
           ...rowStyle(`${PROMPT_Y}px`),
-          height: `${PROMPT_HEIGHT}px`,
+          height: `${promptHeight}px`,
           borderRadius: '11px',
           padding: '9px 12px',
         }}
@@ -402,24 +445,44 @@ function NodeForm({
           onChange={(ev) => setPrompt(ev.target.value)}
           placeholder="이 노드가 할 일을 프롬프트로 적으세요"
           aria-label="프롬프트"
-          style={{ height: `${PROMPT_HEIGHT - 18}px` }}
+          style={{ height: `${promptHeight - 18}px` }}
         />
       </div>
 
+      {json && (
+        <>
+          <FieldLabel top={`${exampleY - 22}px`}>출력 예시</FieldLabel>
+          <OutputExampleBox
+            value={outputDraft.text}
+            onChange={(text) => setOutputDraft((it) => ({ ...it, text }))}
+            invalid={!!outputDraft.text.trim() && !output}
+            height={EXAMPLE_HEIGHT}
+            fontSize="14px"
+            style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
+          />
+        </>
+      )}
+
       <div
         className="absolute flex items-center justify-between"
-        style={{ ...rowStyle(`${FOOT_Y}px`), height: '32px' }}
+        style={{ ...rowStyle(`${footY}px`), height: '32px' }}
       >
         <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
           {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
-          {price ? `1회 실행 원가 ${priceLabel(price)}` : '실행 단계에서 원가가 측정됩니다'}
+          {!output
+            ? EXAMPLE_INVALID
+            : price
+              ? `1회 실행 원가 ${priceLabel(price)}`
+              : '실행 단계에서 원가가 측정됩니다'}
         </span>
         <button
           type="button"
           disabled={!canApply}
-          onClick={() => onApply({ name: name.trim(), prompt: prompt.trim(), model })}
+          onClick={() =>
+            output && onApply({ name: name.trim(), prompt: prompt.trim(), model, output })
+          }
           title={canApply ? '고친 값을 캔버스에 반영합니다' : '바뀐 것이 없습니다'}
-          className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
+          className="flex-none border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
           style={{
             height: '32px',
             padding: '0 18px',
@@ -448,7 +511,14 @@ type NodeInfoPanelProps = {
    *
    * 에이전트면 undefined — 남의 내부 구성이라 열지 않고 한 줄 설명만 보여준다.
    */
-  basic?: { id: string; name: string; prompt: string; model: AiModel; price: string | null }
+  basic?: {
+    id: string
+    name: string
+    prompt: string
+    model: AiModel
+    output: NodeOutput | null
+    price: string | null
+  }
   /** 고른 기본 노드에 붙은 참고 자료. 에이전트면 쓰지 않는다 */
   files: RefFileSlot
   /** 에이전트의 한 줄 설명. */
@@ -460,7 +530,7 @@ type NodeInfoPanelProps = {
   /** 고친 조건을 캔버스에 돌려준다. */
   onApplyCondition: (id: string, condition: CanvasCondition) => void
   /** 고친 값을 캔버스에 돌려준다. 저장은 워크플로우를 저장할 때 서버로 함께 나간다. */
-  onApply: (id: string, values: { name: string; prompt: string; model: AiModel }) => void
+  onApply: (id: string, values: NodeValues) => void
 }
 
 /** 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리. */
@@ -505,7 +575,7 @@ export default function NodeInfoPanel({
     return (
       <NodeForm
         key={basic.id}
-        initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
+        initial={basic}
         price={basic.price}
         files={files}
         onApply={(values) => onApply(basic.id, values)}

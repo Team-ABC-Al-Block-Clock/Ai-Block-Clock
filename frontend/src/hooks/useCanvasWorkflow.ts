@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
-import type { AiModel } from '@/api/nodes'
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
   seededCanvasState,
   type NodePort,
+  type NodeValues,
   type PlacedSeed,
 } from '@/lib/canvasReducer'
 import {
@@ -522,8 +522,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     linkFrom,
     canSell: canSellWorkflow(nodes),
     /** 고른 기본 노드의 값을 고친다. 서버에는 워크플로우를 저장할 때 함께 나간다. */
-    editNode: (id: string, values: { name: string; prompt: string; model: AiModel }) =>
-      dispatch({ type: 'editNode', id, ...values }),
+    editNode: (id: string, values: NodeValues) => dispatch({ type: 'editNode', id, values }),
     editCondition: (id: string, condition: CanvasCondition) =>
       dispatch({ type: 'editCondition', id, condition }),
     /** 저장 응답이 준 원본 id 를 캔버스에 되쓴다. */

@@ -1,4 +1,4 @@
-import type { AiModel } from '@/api/nodes'
+import type { AiModel, NodeOutput } from '@/api/nodes'
 import {
   NO_BOUNDS,
   connect,
@@ -70,6 +70,7 @@ export type PlacedSeed = Pick<
   | 'summary'
   | 'prompt'
   | 'model'
+  | 'output'
   | 'executionCount'
   | 'owner'
   | 'mine'
@@ -92,6 +93,14 @@ export function seededCanvasState(seeds?: PlacedSeed[]): CanvasState {
   return { ...initialCanvasState, nodes, edges: chainEdges(nodes) }
 }
 
+/** 기본 노드에서 고칠 수 있는 값. */
+export interface NodeValues {
+  name: string
+  prompt: string
+  model: AiModel
+  output: NodeOutput
+}
+
 export type CanvasAction =
   /** 카드를 누름 — 선택은 누르는 즉시 옮겨간다. */
   | { type: 'pressNode'; id: string }
@@ -108,8 +117,8 @@ export type CanvasAction =
   | { type: 'loadGraph'; nodes: CanvasNodeData[]; edges: CanvasEdge[] }
   /** 선택한 것을 지움. 노드면 거기 붙은 선도 함께. */
   | { type: 'removeSelected' }
-  /** 고른 기본 노드의 이름·프롬프트·모델을 고친다. 저장은 워크플로우 저장이 맡는다. */
-  | { type: 'editNode'; id: string; name: string; prompt: string; model: AiModel }
+  /** 고른 기본 노드의 값을 고친다. 저장은 워크플로우 저장이 맡는다. */
+  | { type: 'editNode'; id: string; values: NodeValues }
   /** 분기 조건을 고침. 조건이 없으면 저장이 막힌다. */
   | { type: 'editCondition'; id: string; condition: CanvasCondition }
   /** 저장하며 만들어진 노드의 원본 id 를 되쓴다. 비워 두면 다음 저장에서 또 만들어진다. */
@@ -185,9 +194,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       return {
         ...state,
         nodes: state.nodes.map((node) =>
-          node.id === action.id
-            ? { ...node, name: action.name, prompt: action.prompt, model: action.model }
-            : node,
+          node.id === action.id ? { ...node, ...action.values } : node,
         ),
       }
     }

@@ -17,7 +17,7 @@ const DEFAULT_RESULT: { shape: ResultShape; format: ResultFormat } = {
   shape: 'DOCUMENT',
   format: 'PDF',
 }
-import type { AiModel } from '@/api/nodes'
+import type { AiModel, NodeOutput } from '@/api/nodes'
 import { controlKindName } from '@/lib/format'
 import {
   NODE_SIZE,
@@ -94,6 +94,7 @@ export function toWorkflowGraph(
         name: node.name,
         prompt: node.prompt ?? '',
         ...(node.model ? { model: node.model } : {}),
+        ...(node.output ? { output: node.output } : {}),
       })
       continue
     }
@@ -132,6 +133,7 @@ export interface NodeLabel {
   /** 기본 노드만. 우측 패널이 그대로 보여주고 다시 저장할 때 실려 나간다 */
   prompt?: string | null
   model?: AiModel | null
+  output?: NodeOutput | null
   /** 에이전트만. 우측 패널이 단가 옆에 함께 보여준다 */
   executionCount?: number | null
   owner?: string | null
@@ -221,6 +223,7 @@ export function toCanvasWorkflow(
       // 기본 노드는 여기 담겨 와야 우측 패널이 채워지고 다시 저장할 때도 살아남는다.
       prompt: label?.prompt ?? null,
       model: label?.model ?? null,
+      output: label?.output ?? null,
       executionCount: label?.executionCount ?? null,
       owner: label?.owner ?? null,
       x: RESTORE_X0 + depth * RESTORE_STEP,

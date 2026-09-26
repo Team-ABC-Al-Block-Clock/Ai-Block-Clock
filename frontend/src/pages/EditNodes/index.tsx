@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode, type AiModel } from '@/api/nodes'
+import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode } from '@/api/nodes'
 import {
   replaceWorkflow,
   saveWorkflow,
@@ -17,6 +17,7 @@ import ControlNode from '@/components/ControlNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
 import ModelSelect from '@/components/ModelSelect'
+import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
@@ -35,6 +36,8 @@ import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { describeCondition } from '@/lib/branchCondition'
 import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
+import type { NodeValues } from '@/lib/canvasReducer'
+import { EXAMPLE_INVALID, readOutputDraft, toOutputDraft } from '@/lib/nodeOutput'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
@@ -78,6 +81,13 @@ function ControlChip({
 
 /** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
 const NAME_MAX = 40
+
+const EMPTY_DRAFT = {
+  name: '',
+  prompt: '',
+  model: DEFAULT_AI_MODEL,
+  output: toOutputDraft(),
+}
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
 
@@ -167,7 +177,7 @@ export default function EditNodes() {
 
   const [name, setName] = useState('문서 정리')
   /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
-  const [draft, setDraft] = useState({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+  const [draft, setDraft] = useState(EMPTY_DRAFT)
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
@@ -204,13 +214,8 @@ export default function EditNodes() {
 
   /** 원가는 프롬프트와 모델로 다시 매겨진다. 받은 값을 카드에 되쓴다. */
   const editOriginal = useMutation({
-    mutationFn: ({
-      sourceId,
-      values,
-    }: {
-      sourceId: string
-      values: { name: string; prompt: string; model: AiModel }
-    }) => updateNode(sourceId, values),
+    mutationFn: ({ sourceId, values }: { sourceId: string; values: NodeValues }) =>
+      updateNode(sourceId, values),
     onSuccess: (node) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.detail(node.nodeId) })
       repriceBySource(node.nodeId, node.baseCost)
@@ -354,10 +359,11 @@ export default function EditNodes() {
         transition: 'transform .2s,opacity .25s ease',
       }
     : { display: 'none' }
-  const draftFilled = !!draft.name.trim() && !!draft.prompt.trim()
+  const draftOutput = readOutputDraft(draft.output)
+  const draftFilled = !!draft.name.trim() && !!draft.prompt.trim() && !!draftOutput
 
   const closeAddPanel = () => {
-    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    setDraft(EMPTY_DRAFT)
     refFiles.clearDraft()
     handleTogglePanel()
   }
@@ -367,7 +373,7 @@ export default function EditNodes() {
    * 기본 노드는 워크플로우를 저장할 때 배치와 함께 만들어진다(`NodePlacementRequest`).
    */
   const handleCreate = () => {
-    if (!draftFilled) return
+    if (!draftFilled || !draftOutput) return
     const placedId = canvas.placeAtCenter({
       name: draft.name.trim(),
       nodeType: 'LLM',
@@ -379,12 +385,13 @@ export default function EditNodes() {
       summary: null,
       prompt: draft.prompt.trim(),
       model: draft.model,
+      output: draftOutput,
       mine: true,
     })
     // 카드가 생긴 뒤에 옮긴다. 원본은 저장할 때 만들어지고, 그때 이 카드 몫으로 올라간다.
     refFiles.handOff(placedId)
     refFiles.clearDraft()
-    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    setDraft(EMPTY_DRAFT)
     handleTogglePanel()
   }
 
@@ -422,7 +429,7 @@ export default function EditNodes() {
    * 원본을 가리키는 배치는 저장할 때 `sourceId` 만 보내므로 이름·프롬프트가 함께 나가지 않는다.
    * 여기서 `PUT` 하지 않으면 고친 값이 다음 저장에서 버려진다.
    */
-  const applyNodeEdit = (id: string, values: { name: string; prompt: string; model: AiModel }) => {
+  const applyNodeEdit = (id: string, values: NodeValues) => {
     editNode(id, values)
     const sourceId = nodes.find((node) => node.id === id)?.sourceId
     if (sourceId) editOriginal.mutate({ sourceId, values })
@@ -436,6 +443,7 @@ export default function EditNodes() {
           name: n.name,
           prompt: n.prompt ?? '',
           model: n.model ?? DEFAULT_AI_MODEL,
+          output: n.output ?? null,
           price: n.price,
         }
       : undefined
@@ -818,6 +826,28 @@ export default function EditNodes() {
 
               <div
                 className="text-[17px]"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
+              >
+                출력 형식
+              </div>
+              <OutputKindToggle
+                value={draft.output.kind}
+                onChange={(kind) => setDraft((it) => ({ ...it, output: { ...it.output, kind } }))}
+                style={{ height: '44px', fontSize: '16px', marginBottom: '14px' }}
+              />
+              {draft.output.kind === 'JSON' && (
+                <OutputExampleBox
+                  value={draft.output.text}
+                  onChange={(text) => setDraft((it) => ({ ...it, output: { ...it.output, text } }))}
+                  invalid={!!draft.output.text.trim() && !draftOutput}
+                  height={130}
+                  fontSize="14.5px"
+                  style={{ marginBottom: '14px' }}
+                />
+              )}
+
+              <div
+                className="text-[17px]"
                 style={{ color: 'rgba(255,214,232,.85)', marginBottom: '10px' }}
               >
                 제어 흐름 노드
@@ -870,7 +900,11 @@ export default function EditNodes() {
                 onClick={handleCreate}
                 disabled={!draftFilled}
                 title={
-                  draftFilled ? '노드를 만들어 팔레트에 넣습니다' : '이름과 프롬프트를 적어 주세요'
+                  draftFilled
+                    ? '노드를 만들어 팔레트에 넣습니다'
+                    : !draftOutput
+                      ? EXAMPLE_INVALID
+                      : '이름과 프롬프트를 적어 주세요'
                 }
                 style={{
                   height: '40px',

@@ -28,7 +28,7 @@ describe('getNode', () => {
     expect(node.prompt).toBeTruthy()
   })
 
-  it('확정 명세의 일곱 필드만 담는다', async () => {
+  it('확정 명세의 여덟 필드만 담는다', async () => {
     const node = await getNode(NODE_DETAILS[0].nodeId)
 
     expect(Object.keys(node).sort()).toEqual([
@@ -37,6 +37,7 @@ describe('getNode', () => {
       'model',
       'name',
       'nodeId',
+      'output',
       'prompt',
       'refFiles',
     ])
@@ -163,10 +164,12 @@ describe('updateNode', () => {
     const updated = await updateNode(sourceId, {
       name: '고친 뒤',
       prompt: '아주 긴 프롬프트를 적어 원가가 달라지게 만든다'.repeat(3),
+      output: { kind: 'JSON', example: { level: 'high' } },
     })
 
     expect(updated.nodeId).toBe(sourceId)
     expect(updated.name).toBe('고친 뒤')
+    expect(updated.output).toEqual({ kind: 'JSON', example: { level: 'high' } })
     expect(Number(updated.baseCost)).toBeGreaterThan(1)
     expect((await getNode(sourceId)).name).toBe('고친 뒤')
   })

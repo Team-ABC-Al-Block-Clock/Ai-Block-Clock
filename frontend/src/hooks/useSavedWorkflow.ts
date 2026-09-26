@@ -102,6 +102,7 @@ export function useSavedWorkflow(workflowId: string | undefined) {
         summary: null,
         prompt: node.prompt,
         model: node.model,
+        output: node.output,
         // 남의 노드는 서버가 `NODE_002` 로 막아 여기까지 오지 않는다.
         mine: true,
       })

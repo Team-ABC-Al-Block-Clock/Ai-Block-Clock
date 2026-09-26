@@ -191,6 +191,16 @@ describe('toWorkflowGraph', () => {
     ])
   })
 
+  it('새로 만들 노드는 출력 형식을 함께 싣는다', () => {
+    const output = { kind: 'JSON' as const, example: { level: 'high' } }
+    const graph = toWorkflowGraph(
+      [node('a', { nodeType: 'LLM', sourceId: '', prompt: '분류한다', output })],
+      [],
+    )
+
+    expect(graph?.nodes[0]).toMatchObject({ nodeType: 'LLM', prompt: '분류한다', output })
+  })
+
   it('노드가 하나면 선은 빈 배열이다', () => {
     const graph = toWorkflowGraph([node('a')], [])
 
@@ -303,6 +313,24 @@ describe('toCanvasWorkflow — 분기·입출력', () => {
   })
 
   // 갈래가 생기면 한 줄이 아니다. 깊이로 가로, 형제로 세로를 가른다.
+  // 합류는 두 갈래 중 더 깊은 쪽 다음 칸에 둬야 선이 뒤로 꺾이지 않는다.
+  it('합류는 가장 깊은 부모 다음 칸에 놓는다', () => {
+    const joined: WorkflowDetail = {
+      ...detail,
+      nodes: [...detail.nodes, placed('n6', { sourceId: 'node_003' })],
+      edges: [
+        ...detail.edges.slice(0, 3),
+        { edgeKey: 'e4', sourceNodeKey: 'n3', targetNodeKey: 'n6', when: false },
+        { edgeKey: 'e5', sourceNodeKey: 'n4', targetNodeKey: 'n5' },
+        { edgeKey: 'e6', sourceNodeKey: 'n6', targetNodeKey: 'n5' },
+      ],
+    }
+    const [, , br, t, end] = toCanvasWorkflow(joined, () => undefined).nodes
+
+    expect(end.x).toBeGreaterThan(t.x)
+    expect(t.x).toBeGreaterThan(br.x)
+  })
+
   it('갈라진 자리는 같은 가로줄에 겹치지 않는다', () => {
     const { nodes } = canvas()
     const [yes, no] = [nodes[3], nodes[4]]
