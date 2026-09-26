@@ -4,49 +4,265 @@
   "model": null,
   "nodes": [
     {
-      "id": "n1", "name": "시장 조사",
+      "id": "n1",
+      "name": "시장 조사",
       "prompt": "../../prompts/brand/01_market_research.md",
-      "input": { "sample": "biz.brand_brief@1" },
-      "output": { "kind": "json", "sample": "biz.market_research@1" },
-      "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩"
+      "input": {
+        "example": {
+          "brand_name": "샘플 브랜드명",
+          "category": "샘플 제품 카테고리",
+          "target": "샘플 핵심 고객",
+          "price_tier": "보급형",
+          "differentiator": "샘플 차별점",
+          "comment": null
+        }
+      },
+      "output": {
+        "kind": "json",
+        "example": {
+          "market_overview_md": "샘플 시장 개요",
+          "competitors": [
+            {
+              "name": "샘플 경쟁사명",
+              "positioning": "샘플 포지션",
+              "note": "샘플 특징"
+            },
+            {
+              "name": "샘플 경쟁사명",
+              "positioning": "샘플 포지션",
+              "note": "샘플 특징"
+            }
+          ],
+          "trends": [
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            }
+          ],
+          "competition_level": "high",
+          "level_reason": "샘플 판정 근거"
+        }
+      },
+      "owner_id": "u_seller_a",
+      "owner_name": "김전략 브랜딩"
     },
     {
-      "id": "n2", "name": "제품 분석",
+      "id": "n2",
+      "name": "제품 분석",
       "prompt": "../../prompts/brand/02_product_analysis.md",
-      "input": { "sample": "biz.brand_brief@1" },
-      "output": { "kind": "json", "sample": "biz.product_analysis@1" },
-      "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩"
+      "input": {
+        "example": {
+          "brand_name": "샘플 브랜드명",
+          "category": "샘플 제품 카테고리",
+          "target": "샘플 핵심 고객",
+          "price_tier": "보급형",
+          "differentiator": "샘플 차별점",
+          "comment": null
+        }
+      },
+      "output": {
+        "kind": "json",
+        "example": {
+          "strengths": [
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            },
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            }
+          ],
+          "weaknesses": [
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            },
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            }
+          ],
+          "opportunities": [
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            }
+          ]
+        }
+      },
+      "owner_id": "u_seller_a",
+      "owner_name": "김전략 브랜딩"
     },
     {
-      "id": "br1", "name": "경쟁 강도 분기", "type": "branch",
-      "condition": { "left": "n1.competition_level", "op": "==", "right": "high" }
+      "id": "br1",
+      "name": "경쟁 강도 분기",
+      "type": "branch",
+      "condition": {
+        "left": "n1.competition_level",
+        "op": "==",
+        "right": "high"
+      }
     },
     {
-      "id": "n3a", "name": "차별화 전략",
+      "id": "n3a",
+      "name": "차별화 전략",
       "prompt": "../../prompts/brand/03a_strategy_differentiate.md",
-      "output": { "kind": "json", "sample": "biz.strategy_draft@1" },
-      "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩"
+      "output": {
+        "kind": "json",
+        "example": {
+          "approach": "차별화",
+          "positioning": "샘플 포지셔닝",
+          "rationale_md": "샘플 근거",
+          "core_strategies": [
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            },
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            },
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            }
+          ]
+        }
+      },
+      "owner_id": "u_seller_a",
+      "owner_name": "김전략 브랜딩"
     },
     {
-      "id": "n3b", "name": "대중 공략 전략",
+      "id": "n3b",
+      "name": "대중 공략 전략",
       "prompt": "../../prompts/brand/03b_strategy_mass.md",
-      "output": { "kind": "json", "sample": "biz.strategy_draft@1" },
-      "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩"
+      "output": {
+        "kind": "json",
+        "example": {
+          "approach": "차별화",
+          "positioning": "샘플 포지셔닝",
+          "rationale_md": "샘플 근거",
+          "core_strategies": [
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            },
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            },
+            {
+              "label": "샘플 항목",
+              "detail": "샘플 설명"
+            }
+          ]
+        }
+      },
+      "owner_id": "u_seller_a",
+      "owner_name": "김전략 브랜딩"
     },
     {
-      "id": "n4", "name": "브랜드 전략 보고서",
+      "id": "n4",
+      "name": "브랜드 전략 보고서",
       "prompt": "../../prompts/brand/04_brand_report.md",
-      "output": { "kind": "json", "sample": "biz.brand_strategy@1" },
-      "owner_id": "u_seller_a", "owner_name": "김전략 브랜딩"
+      "output": {
+        "kind": "json",
+        "example": {
+          "brand_name": "샘플 브랜드명",
+          "headline": "샘플 대제목",
+          "purpose": [
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            }
+          ],
+          "positioning": [
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            }
+          ],
+          "reasons": [
+            {
+              "axis": "샘플 축",
+              "detail": "샘플 설명"
+            },
+            {
+              "axis": "샘플 축",
+              "detail": "샘플 설명"
+            },
+            {
+              "axis": "샘플 축",
+              "detail": "샘플 설명"
+            }
+          ],
+          "core_strategy": [
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            },
+            {
+              "label": "샘플 항목"
+            }
+          ],
+          "messages": {
+            "core": "샘플 핵심 메시지",
+            "sub": "샘플 보조 메시지",
+            "daily": "샘플 일상 메시지"
+          },
+          "summary_md": null
+        }
+      },
+      "owner_id": "u_seller_a",
+      "owner_name": "김전략 브랜딩"
     }
   ],
   "edges": [
-    { "from": "n1", "to": "br1", "port": "market" },
-    { "from": "n2", "to": "br1", "port": "product" },
-    { "from": "br1", "to": "n3a", "when": true },
-    { "from": "br1", "to": "n3b", "when": false },
-    { "from": "n3a", "to": "n4" },
-    { "from": "n3b", "to": "n4" }
+    {
+      "from": "n1",
+      "to": "br1",
+      "port": "market"
+    },
+    {
+      "from": "n2",
+      "to": "br1",
+      "port": "product"
+    },
+    {
+      "from": "br1",
+      "to": "n3a",
+      "when": true
+    },
+    {
+      "from": "br1",
+      "to": "n3b",
+      "when": false
+    },
+    {
+      "from": "n3a",
+      "to": "n4"
+    },
+    {
+      "from": "n3b",
+      "to": "n4"
+    }
   ],
   "output": {
     "type": "pdf",

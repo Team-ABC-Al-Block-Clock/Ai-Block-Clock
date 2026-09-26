@@ -24,7 +24,7 @@ from fastapi import (BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTP
                      UploadFile)
 from fastapi.responses import FileResponse, JSONResponse
 
-from . import catalog, graph, runner
+from . import graph, runner
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -81,7 +81,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
         has_envelope = bool(run["result"].get("envelope"))
         result = {
             "type": run["result"].get("type"),
-            "output": run["result"].get("output"),          # 종단 노드의 선언 {kind, sample}
+            "output": run["result"].get("output"),          # 종단 노드의 선언 {kind, example}
             "artifact_url": f"/v1/runs/{run['run_id']}/artifact" if has_envelope else None,
             "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if has_pdf else None,
         }
@@ -139,21 +139,21 @@ def health() -> dict:
     return {"status": "ok", "auth_required": bool(SERVICE_TOKEN), "runs_in_memory": len(_runs)}
 
 
-@app.get("/v1/schemas", summary="출력 형식 견본 목록", dependencies=[Depends(auth)])
+@app.get("/v1/schemas", summary="(없어짐) 견본 목록 — 빈 목록", dependencies=[Depends(auth)])
 def get_schemas() -> dict:
-    """판매자가 노드 출력(json)과 진입 노드 입력 폼으로 고를 수 있는 견본 목록(계약 v2.0 §6.1)."""
-    return {"catalog_version": catalog.CATALOG_VERSION, "schemas": catalog.list_entries()}
+    """v2.1 에서 견본을 없앴다. 판매자가 노드마다 `output.example` 에 JSON 예시를 준다.
+
+    한 버전 동안 빈 목록을 돌려준다 — 프론트가 이 API 를 부르고 있어도 화면이 깨지지 않게.
+    """
+    return {"deprecated": True, "schemas": [],
+            "message": "견본 목록은 v2.1 에서 없어졌습니다 — 노드의 output.example 에 JSON 예시를 주세요"}
 
 
-@app.get("/v1/schemas/{schema_id}", summary="스키마 JSON Schema 전문",
-         dependencies=[Depends(auth)])
+@app.get("/v1/schemas/{schema_id}", summary="(없어짐) 견본 상세", dependencies=[Depends(auth)])
 def get_schema(schema_id: str) -> dict:
-    """프론트는 이 JSON Schema 로 진입 폼과 분기 조건의 필드 드롭다운을 그린다. 연결 판정에는 쓰지 않는다."""
-    try:
-        return catalog.json_schema(schema_id)
-    except catalog.UnknownSchema:
-        raise HTTPException(status_code=404,
-                            detail={"code": "SCHEMA_NOT_FOUND", "message": schema_id})
+    raise HTTPException(status_code=404, detail={
+        "code": "SCHEMA_NOT_FOUND",
+        "message": f"견본은 v2.1 에서 없어졌습니다 — output.example 에 JSON 예시를 주세요 ({schema_id})"})
 
 
 @app.get("/v1/workflows", summary="예시 워크플로우 목록", dependencies=[Depends(auth)])
@@ -265,7 +265,7 @@ async def create_run(
             "mock": mock, "mode": mode, "status": "queued", "started_at": None, "finished_at": None,
             "total_duration_ms": None,
             "nodes": [{"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
-                       "type": n.get("type") or "llm", "output": graph.output_spec_of(n),
+                       "type": n.get("type") or "llm", "output": graph.public_output(graph.output_spec_of(n)),
                        "duration_ms": None, "input_tokens": None,
                        "output_tokens": None, "retries": 0, "output_payload": None,
                        "model": None, "cost_usd": None, "owner_id": n.get("owner_id")}

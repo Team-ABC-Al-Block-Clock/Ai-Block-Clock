@@ -9,7 +9,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from src import runner
+from src import runner, shape
 from src.api import app
 
 BRIEF = {"brand_name": "초록소반", "category": "간편식", "target": "1인 가구 30대",
@@ -66,7 +66,7 @@ def test_진행률은_돌아야_하는_LLM_노드_기준이다():
 
 def test_완료_결과는_URL_로_안내한다():
     body = _run()
-    assert body["result"] == {"type": "pdf", "output": {"kind": "json", "sample": "biz.brand_strategy@1"},
+    assert body["result"] == {"type": "pdf", "output": {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.brand_strategy@1"]},
                               "artifact_url": f"/v1/runs/{body['run_id']}/artifact",
                               "pdf_url": f"/v1/runs/{body['run_id']}/pdf"}
 

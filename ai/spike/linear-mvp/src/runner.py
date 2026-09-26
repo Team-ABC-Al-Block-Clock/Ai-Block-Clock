@@ -21,14 +21,13 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
-from . import catalog, errors, pricing
+from . import errors, pricing, shape
 from . import expand as expand_mod
 from . import graph as graph_mod
 from . import nodes as node_runner
 from . import prompts
-from .excel_to_text import excel_to_common_table, excel_to_markdown
+from .excel_to_text import excel_to_markdown
 from .llm import LLM
-from .payload_md import payload_to_markdown
 from .pdf import markdown_to_pdf
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -177,22 +176,26 @@ def input_sections(graph, sources: list[tuple[str, str | None]], received: objec
 
 
 def _source_label(graph, node_id: str) -> str:
-    """절 제목: `시장 조사 (n1 · 시장 조사 결과)`. 글 출력은 `글`."""
+    """절 제목: `시장 조사 (n1 · JSON)`. 글 출력은 `글`."""
     node = graph.node(node_id)
-    sid = graph_mod.output_schema_of(graph, node_id)
-    title = catalog.get(sid).title if sid in catalog.CATALOG else "글"
-    return f"{node.get('name') or node_id} ({node_id} · {title})"
+    spec = graph_mod.upstream_output_spec(graph, node_id)
+    kind = "JSON" if spec and spec.get("kind") == "json" else "글"
+    return f"{node.get('name') or node_id} ({node_id} · {kind})"
 
 
-def _runtime_values(schema_id: str, node: dict) -> dict:
-    """Runtime 이 채우는 필드. LLM 에게 날짜 · 기관명을 지어내게 하지 않는다."""
-    fields = catalog.runtime_fields(schema_id)
-    values: dict = {}
-    if "issued_on" in fields:
-        values["issued_on"] = datetime.now().strftime("%Y년 %m월 %d일")
-    if "author_org" in fields:
-        values["author_org"] = node.get("owner_name") or node.get("owner_id") or "ABC"
-    return values
+def overrides_for(node_id: str, overrides: dict | None) -> dict:
+    """mock 값 지정 `{"n1.competition_level": "low"}` 중 이 노드 몫을 `{"competition_level": "low"}` 로.
+
+    에이전트 안 노드(`a1.n1`)는 접두 id 로도, 원래 id(`n1`)로도 가리킬 수 있다.
+    """
+    out: dict = {}
+    names = [node_id] + ([node_id.split(".", 1)[1]] if "." in node_id else [])
+    for ref, value in (overrides or {}).items():
+        for name in names:
+            if ref.startswith(name + "."):
+                out[ref[len(name) + 1:]] = value
+                break
+    return out
 
 
 def execute(
@@ -245,7 +248,7 @@ def execute(
         "nodes": [
             {"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
              "type": n.get("type") or "llm",
-             "output": graph_mod.output_spec_of(n),     # 선언한 형식 {kind, sample}. 분기는 None
+             "output": graph_mod.public_output(graph_mod.output_spec_of(n)),   # {kind, example}. 분기는 None
              "duration_ms": None, "repair_count": 0,
              "model": None, "cost_usd": None,          # 토큰 · USD 만. ABC 는 백엔드(계약 v2.0 §8.1)
              "agent_id": n.get("agent_id"),
@@ -304,25 +307,13 @@ def execute(
         return result
     graph = graph_mod.build(wf)
 
-    # 진입 노드(edges 의 to 에 없는 노드)는 사용자 입력을 받는다. 폼 견본이 선언돼 있으면 검증한다(계약 §5.2)
-    first_input_sample = next(
-        (s for s in (graph_mod.entry_input_sample(graph.node(n)) for n in graph.entries) if s), None)
+    # 진입 노드(edges 의 to 에 없는 노드)는 사용자 입력을 받는다. 입력 예시가 있으면 그 모양인지 본다(계약 v2.1 §5.2)
+    first_input_example = next(
+        (s for s in (graph_mod.entry_input_example(graph.node(n)) for n in graph.entries) if s), None)
 
-    # 엑셀 · CSV 를 올렸고 진입 노드가 표를 받는다면 그대로 payload 로 바꾼다(H2A 최소 경로)
-    if input_payload is None and file_path and first_input_sample == "common.table@1":
-        try:
-            input_payload = excel_to_common_table(file_path)
-        except Exception as e:
-            result.update(status="failed", finished_at=_now(), total_duration_ms=0,
-                          error={**errors.describe("FILE_PARSE_FAILED", detail=str(e)[:500]),
-                                 "node_id": graph.entries[0] if graph.entries else None})
-            _settlement(result, 0, "FILE_PARSE_FAILED")
-            _save(out_dir, result)
-            emit("run.failed", {"run_id": run_id, "error": result["error"]})
-            return result
-    if first_input_sample:
+    if first_input_example:
         reason = ("입력값이 없습니다" if input_payload is None
-                  else node_runner.check_input(first_input_sample, input_payload))
+                  else node_runner.check_input(first_input_example, input_payload))
         if reason:
             result.update(status="failed", finished_at=_now(), total_duration_ms=0,
                           error={**errors.describe("SCHEMA_VALIDATION_FAILED", fault="consumer",
@@ -402,18 +393,14 @@ def execute(
             continue
 
         # --- LLM 노드: 앞 결과 전체 → 프롬프트 → (json 이면) 구조화 출력 · 검증 · 교정 → 봉투 ---
-        spec = graph_mod.output_spec_of(node) or {"kind": "text", "sample": None}
-        schema_id = spec["sample"] if spec["kind"] == "json" else None
+        spec = graph_mod.output_spec_of(node) or {"kind": "text", "example": None}
+        example = spec.get("example") if spec["kind"] == "json" else None
 
         prompt = prompts.parse(node["prompt"])
         sources = graph_mod.fan_in_sources(graph, node_id, payloads, branch_taken)
         if prompt.templated:
             # 트랙 B 작성 형식 — user 블록의 자리표시자를 fan-in 결과로 채운다
-            live = graph_mod.live_edges(graph, node_id, payloads, branch_taken)
-            upstream_schema = (graph_mod.output_schema_of(graph, live[0]["from"])
-                               if len(live) == 1 else None)
-            values = prompts.values_for(received, input_payload=input_payload, comment=comment,
-                                        upstream_schema_id=upstream_schema)
+            values = prompts.values_for(received, input_payload=input_payload, comment=comment)
             try:
                 message = prompt.render_user(values)
             except prompts.PlaceholderMissing as e:
@@ -443,12 +430,11 @@ def execute(
             _REQUEST_TMPL.format(system=system, user=message), encoding="utf-8")
 
         try:
-            if schema_id:
+            if example:
                 nr = node_runner.run_llm_node(
-                    llm, run_id=run_id, node_id=node_id, schema_id=schema_id,
+                    llm, run_id=run_id, node_id=node_id, example=example,
                     system=system, message=message,
-                    runtime_values=_runtime_values(schema_id, node),
-                    mock_overrides=(mock_overrides or {}).get(schema_id),
+                    mock_overrides=overrides_for(node_id, mock_overrides),
                     attachments=attachments or None)
             else:
                 nr = node_runner.run_text_node(llm, run_id=run_id, node_id=node_id,
@@ -483,14 +469,14 @@ def execute(
         entry.update(status="succeeded", finished_at=_now(),
                      output_payload=json.dumps(nr.payload, ensure_ascii=False))
         payloads[node_id] = nr.payload
-        prev_output = payload_to_markdown(schema_id, nr.payload) if schema_id else str(nr.payload.get("text", ""))
+        prev_output = shape.to_markdown(nr.payload) if example else str(nr.payload.get("text", ""))
         last_envelope = nr.envelope
-        last_spec = spec
+        last_spec = graph_mod.public_output(spec)
         _save(out_dir, result)
         emit("node.succeeded", {"run_id": run_id, "index": index, "node_id": node_id,
                                 "duration_ms": meta["duration_ms"]})
         if verbose:
-            what = f"JSON {schema_id}  교정 {meta['repair_count']}회" if schema_id else "글"
+            what = f"JSON  교정 {meta['repair_count']}회" if example else "글"
             print(f"{meta['duration_ms']/1000:.1f}s  {what}  in {meta['usage']['input_tokens']} / out {meta['usage']['output_tokens']} tokens")
 
     # 산출물 = 종단 노드의 봉투(계약 v2.0 §5.5 · §7.3). 글이면 본문 그대로, 견본이면 라벨로 문서를 만든다
@@ -594,8 +580,8 @@ def main() -> None:
     ap.add_argument("--comment", default="")
     ap.add_argument("--mock", action="store_true", help="LLM 호출 없이 파이프라인만 확인")
     ap.add_argument("--input", default=None, help="진입 노드 입력 payload JSON 파일 경로")
-    ap.add_argument("--mock-set", default=None, metavar="SCHEMA_ID.FIELD=VALUE",
-                    help="mock 값 지정. 예: biz.market_research@1.competition_level=low")
+    ap.add_argument("--mock-set", action="append", default=[], metavar="NODE_ID.FIELD=VALUE",
+                    help="mock 값 지정. 여러 번 가능. 예: n1.competition_level=low (에이전트 안 노드는 a1.n1. 도 된다)")
     ap.add_argument("--ref", action="append", default=[], metavar="NODE_ID=PATH",
                     help="노드 참고 파일. 여러 번 지정 가능. 예: --ref n1=data/checklist.md")
     args = ap.parse_args()
@@ -605,11 +591,10 @@ def main() -> None:
         ref_files.setdefault(node_id, []).append(path)
 
     payload = json.loads(Path(args.input).read_text(encoding="utf-8")) if args.input else None
-    overrides = None
-    if args.mock_set:
-        target, _, value = args.mock_set.partition("=")
-        schema_id, _, field_name = target.rpartition(".")
-        overrides = {schema_id: {field_name: value}}
+    overrides = {}
+    for item in args.mock_set:
+        target, _, value = item.partition("=")
+        overrides[target] = value
     run = run_workflow(args.workflow, args.comment, args.file, mock=args.mock,
                        input_payload=payload, mock_overrides=overrides, ref_files=ref_files or None)
     if run["status"] != "succeeded":

@@ -78,20 +78,13 @@ def test_요구하는_값이_없으면_누락_오류():
     assert e.value.names == ["market"]
 
 
-def test_값_우선순위_브리프_받은것_형식이름_코멘트():
+def test_값_우선순위_브리프_받은것_input_코멘트():
     values = prompts.values_for(
-        {"approach": "차별화", "positioning": "P"},
-        input_payload=BRIEF, comment="가을 신제품", upstream_schema_id="biz.strategy_draft@1")
+        {"approach": "차별화", "positioning": "P"}, input_payload=BRIEF, comment="가을 신제품")
     assert values["brand_name"] == "초록소반"               # 1. 브리프
     assert values["approach"] == "차별화"                   # 2. 받은 dict 의 키
-    assert values["strategy_draft"]["positioning"] == "P"  # 3. 상위 형식 이름 = payload 전체
+    assert values["input"]["positioning"] == "P"           # 3. {input} = 받은 것 전체
     assert values["comment"] == "가을 신제품"               # 4. 코멘트
-
-
-def test_형식_이름은_카탈로그_id_에서_나온다():
-    assert prompts.short_name("biz.brand_strategy@1") == "brand_strategy"
-    assert prompts.short_name("common.table@1") == "table"
-    assert prompts.short_name(None) is None
 
 
 # --- 견본 연결 ----------------------------------------------------------------
