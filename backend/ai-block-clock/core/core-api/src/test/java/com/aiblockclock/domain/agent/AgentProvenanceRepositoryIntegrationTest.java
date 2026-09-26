@@ -1,5 +1,7 @@
 package com.aiblockclock.domain.agent;
 
+import com.aiblockclock.enums.agent.AgentIntegrityMismatchReason;
+import com.aiblockclock.enums.agent.AgentIntegrityResult;
 import com.aiblockclock.enums.agent.AgentProvenanceStatus;
 import com.aiblockclock.storage.agent.AgentProvenanceEntity;
 import com.aiblockclock.storage.agent.AgentProvenanceRepository;
@@ -20,7 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-// 대기 목록 순서 · 한 번만 확정 · 문서 이름 유일을 DB 가 지키는지 본다. MySQL 에서도 같은지는 MySqlTest 가 상속해 돈다.
+// 대기 목록 순서 · 한 번만 확정 · 문서 이름 유일 · 확정된 기록에만 대조 결과를 DB 가 지키는지 본다. MySQL 에서도 같은지는 MySqlTest 가 상속해 돈다.
 @Tag("integration")
 @SpringBootTest
 @Transactional
@@ -90,6 +92,38 @@ class AgentProvenanceRepositoryIntegrationTest {
 
         assertThat(agentProvenanceRepository.findFirstByAgentIdOrderByVersionNoAsc(agentId))
                 .hasValueSatisfying(row -> assertThat(row.getVersionNo()).isEqualTo(1));
+    }
+
+    @Test
+    void 확정된_기록에_대조_결과를_덮어쓴다() {
+        UUID versionId = request(T0);
+        confirm(versionId, "0x" + "aa".repeat(32));
+
+        agentProvenanceRepository.recordIntegrity(versionId, AgentIntegrityResult.MISMATCHED,
+                AgentIntegrityMismatchReason.METADATA_CHANGED, T0.plusSeconds(60));
+        int updated = agentProvenanceRepository.recordIntegrity(versionId, AgentIntegrityResult.MATCHED, null,
+                T0.plusSeconds(120));
+        entityManager.clear();
+
+        assertThat(updated).isEqualTo(1);
+        assertThat(agentProvenanceRepository.findById(versionId)).hasValueSatisfying(row -> {
+            assertThat(row.getIntegrityResult()).isEqualTo(AgentIntegrityResult.MATCHED);
+            assertThat(row.getIntegrityMismatchReason()).isNull();
+            assertThat(row.getIntegrityCheckedAt()).isEqualTo(T0.plusSeconds(120));
+        });
+    }
+
+    @Test
+    void 확정_전_기록에는_대조_결과를_남기지_않는다() {
+        UUID versionId = request(T0);
+
+        int updated = agentProvenanceRepository.recordIntegrity(versionId, AgentIntegrityResult.MISMATCHED,
+                AgentIntegrityMismatchReason.NOT_ON_CHAIN, T0.plusSeconds(60));
+        entityManager.clear();
+
+        assertThat(updated).isZero();
+        assertThat(agentProvenanceRepository.findById(versionId))
+                .hasValueSatisfying(row -> assertThat(row.getIntegrityCheckedAt()).isNull());
     }
 
     private UUID request(Instant requestedAt) {

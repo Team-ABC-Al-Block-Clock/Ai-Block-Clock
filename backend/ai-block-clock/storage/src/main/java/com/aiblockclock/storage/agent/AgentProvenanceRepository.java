@@ -1,5 +1,8 @@
 package com.aiblockclock.storage.agent;
 
+import com.aiblockclock.enums.agent.AgentIntegrityMismatchReason;
+import com.aiblockclock.enums.agent.AgentIntegrityResult;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -56,5 +59,22 @@ public interface AgentProvenanceRepository extends JpaRepository<AgentProvenance
             @Param("transactionHash") String transactionHash,
             @Param("blockNumber") Long blockNumber,
             @Param("confirmedAt") Instant confirmedAt
+    );
+
+    // 확정된 기록에만 남긴다. 대조는 체인에 적힌 값이 있어야 하는 일이라 PENDING 에는 결과가 있을 수 없다
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update AgentProvenanceEntity p
+            set p.integrityResult = :result,
+                p.integrityMismatchReason = :mismatchReason,
+                p.integrityCheckedAt = :checkedAt
+            where p.agentVersionId = :agentVersionId
+              and p.status = com.aiblockclock.enums.agent.AgentProvenanceStatus.CONFIRMED
+            """)
+    int recordIntegrity(
+            @Param("agentVersionId") UUID agentVersionId,
+            @Param("result") AgentIntegrityResult result,
+            @Param("mismatchReason") AgentIntegrityMismatchReason mismatchReason,
+            @Param("checkedAt") Instant checkedAt
     );
 }
