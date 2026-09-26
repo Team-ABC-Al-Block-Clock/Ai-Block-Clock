@@ -123,8 +123,8 @@ class ExecutionPlanAssemblerIntegrationTest {
     }
 
     @Test
-    @DisplayName("분기가 있으면 아직 펴지 않는다")
-    void refusesBranch() {
+    @DisplayName("분기 노드는 돌릴 프롬프트가 없어 단계로 펴지 않는다")
+    void leavesBranchOutOfPrompts() {
         NodeDefinition step = nodeService.create(OWNER, "시장 조사",
                 Prompt.of("당신은 시장 조사 분석가입니다."), AiModel.defaultModel(), new NodeOutput(OutputKind.TEXT, null));
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
@@ -142,10 +142,9 @@ class ExecutionPlanAssemblerIntegrationTest {
                         GraphFixtures.branchEdge("e3", "br1", "n3", false)));
         workflowId = workflow.getId();
 
-        assertThatThrownBy(() -> executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER)))
-                .isInstanceOf(CoreException.class)
-                .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+        assertThat(executionPlanAssembler.assemble(workflowService.get(workflowId, OWNER)).prompts())
+                .extracting(prompt -> prompt.placedKey().value())
+                .containsExactly("n1", "n2", "n3");
     }
 
     private GraphId graphIdOf(WorkflowId id) {

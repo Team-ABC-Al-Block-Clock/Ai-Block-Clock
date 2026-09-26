@@ -18,6 +18,7 @@ import com.aiblockclock.enums.workflow.InputSource;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -164,6 +165,64 @@ class RuntimeWorkflowTest {
 
     private static RefFile refFile(String filename) {
         return new RefFile(RefFileId.of(UUID.randomUUID()), UUID.randomUUID() + ".bin", filename, 1024);
+    }
+
+    // 캔버스: market → br(market.competition_level == high) → 참 high · 거짓 low
+    @Test
+    void 분기_노드와_참_거짓_갈래를_싣고_조건은_단계_번호로_바꾼다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, WorkflowGraph.of(
+                List.of(GraphFixtures.node("market"), GraphFixtures.branch("br", "market.competition_level"),
+                        GraphFixtures.node("high"), GraphFixtures.node("low")),
+                List.of(GraphFixtures.edge("e1", "market", "br"),
+                        GraphFixtures.branchEdge("e2", "br", "high", true),
+                        GraphFixtures.branchEdge("e3", "br", "low", false))));
+        ExecutionPlan plan = new ExecutionPlan(List.of(
+                prompt("market", "시장 조사", REQUESTER,
+                        new NodeOutput(OutputKind.JSON, "{\"competition_level\":\"high\"}")),
+                prompt("high", "고급 전략", REQUESTER), prompt("low", "보급 전략", REQUESTER)));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+        JsonNode branch = nodeById(sent.get("nodes"), "b1");
+
+        assertThat(branch.get("type").asText()).isEqualTo("branch");
+        assertThat(branch.get("condition").get("left").asText()).isEqualTo("n1.competition_level");
+        assertThat(branch.get("condition").get("op").asText()).isEqualTo("==");
+        assertThat(branch.get("condition").get("right").asText()).isEqualTo("high");
+        assertThat(branch.has("output")).isFalse();
+        assertThat(edges(sent)).containsExactlyInAnyOrder("n1>b1", "b1>n2:true", "b1>n3:false");
+    }
+
+    // 캔버스: a1(에이전트, 속에 단계 둘) → n2. 에이전트 속 단계는 한 줄로 잇고, 캔버스 선은 에이전트의 끝에서 나간다.
+    @Test
+    void 에이전트_속_단계는_한_줄로_잇고_캔버스_선은_에이전트의_마지막_단계에서_나간다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, WorkflowGraph.of(
+                List.of(GraphFixtures.agent("a1", AGENT, UUID.randomUUID()), GraphFixtures.node("n2")),
+                List.of(GraphFixtures.edge("e1", "a1", "n2"))));
+        ExecutionPlan plan = new ExecutionPlan(List.of(
+                prompt("a1", "시장 조사", SELLER), prompt("a1", "전략 수립", SELLER), prompt("n2", "요약", REQUESTER)));
+
+        assertThat(edges(mapper.readTree(RuntimeWorkflow.of(workflow, plan).json())))
+                .containsExactlyInAnyOrder("n1>n2", "n2>n3");
+    }
+
+    private static JsonNode nodeById(JsonNode nodes, String id) {
+        for (JsonNode node : nodes) {
+            if (node.get("id").asText().equals(id)) {
+                return node;
+            }
+        }
+
+        throw new AssertionError("no node " + id);
+    }
+
+    private static List<String> edges(JsonNode sent) {
+        List<String> edges = new ArrayList<>();
+        for (JsonNode edge : sent.get("edges")) {
+            edges.add(edge.get("from").asText() + ">" + edge.get("to").asText()
+                    + (edge.has("when") ? ":" + edge.get("when").asBoolean() : ""));
+        }
+
+        return edges;
     }
 
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
