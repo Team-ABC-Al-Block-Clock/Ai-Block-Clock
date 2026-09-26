@@ -46,6 +46,8 @@ services:
       AI_RUNTIME_BASE_URL: ${AI_RUNTIME_BASE_URL:-http://ai-block-clock-ai-runtime:8000}
       AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-}
       FILE_STORE_ROOT: ${FILE_STORE_ROOT:-/var/lib/ai-block-clock/files}
+      # 관리자 지갑(쉼표 구분). 운영은 서버의 backend.env 에 적는다. 비우면 아무도 심사할 수 없다
+      ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
     volumes:
       - file-store:/var/lib/ai-block-clock/files
     ports:

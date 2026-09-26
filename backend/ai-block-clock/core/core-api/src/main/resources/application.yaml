@@ -28,12 +28,17 @@ server:
         path: /api/v1
         secure: ${AUTH_COOKIE_SECURE:true}
 
+# Nginx 가 /api 아래만 백엔드로 넘기므로 문서도 그 아래에 둔다. 배포 서버에서 관리자가 이 화면으로 심사한다
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    path: /api/v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    path: /api/swagger-ui.html
     persist-authorization: true
+
+# 로그인하면 관리자 권한을 받는 지갑이다(쉼표로 구분). 관리자 API(/api/v1/admin/**)는 이 지갑만 부른다. 비우면 관리자가 없다
+admin:
+  wallet-addresses: ${ADMIN_WALLET_ADDRESSES:}
 
 execution:
   polling:
