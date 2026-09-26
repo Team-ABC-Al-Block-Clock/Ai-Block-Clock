@@ -55,7 +55,7 @@ class CostQuoteTest {
     @Test
     void 실행에_잠긴_금액은_쓸_수_있는_잔액에_넣지_않는다() {
         CostQuote quote = CostQuote.of(estimateOf("9"),
-                AbcBalance.of(new BigDecimal("5"), new BigDecimal("100")));
+                AbcBalance.of(new BigDecimal("5"), new BigDecimal("100"), BigDecimal.ZERO));
 
         assertThat(quote.available()).isEqualTo("5.000000");
         assertThat(quote.shortage()).isEqualTo("4.000000");
@@ -89,6 +89,6 @@ class CostQuoteTest {
     }
 
     private static AbcBalance balanceOf(String available) {
-        return AbcBalance.of(new BigDecimal(available), BigDecimal.ZERO);
+        return AbcBalance.of(new BigDecimal(available), BigDecimal.ZERO, BigDecimal.ZERO);
     }
 }
