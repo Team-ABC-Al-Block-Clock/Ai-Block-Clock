@@ -212,17 +212,30 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
       <button
         type="button"
         onClick={handleLogout}
-        className="absolute flex cursor-pointer items-center justify-center text-[13.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.12)] hover:text-white"
+        className="absolute flex cursor-pointer items-center text-[13.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,138,138,.12)]"
         style={{
-          left: '102px',
-          top: '930px',
-          width: '263px',
-          height: '38px',
-          borderRadius: '11px',
-          color: 'rgba(255,236,246,.62)',
+          right: `${1440 - 376}px`,
+          top: '937px',
+          height: '36px',
+          padding: '0 12px',
+          gap: '8px',
+          borderRadius: '10px',
+          color: '#ff8a8a',
           animation: 'rise .7s .3s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
+        {/* 프로필 메뉴와 같은 그림 — 열린 문에서 화살표가 나간다. */}
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M8 2H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h5" stroke="currentColor" strokeWidth="2" />
+          <path d="M7 9h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M12.5 5.5 16 9l-3.5 3.5"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
         로그아웃
       </button>
     </>
