@@ -1,3 +1,35 @@
+create table node_definition
+(
+    id             varchar(36)    not null,
+    owner_id       bigint         not null,
+    name           varchar(40)    not null,
+    node_type      varchar(20)    not null default 'LLM',
+    prompt         text           not null,
+    model          varchar(40)    not null,
+    output_kind    varchar(10)    not null default 'TEXT',
+    output_example text           null,
+    base_cost      decimal(41, 6) not null,
+    created_at     datetime(6)    not null,
+    updated_at     datetime(6)    not null,
+    primary key (id)
+);
+
+create index idx_node_definition_owner_created on node_definition (owner_id, created_at, id);
+
+create table node_ref_file
+(
+    id                 varchar(36)  not null,
+    node_definition_id varchar(36)  not null,
+    ordinal            int          not null,
+    file_key           varchar(255) not null,
+    filename           varchar(255) not null,
+    file_size          bigint       not null,
+    created_at         datetime(6)  not null,
+    primary key (id)
+);
+
+create unique index uk_node_ref_file_order on node_ref_file (node_definition_id, ordinal);
+
 -- 판매자가 노드 하나를 엔진에 실제로 돌려 보는 테스트 실행(엔진 계약 v2.0 mode=test)이다.
 -- 결과물을 확인하고, 엔진이 잰 달러 원가로 노드 원가를 정한다 (NOD-007). 사용자 돈이 움직이지 않아 장부와 이어지지 않는다.
 -- cost_usd 는 엔진이 잰 그대로다. 노드 1회가 0.001 달러대라 소수 여섯째 자리까지 둔다 (계약 8.1).

@@ -36,13 +36,14 @@ class WalletAuthMessageWriterTest {
             Clock.fixed(Instant.parse("2026-09-17T00:00:30Z"), ZoneOffset.UTC));
 
     @Test
-    void V7의_지갑_중복_제약만_동시_발급_충돌로_처리한다() throws IOException {
+    void V1의_지갑_중복_제약만_동시_발급_충돌로_처리한다() throws IOException {
         String migrationSql;
         try (InputStream migration = getClass().getResourceAsStream(
-                "/db/migration/V7__create_wallet_auth_message_table.sql")) {
+                "/db/migration/V1__create_account.sql")) {
             assertThat(migration).isNotNull();
             migrationSql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
         }
+        migrationSql = migrationSql.substring(migrationSql.indexOf("CREATE TABLE wallet_auth_message"));
 
         Matcher constraint = Pattern.compile(
                 "CONSTRAINT\\s+(\\w+)\\s+UNIQUE\\s*\\(\\s*wallet_address\\s*\\)",

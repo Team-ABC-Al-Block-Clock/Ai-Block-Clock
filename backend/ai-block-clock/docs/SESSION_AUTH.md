@@ -89,6 +89,6 @@ FE는 앱 시작 시, 로그인 성공 후, 로그아웃 후 `GET /api/v1/auth/c
 
 ## DB 마이그레이션
 
-`V8__create_spring_session_tables.sql`이 Spring Session JDBC 표준 테이블 `SPRING_SESSION`,
+`V2__create_spring_session.sql`이 Spring Session JDBC 표준 테이블 `SPRING_SESSION`,
 `SPRING_SESSION_ATTRIBUTES`를 만든다. 세션 행의 저장·조회·삭제는 Spring Session JDBC가 담당하므로
 우리가 만드는 세션 테이블은 없다.

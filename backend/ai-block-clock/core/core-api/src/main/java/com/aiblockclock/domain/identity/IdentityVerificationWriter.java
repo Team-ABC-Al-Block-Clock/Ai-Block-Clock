@@ -22,7 +22,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class IdentityVerificationWriter {
 
-    // V34 의 사용자당 한 줄 제약 이름이다.
+    // V1__create_account.sql 의 사용자당 한 줄 제약 이름이다.
     private static final String USER_UNIQUE_CONSTRAINT = "uq_identity_verification_user";
 
     private final IdentityVerificationRepository identityVerificationRepository;
