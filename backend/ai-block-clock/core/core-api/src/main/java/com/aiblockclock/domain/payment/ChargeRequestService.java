@@ -41,19 +41,6 @@ public class ChargeRequestService {
         DepositAmount requestedDepositAmount =
                 DepositAmount.of(requestedDepositAmountValue);
 
-        Optional<ChargeRequest> existingRequest =
-                chargeRequestReader.findByChainAndTransactionHash(
-                        networkPolicy.chainId(),
-                        normalizedTransactionHash
-                );
-
-        if (existingRequest.isPresent()) {
-            return ensureTransactionOwnedBy(
-                    existingRequest.get(),
-                    userReferenceId
-            );
-        }
-
         ChargeRequest newRequest = ChargeRequest.pending(
                 userReferenceId,
                 senderWalletAddress,
@@ -62,13 +49,22 @@ public class ChargeRequestService {
                 requestedDepositAmount
         );
 
+        Optional<ChargeRequest> existingRequest =
+                chargeRequestReader.findByChainAndTransactionHash(
+                        networkPolicy.chainId(),
+                        normalizedTransactionHash
+                );
+
         try {
-            return chargeRequestWriter.saveNewRequest(newRequest);
+            return existingRequest
+                    .map(existing -> reuseOrReplace(existing, newRequest))
+                    .orElseGet(() -> chargeRequestWriter.saveNewRequest(newRequest));
         } catch (CoreException exception) {
-            if (exception.getErrorType() != ErrorType.CHARGE_REQUEST_ALREADY_EXISTS) {
+            if (!isLostRace(exception)) {
                 throw exception;
             }
 
+            // 같은 해시를 다른 요청이 먼저 넣었거나 먼저 바꿔 끼웠다. 그 결과를 기준으로 판단한다.
             // 저장 롤백이 끝난 뒤 Reader가 새 조회 트랜잭션을 시작한다.
             // MySQL에서 이전 조회의 스냅샷을 재사용하지 않고 다른 요청이 저장한 거래를 확인하기 위함이다.
             ChargeRequest savedRequest = chargeRequestReader
@@ -92,6 +88,24 @@ public class ChargeRequestService {
         chargeRequest.ensureOwnedBy(LedgerTransaction.referenceIdOf(requester));
 
         return chargeRequest;
+    }
+
+    // 요청이 거래와 어긋나 닫힌 줄(보낸 사람 · 금액 · 대기 한도)은 누가 요청하든 새 요청으로 바꿔 끼워 다시 확인한다.
+    // 남이 해시를 먼저 올려 닫혀도 진짜 보낸 사람이 되살릴 수 있다. 그 밖의 줄은 주인에게만 그대로 돌려준다.
+    private ChargeRequest reuseOrReplace(
+            ChargeRequest existingRequest,
+            ChargeRequest newRequest
+    ) {
+        if (existingRequest.isReopenable()) {
+            return chargeRequestWriter.replaceClosedRequest(existingRequest, newRequest);
+        }
+
+        return ensureTransactionOwnedBy(existingRequest, newRequest.getUserReferenceId());
+    }
+
+    private boolean isLostRace(CoreException exception) {
+        return exception.getErrorType() == ErrorType.CHARGE_REQUEST_ALREADY_EXISTS
+                || exception.getErrorType() == ErrorType.CHARGE_REQUEST_CONCURRENTLY_MODIFIED;
     }
 
     private ChargeRequest ensureTransactionOwnedBy(

@@ -29,6 +29,20 @@ public interface ChargeRequestRepository
             String transactionHash
     );
 
+    // 닫힌 줄을 새 요청으로 바꿔 끼우기 전에 지운다. 읽은 뒤 누가 먼저 바꿨으면 버전이 달라 0 을 돌려준다
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            DELETE FROM ChargeRequestEntity chargeRequest
+             WHERE chargeRequest.id = :chargeRequestId
+               AND chargeRequest.status = :failedStatus
+               AND chargeRequest.version = :expectedVersion
+            """)
+    int deleteIfFailedAndVersionMatches(
+            @Param("chargeRequestId") Long chargeRequestId,
+            @Param("expectedVersion") Long expectedVersion,
+            @Param("failedStatus") ChargeStatus failedStatus
+    );
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE ChargeRequestEntity chargeRequest

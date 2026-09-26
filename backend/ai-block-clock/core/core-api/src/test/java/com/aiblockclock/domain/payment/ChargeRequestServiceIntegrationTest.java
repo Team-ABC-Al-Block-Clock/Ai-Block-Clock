@@ -2,6 +2,7 @@ package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.payment.ChargeStatus;
+import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
@@ -37,6 +38,9 @@ class ChargeRequestServiceIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ChargeRequestWriter chargeRequestWriter;
 
     private final List<Long> createdUserIds = new ArrayList<>();
 
@@ -122,6 +126,42 @@ class ChargeRequestServiceIntegrationTest {
         assertThatThrownBy(() -> chargeRequestService.getOwnedCharge(Long.MAX_VALUE, UserId.of(1L)))
                 .isInstanceOfSatisfying(CoreException.class, exception -> assertThat(exception.getErrorType())
                         .isEqualTo(ErrorType.CHARGE_REQUEST_NOT_FOUND));
+    }
+
+    @Test
+    void 남이_먼저_올려_보낸_사람이_달라_닫힌_해시는_진짜_입금자가_다시_요청하면_새로_열린다() {
+        UserId interceptor = userWith("0x9999999999999999999999999999999999999999");
+        UserId depositor = userWith("0x1212121212121212121212121212121212121212");
+        String transactionHash = "0x" + "f".repeat(64);
+        ChargeRequest intercepted = chargeRequestService.createChargeRequest(interceptor, transactionHash,
+                new BigDecimal("10"));
+        close(intercepted, ChargeStatusReason.SENDER_WALLET_MISMATCH);
+
+        ChargeRequest reopened = chargeRequestService.createChargeRequest(depositor, transactionHash,
+                new BigDecimal("10"));
+
+        assertThat(reopened.getId()).isNotEqualTo(intercepted.getId());
+        assertThat(reopened.getStatus()).isEqualTo(ChargeStatus.PENDING);
+        assertThat(reopened.getSenderWalletAddress()).isEqualTo("0x1212121212121212121212121212121212121212");
+        assertThat(chargeRequestRepository.findById(intercepted.getId())).isEmpty();
+    }
+
+    @Test
+    void 거래가_되돌려져_닫힌_남의_해시는_다시_요청해도_막는다() {
+        UserId first = userWith("0x3434343434343434343434343434343434343434");
+        UserId second = userWith("0x5656565656565656565656565656565656565656");
+        String transactionHash = "0x" + "9".repeat(64);
+        close(chargeRequestService.createChargeRequest(first, transactionHash, new BigDecimal("10")),
+                ChargeStatusReason.ONCHAIN_TRANSACTION_FAILED);
+
+        assertThatThrownBy(() -> chargeRequestService.createChargeRequest(second, transactionHash, new BigDecimal("10")))
+                .isInstanceOfSatisfying(CoreException.class, exception -> assertThat(exception.getErrorType())
+                        .isEqualTo(ErrorType.CHARGE_TRANSACTION_ALREADY_USED));
+    }
+
+    private void close(ChargeRequest chargeRequest, ChargeStatusReason reason) {
+        chargeRequest.fail(reason);
+        chargeRequestWriter.updateFromPending(chargeRequest);
     }
 
     private UserId userWith(String walletAddress) {

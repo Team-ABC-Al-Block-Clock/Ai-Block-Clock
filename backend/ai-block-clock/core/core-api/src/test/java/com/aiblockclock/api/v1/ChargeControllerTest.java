@@ -4,7 +4,11 @@ import com.aiblockclock.client.blockchain.ChainTokenTransfer;
 import com.aiblockclock.client.blockchain.ChainTransaction;
 import com.aiblockclock.client.blockchain.ChainTransactionStatus;
 import com.aiblockclock.client.blockchain.SsafyChainClient;
+import com.aiblockclock.domain.payment.ChargeRequest;
+import com.aiblockclock.domain.payment.ChargeRequestWriter;
+import com.aiblockclock.domain.payment.DepositAmount;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
@@ -20,8 +24,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 
@@ -51,6 +59,12 @@ class ChargeControllerTest {
 
     @Autowired
     private ChargeRequestRepository chargeRequestRepository;
+
+    @Autowired
+    private ChargeRequestWriter chargeRequestWriter;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @MockitoBean
     private SsafyChainClient ssafyChainClient;
@@ -107,6 +121,31 @@ class ChargeControllerTest {
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
     }
 
+    // 가로챈 사람의 요청이 닫힌 것은 실제로는 그 요청이 끝날 때 커밋된다.
+    // 테스트 트랜잭션 안에서 닫으면 바꿔 끼우기(REQUIRES_NEW)가 커밋 전 상태를 못 보므로 미리 따로 커밋해 둔다
+    @Test
+    void 남이_해시를_먼저_올려_닫혀도_진짜_입금자가_요청하면_적립된다() throws Exception {
+        long interceptorId = userRepository.saveAndFlush(
+                UserEntity.of("0x9999999999999999999999999999999999999999")).getId();
+        long depositorId = userRepository.saveAndFlush(UserEntity.of(WALLET)).getId();
+        hash = "0x" + "f".repeat(64);
+        commitClosedRequest(Long.toString(interceptorId), "0x9999999999999999999999999999999999999999", hash);
+        given(ssafyChainClient.readTransaction(hash)).willReturn(new ChainTransaction(
+                ChainTransactionStatus.SUCCEEDED, 31221L, BigInteger.TEN, BigInteger.TEN,
+                List.of(new ChainTokenTransfer(TOKEN, WALLET, CUSTODY, new BigInteger("10000000000000000000")))));
+
+        mockMvc.perform(post("/api/v1/credits/charges").with(as(depositorId)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionHash\":\"%s\",\"amount\":10}".formatted(hash)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+
+        mockMvc.perform(get("/api/v1/credits/balance").with(as(depositorId)))
+                .andExpect(jsonPath("$.data.availableAmount").value("10.000000"));
+        mockMvc.perform(get("/api/v1/credits/balance").with(as(interceptorId)))
+                .andExpect(jsonPath("$.data.availableAmount").value("0.000000"));
+    }
+
     @Test
     void 해시_형식이_틀리면_저장하지_않고_400으로_막는다() throws Exception {
         long userId = userRepository.saveAndFlush(UserEntity.of(WALLET)).getId();
@@ -144,6 +183,16 @@ class ChargeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"transactionHash\":\"0x%s\",\"amount\":10}".formatted("e".repeat(64))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    private void commitClosedRequest(String userReferenceId, String walletAddress, String transactionHash) {
+        ChargeRequest intercepted = chargeRequestWriter.saveNewRequest(ChargeRequest.pending(
+                userReferenceId, walletAddress, 31221L, transactionHash, DepositAmount.of(BigDecimal.TEN)));
+        intercepted.fail(ChargeStatusReason.SENDER_WALLET_MISMATCH);
+
+        TransactionTemplate separate = new TransactionTemplate(transactionManager);
+        separate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        separate.executeWithoutResult(status -> chargeRequestWriter.updateFromPending(intercepted));
     }
 
     private RequestPostProcessor as(long userId) {

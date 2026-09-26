@@ -5,6 +5,8 @@ import com.aiblockclock.support.error.ErrorType;
 import com.aiblockclock.domain.user.User;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.user.UserReader;
+import com.aiblockclock.enums.payment.ChargeStatus;
+import com.aiblockclock.enums.payment.ChargeStatusReason;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -174,6 +176,55 @@ class ChargeRequestServiceTest {
     }
 
     @Test
+    void 남이_먼저_올려_보낸_사람이_달라_닫힌_줄은_새_요청으로_바꿔_끼운다() {
+        ChargeRequest closedByOther = closed("8", ChargeStatusReason.SENDER_WALLET_MISMATCH);
+        when(reader.findByChainAndTransactionHash(12345L, TRANSACTION_HASH)).thenReturn(Optional.of(closedByOther));
+        when(writer.replaceClosedRequest(any(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+
+        ChargeRequest reopened = create();
+
+        assertThat(reopened.getUserReferenceId()).isEqualTo(USER_ID);
+        assertThat(reopened.getSenderWalletAddress()).isEqualTo(WALLET);
+        assertThat(reopened.getStatus()).isEqualTo(ChargeStatus.PENDING);
+        verify(writer).replaceClosedRequest(org.mockito.ArgumentMatchers.same(closedByOther), any());
+        verify(writer, never()).saveNewRequest(any());
+    }
+
+    @Test
+    void 본인이_금액을_잘못_적어_닫힌_줄은_다시_요청하면_새_금액으로_바꿔_끼운다() {
+        when(reader.findByChainAndTransactionHash(12345L, TRANSACTION_HASH))
+                .thenReturn(Optional.of(closed(USER_ID, ChargeStatusReason.AMOUNT_MISMATCH)));
+        when(writer.replaceClosedRequest(any(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+
+        ChargeRequest reopened = create(new BigDecimal("5"));
+
+        assertThat(reopened.getRequestedDepositAmount().value()).isEqualByComparingTo("5");
+        assertThat(reopened.getStatus()).isEqualTo(ChargeStatus.PENDING);
+    }
+
+    @Test
+    void 거래가_되돌려져_닫힌_남의_줄은_여전히_막는다() {
+        when(reader.findByChainAndTransactionHash(12345L, TRANSACTION_HASH))
+                .thenReturn(Optional.of(closed("8", ChargeStatusReason.ONCHAIN_TRANSACTION_FAILED)));
+
+        assertThatThrownBy(this::create).isInstanceOfSatisfying(CoreException.class,
+                exception -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_TRANSACTION_ALREADY_USED));
+        verify(writer, never()).replaceClosedRequest(any(), any());
+    }
+
+    @Test
+    void 다른_요청이_먼저_바꿔_끼웠으면_그_줄을_기준으로_판단한다() {
+        when(reader.findByChainAndTransactionHash(12345L, TRANSACTION_HASH))
+                .thenReturn(Optional.of(closed("9", ChargeStatusReason.SENDER_WALLET_MISMATCH)))
+                .thenReturn(Optional.of(request("8")));
+        when(writer.replaceClosedRequest(any(), any()))
+                .thenThrow(new CoreException(ErrorType.CHARGE_REQUEST_CONCURRENTLY_MODIFIED));
+
+        assertThatThrownBy(this::create).isInstanceOfSatisfying(CoreException.class,
+                exception -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_TRANSACTION_ALREADY_USED));
+    }
+
+    @Test
     void 남의_충전_요청은_조회할_수_없다() {
         when(reader.read(1L)).thenReturn(request("8"));
 
@@ -217,6 +268,13 @@ class ChargeRequestServiceTest {
                 TRANSACTION_HASH,
                 DepositAmount.of(new BigDecimal("1.000001"))
         );
+    }
+
+    private ChargeRequest closed(String userId, ChargeStatusReason reason) {
+        ChargeRequest chargeRequest = request(userId);
+        chargeRequest.fail(reason);
+
+        return chargeRequest;
     }
 
     private static User userWith(String walletAddress) {

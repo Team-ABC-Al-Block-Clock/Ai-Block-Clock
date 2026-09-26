@@ -28,6 +28,8 @@ public interface ChargeApi {
                     서버도 10초마다 대기 중인 충전을 다시 확인한다. 30분이 지나도 블록에 적히지 않으면 `FAILED` 로 닫는다.
 
                     **보낸 지갑은 로그인한 지갑이어야 한다.** 같은 해시로 다시 보내면 새로 만들지 않고 앞의 요청을 돌려준다.
+                    단, 앞의 요청이 보낸 사람 · 금액 · 30분 초과로 `FAILED` 가 됐으면 새 요청으로 바꿔 다시 확인한다.
+                    이때 `chargeId` 가 바뀌므로 상태는 마지막 응답의 번호로 묻는다.
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "202", description = "접수됨. `status` 로 확인 결과를 본다"),
@@ -37,7 +39,7 @@ public interface ChargeApi {
             @ApiResponse(responseCode = "401", description = "로그인하지 않음", content = @Content),
             @ApiResponse(responseCode = "403", description = "로그인한 지갑이 입금 보관 지갑이다 (`PAYMENT_009`)",
                     content = @Content),
-            @ApiResponse(responseCode = "409", description = "다른 사용자가 이미 이 거래로 충전을 요청했다 (`PAYMENT_003`)",
+            @ApiResponse(responseCode = "409", description = "다른 사용자가 이 거래로 요청해 확인 중이거나 끝났다 (`PAYMENT_003`)",
                     content = @Content)
     })
     ApiResult<ChargeStatusResponse> create(UserId requester, @Valid ChargeCreateRequest request);

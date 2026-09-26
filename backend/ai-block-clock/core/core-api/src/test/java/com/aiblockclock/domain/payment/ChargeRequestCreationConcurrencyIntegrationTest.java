@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.payment;
 
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.storage.user.UserEntity;
 import com.aiblockclock.storage.user.UserRepository;
@@ -27,6 +28,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -119,6 +121,27 @@ class ChargeRequestCreationConcurrencyIntegrationTest {
     }
 
     @Test
+    void 닫힌_줄을_두_사용자가_동시에_다시_요청하면_한_명만_바꿔_끼우고_나머지는_막힌다() throws Exception {
+        ChargeRequest closed = chargeRequestWriter.saveNewRequest(
+                ChargeRequest.pending("interceptor", "0x9999999999999999999999999999999999999999",
+                        ChargeChainFixtures.CHAIN_ID, TRANSACTION_HASH, DepositAmount.of(new BigDecimal("1.000001"))));
+        closed.fail(ChargeStatusReason.SENDER_WALLET_MISMATCH);
+        chargeRequestWriter.updateFromPending(closed);
+        synchronizeInitialLookups(result -> assertThat((Optional<?>) result).isPresent());
+
+        List<CreationOutcome> outcomes = runConcurrently(
+                () -> create(firstUser, TRANSACTION_HASH),
+                () -> create(secondUser, TRANSACTION_HASH)
+        );
+
+        assertThat(outcomes.stream().filter(outcome -> outcome.request() != null).count()).isEqualTo(1);
+        assertThat(outcomes.stream().map(CreationOutcome::errorType).filter(type -> type != null).toList())
+                .containsExactly(ErrorType.CHARGE_TRANSACTION_ALREADY_USED);
+        assertThat(chargeRequestRepository.count()).isEqualTo(1);
+        assertThat(chargeRequestRepository.findById(closed.getId())).isEmpty();
+    }
+
+    @Test
     void 서로_다른_거래의_동시_요청은_각각_정상_저장한다() throws Exception {
         synchronizeInitialLookups();
 
@@ -173,13 +196,18 @@ class ChargeRequestCreationConcurrencyIntegrationTest {
     }
 
     private void synchronizeInitialLookups() {
-        CyclicBarrier bothRequestsFoundNothing = new CyclicBarrier(2);
+        synchronizeInitialLookups(result -> assertThat(result).isEqualTo(Optional.empty()));
+    }
+
+    // 두 요청이 같은 것을 읽은 뒤에야 쓰기로 넘어가게 해 경합을 만든다
+    private void synchronizeInitialLookups(Consumer<Object> expectFirstLookup) {
+        CyclicBarrier bothRequestsLookedUp = new CyclicBarrier(2);
         AtomicInteger lookupCount = new AtomicInteger();
         doAnswer(invocation -> {
             Object result = invocation.callRealMethod();
             if (lookupCount.incrementAndGet() <= 2) {
-                assertThat(result).isEqualTo(Optional.empty());
-                bothRequestsFoundNothing.await(10, TimeUnit.SECONDS);
+                expectFirstLookup.accept(result);
+                bothRequestsLookedUp.await(10, TimeUnit.SECONDS);
             }
             return result;
         }).when(chargeRequestReader).findByChainAndTransactionHash(anyLong(), anyString());

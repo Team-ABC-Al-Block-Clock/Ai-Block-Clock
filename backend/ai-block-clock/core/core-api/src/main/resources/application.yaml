@@ -56,7 +56,7 @@ payment:
     poll-interval: ${PAYMENT_CHARGE_POLL_INTERVAL:10s}
     # 체인에 닿지 못하면 간격을 두 배씩 늘리되 이 값에서 멈춘다
     max-poll-interval: ${PAYMENT_CHARGE_MAX_POLL_INTERVAL:5m}
-    # 이 시간이 지나도 거래가 블록에 적히지 않으면 실패로 닫는다. 늦게 성공한 거래는 운영자가 처리한다
+    # 이 시간이 지나도 거래가 블록에 적히지 않으면 실패로 닫는다. 늦게 성사되면 사용자가 같은 해시로 다시 요청한다
     verification-timeout: ${PAYMENT_CHARGE_VERIFICATION_TIMEOUT:30m}
     polling-enabled: ${PAYMENT_CHARGE_POLLING_ENABLED:true}
 

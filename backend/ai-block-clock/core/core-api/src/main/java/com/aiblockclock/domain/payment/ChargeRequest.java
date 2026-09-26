@@ -89,6 +89,11 @@ public final class ChargeRequest {
         return status == ChargeStatus.PENDING;
     }
 
+    // 요청이 거래와 어긋나 닫혔다(보낸 사람 · 금액 · 대기 한도). 같은 해시로 다시 요청하면 이 줄을 새 요청으로 바꿔 끼운다
+    public boolean isReopenable() {
+        return status == ChargeStatus.FAILED && statusReason != null && statusReason.isRetryable();
+    }
+
     // 요청을 받고 한도가 지나도록 거래가 블록에 적히지 않았다. 사용자가 보내지 않았거나 거래가 사라진 경우다
     public boolean isVerificationOverdue(Instant now, Duration timeout) {
         return requestedAt != null && !now.isBefore(requestedAt.plus(timeout));
