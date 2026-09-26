@@ -7,6 +7,7 @@ import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowFixtures;
 import com.aiblockclock.domain.workflow.WorkflowGraph;
+import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.workflow.InputSource;
 
 import org.junit.jupiter.api.Test;
@@ -44,8 +45,19 @@ class RuntimeWorkflowTest {
         assertThat(nodes.get(2).get("owner_id").asText()).isEqualTo("7001");
     }
 
+    @Test
+    void 단계가_쓰는_모델을_실행_한_건의_모델로_최상위에_싣는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, GraphFixtures.chainOf(2));
+        ExecutionPlan plan = new ExecutionPlan(List.of(prompt("n1", "분석", REQUESTER), prompt("n2", "요약", REQUESTER)));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+
+        assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-flash");
+        assertThat(sent.get("nodes").get(0).has("model")).isFalse();
+    }
+
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
         return new PlannedPrompt(NodeKey.of(placedKey), name, owner, Prompt.of(name + "을 한다"),
-                InputSource.defaultSource(), List.of());
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of());
     }
 }

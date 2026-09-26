@@ -182,6 +182,7 @@ class ExecutionControllerTest {
                 .contains("\"type\":\"llm\"")
                 .contains("점수를 비교한다")
                 .contains("\"from\":\"n1\"")
+                .contains("\"model\":\"gemini-2.5-flash\"")
                 .contains("output_schema_id");
         assertThat(sent.getValue().mock()).isFalse();
     }
