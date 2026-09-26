@@ -6,7 +6,7 @@ import { getMarketplaceAgents } from '@/api/agents'
 import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
-import { OceanTheme } from '../components/theme-store'
+import { OceanTheme } from '../stores/themeStore'
 import SearchIcon from '@/components/SearchIcon'
 
 const FULL_TITLE = '어떤 일을 맡겨볼까요?'
