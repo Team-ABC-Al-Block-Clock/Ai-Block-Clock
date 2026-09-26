@@ -139,7 +139,7 @@ export default function MyPageCredit() {
   const pickerNote = withdraw
     ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 코인은 출금할 수 없습니다'
     : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
-  const inputPlaceholder = withdraw ? '출금할 코인을 입력하세요' : '예치할 코인을 입력하세요'
+  const inputPlaceholder = withdraw ? '출금할 금액을 입력하세요' : '예치할 금액을 입력하세요'
   const summaryTitle = withdraw ? '출금 요약' : '예치 요약'
   const sumLabel = withdraw ? '출금 코인' : '예치 코인'
   const ctaLabel = withdraw ? '출금하기' : '예치하기'
@@ -164,7 +164,7 @@ export default function MyPageCredit() {
           animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        코인 예치/출금
+        예치/출금
       </div>
       <div
         className="absolute text-[13px] tracking-[-.01em]"

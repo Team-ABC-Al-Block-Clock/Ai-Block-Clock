@@ -8,7 +8,7 @@ const TABS = [
   { key: 'agents', label: '내 에이전트', href: paths.my.agents },
   { key: 'usage', label: '사용 내역', href: paths.my.usage },
   { key: 'sales', label: '판매 내역', href: paths.my.sales },
-  { key: 'credit', label: '코인 예치/출금', href: paths.my.credit },
+  { key: 'credit', label: '예치/출금', href: paths.my.credit },
 ] as const
 
 const TAB =
