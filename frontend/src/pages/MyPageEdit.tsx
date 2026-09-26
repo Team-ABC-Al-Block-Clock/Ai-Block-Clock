@@ -156,354 +156,360 @@ export default function MyPageEdit() {
   }, [])
 
   return (
-    <MyPageFrame>
-      <Sidebar editing />
+    <>
+      <MyPageFrame>
+        <Sidebar editing />
 
-      <div
-        className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-        style={{
-          left: '442px',
-          top: '158px',
-          textShadow: '0 2px 20px rgba(35,8,45,.6)',
-          animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        내 정보 수정
-      </div>
-      <div
-        className="absolute text-[14.5px] tracking-[-.01em]"
-        style={{
-          left: '442px',
-          top: '206px',
-          width: '600px',
-          color: 'rgba(255,236,246,.7)',
-          animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        프로필과 연결된 지갑을 확인·수정할 수 있습니다. 결제 수단은 저장하지 않습니다.
-      </div>
+        <div
+          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
+          style={{
+            left: '442px',
+            top: '158px',
+            textShadow: '0 2px 20px rgba(35,8,45,.6)',
+            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          내 정보 수정
+        </div>
+        <div
+          className="absolute text-[14.5px] tracking-[-.01em]"
+          style={{
+            left: '442px',
+            top: '206px',
+            width: '600px',
+            color: 'rgba(255,236,246,.7)',
+            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          프로필과 연결된 지갑을 확인·수정할 수 있습니다. 결제 수단은 저장하지 않습니다.
+        </div>
 
-      <div
-        className="bg-surface-card absolute box-border"
-        style={{
-          left: '442px',
-          top: '248px',
-          width: '900px',
-          height: '196px',
-          padding: '24px',
-          borderRadius: '16px',
-          animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">프로필 정보</div>
-        <div className="flex" style={{ marginTop: '22px', gap: '28px' }}>
-          <div className="relative flex-none" style={{ width: '104px', height: '104px' }}>
-            <div
-              className="relative overflow-hidden rounded-full bg-[rgba(255,255,255,.10)]"
-              style={{ width: '104px', height: '104px' }}
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      'radial-gradient(circle at 52% 28%, rgba(255,218,224,.20), rgba(255,214,232,0) 62%)',
-                  }}
-                ></div>
-              )}
-            </div>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={handlePickImage}
-              className="hidden"
-            />
+        <div
+          className="bg-surface-card absolute box-border"
+          style={{
+            left: '442px',
+            top: '248px',
+            width: '900px',
+            height: '196px',
+            padding: '24px',
+            borderRadius: '16px',
+            animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">프로필 정보</div>
+          <div className="flex" style={{ marginTop: '22px', gap: '28px' }}>
+            <div className="relative flex-none" style={{ width: '104px', height: '104px' }}>
+              <div
+                className="relative overflow-hidden rounded-full bg-[rgba(255,255,255,.10)]"
+                style={{ width: '104px', height: '104px' }}
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        'radial-gradient(circle at 52% 28%, rgba(255,218,224,.20), rgba(255,214,232,0) 62%)',
+                    }}
+                  ></div>
+                )}
+              </div>
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={handlePickImage}
+                className="hidden"
+              />
 
-            {/* 지울 것이 있을 때만 낸다 — 기본 아바타에 ✕ 는 아무 일도 하지 않는다.
+              {/* 지울 것이 있을 때만 낸다 — 기본 아바타에 ✕ 는 아무 일도 하지 않는다.
                 고른 것이 있으면 그 선택만 되돌린다(위 `handleCancelPick`). */}
-            {avatarUrl && (
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={picked ? handleCancelPick : handleRemoveImage}
+                  aria-label={picked ? '고른 사진 취소' : '프로필 사진 삭제'}
+                  style={{
+                    left: '74px',
+                    top: '0px',
+                    width: '30px',
+                    height: '30px',
+                    background: 'rgba(28,12,42,.9)',
+                    color: 'rgba(255,214,232,.9)',
+                  }}
+                  className="absolute flex cursor-pointer items-center justify-center rounded-full text-[14.5px] transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
+                >
+                  ✕
+                </button>
+              )}
+
+              {/* role 만 붙인 div 는 포커스는 잡히지만 Enter·Space 로 눌리지 않는다 —
+                옆의 삭제 버튼과 같은 <button> 으로 둔다 */}
               <button
                 type="button"
-                onClick={picked ? handleCancelPick : handleRemoveImage}
-                aria-label={picked ? '고른 사진 취소' : '프로필 사진 삭제'}
+                onClick={() => fileInput.current?.click()}
+                aria-label="프로필 사진 선택"
                 style={{
                   left: '74px',
-                  top: '0px',
+                  top: '74px',
                   width: '30px',
                   height: '30px',
                   background: 'rgba(28,12,42,.9)',
-                  color: 'rgba(255,214,232,.9)',
                 }}
-                className="absolute flex cursor-pointer items-center justify-center rounded-full text-[14.5px] transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
-              >
-                ✕
-              </button>
-            )}
-
-            {/* role 만 붙인 div 는 포커스는 잡히지만 Enter·Space 로 눌리지 않는다 —
-                옆의 삭제 버튼과 같은 <button> 으로 둔다 */}
-            <button
-              type="button"
-              onClick={() => fileInput.current?.click()}
-              aria-label="프로필 사진 선택"
-              style={{
-                left: '74px',
-                top: '74px',
-                width: '30px',
-                height: '30px',
-                background: 'rgba(28,12,42,.9)',
-              }}
-              className="absolute flex cursor-pointer items-center justify-center rounded-full transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
-            >
-              <div
-                className="relative"
-                style={{
-                  width: '15px',
-                  height: '11px',
-                  borderRadius: '3px',
-                  background: 'rgba(255,214,232,.9)',
-                }}
+                className="absolute flex cursor-pointer items-center justify-center rounded-full transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
               >
                 <div
-                  className="absolute"
+                  className="relative"
                   style={{
-                    left: '4px',
-                    top: '-2.5px',
-                    width: '7px',
-                    height: '3px',
-                    borderRadius: '1px',
+                    width: '15px',
+                    height: '11px',
+                    borderRadius: '3px',
                     background: 'rgba(255,214,232,.9)',
                   }}
-                ></div>
-                <div
-                  className="absolute rounded-full"
-                  style={{
-                    left: '5px',
-                    top: '3px',
-                    width: '5px',
-                    height: '5px',
-                    background: 'rgba(28,12,42,.9)',
-                  }}
-                ></div>
-              </div>
-            </button>
-          </div>
-
-          <div className="flex flex-1 flex-col" style={{ gap: '20px' }}>
-            <div className="flex" style={{ gap: '24px' }}>
-              <div className="flex-1">
-                <div className="text-[15.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-                  이름
-                </div>
-                <div
-                  className="bg-surface-card flex items-center"
-                  style={{
-                    marginTop: '8px',
-                    height: '42px',
-                    borderRadius: '11px',
-                    padding: '0 14px',
-                  }}
                 >
-                  <input
-                    className="border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
-                    type="text"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                {nicknameError && (
                   <div
-                    className="text-[14.5px] tracking-[-.01em]"
-                    style={{ marginTop: '6px', color: '#ffb4c8' }}
-                  >
-                    {nicknameError}
+                    className="absolute"
+                    style={{
+                      left: '4px',
+                      top: '-2.5px',
+                      width: '7px',
+                      height: '3px',
+                      borderRadius: '1px',
+                      background: 'rgba(255,214,232,.9)',
+                    }}
+                  ></div>
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      left: '5px',
+                      top: '3px',
+                      width: '5px',
+                      height: '5px',
+                      background: 'rgba(28,12,42,.9)',
+                    }}
+                  ></div>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex flex-1 flex-col" style={{ gap: '20px' }}>
+              <div className="flex" style={{ gap: '24px' }}>
+                <div className="flex-1">
+                  <div className="text-[15.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                    이름
                   </div>
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="text-[15.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-                  한 줄 소개
+                  <div
+                    className="bg-surface-card flex items-center"
+                    style={{
+                      marginTop: '8px',
+                      height: '42px',
+                      borderRadius: '11px',
+                      padding: '0 14px',
+                    }}
+                  >
+                    <input
+                      className="border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
+                      type="text"
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  {nicknameError && (
+                    <div
+                      className="text-[14.5px] tracking-[-.01em]"
+                      style={{ marginTop: '6px', color: '#ffb4c8' }}
+                    >
+                      {nicknameError}
+                    </div>
+                  )}
                 </div>
-                <div
-                  className="bg-surface-card flex items-center"
-                  style={{
-                    marginTop: '8px',
-                    height: '42px',
-                    borderRadius: '11px',
-                    padding: '0 14px',
-                  }}
-                >
-                  <input
-                    className="border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
-                    type="text"
-                    value={introduction}
-                    onChange={(e) => setIntroduction(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div
-                  className="flex items-center justify-between text-[14.5px] tracking-[-.01em]"
-                  style={{ marginTop: '6px' }}
-                >
-                  <span style={{ color: '#ffb4c8' }}>{introError}</span>
-                  <span style={{ color: introError ? '#ffb4c8' : 'rgba(255,236,246,.5)' }}>
-                    {`${trimmedIntro.length} / ${introLimit.max}`}
-                  </span>
+                <div className="flex-1">
+                  <div className="text-[15.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                    한 줄 소개
+                  </div>
+                  <div
+                    className="bg-surface-card flex items-center"
+                    style={{
+                      marginTop: '8px',
+                      height: '42px',
+                      borderRadius: '11px',
+                      padding: '0 14px',
+                    }}
+                  >
+                    <input
+                      className="border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
+                      type="text"
+                      value={introduction}
+                      onChange={(e) => setIntroduction(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div
+                    className="flex items-center justify-between text-[14.5px] tracking-[-.01em]"
+                    style={{ marginTop: '6px' }}
+                  >
+                    <span style={{ color: '#ffb4c8' }}>{introError}</span>
+                    <span style={{ color: introError ? '#ffb4c8' : 'rgba(255,236,246,.5)' }}>
+                      {`${trimmedIntro.length} / ${introLimit.max}`}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div
-        className="bg-surface-card absolute box-border"
-        style={{
-          left: '442px',
-          top: '464px',
-          width: '900px',
-          height: '214px',
-          padding: '24px',
-          borderRadius: '16px',
-          animation: 'rise .7s .22s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">지갑 연결</div>
         <div
-          className="box-border flex items-center"
+          className="bg-surface-card absolute box-border"
           style={{
-            marginTop: '18px',
-            height: '96px',
-            padding: '0 22px',
-            borderRadius: '14px',
-            background: 'rgba(255,255,255,.06)',
-            gap: '18px',
+            left: '442px',
+            top: '464px',
+            width: '900px',
+            height: '214px',
+            padding: '24px',
+            borderRadius: '16px',
+            animation: 'rise .7s .22s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
+          <div className="text-[16px] font-semibold tracking-[-.01em] text-white">지갑 연결</div>
           <div
-            className="flex flex-none items-center justify-center rounded-full"
+            className="box-border flex items-center"
             style={{
-              width: '56px',
-              height: '56px',
-              background: 'linear-gradient(135deg, rgba(233,174,196,.45), rgba(160,148,194,.45))',
+              marginTop: '18px',
+              height: '96px',
+              padding: '0 22px',
+              borderRadius: '14px',
+              background: 'rgba(255,255,255,.06)',
+              gap: '18px',
             }}
           >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="3" y="6" width="18" height="13" rx="3" stroke="#fff" strokeWidth="1.8" />
-              <path d="M3 10h18" stroke="#fff" strokeWidth="1.8" />
-              <circle cx="16.5" cy="14.5" r="1.4" fill="#fff" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center" style={{ gap: '10px' }}>
-              <div className="text-[17px] font-semibold text-white">{wallet.provider}</div>
-              <div
-                className="flex items-center text-[13px] font-semibold"
-                style={{
-                  gap: '6px',
-                  height: '24px',
-                  padding: '0 10px',
-                  borderRadius: '12px',
-                  background: 'rgba(255,255,255,.08)',
-                  color: wallet.connection.color,
-                }}
-              >
-                <StatusDot size={7} color={wallet.connection.dot} />
-                {wallet.connection.text}
-              </div>
-            </div>
-            {/* 대조해 보라고 두는 값이라 주소를 줄이지 않는다. */}
             <div
-              className="truncate text-[14.5px]"
+              className="flex flex-none items-center justify-center rounded-full"
               style={{
-                marginTop: '6px',
-                color: 'rgba(255,255,255,.82)',
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '.01em',
+                width: '56px',
+                height: '56px',
+                background: 'linear-gradient(135deg, rgba(233,174,196,.45), rgba(160,148,194,.45))',
               }}
             >
-              {wallet.walletAddress || '—'}
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="6" width="18" height="13" rx="3" stroke="#fff" strokeWidth="1.8" />
+                <path d="M3 10h18" stroke="#fff" strokeWidth="1.8" />
+                <circle cx="16.5" cy="14.5" r="1.4" fill="#fff" />
+              </svg>
             </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center" style={{ gap: '10px' }}>
+                <div className="text-[17px] font-semibold text-white">{wallet.provider}</div>
+                <div
+                  className="flex items-center text-[13px] font-semibold"
+                  style={{
+                    gap: '6px',
+                    height: '24px',
+                    padding: '0 10px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,.08)',
+                    color: wallet.connection.color,
+                  }}
+                >
+                  <StatusDot size={7} color={wallet.connection.dot} />
+                  {wallet.connection.text}
+                </div>
+              </div>
+              {/* 대조해 보라고 두는 값이라 주소를 줄이지 않는다. */}
+              <div
+                className="truncate text-[14.5px]"
+                style={{
+                  marginTop: '6px',
+                  color: 'rgba(255,255,255,.82)',
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: '.01em',
+                }}
+              >
+                {wallet.walletAddress || '—'}
+              </div>
+            </div>
+            <div className="flex-none text-right" style={{ width: '120px' }}>
+              <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+                네트워크
+              </div>
+              <div className="text-[15px] font-semibold text-white" style={{ marginTop: '4px' }}>
+                {wallet.network}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyAddress}
+              disabled={!wallet.walletAddress}
+              className="flex flex-none cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[14px] font-semibold whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
+              style={{ height: '38px', padding: '0 16px', borderRadius: '11px', color: '#fff' }}
+            >
+              {copied ? '복사됨' : '주소 복사'}
+            </button>
           </div>
-          <div className="flex-none text-right" style={{ width: '120px' }}>
-            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.58)' }}>
-              네트워크
-            </div>
-            <div className="text-[15px] font-semibold text-white" style={{ marginTop: '4px' }}>
-              {wallet.network}
-            </div>
+          <div
+            className="text-[13px]"
+            style={{ marginTop: '12px', color: 'rgba(255,236,246,.55)' }}
+          >
+            다른 지갑을 사용하시면 해당 지갑으로 다시 로그인해 주세요.
           </div>
+        </div>
+
+        <div
+          className="absolute bg-[rgba(255,255,255,.12)]"
+          style={{ left: '442px', top: '929px', width: '900px', height: '1px' }}
+        ></div>
+
+        <div
+          className="absolute flex"
+          style={{
+            left: '1104px',
+            top: '951px',
+            width: '238px',
+            height: '44px',
+            justifyContent: 'flex-end',
+            gap: '12px',
+            animation: 'rise .7s .26s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          <a
+            href={paths.my.agents}
+            style={{
+              width: '84px',
+              height: '44px',
+              borderRadius: '22px',
+              color: 'rgba(255,255,255,.9)',
+            }}
+            className="flex items-center justify-center bg-[rgba(255,255,255,.09)] text-[15.5px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
+          >
+            취소
+          </a>
           <button
             type="button"
-            onClick={handleCopyAddress}
-            disabled={!wallet.walletAddress}
-            className="flex flex-none cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[14px] font-semibold whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
-            style={{ height: '38px', padding: '0 16px', borderRadius: '11px', color: '#fff' }}
+            onClick={handleSave}
+            disabled={!canSave}
+            style={{
+              width: '142px',
+              height: '44px',
+              borderRadius: '22px',
+              background: canSave ? 'var(--color-accent)' : 'rgba(255,255,255,.12)',
+              boxShadow: canSave ? '0 8px 22px rgba(140,100,130,.24)' : 'none',
+              color: canSave ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.45)',
+              transition: 'transform .18s, background .18s, color .18s',
+            }}
+            className="flex items-center justify-center text-[15.5px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"
           >
-            {copied ? '복사됨' : '주소 복사'}
+            {save.isPending ? '저장 중…' : '변경사항 저장'}
           </button>
         </div>
-        <div className="text-[13px]" style={{ marginTop: '12px', color: 'rgba(255,236,246,.55)' }}>
-          다른 지갑을 사용하시면 해당 지갑으로 다시 로그인해 주세요.
-        </div>
-      </div>
+      </MyPageFrame>
 
-      <div
-        className="absolute bg-[rgba(255,255,255,.12)]"
-        style={{ left: '442px', top: '929px', width: '900px', height: '1px' }}
-      ></div>
-
-      <div
-        className="absolute flex"
-        style={{
-          left: '1104px',
-          top: '951px',
-          width: '238px',
-          height: '44px',
-          justifyContent: 'flex-end',
-          gap: '12px',
-          animation: 'rise .7s .26s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        <a
-          href={paths.my.agents}
-          style={{
-            width: '84px',
-            height: '44px',
-            borderRadius: '22px',
-            color: 'rgba(255,255,255,.9)',
-          }}
-          className="flex items-center justify-center bg-[rgba(255,255,255,.09)] text-[15.5px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
-        >
-          취소
-        </a>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!canSave}
-          style={{
-            width: '142px',
-            height: '44px',
-            borderRadius: '22px',
-            background: canSave ? 'var(--color-accent)' : 'rgba(255,255,255,.12)',
-            boxShadow: canSave ? '0 8px 22px rgba(140,100,130,.24)' : 'none',
-            color: canSave ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.45)',
-            transition: 'transform .18s, background .18s, color .18s',
-          }}
-          className="flex items-center justify-center text-[15.5px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"
-        >
-          {save.isPending ? '저장 중…' : '변경사항 저장'}
-        </button>
-      </div>
-
+      {/* 프레임 밖에 둔다 — 안에 두면 가운데로 민 만큼 비껴 난다. */}
       {toast && (
         <>
           <div
@@ -536,6 +542,6 @@ export default function MyPageEdit() {
           </div>
         </>
       )}
-    </MyPageFrame>
+    </>
   )
 }
