@@ -56,6 +56,7 @@
 | 끝난 뒤 환불 | **들어감** — 성공한 단계의 실측 원가 × 등급 배율만 쓰고 나머지를 돌려준다. 플랫폼 탓이면 전부 ([`completed/`](completed/agent-pipeline.md) 8.4) |
 | 실패 책임 | **들어감** — 엔진의 `failure.fault` 를 정리해 실행을 닫을 때 함께 남긴다. 공급자 탓이면 어느 공급자 · 에이전트인지도 ([`completed/`](completed/agent-pipeline.md) 8.5) |
 | 정산 | **들어감** — 쓴 만큼 전부를 성공한 단계의 주인 정산금으로 옮긴다. 수수료 없음, 플랫폼 탓이면 없음 ([`completed/`](completed/agent-pipeline.md) 8.6) |
+| 등급 재료 · 지표 | **들어감** — 실행을 닫을 때 에이전트마다 성공 · 공급자 탓 실패를 센다. 보정 평점 · 사용량 · 성공률은 재료에서 계산한다. 평점은 시드로만 ([`completed/`](completed/agent-pipeline.md) 8.9) |
 
 **구현된 것은 이 문서에서 걷어낸다.** 걷어낸 장은 [`completed/`](completed/agent-pipeline.md) 에 남긴다.
 

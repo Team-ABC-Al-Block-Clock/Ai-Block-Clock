@@ -110,6 +110,24 @@ class ExecutionFailureTest {
         assertThat(failure.agent()).isNull();
     }
 
+    @Test
+    void 성공률에_넣는_공급자_탓_실패는_그_에이전트만_깎는다() {
+        ExecutionFailure failure = ExecutionFailure.judge(failedAt("n2", "MODEL_API_ERROR", "supplier", true));
+
+        assertThat(failure.countsAgainst(AgentId.of(AGENT))).isTrue();
+        assertThat(failure.countsAgainst(AgentId.newId())).isFalse();
+    }
+
+    @Test
+    void 성공률에_넣지_말라는_오류나_공급자_탓이_아닌_실패는_아무도_깎지_않는다() {
+        assertThat(ExecutionFailure.judge(failedAt("n2", "REF_FILE_REJECTED", "supplier", false))
+                .countsAgainst(AgentId.of(AGENT))).isFalse();
+        assertThat(ExecutionFailure.judge(failedAt("n2", "FILE_PARSE_FAILED", "consumer", true))
+                .countsAgainst(AgentId.of(AGENT))).isFalse();
+        assertThat(ExecutionFailure.judge(failedAt("n2", "RATE_LIMITED", "platform", true))
+                .countsAgainst(AgentId.of(AGENT))).isFalse();
+    }
+
     // n1 은 내 노드, n2 는 7002 가 판 에이전트 안의 단계다.
     private static RunStatus failedAt(String stepId, String errorCode, String fault, Boolean affectsSuccessRate) {
         return new RunStatus("run-1", "failed", null,

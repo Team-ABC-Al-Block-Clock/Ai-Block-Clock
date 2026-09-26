@@ -1,6 +1,8 @@
 package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.client.ai.RunStatus;
+import com.aiblockclock.domain.agent.AgentGradeMetricReader;
+import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.Workflow;
@@ -9,6 +11,7 @@ import com.aiblockclock.enums.execution.ExecutionFault;
 import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.enums.payment.LedgerAccountType;
 import com.aiblockclock.enums.payment.LedgerEventType;
+import com.aiblockclock.storage.agent.AgentGradeMetricRepository;
 import com.aiblockclock.storage.execution.ExecutionChargeRateEntity;
 import com.aiblockclock.storage.execution.ExecutionChargeRateRepository;
 import com.aiblockclock.storage.execution.ExecutionEntity;
@@ -101,6 +104,12 @@ class ExecutionReservationManagerIntegrationTest {
     @Autowired
     private ExecutionFailureRepository executionFailureRepository;
 
+    @Autowired
+    private AgentGradeMetricReader agentGradeMetricReader;
+
+    @Autowired
+    private AgentGradeMetricRepository agentGradeMetricRepository;
+
     private Workflow workflow;
 
     private ExecutionPlan plan;
@@ -124,6 +133,7 @@ class ExecutionReservationManagerIntegrationTest {
         executionSettlementRepository.deleteAllInBatch();
         executionFailureRepository.deleteAllInBatch();
         executionRepository.deleteAllInBatch();
+        agentGradeMetricRepository.deleteAllInBatch();
     }
 
     @Test
@@ -620,6 +630,121 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     @Test
+    void 남의_에이전트가_끝까지_돌면_닫을_때_그_에이전트의_성공_수를_하나_늘린다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        AgentId agent = AgentId.newId();
+
+        finish(reserved, run("succeeded", null,
+                agentStep("n1", "succeeded", "0.5", SELLER, agent), agentStep("n2", "succeeded", "0.5", SELLER, agent)));
+
+        assertThat(agentGradeMetricReader.read(agent))
+                .satisfies(metric -> {
+                    assertThat(metric.successfulRuns()).isEqualTo(1);
+                    assertThat(metric.supplierFailures()).isZero();
+                    assertThat(metric.measuredAt()).isNotNull();
+                });
+    }
+
+    @Test
+    void 공급자_탓으로_실패하면_그_에이전트의_실패_수를_늘리고_앞서_끝난_에이전트는_성공_수를_늘린다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        AgentId finished = AgentId.newId();
+        AgentId blamed = AgentId.newId();
+
+        finish(reserved, run("failed", new RunStatus.Failure("n2", "MODEL_TIMEOUT", "supplier", true),
+                agentStep("n1", "succeeded", "0.5", SELLER, finished),
+                agentStep("n2", "failed", "0.1", OTHER_SELLER, blamed)));
+
+        assertThat(agentGradeMetricReader.read(finished).successfulRuns()).isEqualTo(1);
+        assertThat(agentGradeMetricReader.read(blamed))
+                .satisfies(metric -> {
+                    assertThat(metric.successfulRuns()).isZero();
+                    assertThat(metric.supplierFailures()).isEqualTo(1);
+                });
+    }
+
+    @Test
+    void 플랫폼_탓으로_실패하면_등급_재료를_남기지_않는다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+
+        finish(reserved, run("failed", failure("platform"),
+                agentStep("n1", "succeeded", "0.5", SELLER, AgentId.newId()),
+                agentStep("n2", "failed", "0.1", OTHER_SELLER, AgentId.newId())));
+
+        assertThat(agentGradeMetricRepository.count()).isZero();
+    }
+
+    @Test
+    void 자기_에이전트를_자기가_쓰면_등급_재료를_남기지_않는다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+
+        finish(reserved, run("succeeded", null,
+                agentStep("n1", "succeeded", "0.5", OWNER, AgentId.newId()),
+                agentStep("n2", "succeeded", "0.5", OWNER, AgentId.newId())));
+
+        assertThat(agentGradeMetricRepository.count()).isZero();
+    }
+
+    @Test
+    void 같은_끝을_두_번_봐도_등급_재료는_한_번만_센다() {
+        charge("10");
+        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        AgentId agent = AgentId.newId();
+        RunStatus finished = run("succeeded", null,
+                agentStep("n1", "succeeded", "0.5", SELLER, agent), agentStep("n2", "succeeded", "0.5", SELLER, agent));
+
+        finish(reserved, finished);
+        finish(reserved, finished);
+
+        assertThat(agentGradeMetricReader.read(agent).successfulRuns()).isEqualTo(1);
+    }
+
+    @Test
+    void 선차감_전에_접수한_실행도_끝나면_등급_재료는_센다() {
+        Execution requested = requested(newRequestId());
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                executionRepository.save(ExecutionEntityConverter.toEntity(requested)));
+        AgentId agent = AgentId.newId();
+
+        finish(requested, run("succeeded", null, agentStep("n1", "succeeded", "0.5", SELLER, agent)));
+
+        assertThat(agentGradeMetricReader.read(agent).successfulRuns()).isEqualTo(1);
+        assertThat(ledgerTransactionRepository.count()).isZero();
+    }
+
+    // 둘 다 처음 세는 에이전트라 줄을 동시에 만들려고 한다. 한 줄만 생기고 두 번 모두 더해져야 한다.
+    @Test
+    void 두_실행이_같은_에이전트를_동시에_닫아도_하나를_잃지_않고_둘_다_센다() throws Exception {
+        charge("20");
+        Execution first = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        Execution second = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
+        AgentId agent = AgentId.newId();
+        RunStatus finished = run("succeeded", null,
+                agentStep("n1", "succeeded", "0.5", SELLER, agent), agentStep("n2", "succeeded", "0.5", SELLER, agent));
+
+        List<Outcome> outcomes = runConcurrently(List.of(
+                () -> {
+                    finish(first, finished);
+
+                    return null;
+                },
+                () -> {
+                    finish(second, finished);
+
+                    return null;
+                }));
+
+        assertThat(outcomes).containsOnly(Outcome.DONE);
+        assertThat(agentGradeMetricRepository.count()).isEqualTo(1);
+        assertThat(agentGradeMetricReader.read(agent).successfulRuns()).isEqualTo(2);
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("2");
+    }
+
+    @Test
     void mock_실행은_쓴_것이_없어_정산을_적지_않는다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
@@ -719,6 +844,12 @@ class ExecutionReservationManagerIntegrationTest {
     // 엔진은 우리가 보낸 주인과 에이전트를 단계마다 그대로 돌려준다.
     private static RunStatus.Node ownedStep(String id, String state, String owner, UUID agent) {
         return new RunStatus.Node(id, id, "llm", state, agent.toString(), owner, BigDecimal.ZERO, null);
+    }
+
+    // 판매자의 에이전트 안에서 돈 단계다. 실측 원가가 있어 모델을 실제로 부른 것이다.
+    private static RunStatus.Node agentStep(String id, String state, String costAbc, UserId seller, AgentId agent) {
+        return new RunStatus.Node(id, "노드 " + id, "llm", state, agent.value().toString(),
+                Long.toString(seller.value()), new BigDecimal(costAbc), null);
     }
 
     private static RunStatus.Failure failure(String fault) {

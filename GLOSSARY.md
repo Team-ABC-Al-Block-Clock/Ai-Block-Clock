@@ -27,6 +27,10 @@
 | **Premium Rate (프리미엄 율)** | 등급에 따라 Base Cost 위에 얹히는 마진율. T1 +50% / T2 +30% / T3 +10% / T4 +0% | `Tier.premiumRate()` |
 | **Tier (등급)** | Agent Score 와 필수 허들로 부여되는 등급. Tier 1(Platinum) ~ Tier 4(Bronze) | `Tier` |
 | **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수 | 아직 없음 (PAY-019) |
+| **등급 재료** | 에이전트마다 쌓는 성공 수 · 공급자 탓 실패 수 · 평가 수 · 평균 평점. 지표는 이것에서 계산한다 | `AgentGradeMetric`. 실행 하나가 남기는 것은 `AgentRunOutcomes` |
+| **보정 평점 (Bayesian Rating)** | 평가가 적을수록 전체 평균 쪽으로 당긴 평점. 1 ~ 5. 0 ~ 100 으로 옮긴 것이 평점 점수 | `AgentGradeIndicators.adjustedRating` · `ratingScore` |
+| **정규화 사용량** | 누적 성공 실행 수를 로그 눈금으로 0 ~ 100 에 놓은 것 | `AgentGradeIndicators.usageScore` |
+| **성공률 · 성공률 페널티** | 성공 / (성공 + 공급자 탓 실패). 페널티는 그 거듭제곱으로 종합 점수에 곱한다 | `AgentGradeIndicators.successRate` · `successPenalty` |
 | **ABC (Credit)** | 수요자용 이용권. 실행 시 차감된다. 사용자 간 전송 불가 — 장부 거래가 종류마다 정해진 모양만 받는다(`LedgerTransaction`) | 아직 없음 ⚠️ 3장 참고 |
 | **정산금 (Payout Balance)** | 공급자용 출금 가능 자산 | 장부 계정 `PAYOUT_BALANCE`. 단계마다 내역은 `ExecutionSettlement`, 공급자가 보는 한 줄은 `SettlementRecord` |
 | **기여 노드** | 특정 실행에서 실제로 호출되어 정산 대상이 되는 노드 | 아직 없음 (PAY-010) |
@@ -228,7 +232,7 @@ WRK-015(반복) · WRK-016(병합)이 v2 에 있으므로, 제어 노드가 늘�
 | 용어 | 어디서 오는가 |
 | --- | --- |
 | ABC · 정산금 · 출금 | PAY, CHN |
-| Agent Score · 보정 평점 · 성공률 | PAY-016 ~ 020, MKT-005 |
+| Agent Score | PAY-019 ~ 020, MKT-005 |
 | 기여 노드 | PAY-010 · PAY-012 |
 | A2A 봉투(Envelope) · Payload · 노드 매니페스트 | AI 파트 (S15P21A403-170 · 172) |
 | 공급자 · 수요자 | 별개 계정이 아니라 **행위 시점에 결정되는 역할**이다. 계정 유형으로 모델링하지 않는다 |
