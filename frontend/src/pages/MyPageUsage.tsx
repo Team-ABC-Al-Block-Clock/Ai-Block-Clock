@@ -209,7 +209,7 @@ export default function MyPageUsage() {
           <div className="flex items-center" style={{ gap: '7px' }}>
             <StatusDot color="#e9aec4" />
             <div className="text-[11px] whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>
-              사용 코인
+              사용 금액
             </div>
           </div>
           <div className="flex items-center" style={{ gap: '7px' }}>
@@ -308,7 +308,7 @@ export default function MyPageUsage() {
         }}
       >
         <div className="flex items-center justify-between">
-          <div className="text-[17px] font-semibold tracking-[-.01em] text-white">코인 잔액</div>
+          <div className="text-[17px] font-semibold tracking-[-.01em] text-white">ABC 잔액</div>
           <div className="flex" style={{ gap: '8px' }}>
             <a
               href={paths.my.credit}
@@ -376,7 +376,7 @@ export default function MyPageUsage() {
         <div className="flex flex-col" style={{ marginTop: '14px', gap: '7px' }}>
           <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
             <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              실행에 잠긴 코인
+              실행에 잠긴 금액
             </span>
             <span className="text-[11.5px] font-semibold" style={{ color: '#c9a9dd' }}>
               {reserved ? priceLabel(reserved) : '—'}
@@ -385,7 +385,7 @@ export default function MyPageUsage() {
           {/* 예치금·이번 달 사용은 잔액 응답에 없다. */}
           <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
             <span className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              잠긴 코인은 실행이 끝나면 정산되거나 되돌아옵니다
+              잠긴 금액은 실행이 끝나면 정산되거나 되돌아옵니다
             </span>
           </div>
           {/* PAY-004 — 남에게 ABC 가 가는 길은 정산금 적립 하나뿐이다. */}
