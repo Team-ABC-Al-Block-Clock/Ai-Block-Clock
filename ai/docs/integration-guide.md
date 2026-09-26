@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | **v2.0 확정** (2026-09-25 밤 — 입력 형식 폐지 · 출력 선언 · ABC 제거 · `mode=test`). 코드 반영 완료 — 테스트 126건, v2.0 경로 실호출 1회(§13). 이 파일이 항상 최신 계약이다 |
+| 상태 | **v2.0 확정 · 09-26 갱신** (09-25 밤 — 입력 형식 폐지 · 출력 선언 · ABC 제거 · `mode=test` / 09-26 — 참고 파일 동작 · 기본 모델 Pro · 실패 노드 토큰). 코드와 대조 완료 — 테스트 136건, 실호출 4회(§13). 이 파일이 항상 최신 계약이다 |
 | 이전 | 확정본 09-19 · 09-22 갱신(검증 응답의 견적, 노드 필드 8종, 결과 URL, 정의 검증 코드, 원가 산출) |
 | 작성 | AI 파트 트랙 A (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
@@ -23,6 +23,9 @@
 | **테스트 실행** | 없음 | `POST /v1/runs`에 `mode=test` | 판매자 사전 테스트 · 원가 실측(NOD-007) |
 | **조합 오류** | 실패 · 수요자 책임 환불 | **실패가 아니다.** 실행되고 품질은 평점으로 | 입력 검증이 없으니 "조합 오류"를 코드가 판정할 수 없다 |
 | 호환 별칭 | — | `output_schema_id`는 한 버전 동안 `output.sample`로 읽는다(경고). `input_schema_id` · `unit_price` · `base_cost` · `premium_rate`는 무시(경고) | 백엔드 반영 중 실행이 끊기지 않게 |
+| **참고 파일** (09-26) | 예정 | **동작.** 폼 필드 `ref_file_<node_id>_<n>` — txt · md · csv는 본문, PDF는 inline 첨부. 위반은 `REF_FILE_REJECTED` | §7.1 |
+| **기본 모델** (09-26) | `gemini-2.5-flash` | **`gemini-2.5-pro`.** 노드당 15 ~ 35초, 원가 약 4배. 워크플로우 `model`로 Flash 선택 가능 | GMS 크레딧 여유 · §13 |
+| **실패 노드 토큰** (09-26) | 교정 중 예외면 `null` | LLM을 부른 뒤 실패하면 **그때까지의 토큰 · USD**가 들어온다 | 백엔드 환불 계산 · §8.5 |
 
 ---
 
@@ -390,7 +393,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
   "produced_at": "2026-09-25T01:04:51Z",
   "schema_id": "biz.market_research@1",          // 견본 id, 글 출력이면 "text"
   "payload": { "competition_level": "high", "price_band": "중가", "...": "..." },
-  "meta": { "model": "gemini-2.5-flash",
+  "meta": { "model": "gemini-2.5-pro",            // 09-26부터 기본. 아래 숫자는 Flash 시절 예시
             "usage": { "input_tokens": 1281, "output_tokens": 1349 },
             "cost_usd": 0.003757, "duration_ms": 18100, "retry_count": 0, "repair_count": 1 },
   "error": null
@@ -472,7 +475,7 @@ curl -X POST $BASE/v1/runs \
       "output": { "kind": "json", "sample": "biz.market_research@1" },
       "agent_id": null, "owner_id": "u_2001",
       "started_at": "2026-09-25T01:04:52+00:00", "finished_at": "2026-09-25T01:05:10+00:00",
-      "duration_ms": 18100, "model": "gemini-2.5-flash",
+      "duration_ms": 18100, "model": "gemini-2.5-pro",   // 숫자는 예시
       "input_tokens": 1281, "output_tokens": 1349, "cost_usd": 0.003757,
       "retries": 0, "repair_count": 1,
       "skip_reason": null, "branch_taken": null },
@@ -730,6 +733,9 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 401 | `UNAUTHORIZED` | 서비스 토큰 불일치 | 설정 확인 |
 | 404 | `RUN_NOT_FOUND` | `run_id` 없음. 재배포 시에도 발생 | DB 이력으로 답한다 |
 | 409 | `PDF_NOT_READY` · `ARTIFACT_NOT_READY` | 아직 실행 중이거나 실패 | `status` 확인 후 재시도 |
+| 400 | `INVALID_REQUEST` | `POST /v1/workflows/validate` 본문이 워크플로우 객체가 아님 | 요청 직렬화 확인 |
+| 404 | `SCHEMA_NOT_FOUND` | `GET /v1/schemas/{id}`에 없는 견본 id | 목록(`GET /v1/schemas`)에서 고른 id인지 |
+| 404 | `WORKFLOW_NOT_FOUND` | `GET /v1/workflows/{id}`에 없는 예시 워크플로우 | 개발용 보조 API |
 
 ### 9.2 실행 단계 (`failure.error_code`)
 
@@ -767,7 +773,7 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 3 | 에이전트 저장 | — | `agent.nodes` + `agent.edges`를 **그대로** 임베드. 공개 입출력은 진입 · 종단 노드에서 읽어 마켓 카드에 |
 | 4 | 실행 요청 | **`POST /v1/runs`** multipart — `workflow` · `input` · `comment` · `file` · `ref_file_*` · **`mode`** | 202 `run_id`. 선차감액은 2번의 값. `mode=test`면 선차감 없음 |
 | 5 | 폴링 | **`GET /v1/runs/{id}`** 2초 간격 | `progress`를 프론트에 중계. `contribution[]`에 나타난 노드는 `(run_id, node_id)` 멱등 키로 **즉시 적립**(금액은 자기 단가) |
-| 6 | 종료 | `status`가 `succeeded` · `failed` | `not_executed[]` 환원, `failure.refund_scope`로 실패 구간 환원(§8.5). **`agents[]` · `totals`의 토큰 · USD로 Base Cost 보정** |
+| 6 | 종료 | `status`가 `succeeded` · `failed` | `not_executed[]` 환원, `failure.refund_scope`로 실패 구간 환원(§8.5). **`agents[]` · `totals`의 토큰 · USD로 Base Cost 보정.** 사용액을 실측으로 계산한다면 `nodes[].cost_usd` × 환산율 × 등급 배율(v1.x의 `cost_abc` 자리. `cost_abc`는 이제 오지 않아 그대로 두면 사용액 0이 된다) |
 | 7 | 결과 저장 | **`GET /v1/runs/{id}/artifact`** · `/pdf` | 봉투 JSON과 PDF를 스토리지에 저장해 URL 발급 |
 | 8 | 중계 | `GET /v1/schemas` · `/{id}` | 프론트에 그대로 |
 | 9 | 테스트 실행 | `POST /v1/runs` + `mode=test` | 횟수 · 크레딧 한도는 접수에서. 결과의 토큰 · USD를 NOD-007 실측으로 |
