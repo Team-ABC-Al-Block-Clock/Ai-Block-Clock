@@ -1,12 +1,18 @@
 create table graph_node
 (
-    id           bigint      not null auto_increment,
-    graph_id     varchar(36) not null,
-    node_key     varchar(64) not null,
-    source_type  varchar(10) not null,
-    reference_id varchar(36) not null,
-    version_id   varchar(36) null,
-    input_source varchar(20) not null,
+    id               bigint      not null auto_increment,
+    graph_id         varchar(36) not null,
+    node_key         varchar(64) not null,
+    source_type      varchar(10) not null,
+    reference_id     varchar(36) null,
+    version_id       varchar(36) null,
+    input_source     varchar(20) not null,
+    control_type     varchar(20) null,
+    branch_condition text        null,
+    io_type          varchar(20) null,
+    io_fields        text        null,
+    result_shape     varchar(20) null,
+    result_format    varchar(20) null,
     primary key (id)
 );
 
@@ -20,6 +26,7 @@ create table graph_edge
     edge_key        varchar(64) not null,
     source_node_key varchar(64) not null,
     target_node_key varchar(64) not null,
+    branch_when     boolean     null,
     primary key (id)
 );
 

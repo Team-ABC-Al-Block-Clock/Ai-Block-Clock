@@ -21,13 +21,16 @@ class PaymentMigrationMySqlTest {
     private static final int MYSQL_CHECK_CONSTRAINT_VIOLATION = 3819;
 
     @Test
-    void V2의_기존_금액을_보존하고_정밀도와_양수_제약을_검증한다() {
+    void 결제_금액_칸의_정밀도와_양수_제약을_검증한다() {
         try (MySQLContainer mysql = new MySQLContainer("mysql:8.4")
                 .withDatabaseName("migration_test")) {
             mysql.start();
             var dataSource = new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
             JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-            Flyway.configure().dataSource(dataSource).target("2").load().migrate();
+            Flyway flyway = Flyway.configure().dataSource(dataSource).load();
+            flyway.migrate();
+            flyway.validate();
+
             BigDecimal largestBalance = new BigDecimal("99999999999999999999999999999999999.999");
             jdbc.update("INSERT INTO ledger_account (account_type, reference_id, balance) VALUES ('ABC_BALANCE', 'existing-user', ?)",
                     largestBalance);
@@ -38,13 +41,6 @@ class PaymentMigrationMySqlTest {
                     + "VALUES ('CHARGE', 'migration-key', 'CHARGE_REQUEST', '1')");
             jdbc.update("INSERT INTO ledger_entry (ledger_transaction_id, ledger_account_id, amount_delta) VALUES (1, 1, 10.123)");
 
-            Flyway flyway = Flyway.configure().dataSource(dataSource).load();
-            flyway.migrate();
-            flyway.validate();
-            // 결제 마이그레이션이 이 순서로 얹히는지만 본다. 뒤에 붙는 다른 도메인 버전까지
-            // 적으면 마이그레이션이 하나 늘 때마다 이 결제 테스트가 깨진다.
-            assertThat(List.of(flyway.info().applied()).stream()
-                    .map(migration -> migration.getVersion().getVersion()).toList()).startsWith("1", "2", "2.1");
             assertThat(jdbc.queryForObject("SELECT balance FROM ledger_account WHERE id = 1", BigDecimal.class))
                     .isEqualByComparingTo(largestBalance);
             assertThat(jdbc.queryForObject("SELECT credited_abc_amount FROM charge_request WHERE id = 1", BigDecimal.class))

@@ -27,7 +27,7 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class ExecutionWriter {
-    // V17__add_execution_request_id.sql 의 제약 이름이다. 바꾸면 여기도 함께 바꾼다.
+    // V7__create_execution.sql 의 제약 이름이다. 바꾸면 여기도 함께 바꾼다.
     private static final String REQUEST_UNIQUE_CONSTRAINT = "uq_execution_requester_request";
 
     private final ExecutionRepository executionRepository;

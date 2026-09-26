@@ -36,13 +36,14 @@ class ChargeRequestWriterTest {
     private final ChargeRequestWriter writer = new ChargeRequestWriter(repository);
 
     @Test
-    void V2의_거래_중복_제약_이름을_Writer가_인식한다() throws IOException {
+    void V3의_거래_중복_제약_이름을_Writer가_인식한다() throws IOException {
         String migrationSql;
         try (InputStream migration = getClass().getResourceAsStream(
-                "/db/migration/V2__create_charge_request_table.sql")) {
-            assertThat(migration).as("V2 마이그레이션 리소스").isNotNull();
+                "/db/migration/V3__create_payment.sql")) {
+            assertThat(migration).as("V3 마이그레이션 리소스").isNotNull();
             migrationSql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
         }
+        migrationSql = migrationSql.substring(migrationSql.indexOf("CREATE TABLE charge_request"));
 
         Matcher transactionConstraint = Pattern.compile(
                 "CONSTRAINT\\s+(\\w+)\\s+UNIQUE\\s*\\(\\s*chain_id\\s*,\\s*transaction_hash\\s*\\)",

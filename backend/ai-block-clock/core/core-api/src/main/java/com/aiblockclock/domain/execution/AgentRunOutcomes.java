@@ -62,7 +62,7 @@ public record AgentRunOutcomes(Set<AgentId> succeeded, Set<AgentId> failed) {
                         Collectors.toList()));
     }
 
-    // 에이전트 안의 단계는 모두 그 에이전트 주인의 것이다(V18). 하나라도 실행한 사람의 것이면 자기 실행이다.
+    // 에이전트 안의 단계는 모두 그 에이전트 주인의 것이다(V6__create_agent.sql). 하나라도 실행한 사람의 것이면 자기 실행이다.
     private static boolean isSelfUse(List<RunStatus.Node> steps, UserId requester) {
         return steps.stream()
                 .map(StepOwner::of)
