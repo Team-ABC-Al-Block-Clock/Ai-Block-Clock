@@ -203,6 +203,20 @@ class WithdrawalServiceIntegrationTest {
     }
 
     @Test
+    void 연타로_취소가_동시에_와도_모두_취소로_답하고_한_번만_돌려준다() throws Exception {
+        UserId seller = sellerWithPayout("0x100000000000000000000000000000000000000d", "30");
+        Withdrawal requested = withdrawalService.request(seller, newRequestId(), TEN);
+
+        List<Object> outcomes = concurrently(() -> withdrawalService.cancel(seller, requested.getId()));
+
+        assertThat(outcomes).allSatisfy(outcome -> assertThat(outcome)
+                .isInstanceOfSatisfying(Withdrawal.class, withdrawal ->
+                        assertThat(withdrawal.getStatus()).isEqualTo(WithdrawalStatus.CANCELED)));
+        assertThat(balanceOf(seller, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("30");
+        assertThat(balanceOf(seller, LedgerAccountType.WITHDRAWAL_ESCROW)).isEqualByComparingTo("0");
+    }
+
+    @Test
     void 남의_신청은_없는_것처럼_취소할_수_없다() {
         UserId seller = sellerWithPayout("0x1000000000000000000000000000000000000009", "30");
         UserId other = user("0x100000000000000000000000000000000000000a");

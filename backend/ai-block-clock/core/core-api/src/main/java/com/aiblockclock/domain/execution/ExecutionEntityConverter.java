@@ -21,6 +21,7 @@ public final class ExecutionEntityConverter {
                 keyOf(execution.getInputFile()),
                 nameOf(execution.getInputFile()),
                 sizeOf(execution.getInputFile()),
+                execution.isMock(),
                 execution.isReserved() ? execution.getReserved().value() : null);
     }
 
@@ -34,6 +35,7 @@ public final class ExecutionEntityConverter {
                 entity.getStatus(),
                 entity.getPromptCount(),
                 inputFileOf(entity),
+                entity.isMock(),
                 entity.getReservedAbc() == null ? null : AbcAmount.of(entity.getReservedAbc()));
     }
 

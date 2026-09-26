@@ -185,8 +185,8 @@ class WorkflowGraphTest {
         }
 
         @Test
-        @DisplayName("합쳐지면 트리가 아니다")
-        void rejectsMerge() {
+        @DisplayName("시작점이 다른 두 줄기가 합쳐지면 막는다")
+        void rejectsMergeOfTwoStarts() {
             WorkflowGraph graph = WorkflowGraph.of(
                     List.of(node("n1"), node("n2"), node("n3")),
                     List.of(edge("e1", "n1", "n3"), edge("e2", "n2", "n3")));
@@ -323,20 +323,88 @@ class WorkflowGraphTest {
         }
 
         @Test
-        @DisplayName("갈라진 갈래가 다시 만나면 트리가 아니다")
-        void rejectsRejoin() {
+        @DisplayName("갈라진 갈래가 다시 만나면 받고, 만나는 노드는 두 갈래를 다 돈 뒤에 한 번만 센다")
+        void acceptsRejoin() {
+            WorkflowGraph graph = rejoined("n1.competition_level");
+
+            assertThat(graph.nodesInOrder()).extracting(GraphNode::key)
+                    .containsExactly(NodeKey.of("n1"), NodeKey.of("br1"), NodeKey.of("n2"), NodeKey.of("n3"),
+                            NodeKey.of("n4"));
+            assertThat(graph.edgesInOrder()).hasSize(5);
+        }
+
+        @Test
+        @DisplayName("다시 만나는 그래프의 최장 경로는 긴 갈래로 센다")
+        void measuresLongerSideOfRejoin() {
             WorkflowGraph graph = WorkflowGraph.of(
-                    List.of(node("n1"), branch("br1"), node("n2"), node("n3"), node("n4")),
+                    List.of(node("n1"), branch("br1"), node("n2"), node("n3"), node("n4"), node("n5")),
+                    List.of(edge("e1", "n1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n4", false),
+                            edge("e4", "n2", "n3"),
+                            edge("e5", "n3", "n5"),
+                            edge("e6", "n4", "n5")));
+
+            assertThat(graph.longestPathLength()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("다시 만나는 선이 앞으로 되돌아가면 순환이다")
+        void detectsCycleThroughRejoin() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1"), node("n2"), node("n3")),
+                    List.of(edge("e1", "n1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n3", false),
+                            edge("e4", "n3", "n2"),
+                            edge("e5", "n2", "n3")));
+
+            assertThatThrownBy(graph::nodesInOrder)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_CYCLE);
+        }
+
+        @Test
+        @DisplayName("다시 만난 뒤의 분기는 어느 갈래로 와도 거친 노드를 읽는다")
+        void readsNodePassedOnEverySide() {
+            assertThatCode(() -> rejoinedThenBranched("n1.competition_level").nodesInOrder())
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> rejoinedThenBranched("n4.competition_level").nodesInOrder())
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("다시 만난 뒤의 분기는 한쪽 갈래에만 있는 노드를 읽지 못한다")
+        void rejectsNodeOnOneSideOnly() {
+            assertThatThrownBy(() -> rejoinedThenBranched("n2.competition_level").nodesInOrder())
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_CONDITION_INVALID);
+        }
+
+        private WorkflowGraph rejoined(String left) {
+            return WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1", left), node("n2"), node("n3"), node("n4")),
                     List.of(edge("e1", "n1", "br1"),
                             branchEdge("e2", "br1", "n2", true),
                             branchEdge("e3", "br1", "n3", false),
                             edge("e4", "n2", "n4"),
                             edge("e5", "n3", "n4")));
+        }
 
-            assertThatThrownBy(graph::nodesInOrder)
-                    .isInstanceOf(CoreException.class)
-                    .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.WORKFLOW_GRAPH_NOT_TREE);
+        private WorkflowGraph rejoinedThenBranched(String left) {
+            return WorkflowGraph.of(
+                    List.of(node("n1"), branch("br1"), node("n2"), node("n3"), node("n4"), branch("br2", left),
+                            node("n5"), node("n6")),
+                    List.of(edge("e1", "n1", "br1"),
+                            branchEdge("e2", "br1", "n2", true),
+                            branchEdge("e3", "br1", "n3", false),
+                            edge("e4", "n2", "n4"),
+                            edge("e5", "n3", "n4"),
+                            edge("e6", "n4", "br2"),
+                            branchEdge("e7", "br2", "n5", true),
+                            branchEdge("e8", "br2", "n6", false)));
         }
 
         @Test
@@ -358,8 +426,8 @@ class WorkflowGraphTest {
         }
 
         @Test
-        @DisplayName("분기 조건은 앞에 놓인 에이전트를 읽지 못한다")
-        void rejectsConditionReadingAgent() {
+        @DisplayName("분기 조건은 앞에 놓인 에이전트를 읽는다")
+        void readsUpstreamAgent() {
             WorkflowGraph graph = WorkflowGraph.of(
                     List.of(agent("a1", UUID.randomUUID(), UUID.randomUUID()), branch("br1", "a1.competition_level"),
                             node("n2"), node("n3")),
@@ -367,10 +435,7 @@ class WorkflowGraphTest {
                             branchEdge("e2", "br1", "n2", true),
                             branchEdge("e3", "br1", "n3", false)));
 
-            assertThatThrownBy(graph::nodesInOrder)
-                    .isInstanceOf(CoreException.class)
-                    .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.WORKFLOW_BRANCH_CONDITION_INVALID);
+            assertThatCode(graph::nodesInOrder).doesNotThrowAnyException();
         }
 
         @Test
@@ -467,6 +532,21 @@ class WorkflowGraphTest {
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.WORKFLOW_IO_NODE_EDGE_INVALID);
+        }
+
+        @Test
+        @DisplayName("분기의 두 갈래가 끝 노드 하나로 모인다")
+        void joinsBothSidesAtEndNode() {
+            WorkflowGraph graph = WorkflowGraph.of(
+                    List.of(start("s1"), node("n1"), branch("br1"), node("n2"), node("n3"), end("e1")),
+                    List.of(edge("g1", "s1", "n1"),
+                            edge("g2", "n1", "br1"),
+                            branchEdge("g3", "br1", "n2", true),
+                            branchEdge("g4", "br1", "n3", false),
+                            edge("g5", "n2", "e1"),
+                            edge("g6", "n3", "e1")));
+
+            assertThat(graph.nodesInOrder()).extracting(GraphNode::key).last().isEqualTo(NodeKey.of("e1"));
         }
 
         @Test

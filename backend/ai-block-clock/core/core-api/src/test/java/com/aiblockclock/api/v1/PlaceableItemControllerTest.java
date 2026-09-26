@@ -77,25 +77,21 @@ class PlaceableItemControllerTest {
     }
 
     @Test
-    @DisplayName("ALL 이면 내 노드 다음에 남의 공개 에이전트가 온다")
-    void listsMyNodesThenOthersAgents() throws Exception {
-        UUID myNode = NodeDefinitionSeeder.seed(nodeRepository, me);
+    @DisplayName("ALL 이면 내 노드는 빼고 공개 에이전트만 담는다")
+    void listsAgentsOnly() throws Exception {
+        NodeDefinitionSeeder.seed(nodeRepository, me);
         String othersAgent = registerAgent(other);
 
         mockMvc.perform(get(PLACEABLE).param("scope", "ALL").with(as(me)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.scope").value("ALL"))
-                .andExpect(jsonPath("$.data.content.length()").value(2))
-                .andExpect(jsonPath("$.data.content[0].itemId").value(myNode.toString()))
-                .andExpect(jsonPath("$.data.content[0].itemType").value("NODE"))
-                .andExpect(jsonPath("$.data.content[0].nodeType").value("LLM"))
-                .andExpect(jsonPath("$.data.content[0].mine").value(true))
-                .andExpect(jsonPath("$.data.content[1].itemId").value(othersAgent))
-                .andExpect(jsonPath("$.data.content[1].itemType").value("AGENT"))
-                .andExpect(jsonPath("$.data.content[1].nodeType").value("AGENT"))
-                .andExpect(jsonPath("$.data.content[1].mine").value(false))
-                .andExpect(jsonPath("$.data.content[1].owner.nickname").value("남"))
-                .andExpect(jsonPath("$.data.content[1].price").value("6.000000"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].itemId").value(othersAgent))
+                .andExpect(jsonPath("$.data.content[0].itemType").value("AGENT"))
+                .andExpect(jsonPath("$.data.content[0].nodeType").value("AGENT"))
+                .andExpect(jsonPath("$.data.content[0].mine").value(false))
+                .andExpect(jsonPath("$.data.content[0].owner.nickname").value("남"))
+                .andExpect(jsonPath("$.data.content[0].price").value("6.000000"))
                 .andExpect(jsonPath("$.data.hasNext").value(false));
     }
 
@@ -109,11 +105,11 @@ class PlaceableItemControllerTest {
 
         mockMvc.perform(get(PLACEABLE).param("scope", "ALL").with(as(me)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content.length()").value(3))
-                .andExpect(jsonPath("$.data.content[1].itemId").value(myAgent))
-                .andExpect(jsonPath("$.data.content[1].price").value("6.000000"))
-                .andExpect(jsonPath("$.data.content[2].itemId").value(othersAgent))
-                .andExpect(jsonPath("$.data.content[2].price").value("9.000000"));
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[0].itemId").value(myAgent))
+                .andExpect(jsonPath("$.data.content[0].price").value("6.000000"))
+                .andExpect(jsonPath("$.data.content[1].itemId").value(othersAgent))
+                .andExpect(jsonPath("$.data.content[1].price").value("9.000000"));
     }
 
     @Test

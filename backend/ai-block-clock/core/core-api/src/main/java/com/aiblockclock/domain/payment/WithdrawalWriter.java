@@ -20,7 +20,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class WithdrawalWriter {
 
-    // V32__create_withdrawal.sql 의 요청 번호 중복 제약 이름이다.
+    // V33__create_withdrawal.sql 의 요청 번호 중복 제약 이름이다.
     private static final String REQUEST_UNIQUE_CONSTRAINT = "uq_withdrawal_requester_request";
 
     private final WithdrawalRepository withdrawalRepository;

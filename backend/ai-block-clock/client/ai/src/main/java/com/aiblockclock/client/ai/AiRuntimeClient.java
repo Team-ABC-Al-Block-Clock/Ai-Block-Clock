@@ -29,6 +29,7 @@ public class AiRuntimeClient {
     public RunAccepted start(RunRequest request) {
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("workflow", request.workflow());
+        form.add("mode", request.mode().wireName());
         form.add("mock", String.valueOf(request.mock()));
         addIfPresent(form, "input", request.input());
         addIfPresent(form, "comment", request.comment());
