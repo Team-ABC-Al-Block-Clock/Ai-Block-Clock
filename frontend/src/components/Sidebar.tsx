@@ -214,7 +214,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
         onClick={handleLogout}
         className="absolute flex cursor-pointer items-center text-[13.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,138,138,.12)]"
         style={{
-          right: `${1440 - 376}px`,
+          left: '90px',
           top: '937px',
           height: '36px',
           padding: '0 12px',
