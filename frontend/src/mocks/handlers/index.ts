@@ -4,6 +4,7 @@ import { executionHandlers } from '@/mocks/handlers/executions'
 import { marketplaceHandlers } from '@/mocks/handlers/marketplace'
 import { mypageHandlers } from '@/mocks/handlers/mypage'
 import { nodeHandlers } from '@/mocks/handlers/nodes'
+import { settlementHandlers } from '@/mocks/handlers/settlements'
 import { withdrawalHandlers } from '@/mocks/handlers/withdrawals'
 import { workflowsHandlers } from '@/mocks/handlers/workflows'
 
@@ -15,6 +16,7 @@ export const handlers = [
   ...marketplaceHandlers,
   ...mypageHandlers,
   ...nodeHandlers,
+  ...settlementHandlers,
   ...withdrawalHandlers,
   ...workflowsHandlers,
 ]
