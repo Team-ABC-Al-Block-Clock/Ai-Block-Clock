@@ -227,7 +227,28 @@ public enum ErrorType {
             "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN),
 
     CHARGE_SENDER_IS_CUSTODY(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_009,
-            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN);
+            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, ErrorCode.PAYMENT_010,
+            "출금 금액이 한 번에 신청할 수 있는 범위를 벗어났습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_PAYOUT_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_011,
+            "출금할 수 있는 정산금이 부족합니다.", LogLevel.WARN),
+
+    WITHDRAWAL_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, ErrorCode.PAYMENT_012,
+            "처리 중인 출금이 있어 새로 신청할 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_TOO_FREQUENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_013,
+            "출금 신청 주기가 지나지 않았습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_014,
+            "같은 출금 신청이 처리 중입니다. 잠시 뒤 다시 확인해 주세요.", LogLevel.WARN),
+
+    WITHDRAWAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_015,
+            "출금 신청을 찾을 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.PAYMENT_016,
+            "현재 상태에서는 출금 신청을 바꿀 수 없습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

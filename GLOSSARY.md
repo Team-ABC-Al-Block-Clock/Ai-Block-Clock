@@ -37,6 +37,7 @@
 | **성공률 · 성공률 페널티** | 성공 / (성공 + 공급자 탓 실패). 페널티는 그 거듭제곱으로 종합 점수에 곱한다 | `AgentGradeIndicators.successRate` · `successPenalty` |
 | **ABC (Credit)** | 수요자용 이용권. 실행 시 차감된다. 사용자 간 전송 불가 — 장부 거래가 종류마다 정해진 모양만 받는다(`LedgerTransaction`) | 아직 없음 ⚠️ 3장 참고 |
 | **정산금 (Payout Balance)** | 공급자용 출금 가능 자산 | 장부 계정 `PAYOUT_BALANCE`. 단계마다 내역은 `ExecutionSettlement`, 공급자가 보는 한 줄은 `SettlementRecord` |
+| **출금 신청 (Withdrawal)** | 공급자가 정산금을 로그인 지갑으로 abcToken 으로 보내 달라고 한 요청. 신청하면 금액이 **출금 예치**로 묶이고, 취소 · 반려되면 정산금으로 돌아온다 | `Withdrawal`, 장부 계정 `WITHDRAWAL_ESCROW` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md)) |
 | **단가 (Unit Price)** | 실행을 접수할 때 단계마다 정한 받을 값. 원가 × 놓인 자리의 배율(1 + 할증). 끝난 뒤 성공한 단계의 단가만 받는다 | `StepPrice` · `StepPrices`, 칸 `execution_charge_rate.unit_price` |
 | **플랫폼 부담** | 플랫폼 탓으로 실패한 실행에서 앞서 성공한 판매자에게 플랫폼이 대신 준 정산금. 잔액이 마이너스로 쌓인다 | 장부 계정 `PLATFORM_EXPENSE` (참조 `PLATFORM`) |
 | **테스트 실행** | 판매자가 노드 하나를 엔진에 실제로 돌려 결과물을 보고 원가를 재는 것. 무료, 노드당 하루 5번 (NOD-007) | `NodeTestRun` · 엔진 계약 v2.0 `mode=test` |

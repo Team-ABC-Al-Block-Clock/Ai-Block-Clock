@@ -34,6 +34,9 @@ public record LedgerTransaction(
     private static final String EXECUTION_RELEASE_KEY_PREFIX = "execution-release:";
     private static final String EXECUTION_REFUND_KEY_PREFIX = "execution-refund:";
     private static final String EXECUTION_SETTLEMENT_KEY_PREFIX = "execution-settlement:";
+    private static final String WITHDRAWAL_REFERENCE_TYPE = "WITHDRAWAL";
+    private static final String WITHDRAWAL_HOLD_KEY_PREFIX = "withdrawal-hold:";
+    private static final String WITHDRAWAL_RELEASE_KEY_PREFIX = "withdrawal-release:";
 
     public LedgerTransaction {
         if (eventType == null
@@ -201,6 +204,55 @@ public record LedgerTransaction(
         );
     }
 
+    // 출금을 신청하면 그 금액을 정산금에서 출금 예치로 옮겨 묶는다. 키가 출금 ID 라 한 신청에 한 번만 기록된다.
+    public static LedgerTransaction forWithdrawalHold(
+            Long withdrawalId,
+            UserId owner,
+            AbcAmount amount
+    ) {
+        String ownerReferenceId = referenceIdOf(owner);
+
+        return new LedgerTransaction(
+                LedgerEventType.WITHDRAWAL_HOLD,
+                WITHDRAWAL_HOLD_KEY_PREFIX + withdrawalId,
+                WITHDRAWAL_REFERENCE_TYPE,
+                withdrawalId.toString(),
+                null,
+                null,
+                List.of(
+                        new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, ownerReferenceId,
+                                amount.value().negate()),
+                        new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, ownerReferenceId,
+                                amount.value())
+                )
+        );
+    }
+
+    // 지급하지 않고 닫힌 출금(사용자 취소 · 관리자 반려)은 묶은 금액을 정산금으로 돌려놓는다.
+    // 취소와 반려가 같은 키를 써서, 둘이 겹쳐도 한 신청에 한 번만 풀린다.
+    public static LedgerTransaction forWithdrawalRelease(
+            Long withdrawalId,
+            UserId owner,
+            AbcAmount amount
+    ) {
+        String ownerReferenceId = referenceIdOf(owner);
+
+        return new LedgerTransaction(
+                LedgerEventType.WITHDRAWAL_RELEASE,
+                WITHDRAWAL_RELEASE_KEY_PREFIX + withdrawalId,
+                WITHDRAWAL_REFERENCE_TYPE,
+                withdrawalId.toString(),
+                null,
+                null,
+                List.of(
+                        new LedgerEntry(LedgerAccountType.WITHDRAWAL_ESCROW, ownerReferenceId,
+                                amount.value().negate()),
+                        new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, ownerReferenceId,
+                                amount.value())
+                )
+        );
+    }
+
     // 플랫폼 탓으로 실패한 실행에서 앞서 성공한 단계의 주인에게 줄 값을 플랫폼이 대신 낸다 (엔진 계약 v2.0 8.5).
     // 사용자의 예치는 환불(forExecutionRefund)로 모두 돌려주고, 여기서는 플랫폼 부담 계정에서 빼 정산금으로 옮긴다.
     // 사용자 몫의 정산과 키가 같아 한 실행에 정산은 한 번만 기록된다.
@@ -281,6 +333,10 @@ public record LedgerTransaction(
             case SETTLEMENT -> isSettlementSource(outflow)
                     && inflows.stream()
                             .allMatch(inflow -> inflow.accountType() == LedgerAccountType.PAYOUT_BALANCE);
+            case WITHDRAWAL_HOLD -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.PAYOUT_BALANCE, LedgerAccountType.WITHDRAWAL_ESCROW);
+            case WITHDRAWAL_RELEASE -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.WITHDRAWAL_ESCROW, LedgerAccountType.PAYOUT_BALANCE);
         };
     }
 
