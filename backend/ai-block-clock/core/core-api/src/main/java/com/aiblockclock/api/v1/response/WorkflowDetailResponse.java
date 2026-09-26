@@ -95,9 +95,10 @@ public record WorkflowDetailResponse(
             String name,
 
             @Schema(description = """
-                    이 자리가 판매 등록을 막지 않는가. 모든 노드가 `true` 여야 워크플로우를 에이전트로 등록할 수 있다.
-                    판정은 서버가 한다 — 화면은 이 값을 그대로 접어 쓰면 된다.""", example = "true")
-            boolean mine,
+                    이 자리가 판매 등록을 막지 않는가. `false` 인 자리가 하나라도 있으면 워크플로우를 에이전트로 등록할 수 없다.
+                    원본이 없는 제어 · 입출력 자리는 판정할 것이 없어 null 이다.
+                    판정은 서버가 한다 — 화면은 이 값을 그대로 접어 쓰면 된다.""", example = "true", nullable = true)
+            Boolean mine,
 
             @Schema(description = "제어 노드 종류. 제어 노드가 아니면 null", nullable = true)
             ControlType controlType,

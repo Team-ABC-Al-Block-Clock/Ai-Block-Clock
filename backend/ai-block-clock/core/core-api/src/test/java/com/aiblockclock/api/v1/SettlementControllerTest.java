@@ -246,7 +246,7 @@ class SettlementControllerTest {
     private UUID executionBy(long requester) {
         UUID id = UUID.randomUUID();
         executionRepository.save(new ExecutionEntity(id, UUID.randomUUID(), UUID.randomUUID(), requester, "run-" + id,
-                ExecutionStatus.SUCCEEDED, 1, null, null, null, new BigDecimal("10")));
+                ExecutionStatus.SUCCEEDED, 1, null, null, null, false, new BigDecimal("10")));
 
         return id;
     }

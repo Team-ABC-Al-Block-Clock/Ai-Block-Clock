@@ -1,6 +1,9 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.node.Prompt;
+import com.aiblockclock.domain.node.RefFile;
+import com.aiblockclock.domain.node.RefFileId;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodeKey;
@@ -12,6 +15,7 @@ import com.aiblockclock.enums.workflow.InputSource;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,6 +23,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 class RuntimeWorkflowTest {
     private static final UserId REQUESTER = UserId.of(7001L);
@@ -59,16 +64,75 @@ class RuntimeWorkflowTest {
     @Test
     void 공급자가_고른_Pro_모델을_그대로_싣는다() {
         Workflow workflow = WorkflowFixtures.owned(REQUESTER, GraphFixtures.chainOf(1));
-        ExecutionPlan plan = new ExecutionPlan(List.of(new PlannedPrompt(NodeKey.of("n1"), "분석", REQUESTER,
-                Prompt.of("분석을 한다"), AiModel.GEMINI_2_5_PRO, InputSource.defaultSource(), List.of())));
+        ExecutionPlan plan = new ExecutionPlan(List.of(promptOf("n1", "분석", AiModel.GEMINI_2_5_PRO)));
 
         JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
 
         assertThat(sent.get("model").asText()).isEqualTo("gemini-2.5-pro");
     }
 
+    // 계약 v2.0 은 output_schema_id · output.schema_id 를 한 버전 동안만 별칭으로 읽고 다음 버전에서 없앤다.
+    @Test
+    void 모든_단계는_글을_낸다고_밝히고_옛_형식_칸은_싣지_않는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, WorkflowGraph.of(
+                List.of(GraphFixtures.node("n1"), GraphFixtures.node("n2")),
+                List.of(GraphFixtures.edge("e1", "n1", "n2"))));
+        ExecutionPlan plan = new ExecutionPlan(List.of(
+                prompt("n1", "시장 조사", REQUESTER), prompt("n2", "요약", REQUESTER)));
+
+        JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
+
+        assertThat(sent.get("nodes")).allSatisfy(node -> {
+            assertThat(node.get("output").get("kind").asText()).isEqualTo("text");
+            assertThat(node.has("output_schema_id")).isFalse();
+        });
+        assertThat(sent.get("output").get("title").asText()).isEqualTo(workflow.getName());
+        assertThat(sent.get("output").has("schema_id")).isFalse();
+    }
+
+    // 계약 v2.0 전에 붙인 이미지는 엔진이 받지 않는다. 실으면 그 단계가 공급자 탓으로 실패한다.
+    @Test
+    void 엔진이_받지_않는_형식의_참고_자료는_이름도_파일도_싣지_않는다() {
+        Workflow workflow = WorkflowFixtures.owned(REQUESTER, WorkflowGraph.of(
+                List.of(GraphFixtures.node("n1")), List.of()));
+        RefFile criteria = refFile("채점 기준표.pdf");
+        RefFile image = refFile("예시.png");
+        PlannedPrompt prompt = new PlannedPrompt(NodeKey.of("n1"), "채점", REQUESTER, Prompt.of("채점한다"),
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of(image, criteria),
+                AbcAmount.of(new BigDecimal("0.0135")));
+
+        RuntimeWorkflow runtime = RuntimeWorkflow.of(workflow, new ExecutionPlan(List.of(prompt)));
+
+        assertThat(runtime.refFiles()).containsExactly(entry("n1", List.of(criteria)));
+        assertThat(mapper.readTree(runtime.json()).get("nodes").get(0).get("ref_files"))
+                .extracting(JsonNode::asText)
+                .containsExactly("채점 기준표.pdf");
+    }
+
+    @Test
+    void 엔진이_받는_참고_자료가_하나도_없으면_ref_files_를_싣지_않는다() {
+        PlannedPrompt prompt = new PlannedPrompt(NodeKey.of("n1"), "채점", REQUESTER, Prompt.of("채점한다"),
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of(refFile("예시.jpg")),
+                AbcAmount.of(new BigDecimal("0.0135")));
+
+        RuntimeWorkflow runtime = RuntimeWorkflow.forTest("test-1", prompt);
+
+        assertThat(runtime.refFiles()).isEmpty();
+        assertThat(mapper.readTree(runtime.json()).get("nodes").get(0).has("ref_files")).isFalse();
+    }
+
+    private static RefFile refFile(String filename) {
+        return new RefFile(RefFileId.of(UUID.randomUUID()), UUID.randomUUID() + ".bin", filename, 1024);
+    }
+
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
         return new PlannedPrompt(NodeKey.of(placedKey), name, owner, Prompt.of(name + "을 한다"),
-                AiModel.defaultModel(), InputSource.defaultSource(), List.of());
+                AiModel.defaultModel(), InputSource.defaultSource(), List.of(),
+                AbcAmount.of(new BigDecimal("0.018")));
+    }
+
+    private static PlannedPrompt promptOf(String placedKey, String name, AiModel model) {
+        return new PlannedPrompt(NodeKey.of(placedKey), name, REQUESTER, Prompt.of(name + "을 한다"),
+                model, InputSource.defaultSource(), List.of(), AbcAmount.of(new BigDecimal("0.018")));
     }
 }

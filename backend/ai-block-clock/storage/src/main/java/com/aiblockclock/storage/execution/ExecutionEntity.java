@@ -60,12 +60,15 @@ public class ExecutionEntity extends BaseTimeEntity {
     @Column(name = "input_file_size")
     private Long inputFileSize;
 
+    @Column(name = "mock", nullable = false, updatable = false)
+    private boolean mock;
+
     @Column(name = "reserved_abc", precision = 41, scale = 6)
     private BigDecimal reservedAbc;
 
     public ExecutionEntity(UUID id, UUID workflowId, UUID requestId, Long requesterId, String runId,
                            ExecutionStatus status, int promptCount,
-                           String inputFileKey, String inputFileName, Long inputFileSize,
+                           String inputFileKey, String inputFileName, Long inputFileSize, boolean mock,
                            BigDecimal reservedAbc) {
         this.id = id;
         this.workflowId = workflowId;
@@ -77,6 +80,7 @@ public class ExecutionEntity extends BaseTimeEntity {
         this.inputFileKey = inputFileKey;
         this.inputFileName = inputFileName;
         this.inputFileSize = inputFileSize;
+        this.mock = mock;
         this.reservedAbc = reservedAbc;
     }
 

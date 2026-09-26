@@ -4,6 +4,7 @@ import com.aiblockclock.client.ai.AiClientError;
 import com.aiblockclock.client.ai.AiClientException;
 import com.aiblockclock.client.ai.AiRuntimeClient;
 import com.aiblockclock.client.ai.RunAccepted;
+import com.aiblockclock.client.ai.RunMode;
 import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.execution.ExecutionFileStore;
@@ -77,7 +78,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Tag("integration")
-@SpringBootTest
+// 금액을 셈하기 쉽게 새로 만든 노드의 원가를 3 ABC 로 둔다. 기본 원가 자체는 NodeControllerTest 가 본다.
+@SpringBootTest(properties = "node.base-cost.default-cost=3")
 @AutoConfigureMockMvc
 @Transactional
 @TestPropertySource(properties = "execution.polling.interval=1h")
@@ -183,8 +185,9 @@ class ExecutionControllerTest {
                 .contains("점수를 비교한다")
                 .contains("\"from\":\"n1\"")
                 .contains("\"model\":\"gemini-2.5-flash\"")
-                .contains("output_schema_id");
+                .contains("\"output\":{\"kind\":\"text\"}");
         assertThat(sent.getValue().mock()).isFalse();
+        assertThat(sent.getValue().mode()).isEqualTo(RunMode.RUN);
     }
 
     @Test
@@ -494,27 +497,27 @@ class ExecutionControllerTest {
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
     }
 
-    // 떼어 둔 6 중 두 단계의 실측 0.4 + 0.6 = 1 만 쓰고 5 를 돌려받아 잔액은 9 가 된다.
-    // 쓴 1 은 두 노드를 만든 실행자 자신의 정산금이 된다.
+    // 떼어 둔 6 은 두 단계의 단가 3 + 3 이다. n1 만 성공하고 n2 는 공급자 탓으로 실패해 n2 의 3 을 돌려받아 잔액은 7 이 된다.
+    // 쓴 3 은 두 노드를 만든 실행자 자신의 정산금이 된다.
     // 뒤에서 따라가던 모니터가 끝을 보고 닫는 길이다. 조회가 엔진에 묻기 전에 모니터가 먼저 닫는다.
     @Test
     void 뒤에서_따라가다_끝난_것을_보면_쓰지_않은_만큼을_잔액으로_돌려준다() throws Exception {
         String executionId = start();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+        given(aiRuntimeClient.read(anyString())).willReturn(firstStepOnly());
 
         executionService.pollOnce(ExecutionId.of(executionId));
 
         assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
-                .isEqualTo(ExecutionStatus.SUCCEEDED);
-        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+                .isEqualTo(ExecutionStatus.FAILED);
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
         assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(requester, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
+        assertThat(balanceOf(requester, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("3");
     }
 
     @Test
     void 모니터가_닫은_뒤에_조회해도_다시_돌려주지_않는다() throws Exception {
         String executionId = start();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+        given(aiRuntimeClient.read(anyString())).willReturn(firstStepOnly());
         executionService.pollOnce(ExecutionId.of(executionId));
 
         for (int poll = 0; poll < 3; poll++) {
@@ -522,24 +525,24 @@ class ExecutionControllerTest {
                     .andExpect(status().isOk());
         }
 
-        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
     }
 
     // 모니터가 놓친 실행(재기동 등)은 조회가 엔진에 물어 같은 자리에서 닫는다.
     @Test
     void 모니터가_놓친_실행은_조회가_끝을_보고_돌려준다() throws Exception {
         String executionId = forgotten();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.4", "0.6"));
+        given(aiRuntimeClient.read(anyString())).willReturn(firstStepOnly());
 
         for (int poll = 0; poll < 3; poll++) {
             mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
+                    .andExpect(jsonPath("$.data.status").value("FAILED"));
         }
 
-        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
         assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(requester, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
+        assertThat(balanceOf(requester, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("3");
     }
 
     @Test
@@ -552,7 +555,7 @@ class ExecutionControllerTest {
         assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("6");
     }
 
-    // mock 은 모델을 부르지 않아 실측 원가가 0 이다 (계약 8.1). 접수 때 떼고, 끝나면 전부 돌려준다.
+    // mock 은 모델을 부르지 않는다 (계약 8.1). 접수 때 떼고, 끝나면 받을 것이 없어 전부 돌려준다.
     @Test
     void mock_실행은_끝나면_떼어_둔_것을_전부_돌려준다() throws Exception {
         MvcResult accepted = mockMvc.perform(run().param("mock", "true").with(as(requester)).with(csrf().asHeader()))
@@ -560,10 +563,11 @@ class ExecutionControllerTest {
                 .andReturn();
         String executionId = mapper.readTree(accepted.getResponse().getContentAsString())
                 .get("data").get("executionId").asText();
-        given(aiRuntimeClient.read(anyString())).willReturn(succeeded("0.0", "0.0"));
+        given(aiRuntimeClient.read(anyString())).willReturn(mocked());
 
         executionService.pollOnce(ExecutionId.of(executionId));
 
+        assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().isMock()).isTrue();
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
     }
@@ -779,20 +783,34 @@ class ExecutionControllerTest {
                 new RunStatus.Progress(2, 2, 100, null, null),
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null, null, null)),
-                List.of(), List.of(), null, null);
+                List.of(), List.of(), null, null, false, null);
     }
 
     // 엔진은 우리가 보낸 주인을 단계마다 그대로 돌려준다. 두 노드 모두 실행한 사람이 만든 것이다.
-    private RunStatus succeeded(String firstCost, String secondCost) {
+    // n1 은 성공하고 n2 는 공급자 탓으로 실패했다. 받을 값은 n1 의 단가뿐이다.
+    private RunStatus firstStepOnly() {
+        String owner = Long.toString(requester);
+
+        return new RunStatus("20260919-1", "failed",
+                new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, owner,
+                                new BigDecimal("0.004"), null),
+                        new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, owner,
+                                new BigDecimal("0.001"), null)),
+                List.of(), List.of(), null,
+                new RunStatus.Failure("n2", "MODEL_TIMEOUT", "supplier", true), false, null);
+    }
+
+    // mock 실행이다. 엔진은 모델을 부르지 않았다고 알리고 원가를 0 으로 준다.
+    private RunStatus mocked() {
         String owner = Long.toString(requester);
 
         return new RunStatus("20260919-1", "succeeded",
                 new RunStatus.Progress(2, 2, 100, null, null),
-                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, owner,
-                                new BigDecimal(firstCost), null),
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, owner, BigDecimal.ZERO, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, owner,
-                                new BigDecimal(secondCost), null)),
-                List.of(), List.of(), null, null);
+                                BigDecimal.ZERO, null)),
+                List.of(), List.of(), null, null, true, null);
     }
 
     // 뒤에서 따라가던 실행이 끝난 것처럼 만든다. 끝나면 따라가던 기억도 지운다(ExecutionMonitor.stop).
@@ -813,7 +831,7 @@ class ExecutionControllerTest {
     private static RunStatus running() {
         return new RunStatus("20260919-1", "running",
                 new RunStatus.Progress(1, 2, 50, "n2", "가정통신문 작성"),
-                List.of(), List.of(), List.of(), null, null);
+                List.of(), List.of(), List.of(), null, null, false, null);
     }
 
     private static RunStatus failed() {
@@ -822,7 +840,7 @@ class ExecutionControllerTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null, null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", null, null, null, null)),
                 List.of(), List.of(), null,
-                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true));
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true), false, null);
     }
 
     private static Path createTempDirectory() {

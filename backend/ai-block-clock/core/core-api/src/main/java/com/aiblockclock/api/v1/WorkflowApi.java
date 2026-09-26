@@ -105,7 +105,7 @@ public interface WorkflowApi {
 
     String NOT_TREE_EXAMPLE = """
             { "status": "FAIL", "data": null,
-              "error": { "code": "WORKFLOW_013", "message": "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.",
+              "error": { "code": "WORKFLOW_013", "message": "분기 노드가 아니면 갈라질 수 없고, 시작점은 하나여야 합니다.",
                          "data": { "nodeKey": "n1" } } }""";
 
     String BRANCH_EDGES_INVALID_EXAMPLE = """
@@ -115,7 +115,7 @@ public interface WorkflowApi {
 
     String BRANCH_CONDITION_INVALID_EXAMPLE = """
             { "status": "FAIL", "data": null,
-              "error": { "code": "WORKFLOW_013", "message": "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
+              "error": { "code": "WORKFLOW_013", "message": "분기 조건은 이 분기까지 어느 갈래로 와도 거치는 작업 노드나 에이전트의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
                          "data": { "nodeKey": "br1", "left": "n9.x" } } }""";
 
     String DANGLING_EDGE_EXAMPLE = """
@@ -175,10 +175,12 @@ public interface WorkflowApi {
                     **아직 실행에 싣지 않는다** — 놓으면 실행과 견적이 `EXECUTION_005` 로 막힌다.
 
                     구조 검사는 다섯 가지다. 노드 키·연결선 키가 겹치지 않을 것, 연결선이 실재하는 노드를 가리킬 것,
-                    전체가 시작점 하나에서 뻗는 트리일 것, 분기 노드(`sourceType: CONTROL`)는 참 · 거짓 갈래를 하나씩 내고
-                    조건이 그보다 앞에 놓인 작업 노드를 가리킬 것, 시작 노드와 끝 노드는 각각 하나뿐이고 시작으로는 선이
-                    들어오지 않으며 끝에서는 선이 나가지 않을 것. 어기면 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.
-                    분기 뒤 합류는 아직 받지 않는다.""",
+                    시작점이 하나이고 분기 노드가 아니면 갈라지지 않을 것, 분기 노드(`sourceType: CONTROL`)는 참 · 거짓 갈래를
+                    하나씩 내고 조건이 그 분기까지 어느 갈래로 와도 거치는 작업 노드나 에이전트를 가리킬 것, 시작 노드와 끝 노드는
+                    각각 하나뿐이고 시작으로는 선이 들어오지 않으며 끝에서는 선이 나가지 않을 것.
+                    어기면 `WORKFLOW_013`, 순환은 `WORKFLOW_005` 다.
+                    분기의 두 갈래는 한 노드로 다시 모을 수 있다(합류). 끝 노드로 모아도 된다.
+                    여러 노드를 함께 돌려 결과를 묶는 병합은 아직 받지 않는다.""",
             requestBody = @RequestBody(required = true,
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(name = "노드 두 개를 한 줄로", value = SAVE_REQUEST_EXAMPLE))))
@@ -189,7 +191,7 @@ public interface WorkflowApi {
                             schema = @Schema(implementation = ApiResult.class),
                             examples = {
                                     @ExampleObject(name = "WORKFLOW_014 · 노드가 없다", value = GRAPH_EMPTY_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_013 · 트리가 아니다", value = NOT_TREE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 갈라지거나 시작점이 여럿이다", value = NOT_TREE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 분기 갈래가 맞지 않는다",
                                             value = BRANCH_EDGES_INVALID_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 분기 조건이 앞 노드를 가리키지 않는다",
@@ -216,7 +218,8 @@ public interface WorkflowApi {
                     소유자만 조회할 수 있다.
 
                     노드마다 `name` 과 `mine` 이 함께 나간다. 이름은 카드에 그대로 박으면 되고,
-                    `mine` 이 전부 `true` 일 때만 이 워크플로우를 에이전트로 등록할 수 있다.
+                    `mine` 이 `false` 인 자리가 하나라도 있으면 이 워크플로우를 에이전트로 등록할 수 없다.
+                    원본이 없는 제어 · 입출력 자리는 판정할 것이 없어 `null` 로 나가고, 등록을 막지 않는다.
                     등록을 막는 기준은 서버가 쥐고 있으므로 화면이 소유자를 따로 대조할 필요가 없다.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 완료", useReturnTypeSchema = true,
@@ -254,7 +257,7 @@ public interface WorkflowApi {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
                             examples = {
-                                    @ExampleObject(name = "WORKFLOW_013 · 트리가 아니다", value = NOT_TREE_EXAMPLE),
+                                    @ExampleObject(name = "WORKFLOW_013 · 갈라지거나 시작점이 여럿이다", value = NOT_TREE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 분기 갈래가 맞지 않는다",
                                             value = BRANCH_EDGES_INVALID_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 분기 조건이 앞 노드를 가리키지 않는다",

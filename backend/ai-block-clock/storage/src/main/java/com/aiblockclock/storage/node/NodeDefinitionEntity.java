@@ -68,4 +68,8 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
         this.model = model;
         this.baseCost = baseCost;
     }
+
+    public void reprice(BigDecimal baseCost) {
+        this.baseCost = baseCost;
+    }
 }

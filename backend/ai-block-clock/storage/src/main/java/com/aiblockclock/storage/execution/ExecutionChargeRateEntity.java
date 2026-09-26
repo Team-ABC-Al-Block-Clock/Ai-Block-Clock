@@ -36,9 +36,15 @@ public class ExecutionChargeRateEntity {
     @Column(name = "price_multiplier", precision = 6, scale = 4, nullable = false, updatable = false)
     private BigDecimal priceMultiplier;
 
-    public ExecutionChargeRateEntity(UUID executionId, String stepId, BigDecimal priceMultiplier) {
+    // 단가를 적기 전(V29 이전)에 접수한 실행은 비어 있다.
+    @Column(name = "unit_price", precision = 41, scale = 6, updatable = false)
+    private BigDecimal unitPrice;
+
+    public ExecutionChargeRateEntity(UUID executionId, String stepId, BigDecimal priceMultiplier,
+                                     BigDecimal unitPrice) {
         this.executionId = executionId;
         this.stepId = stepId;
         this.priceMultiplier = priceMultiplier;
+        this.unitPrice = unitPrice;
     }
 }
