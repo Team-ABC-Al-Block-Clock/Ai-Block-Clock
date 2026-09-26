@@ -40,6 +40,9 @@ export function parseLiteral(text: string): ConditionLiteral {
   return value
 }
 
+/** 따옴표 안의 쉼표는 자르지 않는다 — `"a,b"` 는 한 값이다. */
+const IN_ITEM = /"[^"]*"|[^,]+/g
+
 /** `IN` 이면 쉼표로 나눠 배열, 아니면 값 하나. 빈 칸만 남으면 `null`. */
 export function parseConditionRight(
   text: string,
@@ -47,10 +50,7 @@ export function parseConditionRight(
 ): ConditionLiteral | ConditionLiteral[] | null {
   if (operator !== 'IN') return text.trim() === '' ? null : parseLiteral(text)
 
-  const items = text
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part !== '')
+  const items = (text.match(IN_ITEM) ?? []).map((part) => part.trim()).filter((part) => part !== '')
   return items.length === 0 ? null : items.map(parseLiteral)
 }
 
@@ -61,7 +61,10 @@ export function parseConditionRight(
  * 다음 「적용」에서 불리언 `true` 로 씻겨 나간다. 되읽어 달라지는 글자만 따옴표로 감싼다.
  */
 const reread = (value: ConditionLiteral): string =>
-  typeof value === 'string' && parseLiteral(value) !== value ? `"${value}"` : String(value)
+  // 쉼표가 들었으면 `IN` 이 되읽을 때 두 값으로 갈린다. 그것도 감싼다.
+  typeof value === 'string' && (parseLiteral(value) !== value || value.includes(','))
+    ? `"${value}"`
+    : String(value)
 
 export function formatConditionRight(right: CanvasCondition['right']): string {
   return Array.isArray(right) ? right.map(reread).join(', ') : reread(right)

@@ -68,6 +68,12 @@ describe('formatConditionRight', () => {
     expect(formatConditionRight('high')).toBe('high')
   })
 
+  // 쉼표가 든 값은 `IN` 이 되읽을 때 두 값으로 갈린다.
+  it('쉼표가 든 값도 한 값으로 지킨다', () => {
+    expect(formatConditionRight(['a,b', 'c'])).toBe('"a,b", c')
+    expect(parseConditionRight(formatConditionRight(['a,b', 'c']), 'IN')).toEqual(['a,b', 'c'])
+  })
+
   it('되돌린 글자를 다시 읽으면 처음 값이다', () => {
     for (const value of ['true', '12', 'high', '', '-3.5']) {
       expect(parseLiteral(formatConditionRight(value))).toBe(value)
