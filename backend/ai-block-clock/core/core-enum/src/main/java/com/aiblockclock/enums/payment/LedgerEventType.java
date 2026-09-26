@@ -4,5 +4,7 @@ public enum LedgerEventType {
     CHARGE,
     RESERVE,
     REFUND,
-    SETTLEMENT
+    SETTLEMENT,
+    WITHDRAWAL_HOLD,
+    WITHDRAWAL_RELEASE
 }
