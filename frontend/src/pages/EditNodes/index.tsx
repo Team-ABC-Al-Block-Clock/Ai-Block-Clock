@@ -14,6 +14,7 @@ import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
+import { useNodeRefFiles } from '@/hooks/useNodeRefFiles'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import { chainPositions } from '@/lib/canvasWorkflow'
@@ -26,11 +27,16 @@ import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
+import RefFileField from '@/components/RefFileField'
 
 /** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
 const NAME_MAX = 40
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
+
+/** 원본이 생긴 카드만 — 자료를 보낼 주소가 있는 것들이다. */
+const targetsOf = (nodes: { id: string; sourceId: string }[]) =>
+  Object.fromEntries(nodes.filter((node) => node.sourceId).map((node) => [node.id, node.sourceId]))
 
 /** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
 const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
@@ -192,6 +198,8 @@ export default function EditNodes() {
         if (nodeId && placed.sourceId) attached[nodeId] = placed.sourceId
       }
       attachSources(attached)
+      // 원본이 생겼으니 들고 있던 자료를 올린다. 앞서 못 올려 남은 것도 여기서 다시 보낸다.
+      void refFiles.flush({ ...targetsOf(nodes), ...attached })
       // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.
       void queryClient.invalidateQueries({
         queryKey: queryKeys.workflows.detail(result.workflowId),
@@ -269,6 +277,18 @@ export default function EditNodes() {
   }
 
   const n = nodes.find((node) => node.id === selId)
+  // 에이전트는 남의 내부 구성이라 자료를 다루지 않는다. 기본 노드만 칸을 세운다.
+  const refFiles = useNodeRefFiles(
+    n && n.sourceType === 'NODE' ? { canvasId: n.id, sourceId: n.sourceId } : null,
+  )
+  /**
+   * 저장은 됐는데 붙지 못한 자료. 저장을 실패로 되돌리지 않고 여기서만 알린다.
+   *
+   * 세는 값을 따로 들지 않는다 — 들고 있으면 사용자가 그 자료를 지워도 안내가 남는다.
+   */
+  const targets = targetsOf(nodes)
+  const unsentFiles = refFiles.unsentIn(Object.keys(targets))
+  const unsentNotice = unsentFiles ? `참고 자료 ${unsentFiles}개가 붙지 않았습니다` : null
   const g = nodes.find((node) => node.id === hovId) ?? n // 빛은 호버 중인 노드를 따라간다
   const selRing: CSSProperties = g
     ? {
@@ -292,6 +312,7 @@ export default function EditNodes() {
 
   const closeAddPanel = () => {
     setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    refFiles.clearDraft()
     handleTogglePanel()
   }
 
@@ -301,7 +322,7 @@ export default function EditNodes() {
    */
   const handleCreate = () => {
     if (!draftFilled) return
-    canvas.placeAtCenter({
+    const placedId = canvas.placeAtCenter({
       name: draft.name.trim(),
       nodeType: 'LLM',
       sourceType: 'NODE',
@@ -314,7 +335,11 @@ export default function EditNodes() {
       model: draft.model,
       mine: true,
     })
-    closeAddPanel()
+    // 카드가 생긴 뒤에 옮긴다. 원본은 저장할 때 만들어지고, 그때 이 카드 몫으로 올라간다.
+    refFiles.handOff(placedId)
+    refFiles.clearDraft()
+    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    handleTogglePanel()
   }
 
   const hasSelection = !!n
@@ -623,30 +648,8 @@ export default function EditNodes() {
               >
                 입력 파일
               </div>
-              <div
-                className="bg-surface-card flex items-center justify-between"
-                style={{
-                  height: '44px',
-                  borderRadius: '11px',
-                  padding: '0 6px 0 12px',
-                  marginBottom: '14px',
-                }}
-              >
-                <div className="text-[17px]" style={{ color: 'rgba(255,255,255,.5)' }}>
-                  파일을 선택하세요
-                </div>
-                <div
-                  style={{
-                    height: '30px',
-                    padding: '0 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,.16)',
-                  }}
-                  className="flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.28)]"
-                >
-                  찾기
-                </div>
-              </div>
+              {/* 아직 원본이 없다 — 고른 파일은 워크플로우를 저장할 때 함께 올라간다. */}
+              <RefFileField slot={refFiles.draft} style={{ marginBottom: '14px' }} />
 
               <div
                 className="text-[17px]"
@@ -790,7 +793,7 @@ export default function EditNodes() {
           {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
         </button>
 
-        {(saveError ?? saveBlocked) && (
+        {(saveError ?? saveBlocked ?? unsentNotice) && (
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
@@ -798,10 +801,22 @@ export default function EditNodes() {
               left: 'calc(760px + var(--edge, 0px))',
               top: 'calc(974px + var(--edge-y, 0px))',
               width: '240px',
-              color: saveError ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
+              color: (saveError ?? unsentNotice) ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
+              // 저장이 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
             }}
           >
-            {saveError ?? saveBlocked}
+            {saveError ?? saveBlocked ?? unsentNotice}
+            {/* 저장 버튼은 이미 「저장됨」이라 다시 눌리지 않는다. 보낼 길을 여기 둔다. */}
+            {!saveError && !saveBlocked && unsentNotice && (
+              <button
+                type="button"
+                onClick={() => void refFiles.flush(targets)}
+                className="cursor-pointer border-0 bg-transparent font-[inherit] text-[13px] font-semibold underline"
+                style={{ marginLeft: '6px', color: 'rgba(255,214,232,.95)' }}
+              >
+                다시 보내기
+              </button>
+            )}
           </div>
         )}
 
@@ -849,6 +864,7 @@ export default function EditNodes() {
           initial={selInitial}
           typeLabel={selTypeLabel}
           basic={selBasic}
+          files={refFiles.selected}
           summary={n?.summary}
           meta={
             n && n.sourceType === 'AGENT'

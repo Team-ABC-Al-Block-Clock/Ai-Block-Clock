@@ -24,6 +24,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useNavigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
 /** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
@@ -64,6 +65,18 @@ const BEFORE_RESERVE = new Set([
 const EMPTY_NODES: CanvasNodeData[] = []
 const EMPTY_EDGES: CanvasEdge[] = []
 
+/**
+ * 패널 세로 좌표. 파일 칸이 늘어난 만큼 아래가 통째로 내려가고, 맨 아래 단계 목록이
+ * 그만큼 덜어 준다 — 바닥(976)은 움직이지 않는다.
+ */
+const FILE_Y = 292
+const COST_Y = FILE_Y + REF_FIELD_HEIGHT + 16
+const RUN_BUTTON_Y = COST_Y + 210
+const NOTICE_Y = RUN_BUTTON_Y + 66
+const STEPS_Y = RUN_BUTTON_Y + 140
+/** 스무 개까지 늘어나는 목록이라 남는 세로를 전부 준다. */
+const STEPS_HEIGHT = 976 - STEPS_Y
+
 export default function RunWaiting() {
   const navigate = useNavigate()
   // 어떤 워크플로우를 돌리는지. 편집 화면이 저장한 뒤 넘겨준다.
@@ -87,22 +100,31 @@ export default function RunWaiting() {
 
   /** 첫 단계가 읽을 파일. 고르지 않아도 실행할 수 있다 — 파일 없이 도는 워크플로우가 있다. */
   const [file, setFile] = useState<File | null>(null)
-  const [fileProblem, setFileProblem] = useState('')
-  const filePicker = useRef<HTMLInputElement>(null)
+  const [fileProblem, setFileProblem] = useState<string | null>(null)
 
-  const handlePick = (ev: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = ev.target.files?.[0] ?? null
-    // 같은 파일을 다시 고를 수 있어야 한다. 값을 비우지 않으면 change 가 두 번째부터 안 난다.
-    ev.target.value = ''
-    if (!picked) return
-    const problem = describeRunFileProblem(picked)
-    setFileProblem(problem ?? '')
-    setFile(problem ? null : picked)
-  }
-
-  const handleClearFile = () => {
-    setFile(null)
-    setFileProblem('')
+  /**
+   * 편집 화면의 참고 자료 칸과 같은 모양으로 넘긴다.
+   *
+   * 명세가 한 건이라 목록은 길어야 한 줄이고, 서버에 미리 올리지 않아 삭제는 화면에서 끝난다.
+   */
+  const runFileSlot = {
+    attached: [],
+    pending: file ? [file] : [],
+    busy: false,
+    loading: false,
+    problem: fileProblem,
+    onPick: (picked: File[]) => {
+      const [first] = picked
+      if (!first) return
+      const problem = describeRunFileProblem(first)
+      setFileProblem(problem)
+      setFile(problem ? null : first)
+    },
+    onDetach: () => undefined,
+    onDropPending: () => {
+      setFile(null)
+      setFileProblem(null)
+    },
   }
 
   /** 이 누름을 가리키는 값. 보낼 내용이 같으면 그대로 쓴다 — 새로 만들면 두 번 빠진다. */
@@ -318,65 +340,25 @@ export default function RunWaiting() {
           ></textarea>
         </div>
 
-        {/* 첫 단계가 읽을 파일. 상자를 누르면 고르는 창이 열린다. */}
-        <div
-          onClick={() => filePicker.current?.click()}
-          className="absolute flex cursor-pointer items-center justify-between"
+        {/* 첫 단계가 읽을 파일. 편집 화면의 참고 자료 칸과 같은 차림이다. */}
+        <RefFileField
+          slot={runFileSlot}
+          accept={RUN_FILE_LIMITS.extensions.join(',')}
+          multiple={false}
+          emptyHint="엑셀 또는 CSV 파일 (선택)"
           style={{
+            position: 'absolute',
             left: `${PANEL_INSET}px`,
-            // 위 입력 상자(…268)와 16px, 아래 비용 카드와도 16px.
-            top: '292px',
+            top: `${FILE_Y}px`,
             width: `${PANEL_CONTENT_WIDTH}px`,
-            height: '44px',
-            padding: '0 8px 0 16px',
-            borderRadius: '11px',
-            background: 'var(--color-surface-inset)',
           }}
-        >
-          <input
-            ref={filePicker}
-            type="file"
-            className="hidden"
-            accept={RUN_FILE_LIMITS.extensions.join(',')}
-            onChange={handlePick}
-          />
-          <div
-            className="truncate text-[16px]"
-            style={{
-              maxWidth: '280px',
-              color: fileProblem
-                ? 'rgba(255,190,209,.9)'
-                : file
-                  ? 'rgba(255,255,255,.9)'
-                  : 'rgba(255,255,255,.5)',
-            }}
-          >
-            {fileProblem || file?.name || '엑셀 또는 CSV 파일 (선택)'}
-          </div>
-          <div
-            onClick={(ev) => {
-              if (!file) return
-              // 상자를 누르면 고르는 창이 열린다. 지우기는 그 위에 있어 따로 끊어 준다.
-              ev.stopPropagation()
-              handleClearFile()
-            }}
-            style={{
-              height: '30px',
-              padding: '0 14px',
-              borderRadius: '8px',
-              background: 'rgba(255,255,255,.16)',
-            }}
-            className="flex flex-none items-center text-[14px] font-semibold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.28)]"
-          >
-            {file ? '지우기' : '찾기'}
-          </div>
-        </div>
+        />
 
         <div
           className="absolute box-border flex flex-col"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '352px',
+            top: `${COST_Y}px`,
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '194px',
             padding: '18px 20px',
@@ -409,7 +391,7 @@ export default function RunWaiting() {
             style={{ marginTop: '16px', alignItems: 'baseline' }}
           >
             <span className="text-[16px]" style={{ color: 'rgba(255,236,246,.82)' }}>
-              사용 가능 코인
+              사용 가능 금액
             </span>
             <span className="text-[17px] font-semibold" style={{ color: '#d7bce8' }}>
               {cost ? priceLabel(cost.availableAmount) : '—'}
@@ -459,7 +441,7 @@ export default function RunWaiting() {
           onClick={handleRun}
           style={{
             left: `${PANEL_INSET}px`,
-            top: '562px',
+            top: `${RUN_BUTTON_Y}px`,
             width: `${PANEL_CONTENT_WIDTH}px`,
             height: '56px',
             borderRadius: '12px',
@@ -480,7 +462,7 @@ export default function RunWaiting() {
             className="absolute text-[14px] tracking-[-.005em]"
             style={{
               left: `${PANEL_INSET}px`,
-              top: '628px',
+              top: `${NOTICE_Y}px`,
               width: `${PANEL_CONTENT_WIDTH}px`,
               color: start.error ? 'rgba(255,190,209,.9)' : 'rgba(255,236,246,.5)',
             }}
@@ -496,7 +478,11 @@ export default function RunWaiting() {
 
         <div
           className="absolute text-[22px] font-semibold tracking-[-.01em]"
-          style={{ left: `${PANEL_INSET}px`, top: '666px', color: 'rgba(255,255,255,.96)' }}
+          style={{
+            left: `${PANEL_INSET}px`,
+            top: `${STEPS_Y - 36}px`,
+            color: 'rgba(255,255,255,.96)',
+          }}
         >
           단계별 비용
         </div>
@@ -505,9 +491,9 @@ export default function RunWaiting() {
           className="absolute flex flex-col overflow-x-hidden"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '702px',
+            top: `${STEPS_Y}px`,
             width: `${PANEL_CONTENT_WIDTH}px`,
-            height: 'calc(274px + 2 * var(--edge-y, 0px))',
+            height: `calc(${STEPS_HEIGHT}px + 2 * var(--edge-y, 0px))`,
             gap: '8px',
             overflowY: 'auto',
             scrollbarWidth: 'thin',

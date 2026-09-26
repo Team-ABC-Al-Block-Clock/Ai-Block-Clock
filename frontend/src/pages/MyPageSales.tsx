@@ -28,7 +28,7 @@ export default function MyPageSales() {
       { label: '고객', w: '300px' },
       { label: '사용 횟수', w: '130px' },
       { label: '토큰 사용량', w: '160px' },
-      { label: '결제 코인', w: '160px' },
+      { label: '결제 금액', w: '160px' },
       { label: '상태', w: '110px' },
     ],
     data: [
@@ -44,7 +44,7 @@ export default function MyPageSales() {
       { label: '일시', w: '150px' },
       { label: '고객', w: '280px' },
       { label: '사용 횟수', w: '130px' },
-      { label: '획득 코인', w: '190px' },
+      { label: '획득 금액', w: '190px' },
       { label: '상태', w: '110px' },
     ],
     data: [
@@ -105,7 +105,7 @@ export default function MyPageSales() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        내 에이전트가 사용된 만큼 적립된 ABC 코인과 사용량, 정산 상태를 확인합니다.
+        내 에이전트가 사용된 만큼 적립된 ABC 와 사용량, 정산 상태를 확인합니다.
       </div>
 
       <div
