@@ -9,7 +9,7 @@ import { usePayoutWithdrawal } from '@/hooks/usePayoutWithdrawal'
 import { useWalletAbcBalance } from '@/hooks/useWalletAbcBalance'
 import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
-import { chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
+import { amountLabel, chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { withdrawalStatusText } from '@/lib/withdrawalMessage'
 import { useAuthStore } from '@/stores/authStore'
@@ -169,7 +169,7 @@ export default function MyPageCredit() {
   const bannerNote = balance.isError
     ? '잔액을 불러오지 못했습니다'
     : withdraw
-      ? '판매로 받은 정산금을 연결된 지갑으로 보냅니다'
+      ? '판매로 받은 정산금을 연결된 지갑에 abcToken 으로 보냅니다'
       : convert
         ? '정산금을 실행에 쓸 수 있는 ABC 로 바꿉니다'
         : reservedNote + '충전한 ABC 는 서비스 안에서만 쓰며 출금되지 않습니다'
@@ -178,7 +178,7 @@ export default function MyPageCredit() {
     ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
     : convert
       ? '금액 · 횟수 제한 없음 · 전환한 ABC 는 정산금으로 되돌릴 수 없습니다'
-      : `지갑 잔액 ${walletBalance.amount === null ? '—' : priceLabel(walletBalance.amount)} · ABC 는 다른 사용자에게 양도할 수 없습니다`
+      : `지갑의 abcToken ${walletBalance.amount === null ? '—' : `${amountLabel(walletBalance.amount)}개`} · 1개가 1 ABC 로 충전되며 ABC 는 양도할 수 없습니다`
   const inputPlaceholder = usesPayout
     ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
     : '예치할 금액을 입력하세요'
@@ -275,7 +275,7 @@ export default function MyPageCredit() {
             animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          지갑의 ABC 를 서비스에 예치하거나, 판매로 받은 정산금을 연결된 지갑으로 보냅니다.
+          지갑의 abcToken 을 예치해 ABC 로 충전하거나, 판매로 받은 정산금을 지갑으로 출금합니다.
         </div>
 
         <div
