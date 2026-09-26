@@ -84,6 +84,9 @@ function proofBadgeOf(proof: AgentProvenance) {
 
 type ShotTab = AgentImage['type']
 
+/** 증명 카드의 대조 한 줄. */
+type ProofRow = [label: string, matched: boolean, value: string]
+
 export default function Detail() {
   const { agentId } = useParams<{ agentId: string }>()
   const [tab, setTab] = useState<ShotTab>('INPUT')
@@ -313,14 +316,15 @@ export default function Detail() {
   const proofReason = proof?.verification.mismatchReason ?? null
   // 체인에 없으면 대조할 값이 비어 있다. 빈칸 대신 이유를 적는다.
   const onChainMissing = proofReason === 'NOT_ON_CHAIN' ? '체인 기록 없음' : ''
-  const proofRows: [string, boolean, string][] = proof
+  // 확정 전과 체인 기록 없음은 대조할 상대가 없다. 불일치로 적지 않는다.
+  const noCompare = proofPending ? '대조 대기' : onChainMissing ? '대조 불가' : ''
+  const proofRows: ProofRow[] = proof
     ? [
         ['원작자 주소', proof.verification.ownerMatched, onChainOwner || onChainMissing],
         ['메타데이터 해시', proof.verification.metadataMatched, onChainHash || onChainMissing],
         // 두 값은 맞는데 서버에 적어 둔 기록이 체인과 다르다. 어긋난 줄을 따로 보여 준다.
-        ...(proofReason === 'RECORD_MISMATCH'
-          ? [['서버 기록', false, '서버 기록이 체인과 달라요'] as [string, boolean, string]]
-          : []),
+        // 이유는 배지 옆 줄이 이미 말하므로 값 칸은 비운다 — 대조할 단일 값도 없다.
+        ...(proofReason === 'RECORD_MISMATCH' ? [['서버 기록', false, ''] as ProofRow] : []),
       ]
     : []
   // 확정 대기는 배지가 이미 말한다.
@@ -939,18 +943,17 @@ export default function Detail() {
                       key={label}
                       style={{ gap: '10px', marginTop: i === 0 ? 0 : '8px' }}
                     >
-                      {/* 확정 전에는 대조할 체인 값이 없다. 불일치로 적지 않는다. */}
                       <span
                         style={{
-                          color: proofPending
+                          color: noCompare
                             ? 'var(--color-muted)'
                             : matched
                               ? 'var(--color-accent-bright)'
                               : 'rgba(255,196,214,.9)',
                         }}
                       >
-                        {proofPending
-                          ? `${label} 대조 대기`
+                        {noCompare
+                          ? `${label} ${noCompare}`
                           : matched
                             ? `✓ ${label} 일치`
                             : `✗ ${label} 불일치`}
