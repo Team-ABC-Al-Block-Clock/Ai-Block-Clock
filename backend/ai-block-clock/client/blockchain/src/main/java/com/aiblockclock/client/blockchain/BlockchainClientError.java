@@ -5,6 +5,8 @@ package com.aiblockclock.client.blockchain;
 public enum BlockchainClientError {
     INVALID_ADDRESS,
     INVALID_TRANSACTION_HASH,
+    INVALID_TRANSACTION,
+    INVALID_AMOUNT,
     INVALID_CONFIGURATION,
     MALFORMED_RESPONSE,
     REQUEST_FAILED

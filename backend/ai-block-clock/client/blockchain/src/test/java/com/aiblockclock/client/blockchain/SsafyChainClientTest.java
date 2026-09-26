@@ -11,6 +11,9 @@ import org.web3j.protocol.Web3jService;
 import org.web3j.protocol.core.Request;
 import org.web3j.protocol.core.Response;
 import org.web3j.protocol.core.methods.response.EthBlockNumber;
+import org.web3j.protocol.core.methods.response.EthEstimateGas;
+import org.web3j.protocol.core.methods.response.EthGetTransactionCount;
+import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.protocol.core.methods.response.EthGetTransactionReceipt;
 import org.web3j.protocol.core.methods.response.EthTransaction;
 
@@ -125,6 +128,65 @@ class SsafyChainClientTest {
                 .isInstanceOfSatisfying(BlockchainClientException.class,
                         exception -> assertThat(exception.getError())
                                 .isEqualTo(BlockchainClientError.INVALID_TRANSACTION_HASH));
+
+        verify(service, never()).send(any(), any());
+    }
+
+    @Test
+    void 다음_거래_번호는_블록에_오르기_전_거래까지_센_값이다() throws IOException {
+        answer("eth_getTransactionCount", EthGetTransactionCount.class, "\"0x5\"");
+
+        assertThat(client.readPendingNonce(CUSTODY)).isEqualTo(BigInteger.valueOf(5));
+        verify(service).send(argThat(request -> "eth_getTransactionCount".equals(request.getMethod())
+                && "pending".equals(request.getParams().get(1))), eq(EthGetTransactionCount.class));
+    }
+
+    @Test
+    void 가스는_보낼_transfer_본문을_보관_지갑에서_실행해_잰다() throws IOException {
+        answer("eth_estimateGas", EthEstimateGas.class, "\"0xea60\"");
+
+        BigInteger gas = client.estimateTokenTransferGas(CUSTODY, TOKEN, USER, BigInteger.TEN);
+
+        assertThat(gas).isEqualTo(BigInteger.valueOf(60_000));
+        verify(service).send(argThat(request -> {
+            if (!"eth_estimateGas".equals(request.getMethod())) {
+                return false;
+            }
+
+            var call = (org.web3j.protocol.core.methods.request.Transaction) request.getParams().get(0);
+
+            return CUSTODY.equals(call.getFrom()) && TOKEN.equals(call.getTo())
+                    && TokenTransferCall.encode(USER, BigInteger.TEN).equals(call.getData());
+        }), eq(EthEstimateGas.class));
+    }
+
+    @Test
+    void 서명된_거래를_그대로_노드에_넘긴다() throws IOException {
+        answer("eth_sendRawTransaction", EthSendTransaction.class, "\"" + HASH + "\"");
+
+        client.submitRawTransaction("0xf86c01");
+
+        verify(service).send(argThat(request -> "eth_sendRawTransaction".equals(request.getMethod())
+                && "0xf86c01".equals(request.getParams().get(0))), eq(EthSendTransaction.class));
+    }
+
+    @Test
+    void 거래를_넘기다_노드가_오류로_답하면_결과_불명으로_던진다() throws IOException {
+        EthSendTransaction response = new EthSendTransaction();
+        response.setError(new Response.Error(-32000, "already known"));
+        given(service.send(argThat(isMethod("eth_sendRawTransaction")), eq(EthSendTransaction.class)))
+                .willReturn(response);
+
+        assertThatThrownBy(() -> client.submitRawTransaction("0xf86c01"))
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.REQUEST_FAILED));
+    }
+
+    @Test
+    void 바이트로_나뉘지_않는_거래는_노드에_넘기지_않는다() throws IOException {
+        assertThatThrownBy(() -> client.submitRawTransaction("0xf86"))
+                .isInstanceOfSatisfying(BlockchainClientException.class,
+                        exception -> assertThat(exception.getError()).isEqualTo(BlockchainClientError.INVALID_TRANSACTION));
 
         verify(service, never()).send(any(), any());
     }
