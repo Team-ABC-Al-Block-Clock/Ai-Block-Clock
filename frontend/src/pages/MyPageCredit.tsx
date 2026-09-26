@@ -124,24 +124,24 @@ export default function MyPageCredit() {
   const fgDeposit = withdraw ? 'rgba(255,240,247,.78)' : '#3a1030'
   const bgWithdraw = withdraw ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)'
   const fgWithdraw = withdraw ? '#3a1030' : 'rgba(255,240,247,.78)'
-  const bannerLabel = withdraw ? '출금 가능 코인' : '현재 사용 가능 코인'
+  const bannerLabel = withdraw ? '출금 가능 금액' : '현재 사용 가능 금액'
   // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
   const bannerValue = balance.data ? priceLabel(balance.data.availableAmount) : '—'
   const reserved = balance.data?.reservedAmount
   const reservedNote =
-    reserved && Number(reserved) > 0 ? `실행에 잠긴 코인 ${priceLabel(reserved)} · ` : ''
+    reserved && Number(reserved) > 0 ? `실행에 잠긴 금액 ${priceLabel(reserved)} · ` : ''
   const bannerNote = balance.isError
     ? '잔액을 불러오지 못했습니다'
     : withdraw
       ? reservedNote + '출금은 연결된 MetaMask 지갑으로 전송됩니다'
-      : reservedNote + '예치한 코인은 언제든 출금할 수 있습니다'
+      : reservedNote + '예치한 금액은 언제든 출금할 수 있습니다'
   const pickerTitle = withdraw ? '출금 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
-    ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 코인은 출금할 수 없습니다'
+    ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 금액은 출금할 수 없습니다'
     : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
   const inputPlaceholder = withdraw ? '출금할 금액을 입력하세요' : '예치할 금액을 입력하세요'
   const summaryTitle = withdraw ? '출금 요약' : '예치 요약'
-  const sumLabel = withdraw ? '출금 코인' : '예치 코인'
+  const sumLabel = withdraw ? '출금 금액' : '예치 금액'
   const ctaLabel = withdraw ? '출금하기' : '예치하기'
 
   // 출금은 서버에 기능이 없다 — 예치일 때만 지갑을 연다.
@@ -176,7 +176,7 @@ export default function MyPageCredit() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        지갑의 ABC 코인을 서비스에 예치하거나, 사용하지 않은 코인을 지갑으로 되돌립니다.
+        지갑의 ABC 를 서비스에 예치하거나, 사용하지 않은 금액을 지갑으로 되돌립니다.
       </div>
 
       <div
