@@ -147,7 +147,6 @@ export default function MyPageEdit() {
       number: shortAddress(profile?.wallet.address ?? ''),
       subLabel: '네트워크',
       subValue: profile ? chainNameOf(profile.wallet.chainId) : chainLabel,
-      action: '다시 연결',
     },
   ]
 
@@ -173,7 +172,7 @@ export default function MyPageEdit() {
         내 정보 수정
       </div>
       <div
-        className="absolute text-[13px] tracking-[-.01em]"
+        className="absolute text-[14.5px] tracking-[-.01em]"
         style={{
           left: '442px',
           top: '206px',
@@ -197,7 +196,7 @@ export default function MyPageEdit() {
           animation: 'rise .7s .14s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[14.5px] font-semibold tracking-[-.01em] text-white">프로필 정보</div>
+        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">프로필 정보</div>
         <div className="flex" style={{ marginTop: '22px', gap: '28px' }}>
           <div className="relative flex-none" style={{ width: '104px', height: '104px' }}>
             <div
@@ -243,7 +242,7 @@ export default function MyPageEdit() {
                   background: 'rgba(28,12,42,.9)',
                   color: 'rgba(255,214,232,.9)',
                 }}
-                className="absolute flex cursor-pointer items-center justify-center rounded-full text-[13px] transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
+                className="absolute flex cursor-pointer items-center justify-center rounded-full text-[14.5px] transition-colors duration-[160ms] hover:bg-[rgba(60,26,80,.95)]"
               >
                 ✕
               </button>
@@ -301,7 +300,7 @@ export default function MyPageEdit() {
           <div className="flex flex-1 flex-col" style={{ gap: '20px' }}>
             <div className="flex" style={{ gap: '24px' }}>
               <div className="flex-1">
-                <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <div className="text-[15.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                   이름
                 </div>
                 <div
@@ -314,7 +313,7 @@ export default function MyPageEdit() {
                   }}
                 >
                   <input
-                    className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
+                    className="border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
                     type="text"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
@@ -323,7 +322,7 @@ export default function MyPageEdit() {
                 </div>
                 {nicknameError && (
                   <div
-                    className="text-[13px] tracking-[-.01em]"
+                    className="text-[14.5px] tracking-[-.01em]"
                     style={{ marginTop: '6px', color: '#ffb4c8' }}
                   >
                     {nicknameError}
@@ -331,7 +330,7 @@ export default function MyPageEdit() {
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <div className="text-[15.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                   한 줄 소개
                 </div>
                 <div
@@ -344,7 +343,7 @@ export default function MyPageEdit() {
                   }}
                 >
                   <input
-                    className="border-0 bg-transparent font-[inherit] text-[13.5px] text-white outline-0"
+                    className="border-0 bg-transparent font-[inherit] text-[15px] text-white outline-0"
                     type="text"
                     value={introduction}
                     onChange={(e) => setIntroduction(e.target.value)}
@@ -352,7 +351,7 @@ export default function MyPageEdit() {
                   />
                 </div>
                 <div
-                  className="flex items-center justify-between text-[13px] tracking-[-.01em]"
+                  className="flex items-center justify-between text-[14.5px] tracking-[-.01em]"
                   style={{ marginTop: '6px' }}
                 >
                   <span style={{ color: '#ffb4c8' }}>{introError}</span>
@@ -378,7 +377,7 @@ export default function MyPageEdit() {
           animation: 'rise .7s .22s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[14.5px] font-semibold tracking-[-.01em] text-white">지갑 연결</div>
+        <div className="text-[16px] font-semibold tracking-[-.01em] text-white">지갑 연결</div>
         <div className="flex" style={{ marginTop: '20px', gap: '24px' }}>
           {payments.map((p, i) => (
             <Fragment key={i}>
@@ -393,10 +392,10 @@ export default function MyPageEdit() {
                 }}
               >
                 <div
-                  className="flex flex-none items-center justify-center text-[12.5px] font-semibold"
+                  className="flex flex-none items-center justify-center text-[11.5px] font-semibold tracking-[.02em]"
                   style={{
-                    width: '44px',
-                    height: '44px',
+                    width: '56px',
+                    height: '56px',
                     borderRadius: '11px',
                     background: 'rgba(255,220,235,.10)',
                     color: 'rgba(255,226,238,.8)',
@@ -405,37 +404,26 @@ export default function MyPageEdit() {
                   {p.icon}
                 </div>
                 <div className="flex-1">
-                  <div className="text-[13.5px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                  <div className="text-[15px]" style={{ color: 'rgba(255,236,246,.62)' }}>
                     {p.label}
                   </div>
                   <div
                     className="flex"
                     style={{ marginTop: '5px', gap: '9px', alignItems: 'baseline' }}
                   >
-                    <div className="text-[13.5px] font-semibold text-white">{p.brand}</div>
-                    <div className="text-[13.5px]" style={{ color: 'rgba(255,255,255,.86)' }}>
+                    <div className="text-[15px] font-semibold text-white">{p.brand}</div>
+                    <div className="text-[15px]" style={{ color: 'rgba(255,255,255,.86)' }}>
                       {p.number}
                     </div>
                   </div>
                   <div className="flex" style={{ marginTop: '4px', gap: '7px' }}>
-                    <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+                    <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
                       {p.subLabel}
                     </div>
-                    <div className="text-[13px]" style={{ color: 'rgba(255,255,255,.8)' }}>
+                    <div className="text-[14.5px]" style={{ color: 'rgba(255,255,255,.8)' }}>
                       {p.subValue}
                     </div>
                   </div>
-                </div>
-                <div
-                  style={{
-                    height: '34px',
-                    padding: '0 14px',
-                    borderRadius: '10px',
-                    color: 'rgba(255,255,255,.9)',
-                  }}
-                  className="flex flex-none cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[14px] font-semibold whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
-                >
-                  {p.action}
                 </div>
               </div>
             </Fragment>
@@ -468,7 +456,7 @@ export default function MyPageEdit() {
             borderRadius: '22px',
             color: 'rgba(255,255,255,.9)',
           }}
-          className="flex items-center justify-center bg-[rgba(255,255,255,.09)] text-[14px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
+          className="flex items-center justify-center bg-[rgba(255,255,255,.09)] text-[15.5px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
         >
           취소
         </a>
@@ -485,7 +473,7 @@ export default function MyPageEdit() {
             color: canSave ? 'var(--color-accent-ink)' : 'rgba(255,255,255,.45)',
             transition: 'transform .18s, background .18s, color .18s',
           }}
-          className="flex items-center justify-center text-[14px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"
+          className="flex items-center justify-center text-[15.5px] font-bold enabled:cursor-pointer enabled:hover:-translate-y-[2px]"
         >
           {save.isPending ? '저장 중…' : '변경사항 저장'}
         </button>
@@ -516,7 +504,7 @@ export default function MyPageEdit() {
               }}
             >
               <StatusDot color={toast.ok ? '#84bf9f' : '#f0b6c8'} />
-              <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
+              <div className="text-[15px] font-semibold tracking-[-.01em] text-white">
                 {toast.text}
               </div>
             </div>

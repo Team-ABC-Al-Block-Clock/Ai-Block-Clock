@@ -1,5 +1,7 @@
+import { useAccount } from 'wagmi'
+
 import { shortAddress } from '@/lib/format'
-import { chainLabel, chainNameOf } from '@/lib/wagmi'
+import { chain, chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 import StatusDot from '@/components/StatusDot'
@@ -8,7 +10,7 @@ const TABS = [
   { key: 'agents', label: '내 에이전트', href: paths.my.agents },
   { key: 'usage', label: '사용 내역', href: paths.my.usage },
   { key: 'sales', label: '판매 내역', href: paths.my.sales },
-  { key: 'credit', label: '코인 예치/출금', href: paths.my.credit },
+  { key: 'credit', label: '예치/출금', href: paths.my.credit },
 ] as const
 
 const TAB =
@@ -30,6 +32,25 @@ interface SidebarProps {
 
 export default function Sidebar({ active, editing = false }: SidebarProps) {
   const profile = useAuthStore((s) => s.profile)
+  const { address, chainId, status } = useAccount()
+  // 지갑이 붙어 있으면 지갑이 말하는 값을, 아직이면 서버가 기억하는 값을 보여 준다.
+  const walletAddress = address ?? profile?.wallet.address ?? ''
+  const network =
+    status === 'connected'
+      ? chainNameOf(chainId)
+      : profile
+        ? chainNameOf(profile.wallet.chainId)
+        : chainLabel
+  const connection =
+    status === 'connected'
+      ? chainId === chain.id
+        ? { text: '정상 연결', color: '#9ad0b4', dot: '#84bf9f' }
+        : { text: '다른 네트워크', color: '#ffb0cd', dot: '#e9aec4' }
+      : status === 'connecting' || status === 'reconnecting'
+        ? { text: '연결 확인 중', color: 'rgba(255,236,246,.62)', dot: 'rgba(255,236,246,.45)' }
+        : { text: '연결 끊김', color: '#ff8a8a', dot: '#ff8a8a' }
+  // App 이 문서에서 받아 세션과 지갑 연결을 함께 끊는다. 프로필 메뉴와 같은 길이다.
+  const handleLogout = () => document.dispatchEvent(new CustomEvent('logout'))
 
   return (
     <>
@@ -193,19 +214,35 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           className="text-[16px] font-semibold text-white"
           style={{ marginTop: '12px', letterSpacing: '.01em' }}
         >
-          {shortAddress(profile?.wallet.address ?? '')}
+          {walletAddress ? shortAddress(walletAddress) : '—'}
         </div>
-        {/* 네트워크는 서버가 알려준다 — 배포 설정이라 화면이 정할 값이 아니다 */}
         <div className="text-[13.5px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
-          {profile ? chainNameOf(profile.wallet.chainId) : chainLabel}
+          {network}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
-          <StatusDot size={8} color="#84bf9f" />
-          <div className="text-[13.5px] font-semibold" style={{ color: '#9ad0b4' }}>
-            정상 연결
+          <StatusDot size={8} color={connection.dot} />
+          <div className="text-[13.5px] font-semibold" style={{ color: connection.color }}>
+            {connection.text}
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="absolute flex cursor-pointer items-center justify-center text-[13.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.12)] hover:text-white"
+        style={{
+          left: '102px',
+          top: '930px',
+          width: '263px',
+          height: '38px',
+          borderRadius: '11px',
+          color: 'rgba(255,236,246,.62)',
+          animation: 'rise .7s .3s cubic-bezier(.2,.8,.25,1) both',
+        }}
+      >
+        로그아웃
+      </button>
     </>
   )
 }
