@@ -2,15 +2,17 @@ import { useState } from 'react'
 
 import { NODE_NAME_MAX, type AiModel, type NodeOutput } from '@/api/nodes'
 import type { ConditionOperator } from '@/api/workflows'
-import {
-  CONDITION_OPERATORS,
-  formatConditionRight,
-  parseConditionRight,
-} from '@/lib/branchCondition'
+import { formatConditionRight, operatorsFor, parseConditionRight } from '@/lib/branchCondition'
 import type { CanvasCondition } from '@/lib/canvasWorkflow'
 import { priceLabel } from '@/lib/format'
 import type { NodeValues } from '@/lib/canvasReducer'
-import { EXAMPLE_INVALID, readOutputDraft, sameOutput, toOutputDraft } from '@/lib/nodeOutput'
+import {
+  EXAMPLE_INVALID,
+  readOutputDraft,
+  sameOutput,
+  toOutputDraft,
+  type OutputField,
+} from '@/lib/nodeOutput'
 import ModelSelect from '@/components/ModelSelect'
 import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
@@ -112,6 +114,8 @@ function FieldLabel({ top, children }: { top: string; children: React.ReactNode 
 export interface ConditionSource {
   id: string
   name: string
+  /** 견줄 수 있는 칸. 에이전트처럼 출력 형식을 모르면 null — 경로를 손으로 적는다 */
+  fields: OutputField[] | null
 }
 
 /** 패널 안의 드롭다운. 네이티브 `select` 로 둔다 — 값이 몇 개 없고 키보드가 그냥 먹는다. */
@@ -182,7 +186,6 @@ function BranchForm({
   const [operator, setOperator] = useState<ConditionOperator>(initial?.operator ?? 'EQ')
   const [right, setRight] = useState(initial ? formatConditionRight(initial.right) : '')
 
-  const parsed = parseConditionRight(right, operator)
   /**
    * 고른 값이 후보에 없으면 첫 후보로 본다.
    *
@@ -191,7 +194,16 @@ function BranchForm({
    * 영영 죽는다 — 후보가 하나뿐이면 골라서 빠져나올 수도 없다.
    */
   const picked = sources.some((source) => source.id === fromId) ? fromId : (sources[0]?.id ?? '')
-  const canApply = !!picked && !!path.trim() && parsed !== null
+  const fields = sources.find((source) => source.id === picked)?.fields ?? null
+  // 칸을 고르는 동안에도 같은 까닭으로 후보 밖의 값은 첫 칸으로 본다.
+  const field = fields ? (fields.find((it) => it.path === path) ?? fields[0]) : undefined
+  const pickedPath = fields ? (field?.path ?? '') : path.trim()
+  const operators = operatorsFor(field?.kind)
+  const pickedOperator = operators.some((it) => it.value === operator)
+    ? operator
+    : operators[0].value
+  const parsed = parseConditionRight(right, pickedOperator, field?.kind)
+  const canApply = !!picked && !!pickedPath && parsed !== null
 
   if (sources.length === 0)
     return (
@@ -201,7 +213,8 @@ function BranchForm({
           className="absolute text-[15.5px] leading-[1.7]"
           style={{ ...rowStyle('180px'), color: 'rgba(255,236,246,.66)' }}
         >
-          조건은 분기 앞에 놓인 노드나 에이전트의 결과를 읽습니다. 읽을 것을 분기 앞에 이어 주세요.
+          조건은 분기 앞에 놓인 노드나 에이전트의 결과를 읽습니다. 글 출력 노드는 견줄 칸이 없으니
+          출력 형식을 JSON 으로 바꾸거나 에이전트를 이어 주세요.
         </div>
       </>
     )
@@ -220,28 +233,45 @@ function BranchForm({
       />
 
       <FieldLabel top="248px">값 경로</FieldLabel>
-      <div
-        className="bg-surface-card absolute flex items-center"
-        style={{ ...rowStyle('270px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
-      >
-        <input
-          className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
-          value={path}
-          onChange={(ev) => setPath(ev.target.value)}
-          placeholder="예: competition_level"
-          aria-label="값 경로"
+      {fields && fields.length > 0 ? (
+        <Picker
+          top="270px"
+          label="값 경로"
+          value={pickedPath}
+          onChange={setPath}
+          options={fields.map((it) => ({ value: it.path, label: it.path }))}
         />
-        <PencilIcon />
-      </div>
+      ) : fields ? (
+        <div
+          className="absolute text-[14.5px] leading-[1.5]"
+          style={{ ...rowStyle('272px'), color: 'rgba(255,236,246,.66)' }}
+        >
+          출력 예시에 견줄 수 있는 칸(글자·숫자·참거짓)이 없습니다
+        </div>
+      ) : (
+        <div
+          className="bg-surface-card absolute flex items-center"
+          style={{ ...rowStyle('270px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
+        >
+          <input
+            className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
+            value={path}
+            onChange={(ev) => setPath(ev.target.value)}
+            placeholder="예: competition_level"
+            aria-label="값 경로"
+          />
+          <PencilIcon />
+        </div>
+      )}
 
       {/* 비교와 값은 한 줄에 둔다. 따로 쌓으면 패널 높이(424px)를 넘어 팔레트가 덮는다. */}
       <FieldLabel top="320px">비교할 값</FieldLabel>
       <Picker
         top="342px"
         label="비교"
-        value={operator}
+        value={pickedOperator}
         onChange={setOperator}
-        options={CONDITION_OPERATORS}
+        options={operators}
         width={132}
       />
       <div
@@ -259,7 +289,15 @@ function BranchForm({
           className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
           value={right}
           onChange={(ev) => setRight(ev.target.value)}
-          placeholder={operator === 'IN' ? '쉼표로 나눠서' : '예: high'}
+          placeholder={
+            pickedOperator === 'IN'
+              ? '쉼표로 나눠서'
+              : field?.kind === 'boolean'
+                ? 'true 또는 false'
+                : field?.kind === 'number'
+                  ? '예: 3'
+                  : '예: high'
+          }
           aria-label="비교할 값"
         />
         <PencilIcon />
@@ -277,9 +315,10 @@ function BranchForm({
           type="button"
           disabled={!canApply}
           onClick={() =>
-            canApply && onApply({ fromId: picked, path: path.trim(), operator, right: parsed })
+            canApply &&
+            onApply({ fromId: picked, path: pickedPath, operator: pickedOperator, right: parsed })
           }
-          title={canApply ? '조건을 캔버스에 반영합니다' : '빈 칸을 채워 주세요'}
+          title={canApply ? '조건을 캔버스에 반영합니다' : '빈 칸이나 값의 종류를 확인해 주세요'}
           className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
           style={{
             height: '32px',

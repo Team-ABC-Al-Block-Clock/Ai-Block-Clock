@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { readOutputDraft, sameOutput, toOutputDraft } from './nodeOutput'
+import { fieldKind, readOutputDraft, sameOutput, scalarFields, toOutputDraft } from './nodeOutput'
 
 describe('readOutputDraft', () => {
   it('글이면 예시를 버린다', () => {
@@ -31,5 +31,33 @@ describe('toOutputDraft', () => {
   it('예시를 되읽어도 같은 값이다', () => {
     const output = { kind: 'JSON' as const, example: { a: 1, b: { c: null } } }
     expect(sameOutput(readOutputDraft(toOutputDraft(output)), output)).toBe(true)
+  })
+})
+
+describe('scalarFields', () => {
+  it('객체 안까지 내려가고 배열은 건너뛴다', () => {
+    expect(
+      scalarFields({ topic: 'a', score: 0, urgent: false, tags: ['x'], detail: { level: null } }),
+    ).toEqual([
+      { path: 'topic', kind: 'string' },
+      { path: 'score', kind: 'number' },
+      { path: 'urgent', kind: 'boolean' },
+      { path: 'detail.level', kind: 'string' },
+    ])
+  })
+})
+
+describe('fieldKind', () => {
+  const example = { level: 'high', items: [{ name: 'a' }], detail: { score: 1 } }
+
+  it('점 경로와 배열 번호를 따라간다', () => {
+    expect(fieldKind(example, 'detail.score')).toBe('number')
+    expect(fieldKind(example, 'items.0.name')).toBe('string')
+  })
+
+  it('없거나 견줄 수 없는 칸은 null', () => {
+    expect(fieldKind(example, 'nope')).toBeNull()
+    expect(fieldKind(example, 'items')).toBeNull()
+    expect(fieldKind(example, 'detail')).toBeNull()
   })
 })

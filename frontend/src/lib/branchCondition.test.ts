@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import type { CanvasNodeData } from './canvasWorkflow'
+
 import {
+  conditionProblem,
+  operatorsFor,
   describeCondition,
   formatConditionRight,
   parseConditionRight,
@@ -100,5 +104,56 @@ describe('describeCondition', () => {
   it('가리키는 노드가 사라져도 자리를 지킨다', () => {
     const at = describeCondition({ fromId: 'zzz', path: 'x', operator: 'GT', right: 3 }, nameOf)
     expect(at).toBe('알 수 없는 노드.x > 3')
+  })
+})
+
+describe('칸의 종류를 알 때', () => {
+  it('비교는 종류마다 엔진이 받는 것만', () => {
+    expect(operatorsFor('string').map((it) => it.value)).toEqual(['EQ', 'NE', 'IN'])
+    expect(operatorsFor('boolean').map((it) => it.value)).toEqual(['EQ', 'NE'])
+    expect(operatorsFor(null)).toHaveLength(7)
+  })
+
+  it('글자 칸에 적은 숫자는 글자로 읽는다', () => {
+    expect(parseConditionRight('12', 'EQ', 'string')).toBe('12')
+    expect(parseConditionRight('12', 'EQ', 'number')).toBe(12)
+    expect(parseConditionRight('a, 3', 'IN', 'string')).toEqual(['a', '3'])
+  })
+
+  it('종류에 맞지 않는 값은 받지 않는다', () => {
+    expect(parseConditionRight('high', 'EQ', 'number')).toBeNull()
+    expect(parseConditionRight('yes', 'EQ', 'boolean')).toBeNull()
+    expect(parseConditionRight('1, x', 'IN', 'number')).toBeNull()
+  })
+})
+
+describe('conditionProblem', () => {
+  const source = (output: CanvasNodeData['output'], sourceType: 'NODE' | 'AGENT' = 'NODE') =>
+    ({ id: 'a', sourceType, output }) as CanvasNodeData
+  const condition = (path: string, operator: 'EQ' | 'GT' = 'EQ') => ({
+    fromId: 'a',
+    path,
+    operator,
+    right: 'high',
+  })
+  const json = { kind: 'JSON' as const, example: { level: 'high' } }
+
+  it('글 출력 노드는 읽을 수 없다', () => {
+    expect(conditionProblem(source({ kind: 'TEXT', example: null }), condition('level'))).toMatch(
+      /JSON/,
+    )
+  })
+
+  it('예시에 없는 칸', () => {
+    expect(conditionProblem(source(json), condition('score'))).toMatch(/출력 예시에 없습니다/)
+  })
+
+  it('종류에 맞지 않는 비교', () => {
+    expect(conditionProblem(source(json), condition('level', 'GT'))).toMatch(/비교 방법/)
+  })
+
+  it('맞으면 없다. 에이전트는 몰라서 보지 않는다', () => {
+    expect(conditionProblem(source(json), condition('level'))).toBeNull()
+    expect(conditionProblem(source(null, 'AGENT'), condition('whatever'))).toBeNull()
   })
 })

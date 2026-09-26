@@ -487,6 +487,31 @@ describe('runProblem', () => {
     expect(runProblem(nodes, [link('a', 'b')])).toBe('시작·종료 노드는 필수입니다')
   })
 
+  // 저장은 서버가 받지만 엔진이 `BRANCH_ON_TEXT_OUTPUT` 으로 물린다. 돈을 떼기 전에 막는다.
+  it('분기가 글 출력 노드를 읽으면 실행을 막는다', () => {
+    const text = { ...nodeAt('a', 0, 0), output: { kind: 'TEXT' as const, example: null } }
+    const branch = {
+      ...nodeAt('br', 0, 0),
+      nodeType: null,
+      sourceType: 'CONTROL' as const,
+      sourceId: '',
+      mine: null,
+      controlType: 'BRANCH' as const,
+      condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
+    }
+    const nodes = [io('s', 'START'), text, branch, nodeAt('t', 0, 0), io('e', 'END')]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'e'), when: false },
+      link('t', 'e'),
+    ]
+
+    expect(graphProblem(nodes, edges)).toBeNull()
+    expect(runProblem(nodes, edges)).toMatch(/JSON/)
+  })
+
   // 시작과 종료만 맞붙이면 하는 일이 없다. 그을 때부터 막는다.
   it('시작과 종료를 바로 잇지 못한다', () => {
     const nodes = [io('s', 'START'), io('e', 'END')]

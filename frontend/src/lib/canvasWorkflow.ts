@@ -10,6 +10,7 @@ import type {
   ResultShape,
 } from '@/api/workflows'
 
+import { conditionProblem } from './branchCondition'
 import { roundedPath, routeEdge } from './edgeRoute'
 import type { ContentBox } from './viewport'
 
@@ -447,6 +448,16 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
   if (!has('START') && !has('END')) return '시작·종료 노드는 필수입니다'
   if (!has('START')) return '시작 노드를 놓아 주세요'
   if (!has('END')) return '종료 노드를 놓아 주세요'
+  for (const node of order.nodes) {
+    const condition = node.condition
+    const problem =
+      condition &&
+      conditionProblem(
+        order.nodes.find((it) => it.id === condition.fromId),
+        condition,
+      )
+    if (problem) return problem
+  }
   return null
 }
 

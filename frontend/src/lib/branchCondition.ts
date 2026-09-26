@@ -1,5 +1,6 @@
 import type { ConditionLiteral, ConditionOperator } from '@/api/workflows'
-import type { CanvasCondition } from '@/lib/canvasWorkflow'
+import type { CanvasCondition, CanvasNodeData } from '@/lib/canvasWorkflow'
+import { fieldKind, type FieldKind } from '@/lib/nodeOutput'
 
 /** 고를 수 있는 비교. 서버 `ConditionOperator` 를 그대로 따른다. */
 export const CONDITION_OPERATORS: { value: ConditionOperator; label: string }[] = [
@@ -11,6 +12,19 @@ export const CONDITION_OPERATORS: { value: ConditionOperator; label: string }[] 
   { value: 'LE', label: '작거나 같다' },
   { value: 'IN', label: '목록에 있다' },
 ]
+
+/** 칸의 종류마다 쓸 수 있는 비교. 엔진 `BRANCH_OPS_BY_KIND` 와 같다. */
+const OPERATORS_BY_KIND: Record<FieldKind, ConditionOperator[]> = {
+  string: ['EQ', 'NE', 'IN'],
+  number: ['EQ', 'NE', 'GT', 'GE', 'LT', 'LE', 'IN'],
+  boolean: ['EQ', 'NE'],
+}
+
+/** 고를 수 있는 비교. 칸의 종류를 모르면 전부. */
+export const operatorsFor = (kind?: FieldKind | null) =>
+  kind
+    ? CONDITION_OPERATORS.filter((option) => OPERATORS_BY_KIND[kind].includes(option.value))
+    : CONDITION_OPERATORS
 
 const OPERATOR_SIGNS: Record<ConditionOperator, string> = {
   EQ: '=',
@@ -43,15 +57,26 @@ export function parseLiteral(text: string): ConditionLiteral {
 /** 따옴표 안의 쉼표는 자르지 않는다 — `"a,b"` 는 한 값이다. */
 const IN_ITEM = /"[^"]*"|[^,]+/g
 
-/** `IN` 이면 쉼표로 나눠 배열, 아니면 값 하나. 빈 칸만 남으면 `null`. */
+/** 칸의 종류를 알면 그 종류로만 읽는다. 글자 칸에 적은 `12` 가 숫자로 새면 엔진이 같다고 보지 않는다. */
+function parseAs(text: string, kind?: FieldKind | null): ConditionLiteral | null {
+  const value = text.trim()
+  if (kind === 'string') return value.replace(/^"(.*)"$/, '$1')
+  if (kind === 'number') return value !== '' && !Number.isNaN(Number(value)) ? Number(value) : null
+  if (kind === 'boolean') return value === 'true' ? true : value === 'false' ? false : null
+  return parseLiteral(value)
+}
+
+/** `IN` 이면 쉼표로 나눠 배열, 아니면 값 하나. 빈 칸이나 종류에 맞지 않는 값이 있으면 `null`. */
 export function parseConditionRight(
   text: string,
   operator: ConditionOperator,
+  kind?: FieldKind | null,
 ): ConditionLiteral | ConditionLiteral[] | null {
-  if (operator !== 'IN') return text.trim() === '' ? null : parseLiteral(text)
+  if (operator !== 'IN') return text.trim() === '' ? null : parseAs(text, kind)
 
   const items = (text.match(IN_ITEM) ?? []).map((part) => part.trim()).filter((part) => part !== '')
-  return items.length === 0 ? null : items.map(parseLiteral)
+  const values = items.map((item) => parseAs(item, kind))
+  return values.length === 0 || values.includes(null) ? null : (values as ConditionLiteral[])
 }
 
 /**
@@ -79,4 +104,24 @@ export function describeCondition(
   const from = nameOf(condition.fromId) ?? '알 수 없는 노드'
   const sign = OPERATOR_SIGNS[condition.operator]
   return `${from}.${condition.path} ${sign} ${formatConditionRight(condition.right)}`
+}
+
+/**
+ * 엔진이 실행 전에 물릴 조건인지. 문제가 없거나 알 수 없으면 `null`.
+ *
+ * 에이전트는 출력 형식을 알려 주지 않아 보지 않는다 — 엔진이 대신 본다.
+ */
+export function conditionProblem(
+  source: CanvasNodeData | undefined,
+  condition: CanvasCondition,
+): string | null {
+  const output = source?.sourceType === 'NODE' ? source.output : null
+  if (!output) return null
+  if (output.kind === 'TEXT' || !output.example)
+    return '분기 조건이 읽는 노드의 출력 형식을 JSON 으로 바꿔 주세요'
+  const kind = fieldKind(output.example, condition.path)
+  if (!kind) return '분기 조건의 값 경로가 출력 예시에 없습니다'
+  if (!OPERATORS_BY_KIND[kind].includes(condition.operator))
+    return '분기 조건의 비교 방법이 값의 종류와 맞지 않습니다'
+  return null
 }

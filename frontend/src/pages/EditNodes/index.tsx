@@ -37,7 +37,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { describeCondition } from '@/lib/branchCondition'
 import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
 import type { NodeValues } from '@/lib/canvasReducer'
-import { EXAMPLE_INVALID, readOutputDraft, toOutputDraft } from '@/lib/nodeOutput'
+import { EXAMPLE_INVALID, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
@@ -450,9 +450,14 @@ export default function EditNodes() {
   /** 고른 것이 분기일 때 조건이 읽을 수 있는 자리(`WorkflowGraph.ensureConditionReadsUpstream`). */
   const selBranch = useMemo(() => {
     if (!n?.controlType) return undefined
+    // 글 출력 노드는 견줄 칸이 없다. 에이전트는 출력 형식을 몰라 경로를 손으로 적는다.
     const sources = upstreamOf(nodes, edges, n.id)
-      .filter(isConditionSource)
-      .map((node) => ({ id: node.id, name: node.name }))
+      .filter((node) => isConditionSource(node) && node.output?.kind !== 'TEXT')
+      .map((node) => ({
+        id: node.id,
+        name: node.name,
+        fields: node.output?.example ? scalarFields(node.output.example) : null,
+      }))
     return { id: n.id, condition: n.condition ?? null, sources }
   }, [n, nodes, edges])
 
