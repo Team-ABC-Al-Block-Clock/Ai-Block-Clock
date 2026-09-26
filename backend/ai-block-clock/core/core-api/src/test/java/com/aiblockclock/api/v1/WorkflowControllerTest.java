@@ -578,8 +578,8 @@ class WorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("가리킨 노드가 밝힌 종류가 아니면 종류가 다르다고 거절한다")
-    void rejectsPlacementOfAnotherKind() throws Exception {
+    @DisplayName("걷어낸 노드 종류로 놓으면 잘못된 요청이다")
+    void rejectsRemovedNodeType() throws Exception {
         mockMvc.perform(post("/api/v1/workflows")
                         .with(as(owner))
                         .with(csrf().asHeader())
@@ -594,8 +594,7 @@ class WorkflowControllerTest {
                                 }
                                 """.formatted(nodeId)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("WORKFLOW_017"))
-                .andExpect(jsonPath("$.error.data.nodeType").value("TOOL"));
+                .andExpect(jsonPath("$.error.code").value("COMMON_001"));
     }
 
     @Test

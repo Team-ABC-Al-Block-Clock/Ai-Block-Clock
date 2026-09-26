@@ -29,7 +29,7 @@ import java.util.UUID;
 @Schema(description = """
         노드 배치. 종류에 따라 보내는 것이 다르다.
         `LLM` 은 그 자리에서 쓴 프롬프트라 `name` · `prompt` 를 실어 보내고 저장할 때 노드가 만들어진다.
-        `TRIGGER` · `TOOL` 과 에이전트는 미리 정의된 것을 `sourceId` 로 가리킨다.
+        에이전트는 공개된 것을 `sourceId` 로 가리킨다.
         `CONTROL` 은 가리킬 원본이 없다. `controlType` 과 `condition` 만 보낸다.
         `IO` 도 원본이 없다. 시작 노드는 `fields` 를, 끝 노드는 `resultShape` 와 `resultFormat` 을 보낸다.
         """)

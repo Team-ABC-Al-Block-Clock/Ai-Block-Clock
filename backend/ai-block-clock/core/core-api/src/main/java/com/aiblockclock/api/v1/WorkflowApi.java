@@ -133,12 +133,6 @@ public interface WorkflowApi {
               "error": { "code": "WORKFLOW_015", "message": "배치할 노드나 공개된 에이전트를 찾을 수 없습니다.",
                          "data": { "nodeKey": "n2", "sourceId": "b7e2d4c8-1f65-4a09-93de-5c0a8b2f7e41" } } }""";
 
-    String NODE_TYPE_MISMATCH_EXAMPLE = """
-            { "status": "FAIL", "data": null,
-              "error": { "code": "WORKFLOW_017", "message": "배치한 노드가 요청한 종류가 아닙니다.",
-                         "data": { "nodeKey": "n1", "sourceId": "9f1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13",
-                                   "nodeType": "TOOL" } } }""";
-
     String REVISION_CONFLICT_EXAMPLE = """
             { "status": "FAIL", "data": null,
               "error": { "code": "WORKFLOW_016", "message": "워크플로우가 다른 요청에 의해 수정되었습니다.",
@@ -154,20 +148,14 @@ public interface WorkflowApi {
                     | `nodeType` | 보내는 것 | 서버가 하는 일 |
                     | --- | --- | --- |
                     | `LLM` | `sourceId` 또는 `name` · `prompt` (· `model`) | 가리키면 놓고, 실어 보내면 만들어 놓는다 |
-                    | `TRIGGER` · `TOOL` | `sourceId` | 미리 정의된 그 종류의 노드인지 보고 놓는다 |
                     | 없음 (`sourceType: AGENT`) | `sourceId` | 공개된 에이전트를 참조한다 |
                     | 없음 (`sourceType: IO`) | `ioType` 과 그 종류가 드는 값 | 원본 없이 그 자리에 둔다 |
 
-                    `sourceId` 로 가리킨 노드가 밝힌 종류와 다르면 `WORKFLOW_017` 이다.
-                    `nodeType` 을 생략하고 `sourceId` 만 보내면 종류를 대조하지 않고 그 행을 그대로 놓는다.
+                    `nodeType` 은 `LLM` 하나뿐이다. 생략하고 `sourceId` 만 보내도 그 행을 그대로 놓는다.
 
                     프롬프트를 그 자리에서 쓴 단계는 저장 시점에 아직 행이 아니라 본문을 실어 보낸다.
                     같은 트랜잭션에서 만들므로 저장이 실패하면 노드도 남지 않는다.
                     만들어진 `sourceId` 는 응답의 `nodes` 로 돌려준다. **다음 수정 요청에는 그 ID 를 보낸다.**
-
-                    `TRIGGER` · `TOOL` 은 아직 미리 정의된 것이 하나도 없어 `WORKFLOW_015` · `WORKFLOW_017` 로 거부된다 —
-                    AI 런타임 주문서에 노드 종류 칸이 없어 실행 경로가 없다.
-                    `AGENT` 도 아직 원본을 조회할 수 없어 `WORKFLOW_015` 로 거부한다.
 
                     `sourceType: IO` 는 캔버스 양 끝에 서는 자리다. 시작 노드(`ioType: START`)는 실행할 때 사용자가
                     채울 `fields` 를 들고, 비우면 실행 화면이 자유 입력란 하나를 그린다. 끝 노드(`ioType: END`)는
@@ -202,9 +190,7 @@ public interface WorkflowApi {
                                     @ExampleObject(name = "WORKFLOW_013 · 연결선이 빈 곳을 가리킨다",
                                             value = DANGLING_EDGE_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_007 · 깊이 초과", value = DEPTH_LIMIT_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_017 · 노드 종류가 다르다",
-                                            value = NODE_TYPE_MISMATCH_EXAMPLE)})),
+                                    @ExampleObject(name = "WORKFLOW_007 · 깊이 초과", value = DEPTH_LIMIT_EXAMPLE)})),
             @ApiResponse(responseCode = "404", description = "배치할 원본 노드나 공개 에이전트가 없다",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
@@ -265,9 +251,7 @@ public interface WorkflowApi {
                                             value = BRANCH_EDGES_INVALID_EXAMPLE),
                                     @ExampleObject(name = "WORKFLOW_013 · 분기 조건이 앞 노드를 가리키지 않는다",
                                             value = BRANCH_CONDITION_INVALID_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE),
-                                    @ExampleObject(name = "WORKFLOW_017 · 노드 종류가 다르다",
-                                            value = NODE_TYPE_MISMATCH_EXAMPLE)})),
+                                    @ExampleObject(name = "WORKFLOW_005 · 순환", value = CYCLE_EXAMPLE)})),
             @ApiResponse(responseCode = "403", description = "소유자가 아니다 (`WORKFLOW_003`)",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiResult.class),
