@@ -58,7 +58,9 @@ public class WithdrawalPayoutScheduler {
             case PAID -> log.info("출금 지급을 마쳤다. withdrawalId={}", result.withdrawalId());
             case CUSTODY_BALANCE_SHORT -> log.warn("보관 지갑의 abcToken 이 모자라 출금을 보내지 못했다. withdrawalId={}",
                     result.withdrawalId());
-            case FAILED_ON_CHAIN -> log.error("체인이 출금 거래를 되돌렸다. 뒤의 출금도 멈춘다. withdrawalId={}",
+            case FAILED -> log.warn("체인이 출금 거래를 되돌려 실패로 닫고 금액을 정산금으로 돌려놓았다. withdrawalId={}",
+                    result.withdrawalId());
+            case HELD -> log.error("보낸 출금의 결과를 오래 알 수 없어 보류로 넘겼다. 금액은 묶어 두고 뒤의 출금도 기다린다. withdrawalId={}",
                     result.withdrawalId());
             case UNREACHABLE -> log.warn("SSAFY 체인에 닿지 못해 출금 지급을 다음 차례로 미룬다. withdrawalId={}",
                     result.withdrawalId());
