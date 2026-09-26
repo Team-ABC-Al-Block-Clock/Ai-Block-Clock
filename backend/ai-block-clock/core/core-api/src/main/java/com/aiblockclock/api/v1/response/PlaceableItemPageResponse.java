@@ -55,7 +55,7 @@ public record PlaceableItemPageResponse(
             @Schema(description = "소유자")
             OwnerResponse owner,
 
-            @Schema(description = "실행 횟수. 실행 이력이 붙기 전까지 0", example = "0")
+            @Schema(description = "누적 실행 횟수. 성공과 공급자 탓 실패를 더한 값이다", example = "12")
             long executionCount,
 
             @Schema(description = "실행 1회당 단가. 소수점 오차를 막기 위해 문자열이다", example = "3.000000")
@@ -73,7 +73,7 @@ public record PlaceableItemPageResponse(
                     null,
                     item.mine(),
                     new OwnerResponse(item.ownerNickname()),
-                    0,
+                    item.executionCount(),
                     item.price().value().toPlainString(),
                     item.summary());
         }

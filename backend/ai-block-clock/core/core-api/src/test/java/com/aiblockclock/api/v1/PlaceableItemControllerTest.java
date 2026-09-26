@@ -113,6 +113,18 @@ class PlaceableItemControllerTest {
     }
 
     @Test
+    @DisplayName("성공한 실행과 공급자 탓 실패를 더해 실행 횟수로 내린다")
+    void countsExecutionsFromMetric() throws Exception {
+        String othersAgent = registerAgent(other);
+        count(othersAgent, 7, 3);
+
+        mockMvc.perform(get(PLACEABLE).param("scope", "ALL").with(as(me)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].itemId").value(othersAgent))
+                .andExpect(jsonPath("$.data.content[0].executionCount").value(10));
+    }
+
+    @Test
     @DisplayName("MINE 이면 남의 에이전트는 나오지 않는다")
     void leavesOthersOutForMine() throws Exception {
         registerAgent(other);
@@ -178,6 +190,19 @@ class PlaceableItemControllerTest {
                 .setParameter(2, agentId)
                 .executeUpdate();
         entityManager.clear();
+    }
+
+    private void count(String agentId, long successes, long failures) {
+        entityManager.createNativeQuery("""
+                        insert into agent_grade_metric
+                            (agent_id, successful_runs, supplier_failures, review_count, measured_at)
+                        values (?1, ?2, ?3, 0, ?4)
+                        """)
+                .setParameter(1, agentId)
+                .setParameter(2, successes)
+                .setParameter(3, failures)
+                .setParameter(4, Instant.now())
+                .executeUpdate();
     }
 
     private long createUser(String nickname) {

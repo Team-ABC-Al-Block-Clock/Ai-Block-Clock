@@ -5,25 +5,30 @@ import com.aiblockclock.api.v1.request.AgentRegisterRequest;
 import com.aiblockclock.api.v1.request.AgentUpdateRequest;
 import com.aiblockclock.api.v1.response.AgentRegisterResponse;
 import com.aiblockclock.api.v1.response.AgentUpdateResponse;
+import com.aiblockclock.api.v1.response.MyAgentPageResponse;
 import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.agent.AgentIndexService;
 import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
+import com.aiblockclock.domain.agent.MyAgentService;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Revision;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.domain.workflow.WorkflowId;
 import com.aiblockclock.domain.workflow.WorkflowService;
+import com.aiblockclock.enums.agent.MyAgentSort;
 import com.aiblockclock.support.response.ApiResult;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,6 +41,7 @@ public class AgentController implements AgentApi {
     private final WorkflowService workflowService;
     private final AgentService agentService;
     private final AgentIndexService agentIndexService;
+    private final MyAgentService myAgentService;
 
     @Override
     @PostMapping
@@ -69,5 +75,18 @@ public class AgentController implements AgentApi {
         agentIndexService.index(updated);
 
         return ApiResult.success(AgentUpdateResponse.from(updated));
+    }
+
+    @Override
+    @GetMapping
+    public ApiResult<MyAgentPageResponse> findMine(
+            @CurrentUser UserId requester,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "LATEST") MyAgentSort sort,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "9") int size
+    ) {
+        return ApiResult.success(MyAgentPageResponse.from(
+                myAgentService.find(requester, keyword, sort, cursor, size)));
     }
 }
