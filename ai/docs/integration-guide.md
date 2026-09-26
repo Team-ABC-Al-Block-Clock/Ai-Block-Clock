@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | **v2.0 확정 · 09-26 갱신** (09-25 밤 — 입력 형식 폐지 · 출력 선언 · ABC 제거 · `mode=test` / 09-26 — 참고 파일 동작 · 기본 모델 Pro · 실패 노드 토큰). 코드와 대조 완료 — 테스트 136건, 실호출 4회(§13). 이 파일이 항상 최신 계약이다 |
+| 상태 | **v2.1** (2026-09-26 저녁 — **견본(카탈로그 11종) 삭제, 출력은 판매자가 노드마다 JSON 예시로 지정**. v2.0 09-25: 입력 형식 폐지 · 출력 선언 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
 | 이전 | 확정본 09-19 · 09-22 갱신(검증 응답의 견적, 노드 필드 8종, 결과 URL, 정의 검증 코드, 원가 산출) |
 | 작성 | AI 파트 트랙 A (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
@@ -11,13 +11,27 @@
 > **이 문서 하나만 보면 된다.** 필드 정의 · 엔드포인트 · 정산 · 오류 · 함정이 전부 여기 있다.
 > 서비스 전체 흐름은 [`../../docs/service-flow.md`](../../docs/service-flow.md).
 
-### v2.0에서 바뀐 것 — 먼저 읽을 것
+### v2.1에서 바뀐 것 (09-26 저녁) — 먼저 읽을 것
+
+| 바뀐 것 | v2.0 (09-25) | v2.1 (지금) | 왜 |
+| --- | --- | --- | --- |
+| **JSON 출력의 모양** | 견본 11종 중 하나 `{kind: "json", sample: "biz.x@1"}` | 판매자가 **JSON 예시를 직접** `{kind: "json", example: {…}}` | 플랫폼이 정한 형식 목록 없이 판매자가 자유롭게. n8n "Generate from JSON example" 방식 |
+| **사용자 입력 폼** | `input: {sample: "biz.brand_brief@1"}` | `input: {example: {…}}` — 예시의 키가 입력란 | 같음 |
+| **분기 필드** | 견본에 선언된 스칼라 필드 | **앞 노드 출력 예시**의 문자 · 숫자 · 참거짓 필드. 문자열 비교는 대소문자 · 앞뒤 공백 무시 | 같음 |
+| **선택 항목** | 견본의 `required` | 예시에서 값을 **`null`로 둔 키**는 선택, 나머지는 필수 | 예시 하나로 표현 |
+| **선택지 · 개수 제약** | 견본이 강제(예: high/low만, 최대 5개) | **없다.** 프롬프트로 지시한다 | 예시로는 표현할 수 없다 |
+| `GET /v1/schemas` | 견본 목록 | **빈 목록**(`deprecated: true`), `/{id}`는 404 | 부르고 있어도 화면이 깨지지 않게 한 버전 유지 |
+| 봉투 `schema_id` | 견본 id | `"json"` 또는 `"text"` | 모양은 노드의 `example`에 있다 |
+| PDF 제목 | 견본의 한국어 라벨 | **예시의 키 이름**(한글 키면 한글 제목) | |
+| 호환 | — | 옛 `output.sample` · `output_schema_id` · `input.sample` · `input_schema_id`의 견본 id는 **한 버전 동안 그 견본의 예시로 바꿔 읽는다**(경고). `common.text@1`은 글 | 백엔드가 바꾸는 동안 실행이 끊기지 않게 |
+
+### v2.0에서 바뀐 것 (09-25)
 
 | 바뀐 것 | 이전 (09-22) | 지금 | 왜 |
 | --- | --- | --- | --- |
 | **노드 연결** | 앞 노드 `output_schema_id` = 뒤 노드 `input_schema_id`일 때만 | **어떤 노드든 이어진다.** 뒤 노드는 앞 결과 전체를 자동으로 받는다 | 카테고리가 다른 판매자의 에이전트를 사용자가 자유롭게 엮게 하려고. Google A2A · n8n과 같은 방식 |
-| **입력 형식** | `input_schema_id` 필수 검증 | **없다.** 진입 노드에만 `input.sample`(사용자 입력 폼 견본, 선택) | 위와 같음 |
-| **출력 형식** | 카탈로그 11종 중 하나 필수 | `output: { kind: "text" }` 또는 `{ kind: "json", sample: "biz.x@1" }` — **글 허용**, 카탈로그는 **견본** | 판매자가 형식을 고르고, 구조 없는 노드도 마켓에 올릴 수 있게 |
+| **입력 형식** | `input_schema_id` 필수 검증 | **없다.** 진입 노드에만 사용자 입력 예시(선택. v2.1 `input.example`) | 위와 같음 |
+| **출력 형식** | 카탈로그 11종 중 하나 필수 | `output: { kind: "text" }` 또는 JSON(v2.0 견본 → **v2.1 판매자 예시**) — **글 허용** | 판매자가 형식을 고르고, 구조 없는 노드도 마켓에 올릴 수 있게 |
 | **분기** | 실행 때 경로가 없으면 실패 | 저장 시 **선언된 출력 필드**만 참조하도록 코드 검사 | 실행 전에 안다 |
 | **비용** | `cost_abc` · `unit_price` · 견적 ABC | **토큰 · USD만.** `agents[]` 신설. Runtime은 ABC를 모른다 | 측정(Runtime)과 가격(백엔드)의 분리 |
 | **테스트 실행** | 없음 | `POST /v1/runs`에 `mode=test` | 판매자 사전 테스트 · 원가 실측(NOD-007) |
@@ -51,9 +65,10 @@
 | 기능 | 상태 |
 | --- | --- |
 | `POST /v1/runs` · 폴링 · PDF · `artifact` · `edges` · 분기 · 병합 · 에이전트 전개 · `validate` | **동작 중** (v1.x 형식) |
-| **v2.0 — `output {kind, sample}` · 입력 폐지 · 별칭 · `cost_usd` · `agents[]` · `mode=test` · 분기 참조 검사** | **09-25 밤 develop-AI** → 09-26 master |
+| v2.0 — 입력 폐지 · 별칭 · `cost_usd` · `agents[]` · `mode=test` · 분기 참조 검사 | **동작 중** (09-26 master) |
+| **v2.1 — 견본 삭제 · `output {kind, example}` · `input {example}`** | **09-26 저녁 develop-AI** |
 | 노드별 참고 파일 `ref_files` | **동작 중** (09-26) — txt · md · csv는 본문 절, PDF는 inline 첨부 |
-| 견본 전용 템플릿 `output.template_id` | 다음 버전. 지금은 기본 문서형 렌더(견본 필드 라벨 자동 배치 · 글은 본문) |
+| 템플릿 `output.template_id` | 다음 버전. 지금은 기본 문서형 렌더(예시의 키가 제목 · 글은 본문) |
 
 ---
 
@@ -149,7 +164,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 ---
 
-## 5. 워크플로우 JSON — v2.0 형식
+## 5. 워크플로우 JSON — v2.1 형식
 
 백엔드가 실행 요청에 담아 보내는 JSON이다. **프론트 캔버스가 만들어 백엔드 DB에 저장할 형식이기도 하다.**
 
@@ -164,26 +179,27 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
   "nodes": [
     { "id": "n1", "type": "llm", "name": "시장 조사",
       "prompt": "당신은 시장 조사 분석가입니다. ...",
-      "input":  { "sample": "biz.brand_brief@1" },                    // 진입 노드만 — 사용자 입력 폼 견본
-      "output": { "kind": "json", "sample": "biz.market_research@1" },
+      "input":  { "example": { "brand_name": "…", "category": "…", "price_tier": "…", "comment": null } },  // 진입 노드만 — 입력란. null = 선택 항목
+      "output": { "kind": "json",                                        // 판매자가 원하는 출력 모양을 예시로
+                  "example": { "market_overview_md": "…", "competitors": [ { "name": "…", "note": "…" } ], "competition_level": "high", "level_reason": "…" } },
       "owner_id": "u_2001" },
 
     { "id": "n2", "type": "llm", "name": "제품 분석",
       "prompt": "당신은 제품 분석가입니다. ...",
-      "input":  { "sample": "biz.brand_brief@1" },
-      "output": { "kind": "json", "sample": "biz.product_analysis@1" },
+      "input":  { "example": { "brand_name": "…", "category": "…", "price_tier": "…", "comment": null } },
+      "output": { "kind": "json", "example": { "strengths": ["…"], "weaknesses": ["…"], "opportunities": ["…"] } },
       "owner_id": "u_2001" },
 
     { "id": "br1", "type": "branch",                       // LLM 호출 아님
       "condition": { "left": "n1.competition_level", "op": "==", "right": "high" } },
 
     { "id": "n3a", "type": "llm", "name": "차별화 전략",
-      "prompt": "...", "output": { "kind": "json", "sample": "biz.strategy_draft@1" }, "owner_id": "u_2001" },
+      "prompt": "...", "output": { "kind": "json", "example": { "approach": "…", "positioning": "…", "core_strategies": ["…"] } }, "owner_id": "u_2001" },
     { "id": "n3b", "type": "llm", "name": "대중 공략 전략",
-      "prompt": "...", "output": { "kind": "json", "sample": "biz.strategy_draft@1" }, "owner_id": "u_2001" },
+      "prompt": "...", "output": { "kind": "json", "example": { "approach": "…", "positioning": "…", "core_strategies": ["…"] } }, "owner_id": "u_2001" },
 
     { "id": "n4", "type": "llm", "name": "브랜드 전략 보고서",
-      "prompt": "...", "output": { "kind": "json", "sample": "biz.brand_strategy@1" }, "owner_id": "u_2001" },
+      "prompt": "...", "output": { "kind": "json", "example": { "headline": "…", "positioning": ["…"], "messages": { "core": "…" }, "summary_md": null } }, "owner_id": "u_2001" },
 
     { "id": "n5", "type": "llm", "name": "법률 검토 메모",              // ← 형식이 다른 노드도 그냥 이어진다
       "prompt": "당신은 상표 전문 변호사입니다. 앞 단계의 브랜드 전략을 읽고 ...",
@@ -224,13 +240,13 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | `type` | 선택 | 생략 시 `llm` |
 | `name` | 선택 | 진행 화면 · 다음 노드 입력의 절 제목에 쓰인다 |
 | `prompt` | 필수 | 판매자가 쓴 프롬프트 원문 |
-| **`output`** | **필수** | 이 노드가 내는 형식. `{ "kind": "text" }` 또는 `{ "kind": "json", "sample": "<견본 id>" }` (§5.5) |
-| **`input`** | 선택 · **진입 노드만** | `{ "sample": "<견본 id>" }`. 사용자 입력 폼의 견본. 없으면 자유 입력(코멘트 + 파일) |
+| **`output`** | **필수** | 이 노드가 내는 형식. `{ "kind": "text" }` 또는 `{ "kind": "json", "example": { … } }` (§5.5) |
+| **`input`** | 선택 · **진입 노드만** | `{ "example": { … } }`. 사용자 입력 예시 — 키가 입력란, 값을 `null`로 두면 선택 항목. 없으면 자유 입력(코멘트 + 파일) |
 | `ref_files` | 선택 | 판매자가 노드에 붙여 둔 참고 자료의 **파일명 목록**(표시용). 실물은 §7.1의 폼 필드로 보낸다. 전개된 에이전트 안 노드는 `a1.n1`처럼 **접두 id**로 |
 | `owner_id` | 권고 | 이 노드의 원작자. 정산 귀속 키 (§8.2) |
 | `agent_id` | 선택 | 에이전트 단위로 묶어 돌려받고 싶을 때 (에이전트 전개 시 Runtime이 채운다) |
 
-**v2.0에서 없어진 필드** — `input_schema_id`(무시) · `output_schema_id`(별칭: `output.sample`로 읽는다) · `unit_price` · `base_cost` · `premium_rate`(무시). 보내면 `DEPRECATED_FIELD` 경고가 `validate`에 뜬다. **다음 버전에서 별칭도 사라진다.**
+**없어진 필드** — `output.sample` · `output_schema_id` · `input.sample` · `input_schema_id`(견본 id → 한 버전 동안 그 견본의 예시로 읽는다) · `unit_price` · `base_cost` · `premium_rate`(무시). 보내면 `DEPRECATED_FIELD` 경고가 `validate`에 뜬다. **다음 버전에서 별칭도 사라진다.**
 
 #### `agent` 노드 — Runtime이 전개한다
 
@@ -246,7 +262,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
   } }
 ```
 
-- **에이전트의 공개 입력 = 내부 진입 노드의 `input`, 공개 출력 = 내부 종단 노드의 `output`.** 따로 선언하지 않는다(보내면 무시). 마켓 카드는 이 둘을 그대로 표시한다 — "글" 또는 견본의 한국어 이름.
+- **에이전트의 공개 입력 = 내부 진입 노드의 `input`, 공개 출력 = 내부 종단 노드의 `output`.** 따로 선언하지 않는다(보내면 무시). 마켓 카드는 이 둘을 그대로 표시한다 — "글" 또는 "JSON(예시의 키 목록)", 입력은 예시의 키 또는 "자유".
 - 정산은 내부 노드의 `owner_id`로 귀속된다. 없으면 `agent.owner_id`로 채운다.
 - **중첩은 깊이 1까지다.** 에이전트 안에 에이전트를 넣을 수 없다.
 - 내부에 분기 · 분할 · 병합이 있을 수 있어서 **평평한 프롬프트 배열로는 펼 수 없다.** `nodes` + `edges` 그대로 보낸다.
@@ -305,16 +321,16 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | --- | --- |
 | `left` | `"<노드ID>.<필드 경로>"`. **실행된 임의 상위 노드**를 가리킬 수 있다. 바로 앞 노드로 제한하지 않는다 |
 | `op` | `==` `!=` `>` `>=` `<` `<=` `in` |
-| `right` | 리터럴 (숫자 · 문자열 · enum · 불리언, `in`은 배열) |
+| `right` | 리터럴 (숫자 · 문자열 · 불리언, `in`은 배열). **문자열은 대소문자 · 앞뒤 공백을 무시하고 비교한다** — `"High "`도 `high` |
 
-**저장 시 코드가 검사한다(`validate`).** `left`의 노드는 `output.kind`가 `json`이어야 하고(글 노드는 `BRANCH_ON_TEXT_OUTPUT`), 필드 경로가 그 견본에 있어야 하며(`BRANCH_REF_UNKNOWN_FIELD`), 필드 타입에 맞는 연산자여야 한다(`BRANCH_OP_TYPE_MISMATCH`).
+**저장 시 코드가 검사한다(`validate`).** `left`의 노드는 `output.kind`가 `json`이어야 하고(글 노드는 `BRANCH_ON_TEXT_OUTPUT`), 필드 경로가 그 노드의 **출력 예시**에 있어야 하며(`BRANCH_REF_UNKNOWN_FIELD`), 필드 타입에 맞는 연산자여야 한다(`BRANCH_OP_TYPE_MISMATCH`).
 
 | 필드 타입 | 허용 연산자 |
 | --- | --- |
-| `enum` · `string` | `==` `!=` `in` |
+| `string` | `==` `!=` `in` |
 | `number` (integer 포함) | 전부 |
 | `boolean` | `==` `!=` |
-| 배열 · 객체 | **분기 불가.** 개수 비교가 필요하면 견본에 스칼라 필드(예: `competitor_count`)를 둔다 |
+| 배열 · 객체 | **분기 불가.** 개수 비교가 필요하면 출력 예시에 숫자 필드(예: `competitor_count`)를 둔다 |
 
 **평가는 코드가 한다. LLM을 쓰지 않는다.** 같은 입력이면 항상 같은 경로가 나온다. 실행 때 경로가 없으면(선택 필드가 `null`) `BRANCH_CONDITION_INVALID` · 수요자 책임이다.
 
@@ -325,7 +341,9 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | `kind` | 뜻 | 봉투 `payload` | 검증 · 교정 |
 | --- | --- | --- | --- |
 | `text` | 자유 텍스트 | `{ "text": "..." }` | 없음 |
-| `json` + `sample` | 견본(§6.1)의 형식을 따르는 JSON | 그 견본의 객체 | 구조화 출력 강제 → 검증 → 교정 2회 → 초과 시 `SCHEMA_VALIDATION_FAILED` · 공급자 책임 |
+| `json` + `example` | 판매자가 준 **예시와 같은 모양**의 JSON | 그 모양의 객체 | 예시에서 만든 스키마로 구조화 출력 강제 → 키 · 타입 검사 → 교정 2회 → 초과 시 `SCHEMA_VALIDATION_FAILED` · 공급자 책임 |
+
+**예시 규칙** — 예시는 키가 하나 이상인 JSON 객체다. 값의 타입이 곧 규격이다(`"…"` 문자 · `1` 숫자 · `true` 참거짓 · `[…]` 배열(첫 원소가 원소 모양) · `{…}` 객체). **값을 `null`로 둔 키는 선택 항목**이고 나머지는 필수다. 예시에 없는 키가 더 와도 통과한다. 선택지(high/low만) · 개수(최대 5개) 같은 제약은 표현하지 않는다 — 프롬프트로 지시한다. 빈 객체 `{}` · 중첩 6단계 이상 · 키 60개 초과는 `OUTPUT_EXAMPLE_INVALID`. mock 실행은 이 예시를 그대로 결과로 돌려준다.
 
 **워크플로우 최상위 `output`**
 
@@ -335,10 +353,10 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 | 필드 | 설명 |
 | --- | --- |
-| `template_id` | 선택. **종단 노드가 견본 출력일 때만** 유효 — 그 견본 전용 디자인 템플릿. 없거나 글 출력이면 기본 문서형 |
+| `template_id` | 선택. 다음 버전. 지금은 무시하고 기본 문서형 |
 | `title` | 선택. PDF 제목 |
 
-산출물은 **종단 노드의 봉투**다(`/artifact`). PDF는 항상 만든다 — 견본이면 필드의 한국어 라벨로 제목 · 절을 자동 배치하고, 글이면 그대로 문서로. **템플릿 렌더 실패는 실행 실패가 아니다.** JSON은 정상 반환하고 `TEMPLATE_RENDER_FAILED`를 경고로 남긴다. `output.schema_id`는 없어졌다(보내면 무시).
+산출물은 **종단 노드의 봉투**다(`/artifact`). PDF는 항상 만든다 — JSON이면 **키 이름을 제목**으로 절을 자동 배치하고(한글 키면 한글 제목, 비어 있는 선택 항목은 뺀다), 글이면 그대로 문서로. **템플릿 렌더 실패는 실행 실패가 아니다.** JSON은 정상 반환하고 `TEMPLATE_RENDER_FAILED`를 경고로 남긴다. `output.schema_id`는 없어졌다(보내면 무시).
 
 ### 5.6 그래프 규모 상한
 
@@ -359,27 +377,22 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 - `nodes`는 1개 이상의 배열, `id`는 비어 있지 않고 중복되지 않음
 - `type: "llm"`인 노드는 `prompt`가 비어 있지 않음
-- `llm` 노드에 `output`이 있고 `kind`가 `text` · `json`, `json`이면 `sample`이 견본 목록에 있음
-- 진입 노드의 `input.sample`(있다면)이 견본 목록에 있음
+- `llm` 노드에 `output`이 있고 `kind`가 `text` · `json`, `json`이면 `example`이 쓸 만한 JSON 객체
+- 진입 노드의 `input.example`(있다면)이 쓸 만한 JSON 객체
 - `edges`의 `from` · `to`가 실재하는 노드, **순환이 없음**
 - `branch` 노드는 `condition`이 있고 나가는 간선이 `when: true` · `when: false` 각각 하나
-- 분기 `condition.left`가 **글이 아닌 상위 노드의 선언된 필드**를 가리키고 연산자가 타입에 맞음
+- 분기 `condition.left`가 **글이 아닌 상위 노드의 출력 예시 필드**를 가리키고 연산자가 타입에 맞음
 - §5.6 상한을 넘지 않음
 
 ---
 
-## 6. 견본 카탈로그와 봉투
+## 6. 출력 예시와 봉투
 
-### 6.1 견본 — 판매자가 출력 형식으로 고를 수 있는 JSON 형식 목록
+### 6.1 출력 예시 — 플랫폼 견본 목록은 없다 (v2.1)
 
-노드 출력을 `json`으로 하려면 **견본 목록에서 하나를 고른다.** 판매자가 필드를 직접 정의하는 것은 다음 버전이다. 견본은 강제 규격이 아니라 **고르기 편한 형식**이고, 분기 조건 · 사용자 입력 폼 · 기본 문서 렌더가 여기서 나온다.
+v2.0까지 있던 견본 11종(`common.*` · `biz.*`)은 09-26에 없앴다. 판매자는 노드마다 원하는 출력 JSON을 **예시 하나**로 적는다(§5.5 예시 규칙). 예시가 곧 강제 규격이고, 분기 조건의 필드 · 사용자 입력란 · 기본 문서 렌더가 모두 예시에서 나온다.
 
-| 카테고리 | 견본 |
-| --- | --- |
-| `common` | `common.text@1` 단순 텍스트 · `common.document@1` 문서 · `common.table@1` 표 |
-| `biz` | `biz.brand_brief@1` 브랜드 기획 요청서 · `biz.market_research@1` 시장 조사 결과 · `biz.product_analysis@1` 제품 분석 결과 · `biz.strategy_draft@1` 전략 초안 · `biz.brand_strategy@1` 브랜드 전략 보고서 · `biz.campaign_plan@1` SNS 캠페인 계획 · `biz.ad_copy@1` 광고 카피 · `biz.execution_plan@1` 통합 실행안 |
-
-목록과 JSON Schema 전문은 `GET /v1/schemas`(§7.6)로 받는다. 원본은 Pydantic이고 `ai/schemas/catalog/`에 export되어 있다. **프론트는 이 JSON Schema로 진입 노드의 입력 폼과 분기 조건의 필드 드롭다운을 그린다.** 연결 가부 판정에는 쓰지 않는다 — 그런 판정은 없다.
+**프론트가 그릴 것** — 노드 편집의 "출력 형식"은 **글 / JSON** 둘, JSON이면 예시를 적는 입력칸 하나(n8n처럼). 분기 조건의 필드 드롭다운은 기준 노드 `output.example`의 키(문자 · 숫자 · 참거짓만), 실행 폼은 진입 노드 `input.example`의 키. 별도 API 호출이 필요 없다 — 노드 정의 안에 다 있다.
 
 ### 6.2 봉투 — Runtime이 씌운다
 
@@ -391,7 +404,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
   "run_id": "20260925-100451-688",
   "node_id": "n1",
   "produced_at": "2026-09-25T01:04:51Z",
-  "schema_id": "biz.market_research@1",          // 견본 id, 글 출력이면 "text"
+  "schema_id": "json",                           // "json" 또는 "text". 모양은 노드의 output.example
   "payload": { "competition_level": "high", "price_band": "중가", "...": "..." },
   "meta": { "model": "gemini-2.5-pro",            // 09-26부터 기본. 아래 숫자는 Flash 시절 예시
             "usage": { "input_tokens": 1281, "output_tokens": 1349 },
@@ -415,9 +428,9 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `workflow` | string | **필수** | §5의 워크플로우 정의를 **JSON 문자열로** |
-| `input` | string | 선택 | 진입 노드의 사용자 입력을 JSON 문자열로 (폼에서 받은 값). 진입 노드에 `input.sample`이 있으면 그 견본으로 검증한다 |
+| `input` | string | 선택 | 진입 노드의 사용자 입력을 JSON 문자열로 (폼에서 받은 값). 진입 노드에 `input.example`이 있으면 그 모양인지 검사한다(빠진 필수 키 · 다른 타입 → 수요자 책임) |
 | `comment` | string | 선택 | 사용자가 입력한 자연어 코멘트 |
-| `file` | file | 선택 | 사용자가 실행할 때 올리는 파일. `.xlsx` `.xls` `.csv`, 최대 10MB. 표는 `common.table@1`로 바꿔 함께 넘긴다 |
+| `file` | file | 선택 | 사용자가 실행할 때 올리는 파일. `.xlsx` `.xls` `.csv`, 최대 10MB. 표는 마크다운 표로 바꿔 사용자 입력에 붙인다 |
 | `ref_file_<node_id>_<n>` | file | 선택 | **판매자가 노드에 붙여 둔 참고 자료.** 노드 정의의 `ref_files` 순서와 맞춘다 |
 | **`mode`** | string | 선택 | **`run`(기본) 또는 `test`.** `test`는 판매자 사전 테스트 — 실행 경로 · 토큰 · USD · 결과물 전부 같고 **`contribution`만 비어 온다.** 횟수 · 크레딧 제한은 백엔드가 건다 |
 | `mock` | boolean | 선택 | `true`면 LLM을 호출하지 않는다. 기본 `false`. `mode`와 독립(형식 확인용 조합 가능) |
@@ -472,7 +485,7 @@ curl -X POST $BASE/v1/runs \
 
   "nodes": [
     { "id": "n1", "name": "시장 조사", "type": "llm", "status": "succeeded",
-      "output": { "kind": "json", "sample": "biz.market_research@1" },
+      "output": { "kind": "json", "example": { "competition_level": "high", "...": "..." } },
       "agent_id": null, "owner_id": "u_2001",
       "started_at": "2026-09-25T01:04:52+00:00", "finished_at": "2026-09-25T01:05:10+00:00",
       "duration_ms": 18100, "model": "gemini-2.5-pro",   // 숫자는 예시
@@ -483,12 +496,12 @@ curl -X POST $BASE/v1/runs \
       "output": null, "duration_ms": 0, "model": null, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0,
       "repair_count": 0, "skip_reason": null, "branch_taken": true },     // 코드가 판정했다. LLM 호출 · 과금 없음
     { "id": "n3a", "name": "차별화 전략", "type": "llm", "status": "running",
-      "output": { "kind": "json", "sample": "biz.strategy_draft@1" },
+      "output": { "kind": "json", "example": { "approach": "…", "positioning": "…", "core_strategies": ["…"] } },
       "started_at": "2026-09-25T01:05:11+00:00", "finished_at": null,
       "duration_ms": null, "model": null, "input_tokens": null, "output_tokens": null, "cost_usd": null,
       "retries": 0, "repair_count": 0 },
     { "id": "n3b", "name": "대중 공략 전략", "type": "llm", "status": "skipped",
-      "output": { "kind": "json", "sample": "biz.strategy_draft@1" },
+      "output": { "kind": "json", "example": { "approach": "…", "positioning": "…", "core_strategies": ["…"] } },
       "skip_reason": "branch_not_taken", "cost_usd": null }              // 안 간 쪽. §8.4 에 잡힌다
   ],
 
@@ -519,7 +532,7 @@ curl -X POST $BASE/v1/runs \
 | --- | --- | --- |
 | `type` | `llm` 또는 `branch`. 분기 노드는 LLM을 부르지 않고 과금도 없다 | 프론트 — 분기 노드는 진행 표시를 다르게 |
 | `status` | `pending → running → succeeded` · `failed` · **`skipped`** | 진행 화면 |
-| `output` | 이 노드가 선언한 형식 `{kind, sample}`. 분기 노드는 `null` | 프론트 — 결과 미리보기 · 마켓 카드 |
+| `output` | 이 노드가 선언한 형식 `{kind, example}`. 분기 노드는 `null` | 프론트 — 결과 미리보기 · 마켓 카드 |
 | `agent_id` | 어느 에이전트 안에서 돈 노드인가. 캔버스의 에이전트 블록과 매핑 | 백엔드 — 에이전트 단위로 정산 묶기 |
 | `owner_id` | 정산이 귀속되는 판매자 계정 | 백엔드 — 적립 |
 | `started_at` · `finished_at` · `duration_ms` | 노드 실행 시각 · 소요 | 진행 화면 · 실측 |
@@ -575,7 +588,7 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 { "valid": true,
   "errors": [],
   "warnings": [ { "code": "DEPRECATED_FIELD", "node_id": "n1",
-                  "message": "output_schema_id 는 output.sample 로 읽었습니다. 다음 버전에서 사라집니다" } ],
+                  "message": "견본 id biz.market_research@1(출력 — 예시로 바꿔 읽음) — 견본 · 옛 필드는 v2.1 에서 쓰지 않습니다. 다음 버전에서 사라집니다" } ],
   "stats": { "node_count": 7,              // 캔버스에 놓인 노드 수 (에이전트 1개 = 1)
              "expanded_node_count": 7,     // 에이전트를 펼친 뒤 노드 수
              "longest_path": 5,            // 가능한 가장 긴 경로 (실제로 도는 경로가 아니다)
@@ -586,7 +599,7 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 // 응답 200 — 틀린 정의
 { "valid": false,
   "errors": [ { "code": "BRANCH_REF_UNKNOWN_FIELD", "node_id": "br1",
-                "message": "n1(시장 조사 결과)에 competition 필드가 없습니다" } ],
+                "message": "n1 의 출력 예시에 competition 필드가 없습니다" } ],
   "warnings": [ { "code": "LONG_PATH", "node_id": null, "message": "최장 경로 7단계. 5분을 넘길 수 있습니다" } ],
   "stats": { "...": "..." }, "estimate": { "...": "..." } }
 ```
@@ -601,11 +614,12 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 | `INVALID_GRAPH` | id 누락 · 중복, 없는 노드를 가리키는 엣지, **순환** |
 | `MISSING_PROMPT` | `llm` 노드의 `prompt`가 비어 있음 |
 | **`MISSING_OUTPUT`** | `llm` 노드에 `output`이 없음 (별칭 `output_schema_id`도 없음) |
-| **`OUTPUT_KIND_INVALID`** | `output.kind`가 `text` · `json`이 아니거나, `json`인데 `sample`이 없음 |
-| **`UNKNOWN_SAMPLE`** | `output.sample` · `input.sample`이 견본 목록에 없음 |
+| **`OUTPUT_KIND_INVALID`** | `output.kind`가 `text` · `json`이 아님 |
+| **`OUTPUT_EXAMPLE_INVALID`** | `json`인데 `output.example`이 없거나 쓸 수 없음(객체 아님 · 빈 객체 · 너무 깊음 · 키 60개 초과). `input.example`도 같다 |
+| **`UNKNOWN_SAMPLE`** | 옛 견본 id(`output.sample` · `output_schema_id` · `input.sample` · `input_schema_id`)가 11종에 없음 — 예시로 바꿀 수 없다 |
 | `BRANCH_CONDITION_MISSING` · `BRANCH_EDGES_INVALID` | 분기 노드에 `condition`이 없음 · `when: true/false` 간선이 각각 하나가 아님 |
 | **`BRANCH_ON_TEXT_OUTPUT`** | 분기 `left`가 글(`text`) 출력 노드를 가리킴 |
-| **`BRANCH_REF_UNKNOWN_FIELD`** | `left`의 필드 경로가 그 노드 견본에 없음 (또는 배열 · 객체 필드) |
+| **`BRANCH_REF_UNKNOWN_FIELD`** | `left`의 필드 경로가 그 노드의 출력 예시에 없음 (또는 배열 · 객체 필드) |
 | **`BRANCH_OP_TYPE_MISMATCH`** | 필드 타입에 허용되지 않는 연산자 (§5.4 표) |
 | `LIMIT_EXCEEDED` | §5.6 상한 초과 (캔버스 8 · 전개 20 · 경로 8) |
 | `AGENT_NESTING_TOO_DEEP` · `AGENT_DEFINITION_MISSING` · `AGENT_EDGE_UNKNOWN_NODE` | 에이전트 안에 에이전트 · `agent.nodes` 없음 · 내부 엣지가 없는 노드를 가리킴 |
@@ -617,18 +631,18 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 | code | 뜻 |
 | --- | --- |
 | `LONG_PATH` | 최장 경로 7 이상. 5분(PER-003)을 넘길 수 있다 |
-| **`DEPRECATED_FIELD`** | `input_schema_id` · `output_schema_id` · `unit_price` · `base_cost` · `premium_rate` · `agent.input_schema_id` · `agent.output_schema_id` · `output.schema_id`가 왔다. 별칭이면 읽었고 나머지는 무시했다 |
+| **`DEPRECATED_FIELD`** | 옛 견본 id(`output.sample` · `output_schema_id` · `input.sample` · `input_schema_id`) · `unit_price` · `base_cost` · `premium_rate` · `agent.input_schema_id` · `agent.output_schema_id` · `output.schema_id`가 왔다. 견본 id는 예시로 바꿔 읽었고 나머지는 무시했다 |
 
-### 7.6 `GET /v1/schemas` · `GET /v1/schemas/{schema_id}`
+### 7.6 `GET /v1/schemas` — 없어짐 (v2.1)
 
-견본 목록과 JSON Schema 전문. **프론트가 노드 편집 화면의 "출력 형식(글 / 견본)" 선택지, 진입 노드의 "사용자 입력 폼 견본" 선택지, 진입 폼 자체, 분기 조건의 필드 드롭다운을 이것으로 그린다.** 백엔드는 그대로 중계하면 된다.
+견본이 없어져 **빈 목록**을 돌려준다: `{ "deprecated": true, "schemas": [], "message": "…" }`. `GET /v1/schemas/{id}`는 404 `SCHEMA_NOT_FOUND`. 부르는 코드가 있어도 깨지지 않게 한 버전 유지하고 다음 버전에서 지운다. **프론트는 드롭다운 · 폼을 노드의 `output.example` · `input.example`로 그린다**(§6.1).
 
 ### 7.7 보조
 
 | 엔드포인트 | 용도 |
 | --- | --- |
 | `GET /v1/health` | 상태 확인. `{ status, auth_required, runs_in_memory }` |
-| `GET /v1/workflows` · `/{id}` | 견본 워크플로우(v2.0 형식). 복사해 테스트용으로 쓴다 |
+| `GET /v1/workflows` · `/{id}` | 예시 워크플로우(v2.1 형식). 복사해 테스트용으로 쓴다 |
 
 ---
 
@@ -734,15 +748,15 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 404 | `RUN_NOT_FOUND` | `run_id` 없음. 재배포 시에도 발생 | DB 이력으로 답한다 |
 | 409 | `PDF_NOT_READY` · `ARTIFACT_NOT_READY` | 아직 실행 중이거나 실패 | `status` 확인 후 재시도 |
 | 400 | `INVALID_REQUEST` | `POST /v1/workflows/validate` 본문이 워크플로우 객체가 아님 | 요청 직렬화 확인 |
-| 404 | `SCHEMA_NOT_FOUND` | `GET /v1/schemas/{id}`에 없는 견본 id | 목록(`GET /v1/schemas`)에서 고른 id인지 |
+| 404 | `SCHEMA_NOT_FOUND` | `GET /v1/schemas/{id}` — v2.1에서 견본이 없어져 항상 404 | 부르지 않는다(§7.6) |
 | 404 | `WORKFLOW_NOT_FOUND` | `GET /v1/workflows/{id}`에 없는 예시 워크플로우 | 개발용 보조 API |
 
 ### 9.2 실행 단계 (`failure.error_code`)
 
 | code | 의미 | `fault` | 성공률 | 재시도 |
 | --- | --- | --- | --- | --- |
-| `SCHEMA_VALIDATION_FAILED` | **사용자 입력 폼**이 진입 노드 `input.sample`과 안 맞음 | `consumer` | 미반영 | 무의미 |
-| `SCHEMA_VALIDATION_FAILED` | 노드 출력이 선언한 견본과 안 맞음 (교정 2회 초과) | `supplier` | 반영 | 가능 |
+| `SCHEMA_VALIDATION_FAILED` | **사용자 입력**이 진입 노드 `input.example`의 모양과 안 맞음(필수 키 누락 · 타입) | `consumer` | 미반영 | 무의미 |
+| `SCHEMA_VALIDATION_FAILED` | 노드 출력이 `output.example`의 모양과 안 맞음 (교정 2회 초과) | `supplier` | 반영 | 가능 |
 | `BRANCH_CONDITION_INVALID` | 조건이 가리키는 값이 실행 결과에 없음(선택 필드가 비어 옴) | `consumer` | 미반영 | 무의미 |
 | **`INPUT_TOO_LARGE`** | 앞 결과 + 참고 파일 합이 입력 상한 초과 (§5.4) | **`platform`** | 미반영 | 무의미 |
 | `REF_FILE_REJECTED` | 참고 파일 mime · 크기 위반 | `supplier` | 미반영 | 무의미 |
@@ -768,14 +782,14 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 
 | # | 단계 | 부르는 것 | 응답에서 읽는 것 |
 | --- | --- | --- | --- |
-| 1 | 노드 저장 | — | `type` · **`output {kind, sample}`** · **진입 노드 `input {sample}`** · `ref_files` · `owner_id`를 그대로 저장. `common.*` 고정 조립을 **판매자가 고른 값 전달**로 바꾼다 |
+| 1 | 노드 저장 | — | `type` · **`output {kind, example}`** · **진입 노드 `input {example}`** · `ref_files` · `owner_id`를 그대로 저장. 예시는 판매자가 적은 JSON 그대로. `common.*` 고정 조립을 **판매자가 적은 값 전달**로 바꾼다 |
 | 2 | 워크플로우 저장 | **`POST /v1/workflows/validate`** | `valid`가 `false`면 `errors[]`를 사용자에게. **`estimate.worst_case_nodes`의 단가 합**을 최대 청구액으로 저장 |
 | 3 | 에이전트 저장 | — | `agent.nodes` + `agent.edges`를 **그대로** 임베드. 공개 입출력은 진입 · 종단 노드에서 읽어 마켓 카드에 |
 | 4 | 실행 요청 | **`POST /v1/runs`** multipart — `workflow` · `input` · `comment` · `file` · `ref_file_*` · **`mode`** | 202 `run_id`. 선차감액은 2번의 값. `mode=test`면 선차감 없음 |
 | 5 | 폴링 | **`GET /v1/runs/{id}`** 2초 간격 | `progress`를 프론트에 중계. `contribution[]`에 나타난 노드는 `(run_id, node_id)` 멱등 키로 **즉시 적립**(금액은 자기 단가) |
 | 6 | 종료 | `status`가 `succeeded` · `failed` | `not_executed[]` 환원, `failure.refund_scope`로 실패 구간 환원(§8.5). **`agents[]` · `totals`의 토큰 · USD로 Base Cost 보정.** 사용액을 실측으로 계산한다면 `nodes[].cost_usd` × 환산율 × 등급 배율(v1.x의 `cost_abc` 자리. `cost_abc`는 이제 오지 않아 그대로 두면 사용액 0이 된다) |
 | 7 | 결과 저장 | **`GET /v1/runs/{id}/artifact`** · `/pdf` | 봉투 JSON과 PDF를 스토리지에 저장해 URL 발급 |
-| 8 | 중계 | `GET /v1/schemas` · `/{id}` | 프론트에 그대로 |
+| 8 | (없어짐) | `GET /v1/schemas` | v2.1에서 필요 없다 — 부르던 코드는 지워도 된다 |
 | 9 | 테스트 실행 | `POST /v1/runs` + `mode=test` | 횟수 · 크레딧 한도는 접수에서. 결과의 토큰 · USD를 NOD-007 실측으로 |
 
 **폴링 중단 조건을 반드시 둔다.** `succeeded` · `failed`면 멈추고, 추가로 `노드 수 × 60초 + 60초`를 넘도록 상태가 안 바뀌면 실패로 처리한다.
@@ -786,11 +800,11 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 
 | # | 단계 | 쓰는 것 | 화면 |
 | --- | --- | --- | --- |
-| 1 | 노드 편집 | `GET /v1/schemas` 목록 | **출력 형식: "글" 또는 견본 드롭다운**(`title`이 한국어 이름). 입력 형식 드롭다운은 **없다.** 진입 노드에만 "사용자 입력 폼 견본" 선택. 참고 파일 업로드 |
+| 1 | 노드 편집 | — | **출력 형식: "글" 또는 "JSON"**. JSON이면 **예시 JSON 입력칸**(키 · 값 타입이 규격, 값 `null` = 선택 항목). 진입 노드에만 "사용자 입력 예시" 입력칸. 참고 파일 업로드 |
 | 2 | 캔버스 연결 | — | **어떤 노드 사이든 선이 그어진다.** 분할(한 출력 → 여러 노드) · 병합(여러 입력 → `port` 이름) · 분기 노드(`condition` · `when: true/false` 두 간선) |
-| 3 | 분기 조건 | 상위 노드의 `output.sample` → `GET /v1/schemas/{id}` `properties` | 기준 노드 목록에서 **글 출력 노드는 제외**, 필드 드롭다운은 스칼라(`string` · `number` · `boolean` · `enum`)만, 타입별 연산자 (§5.4 표) |
+| 3 | 분기 조건 | 상위 노드의 `output.example` | 기준 노드 목록에서 **글 출력 노드는 제외**, 필드 드롭다운은 예시의 문자 · 숫자 · 참거짓 필드(점 경로)만, 타입별 연산자 (§5.4 표) |
 | 4 | 저장 | (백엔드 경유) `validate` 응답 | `errors[]`는 해당 `node_id`에 빨간 표시. `warnings[]`는 노란 안내. 최대 청구액은 **백엔드가 계산한 값**을 표시 |
-| 5 | 실행 폼 | 진입 노드 `input.sample`의 JSON Schema(`GET /v1/schemas/{id}`) | `properties`의 `title`이 입력란 이름, `enum`이 선택지, `required`가 필수 표시. 없으면 코멘트 + 파일만 |
+| 5 | 실행 폼 | 진입 노드 `input.example` | 예시의 키가 입력란 이름, 값 타입이 입력 종류(문자 · 숫자 · 참거짓), 값이 `null`인 키는 선택 표시. 없으면 코멘트 + 파일만 |
 | 6 | 진행 | 폴링 응답 `progress` · `nodes[]` | `percent` · `current_node_name`. `type: branch`는 "판정 → 예/아니오"(`branch_taken`), `status: skipped`는 "건너뜀 — 분기로 선택되지 않음". 판매자별 사용량은 `agents[]` |
 | 7 | 결과 | `result.artifact_url` · `pdf_url` | JSON 보기 · 다운로드, PDF 다운로드. `pdf_url`이 `null`이면 JSON만 |
 | 8 | 실패 | `error.message` · `error.hint` | 그대로 표시하면 된다. `error.detail`은 표시하지 않는다 |
@@ -801,10 +815,10 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 ### 확인용 요청 — 서버에 붙이기 전에 손으로 한 번
 
 ```bash
-# 1) 견본 목록
-curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/schemas | jq '.schemas[] | .schema_id'
+# 1) 예시 워크플로우 목록
+curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows | jq '.workflows[] | .id'
 
-# 2) 저장 시점 검증 + 도는 노드 목록 (견본 워크플로우로)
+# 2) 저장 시점 검증 + 도는 노드 목록 (예시 워크플로우로)
 curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows/brand_agent \
   | jq '{workflow: .}' \
   | curl -s -H "X-ABC-Service-Token: $TOKEN" -H "Content-Type: application/json" -d @- \
@@ -828,7 +842,7 @@ curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN/arti
    ├─ ① 입력 상한 검사 — 직렬화 길이 > MAX_INPUT_CHARS 면 INPUT_TOO_LARGE (platform)
    ├─ ② 프롬프트 조립 — 프롬프트 원문 + "## 입력" 블록(앞 결과 전체, 절마다 노드 이름 · 형식) + 코멘트 + 참고 파일(inline)
    ├─ ③ LLM 호출 — json 이면 구조화 출력(response_schema) 1차, 지시 + 검증 fallback. text 면 그냥 호출
-   ├─ ④ 출력 검증 — json 이면 선언한 견본으로 검증. 틀리면 "형식 고쳐서 다시" 최대 2회. text 는 검증 없음
+   ├─ ④ 출력 검사 — json 이면 output.example 의 키 · 타입으로 검사. 틀리면 "형식 고쳐서 다시" 최대 2회. text 는 검사 없음
    ├─ ⑤ 봉투 조립 — Runtime이 a2a_version · run_id · meta(토큰 · USD) 를 씌운다
    └─ ⑥ 다음 노드로 — payload(+ 코멘트)만. 봉투는 넘기지 않는다
 ```
@@ -851,7 +865,8 @@ curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN/arti
 | **어떤 노드든 이어진다** | 문맥이 안 맞는 조합도 실행된다. 실패가 아니다 | 품질은 평점 · 리뷰. 사용자 안내는 프론트 몫 |
 | **글 출력 노드는 분기 기준이 될 수 없다** | 비교할 필드가 없다 | `validate`가 `BRANCH_ON_TEXT_OUTPUT`으로 막는다 |
 | **`cost_usd`는 ABC가 아니다** | 화면에 그대로 띄우면 안 된다 | 백엔드가 환산한 값만 표시 |
-| **LLM은 매번 다른 글을 쓴다** | 같은 입력이라도 문장이 달라진다 | 정상이다. 형식은 선언한 견본으로 고정된다 |
+| **LLM은 매번 다른 글을 쓴다** | 같은 입력이라도 문장이 달라진다 | 정상이다. 모양은 출력 예시로 고정된다 |
+| **예시는 선택지 · 개수를 강제하지 못한다** | `competition_level`에 `"medium"`이 오거나 목록이 6개일 수 있다 | 프롬프트로 지시한다. 분기는 대소문자 · 공백만 무시한다 |
 | **GMS 크레딧은 팀 공용이다** | 개발 중 반복 실행이 크레딧을 소모 | 형식 맞추기 단계는 반드시 `mock=true` |
 
 ---
@@ -921,6 +936,7 @@ GMS 경유 · JSON 구조화 출력. 아래 09-22 · 09-25 · 2단계 표는 **`
 | 교정 | 0 | 0 |
 | 분기 판정 | 경쟁사 4 → **low** | 경쟁사 5 → **high** |
 | 추가 (09-26 오후, 프롬프트 01 판정 대상을 오프라인 일반 매장으로 좁힌 뒤) | — | 클라이밍 테이프 브리프 **low** · 참고 파일 md + PDF 첨부 1회 86.7초 · $0.029 / 노드 01 단독 high 3/3 · low 3/3 |
+| **v2.1 (09-26 저녁, 견본 삭제 · 출력 JSON 예시)** | — | 칫솔 **high**(경쟁사 5) 79.7초 · $0.0278 / 클라이밍 테이프 **low**(경쟁사 3) 79.7초 · $0.0248 — **둘 다 교정 0회.** 견본의 선택지 · 개수 제약 없이도 예시 모양 강제와 프롬프트 지시만으로 분기가 기대대로 갈렸다 |
 
 Pro는 노드당 최대 32초라 폴링 중단 기준을 **노드 수 × 60초**로 올렸다(§10). 2단계 9노드는 약 3분으로 예상되며 5분(PER-003) 안이다. 같은 칫솔 브리프에서 Flash가 low, Pro가 high를 낸 것은 `competitors` 개수(4 vs 5)의 차이 — 시연 전 Pro로 `--runs 10` 준수율을 다시 잰다(트랙 B).
 
@@ -934,7 +950,7 @@ Pro는 노드당 최대 32초라 폴링 중단 기준을 **노드 수 × 60초**
 | 연결 안 됨 | 같은 도커 네트워크(`ai-block-clock_ai-block-clock-network`)에 있는지 |
 | 404 `RUN_NOT_FOUND` | Runtime이 재배포됐는지. 이전 `run_id`는 사라진다 |
 | 400 `INVALID_WORKFLOW` | 응답 `errors` 배열에 어느 노드의 무엇이 문제인지 있다 |
-| `DEPRECATED_FIELD` 경고가 계속 뜸 | 노드 저장 형식을 v2.0(`output {kind, sample}`)으로 바꿨는지 |
+| `DEPRECATED_FIELD` 경고가 계속 뜸 | 노드 저장 형식을 v2.1(`output {kind, example}`)로 바꿨는지 |
 | 저장은 되는데 실행에서 튕김 | `POST /v1/workflows/validate`를 저장 시점에 부르고 있는지 |
 | `contribution`이 비어 옴 | `mode=test`로 보냈는지 |
 | 응답이 느림 | 정상이다. 노드당 15 ~ 35초(Pro). `mock=true`로 확인 |

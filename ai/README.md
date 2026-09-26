@@ -21,7 +21,7 @@ ai/
 │   ├── app/
 │   │   ├── api/              라우터 — /v1/validate · /v1/estimate · /v1/executions · /v1/nodes/test · /v1/agents/verify
 │   │   ├── core/             설정 · 서비스 토큰 인증 · 로깅 · 프롬프트 마스킹 필터(단일 출구)
-│   │   ├── schemas/          Pydantic 모델 — A2A 봉투 · 견본 카탈로그(출력 선언 · 사용자 입력 폼용) · 노드 매니페스트 · 실행 이벤트 · Runtime 계약 (JSON Schema의 원본)
+│   │   ├── schemas/          Pydantic 모델 — A2A 봉투 · 노드 매니페스트 · 실행 이벤트 · Runtime 계약 (JSON Schema의 원본)
 │   │   ├── engine/           오케스트레이터 — 그래프 정규화 · 위상 정렬 · 순환/규모 검사 · 분기 평가 · 에이전트 전개
 │   │   ├── nodes/            노드 실행기 — 모델 어댑터 · 레지스트리 · 프롬프트 조립 · 구조화 출력 · 검증 루프 · 타임아웃 · 재시도
 │   │   ├── io/               H2A(엑셀 · CSV 파서, 파일 검증) · A2A2H(HTML 템플릿 → PDF, 차트)
@@ -36,7 +36,7 @@ ai/
 │   ├── training/             합성 질의 생성(GPL) · 하드 네거티브 채굴 · 파인튜닝 · 전/후 평가 스크립트 (GPU 개발 서버에서 실행)
 │   └── data/                 골든 쿼리 20개 · 시드 에이전트 카탈로그 시트 · 합성 질의 JSONL  ※ 모델 가중치는 커밋하지 않음
 ├── schemas/                  다른 파트에 배포하는 JSON Schema 산출물 (Pydantic에서 export). 프론트 Zod · 백엔드가 이 파일을 원본으로 삼는다
-│   ├── envelope/  ├── catalog/  ├── manifest/  └── events/
+│   ├── envelope/  ├── manifest/  └── events/          (견본 catalog/ 는 09-26 삭제)
 ├── prompts/                  시연 에이전트 프롬프트 초안 (등록 전 작업용). 등록 후에는 백엔드 DB가 원본
 └── docs/                     A2A 규격 명세 · Runtime API 명세 · 실행 이벤트 명세 · 등급 산정 수식 명세 (배포용)
 ```
@@ -44,10 +44,10 @@ ai/
 ## 규칙
 
 - **판정은 코드, 제안은 모델.** 스키마 검증 · 실패 책임 판정 · 분기 평가 · 견적에 LLM을 쓰지 않는다. 돈 계산의 근거는 결정적이어야 한다.
-- **입력 형식은 없다. 출력은 판매자가 선언한다.** 노드는 앞 노드의 결과 전체를 받고, 출력은 글(`text`) 또는 견본 JSON(`sample`)이다. 연결 호환 판정을 다시 넣지 않는다(계약 v2.0 · `docs/integration-guide.md` §5).
+- **입력 형식은 없다. 출력은 판매자가 선언한다.** 노드는 앞 노드의 결과 전체를 받고, 출력은 글(`text`) 또는 판매자가 적은 JSON 예시(`example`) 모양이다. 플랫폼 견본 목록은 없다(v2.1). 연결 호환 판정을 다시 넣지 않는다(계약 v2.0 · `docs/integration-guide.md` §5).
 - **Runtime은 토큰 · USD까지만 센다.** ABC · 단가 · 환불액은 백엔드가 계산한다.
 - **프롬프트 원문은 어디에도 남기지 않는다.** 응답 · 로그 · 예외 · 임베딩 텍스트에 프롬프트가 섞이면 SEC-001 위반이다. 마스킹은 `runtime/app/core`의 단일 출구에서 한다. 백엔드는 `prompt_ref`만 넘기고 원문은 Runtime이 조회한다.
-- **스키마의 원본은 Pydantic.** `runtime/app/schemas`에서 `model_json_schema()`로 뽑은 파일을 `ai/schemas/`에 커밋하고 프론트 · 백엔드에 통지한다. 수작업 이중 관리 금지.
+- **봉투 · 이벤트 스키마의 원본은 Pydantic.** `runtime/app/schemas`에서 `model_json_schema()`로 뽑은 파일을 `ai/schemas/`에 커밋하고 프론트 · 백엔드에 통지한다. 수작업 이중 관리 금지.
 - **비밀은 코드 · 이미지에 넣지 않는다.** 외부 LLM API 키, 백엔드 ↔ Runtime 공유 시크릿은 EC2 환경변수로 주입한다. `.env` 파일은 커밋하지 않는다.
 - **모델 가중치 · 학습 산출물은 커밋하지 않는다.** `recommend/data`에는 텍스트 데이터(골든 쿼리 · 카탈로그 · 합성 질의)만 둔다.
 - **W3 수요일 직선(H2A → 분석 → 텍스트 → PDF)은 항상 돌아야 한다.** 새 기능을 붙일 때마다 확인한다.
