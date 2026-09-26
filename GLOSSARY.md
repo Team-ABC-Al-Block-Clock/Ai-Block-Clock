@@ -23,10 +23,18 @@
 | **캡슐화 (Encapsulation)** | 내부 노드 구성을 숨기고 단일 입출력 인터페이스만 노출해 에이전트로 전환하는 행위 | **코드에 두지 않는다** ⚠️ 3.1 참고 |
 | **실행 전용 워크플로우** | 타인 소유 에이전트를 포함해 캡슐화가 불가능한 워크플로우 | 아직 없음 (WRK-012) ⚠️ 3.1 참고 |
 | **A2A 규격** | 노드 간 데이터 교환에 쓰는 정형 JSON 스키마 | 아직 없음. 형식 검증이 없어 노드 출력은 자유 텍스트다 |
-| **Base Cost (기본 원가)** | 노드 1회 실행에 실제로 드는 AI API·컴퓨팅 비용. 에이전트는 내부 노드를 합산 | `VersionCost.baseCost` |
+| **Base Cost (기본 원가)** | 노드 1회 실행에 실제로 드는 AI API·컴퓨팅 비용. 에이전트는 내부 노드를 합산 | 노드는 `NodeSpec.baseCost`, 버전은 `VersionCost.baseCost`. 판매자 테스트 실행으로 잰 달러 원가의 중앙값 × 1.5 로 정한다 (`BaseCostCalculator`) |
 | **Premium Rate (프리미엄 율)** | 등급에 따라 Base Cost 위에 얹히는 마진율. T1 +50% / T2 +30% / T3 +10% / T4 +0% | `Tier.premiumRate()` |
-| **Tier (등급)** | Agent Score 와 필수 허들로 부여되는 등급. Tier 1(Platinum) ~ Tier 4(Bronze) | `Tier` |
-| **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수 | 아직 없음 (PAY-019) |
+| **Tier (등급)** | Agent Score 와 필수 허들로 부여되는 등급. Tier 1(Platinum) ~ Tier 4(Bronze) | `Tier`. 매기는 규칙은 `AgentTierLadder` |
+| **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수. 0 ~ 100 | `AgentGrade.score` (`AgentGradeProperties.gradeOf`) |
+| **허들 (Hurdle)** | 점수가 닿은 등급을 지키는 데 필요한 최소 성공률 · 평가 수. 못 넘으면 넘는 등급까지 내려간다 | `AgentTierRequirement`. 점수로 닿은 등급은 `AgentGrade.scoreTier`, 확정 등급은 `tier` |
+| **등급 이력** | 등급을 매길 때 그때의 재료 · 지표 · 점수 · 등급을 남긴 것. 마지막 줄과 같은 결과면 더하지 않는다 | `agent_grade_history` (`AgentGradeHistoryWriter.appendIfChanged`) |
+| **재산정 (Regrade)** | 정해진 때(매일 새벽)에 공개된 에이전트를 다시 매겨, 그 등급을 모든 버전의 가격 칸에 옮기는 것. 진행 중인 실행은 접수 때 배율 그대로다 | `AgentGradeScheduler.regradeAll` → `AgentGradeService.regrade` |
+| **등급 변경 이력** | 재산정으로 버전의 가격 등급이 바뀔 때 버전마다 전후 등급 · 판매가 · 근거 등급 이력 · 시점을 남긴 것 | `agent_tier_change` (`AgentTierChangeWriter`, `AgentTierChange`) |
+| **등급 재료** | 에이전트마다 쌓는 성공 수 · 공급자 탓 실패 수 · 평가 수 · 평균 평점. 지표는 이것에서 계산한다 | `AgentGradeMetric`. 실행 하나가 남기는 것은 `AgentRunOutcomes` |
+| **보정 평점 (Bayesian Rating)** | 평가가 적을수록 전체 평균 쪽으로 당긴 평점. 1 ~ 5. 0 ~ 100 으로 옮긴 것이 평점 점수 | `AgentGradeIndicators.adjustedRating` · `ratingScore` |
+| **정규화 사용량** | 누적 성공 실행 수를 로그 눈금으로 0 ~ 100 에 놓은 것 | `AgentGradeIndicators.usageScore` |
+| **성공률 · 성공률 페널티** | 성공 / (성공 + 공급자 탓 실패). 페널티는 그 거듭제곱으로 종합 점수에 곱한다 | `AgentGradeIndicators.successRate` · `successPenalty` |
 | **ABC (Credit)** | 수요자용 이용권. 실행 시 차감된다. 사용자 간 전송 불가 — 장부 거래가 종류마다 정해진 모양만 받는다(`LedgerTransaction`) | 아직 없음 ⚠️ 3장 참고 |
 | **정산금 (Payout Balance)** | 공급자용 출금 가능 자산 | 장부 계정 `PAYOUT_BALANCE`. 단계마다 내역은 `ExecutionSettlement`, 공급자가 보는 한 줄은 `SettlementRecord` |
 | **정산금 옮기기 (Payout Conversion)** | 공급자가 자기 정산금을 실행에 쓸 수 있는 ABC 로 옮기는 일. 장부 안에서만 옮기고 되돌리지 않는다 | `PayoutConversionService`, 장부 거래 `PAYOUT_CONVERSION` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md) 8장) |
@@ -34,6 +42,9 @@
 | **본인 확인 (Identity Verification)** | 출금 전에 실명 · 생년월일을 내고 관리자 승인을 받는 절차. 지갑 로그인은 지갑의 주인까지만 확인하므로 그 뒤의 사람을 확인한다. 승인받아야 출금을 신청할 수 있다 | `IdentityVerification` (ACC-004) |
 | **출금 심사 (Withdrawal Review)** | 관리자가 출금 신청을 승인(지급 대기)하거나 사유를 남겨 반려(금액을 정산금으로 돌려놓음)하는 일 | `WithdrawalService.approve` · `.reject` (PAY-024 · ADM-001) |
 | **관리자 (Admin)** | 설정(`admin.wallet-addresses`)에 적힌 지갑으로 로그인한 사용자. 로그인 때 `ROLE_ADMIN` 을 받아 `/api/v1/admin/**` 를 부른다 | `AdminProperties` · `SessionAuthenticationManager.ADMIN_ROLE` |
+| **단가 (Unit Price)** | 실행을 접수할 때 단계마다 정한 받을 값. 원가 × 놓인 자리의 배율(1 + 할증). 끝난 뒤 성공한 단계의 단가만 받는다 | `StepPrice` · `StepPrices`, 칸 `execution_charge_rate.unit_price` |
+| **플랫폼 부담** | 플랫폼 탓으로 실패한 실행에서 앞서 성공한 판매자에게 플랫폼이 대신 준 정산금. 잔액이 마이너스로 쌓인다 | 장부 계정 `PLATFORM_EXPENSE` (참조 `PLATFORM`) |
+| **테스트 실행** | 판매자가 노드 하나를 엔진에 실제로 돌려 결과물을 보고 원가를 재는 것. 무료, 노드당 하루 5번 (NOD-007) | `NodeTestRun` · 엔진 계약 v2.0 `mode=test` |
 | **기여 노드** | 특정 실행에서 실제로 호출되어 정산 대상이 되는 노드 | 아직 없음 (PAY-010) |
 
 ### 정의와 배치는 다른 것이다
@@ -233,7 +244,6 @@ WRK-015(반복) · WRK-016(병합)이 v2 에 있으므로, 제어 노드가 늘�
 | 용어 | 어디서 오는가 |
 | --- | --- |
 | ABC · 정산금 · 출금 | PAY, CHN |
-| Agent Score · 보정 평점 · 성공률 | PAY-016 ~ 020, MKT-005 |
 | 기여 노드 | PAY-010 · PAY-012 |
 | A2A 봉투(Envelope) · Payload · 노드 매니페스트 | AI 파트 (S15P21A403-170 · 172) |
 | 공급자 · 수요자 | 별개 계정이 아니라 **행위 시점에 결정되는 역할**이다. 계정 유형으로 모델링하지 않는다 |

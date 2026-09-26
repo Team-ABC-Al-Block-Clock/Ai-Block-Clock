@@ -71,7 +71,7 @@ class ExecutionFailureTest {
 
     @Test
     void 실패했는데_까닭을_알리지_않으면_플랫폼_탓으로_본다() {
-        RunStatus run = new RunStatus("run-1", "failed", null, List.of(), List.of(), List.of(), null, null);
+        RunStatus run = new RunStatus("run-1", "failed", null, List.of(), List.of(), List.of(), null, null, false, null);
 
         assertThat(ExecutionFailure.judge(run)).isEqualTo(new ExecutionFailure(
                 null, ExecutionProgress.UNREPORTED, ExecutionFault.PLATFORM, false, null, null));
@@ -102,12 +102,30 @@ class ExecutionFailureTest {
     void 돌려받은_주인이나_에이전트가_보낸_모양이_아니면_비워_둔다() {
         RunStatus run = new RunStatus("run-1", "failed", null,
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "failed", "not-a-uuid", "u_2001", null, null)),
-                List.of(), List.of(), null, new RunStatus.Failure("n1", "MODEL_API_ERROR", "supplier", true));
+                List.of(), List.of(), null, new RunStatus.Failure("n1", "MODEL_API_ERROR", "supplier", true), false, null);
 
         ExecutionFailure failure = ExecutionFailure.judge(run);
 
         assertThat(failure.supplier()).isNull();
         assertThat(failure.agent()).isNull();
+    }
+
+    @Test
+    void 성공률에_넣는_공급자_탓_실패는_그_에이전트만_깎는다() {
+        ExecutionFailure failure = ExecutionFailure.judge(failedAt("n2", "MODEL_API_ERROR", "supplier", true));
+
+        assertThat(failure.countsAgainst(AgentId.of(AGENT))).isTrue();
+        assertThat(failure.countsAgainst(AgentId.newId())).isFalse();
+    }
+
+    @Test
+    void 성공률에_넣지_말라는_오류나_공급자_탓이_아닌_실패는_아무도_깎지_않는다() {
+        assertThat(ExecutionFailure.judge(failedAt("n2", "REF_FILE_REJECTED", "supplier", false))
+                .countsAgainst(AgentId.of(AGENT))).isFalse();
+        assertThat(ExecutionFailure.judge(failedAt("n2", "FILE_PARSE_FAILED", "consumer", true))
+                .countsAgainst(AgentId.of(AGENT))).isFalse();
+        assertThat(ExecutionFailure.judge(failedAt("n2", "RATE_LIMITED", "platform", true))
+                .countsAgainst(AgentId.of(AGENT))).isFalse();
     }
 
     // n1 은 내 노드, n2 는 7002 가 판 에이전트 안의 단계다.
@@ -116,6 +134,6 @@ class ExecutionFailureTest {
                 List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, "7001", null, null),
                         new RunStatus.Node("n2", "가정통신문 작성", "llm", "failed", AGENT.toString(), "7002",
                                 null, null)),
-                List.of(), List.of(), null, new RunStatus.Failure(stepId, errorCode, fault, affectsSuccessRate));
+                List.of(), List.of(), null, new RunStatus.Failure(stepId, errorCode, fault, affectsSuccessRate), false, null);
     }
 }

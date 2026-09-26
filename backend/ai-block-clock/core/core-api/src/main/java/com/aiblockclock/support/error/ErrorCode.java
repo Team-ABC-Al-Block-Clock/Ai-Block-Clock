@@ -40,6 +40,8 @@ public enum ErrorCode {
     NODE_005,
     NODE_006,
     NODE_007,
+    NODE_008,
+    NODE_009,
 
     EXECUTION_001,
     EXECUTION_002,
@@ -47,6 +49,9 @@ public enum ErrorCode {
     EXECUTION_004,
     EXECUTION_005,
     EXECUTION_006,
+    EXECUTION_007,
+    EXECUTION_008,
+    EXECUTION_009,
 
     FILE_001,
     FILE_002,

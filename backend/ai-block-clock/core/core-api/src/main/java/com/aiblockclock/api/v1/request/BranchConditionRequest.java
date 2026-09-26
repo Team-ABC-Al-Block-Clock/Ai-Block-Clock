@@ -13,7 +13,7 @@ import java.util.List;
 
 @Schema(description = "분기 조건. 앞 노드 결과의 값 하나를 리터럴과 비교한다")
 public record BranchConditionRequest(
-        @Schema(description = "`<nodeKey>.<결과 안의 경로>`. 이 분기보다 앞에 놓인 작업 노드를 가리킨다",
+        @Schema(description = "`<nodeKey>.<결과 안의 경로>`. 이 분기까지 어느 갈래로 와도 거치는 작업 노드나 에이전트를 가리킨다",
                 example = "n1.competition_level")
         @NotBlank String left,
 

@@ -20,25 +20,29 @@ public final class Execution {
     private final ExecutionStatus status;
     private final int promptCount;
     private final ExecutionFile inputFile;
+    // 모델을 부르지 않고 도는 실행이다. 결과물이 가짜라 받지 않고 등급 재료로도 세지 않는다.
+    // 엔진이 돌려주는 mock 칸이 빠져도 가짜 결과에 값을 받지 않도록, 접수할 때 우리가 적은 값을 믿는다.
+    private final boolean mock;
     // 접수할 때 예치로 옮긴 금액이다. 선차감이 생기기 전에 접수한 실행은 뗀 것이 없어 비어 있다.
     private final AbcAmount reserved;
 
     // 돈을 먼저 떼고 엔진에 넘기므로, 접수한 순간에는 엔진이 준 실행 번호가 아직 없다.
     public static Execution requested(ExecutionId id, ExecutionRequestId requestId, WorkflowId workflowId,
-                                      UserId requester, int promptCount, ExecutionFile inputFile) {
+                                      UserId requester, int promptCount, ExecutionFile inputFile,
+                                      boolean mock) {
         return new Execution(id, requestId, workflowId, requester, null, ExecutionStatus.QUEUED,
-                promptCount, inputFile, null);
+                promptCount, inputFile, mock, null);
     }
 
     public static Execution restore(ExecutionId id, ExecutionRequestId requestId, WorkflowId workflowId,
                                     UserId requester, RunId runId, ExecutionStatus status, int promptCount,
-                                    ExecutionFile inputFile, AbcAmount reserved) {
-        return new Execution(id, requestId, workflowId, requester, runId, status, promptCount, inputFile,
+                                    ExecutionFile inputFile, boolean mock, AbcAmount reserved) {
+        return new Execution(id, requestId, workflowId, requester, runId, status, promptCount, inputFile, mock,
                 reserved);
     }
 
     public Execution reserve(AbcAmount amount) {
-        return new Execution(id, requestId, workflowId, requester, runId, status, promptCount, inputFile,
+        return new Execution(id, requestId, workflowId, requester, runId, status, promptCount, inputFile, mock,
                 amount);
     }
 

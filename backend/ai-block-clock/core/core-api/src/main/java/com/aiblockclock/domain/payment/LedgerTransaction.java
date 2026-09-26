@@ -24,6 +24,7 @@ public record LedgerTransaction(
 ) {
 
     private static final String SYSTEM_ACCOUNT_REFERENCE_ID = "SYSTEM";
+    private static final String PLATFORM_ACCOUNT_REFERENCE_ID = "PLATFORM";
     private static final String CHARGE_REQUEST_REFERENCE_TYPE =
             "CHARGE_REQUEST";
     private static final String CHARGE_IDEMPOTENCY_KEY_PREFIX =
@@ -283,6 +284,34 @@ public record LedgerTransaction(
         return PAYOUT_CONVERSION_KEY_PREFIX + referenceIdOf(owner) + ":" + requestId.value();
     }
 
+    // 플랫폼 탓으로 실패한 실행에서 앞서 성공한 단계의 주인에게 줄 값을 플랫폼이 대신 낸다 (엔진 계약 v2.0 8.5).
+    // 사용자의 예치는 환불(forExecutionRefund)로 모두 돌려주고, 여기서는 플랫폼 부담 계정에서 빼 정산금으로 옮긴다.
+    // 사용자 몫의 정산과 키가 같아 한 실행에 정산은 한 번만 기록된다.
+    public static LedgerTransaction forPlatformCoveredSettlement(
+            UUID executionId,
+            Map<UserId, AbcAmount> payouts
+    ) {
+        BigDecimal covered = payouts.values().stream()
+                .map(AbcAmount::value)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<LedgerEntry> entries = new ArrayList<>();
+
+        entries.add(new LedgerEntry(LedgerAccountType.PLATFORM_EXPENSE, PLATFORM_ACCOUNT_REFERENCE_ID,
+                covered.negate()));
+        payouts.forEach((supplier, amount) ->
+                entries.add(new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, referenceIdOf(supplier), amount.value())));
+
+        return new LedgerTransaction(
+                LedgerEventType.SETTLEMENT,
+                EXECUTION_SETTLEMENT_KEY_PREFIX + executionId,
+                EXECUTION_REFERENCE_TYPE,
+                executionId.toString(),
+                null,
+                null,
+                entries
+        );
+    }
+
     public boolean isBalanced() {
         return isBalanced(entries);
     }
@@ -332,7 +361,7 @@ public record LedgerTransaction(
                     LedgerAccountType.ABC_BALANCE, LedgerAccountType.EXECUTION_ESCROW);
             case REFUND -> isOwnMove(outflow, inflows,
                     LedgerAccountType.EXECUTION_ESCROW, LedgerAccountType.ABC_BALANCE);
-            case SETTLEMENT -> outflow.accountType() == LedgerAccountType.EXECUTION_ESCROW
+            case SETTLEMENT -> isSettlementSource(outflow)
                     && inflows.stream()
                             .allMatch(inflow -> inflow.accountType() == LedgerAccountType.PAYOUT_BALANCE);
             case WITHDRAWAL_HOLD -> isOwnMove(outflow, inflows,
@@ -342,6 +371,14 @@ public record LedgerTransaction(
             case PAYOUT_CONVERSION -> isOwnMove(outflow, inflows,
                     LedgerAccountType.PAYOUT_BALANCE, LedgerAccountType.ABC_BALANCE);
         };
+    }
+
+    // 정산금은 사용자의 예치에서 나가거나, 플랫폼 탓으로 실패한 실행이면 플랫폼 부담에서 나간다 (엔진 계약 v2.0 8.5).
+    // 플랫폼 부담은 플랫폼 계정 하나뿐이라, 다른 참조로 적힌 칸은 받지 않는다.
+    private static boolean isSettlementSource(LedgerEntry outflow) {
+        return outflow.accountType() == LedgerAccountType.EXECUTION_ESCROW
+                || outflow.accountType() == LedgerAccountType.PLATFORM_EXPENSE
+                && outflow.accountReferenceId().equals(PLATFORM_ACCOUNT_REFERENCE_ID);
     }
 
     // 한 사람의 칸 사이에서만 옮긴다. 받는 칸이 하나이고 주인이 빠지는 칸과 같아야 한다.

@@ -2,15 +2,19 @@ package com.aiblockclock.api.v1;
 
 import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.NodeSaveRequest;
+import com.aiblockclock.api.v1.request.NodeTestRunRequest;
 import com.aiblockclock.api.v1.request.RefFileAttachRequest;
 import com.aiblockclock.api.v1.response.NodeDeleteResponse;
 import com.aiblockclock.api.v1.response.NodeDetailResponse;
 import com.aiblockclock.api.v1.response.NodePageResponse;
+import com.aiblockclock.api.v1.response.NodeTestRunResponse;
 import com.aiblockclock.api.v1.response.RefFileResponse;
+import com.aiblockclock.domain.execution.NodeTestRunService;
 import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionService;
 import com.aiblockclock.domain.node.NodeDefinitionSummary;
+import com.aiblockclock.domain.node.NodeTestRunId;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.node.RefFileId;
 import com.aiblockclock.domain.user.UserId;
@@ -44,6 +48,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NodeController implements NodeApi {
     private final NodeDefinitionService nodeService;
+    private final NodeTestRunService nodeTestRunService;
 
     @Override
     @PostMapping
@@ -53,7 +58,8 @@ public class NodeController implements NodeApi {
             @RequestBody NodeSaveRequest request
     ) {
         NodeDefinition saved = nodeService.create(
-                owner, request.name(), Prompt.of(request.prompt()), request.modelOrDefault());
+                owner, request.name(), Prompt.of(request.prompt()), request.modelOrDefault(),
+                request.outputOrDefault());
 
         return ApiResult.success(NodeDetailResponse.from(saved, List.of()));
     }
@@ -79,7 +85,7 @@ public class NodeController implements NodeApi {
     ) {
         NodeDefinition updated = nodeService.update(
                 NodeDefinitionId.of(nodeId), owner, request.name(), Prompt.of(request.prompt()),
-                request.modelOrDefault());
+                request.modelOrDefault(), request.outputOrDefault());
 
         return ApiResult.success(NodeDetailResponse.from(
                 updated, nodeService.getRefFiles(NodeDefinitionId.of(nodeId), owner)));
@@ -118,6 +124,31 @@ public class NodeController implements NodeApi {
         nodeService.detachRefFile(NodeDefinitionId.of(nodeId), owner, RefFileId.of(refFileId));
 
         return ApiResult.success(null);
+    }
+
+    @Override
+    @PostMapping("/{nodeId}/test-runs")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResult<NodeTestRunResponse> startTestRun(
+            @CurrentUser UserId owner,
+            @PathVariable UUID nodeId,
+            @Valid @RequestBody(required = false) NodeTestRunRequest request
+    ) {
+        NodeTestRunRequest body = request == null ? new NodeTestRunRequest(null, null) : request;
+
+        return ApiResult.success(NodeTestRunResponse.from(nodeTestRunService.start(
+                NodeDefinitionId.of(nodeId), owner, body.comment(), body.mockOrDefault())));
+    }
+
+    @Override
+    @GetMapping("/{nodeId}/test-runs/{testRunId}")
+    public ApiResult<NodeTestRunResponse> getTestRun(
+            @CurrentUser UserId owner,
+            @PathVariable UUID nodeId,
+            @PathVariable UUID testRunId
+    ) {
+        return ApiResult.success(NodeTestRunResponse.from(nodeTestRunService.follow(
+                NodeDefinitionId.of(nodeId), NodeTestRunId.of(testRunId), owner)));
     }
 
     @Override
