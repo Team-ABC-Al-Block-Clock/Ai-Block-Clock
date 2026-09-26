@@ -1,5 +1,5 @@
+import { useWalletStatus } from '@/hooks/useWalletStatus'
 import { shortAddress } from '@/lib/format'
-import { chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 import StatusDot from '@/components/StatusDot'
@@ -12,7 +12,7 @@ const TABS = [
 ] as const
 
 const TAB =
-  'flex items-center justify-center text-[12px] font-semibold whitespace-nowrap tracking-[-.01em]'
+  'flex items-center justify-center text-[14.5px] font-semibold whitespace-nowrap tracking-[-.01em]'
 const BOX = { width: '126px', height: '38px', borderRadius: '11px' }
 
 type Tab = (typeof TABS)[number]['key']
@@ -30,6 +30,9 @@ interface SidebarProps {
 
 export default function Sidebar({ active, editing = false }: SidebarProps) {
   const profile = useAuthStore((s) => s.profile)
+  const { walletAddress, network, connection } = useWalletStatus()
+  // App 이 문서에서 받아 세션과 지갑 연결을 함께 끊는다. 프로필 메뉴와 같은 길이다.
+  const handleLogout = () => document.dispatchEvent(new CustomEvent('logout'))
 
   return (
     <>
@@ -39,7 +42,8 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           left: '62px',
           top: '160px',
           width: '338px',
-          height: '776px',
+          // 판매 내역 표 카드 바닥에 맞춘다. 다섯 화면이 같은 높이다.
+          height: '835px',
           borderRadius: '20px',
           background: 'var(--color-surface-card)', // 오른쪽 카드와 같은 흰 유리 (원본은 rgba(18,9,32,.44) 어두운 패널)
           backdropFilter: 'blur(22px) saturate(118%)',
@@ -192,19 +196,48 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           className="text-[16px] font-semibold text-white"
           style={{ marginTop: '12px', letterSpacing: '.01em' }}
         >
-          {shortAddress(profile?.wallet.address ?? '')}
+          {walletAddress ? shortAddress(walletAddress) : '—'}
         </div>
-        {/* 네트워크는 서버가 알려준다 — 배포 설정이라 화면이 정할 값이 아니다 */}
-        <div className="text-[12px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
-          {profile ? chainNameOf(profile.wallet.chainId) : chainLabel}
+        <div className="text-[13.5px]" style={{ marginTop: '8px', color: 'rgba(255,236,246,.62)' }}>
+          {network}
         </div>
         <div className="flex items-center" style={{ marginTop: '14px', gap: '8px' }}>
-          <StatusDot size={8} color="#84bf9f" />
-          <div className="text-[12px] font-semibold" style={{ color: '#9ad0b4' }}>
-            정상 연결
+          <StatusDot size={8} color={connection.dot} />
+          <div className="text-[13.5px] font-semibold" style={{ color: connection.color }}>
+            {connection.text}
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="absolute flex cursor-pointer items-center text-[13.5px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,138,138,.12)]"
+        style={{
+          left: '90px',
+          top: '937px',
+          height: '36px',
+          padding: '0 12px',
+          gap: '8px',
+          borderRadius: '10px',
+          color: '#ff8a8a',
+          animation: 'rise .7s .3s cubic-bezier(.2,.8,.25,1) both',
+        }}
+      >
+        {/* 프로필 메뉴와 같은 그림 — 열린 문에서 화살표가 나간다. */}
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M8 2H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h5" stroke="currentColor" strokeWidth="2" />
+          <path d="M7 9h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M12.5 5.5 16 9l-3.5 3.5"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        로그아웃
+      </button>
     </>
   )
 }

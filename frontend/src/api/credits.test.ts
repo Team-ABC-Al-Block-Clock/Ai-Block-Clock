@@ -7,10 +7,14 @@ import { CREDIT_TRANSACTIONS } from '@/mocks/fixtures/credits'
 /** api 레이어 + mock 핸들러 + offset 커서를 한 번에 통과시킨다. */
 
 describe('getCreditBalance', () => {
-  it('쓸 수 있는 금액과 잠긴 금액 둘만 준다', async () => {
+  it('쓸 수 있는 금액 · 잠긴 금액 · 정산금 셋을 준다', async () => {
     const balance = await getCreditBalance()
 
-    expect(Object.keys(balance).sort()).toEqual(['availableAmount', 'reservedAmount'])
+    expect(Object.keys(balance).sort()).toEqual([
+      'availableAmount',
+      'payoutAmount',
+      'reservedAmount',
+    ])
     expect(balance).not.toHaveProperty('status')
   })
 

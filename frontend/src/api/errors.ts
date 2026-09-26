@@ -4,7 +4,7 @@ export interface ApiErrorBody {
   error: {
     code: string
     message: string
-    /** 오류를 짚어 주는 값. 응답마다 모양이 다르고 없으면 null — 아직 화면이 읽지 않는다 */
+    /** 오류를 짚어 주는 값. 응답마다 모양이 다르고 없으면 null */
     data?: unknown
   }
 }
@@ -18,12 +18,18 @@ export class ApiError extends Error {
   readonly code?: string
   /** HTTP 상태 코드. 응답을 못 받았으면 undefined */
   readonly status?: number
+  /** 실패 봉투의 `error.data` */
+  readonly data?: unknown
 
-  constructor(message: string, options: { code?: string; status?: number; cause?: unknown } = {}) {
+  constructor(
+    message: string,
+    options: { code?: string; status?: number; data?: unknown; cause?: unknown } = {},
+  ) {
     super(message, { cause: options.cause })
     this.name = 'ApiError'
     this.code = options.code
     this.status = options.status
+    this.data = options.data
   }
 
   /** 응답을 받지 못한 경우(네트워크 끊김, 타임아웃) */
@@ -109,6 +115,27 @@ export const CHARGE_ERROR = {
   INVALID_AMOUNT: 'PAYMENT_005',
   /** 로그인한 지갑이 입금 보관 지갑 — 403 */
   SENDER_IS_CUSTODY: 'PAYMENT_009',
+} as const
+
+/** 출금 · 정산금 옮기기 실패 코드. 화면 문구는 `lib/withdrawalMessage.ts` 가 만든다. */
+export const WITHDRAWAL_ERROR = {
+  /** 1 ~ 1,000 ABC 밖 — 400, data 에 minimumAmount · maximumAmount */
+  AMOUNT_OUT_OF_RANGE: 'PAYMENT_010',
+  /** 정산금 부족 — 409, data 에 payoutAmount */
+  PAYOUT_INSUFFICIENT: 'PAYMENT_011',
+  /** 처리 중인 출금이 있음 — 409 */
+  ALREADY_IN_PROGRESS: 'PAYMENT_012',
+  /** 24시간이 안 지남 — 409, data 에 availableAt */
+  TOO_FREQUENT: 'PAYMENT_013',
+  /** 같은 requestId 가 동시에 들어옴 — 409 */
+  ALREADY_REQUESTED: 'PAYMENT_014',
+  NOT_FOUND: 'PAYMENT_015',
+  /** 이미 심사가 끝나 취소할 수 없음 — 409 */
+  INVALID_STATE: 'PAYMENT_016',
+  /** 본인 확인 미승인 — 403 */
+  IDENTITY_NOT_VERIFIED: 'PAYMENT_017',
+  /** 옮길 정산금 부족 — 409, data 에 payoutAmount */
+  CONVERSION_INSUFFICIENT: 'PAYMENT_018',
 } as const
 
 /**

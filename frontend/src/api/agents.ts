@@ -258,7 +258,7 @@ export const getMyAgents = (params: MyAgentsQuery = {}) =>
 export const getMyFavorites = (params: CursorParams = {}) =>
   api.get<CursorPage<FavoriteAgent>>('/users/me/favorites', { params })
 
-/** 내가 한 번이라도 실행한 에이전트 */
+/** 내가 한 번이라도 실행한 에이전트. BE 에 아직 없어 화면에서는 뺐다. API 가 생기면 내 에이전트 탭으로 다시 붙인다. */
 export const getUsedAgents = (params: UsedAgentsQuery = {}) =>
   api.get<CursorPage<UsedAgent>>('/users/me/used-agents', { params })
 
