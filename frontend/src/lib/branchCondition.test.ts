@@ -57,6 +57,22 @@ describe('formatConditionRight', () => {
   it('값 하나는 그대로다', () => {
     expect(formatConditionRight(true)).toBe('true')
   })
+
+  /**
+   * 되읽어 같은 값이 나와야 한다. 따옴표를 잃으면 등급 이름 `"true"` 가 다음 「적용」에서
+   * 불리언으로 씻겨 나간다.
+   */
+  it('글자로 남아야 하는 값은 따옴표째 되돌린다', () => {
+    expect(formatConditionRight('true')).toBe('"true"')
+    expect(formatConditionRight('12')).toBe('"12"')
+    expect(formatConditionRight('high')).toBe('high')
+  })
+
+  it('되돌린 글자를 다시 읽으면 처음 값이다', () => {
+    for (const value of ['true', '12', 'high', '', '-3.5']) {
+      expect(parseLiteral(formatConditionRight(value))).toBe(value)
+    }
+  })
 })
 
 describe('describeCondition', () => {

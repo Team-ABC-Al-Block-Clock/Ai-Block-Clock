@@ -54,9 +54,17 @@ export function parseConditionRight(
   return items.length === 0 ? null : items.map(parseLiteral)
 }
 
-/** 입력란에 되돌려 놓을 글자. 저장된 값을 다시 열었을 때 쓴다. */
+/**
+ * 입력란에 되돌려 놓을 글자. 저장된 값을 다시 열었을 때 쓴다.
+ *
+ * `parseLiteral` 이 다시 읽어 같은 값이 나와야 한다 — 그대로 적으면 등급 이름 `"true"` 가
+ * 다음 「적용」에서 불리언 `true` 로 씻겨 나간다. 되읽어 달라지는 글자만 따옴표로 감싼다.
+ */
+const reread = (value: ConditionLiteral): string =>
+  typeof value === 'string' && parseLiteral(value) !== value ? `"${value}"` : String(value)
+
 export function formatConditionRight(right: CanvasCondition['right']): string {
-  return Array.isArray(right) ? right.map(String).join(', ') : String(right)
+  return Array.isArray(right) ? right.map(reread).join(', ') : reread(right)
 }
 
 /** 카드 밑에 한 줄로 요약한다. 읽는 노드의 이름은 밖에서 찾아 넘긴다. */
