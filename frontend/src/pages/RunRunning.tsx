@@ -125,9 +125,8 @@ export default function RunRunning() {
   /**
    * 갈래가 있으면 어느 쪽이 도는지 알 수 없다.
    *
-   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는데, `runnable` 에는 두 갈래가 다 들어 있고
-   * 서버는 실제로 지나간 쪽만 센다. 짝지으면 가지 않은 갈래가 「진행 중」으로 켜진다.
-   * 게이지와 로그는 그대로 두고 카드·선 표시만 접는다.
+   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는데, 분기가 있으면 분기 노드와 건너뛴 갈래
+   * (`skipped`)까지 한 줄로 섞여 온다. 짝지으면 가지 않은 갈래가 켜진다. 카드·선 표시만 접는다.
    */
   const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
@@ -240,11 +239,12 @@ export default function RunRunning() {
    */
   const camera =
     defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
-  // 펼친 단계를 그대로 적는다 — 카드와 수가 달라도 여기서는 순서만 맞으면 된다.
-  const logLines = progress?.steps.map((step) => step.name) ?? []
-  const shown = progress ? Math.min(logLines.length, progress.done + 1) : 0
-  const logs = logLines.slice(0, shown).map((text, i) => {
-    const last = i === shown - 1 && !finished
+  // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
+  const logLines = (progress?.steps ?? [])
+    .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
+    .map((step) => step.name)
+  const logs = logLines.map((text, i) => {
+    const last = i === logLines.length - 1 && !finished
     return {
       text,
       dot: last ? 'rgba(255,194,216,.9)' : 'rgba(154,208,180,.7)',

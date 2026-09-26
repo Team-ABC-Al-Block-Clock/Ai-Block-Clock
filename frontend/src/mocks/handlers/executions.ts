@@ -209,7 +209,7 @@ export const executionHandlers = [
         return fail(400, 'EXECUTION_003', '엑셀 또는 CSV 파일만 올릴 수 있습니다.')
     }
 
-    // 분기(`CONTROL`)는 여기서 EXECUTION_005 로 끊긴다. 화면이 아직 분기를 만들지 못해 생략한다.
+    // 안에 분기가 든 에이전트는 서버가 EXECUTION_005 로 끊는다. mock 에이전트는 속이 없어 생략한다.
 
     // 빈 그래프는 저장에서 막혀 서버에는 이 응답이 없다. 0단계 실행을 만들지 않으려는 방어다.
     if (!detail.nodes.length)
