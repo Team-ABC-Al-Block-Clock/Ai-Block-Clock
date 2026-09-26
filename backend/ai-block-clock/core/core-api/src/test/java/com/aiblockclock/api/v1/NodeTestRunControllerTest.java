@@ -164,16 +164,46 @@ class NodeTestRunControllerTest {
     }
 
     @Test
-    void 같은_끝을_여러_번_조회해도_한_번만_닫는다() throws Exception {
+    void 같은_끝을_여러_번_조회해도_한_번만_닫고_결과물도_한_번만_받는다() throws Exception {
         String testRunId = start(owner);
         given(aiRuntimeClient.read("run-1")).willReturn(succeeded("0.004"));
+        given(aiRuntimeClient.readArtifact("run-1")).willReturn(ARTIFACT);
 
         for (int poll = 0; poll < 3; poll++) {
             mockMvc.perform(get("/api/v1/nodes/{nodeId}/test-runs/{id}", nodeId, testRunId).with(as(owner)))
-                    .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
+                    .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
+                    .andExpect(jsonPath("$.data.result.payload.text").value("이번 학기 평균이 올랐습니다"));
         }
 
         then(aiRuntimeClient).should(org.mockito.Mockito.times(1)).read("run-1");
+        then(aiRuntimeClient).should(org.mockito.Mockito.times(1)).readArtifact("run-1");
+    }
+
+    // 앞단이 오류 쪽을 200 으로 주거나 본문이 비어도, 그 값을 응답에 박지 않아 판매자 화면이 응답 전체를 읽을 수 있다.
+    @Test
+    void 엔진이_JSON_이_아닌_결과물을_주면_결과물_없이_닫고_응답은_그대로_읽힌다() throws Exception {
+        String testRunId = start(owner);
+        given(aiRuntimeClient.read("run-1")).willReturn(succeeded("0.004"));
+        given(aiRuntimeClient.readArtifact("run-1")).willReturn("<html>502 Bad Gateway</html>");
+
+        mockMvc.perform(get("/api/v1/nodes/{nodeId}/test-runs/{id}", nodeId, testRunId).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.result").isEmpty())
+                .andExpect(jsonPath("$.data.baseCost").value("0.006000"));
+    }
+
+    @Test
+    void 결과물을_받지_못해도_테스트는_닫고_잰_원가는_쓴다() throws Exception {
+        String testRunId = start(owner);
+        given(aiRuntimeClient.read("run-1")).willReturn(succeeded("0.004"));
+        given(aiRuntimeClient.readArtifact("run-1"))
+                .willThrow(new AiClientException(AiClientError.REQUEST_FAILED, "gone"));
+
+        mockMvc.perform(get("/api/v1/nodes/{nodeId}/test-runs/{id}", nodeId, testRunId).with(as(owner)))
+                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.result").isEmpty())
+                .andExpect(jsonPath("$.data.baseCost").value("0.006000"));
     }
 
     @Test

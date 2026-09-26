@@ -54,7 +54,7 @@ public class NodeTestRunWriter {
             return Optional.empty();
         }
 
-        entity.finish(outcome.status(), outcome.costUsd(), outcome.failureCode(), finishedAt);
+        entity.finish(outcome.status(), outcome.costUsd(), outcome.failureCode(), outcome.resultJson(), finishedAt);
 
         return Optional.of(NodeTestRunEntityConverter.toDomain(entity));
     }

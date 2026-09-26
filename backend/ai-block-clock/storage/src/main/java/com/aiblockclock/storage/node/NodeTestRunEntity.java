@@ -53,6 +53,9 @@ public class NodeTestRunEntity {
     @Column(name = "failure_code", length = 64)
     private String failureCode;
 
+    @Column(name = "result_json", columnDefinition = "text")
+    private String resultJson;
+
     @Column(name = "requested_at", nullable = false, updatable = false)
     private Instant requestedAt;
 
@@ -73,10 +76,12 @@ public class NodeTestRunEntity {
         this.status = NodeTestRunStatus.RUNNING;
     }
 
-    public void finish(NodeTestRunStatus status, BigDecimal costUsd, String failureCode, Instant finishedAt) {
+    public void finish(NodeTestRunStatus status, BigDecimal costUsd, String failureCode, String resultJson,
+                       Instant finishedAt) {
         this.status = status;
         this.costUsd = costUsd;
         this.failureCode = failureCode;
+        this.resultJson = resultJson;
         this.finishedAt = finishedAt;
     }
 }

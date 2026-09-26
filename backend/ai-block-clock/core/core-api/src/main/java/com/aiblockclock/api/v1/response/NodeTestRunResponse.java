@@ -4,7 +4,8 @@ import com.aiblockclock.domain.execution.NodeTestRunResult;
 import com.aiblockclock.domain.node.NodeTestRun;
 import com.aiblockclock.enums.node.NodeTestRunStatus;
 
-import com.fasterxml.jackson.annotation.JsonRawValue;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -47,11 +48,14 @@ public record NodeTestRunResponse(
         Instant finishedAt,
 
         @Schema(description = """
-                성공한 테스트의 결과물. 엔진이 씌운 봉투 JSON 그대로이고 글 출력은 payload.text 가 본문이다.
-                끝나기 전, 실패했을 때, 엔진이 다시 올라가 실행을 잊었을 때는 비어 있다""",
+                성공한 테스트의 결과물. 엔진이 씌운 봉투 JSON 이고 글 출력은 payload.text 가 본문이다. 닫을 때 한 번 받아 둔 것이다.
+                끝나기 전, 실패했을 때, 엔진이 결과물을 주지 못했거나 JSON 이 아닌 것을 주었을 때는 비어 있다""",
                 nullable = true, type = "object")
-        @JsonRawValue String result
+        JsonNode result
 ) {
+    // 결과물은 닫을 때 JSON 으로 읽어 본 것만 남겨 두었다. 응답에는 문자열이 아니라 JSON 객체로 싣는다.
+    private static final JsonMapper MAPPER = JsonMapper.builder().build();
+
     public static NodeTestRunResponse from(NodeTestRunResult result) {
         NodeTestRun run = result.run();
 
@@ -66,6 +70,10 @@ public record NodeTestRunResponse(
                 run.failureCode(),
                 run.requestedAt(),
                 run.finishedAt(),
-                result.artifact());
+                resultOf(run));
+    }
+
+    private static JsonNode resultOf(NodeTestRun run) {
+        return run.resultJson() == null ? null : MAPPER.readTree(run.resultJson());
     }
 }

@@ -17,6 +17,7 @@ public final class NodeTestRunEntityConverter {
                 entity.getStatus(),
                 entity.getCostUsd(),
                 entity.getFailureCode(),
+                entity.getResultJson(),
                 entity.getRequestedAt(),
                 entity.getFinishedAt());
     }

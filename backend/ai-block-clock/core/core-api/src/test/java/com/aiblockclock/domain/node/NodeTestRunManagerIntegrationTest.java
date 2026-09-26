@@ -91,7 +91,7 @@ class NodeTestRunManagerIntegrationTest {
             NodeTestRunId id = running.get(i);
             BigDecimal cost = new BigDecimal(costs.get(i));
             finishes.add(() -> nodeTestRunManager.finish(id,
-                    new NodeTestRunOutcome(NodeTestRunStatus.SUCCEEDED, cost, null)));
+                    new NodeTestRunOutcome(NodeTestRunStatus.SUCCEEDED, cost, null, null)));
         }
 
         assertThat(runConcurrently(finishes)).containsOnly(Outcome.DONE);
@@ -104,9 +104,9 @@ class NodeTestRunManagerIntegrationTest {
         NodeTestRunId id = nodeTestRunManager.dispatch(reserved.id(), "run-1").id();
 
         assertThat(nodeTestRunManager.finish(id,
-                new NodeTestRunOutcome(NodeTestRunStatus.SUCCEEDED, new BigDecimal("0.004"), null))).isPresent();
+                new NodeTestRunOutcome(NodeTestRunStatus.SUCCEEDED, new BigDecimal("0.004"), null, null))).isPresent();
         assertThat(nodeTestRunManager.finish(id,
-                new NodeTestRunOutcome(NodeTestRunStatus.FAILED, null, "MODEL_TIMEOUT"))).isEmpty();
+                new NodeTestRunOutcome(NodeTestRunStatus.FAILED, null, "MODEL_TIMEOUT", null))).isEmpty();
         assertThat(nodeTestRunRepository.findById(id.value()).orElseThrow().getStatus())
                 .isEqualTo(NodeTestRunStatus.SUCCEEDED);
     }
