@@ -22,10 +22,10 @@ class AbcTransactionSearchConditionTest {
                         LedgerEventType.RESERVE
                 );
 
-        assertThat(condition.startAtInclusive())
+        assertThat(condition.period().startAtInclusive())
                 .isEqualTo(Instant.parse("2026-09-01T00:00:00Z"));
 
-        assertThat(condition.endAtExclusive())
+        assertThat(condition.period().endAtExclusive())
                 .isEqualTo(Instant.parse("2026-09-13T00:00:00Z"));
 
         assertThat(condition.eventType())
@@ -51,8 +51,8 @@ class AbcTransactionSearchConditionTest {
                 AbcTransactionSearchCondition
                         .allDates(LedgerEventType.CHARGE);
 
-        assertThat(condition.startAtInclusive()).isNull();
-        assertThat(condition.endAtExclusive()).isNull();
+        assertThat(condition.period().startAtInclusive()).isNull();
+        assertThat(condition.period().endAtExclusive()).isNull();
         assertThat(condition.eventType())
                 .isEqualTo(LedgerEventType.CHARGE);
     }

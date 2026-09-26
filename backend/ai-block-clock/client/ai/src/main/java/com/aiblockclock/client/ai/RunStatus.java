@@ -51,9 +51,15 @@ public record RunStatus(
             @JsonProperty("skip_reason") String skipReason
     ) {
         private static final String SUCCEEDED = "succeeded";
+        private static final String SKIPPED = "skipped";
 
         public boolean isSucceeded() {
             return SUCCEEDED.equals(status);
+        }
+
+        // 분기에서 고르지 않은 쪽이라 돌지 않은 단계다. 실패도 미완료도 아니다.
+        public boolean isSkipped() {
+            return SKIPPED.equals(status);
         }
     }
 

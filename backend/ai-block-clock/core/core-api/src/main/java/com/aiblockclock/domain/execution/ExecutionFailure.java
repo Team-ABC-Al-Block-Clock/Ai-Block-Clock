@@ -39,10 +39,10 @@ public record ExecutionFailure(
             return new ExecutionFailure(reported.nodeId(), reported.errorCode(), fault, false, null, null);
         }
 
-        RunStatus.Node failed = stepOf(run.nodes(), reported.nodeId());
+        StepOwner owner = StepOwner.of(stepOf(run.nodes(), reported.nodeId()));
 
         return new ExecutionFailure(reported.nodeId(), reported.errorCode(), fault,
-                Boolean.TRUE.equals(reported.affectsSuccessRate()), supplierOf(failed), agentOf(failed));
+                Boolean.TRUE.equals(reported.affectsSuccessRate()), owner.supplier(), owner.agent());
     }
 
     // 엔진이 받지 않은 실행이다. 어느 단계도 돌지 않았다.
@@ -52,6 +52,11 @@ public record ExecutionFailure(
 
     public boolean isPlatformFault() {
         return fault == ExecutionFault.PLATFORM;
+    }
+
+    // 이 실패가 그 에이전트의 성공률을 깎는가다. 공급자 탓이어도 엔진이 성공률에 넣지 말라고 한 오류는 깎지 않는다.
+    public boolean countsAgainst(AgentId candidate) {
+        return fault == ExecutionFault.SUPPLIER && affectsSuccessRate && candidate.equals(agent);
     }
 
     private static ExecutionFailure platform(String errorCode) {
@@ -79,30 +84,5 @@ public record ExecutionFailure(
                 .filter(node -> stepId.equals(node.id()))
                 .findFirst()
                 .orElse(null);
-    }
-
-    // 주인과 에이전트는 우리가 보낸 값을 엔진이 그대로 돌려준 것이다. 보낸 모양이 아니면 가리키지 않는다.
-    private static UserId supplierOf(RunStatus.Node failed) {
-        if (failed == null || failed.ownerId() == null) {
-            return null;
-        }
-
-        try {
-            return UserId.of(Long.parseLong(failed.ownerId()));
-        } catch (NumberFormatException malformed) {
-            return null;
-        }
-    }
-
-    private static AgentId agentOf(RunStatus.Node failed) {
-        if (failed == null || failed.agentId() == null) {
-            return null;
-        }
-
-        try {
-            return AgentId.of(failed.agentId());
-        } catch (IllegalArgumentException malformed) {
-            return null;
-        }
     }
 }

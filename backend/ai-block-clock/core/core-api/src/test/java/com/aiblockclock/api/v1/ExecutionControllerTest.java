@@ -216,7 +216,7 @@ class ExecutionControllerTest {
 
         mockMvc.perform(run().param("input", "{}").with(as(requester)).with(csrf().asHeader()))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("EXECUTION_007"))
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_009"))
                 .andExpect(jsonPath("$.error.data.key").value("brand_name"));
 
         then(aiRuntimeClient).should(never()).start(any());
@@ -558,6 +558,7 @@ class ExecutionControllerTest {
     }
 
     // 떼어 둔 6 중 두 단계의 실측 0.4 + 0.6 = 1 만 쓰고 5 를 돌려받아 잔액은 9 가 된다.
+    // 쓴 1 은 두 노드를 만든 실행자 자신의 정산금이 된다.
     // 뒤에서 따라가던 모니터가 끝을 보고 닫는 길이다. 조회가 엔진에 묻기 전에 모니터가 먼저 닫는다.
     @Test
     void 뒤에서_따라가다_끝난_것을_보면_쓰지_않은_만큼을_잔액으로_돌려준다() throws Exception {
@@ -569,7 +570,8 @@ class ExecutionControllerTest {
         assertThat(executionRepository.findById(UUID.fromString(executionId)).orElseThrow().getStatus())
                 .isEqualTo(ExecutionStatus.SUCCEEDED);
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
-        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("1");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(balanceOf(requester, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
     }
 
     @Test
@@ -599,7 +601,8 @@ class ExecutionControllerTest {
         }
 
         assertThat(balanceOf(requester, LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
-        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("1");
+        assertThat(balanceOf(requester, LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
+        assertThat(balanceOf(requester, LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
     }
 
     @Test
@@ -775,6 +778,21 @@ class ExecutionControllerTest {
     }
 
     @Test
+    @DisplayName("실패로 끝난 실행의 결과는 404 다")
+    void refusesResultOfAFailedRun() throws Exception {
+        String executionId = forgotten();
+        given(aiRuntimeClient.read(anyString())).willReturn(failed());
+
+        mockMvc.perform(get("/api/v1/runs/{id}", executionId).with(as(requester)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        mockMvc.perform(get("/api/v1/runs/{id}/result", executionId).with(as(requester)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_008"));
+    }
+
+    @Test
     @DisplayName("렌더되지 않은 형식을 달라고 하면 404 다")
     void refusesFormatThatWasNeverRendered() throws Exception {
         given(aiRuntimeClient.readPdf(anyString())).willReturn(Optional.empty());
@@ -783,7 +801,7 @@ class ExecutionControllerTest {
         mockMvc.perform(get("/api/v1/runs/{id}/result", executionId)
                         .param("format", "PDF").with(as(requester)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("EXECUTION_001"));
+                .andExpect(jsonPath("$.error.code").value("EXECUTION_007"));
     }
 
     @Test
@@ -827,12 +845,15 @@ class ExecutionControllerTest {
                 List.of(), List.of(), null, null);
     }
 
-    private static RunStatus succeeded(String firstCost, String secondCost) {
+    // 엔진은 우리가 보낸 주인을 단계마다 그대로 돌려준다. 두 노드 모두 실행한 사람이 만든 것이다.
+    private RunStatus succeeded(String firstCost, String secondCost) {
+        String owner = Long.toString(requester);
+
         return new RunStatus("20260919-1", "succeeded",
                 new RunStatus.Progress(2, 2, 100, null, null),
-                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, null,
+                List.of(new RunStatus.Node("n1", "성적 분석", "llm", "succeeded", null, owner,
                                 new BigDecimal(firstCost), null),
-                        new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, null,
+                        new RunStatus.Node("n2", "가정통신문 작성", "llm", "succeeded", null, owner,
                                 new BigDecimal(secondCost), null)),
                 List.of(), List.of(), null, null);
     }

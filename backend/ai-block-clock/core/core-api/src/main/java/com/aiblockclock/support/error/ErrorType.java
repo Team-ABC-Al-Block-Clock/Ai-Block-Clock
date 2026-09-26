@@ -151,8 +151,11 @@ public enum ErrorType {
     EXECUTION_RESULT_NOT_READY(HttpStatus.CONFLICT, ErrorCode.EXECUTION_001,
             "아직 끝나지 않은 실행입니다.", LogLevel.WARN),
 
-    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
+    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_007,
             "그 형식으로 받을 수 있는 결과가 없습니다.", LogLevel.WARN),
+
+    EXECUTION_RESULT_UNAVAILABLE(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_008,
+            "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "분기가 있는 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
@@ -160,7 +163,7 @@ public enum ErrorType {
     EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
             "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
 
-    EXECUTION_INPUT_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_007,
+    EXECUTION_INPUT_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_009,
             "입력 값이 시작 노드의 입력 항목과 맞지 않습니다.", LogLevel.WARN),
 
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
@@ -215,7 +218,10 @@ public enum ErrorType {
             "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN),
 
     ABC_BALANCE_INSUFFICIENT(HttpStatus.PAYMENT_REQUIRED, ErrorCode.PAYMENT_008,
-            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN);
+            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN),
+
+    CHARGE_SENDER_IS_CUSTODY(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_009,
+            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

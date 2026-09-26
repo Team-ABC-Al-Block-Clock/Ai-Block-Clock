@@ -8,9 +8,13 @@ import com.aiblockclock.enums.payment.LedgerEventType;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,6 +125,116 @@ class LedgerTransactionTest {
         assertThat(refund.isBalanced()).isTrue();
     }
 
+    @Test
+    void 끝난_실행의_정산은_쓴_만큼을_예치에서_빼_주인마다_정산금으로_옮긴다() {
+        UUID executionId = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
+        Map<UserId, AbcAmount> payouts = new LinkedHashMap<>();
+        payouts.put(UserId.of(8L), AbcAmount.of(new BigDecimal("1.5")));
+        payouts.put(UserId.of(9L), AbcAmount.of(new BigDecimal("0.25")));
+
+        LedgerTransaction settlement = LedgerTransaction.forExecutionSettlement(executionId, UserId.of(7L), payouts);
+
+        assertThat(settlement.eventType()).isEqualTo(LedgerEventType.SETTLEMENT);
+        assertThat(settlement.idempotencyKey()).isEqualTo("execution-settlement:" + executionId);
+        assertThat(settlement.referenceType()).isEqualTo("EXECUTION");
+        assertThat(settlement.referenceId()).isEqualTo(executionId.toString());
+        assertThat(settlement.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-1.750000")),
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("1.500000")),
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "9", new BigDecimal("0.250000")));
+        assertThat(settlement.isBalanced()).isTrue();
+    }
+
+    @Test
+    void 자기_에이전트를_자기가_쓴_실행은_자기_예치에서_자기_정산금으로_옮긴다() {
+        UUID executionId = UUID.fromString("8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13");
+
+        LedgerTransaction settlement = LedgerTransaction.forExecutionSettlement(
+                executionId, UserId.of(7L), Map.of(UserId.of(7L), AbcAmount.of(new BigDecimal("0.75"))));
+
+        assertThat(settlement.entries())
+                .extracting(LedgerEntry::accountType, LedgerEntry::accountReferenceId, LedgerEntry::amountDelta)
+                .containsExactly(
+                        tuple(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-0.750000")),
+                        tuple(LedgerAccountType.PAYOUT_BALANCE, "7", new BigDecimal("0.750000")));
+    }
+
+    @Test
+    void 받을_주인이_없으면_정산_거래를_만들_수_없다() {
+        assertThatThrownBy(() -> LedgerTransaction.forExecutionSettlement(
+                UUID.randomUUID(), UserId.of(7L), Map.of()))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.LEDGER_INVALID_TRANSACTION));
+    }
+
+    @ParameterizedTest
+    @EnumSource(LedgerEventType.class)
+    void 어떤_거래_종류로도_한_사용자의_잔액을_다른_사용자의_잔액으로_옮길_수_없다(LedgerEventType eventType) {
+        assertRejected(eventType,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 선차감은_다른_사용자의_예치로_옮길_수_없다() {
+        assertRejected(LedgerEventType.RESERVE,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 환불은_다른_사용자의_잔액으로_돌릴_수_없다() {
+        assertRejected(LedgerEventType.REFUND,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 방향이_뒤집힌_선차감은_만들_수_없다() {
+        assertRejected(LedgerEventType.RESERVE,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 정산은_예치가_아닌_쓸_수_있는_잔액에서_뺄_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 정산은_공급자의_쓸_수_있는_잔액으로_넣을_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("4")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "9", new BigDecimal("6")));
+    }
+
+    @Test
+    void 충전은_발행_계정이_아닌_곳에서_ABC를_꺼낼_수_없다() {
+        assertRejected(LedgerEventType.CHARGE,
+                new LedgerEntry(LedgerAccountType.ABC_ISSUANCE, "8", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "7", new BigDecimal("10")));
+    }
+
+    @Test
+    void 빠지는_칸이_둘인_거래는_만들_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "7", new BigDecimal("-6")),
+                new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, "8", new BigDecimal("-4")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "9", new BigDecimal("10")));
+    }
+
+    private void assertRejected(LedgerEventType eventType, LedgerEntry... entries) {
+        assertThatThrownBy(() -> new LedgerTransaction(
+                eventType, "key-1", "EXECUTION", "reference-1", null, null, List.of(entries)))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.LEDGER_INVALID_TRANSACTION));
+    }
+
     private ChargeRequest persistedPendingChargeRequest() {
         return ChargeRequest.restore(
                 100L,
@@ -129,6 +243,7 @@ class LedgerTransactionTest {
                 12345L,
                 "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 DepositAmount.of(new BigDecimal("10.000000")),
+                null,
                 null,
                 ChargeStatus.PENDING,
                 null,

@@ -56,7 +56,7 @@ public interface ExecutionApi {
                     요청 본문이 올바르지 않다 (`COMMON_001`).
                     빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`).
                     분기가 있어 아직 실행할 수 없다 (`EXECUTION_005`).
-                    `input` 이 시작 노드의 입력 항목과 맞지 않는다 (`EXECUTION_007`). `error.data.key` 에 걸린 항목이 온다""", content = @Content),
+                    `input` 이 시작 노드의 입력 항목과 맞지 않는다 (`EXECUTION_009`). `error.data.key` 에 걸린 항목이 온다""", content = @Content),
             @ApiResponse(responseCode = "402", description = """
                     ABC 잔액이 모자란다 (`PAYMENT_008`). `error.data` 에 `estimatedAmount` · `availableAmount` ·
                     `shortageAmount` 가 온다""", content = @Content),
@@ -114,8 +114,9 @@ public interface ExecutionApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "결과 파일"),
             @ApiResponse(responseCode = "404", description = """
-                    없는 실행이거나 내 실행이 아니다.
-                    그 형식으로 받을 수 있는 결과가 없다 (`EXECUTION_001`)""", content = @Content),
+                    없는 실행이거나 내 실행이 아니다 (`EXECUTION_001`).
+                    그 형식으로 받을 수 있는 결과가 없다 (`EXECUTION_007`).
+                    실패로 끝난 실행이라 결과가 없다 (`EXECUTION_008`)""", content = @Content),
             @ApiResponse(responseCode = "409", description = "아직 끝나지 않은 실행이다 (`EXECUTION_001`)",
                     content = @Content),
             @ApiResponse(responseCode = "502", description = "실행 엔진에 닿지 못했다 (`EXECUTION_002`)",

@@ -23,7 +23,7 @@ import java.time.LocalDate;
         """)
 public interface AbcApi {
     @Operation(summary = "내 ABC 잔액",
-            description = "지금 쓸 수 있는 금액과 실행 시작 때 선차감되어 결과를 기다리는 금액을 함께 준다.")
+            description = "지금 쓸 수 있는 금액, 실행 시작 때 선차감되어 결과를 기다리는 금액, 공급자로서 받은 정산금을 함께 준다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회됨"),
             @ApiResponse(responseCode = "401", description = "로그인하지 않음", content = @io.swagger.v3.oas.annotations.media.Content)

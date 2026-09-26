@@ -4,6 +4,7 @@ package com.aiblockclock.client.blockchain;
 // REQUEST_FAILED 만 결과 불명이고, 나머지는 요청을 보내기 전이거나 응답을 받은 뒤의 실패다.
 public enum BlockchainClientError {
     INVALID_ADDRESS,
+    INVALID_TRANSACTION_HASH,
     INVALID_CONFIGURATION,
     MALFORMED_RESPONSE,
     REQUEST_FAILED

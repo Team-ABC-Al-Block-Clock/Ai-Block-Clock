@@ -33,6 +33,10 @@ public record AbcAmount(BigDecimal value) {
         return new AbcAmount(value);
     }
 
+    public AbcAmount add(AbcAmount other) {
+        return new AbcAmount(value.add(other.value));
+    }
+
     public AbcAmount multiply(BigDecimal multiplier) {
         return new AbcAmount(
                 value.multiply(multiplier)

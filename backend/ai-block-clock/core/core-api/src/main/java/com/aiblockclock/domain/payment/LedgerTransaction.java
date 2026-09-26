@@ -8,7 +8,9 @@ import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record LedgerTransaction(
@@ -30,6 +32,7 @@ public record LedgerTransaction(
     private static final String EXECUTION_RESERVE_KEY_PREFIX = "execution-reserve:";
     private static final String EXECUTION_RELEASE_KEY_PREFIX = "execution-release:";
     private static final String EXECUTION_REFUND_KEY_PREFIX = "execution-refund:";
+    private static final String EXECUTION_SETTLEMENT_KEY_PREFIX = "execution-settlement:";
 
     public LedgerTransaction {
         if (eventType == null
@@ -52,6 +55,10 @@ public record LedgerTransaction(
             throw new CoreException(
                     ErrorType.LEDGER_INVALID_TRANSACTION
             );
+        }
+
+        if (!hasAllowedShape(eventType, entries)) {
+            throw new CoreException(ErrorType.LEDGER_INVALID_TRANSACTION);
         }
     }
 
@@ -140,7 +147,7 @@ public record LedgerTransaction(
         );
     }
 
-    // 끝난 실행에서 쓰지 않은 만큼을 예치에서 돌려준다. 쓴 만큼은 예치에 남아 정산을 기다린다.
+    // 끝난 실행에서 쓰지 않은 만큼을 예치에서 돌려준다. 쓴 만큼은 같은 자리에서 정산(forExecutionSettlement)으로 옮긴다.
     // 키가 실행 ID 라 폴링이 같은 끝을 여러 번 봐도 한 번만 기록된다.
     public static LedgerTransaction forExecutionRefund(
             UUID executionId,
@@ -165,12 +172,41 @@ public record LedgerTransaction(
         );
     }
 
+    // 끝난 실행에서 쓴 만큼을 예치에서 빼 단계 주인들의 정산금으로 옮긴다. 수수료가 없어 뺀 만큼이 모두 간다.
+    // 주인이 여럿이어도 한 거래로 적어, 일부만 옮겨지고 예치가 남는 일이 없다. 키가 실행 ID 라 한 번만 기록된다.
+    // 자기 에이전트를 자기가 쓴 실행은 내는 사람과 받는 사람이 같다. 쓸 수 있는 잔액이 출금할 수 있는 정산금으로 옮겨 간다.
+    public static LedgerTransaction forExecutionSettlement(
+            UUID executionId,
+            UserId payer,
+            Map<UserId, AbcAmount> payouts
+    ) {
+        BigDecimal used = payouts.values().stream()
+                .map(AbcAmount::value)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<LedgerEntry> entries = new ArrayList<>();
+
+        entries.add(new LedgerEntry(LedgerAccountType.EXECUTION_ESCROW, referenceIdOf(payer), used.negate()));
+        payouts.forEach((supplier, amount) ->
+                entries.add(new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, referenceIdOf(supplier), amount.value())));
+
+        return new LedgerTransaction(
+                LedgerEventType.SETTLEMENT,
+                EXECUTION_SETTLEMENT_KEY_PREFIX + executionId,
+                EXECUTION_REFERENCE_TYPE,
+                executionId.toString(),
+                null,
+                null,
+                entries
+        );
+    }
+
     public boolean isBalanced() {
         return isBalanced(entries);
     }
 
     // 장부 계정은 가입 때 LedgerAccountWriter 가 같은 규칙(사용자 ID 의 십진 문자열)으로 만든다.
-    private static String referenceIdOf(UserId userId) {
+    // 장부 계정과 충전 요청이 사용자를 가리키는 문자열이다. 두 곳이 같은 규칙을 써야 서로 이어진다
+    static String referenceIdOf(UserId userId) {
         return Long.toString(userId.value());
     }
 
@@ -182,5 +218,58 @@ public record LedgerTransaction(
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return totalAmountDelta.compareTo(BigDecimal.ZERO) == 0;
+    }
+
+    // ABC 는 사용자끼리 넘길 수 없다(PAY-004). 합계가 0 이어도 A 의 잔액에서 B 의 잔액으로 가는 거래가 있으므로
+    // 거래 종류마다 빠지는 칸과 들어가는 칸을 정해 두고 그 모양만 받는다. 남에게 가는 길은 정산금 적립 하나뿐이다.
+    // 생성자에서 보므로 팩터리를 거치지 않은 거래도 걸리고, 종류가 늘면 switch 가 컴파일을 막는다.
+    private static boolean hasAllowedShape(
+            LedgerEventType eventType,
+            List<LedgerEntry> entries
+    ) {
+        List<LedgerEntry> outflows = entries.stream()
+                .filter(entry -> entry.amountDelta().signum() < 0)
+                .toList();
+        List<LedgerEntry> inflows = entries.stream()
+                .filter(entry -> entry.amountDelta().signum() > 0)
+                .toList();
+
+        if (outflows.size() != 1) {
+            return false;
+        }
+
+        LedgerEntry outflow = outflows.get(0);
+
+        return switch (eventType) {
+            case CHARGE -> outflow.accountType() == LedgerAccountType.ABC_ISSUANCE
+                    && outflow.accountReferenceId().equals(SYSTEM_ACCOUNT_REFERENCE_ID)
+                    && inflows.size() == 1
+                    && inflows.get(0).accountType() == LedgerAccountType.ABC_BALANCE;
+            case RESERVE -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.ABC_BALANCE, LedgerAccountType.EXECUTION_ESCROW);
+            case REFUND -> isOwnMove(outflow, inflows,
+                    LedgerAccountType.EXECUTION_ESCROW, LedgerAccountType.ABC_BALANCE);
+            case SETTLEMENT -> outflow.accountType() == LedgerAccountType.EXECUTION_ESCROW
+                    && inflows.stream()
+                            .allMatch(inflow -> inflow.accountType() == LedgerAccountType.PAYOUT_BALANCE);
+        };
+    }
+
+    // 한 사람의 칸 사이에서만 옮긴다. 받는 칸이 하나이고 주인이 빠지는 칸과 같아야 한다.
+    private static boolean isOwnMove(
+            LedgerEntry outflow,
+            List<LedgerEntry> inflows,
+            LedgerAccountType from,
+            LedgerAccountType to
+    ) {
+        if (inflows.size() != 1) {
+            return false;
+        }
+
+        LedgerEntry inflow = inflows.get(0);
+
+        return outflow.accountType() == from
+                && inflow.accountType() == to
+                && inflow.accountReferenceId().equals(outflow.accountReferenceId());
     }
 }
