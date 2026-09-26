@@ -425,6 +425,25 @@ describe('mock 이 실서버와 같은 선에서 거절한다', () => {
     })
   })
 
+  it('합류는 고리가 아니라 트리 규칙으로 걸린다', async () => {
+    const graph = {
+      nodes: ['node_001', 'node_002', 'node_003'].map((sourceId, i) => ({
+        nodeKey: `n${i + 1}`,
+        sourceType: 'NODE' as const,
+        sourceId,
+      })),
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 'n1', targetNodeKey: 'n3' },
+        { edgeKey: 'e2', sourceNodeKey: 'n2', targetNodeKey: 'n3' },
+      ],
+    }
+
+    await expect(saveWorkflow({ ...graph, name: '합류' })).rejects.toMatchObject({
+      code: 'WORKFLOW_013',
+      status: 400,
+    })
+  })
+
   it('머리에서 닿지 못하는 고리는 개수만으로는 걸러지지 않는다', async () => {
     const cyclic = {
       nodes: line('node_001', 'node_002', 'node_003').nodes,
