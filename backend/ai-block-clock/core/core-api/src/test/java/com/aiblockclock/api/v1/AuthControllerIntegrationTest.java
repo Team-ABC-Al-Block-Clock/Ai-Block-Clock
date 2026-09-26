@@ -240,16 +240,25 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void 재발급_API는_없고_Swagger는_세션_쿠키_인증만_안내한다() throws Exception {
-        MvcResult docs = mvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andReturn();
+    void 재발급_API는_없고_Swagger는_세션_쿠키와_CSRF_헤더를_안내한다() throws Exception {
+        MvcResult docs = mvc.perform(get("/api/v3/api-docs")).andExpect(status().isOk()).andReturn();
         var root = mapper.readTree(docs.getResponse().getContentAsString());
         var paths = root.path("paths");
+        var schemes = root.path("components").path("securitySchemes");
         assertThat(paths.has(ROOT + "/reissue")).isFalse();
-        assertThat(root.path("components").path("securitySchemes")
-                .path(SESSION_COOKIE).path("in").asString()).isEqualTo("cookie");
+        assertThat(schemes.path(SESSION_COOKIE).path("in").asString()).isEqualTo("cookie");
+        assertThat(schemes.path("X-CSRF-TOKEN").path("in").asString()).isEqualTo("header");
         assertThat(paths.path(ROOT + "/wallet/message").path("post").path("security").size()).isZero();
         assertThat(paths.path(ROOT + "/wallet/login").path("post").path("security").size()).isZero();
         assertThat(root.path("security").get(0).has(SESSION_COOKIE)).isTrue();
+        assertThat(root.path("security").get(0).has("X-CSRF-TOKEN")).isTrue();
+        assertThat(root.path("servers").get(0).path("url").asString()).isEqualTo("/");
+    }
+
+    @Test
+    void Swagger_화면은_Nginx_가_넘기는_api_아래에서_로그인_없이_열린다() throws Exception {
+        mvc.perform(get("/api/swagger-ui/index.html"))
+                .andExpect(status().isOk());
     }
 
     @Test

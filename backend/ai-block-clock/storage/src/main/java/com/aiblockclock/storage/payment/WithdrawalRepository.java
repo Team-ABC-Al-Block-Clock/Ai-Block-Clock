@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,4 +45,27 @@ public interface WithdrawalRepository extends JpaRepository<WithdrawalEntity, Lo
             @Param("newStatus") WithdrawalStatus newStatus,
             @Param("updatedAt") Instant updatedAt
     );
+
+    // 심사 결과와 새 상태를 한 번에 적는다. 조건은 updateStatusIfCurrent 와 같아 취소와 심사가 겹쳐도 한쪽만 된다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE WithdrawalEntity withdrawal
+               SET withdrawal.status = :newStatus,
+                   withdrawal.reviewerId = :reviewerId,
+                   withdrawal.reviewedAt = :reviewedAt,
+                   withdrawal.rejectReason = :rejectReason,
+                   withdrawal.updatedAt = :reviewedAt
+             WHERE withdrawal.id = :withdrawalId
+               AND withdrawal.status = :expectedStatus
+            """)
+    int updateReviewIfCurrent(
+            @Param("withdrawalId") Long withdrawalId,
+            @Param("expectedStatus") WithdrawalStatus expectedStatus,
+            @Param("newStatus") WithdrawalStatus newStatus,
+            @Param("reviewerId") Long reviewerId,
+            @Param("reviewedAt") Instant reviewedAt,
+            @Param("rejectReason") String rejectReason
+    );
+
+    List<WithdrawalEntity> findAllByStatusOrderByCreatedAtAscIdAsc(WithdrawalStatus status);
 }

@@ -51,6 +51,18 @@ public enum ErrorType {
     USER_ALREADY_ONBOARDED(HttpStatus.CONFLICT, ErrorCode.USER_006,
             "이미 가입을 마쳤습니다.", LogLevel.WARN),
 
+    IDENTITY_VERIFICATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, ErrorCode.USER_007,
+            "제출한 본인 확인을 심사하고 있습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_ALREADY_APPROVED(HttpStatus.CONFLICT, ErrorCode.USER_008,
+            "이미 본인 확인을 마쳤습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.USER_009,
+            "본인 확인을 제출한 적이 없습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.USER_010,
+            "현재 상태에서는 본인 확인을 심사할 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
@@ -248,7 +260,10 @@ public enum ErrorType {
             "출금 신청을 찾을 수 없습니다.", LogLevel.WARN),
 
     WITHDRAWAL_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.PAYMENT_016,
-            "현재 상태에서는 출금 신청을 바꿀 수 없습니다.", LogLevel.WARN);
+            "현재 상태에서는 출금 신청을 바꿀 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_IDENTITY_NOT_VERIFIED(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_017,
+            "본인 확인을 마쳐야 출금을 신청할 수 있습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

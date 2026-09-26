@@ -49,7 +49,7 @@ public class AuthController implements AuthApi {
             HttpServletResponse httpResponse
     ) {
         User user = walletAuthService.login(request.walletAddress(), request.signature());
-        var expiresAt = sessionAuthenticationManager.login(user.id(), httpRequest, httpResponse);
+        var expiresAt = sessionAuthenticationManager.login(user, httpRequest, httpResponse);
         httpResponse.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
 
         return ApiResult.success(LoginSessionResponse.from(expiresAt));

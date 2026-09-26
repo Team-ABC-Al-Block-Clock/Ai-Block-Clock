@@ -1,6 +1,7 @@
 package com.aiblockclock;
 
 import com.aiblockclock.domain.agent.AgentGradeProperties;
+import com.aiblockclock.domain.auth.AdminProperties;
 import com.aiblockclock.domain.auth.WalletAuthProperties;
 import com.aiblockclock.domain.file.FileStoreProperties;
 import com.aiblockclock.domain.node.NodeBaseCostProperties;
@@ -15,7 +16,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication
 @EnableConfigurationProperties({WalletAuthProperties.class, FileStoreProperties.class, ChargeProperties.class,
         AgentGradeProperties.class, NodeBaseCostProperties.class, NodeTestRunProperties.class,
-        WithdrawalProperties.class})
+        WithdrawalProperties.class, AdminProperties.class})
 public class AiBlockClockApplication {
 
     public static void main(String[] args) {
