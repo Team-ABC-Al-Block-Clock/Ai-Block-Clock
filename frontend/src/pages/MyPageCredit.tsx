@@ -206,7 +206,7 @@ export default function MyPageCredit() {
           animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        코인 예치/출금
+        예치/출금
       </div>
       <div
         className="absolute text-[13px] tracking-[-.01em]"
@@ -380,9 +380,9 @@ export default function MyPageCredit() {
           left: '442px',
           top: '750px',
           width: '896px',
-          height: '245px',
-          padding: '28px 32px',
-          borderRadius: '14px',
+          height: '196px',
+          padding: '26px 30px',
+          borderRadius: '16px',
           backdropFilter: 'blur(18px) saturate(115%)',
           WebkitBackdropFilter: 'blur(18px) saturate(115%)',
         }}
@@ -483,24 +483,26 @@ export default function MyPageCredit() {
           </>
         ) : (
           <>
-            <div style={{ width: '530px' }}>
-              <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
+            <div style={{ width: '500px' }}>
+              <div className="text-[14px] font-semibold" style={{ color: 'rgba(255,236,246,.62)' }}>
                 {summaryTitle}
               </div>
               <div
-                className="flex justify-between"
-                style={{ marginTop: '18px', alignItems: 'baseline' }}
+                className="flex items-baseline justify-between"
+                style={{ marginTop: '10px', paddingBottom: '14px' }}
               >
-                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
                   {sumLabel}
                 </span>
-                <span className="text-[15.5px] font-semibold text-white">{sumCredit}</span>
+                <span className="text-[26px] font-semibold tracking-[-.02em] text-white">
+                  {sumCredit}
+                </span>
               </div>
               <div
-                className="flex justify-between"
-                style={{ marginTop: '12px', alignItems: 'baseline' }}
+                className="flex items-baseline justify-between"
+                style={{ paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,.1)' }}
               >
-                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+                <span className="text-[15px]" style={{ color: 'rgba(255,236,246,.72)' }}>
                   {withdraw ? '받을 지갑' : '예상 가스비'}
                 </span>
                 {/* 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다. */}
@@ -533,13 +535,20 @@ export default function MyPageCredit() {
                 </div>
               )}
             </div>
-            <div className="flex flex-col" style={{ gap: '8px' }}>
+            <div
+              className="flex flex-col justify-center self-stretch"
+              style={{
+                gap: '12px',
+                paddingLeft: '30px',
+                borderLeft: '1px solid rgba(255,255,255,.1)',
+              }}
+            >
               <div
                 onClick={handleCta}
                 style={{
-                  width: '300px',
-                  height: withdraw ? '50px' : '60px',
-                  borderRadius: '10px',
+                  width: '280px',
+                  height: '58px',
+                  borderRadius: '14px',
                   background: 'var(--color-accent)',
                   color: 'var(--color-accent-ink)',
                   opacity: blocked ? 0.5 : 1,
