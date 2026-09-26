@@ -36,6 +36,8 @@ public enum ErrorCode {
     NODE_005,
     NODE_006,
     NODE_007,
+    NODE_008,
+    NODE_009,
 
     EXECUTION_001,
     EXECUTION_002,

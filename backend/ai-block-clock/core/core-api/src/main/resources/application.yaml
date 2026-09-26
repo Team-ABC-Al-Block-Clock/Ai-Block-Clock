@@ -58,6 +58,9 @@ node:
     abc-per-usd: ${ABC_PER_USD:1}
     margin: ${NODE_BASE_COST_MARGIN:1.5}
     sample-size: ${NODE_BASE_COST_SAMPLE_SIZE:5}
+  # 판매자 테스트 실행은 무료라 모델 요금을 플랫폼이 낸다. 노드마다 하루(UTC) 이 횟수까지 받는다.
+  test-run:
+    daily-limit: ${NODE_TEST_RUN_DAILY_LIMIT:5}
 
 # 등급 지표(PAY-016 ~ 018) 수식의 조정값. AI grading-formula.md v1.0 의 초기값이고 팀 합의로 바뀔 수 있다.
 agent-grade:

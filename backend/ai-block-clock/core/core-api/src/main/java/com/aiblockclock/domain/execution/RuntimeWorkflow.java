@@ -56,6 +56,21 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 "output", Map.of("title", workflow.getName()))), refFiles);
     }
 
+    // 판매자 테스트 실행은 노드 하나만 돈다. 실행과 같은 모양이라 엔진은 같은 규칙으로 돌리고 원가를 잰다.
+    public static RuntimeWorkflow forTest(String id, PlannedPrompt prompt) {
+        String nodeId = stepIdOf(0);
+        Map<String, List<RefFile>> refFiles = prompt.refFiles().isEmpty()
+                ? Map.of()
+                : Map.of(nodeId, prompt.refFiles());
+
+        return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
+                "id", id,
+                "name", prompt.name(),
+                "nodes", List.of(node(nodeId, prompt, null)),
+                "edges", List.of(),
+                "output", Map.of("title", prompt.name()))), refFiles);
+    }
+
     // 엔진은 이 번호로 단계마다 결과를 돌려준다. 끝난 뒤 값을 셀 때도 같은 번호로 찾는다.
     public static String stepIdOf(int index) {
         return "n" + (index + 1);
