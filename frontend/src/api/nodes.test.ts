@@ -1,12 +1,24 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { client } from '@/api/client'
 import { ApiError } from '@/api/errors'
-import { getNode, updateNode } from '@/api/nodes'
+import {
+  attachRefFile,
+  describeRefFileProblem,
+  detachRefFile,
+  getNode,
+  REF_FILE_LIMITS,
+  updateNode,
+} from '@/api/nodes'
 import { estimateCost } from '@/api/executions'
 import { getNodePalette, getWorkflow, replaceWorkflow, saveWorkflow } from '@/api/workflows'
+import { resetCreatedNodes } from '@/mocks/handlers/nodes'
 import { NODE_DETAILS, OTHERS_NODE_ID } from '@/mocks/fixtures/nodes'
 
 /** api 레이어 + mock 핸들러를 한 번에 통과시킨다. */
+
+// 자료를 붙이고 떼면 mock 이 픽스처 노드를 덮어써 남는다. 비우지 않으면 실행 순서에 따라 갈린다.
+beforeEach(resetCreatedNodes)
 
 describe('getNode', () => {
   it('저장하며 만들어진 원본을 상세로 연다', async () => {
@@ -157,5 +169,101 @@ describe('updateNode', () => {
     expect(updated.name).toBe('고친 뒤')
     expect(Number(updated.baseCost)).toBeGreaterThan(1)
     expect((await getNode(sourceId)).name).toBe('고친 뒤')
+  })
+})
+
+/** 노드에 붙는 참고 자료. 서버 `RefFileValidator` 와 같은 값으로 막는지 본다. */
+const fileOf = (name: string, bytes: number) =>
+  new File([new Uint8Array(bytes)], name, { type: 'application/octet-stream' })
+
+describe('describeRefFileProblem', () => {
+  it('받는 형식은 통과시킨다', () => {
+    for (const ext of REF_FILE_LIMITS.extensions) {
+      expect(describeRefFileProblem(fileOf(`자료${ext}`, 1024), 0)).toBeNull()
+    }
+  })
+
+  it('대문자 확장자도 같은 형식으로 본다', () => {
+    expect(describeRefFileProblem(fileOf('기준표.PDF', 1024), 0)).toBeNull()
+  })
+
+  it('이미지는 받지 않는다 — 엔진이 pdf · txt · md · csv 만 읽는다', () => {
+    for (const name of ['표지.png', '사진.jpg', '사진.jpeg']) {
+      expect(describeRefFileProblem(fileOf(name, 1024), 0)).toContain('업로드 가능합니다')
+    }
+  })
+
+  it('빈 파일과 형식이 함께 어긋나면 서버와 같은 순서로 빈 파일을 먼저 짚는다', () => {
+    expect(describeRefFileProblem(fileOf('빈.zip', 0), 0)).toContain('빈 파일')
+  })
+
+  it('받지 않는 형식은 사유를 돌려준다', () => {
+    expect(describeRefFileProblem(fileOf('자료.zip', 1024), 0)).toContain('PDF')
+  })
+
+  it('빈 파일은 막는다', () => {
+    expect(describeRefFileProblem(fileOf('빈.csv', 0), 0)).toContain('빈 파일')
+  })
+
+  it('한 건이 아니라 붙어 있는 것과의 합계로 막는다', () => {
+    const half = REF_FILE_LIMITS.maxTotalBytes / 2
+
+    expect(describeRefFileProblem(fileOf('절반.pdf', half), 0)).toBeNull()
+    expect(describeRefFileProblem(fileOf('절반.pdf', half), half + 1)).toContain('10MB')
+  })
+
+  it('이미 목록에 있는 이름은 막는다 — 대소문자는 같은 것으로 본다', () => {
+    expect(describeRefFileProblem(fileOf('기준표.pdf', 1024), 0, ['기준표.pdf'])).toContain('이미')
+    expect(describeRefFileProblem(fileOf('기준표.PDF', 1024), 0, ['기준표.pdf'])).toContain('이미')
+    expect(describeRefFileProblem(fileOf('기준표2.pdf', 1024), 0, ['기준표.pdf'])).toBeNull()
+  })
+
+  it('딱 상한까지는 붙일 수 있다', () => {
+    expect(
+      describeRefFileProblem(fileOf('꽉.pdf', 1024), REF_FILE_LIMITS.maxTotalBytes - 1024),
+    ).toBeNull()
+  })
+})
+
+/**
+ * 붙이기는 폼 조립까지만 확인한다. jsdom 의 `FormData` 는 undici 의 것과 달라 요청에 실리지
+ * 못해 핸들러의 검사 갈래까지 가지 못한다(`api/executions.test.ts` 와 같은 사정).
+ * 형식·용량 거절은 브라우저에서 확인한다.
+ */
+describe('attachRefFile', () => {
+  it('명세가 정한 이름(file)으로 한 건만 담아 보낸다', async () => {
+    const post = vi.spyOn(client, 'post').mockResolvedValue({} as never)
+    const file = fileOf('채점 기준표.pdf', 2048)
+    await attachRefFile('node_001', file)
+
+    expect(post.mock.calls[0][0]).toBe('/nodes/node_001/ref-files')
+    const form = post.mock.calls[0][1] as FormData
+    expect(form.get('file')).toBe(file)
+    expect([...form.keys()]).toEqual(['file'])
+    post.mockRestore()
+  })
+
+  it('남의 노드에는 붙이지 못한다', async () => {
+    await expect(attachRefFile(OTHERS_NODE_ID, fileOf('자료.pdf', 16))).rejects.toMatchObject({
+      code: 'NODE_002',
+    })
+  })
+})
+
+describe('detachRefFile', () => {
+  it('뗀 자료는 상세 조회의 refFiles 에서 빠진다', async () => {
+    const nodeId = NODE_DETAILS[1].nodeId
+    const [first] = (await getNode(nodeId)).refFiles
+
+    await detachRefFile(nodeId, first.refFileId)
+
+    const after = await getNode(nodeId)
+    expect(after.refFiles.map((file) => file.refFileId)).not.toContain(first.refFileId)
+  })
+
+  it('이미 삭제된 자료는 NODE_005', async () => {
+    await expect(detachRefFile(NODE_DETAILS[0].nodeId, 'ref_없음')).rejects.toMatchObject({
+      code: 'NODE_005',
+    })
   })
 })

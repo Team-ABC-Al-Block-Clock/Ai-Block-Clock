@@ -104,6 +104,7 @@ client.interceptors.response.use(
     const body = response.data
     const code = isApiErrorBody(body) ? body.error.code : undefined
     const message = isApiErrorBody(body) ? body.error.message : error.message
+    const data = isApiErrorBody(body) ? body.error.data : undefined
 
     // CSRF 토큰이 죽었다 — 세션이 갈렸는데 캐시를 버리지 못한 경우다. 한 번만 다시 받아 보낸다.
     // 도메인 코드가 붙은 403 은 권한 거절이라 건드리지 않는다. 서버의 CSRF 검사는
@@ -125,7 +126,7 @@ client.interceptors.response.use(
     // 세션이 사라졌으니 거기 매인 토큰도 죽은 값이다.
     if (response.status === 401) notifyAuthFailure()
 
-    throw new ApiError(message, { code, status: response.status, cause: error })
+    throw new ApiError(message, { code, status: response.status, data, cause: error })
   },
 )
 

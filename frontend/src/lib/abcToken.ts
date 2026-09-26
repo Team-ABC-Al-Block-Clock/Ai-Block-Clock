@@ -1,4 +1,4 @@
-import { parseUnits, type Address } from 'viem'
+import { formatUnits, parseUnits, type Address } from 'viem'
 
 /**
  * abcToken (ERC-20) 과 충전 입금 규칙.
@@ -32,6 +32,13 @@ export const ABC_TOKEN_ABI = [
       { name: 'value', type: 'uint256' },
     ],
     outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
   },
 ] as const
 
@@ -88,4 +95,9 @@ export async function watchAbcToken(provider: unknown): Promise<void> {
   } catch {
     /* 거절·미지원 — 알릴 일이 아니다 */
   }
+}
+
+/** 10500000000000000000n → '10.5' */
+export function fromTokenValue(value: bigint): string {
+  return formatUnits(value, DECIMALS)
 }

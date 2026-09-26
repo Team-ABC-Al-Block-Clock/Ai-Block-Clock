@@ -93,14 +93,19 @@ export default function ModelSelect({
                 onChange(item.value)
                 setOpen(false)
               }}
-              className="flex w-full cursor-pointer items-center border-0 bg-transparent text-left font-[inherit] text-white hover:bg-[rgba(255,255,255,.12)]"
+              className="flex w-full cursor-pointer items-center gap-[10px] border-0 bg-transparent text-left font-[inherit] text-white hover:bg-[rgba(255,255,255,.12)]"
               style={{
                 height: '40px',
                 padding: '0 12px',
                 background: item.value === value ? 'rgba(255,255,255,.10)' : undefined,
               }}
             >
-              {item.label}
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.hint && (
+                <span className="flex-none text-[13px]" style={{ color: 'rgba(255,224,238,.6)' }}>
+                  {item.hint}
+                </span>
+              )}
             </button>
           ))}
         </div>

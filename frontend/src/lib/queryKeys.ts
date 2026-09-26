@@ -57,6 +57,7 @@ export const queryKeys = {
       lists: () => [...queryKeys.users.all, 'favorites'] as const,
       list: (params: ListParams) => [...queryKeys.users.favorites.lists(), params] as const,
     },
+    // BE 에 아직 없어 화면에서는 뺐다. API 가 생기면 내 에이전트 탭으로 다시 붙인다.
     usedAgents: {
       lists: () => [...queryKeys.users.all, 'used-agents'] as const,
       list: (params: ListParams) => [...queryKeys.users.usedAgents.lists(), params] as const,
@@ -107,6 +108,12 @@ export const queryKeys = {
       list: (params: ListParams) => [...queryKeys.credits.transactions.lists(), params] as const,
     },
     charge: (chargeId: string) => [...queryKeys.credits.all, 'charges', chargeId] as const,
+    /** 사용량 추이. 사용 내역 목록과 따로 둔다 — 전환 · 출금은 사용량을 바꾸지 않는다. */
+    usageTrend: (params: ListParams) => [...queryKeys.credits.all, 'usage-trend', params] as const,
+    history: {
+      lists: () => [...queryKeys.credits.all, 'history'] as const,
+      list: (params: ListParams) => [...queryKeys.credits.history.lists(), params] as const,
+    },
   },
 
   /** /settlements */

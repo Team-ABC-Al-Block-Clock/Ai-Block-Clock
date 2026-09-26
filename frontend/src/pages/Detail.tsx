@@ -188,6 +188,7 @@ export default function Detail() {
           prev && { ...prev, favorited: res.favorited, favoriteCount: res.favoriteCount },
       )
       void queryClient.invalidateQueries({ queryKey: queryKeys.users.favorites.lists() })
+      // 사용한 에이전트 탭은 지금 없지만 API 가 생기면 다시 붙이므로 남겨 둔다.
       void queryClient.invalidateQueries({ queryKey: queryKeys.users.usedAgents.lists() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents.lists() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() })

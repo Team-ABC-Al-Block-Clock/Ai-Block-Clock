@@ -105,7 +105,7 @@ export const mypageHandlers = [
       cursorCode: 'MARKET_003',
     })
   }),
-  /** 사용한 에이전트 목록 */
+  /** 사용한 에이전트 목록. BE 에 아직 없어 화면에서는 뺐다. API 가 생기면 내 에이전트 탭으로 다시 붙인다. */
   http.get(`${API_BASE_URL}/users/me/used-agents`, async ({ request }) => {
     const forced = await scene(request)
     if (forced) return forced

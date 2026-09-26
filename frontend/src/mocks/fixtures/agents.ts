@@ -395,6 +395,7 @@ const USED_BASE = Date.parse('2026-09-07T14:22:00+09:00')
 
 /**
  * 같은 에이전트를 여러 번 실행했어도 한 건으로 묶고 `myExecutionCount` 로 횟수를 낸다.
+ * BE 에 아직 없어 화면에서는 뺐다. API 가 생기면 내 에이전트 탭으로 다시 붙인다.
  */
 export function usedAgents(): UsedAgent[] {
   return USED.map((index, i) => {
