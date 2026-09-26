@@ -1,5 +1,10 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.support.error.ErrorType;
+import com.aiblockclock.support.error.CoreException;
+import com.aiblockclock.enums.workflow.ControlType;
+import com.aiblockclock.domain.workflow.ConditionOperator;
+import com.aiblockclock.domain.workflow.BranchCondition;
 import com.aiblockclock.domain.agent.AgentProfile;
 import com.aiblockclock.domain.agent.AgentRegistration;
 import com.aiblockclock.domain.agent.AgentService;
@@ -30,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 @Tag("integration")
@@ -64,6 +70,32 @@ class AgentExpansionIntegrationTest {
                 List.of(GraphFixtures.edge("e1", "n1", "n2")));
 
         agent = agentService.register(OWNER, source, Revision.initial(), profile());
+    }
+
+    @Test
+    @DisplayName("안에 분기가 있는 에이전트는 아직 펴지 않는다")
+    void refusesAgentWithBranchInside() {
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+                InputSource.defaultSource(), null, ControlType.BRANCH,
+                new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
+        Workflow source = workflowService.save(OWNER, "분기를 품은 워크플로우", null,
+                List.of(GraphFixtures.placement("n1", soldNode.getId().value()), branch,
+                        node("n2", "고급 전략", "고급 전략을 쓴다"), node("n3", "보급 전략", "보급 전략을 쓴다")),
+                List.of(GraphFixtures.edge("e1", "n1", "br1"),
+                        GraphFixtures.branchEdge("e2", "br1", "n2", true),
+                        GraphFixtures.branchEdge("e3", "br1", "n3", false)));
+        AgentRegistration branched = agentService.register(OWNER, source, Revision.initial(), profile());
+
+        Workflow placed = workflowService.save(OWNER, "분기 에이전트를 놓은 워크플로우", null,
+                List.of(new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, null,
+                        branched.agent().getId().value(), InputSource.defaultSource(),
+                        null, null, null, null, null, null, null)),
+                List.of());
+
+        assertThatThrownBy(() -> executionPlanAssembler.assemble(placed))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
     }
 
     @Test

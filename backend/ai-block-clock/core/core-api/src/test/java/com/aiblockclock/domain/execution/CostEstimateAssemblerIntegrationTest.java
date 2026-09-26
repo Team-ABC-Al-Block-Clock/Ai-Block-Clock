@@ -127,7 +127,7 @@ class CostEstimateAssemblerIntegrationTest {
     }
 
     @Test
-    void 분기가_있으면_실행과_같이_견적도_내지_않는다() {
+    void 분기_노드는_값이_없어_적지_않고_두_갈래를_다_더한다() {
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
                 new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
@@ -137,10 +137,10 @@ class CostEstimateAssemblerIntegrationTest {
                         GraphFixtures.branchEdge("e2", "br1", "n2", true),
                         GraphFixtures.branchEdge("e3", "br1", "n3", false)));
 
-        assertThatThrownBy(() -> costEstimateAssembler.assemble(workflow))
-                .isInstanceOf(CoreException.class)
-                .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+        CostEstimate estimate = costEstimateAssembler.assemble(workflow);
+
+        assertThat(estimate.items()).extracting(item -> item.nodeKey().value()).containsExactly("n1", "n2", "n3");
+        assertThat(estimate.total().value()).isEqualByComparingTo("9.000000");
     }
 
     // 노드 두 개라 원가는 3 + 3 = 6 ABC 다. 새 버전은 Tier 4(+0%) 라 판매가도 6 이다.

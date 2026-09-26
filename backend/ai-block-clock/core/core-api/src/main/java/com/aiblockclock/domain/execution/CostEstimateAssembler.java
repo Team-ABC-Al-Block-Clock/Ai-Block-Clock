@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -36,27 +37,27 @@ public class CostEstimateAssembler {
         UserId payer = workflow.getOwner();
 
         return CostEstimate.of(workflow.getGraph().nodesInOrder().stream()
-                .map(placed -> itemOf(placed, payer))
+                .flatMap(placed -> itemOf(placed, payer))
                 .toList());
     }
 
-    private CostItem itemOf(GraphNode placed, UserId payer) {
+    private Stream<CostItem> itemOf(GraphNode placed, UserId payer) {
         return switch (placed.sourceType()) {
             case NODE -> {
                 NodeDefinition node = nodeReader.read(NodeDefinitionId.of(placed.reference().referenceId()));
 
-                yield new CostItem(placed.key(), SourceType.NODE, node.getSpec().name(), node.getSpec().baseCost(),
-                        BigDecimal.ONE);
+                yield Stream.of(new CostItem(placed.key(), SourceType.NODE, node.getSpec().name(),
+                        node.getSpec().baseCost(), BigDecimal.ONE));
             }
             case AGENT -> {
                 Agent agent = agentReader.read(AgentId.of(placed.reference().referenceId()));
                 AgentVersion version = agentVersionReader.read(AgentVersionId.of(placed.reference().versionId()));
 
-                yield new CostItem(placed.key(), SourceType.AGENT, agent.getProfile().name(),
-                        priceFor(payer, agent, version), multiplierFor(payer, agent, version));
+                yield Stream.of(new CostItem(placed.key(), SourceType.AGENT, agent.getProfile().name(),
+                        priceFor(payer, agent, version), multiplierFor(payer, agent, version)));
             }
-            // 분기는 아직 실행하지 못한다. 실행 조립(ExecutionUnitAssembler)과 같은 규칙으로 견적도 내지 않는다.
-            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            // 분기 노드는 값이 없다. 어느 갈래로 갈지 모르므로 두 갈래를 다 더해 떼고, 안 간 쪽은 끝난 뒤 돌려준다.
+            case CONTROL -> Stream.empty();
             case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
         };
     }

@@ -38,7 +38,7 @@ public class ExecutionUnitAssembler {
                         node.getPrompt(), node.getSpec().output(), refFileReader.read(nodeId));
             }
             case AGENT -> expand(placed);
-            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            case CONTROL -> new ControlUnit();
             case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
         };
     }
