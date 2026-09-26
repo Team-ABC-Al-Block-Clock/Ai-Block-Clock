@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { client } from '@/api/client'
 import { ApiError } from '@/api/errors'
@@ -12,9 +12,13 @@ import {
 } from '@/api/nodes'
 import { estimateCost } from '@/api/executions'
 import { getNodePalette, getWorkflow, replaceWorkflow, saveWorkflow } from '@/api/workflows'
+import { resetCreatedNodes } from '@/mocks/handlers/nodes'
 import { NODE_DETAILS, OTHERS_NODE_ID } from '@/mocks/fixtures/nodes'
 
 /** api 레이어 + mock 핸들러를 한 번에 통과시킨다. */
+
+// 자료를 붙이고 떼면 mock 이 픽스처 노드를 덮어써 남는다. 비우지 않으면 실행 순서에 따라 갈린다.
+beforeEach(resetCreatedNodes)
 
 describe('getNode', () => {
   it('저장하며 만들어진 원본을 상세로 연다', async () => {

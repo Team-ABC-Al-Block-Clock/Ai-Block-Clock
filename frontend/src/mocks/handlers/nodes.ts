@@ -27,6 +27,15 @@ import { scene } from '@/mocks/scenario'
  */
 const CREATED_KEY = 'abc:mock-created-nodes'
 
+/** 테스트가 서로를 물들이지 않게 비운다. 고친 픽스처 노드가 다음 테스트까지 남는다. */
+export function resetCreatedNodes() {
+  try {
+    localStorage.removeItem(CREATED_KEY)
+  } catch {
+    /* 접근 불가 환경 */
+  }
+}
+
 function readCreated(): Record<string, NodeDetail> {
   try {
     return JSON.parse(localStorage.getItem(CREATED_KEY) ?? '{}') as Record<string, NodeDetail>
