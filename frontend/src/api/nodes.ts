@@ -7,12 +7,14 @@ import { api } from '@/api/client'
  * 이쪽은 원본을 지워 다른 워크플로우에서도 사라진다.
  */
 
-/** 서버가 아는 모델. 지금은 하나뿐이고, 비워 보내면 서버가 기본값을 고른다. */
-export type AiModel = 'GEMINI_2_5_FLASH'
+/** 서버가 아는 모델. 비워 보내면 서버가 기본값을 고른다. */
+export type AiModel = 'GEMINI_2_5_FLASH' | 'GEMINI_2_5_PRO'
 
 /** 고르는 자리에 쓰는 이름. 서버 enum 이 늘어나면 여기만 고친다. */
-export const AI_MODELS: { value: AiModel; label: string }[] = [
-  { value: 'GEMINI_2_5_FLASH', label: 'Gemini 2.5 Flash' },
+export const AI_MODELS: { value: AiModel; label: string; hint?: string }[] = [
+  { value: 'GEMINI_2_5_FLASH', label: 'Gemini 2.5 Flash', hint: '빠름 · 원가 낮음' },
+  // 고르면 단가가 오른다 — 노드당 15~35초에 원가가 약 네 배다(AI 연동 가이드 13장).
+  { value: 'GEMINI_2_5_PRO', label: 'Gemini 2.5 Pro', hint: '정밀 · 느리고 원가 4배' },
 ]
 
 /** 서버 기본값과 같은 값. 만들기 자리의 첫 선택이다. */
