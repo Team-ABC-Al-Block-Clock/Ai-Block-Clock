@@ -190,11 +190,16 @@ export function toSummary(agent: AgentDetail): AgentSummary {
   }
 }
 
-/** 화면의 세 갈래 — 기록 없음(404) · 확정 대기 · 대조 불일치 — 는 이 셋으로만 확인된다. */
+/** 화면의 다섯 갈래 — 기록 없음(404) · 확정 대기 · 대조 불일치 · 서버 기록 불일치 ·
+ *  체인 기록 없음 — 는 이 다섯으로만 확인된다. */
 const NO_RECORD = 'agt_30'
 const PENDING = 'agt_29'
 /** 주소와 해시가 둘 다 어긋난 건. 화면의 ✗ 두 줄을 한 번에 확인한다. */
 const TAMPERED = 'agt_28'
+/** 원작자 · 해시는 맞는데 서버 기록이 체인과 다른 건. 줄은 ✓ 둘에 ✗ 하나가 된다. */
+const RECORD_DRIFT = 'agt_27'
+/** 서버에는 기록이 있는데 체인에서 찾지 못한 건. */
+const OFF_CHAIN = 'agt_26'
 
 /** 난수로 만들면 refetch 마다 해시가 바뀌어 값이 달라진 것처럼 보인다. */
 function hex(seed: string, length: number) {
@@ -208,11 +213,23 @@ function hex(seed: string, length: number) {
   return out.slice(0, length)
 }
 
+/** 조회 주소가 가리키는 건 거래 해시가 아니라 문서 id 다 — `EjRWeJASNFZ4kBI0VniQEg-v1` 꼴. */
+function documentId(seed: string) {
+  const raw = hex(seed, 32)
+  let bytes = ''
+  for (let i = 0; i < raw.length; i += 2) {
+    bytes += String.fromCharCode(parseInt(raw.slice(i, i + 2), 16))
+  }
+  return `${btoa(bytes).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')}-v1`
+}
+
 export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
   if (agent.agentId === NO_RECORD) return null
 
   const pending = agent.agentId === PENDING
   const stale = agent.agentId === TAMPERED
+  const drift = agent.agentId === RECORD_DRIFT
+  const offChain = agent.agentId === OFF_CHAIN
 
   const walletAddress = `0x${hex(agent.owner.userId, 40)}`
   const transactionHash = `0x${hex(`${agent.agentId}:tx`, 64)}`
@@ -220,8 +237,14 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
   const onChainOwnerAddress = stale ? `0x${hex(`${agent.agentId}:stale-owner`, 40)}` : walletAddress
   const onChainMetadataHash = stale ? `0x${hex(`${agent.agentId}:stale-hash`, 64)}` : metadataHash
 
-  const ownerMatched = onChainOwnerAddress === walletAddress
-  const metadataMatched = onChainMetadataHash === metadataHash
+  // 현재 시각으로 만들면 refetch 마다 「마지막 검증」 줄이 움직인다. 등록 시각에서 민다.
+  const verifiedAt = new Date(
+    Date.parse(agent.createdAt) + 36e5 * (1 + (parseInt(hex(agent.agentId, 4), 16) % 72)),
+  ).toISOString()
+
+  const ownerMatched = !pending && !offChain && onChainOwnerAddress === walletAddress
+  const metadataMatched = !pending && !offChain && onChainMetadataHash === metadataHash
+  const verified = ownerMatched && metadataMatched && !drift
 
   return {
     agentId: agent.agentId,
@@ -229,22 +252,36 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
     blockchain: {
       network: 'SSAFY',
       chainId: 31221,
-      contractAddress: '0x41e2e64a79b19e9329f82d3d55be5e767a6f571d',
-      transactionHash,
+      contractAddress: pending ? null : '0x41e2e64a79b19e9329f82d3d55be5e767a6f571d',
+      transactionHash: pending ? null : transactionHash,
       transactionStatus: pending ? 'PENDING' : 'CONFIRMED',
       // 등록 화면으로 만든 건은 ID 가 UUID 다 — 숫자만 뽑으면 안전한 정수 범위를 넘는다.
       blockNumber: pending ? null : 15_230_000 + (parseInt(hex(agent.agentId, 6), 16) % 100_000),
       registeredAt: agent.createdAt,
-      explorerUrl: `https://amoy.polygonscan.com/tx/${transactionHash}`,
+      explorerUrl: pending
+        ? null
+        : `https://sto.ssafy.io/v1/tokens/0x41e2e64a79b19e9329f82d3d55be5e767a6f571d/documents/${documentId(`${agent.agentId}:document`)}`,
     },
     verification: {
       offChainOwnerAddress: walletAddress,
-      onChainOwnerAddress,
-      offChainMetadataHash: metadataHash,
-      onChainMetadataHash,
+      onChainOwnerAddress: pending || offChain ? null : onChainOwnerAddress,
+      offChainMetadataHash: pending ? null : metadataHash,
+      onChainMetadataHash: pending || offChain ? null : onChainMetadataHash,
       ownerMatched,
       metadataMatched,
-      verified: ownerMatched && metadataMatched,
+      verified,
+      mismatchReason: pending
+        ? 'NOT_CONFIRMED'
+        : offChain
+          ? 'NOT_ON_CHAIN'
+          : drift
+            ? 'RECORD_MISMATCH'
+            : !ownerMatched
+              ? 'OWNER_MISMATCH'
+              : !metadataMatched
+                ? 'METADATA_CHANGED'
+                : null,
+      verifiedAt: pending ? null : verifiedAt,
     },
   }
 }
