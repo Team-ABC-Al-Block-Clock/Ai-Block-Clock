@@ -56,11 +56,11 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
     @Column(name = "output_kind", length = 10, nullable = false)
     private OutputKind outputKind;
 
-    @Column(name = "output_sample", length = 64)
-    private String outputSample;
+    @Column(name = "output_example", columnDefinition = "text")
+    private String outputExample;
 
     public NodeDefinitionEntity(UUID id, Long ownerId, String name, NodeType nodeType, String prompt,
-                                AiModel model, BigDecimal baseCost, OutputKind outputKind, String outputSample) {
+                                AiModel model, BigDecimal baseCost, OutputKind outputKind, String outputExample) {
         this.id = id;
         this.ownerId = ownerId;
         this.name = name;
@@ -69,17 +69,17 @@ public class NodeDefinitionEntity extends BaseTimeEntity {
         this.model = model;
         this.baseCost = baseCost;
         this.outputKind = outputKind;
-        this.outputSample = outputSample;
+        this.outputExample = outputExample;
     }
 
     public void edit(String name, String prompt, AiModel model, BigDecimal baseCost, OutputKind outputKind,
-                     String outputSample) {
+                     String outputExample) {
         this.name = name;
         this.prompt = prompt;
         this.model = model;
         this.baseCost = baseCost;
         this.outputKind = outputKind;
-        this.outputSample = outputSample;
+        this.outputExample = outputExample;
     }
 
     public void reprice(BigDecimal baseCost) {

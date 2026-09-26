@@ -156,7 +156,7 @@ public record NodePlacementRequest(
 
         return output == null
                 ? new NodeDraft(name, prompt, modelOrDefault(), OutputKind.TEXT, null)
-                : new NodeDraft(name, prompt, modelOrDefault(), output.kind(), output.sample());
+                : new NodeDraft(name, prompt, modelOrDefault(), output.kind(), output.exampleJson());
     }
 
     public List<InputField> toFields() {

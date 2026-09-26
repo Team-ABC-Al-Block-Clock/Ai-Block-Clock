@@ -117,7 +117,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
 
     private static Map<String, Object> outputOf(NodeOutput output) {
         return output.kind() == OutputKind.JSON
-                ? Map.of("kind", "json", "sample", output.sample())
+                ? Map.of("kind", "json", "example", MAPPER.readTree(output.example()))
                 : Map.of("kind", "text");
     }
 }

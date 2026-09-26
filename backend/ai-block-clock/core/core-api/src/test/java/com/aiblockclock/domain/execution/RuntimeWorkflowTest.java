@@ -138,16 +138,16 @@ class RuntimeWorkflowTest {
     void 단계마다_저장한_출력_형식을_계약_v2_모양으로_싣는다() {
         Workflow workflow = WorkflowFixtures.owned(REQUESTER, GraphFixtures.chainOf(2));
         ExecutionPlan plan = new ExecutionPlan(List.of(
-                prompt("n1", "시장 조사", REQUESTER, new NodeOutput(OutputKind.JSON, "biz.market_research@1")),
+                prompt("n1", "시장 조사", REQUESTER, new NodeOutput(OutputKind.JSON, "{\"competition_level\":\"high\"}")),
                 prompt("n2", "요약", REQUESTER)));
 
         JsonNode sent = mapper.readTree(RuntimeWorkflow.of(workflow, plan).json());
         JsonNode nodes = sent.get("nodes");
 
         assertThat(nodes.get(0).get("output").get("kind").asText()).isEqualTo("json");
-        assertThat(nodes.get(0).get("output").get("sample").asText()).isEqualTo("biz.market_research@1");
+        assertThat(nodes.get(0).get("output").get("example").get("competition_level").asText()).isEqualTo("high");
         assertThat(nodes.get(1).get("output").get("kind").asText()).isEqualTo("text");
-        assertThat(nodes.get(1).get("output").has("sample")).isFalse();
+        assertThat(nodes.get(1).get("output").has("example")).isFalse();
         assertThat(nodes.get(0).has("output_schema_id")).isFalse();
         assertThat(sent.get("output").has("schema_id")).isFalse();
     }
@@ -156,10 +156,10 @@ class RuntimeWorkflowTest {
     @Test
     void 판매자_테스트_실행도_저장한_출력_형식으로_돈다() {
         JsonNode sent = mapper.readTree(RuntimeWorkflow.forTest("test-1",
-                prompt("n1", "시장 조사", REQUESTER, new NodeOutput(OutputKind.JSON, "biz.market_research@1"))).json());
+                prompt("n1", "시장 조사", REQUESTER, new NodeOutput(OutputKind.JSON, "{\"competition_level\":\"high\"}"))).json());
 
         assertThat(sent.get("nodes").get(0).get("output").get("kind").asText()).isEqualTo("json");
-        assertThat(sent.get("nodes").get(0).get("output").get("sample").asText()).isEqualTo("biz.market_research@1");
+        assertThat(sent.get("nodes").get(0).get("output").get("example").get("competition_level").asText()).isEqualTo("high");
     }
 
     private static RefFile refFile(String filename) {

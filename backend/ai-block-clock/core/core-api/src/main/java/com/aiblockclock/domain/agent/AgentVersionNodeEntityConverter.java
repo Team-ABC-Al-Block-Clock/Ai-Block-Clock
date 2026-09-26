@@ -32,7 +32,7 @@ public final class AgentVersionNodeEntityConverter {
                 spec.model(),
                 spec.baseCost().value(),
                 spec.output().kind(),
-                spec.output().sample());
+                spec.output().example());
     }
 
     public static List<AgentVersionNodeRefFileEntity> toRefFileEntities(
@@ -50,7 +50,7 @@ public final class AgentVersionNodeEntityConverter {
                 UserId.of(entity.getOwnerId()),
                 new NodeSpec(entity.getName(), entity.getNodeType(), entity.getModel(),
                         AbcAmount.of(entity.getBaseCost()),
-                        new NodeOutput(entity.getOutputKind(), entity.getOutputSample())),
+                        new NodeOutput(entity.getOutputKind(), entity.getOutputExample())),
                 Prompt.of(entity.getPrompt()),
                 refFiles);
     }

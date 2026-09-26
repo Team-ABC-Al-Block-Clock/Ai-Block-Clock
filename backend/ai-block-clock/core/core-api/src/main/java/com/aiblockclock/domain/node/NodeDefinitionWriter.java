@@ -28,7 +28,7 @@ public class NodeDefinitionWriter {
                 .orElseThrow(() -> new CoreException(ErrorType.NODE_NOT_FOUND));
 
         entity.edit(spec.name(), prompt.value(), spec.model(), spec.baseCost().value(), spec.output().kind(),
-                spec.output().sample());
+                spec.output().example());
 
         return NodeDefinitionEntityConverter.toDomain(entity);
     }
