@@ -1,6 +1,7 @@
 package com.aiblockclock.domain.agent;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.NodeSpec;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.node.RefFile;
@@ -9,6 +10,7 @@ import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.NodeType;
+import com.aiblockclock.enums.node.OutputKind;
 
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +21,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AgentVersionMetadataTest {
+    private static final NodeOutput TEXT_OUTPUT = new NodeOutput(OutputKind.TEXT, null);
     private static final AgentId AGENT = AgentId.of(UUID.fromString("12345678-9012-3456-7890-123456789012"));
     private static final AgentVersionId VERSION =
             AgentVersionId.of(UUID.fromString("abcdefab-cdef-abcd-efab-cdefabcdefab"));
@@ -55,10 +58,12 @@ class AgentVersionMetadataTest {
     void 값의_경계를_옮겨도_같은_글자열이_되지_않는다() {
         // 길이를 앞에 적지 않고 이어 붙이면 "ab" + "c" 와 "a" + "bc" 가 같은 글자열이 된다
         AgentVersionMetadata first = metadata(List.of(new VersionNode(NodeKey.of("n1"), UserId.of(1L),
-                new NodeSpec("ab", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3"))), Prompt.of("c"),
+                new NodeSpec("ab", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3")),
+                        TEXT_OUTPUT), Prompt.of("c"),
                 List.of())));
         AgentVersionMetadata second = metadata(List.of(new VersionNode(NodeKey.of("n1"), UserId.of(1L),
-                new NodeSpec("a", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3"))), Prompt.of("bc"),
+                new NodeSpec("a", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3")),
+                        TEXT_OUTPUT), Prompt.of("bc"),
                 List.of())));
 
         assertThat(first.hash()).isNotEqualTo(second.hash());
@@ -89,6 +94,7 @@ class AgentVersionMetadataTest {
     }
 
     private static NodeSpec spec() {
-        return new NodeSpec("요약 노드", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3")));
+        return new NodeSpec("요약 노드", NodeType.LLM, AiModel.defaultModel(), AbcAmount.of(new BigDecimal("3")),
+                TEXT_OUTPUT);
     }
 }
