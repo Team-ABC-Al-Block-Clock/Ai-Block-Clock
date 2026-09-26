@@ -51,7 +51,8 @@ def read_json(path):
 
 
 def schema(kind):
-    return read_json(AI / "schemas" / "catalog" / f"biz.{kind}@1.json")
+    # 평가 기준(선택지 · 개수까지 검사). 서비스 규격이 아니다 — 서비스는 워크플로우의 output.example
+    return read_json(AI / "demo" / "brand" / "eval_schemas" / f"biz.{kind}@1.json")
 
 
 def schema_errors(value, spec):
@@ -196,7 +197,10 @@ def build_prompt(node, context):
     blocks = dict(re.findall(r"<!-- prompt:(\w+) -->\s*```[^\n]*\n(.*?)```", raw, re.S))
     if not {"system", "user"} <= blocks.keys():
         raise ValueError("프롬프트 마커 누락")
-    values = {"brand_strategy": context} if node in ("05", "06") else context
+    # Runtime(src/prompts.values_for)과 같게 채운다 — {input} = 받은 것 전체(09-26 견본 이름 자리표시자 폐지)
+    values = {"input": context} if node in ("05", "06") else dict(context)
+    if node == "04":
+        values["input"] = context["strategy_draft"]
     def replace(match):
         key = match[1]
         if key == "comment" and key not in values:
@@ -261,7 +265,7 @@ def main(argv=None):
         if not (os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")):
             raise ValueError("LLM_API_KEY 미설정. 로컬 환경에 설정한 뒤 실행하세요 (값을 출력하지 않습니다)")
         sys.path.insert(0, str(RUNTIME))
-        from src import catalog
+        from src import shape
         from src.llm import LLM, DEFAULT_BASE_URL
         if os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/") != DEFAULT_BASE_URL:
             raise ValueError("이 평가기는 GMS 경유만 사용합니다")
@@ -272,7 +276,7 @@ def main(argv=None):
             raise ValueError(f"이 평가기는 GMS 경유 Gemini만 사용합니다 (받은 값: {model})")
         system, user = build_prompt(args.node, context)
         llm = LLM(model=model)
-        response_schema = catalog.response_schema(f"biz.{NODES[args.node][1]}@1")
+        response_schema = shape.response_schema(shape.LEGACY_EXAMPLES[f"biz.{NODES[args.node][1]}@1"])
         run_dir = ROOT / "outputs" / ("brand-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
         run_dir.mkdir(parents=True)
         for index in range(args.runs):

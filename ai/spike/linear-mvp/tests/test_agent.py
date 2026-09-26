@@ -11,7 +11,7 @@ from collections import defaultdict
 import pytest
 from fastapi.testclient import TestClient
 
-from src import expand, graph, runner
+from src import expand, graph, runner, shape
 from src.api import app
 
 BRIEF = {
@@ -66,11 +66,11 @@ def test_내부_분기_조건도_접두를_따라간다():
 
 def test_에이전트_공개_입출력은_내부_진입_종단_노드에서_파생된다():
     a1, a2, a4 = _wf()["nodes"][0], _wf()["nodes"][1], _wf()["nodes"][3]
-    assert expand.public_io(a1) == {"input": {"sample": "biz.brand_brief@1"},
-                                    "output": {"kind": "json", "sample": "biz.brand_strategy@1"}}
-    assert expand.public_io(a2) == {"input": None,                       # 진입 노드에 폼 견본이 없다 = 자유 입력
-                                    "output": {"kind": "json", "sample": "biz.campaign_plan@1"}}
-    assert expand.public_io(a4)["output"] == {"kind": "json", "sample": "biz.execution_plan@1"}
+    assert expand.public_io(a1) == {"input": {"example": shape.LEGACY_EXAMPLES["biz.brand_brief@1"]},
+                                    "output": {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.brand_strategy@1"]}}
+    assert expand.public_io(a2) == {"input": None,                       # 진입 노드에 입력 예시가 없다 = 자유 입력
+                                    "output": {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.campaign_plan@1"]}}
+    assert expand.public_io(a4)["output"] == {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.execution_plan@1"]}
 
 
 def test_에이전트_안의_에이전트는_거부한다():
@@ -110,7 +110,7 @@ def test_견적은_전개_후_노드로_계산한다():
 def test_세_판매자의_에이전트가_한_실행으로_돈다():
     run = _run()
     assert run["status"] == "succeeded"
-    assert run["result"]["envelope"]["schema_id"] == "biz.execution_plan@1"
+    assert run["result"]["envelope"]["schema_id"] == "json"
     assert run["result"]["pdf"]
 
 
@@ -130,7 +130,7 @@ def test_에이전트_안의_분기도_그대로_동작한다():
     assert high["a1.n3a"] == "succeeded" and high["a1.n3b"] == "skipped"
 
     low = {n["id"]: n["status"] for n in
-           _run(mock_overrides={"biz.market_research@1": {"competition_level": "low"}})["nodes"]}
+           _run(mock_overrides={"a1.n1.competition_level": "low"})["nodes"]}
     assert low["a1.n3b"] == "succeeded" and low["a1.n3a"] == "skipped"
 
 
@@ -151,7 +151,7 @@ def test_결과물은_봉투_JSON_으로_받는다():
     artifact = client.get(f"/v1/runs/{run_id}/artifact")
     assert artifact.status_code == 200
     body = artifact.json()
-    assert body["schema_id"] == "biz.execution_plan@1"
+    assert body["schema_id"] == "json"
     assert body["a2a_version"] == "2.0" and body["error"] is None
     assert body["payload"]["phases"]
 

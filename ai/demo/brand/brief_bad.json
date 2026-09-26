@@ -1,8 +1,7 @@
 {
-  "brand_name": "초록소반",
   "category": "간편식 (냉동 한식 도시락)",
   "target": "1인 가구 30대 직장인",
-  "price_tier": "초고가",
+  "price_tier": "중가",
   "differentiator": "국내산 재료와 나트륨 30% 저감",
-  "comment": "규격 위반 테스트 — price_tier 는 보급형 · 중가 · 프리미엄 셋 중 하나여야 한다"
+  "comment": "규격 위반 테스트 — 입력 예시에 있는 brand_name 이 빠졌다"
 }

@@ -173,14 +173,15 @@ class ComplianceTests(unittest.TestCase):
                                                schema_mode="response_schema", retries=0)
         llm = Mock()
         llm.generate.side_effect = [response(json.dumps(self.market)), response("invalid"), TimeoutError("private request")]
-        fake_catalog = SimpleNamespace(response_schema=Mock(return_value={"type": "object"}))
+        fake_shape = SimpleNamespace(response_schema=Mock(return_value={"type": "object"}),   # 09-26 견본 → 예시
+                                     LEGACY_EXAMPLES={"biz.market_research@1": {"competition_level": "high"}})
         fake_llm = SimpleNamespace(LLM=Mock(return_value=llm), DEFAULT_MODEL="gemini-2.5-pro",   # 09-26 실제 모듈과 맞춤
                                    DEFAULT_BASE_URL="https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com")
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             inp = base / "input.json"
             inp.write_text(json.dumps(self.brief), encoding="utf-8")
-            modules = {"src": SimpleNamespace(catalog=fake_catalog), "src.llm": fake_llm}
+            modules = {"src": SimpleNamespace(shape=fake_shape), "src.llm": fake_llm}
             with patch.dict("sys.modules", modules), patch.dict("os.environ", {"LLM_API_KEY": "test-placeholder"}, clear=True), patch.object(c, "ROOT", base):
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):

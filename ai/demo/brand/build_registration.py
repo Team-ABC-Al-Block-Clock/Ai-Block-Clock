@@ -8,7 +8,7 @@
     cd ai/spike/linear-mvp
     uv run python ../../demo/brand/build_registration.py
 
-결과 `ai/demo/brand/agents/ag_brand_0N.json` 은 **생성물이다. 직접 고치지 말고 원본을 고친 뒤 다시 돌린다.**
+결과 `ai/demo/brand/agents/ag_brand_0N.json` 은 v2.1 형식(출력 `{kind, example}`)이며 **생성물이다. 직접 고치지 말고 원본을 고친 뒤 다시 돌린다.**
 프롬프트 원문이 들어 있다 — 백엔드 DB에 저장하는 값이며 사용자 화면 · 로그 · 추천 색인으로 내보내면 안 된다(SEC-001).
 """
 from __future__ import annotations
@@ -78,7 +78,8 @@ def main() -> None:
         path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
         io = doc["public_io"]
         print(f"{path.name}  {m['name']:<14} 판매자 {m['owner_key']}  노드 {len(agent['nodes'])}  "
-              f"입력 {(io['input'] or {}).get('sample') or '자유'} → 출력 {io['output']['sample'] or io['output']['kind']}  "
+              f"입력 {'예시 ' + str(len(io['input']['example'])) + '키' if io['input'] else '자유'} → 출력 {io['output']['kind']}"
+              f"{' ' + str(len(io['output']['example'] or {})) + '키' if io['output']['kind'] == 'json' else ''}  "
               f"참고 파일 {sum(len(v) for v in refs.values())}")
 
 

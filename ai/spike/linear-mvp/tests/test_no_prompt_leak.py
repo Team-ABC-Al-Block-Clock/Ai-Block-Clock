@@ -10,7 +10,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from src import runner
+from src import runner, shape
 from src.api import app
 from tests.test_output import BRIEF
 
@@ -23,14 +23,14 @@ def _wf() -> dict:
                  f"<!-- prompt:user -->\n```\n{USER_MARK} {{brand_name}}\n```\n")
     return {"id": "leak", "name": "비노출 점검",
             "nodes": [
-                {"id": "a", "name": "시장 조사", "prompt": templated, "input": {"sample": "biz.brand_brief@1"},
-                 "output": {"kind": "json", "sample": "biz.market_research@1"}, "owner_id": "u_a"},
+                {"id": "a", "name": "시장 조사", "prompt": templated, "input": {"example": shape.LEGACY_EXAMPLES["biz.brand_brief@1"]},
+                 "output": {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.market_research@1"]}, "owner_id": "u_a"},
                 {"id": "b", "name": "메모", "prompt": f"{SYSTEM_MARK} — 평문 프롬프트",
                  "output": {"kind": "text"}, "owner_id": "u_b"},
                 {"id": "br", "name": "분기", "type": "branch",
                  "condition": {"left": "a.competition_level", "op": "==", "right": "high"}},
                 {"id": "c", "name": "보고서", "prompt": f"{SYSTEM_MARK} 보고서", "owner_id": "u_c",
-                 "output": {"kind": "json", "sample": "biz.brand_strategy@1"}},
+                 "output": {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.brand_strategy@1"]}},
                 {"id": "d", "name": "대안", "prompt": f"{SYSTEM_MARK} 대안", "owner_id": "u_c",
                  "output": {"kind": "text"}},
             ],

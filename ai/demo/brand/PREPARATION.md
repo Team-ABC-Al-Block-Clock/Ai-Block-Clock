@@ -4,7 +4,7 @@
 >
 > | 항목 | 09-26 상태 |
 > | --- | --- |
-> | 계약 | **v2.0** — 입력 형식 없음(앞 결과 전체 전달), 출력은 노드마다 `{kind, sample}` 선언, ABC 없음. 에이전트의 공개 입출력은 진입 노드 `input.sample` · 종단 노드 `output`에서 파생 |
+> | 계약 | **v2.1** — 입력 형식 없음(앞 결과 전체 전달), 출력은 노드마다 `{kind, example}`(판매자 JSON 예시) 선언, 견본 목록 없음, ABC 없음. 에이전트의 공개 입출력은 진입 노드 `input.sample` · 종단 노드 `output`에서 파생 |
 > | 기본 모델 | `gemini-2.5-pro` |
 > | **등록용 정의** | `agents/ag_brand_01 ~ 04.json` — 백엔드가 DB에 넣을 v2.0 에이전트 정의(내부 노드 · 프롬프트 원문 · 연결 · 마켓 문구 · 공개 입출력 · 참고 파일 · 시드). 생성: `build_registration.py`. **프롬프트 원문 포함 — DB 저장용, 외부 노출 금지** |
 > | 참고 파일 | `ref/` — 판매자 A 시장 조사 체크리스트(md) · 보고서 작성 가이드(PDF), 판매자 C 광고 카피 금지 표현(txt) |
@@ -24,7 +24,7 @@
 | `market_content.json` | 판매자 A/B/C가 등록할 에이전트 4개 제목·설명·태그·스키마 |
 | `seed_values.json` | 합성 시연 실적 원본. DB 미적용 |
 | `prepared/seed_values_calculated.json` | A의 등급 수식 v1.0 기준 검산 |
-| `prepared/schema_catalog.json` | A의 현재 카탈로그에서 생성한 요약 11종 |
+| `prepared/schema_catalog.json` | 옛 견본 11종 요약(09-26부터 `eval_schemas/`에서 생성 — 평가 자료일 뿐 서비스 규격 아님) |
 | `prepared/brand_agents_local.json` | 추천 사전 평가 전용 공개 메타데이터. 실제 등록 API payload 아님 |
 | `prepared/recommend_local_report.json` | weighted 검색 + 실제 Trust 점수 포함 로컬 평가 |
 | `prepared/recommend_local_off_report.json` | 하이브리드를 끈 대조 평가 |

@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from src import nodes, runner
 from src.api import app
 from src.llm import LLMResult
-from tests.test_nodes import FakeLLM
+from tests.test_nodes import MARKET_EXAMPLE, FakeLLM
 from tests.test_output import BRIEF
 
 
@@ -123,7 +123,7 @@ class FlakyLLM(FakeLLM):
 def test_교정_중_예외가_나도_앞_호출의_토큰이_예외에_실린다():
     llm = FlakyLLM("이건 JSON 이 아님", "unused")
     with pytest.raises(TimeoutError) as ei:
-        nodes.run_llm_node(llm, run_id="r", node_id="n1", schema_id="biz.market_research@1",
+        nodes.run_llm_node(llm, run_id="r", node_id="n1", example=MARKET_EXAMPLE,
                            system="s", message="m")
     meta = ei.value.partial_meta
     assert meta["usage"] == {"input_tokens": 10, "output_tokens": 20} and meta["repair_count"] == 1
@@ -135,7 +135,7 @@ def test_첫_호출부터_예외면_부분_토큰이_없다():
         def generate(self, *a, **k):
             raise TimeoutError("timeout")
     with pytest.raises(TimeoutError) as ei:
-        nodes.run_llm_node(Dead(), run_id="r", node_id="n1", schema_id="biz.market_research@1",
+        nodes.run_llm_node(Dead(), run_id="r", node_id="n1", example=MARKET_EXAMPLE,
                            system="s", message="m")
     assert not hasattr(ei.value, "partial_meta")
 
