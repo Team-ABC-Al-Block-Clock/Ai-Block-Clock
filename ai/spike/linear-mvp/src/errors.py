@@ -40,7 +40,7 @@ CODES: dict[str, ErrorSpec] = {
         "supplier", False, "블록의 프롬프트가 요구하는 입력값을 이 자리에서 받을 수 없습니다.",
         "판매자가 프롬프트의 입력 틀({…})을 블록이 받는 형식에 맞게 고쳐야 합니다."),
     "INPUT_TOO_LARGE": ErrorSpec(
-        "platform", False, "이 단계에 넘길 앞 결과가 너무 큽니다.",
+        "platform", False, "이 단계에 넘길 앞 결과와 참고 자료가 너무 큽니다.",
         "플랫폼의 입력 상한을 넘었습니다. 차감분은 전액 환원됩니다. 워크플로우를 나눠 실행해 주세요."),
     "REF_FILE_REJECTED": ErrorSpec(
         "supplier", False, "블록에 붙은 참고 자료를 쓸 수 없습니다.",
