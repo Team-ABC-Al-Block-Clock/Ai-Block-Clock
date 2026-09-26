@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from 'msw'
 
-import { API_BASE_URL, client, setOnAuthFailure } from '@/api/client'
+import { API_BASE_URL, client } from '@/api/client'
 
-import { ApiError, EXECUTION_ERROR } from '@/api/errors'
+import { ApiError } from '@/api/errors'
 import {
   describeRunFileProblem,
   estimateCost,
-  fetchResult,
   getExecutionProgress,
   startExecution,
 } from '@/api/executions'
@@ -303,99 +302,5 @@ describe('진행 상황의 실패 정보', () => {
     await expect(
       startExecution({ workflowId: 'wf_001', requestId: REQUEST_ID }),
     ).rejects.toMatchObject({ code: 'EXECUTION_002', status: 502 })
-  })
-})
-
-describe('실행 결과 받기', () => {
-  const EXECUTION_ID = 'dc7d6901-b53e-43e7-bf2c-5e8b27b2f7b0'
-
-  it('봉투가 아니라 파일로 온다 — 종류와 크기를 그대로 들고 온다', async () => {
-    server.use(
-      http.get(
-        `${API_BASE_URL}/runs/:id/result`,
-        () =>
-          new Response('%PDF-1.7', {
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="${EXECUTION_ID}.pdf"`,
-            },
-          }),
-      ),
-    )
-
-    const received = await fetchResult(EXECUTION_ID, 'PDF')
-
-    expect(received.blob.type).toBe('application/pdf')
-    expect(received.blob.size).toBe('%PDF-1.7'.length)
-    expect(received.filename).toBe(`${EXECUTION_ID}.pdf`)
-  })
-
-  it('형식을 비우면 결과 JSON 을 받는다', async () => {
-    let asked: string | null = null
-    server.use(
-      http.get(`${API_BASE_URL}/runs/:id/result`, ({ request }) => {
-        asked = new URL(request.url).searchParams.get('format')
-        return new Response('{}', { headers: { 'Content-Type': 'application/json' } })
-      }),
-    )
-
-    await fetchResult(EXECUTION_ID)
-
-    expect(asked).toBeNull()
-  })
-
-  it('Content-Disposition 이 없으면 실행 ID 로 이름을 짓는다', async () => {
-    server.use(
-      http.get(
-        `${API_BASE_URL}/runs/:id/result`,
-        () => new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
-      ),
-    )
-
-    const received = await fetchResult(EXECUTION_ID)
-
-    expect(received.filename).toBe(`${EXECUTION_ID}.json`)
-  })
-
-  it('렌더되지 않은 형식은 404 와 코드를 그대로 전한다', async () => {
-    server.use(
-      http.get(`${API_BASE_URL}/runs/:id/result`, () =>
-        fail(404, EXECUTION_ERROR.RESULT_NOT_FOUND, '그 형식으로 받을 수 있는 결과가 없습니다.'),
-      ),
-    )
-
-    await expect(fetchResult(EXECUTION_ID, 'PDF')).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof ApiError &&
-        error.status === 404 &&
-        error.code === EXECUTION_ERROR.RESULT_NOT_FOUND,
-    )
-  })
-
-  it('세션이 끝났으면 인증 실패를 알린다', async () => {
-    const onAuthFailure = vi.fn()
-    setOnAuthFailure(onAuthFailure)
-    server.use(
-      http.get(`${API_BASE_URL}/runs/:id/result`, () =>
-        fail(401, 'AUTH_005', '로그인이 필요합니다.'),
-      ),
-    )
-
-    await expect(fetchResult(EXECUTION_ID)).rejects.toMatchObject({ status: 401 })
-    expect(onAuthFailure).toHaveBeenCalledOnce()
-
-    setOnAuthFailure(null)
-  })
-
-  it('아직 끝나지 않았으면 409 다', async () => {
-    server.use(
-      http.get(`${API_BASE_URL}/runs/:id/result`, () =>
-        fail(409, 'EXECUTION_001', '아직 끝나지 않은 실행입니다.'),
-      ),
-    )
-
-    await expect(fetchResult(EXECUTION_ID)).rejects.toSatisfy(
-      (error: unknown) => error instanceof ApiError && error.status === 409,
-    )
   })
 })

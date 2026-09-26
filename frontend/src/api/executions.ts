@@ -1,5 +1,4 @@
-import { API_BASE_URL, api, notifyAuthFailure } from '@/api/client'
-import { ApiError, isApiErrorBody } from '@/api/errors'
+import { API_BASE_URL, api } from '@/api/client'
 import type { SourceType } from '@/api/workflows'
 
 /**
@@ -151,49 +150,3 @@ export const isFinished = (status: ExecutionStatus) => status === 'SUCCEEDED' ||
  */
 export const openRunStream = (executionId: string) =>
   new EventSource(`${API_BASE_URL}/runs/${executionId}/stream`, { withCredentials: true })
-
-export type ResultFormat = 'JSON' | 'PDF'
-
-export const RESULT_FORMAT_EXTENSIONS: Record<ResultFormat, string> = {
-  JSON: 'json',
-  PDF: 'pdf',
-}
-
-function filenameOf(disposition: string | null, executionId: string, format: ResultFormat) {
-  const quoted = disposition?.match(/filename="([^"]+)"/)
-  return quoted?.[1] ?? `${executionId}.${RESULT_FORMAT_EXTENSIONS[format]}`
-}
-
-export async function fetchResult(executionId: string, format: ResultFormat = 'JSON') {
-  const query = format === 'JSON' ? '' : `?format=${format}`
-  const response = await fetch(`${API_BASE_URL}/runs/${executionId}/result${query}`, {
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    if (response.status === 401) notifyAuthFailure()
-    const body = await response.json().catch(() => null)
-    throw new ApiError(isApiErrorBody(body) ? body.error.message : '결과를 받지 못했습니다.', {
-      code: isApiErrorBody(body) ? body.error.code : undefined,
-      status: response.status,
-    })
-  }
-
-  return {
-    blob: await response.blob(),
-    filename: filenameOf(response.headers.get('Content-Disposition'), executionId, format),
-  }
-}
-
-export async function downloadResult(executionId: string, format: ResultFormat = 'JSON') {
-  const { blob, filename } = await fetchResult(executionId, format)
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
-}
