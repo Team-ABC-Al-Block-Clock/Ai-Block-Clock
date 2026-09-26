@@ -78,7 +78,7 @@ class NodeOutputIntegrationTest {
         nodeService.update(node.getId(), OWNER, "시장 조사", Prompt.of("시장을 조사한다"), AiModel.defaultModel(), TEXT);
 
         Workflow buyer = workflowService.save(BUYER, "산 에이전트를 놓은 워크플로우", null,
-                List.of(new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, null, agent.agent().getId().value(),
+                List.of(new NodePlacement(NodeKey.of("a1"), SourceType.AGENT, agent.agent().getId().value(),
                         InputSource.defaultSource(), null, null, null, null, null, null, null)),
                 List.of());
 

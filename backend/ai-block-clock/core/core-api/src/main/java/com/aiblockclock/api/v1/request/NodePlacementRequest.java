@@ -30,6 +30,7 @@ import java.util.UUID;
 @Schema(description = """
         노드 배치. 종류에 따라 보내는 것이 다르다.
         `LLM` 은 그 자리에서 쓴 프롬프트라 `name` · `prompt` 를 실어 보내고 저장할 때 노드가 만들어진다.
+        만들어진 `LLM` 노드는 다음 수정 요청부터 응답의 `sourceId` 로 가리킨다.
         에이전트는 공개된 것을 `sourceId` 로 가리킨다.
         `CONTROL` 은 가리킬 원본이 없다. `controlType` 과 `condition` 만 보낸다.
         `IO` 도 원본이 없다. 시작 노드는 `fields` 를, 끝 노드는 `resultShape` 와 `resultFormat` 을 보낸다.
@@ -43,8 +44,7 @@ public record NodePlacementRequest(
         @NotNull SourceType sourceType,
 
         @Schema(description = """
-                노드 종류. `sourceType` 이 `NODE` 일 때만 보낸다.
-                `sourceId` 와 함께 보내면 그 노드가 이 종류인지 대조하고, 생략하면 대조하지 않는다.
+                노드 종류. `sourceType` 이 `NODE` 일 때만 보낸다. 지금은 `LLM` 하나뿐이다.
                 """, nullable = true)
         NodeType nodeType,
 
@@ -99,7 +99,7 @@ public record NodePlacementRequest(
 ) {
     public static List<NodePlacement> toPlacements(List<NodePlacementRequest> nodes) {
         return nodes.stream()
-                .map(node -> new NodePlacement(NodeKey.of(node.nodeKey()), node.sourceType(), node.nodeType(),
+                .map(node -> new NodePlacement(NodeKey.of(node.nodeKey()), node.sourceType(),
                         node.sourceId(), node.inputSourceOrDefault(), node.toDraft(), node.controlType(),
                         node.condition() == null ? null : node.condition().toCondition(),
                         node.ioType(), node.toFields(), node.resultShape(), node.resultFormat()))

@@ -118,9 +118,6 @@ public enum ErrorType {
     WORKFLOW_REVISION_CONFLICT(HttpStatus.CONFLICT, ErrorCode.WORKFLOW_016,
             "워크플로우가 다른 요청에 의해 수정되었습니다.", LogLevel.WARN),
 
-    WORKFLOW_NODE_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_017,
-            "배치한 노드가 요청한 종류가 아닙니다.", LogLevel.WARN),
-
     NODE_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.NODE_001,
             "노드를 찾을 수 없습니다.", LogLevel.WARN),
 

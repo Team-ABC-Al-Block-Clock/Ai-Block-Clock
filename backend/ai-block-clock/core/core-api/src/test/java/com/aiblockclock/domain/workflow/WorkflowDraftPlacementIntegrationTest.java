@@ -2,7 +2,6 @@ package com.aiblockclock.domain.workflow;
 
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.node.AiModel;
-import com.aiblockclock.enums.node.NodeType;
 import com.aiblockclock.enums.node.OutputKind;
 import com.aiblockclock.enums.workflow.InputSource;
 import com.aiblockclock.enums.workflow.SourceType;
@@ -117,7 +116,7 @@ class WorkflowDraftPlacementIntegrationTest {
     }
 
     private static NodePlacement draft(String key, String name) {
-        return new NodePlacement(NodeKey.of(key), SourceType.NODE, NodeType.LLM, null,
+        return new NodePlacement(NodeKey.of(key), SourceType.NODE, null,
                 InputSource.defaultSource(), new NodeDraft(name, "프롬프트 원문", AiModel.defaultModel(), OutputKind.TEXT, null),
                 null, null, null, null, null, null);
     }

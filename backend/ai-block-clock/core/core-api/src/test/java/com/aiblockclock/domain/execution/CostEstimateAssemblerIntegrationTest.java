@@ -144,7 +144,7 @@ class CostEstimateAssemblerIntegrationTest {
 
     @Test
     void 분기_노드는_값이_없어_적지_않고_두_갈래를_다_더한다() {
-        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null, null,
+        NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
                 new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
         Workflow workflow = workflowService.save(OWNER, "경쟁 강도로 가른다", null,
@@ -188,7 +188,6 @@ class CostEstimateAssemblerIntegrationTest {
     }
 
     private static NodePlacement agentPlacement(String key, AgentId agentId) {
-        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, null,
-                agentId.value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
+        return new NodePlacement(NodeKey.of(key), SourceType.AGENT, agentId.value(), InputSource.defaultSource(), null, null, null, null, null, null, null);
     }
 }
