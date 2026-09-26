@@ -427,7 +427,8 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
  * 제어·입출력은 `mine` 이 null 이다 — 가리킬 원본이 없어 판정 대상이 아니라 막지 않는다.
  */
 export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
-  return nodes.length > 0 && nodes.every((node) => node.mine !== false)
+  // 제어·입출력만 놓인 구성은 팔 것이 없다. 하나는 내 것이어야 한다.
+  return nodes.some((node) => node.mine === true) && nodes.every((node) => node.mine !== false)
 }
 
 /**

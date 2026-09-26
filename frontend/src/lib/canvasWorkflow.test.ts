@@ -178,7 +178,21 @@ describe('canSellWorkflow', () => {
 
   it('빈 캔버스는 등록할 것이 없다', () => {
     expect(canSellWorkflow([])).toBe(false)
-  })})
+  })
+  // 제어·입출력만 놓인 구성은 팔 것이 없다.
+  it('제어·입출력만 있으면 팔 수 없다', () => {
+    const start = {
+      ...nodeAt('s', 0, 0),
+      nodeType: null,
+      sourceType: 'IO' as const,
+      sourceId: '',
+      mine: null,
+      ioType: 'START' as const,
+    }
+    expect(canSellWorkflow([start])).toBe(false)
+    expect(canSellWorkflow([start, nodeAt('a', 0, 0)])).toBe(true)
+  })
+})
 
 describe('linearOrder', () => {
   const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
