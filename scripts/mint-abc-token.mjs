@@ -11,20 +11,28 @@
 //   node scripts/mint-abc-token.mjs
 //
 // 서명값은 민터 계정으로 직접 만들어 넣는다. 저장소에 두지 않는다.
+//
+// 수량은 ABC 단위로 넣는다. abcToken 은 decimals 18 이라 체인에는 ABC × 10^18 이 정수로 적힌다.
+// 서명할 본문이 필요하면 서명 없이 SSAFY_TOKEN_MINT_PRINT_PAYLOAD=true 로 실행해 출력된 줄을 그대로 서명한다.
 
 const TOKEN_NAME = 'ABC Payment Token';
 const TOKEN_SYMBOL = 'abcToken';
 
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 const SIGNATURE_PATTERN = /^0x[0-9a-fA-F]{130}$/;
+// 서버 장부가 소수 6자리까지 받는다. 그보다 잘게 발행하면 충전할 수 없는 자투리가 남는다
+const ABC_AMOUNT_PATTERN = /^(\d+)(?:\.(\d{1,6}))?$/;
+const TOKEN_DECIMALS = 18;
 
 const baseUrl = (process.env.SSAFY_STO_BASE_URL ?? 'https://sto.ssafy.io').replace(/\/$/, '');
 const contractAddress = requireAddress('SSAFY_TOKEN_CONTRACT_ADDRESS');
 const requestor = requireAddress('SSAFY_TOKEN_MINT_REQUESTOR');
 const recipient = requireAddress('SSAFY_TOKEN_MINT_RECIPIENT');
-const value = requirePositiveInteger('SSAFY_TOKEN_MINT_VALUE');
+const abcAmount = requireValue('SSAFY_TOKEN_MINT_ABC');
+const value = toRawAmount(abcAmount);
 const data = requireValue('SSAFY_TOKEN_MINT_DATA');
-const signature = requireSignature('SSAFY_TOKEN_MINT_SIGNATURE');
+const printPayloadOnly = process.env.SSAFY_TOKEN_MINT_PRINT_PAYLOAD === 'true';
+const signature = printPayloadOnly ? null : requireSignature('SSAFY_TOKEN_MINT_SIGNATURE');
 
 function requireValue(name) {
     const value = process.env[name];
@@ -56,14 +64,40 @@ function requireSignature(name) {
     return value;
 }
 
-function requirePositiveInteger(name) {
-    const value = BigInt(requireValue(name));
+// 부동소수(Number)를 거치지 않고 문자열에서 바로 정수로 옮긴다. 10^18 단위는 Number 로 정확히 담기지 않는다
+function toRawAmount(amount) {
+    const matched = ABC_AMOUNT_PATTERN.exec(amount);
 
-    if (value <= 0n) {
-        throw new Error(`${name} 는 양의 정수여야 합니다.`);
+    if (!matched) {
+        throw new Error('SSAFY_TOKEN_MINT_ABC 는 소수 6자리까지의 양수여야 합니다. 예: 10, 1.5');
     }
 
-    return value;
+    const whole = BigInt(matched[1]);
+    const fraction = BigInt((matched[2] ?? '').padEnd(TOKEN_DECIMALS, '0'));
+    const raw = whole * 10n ** BigInt(TOKEN_DECIMALS) + fraction;
+
+    if (raw <= 0n) {
+        throw new Error('SSAFY_TOKEN_MINT_ABC 는 0보다 커야 합니다.');
+    }
+
+    return raw;
+}
+
+// JSON.stringify 는 BigInt 를 못 싣고, Number 로 바꾸면 끝자리가 뭉개지거나 1e+21 처럼 지수로 나간다.
+// 수량만 정수 글자 그대로 끼워 넣는다
+function requestBody(withSignature) {
+    const fields = [
+        `"requestor":${JSON.stringify(requestor)}`,
+        `"to":${JSON.stringify(recipient)}`,
+        `"value":${value.toString()}`,
+        `"data":${JSON.stringify(data)}`,
+    ];
+
+    if (withSignature) {
+        fields.push(`"signature":${JSON.stringify(signature)}`);
+    }
+
+    return `{${fields.join(',')}}`;
 }
 
 async function get(path) {
@@ -115,7 +149,7 @@ async function mint() {
     const response = await fetch(`${baseUrl}/v1/tokens/${contractAddress}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ requestor, to: recipient, value: Number(value), data, signature }),
+        body: requestBody(true),
     });
 
     if (!response.ok) {
@@ -141,6 +175,12 @@ function verifyIncrease(target, before, after) {
 }
 
 await verifyAbcToken();
+
+if (printPayloadOnly) {
+    console.log(requestBody(false));
+    process.exit(0);
+}
+
 await verifyMintPermission();
 
 const before = await readBalances();
@@ -156,6 +196,6 @@ verifyIncrease('수신자 잔액', before.balance, after.balance);
 verifyIncrease('총공급량', before.totalSupply, after.totalSupply);
 
 console.log(
-    `발행 완료 recipient=${recipient} value=${value} tx=${receipt.transactionHash} `
+    `발행 완료 recipient=${recipient} abc=${abcAmount} value=${value} tx=${receipt.transactionHash} `
     + `balance=${after.balance} totalSupply=${after.totalSupply}`
 );

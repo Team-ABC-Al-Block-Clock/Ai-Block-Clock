@@ -29,6 +29,35 @@ public class ChargeRequestWriter {
     public ChargeRequest saveNewRequest(
             ChargeRequest chargeRequest
     ) {
+        return insert(chargeRequest);
+    }
+
+    // 닫힌 줄을 지우고 새 요청을 넣는 것을 한 트랜잭션으로 한다. 둘 사이에 남이 같은 해시를 넣으려 하면 UNIQUE 가 막는다.
+    // 지우는 줄은 적립된 적 없는 실패 줄이라 장부에 흔적이 없다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ChargeRequest replaceClosedRequest(
+            ChargeRequest closedRequest,
+            ChargeRequest newRequest
+    ) {
+        int deletedRowCount = chargeRequestRepository
+                .deleteIfFailedAndVersionMatches(
+                        closedRequest.getId(),
+                        closedRequest.getVersion(),
+                        ChargeStatus.FAILED
+                );
+
+        if (deletedRowCount != 1) {
+            throw new CoreException(
+                    ErrorType.CHARGE_REQUEST_CONCURRENTLY_MODIFIED
+            );
+        }
+
+        return insert(newRequest);
+    }
+
+    private ChargeRequest insert(
+            ChargeRequest chargeRequest
+    ) {
         try {
             ChargeRequestEntity entity =
                     ChargeRequestEntityConverter.toNewEntity(chargeRequest);

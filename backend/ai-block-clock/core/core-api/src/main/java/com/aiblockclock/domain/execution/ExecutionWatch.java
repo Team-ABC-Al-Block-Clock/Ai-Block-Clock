@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 final class ExecutionWatch {
+    private final Execution execution;
     private final ExecutionId id;
     private final RunId runId;
     private final int stepCount;
@@ -16,6 +17,7 @@ final class ExecutionWatch {
     private Instant changedAt;
 
     ExecutionWatch(Execution execution, Duration deadline, Instant startedAt) {
+        this.execution = execution;
         this.id = execution.getId();
         this.runId = execution.getRunId();
         this.stepCount = execution.getPromptCount();
@@ -26,6 +28,10 @@ final class ExecutionWatch {
 
     ExecutionId id() {
         return id;
+    }
+
+    Execution execution() {
+        return execution;
     }
 
     RunId runId() {
