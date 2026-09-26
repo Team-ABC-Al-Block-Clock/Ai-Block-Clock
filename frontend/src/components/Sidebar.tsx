@@ -26,9 +26,11 @@ interface SidebarProps {
   active?: Tab
   /** 정보 수정 화면이면 탭 대신 수정 버튼이 채워집니다 */
   editing?: boolean
+  /** 오른쪽 내용이 길면 패널 바닥을 맞춘다 */
+  height?: number
 }
 
-export default function Sidebar({ active, editing = false }: SidebarProps) {
+export default function Sidebar({ active, editing = false, height = 776 }: SidebarProps) {
   const profile = useAuthStore((s) => s.profile)
 
   return (
@@ -39,7 +41,7 @@ export default function Sidebar({ active, editing = false }: SidebarProps) {
           left: '62px',
           top: '160px',
           width: '338px',
-          height: '776px',
+          height: `${height}px`,
           borderRadius: '20px',
           background: 'var(--color-surface-card)', // 오른쪽 카드와 같은 흰 유리 (원본은 rgba(18,9,32,.44) 어두운 패널)
           backdropFilter: 'blur(22px) saturate(118%)',

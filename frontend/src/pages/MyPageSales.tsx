@@ -5,7 +5,7 @@ import { getMyAgents } from '@/api/agents'
 import { getCreditBalance } from '@/api/credits'
 import { getSettlementStatistics, getSettlements } from '@/api/settlements'
 import { priceLabel, runLabel, timeLabel } from '@/lib/format'
-import { PERIODS, rangeOf } from '@/lib/period'
+import { growthPercent, monthRanges, PERIODS, rangeOf } from '@/lib/period'
 import { queryKeys } from '@/lib/queryKeys'
 import { dailySeries, trendPath } from '@/lib/salesTrend'
 import { paths } from '@/routes/paths'
@@ -19,7 +19,7 @@ const shareOf = (amount: string, total: number) =>
   total > 0 ? Math.round((Number(amount) / total) * 1000) / 10 : 0
 
 export default function MyPageSales() {
-  const [tab, setTab] = useState('agent')
+  const [tab, setTab] = useState('entry')
   const [periodAt, setPeriodAt] = useState(1)
   const [periodOpen, setPeriodOpen] = useState(false)
 
@@ -35,6 +35,20 @@ export default function MyPageSales() {
     queryKey: queryKeys.settlements.statistics.list({ ...range, unit: 'DAY' }),
     queryFn: () => getSettlementStatistics({ ...range, unit: 'DAY' }),
   })
+  // 총 매출은 기간 선택과 상관없는 누적이다.
+  const lifetime = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ unit: 'MONTH' }),
+    queryFn: () => getSettlementStatistics({ unit: 'MONTH' }),
+  })
+  const months = monthRanges()
+  const thisMonth = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ ...months.current, unit: 'MONTH' }),
+    queryFn: () => getSettlementStatistics({ ...months.current, unit: 'MONTH' }),
+  })
+  const lastMonth = useQuery({
+    queryKey: queryKeys.settlements.statistics.list({ ...months.previous, unit: 'MONTH' }),
+    queryFn: () => getSettlementStatistics({ ...months.previous, unit: 'MONTH' }),
+  })
   const entries = useInfiniteQuery({
     queryKey: queryKeys.settlements.transactions.list(listParams),
     queryFn: ({ pageParam }) => getSettlements({ ...listParams, cursor: pageParam }),
@@ -49,31 +63,41 @@ export default function MyPageSales() {
     select: (page) => new Map(page.content.map((a) => [a.agentId, a.name])),
   })
   const agentName = (agentId: string | null) =>
-    agentId === null ? '캔버스 노드' : (agentNames.data?.get(agentId) ?? '에이전트')
+    agentId === null ? '—' : (agentNames.data?.get(agentId) ?? '에이전트')
 
   const stats = statistics.data
   const total = Number(stats?.totalAmount ?? 0)
+  // 누적 에이전트 호출 수의 합. 한 실행에서 에이전트 둘을 쓰면 두 번 센다.
+  const agentCalls = (lifetime.data?.agents ?? [])
+    .filter((a) => a.agentId !== null)
+    .reduce((sum, a) => sum + a.executionCount, 0)
+  const growth =
+    thisMonth.data && lastMonth.data
+      ? growthPercent(Number(thisMonth.data.totalAmount), Number(lastMonth.data.totalAmount))
+      : null
+  const growthLabel =
+    growth === null ? '지난달 매출 없음' : `${growth >= 0 ? '+' : ''}${growth.toLocaleString()}%`
   const metrics = [
     {
-      label: '받은 정산금',
-      value: stats ? priceLabel(stats.totalAmount) : '—',
-      delta: period.label,
+      label: '총 사용 횟수',
+      value: lifetime.data ? runLabel(agentCalls) : '—',
+      delta: '직접 호출 포함',
     },
     {
-      label: '출금 가능 정산금',
+      label: '총 매출',
+      value: lifetime.data ? priceLabel(lifetime.data.totalAmount) : '—',
+      delta: '누적 매출액',
+    },
+    {
+      label: '정산금',
       value: balance.data ? priceLabel(balance.data.payoutAmount) : '—',
-      delta: '출금 · ABC 로 옮기기 →',
+      delta: '즉시 출금 가능',
       href: paths.my.credit,
     },
     {
-      label: '정산 실행 수',
-      value: stats ? runLabel(stats.executionCount) : '—',
-      delta: '한 실행은 한 번으로 셉니다',
-    },
-    {
-      label: '내가 쓴 몫',
-      value: stats ? priceLabel(stats.selfUseAmount) : '—',
-      delta: '내 에이전트를 직접 실행해 받은 것',
+      label: '월간 매출',
+      value: thisMonth.data ? priceLabel(thisMonth.data.totalAmount) : '—',
+      delta: lastMonth.data ? growthLabel : '',
     },
   ].map((m, i) => ({
     ...m,
@@ -91,13 +115,20 @@ export default function MyPageSales() {
       ? [0, 1, 2, 3, 4].map((k) => series[Math.round(((series.length - 1) * k) / 4)].day.slice(5))
       : series.map((p) => p.day.slice(5))
 
-  const shares = (stats?.agents ?? []).slice(0, 3).map((a, i) => ({
-    label: agentName(a.agentId),
-    value: `${priceLabel(a.amount)} (${shareOf(a.amount, total)}%)`,
-    width: `${shareOf(a.amount, total)}%`,
-    color: SHARE_COLORS[i],
-    anim: 'growBar .8s ' + (0.4 + i * 0.12).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
-  }))
+  // 판매는 에이전트로만 일어난다. 에이전트 없는 묶음은 합계에만 남기고 순위에서는 뺀다.
+  const soldAgents = (stats?.agents ?? []).filter((a) => a.agentId !== null)
+  const topAgent = soldAgents[0]
+  // 2 ~ 4위 칸은 늘 셋이다. 순위가 모자라면 빈 칸을 0 으로 채운다.
+  const shares = [1, 2, 3].map((rank, i) => {
+    const a = soldAgents[rank]
+    return {
+      label: a ? agentName(a.agentId) : '—',
+      value: `${priceLabel(a?.amount ?? 0)} (${a ? shareOf(a.amount, total) : 0}%)`,
+      width: `${a ? shareOf(a.amount, total) : 0}%`,
+      color: SHARE_COLORS[i],
+      anim: 'growBar .8s ' + (0.4 + i * 0.12).toFixed(2) + 's cubic-bezier(.2,.8,.25,1) both',
+    }
+  })
 
   const byAgent = {
     columns: [
@@ -106,7 +137,7 @@ export default function MyPageSales() {
       { label: '받은 정산금', w: '200px' },
       { label: '비중', w: '120px' },
     ],
-    data: (stats?.agents ?? []).map((a) => [
+    data: soldAgents.map((a) => [
       agentName(a.agentId),
       runLabel(a.executionCount),
       priceLabel(a.amount),
@@ -116,23 +147,21 @@ export default function MyPageSales() {
   const entryRows = entries.data?.pages.flatMap((page) => page.content) ?? []
   const byEntry = {
     columns: [
-      { label: '일시', w: '150px' },
-      { label: '노드', w: '250px' },
-      { label: '에이전트', w: '220px' },
-      { label: '정산금', w: '150px' },
-      { label: '구분', w: '90px' },
+      { label: '일시', w: '190px' },
+      { label: '에이전트', w: '370px' },
+      { label: '정산금', w: '190px' },
+      { label: '구분', w: '110px' },
     ],
     data: entryRows.map((e) => [
       timeLabel(e.settledAt),
-      e.nodeName ?? e.stepId,
       agentName(e.agentId),
       priceLabel(e.amount),
-      e.selfUse ? '내가 씀' : '판매',
+      e.selfUse ? '직접 사용' : '판매',
     ]),
   }
   const byAgentTab = tab === 'agent'
   const view = byAgentTab ? byAgent : byEntry
-  const amountAt = byAgentTab ? 2 : 3
+  const amountAt = 2
   const rows = view.data.map((cells) => ({
     cells: cells.map((text, i) => ({
       text,
@@ -141,12 +170,12 @@ export default function MyPageSales() {
         !byAgentTab && i === cells.length - 1
           ? text === '판매'
             ? '#9ad0b4'
-            : 'rgba(255,255,255,.68)'
+            : '#ff8a8a'
           : i === 0 && byAgentTab
             ? 'var(--color-body)'
             : i === amountAt
               ? '#fff'
-              : 'rgba(255,255,255,.68)',
+              : 'rgba(255,255,255,.84)',
       weight: i === amountAt || (!byAgentTab && i === cells.length - 1) ? '600' : '400',
     })),
   }))
@@ -176,8 +205,11 @@ export default function MyPageSales() {
   }, [periodOpen])
 
   return (
-    <>
-      <Sidebar active="sales" />
+    <div
+      className="absolute"
+      style={{ left: '18px', top: '-17px', width: '1440px', height: '1024px' }}
+    >
+      <Sidebar active="sales" height={835} />
 
       <div
         className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
@@ -200,7 +232,7 @@ export default function MyPageSales() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        내 에이전트 · 노드가 실행될 때마다 받은 정산금과 출금할 수 있는 금액을 확인합니다.
+        내 에이전트를 판매한 정산금과 출금할 수 있는 금액을 확인합니다.
       </div>
 
       <div className="absolute" style={{ left: '1210px', top: '160px', width: '128px', zIndex: 5 }}>
@@ -431,17 +463,15 @@ export default function MyPageSales() {
           animation: 'rise .7s .26s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">
-          에이전트별 비중
-        </div>
+        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">판매 금액</div>
         <div
-          className="text-[26px] font-semibold tracking-[-.02em] text-white"
+          className="truncate text-[26px] font-semibold tracking-[-.02em] text-white"
           style={{ marginTop: '10px', lineHeight: '1.2' }}
         >
-          {stats ? `${stats.agents.length}개` : '—'}
+          {topAgent ? priceLabel(topAgent.amount) : '—'}
         </div>
         <div className="text-[11px]" style={{ marginTop: '4px', color: 'rgba(255,236,246,.6)' }}>
-          정산금을 받은 에이전트 · 캔버스 노드는 한 줄로 모읍니다
+          {topAgent ? agentName(topAgent.agentId) : ''}
         </div>
         <div className="flex flex-col" style={{ marginTop: '14px', gap: '10px' }}>
           {shares.map((t, i) => (
@@ -480,7 +510,7 @@ export default function MyPageSales() {
           left: '442px',
           top: '665px',
           width: '900px',
-          height: '268px',
+          height: '330px',
           padding: '16px 20px',
           borderRadius: '16px',
           animation: 'rise .7s .3s cubic-bezier(.2,.8,.25,1) both',
@@ -489,24 +519,7 @@ export default function MyPageSales() {
         <div className="flex items-center justify-between" style={{ height: '30px' }}>
           <div className="flex" style={{ gap: '20px', height: '30px' }}>
             <div
-              className="relative flex cursor-pointer items-start text-[14px] font-semibold tracking-[-.01em]"
-              onClick={handlePickByAgent}
-              style={{ height: '30px', color: `${fgAgent}`, transition: 'color .16s' }}
-            >
-              에이전트별
-              <div
-                className="absolute left-0"
-                style={{
-                  bottom: '0',
-                  width: '100%',
-                  height: '2px',
-                  borderRadius: '1px',
-                  background: `${barAgent}`,
-                }}
-              ></div>
-            </div>
-            <div
-              className="relative flex cursor-pointer items-start text-[14px] font-semibold tracking-[-.01em]"
+              className="relative flex cursor-pointer items-start text-[16px] font-semibold tracking-[-.01em]"
               onClick={handlePickByEntry}
               style={{ height: '30px', color: `${fgEntry}`, transition: 'color .16s' }}
             >
@@ -522,15 +535,32 @@ export default function MyPageSales() {
                 }}
               ></div>
             </div>
+            <div
+              className="relative flex cursor-pointer items-start text-[16px] font-semibold tracking-[-.01em]"
+              onClick={handlePickByAgent}
+              style={{ height: '30px', color: `${fgAgent}`, transition: 'color .16s' }}
+            >
+              에이전트별
+              <div
+                className="absolute left-0"
+                style={{
+                  bottom: '0',
+                  width: '100%',
+                  height: '2px',
+                  borderRadius: '1px',
+                  background: `${barAgent}`,
+                }}
+              ></div>
+            </div>
           </div>
-          <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+          <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
             {period.label}
           </div>
         </div>
 
         <div
-          className="flex text-[10.5px] font-semibold"
-          style={{ marginTop: '14px', color: 'rgba(255,236,246,.55)' }}
+          className="flex text-[13.5px] font-semibold"
+          style={{ marginTop: '14px', color: 'rgba(255,236,246,.72)' }}
         >
           {columns.map((c, i) => (
             <Fragment key={i}>
@@ -541,19 +571,19 @@ export default function MyPageSales() {
 
         <div
           className="flex flex-col overflow-y-auto"
-          style={{ marginTop: '6px', height: '148px' }}
+          style={{ marginTop: '8px', height: '196px' }}
         >
           {rows.map((r, i) => (
             <Fragment key={i}>
               <div
                 style={{
-                  height: '27px',
+                  height: '44px',
                   color: 'var(--color-body)',
                   fontVariantNumeric: 'tabular-nums',
                   borderRadius: '6px',
                   transition: 'background .14s',
                 }}
-                className="hover:bg-surface-inset flex flex-none items-center text-[11.5px]"
+                className="hover:bg-surface-inset flex flex-none items-center text-[15.5px]"
               >
                 {r.cells.map((c, i) => (
                   <Fragment key={i}>
@@ -574,17 +604,17 @@ export default function MyPageSales() {
             </Fragment>
           ))}
           {current.isPending && (
-            <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
               정산 내역을 불러오는 중입니다.
             </div>
           )}
           {current.isError && (
-            <div className="text-[11.5px]" style={{ color: '#ffb0cd' }}>
+            <div className="text-[13px]" style={{ color: '#ffb0cd' }}>
               정산 내역을 불러오지 못했습니다.
             </div>
           )}
           {isEmpty && (
-            <div className="text-[11.5px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
               {period.label}에 받은 정산금이 없습니다.
             </div>
           )}
@@ -597,7 +627,7 @@ export default function MyPageSales() {
               onClick={() => void entries.fetchNextPage()}
               disabled={entries.isFetchingNextPage}
               style={{ gap: '6px', color: 'rgba(255,240,247,.78)', transition: 'color .16s' }}
-              className="flex cursor-pointer items-center text-[11.5px] font-semibold hover:text-[#fff]"
+              className="flex cursor-pointer items-center text-[13px] font-semibold hover:text-[#fff]"
             >
               {entries.isFetchingNextPage ? '불러오는 중' : '더 보기'}
               <span className="text-[12px]">→</span>
@@ -605,6 +635,6 @@ export default function MyPageSales() {
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
