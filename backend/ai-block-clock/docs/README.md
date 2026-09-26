@@ -9,7 +9,7 @@
 | [`NAMING.md`](NAMING.md) | 클래스·메서드 네이밍, 계층별 접미사, 어휘 사전 |
 | [`RULE.md`](RULE.md) | 테스트 분류(1~6장) · 코드 규칙(7~12장) |
 | [`abc-charge.md`](abc-charge.md) | ABC 충전 — 체인에서 입금을 확인하는 방법 · 대조 규칙 · 설정 |
-| [`abc-withdrawal.md`](abc-withdrawal.md) | 정산금 출금 — 본인 확인 · 신청 때 금액을 묶는 장부 거래 · 정책 · 동시 신청 · 관리자 심사 · Swagger 심사 절차 · 설정 · 정산금을 쓸 수 있는 ABC 로 옮기기 |
+| [`abc-withdrawal.md`](abc-withdrawal.md) | 정산금 출금 — 본인 확인 · 신청 때 금액을 묶는 장부 거래 · 정책 · 동시 신청 · 관리자 심사 · Swagger 심사 절차 · 설정 · 정산금을 쓸 수 있는 ABC 로 옮기기 · 보관 지갑에서 체인으로 지급 |
 | [`plans/`](plans/) | **아직 코드가 없는 것의 설계.** 구현되면 걷어낸다 |
 | `diagrams/` | 개념도 · 구조도 |
 

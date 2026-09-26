@@ -136,7 +136,8 @@ JSON-RPC 로 직접 묻는다 (`:client:blockchain` 의 `SsafyChainClient`).
 | `ssafy.chain.connect-timeout` · `read-timeout` | `SSAFY_CHAIN_CONNECT_TIMEOUT` · `SSAFY_CHAIN_READ_TIMEOUT` | `3s` · `10s` | |
 
 보관 지갑을 운영 중에 바꾸면 안 된다. 바꾸기 전 주소로 보낸 대기 중 충전이 `CUSTODY_ADDRESS_MISMATCH` 로 실패한다.
-보관 지갑의 개인키는 서버에 없다. 출금(보관 지갑 → 공급자)을 만들 때 넣는다.
+보관 지갑의 개인키는 출금 지급을 켜는 운영 서버에만 둔다(`SSAFY_CHAIN_SIGNER_PRIVATE_KEY`, [abc-withdrawal.md](abc-withdrawal.md) 9.4).
+충전 확인은 키 없이 돈다.
 
 ---
 

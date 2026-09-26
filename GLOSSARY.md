@@ -33,6 +33,7 @@
 | **출금 신청 (Withdrawal)** | 공급자가 정산금을 로그인 지갑으로 abcToken 으로 보내 달라고 한 요청. 신청하면 금액이 **출금 예치**로 묶이고, 취소 · 반려되면 정산금으로 돌아온다 | `Withdrawal`, 장부 계정 `WITHDRAWAL_ESCROW` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md)) |
 | **본인 확인 (Identity Verification)** | 출금 전에 실명 · 생년월일을 내고 관리자 승인을 받는 절차. 지갑 로그인은 지갑의 주인까지만 확인하므로 그 뒤의 사람을 확인한다. 승인받아야 출금을 신청할 수 있다 | `IdentityVerification` (ACC-004) |
 | **출금 심사 (Withdrawal Review)** | 관리자가 출금 신청을 승인(지급 대기)하거나 사유를 남겨 반려(금액을 정산금으로 돌려놓음)하는 일 | `WithdrawalService.approve` · `.reject` (PAY-024 · ADM-001) |
+| **출금 지급 (Withdrawal Payout)** | 승인된 출금을 보관 지갑이 서명한 abcToken 전송으로 신청한 지갑에 보내는 일. 체인에서 성공을 확인하면 묶은 금액을 장부에서 내보낸다 | `WithdrawalPayoutService`, 상태 `PAYING` · `PAID`, 장부 거래 `WITHDRAWAL_PAYOUT` (PAY-025) |
 | **관리자 (Admin)** | 설정(`admin.wallet-addresses`)에 적힌 지갑으로 로그인한 사용자. 로그인 때 `ROLE_ADMIN` 을 받아 `/api/v1/admin/**` 를 부른다 | `AdminProperties` · `SessionAuthenticationManager.ADMIN_ROLE` |
 | **기여 노드** | 특정 실행에서 실제로 호출되어 정산 대상이 되는 노드 | 아직 없음 (PAY-010) |
 

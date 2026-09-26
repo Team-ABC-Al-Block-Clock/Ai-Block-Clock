@@ -307,6 +307,7 @@ ABC 는 사용자끼리 주고받을 수 없는 이용권이다. 넘기는 API �
 | `WITHDRAWAL_HOLD` (출금 신청) | `PAYOUT_BALANCE` | `WITHDRAWAL_ESCROW` 한 줄 | **같은 사람** |
 | `WITHDRAWAL_RELEASE` (출금 취소 · 반려) | `WITHDRAWAL_ESCROW` | `PAYOUT_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 2장 |
 | `PAYOUT_CONVERSION` (정산금 옮기기) | `PAYOUT_BALANCE` | `ABC_BALANCE` 한 줄 | **같은 사람** — [abc-withdrawal.md](../../abc-withdrawal.md) 8장 |
+| `WITHDRAWAL_PAYOUT` (출금 지급 완료) | `WITHDRAWAL_ESCROW` | `ABC_ISSUANCE` (`SYSTEM`) 한 줄 | 장부 밖(체인)으로 나간다 — [abc-withdrawal.md](../../abc-withdrawal.md) 9.3 |
 
 남에게 ABC 가 가는 길은 정산으로 공급자의 **정산금**에 넣는 것 하나뿐이다. 받은 쪽의 쓸 수 있는 잔액으로 곧장 가지 않는다.
 받은 정산금을 쓸 수 있는 잔액으로 옮기는 것은 받은 사람 자신만 한다(`PAYOUT_CONVERSION`).

@@ -3,9 +3,9 @@
 공급자가 **정산금**(실행에서 받은 ABC, 장부 `PAYOUT_BALANCE`)을 로그인한 지갑으로 abcToken 으로 보내 달라고 신청한다.
 ABC 1 = abcToken 1개다. 본인 확인(ACC-004) → 신청(PAY-023) → 관리자 심사(PAY-024) → 체인 지급(PAY-025) 순이다.
 
-이 문서는 **본인 확인 · 신청 · 취소 · 관리자 심사**까지다. 지급은 그 작업에서 이어 적는다.
+이 문서는 **본인 확인 · 신청 · 취소 · 관리자 심사 · 체인 지급**을 다룬다.
 정산금을 출금하지 않고 쓸 수 있는 ABC 로 옮기는 길도 여기 적는다(8장).
-심사까지는 체인에 아무것도 보내지 않는다. SSAFY 토큰증권 API 는 승인된 신청을 지급할 때 처음 부른다.
+심사까지는 체인에 아무것도 보내지 않는다. 승인된 신청만 보관 지갑이 서명한 전송으로 체인에 보낸다(9장).
 
 ---
 
@@ -18,7 +18,7 @@ ABC 1 = abcToken 1개다. 본인 확인(ACC-004) → 신청(PAY-023) → 관리�
 ③ 신청을 적고(REQUESTED) 금액을 정산금에서 묶는다     WithdrawalWriter · LedgerTransaction.forWithdrawalHold
 ④ (심사 전) 공급자가 취소하면 묶은 금액을 돌려놓는다  POST /api/v1/withdrawals/{withdrawalId}/cancel
 ⑤ 관리자가 승인하거나 반려한다                        POST /api/v1/admin/withdrawals/{withdrawalId}/approve · reject   (7장)
-⑥ 승인된 신청만 지급한다                            PAY-025
+⑥ 승인된 신청을 한 건씩 체인으로 보낸다              WithdrawalPayoutScheduler → WithdrawalPayoutService   (9장)
 ```
 
 | 상태 | 뜻 | 처리 중 | 신청 주기에 셈 |
@@ -27,13 +27,15 @@ ABC 1 = abcToken 1개다. 본인 확인(ACC-004) → 신청(PAY-023) → 관리�
 | `CANCELED` | 공급자가 거둠. 금액이 정산금으로 돌아왔다 | | |
 | `APPROVED` | 관리자가 승인. 지급을 기다린다. 금액은 계속 묶여 있다 | ✓ | ✓ |
 | `REJECTED` | 관리자가 반려. 사유가 남고 금액이 정산금으로 돌아왔다 | | |
+| `PAYING` | 서명한 전송을 체인에 보냈다. 거래 해시가 적혀 있고 금액은 계속 묶여 있다 | ✓ | ✓ |
+| `PAID` | 체인에서 성공을 확인했다. 묶은 금액을 장부에서 내보냈다 | | ✓ |
 
 상태가 늘 때 두 칸을 `WithdrawalStatus` 에 함께 정한다. 취소 · 반려처럼 돈이 나가지 않고 닫힌 것은 신청 주기에 세지 않는다.
 
 ```
 REQUESTED ──취소(공급자)──▶ CANCELED
     │
-    ├──승인(관리자)──▶ APPROVED ──지급(PAY-025)──▶ …
+    ├──승인(관리자)──▶ APPROVED ──서명 · 전송──▶ PAYING ──체인 성공──▶ PAID
     │
     └──반려(관리자)──▶ REJECTED
 ```
@@ -119,6 +121,11 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 | `payment.withdrawal.request-interval` | `PAYMENT_WITHDRAWAL_REQUEST_INTERVAL` | `24h` | 0 이면 주기 없이 처리 중인 출금만 막는다. 시연에서 쓴다 |
 | `admin.wallet-addresses` | `ADMIN_WALLET_ADDRESSES` | 비어 있음 | 관리자 지갑. 쉼표로 여럿. 비우면 아무도 심사할 수 없다 (7장) |
 | `springdoc.*.enabled` (prod) | `API_DOCS_ENABLED` | `true` | 관리자가 배포 서버의 Swagger 로 심사한다. 끄면 심사할 화면이 없다 |
+| `payment.withdrawal.payout.enabled` | `PAYMENT_WITHDRAWAL_PAYOUT_ENABLED` | `false` | 승인된 출금을 체인으로 보낸다. 보관 지갑 키가 있는 서버에서만 켠다 (9.4) |
+| `payment.withdrawal.payout.poll-interval` | `PAYMENT_WITHDRAWAL_PAYOUT_POLL_INTERVAL` | `10s` | 지급 차례 간격. 블록이 약 10초마다 생긴다 |
+| `ssafy.chain.signer.private-key` (소유: `:client:blockchain`) | `SSAFY_CHAIN_SIGNER_PRIVATE_KEY` | 비어 있음 | 보관 지갑 개인키. 서버의 `backend.env` 에만. 키의 주소가 `payment.charge.custody-address` 와 다르면 기동하지 않는다 |
+
+체인 ID · 보관 지갑 · 토큰 주소는 충전 설정(`payment.charge.*`, [abc-charge.md](abc-charge.md) 4장)을 그대로 쓴다. 넣은 지갑에서 내보내기 때문이다.
 
 ---
 
@@ -152,7 +159,7 @@ REQUESTED ──취소(공급자)──▶ CANCELED
 | 이미 승인(반려)한 것을 다시 승인(반려) | 그대로 돌려준다. 반려 사유는 처음 것이 남는다 |
 
 **개인정보를 암호화하지 않고 저장한다.** 실명 · 생년월일만 받고, 관리자 API 와 본인에게만 보인다.
-암호화 키를 서버 설정으로 새로 들여야 해서 이번에는 넣지 않았다 (9장).
+암호화 키를 서버 설정으로 새로 들여야 해서 이번에는 넣지 않았다 (10장).
 
 ---
 
@@ -243,11 +250,75 @@ Nginx 가 `/api/` 만 백엔드로 넘기므로 문서도 `/api/swagger-ui.html`
 
 ---
 
-## 9. 아직 하지 않은 것
+## 9. 지급 (PAY-025 · CHN-005/006)
+
+승인된 신청을 **보관 지갑**(사용자가 충전해 넣은 지갑, `payment.charge.custody-address`)에서 신청한 지갑으로 abcToken 을 보낸다.
+서버가 보관 지갑의 개인키로 abcToken `transfer(받는 지갑, ABC × 10^18)` 에 서명하고 SSAFY 체인 RPC 로 보낸다.
+
+| 정한 것 | 까닭 |
+| --- | --- |
+| 토큰증권 API 가 아니라 RPC 로 보낸다 | 토큰증권 API 에는 일반 전송이 없다(발행 · 위임 전송 · 회수 · 문서뿐). 위임 전송 · 발행은 모든 토큰을 움직이거나 새로 찍는 권한 키를 서버에 둬야 한다. 토큰증권 API 는 운영자 발행 창구로만 쓰고, 충전 전송 · 확인도 이미 RPC 로 한다 |
+| 보관 지갑 키만 서버에 둔다 | 권한 없는 일반 계정이라 키가 새도 잃는 것은 보관 지갑 잔액까지다 |
+| 가스 가격 0, 가스는 보낼 때 잰다 | SSAFY 체인의 `eth_gasPrice` 가 0 이다. 가스 한도는 `eth_estimateGas` 로 그때그때 재서 근거 없는 숫자를 설정에 두지 않는다 |
+| 한 번에 한 건 | 보관 지갑의 거래 번호(nonce)는 차례대로 써야 한다. 앞 거래가 끝나기 전에 다음 것을 서명하면 앞 거래가 사라졌을 때 번호가 꼬인다. 스레드 하나(`payoutScheduler`)가 10초마다 돈다 |
+| 성공을 확인한 뒤에 장부에서 내보낸다 | 보낸 것만으로는 성공이 아니다(242 결과 판정 원칙). 확인 전까지 금액은 출금 예치에 묶여 있다 |
+
+### 9.1 한 차례에 하는 일
+
+```
+① 지급 중(PAYING)인 출금이 있으면 그 거래를 체인에서 읽는다     OnChainPayoutSender.readStatus
+   · 성공      → PAID + 장부 WITHDRAWAL_PAYOUT (한 트랜잭션)     WithdrawalPayoutManager
+   · 아직      → 기다린다
+   · 노드가 모름 → 적어 둔 거래를 그대로 다시 보낸다
+   · 되돌려짐   → 멈춘다 (뒤의 출금도 보내지 않는다, 10장)
+② 지급 중인 것이 없거나 방금 끝났으면, 승인이 오래된 APPROVED 하나를 고른다
+③ 보관 지갑 잔액(토큰증권 API) → 다음 거래 번호 · 가스(RPC) → 서명     OnChainPayoutSender.prepare
+④ 해시 · 서명한 거래를 적고 PAYING 으로 바꾼다 (APPROVED 일 때만)    WithdrawalWriter.startPayout
+⑤ 체인에 보낸다                                                       OnChainPayoutSender.submit
+```
+
+체인 호출은 트랜잭션 밖이고, ④ 와 ①의 끝내기만 각자 짧은 트랜잭션이다(ARCHITECTURE 4.2).
+
+### 9.2 두 번 보내지 않는 길
+
+| 길 | 어떻게 |
+| --- | --- |
+| 보내기 **전에** 해시를 적는다 | 서명한 바이트의 keccak256 이 곧 거래 해시다. ④ 에서 적고 ⑤ 에서 보낸다. 보낸 직후 서버가 멈춰도 무엇을 보냈는지 남는다 |
+| 다시 보낼 땐 같은 거래 | 노드가 거래를 모르거나 답이 끊기면 새로 서명하지 않고 적어 둔 `payout_raw_transaction` 을 그대로 보낸다. 체인은 같은 해시를 한 번만 처리한다 |
+| 한 신청에 거래 하나 | `APPROVED → PAYING` 은 조건부 UPDATE(`updatePayoutStartIfApproved`)다. 두 차례가 겹치면 늦은 쪽은 서명한 거래를 버린다 |
+| 한 거래는 한 출금에 | `withdrawal.payout_transaction_hash` UNIQUE |
+| 장부에도 한 번 | 키 `withdrawal-payout:{출금ID}` UNIQUE, 체인 해시도 `(chain_id, transaction_hash)` UNIQUE. `PAYING → PAID` 도 조건부 UPDATE 다 |
+
+### 9.3 장부 — 지급을 마치면 내보낸다
+
+| 거래 | 빠지는 칸 (−) | 들어가는 칸 (+) | 키 |
+| --- | --- | --- | --- |
+| `WITHDRAWAL_PAYOUT` | `WITHDRAWAL_ESCROW` (신청한 사람) | `ABC_ISSUANCE` (`SYSTEM`) | `withdrawal-payout:{출금ID}` |
+
+충전(`CHARGE`)이 발행 계정에서 꺼내 잔액에 넣은 것을 반대로 돌린다. 서비스 안의 ABC 가 그만큼 줄고 체인의 abcToken 이 신청한 지갑으로 나간다.
+
+### 9.4 켜기 (운영 서버)
+
+지급은 **기본으로 꺼져 있다.** 꺼져 있으면 승인된 출금은 `APPROVED` 로 기다린다.
+
+1. MetaMask 에서 보관 지갑(`0x64e7…6B6`)의 개인키를 내보내 서버의 `backend.env` 에만 적는다 — 저장소 · 채팅 · 이미지에 넣지 않는다.
+   `SSAFY_CHAIN_SIGNER_PRIVATE_KEY=…`, `PAYMENT_WITHDRAWAL_PAYOUT_ENABLED=true`
+2. 보관 지갑에 보낼 abcToken 이 있는지 본다. 모자라면 그 출금은 보내지 않고 경고 로그만 남긴 채 기다린다.
+3. 다시 띄운다. 키의 주소가 보관 지갑과 다르면 **기동하지 않는다**(`PAYMENT_019`) — 토큰이 없는 지갑으로 서명하는 것을 막는다.
+
+`SsafyChainSignerProperties` 는 키를 로그에 찍지 않는다(`toString` 이 가린다).
+
+`WithdrawalPayoutServiceIntegrationTest` 가 H2 에서, `WithdrawalPayoutServiceMySqlTest` 가 MySQL 에서 같은 경우를 돌린다.
+체인 · 토큰증권 API 는 가짜로 두고 서명은 Hardhat 공개 테스트 키로 실제로 한다.
+
+---
+
+## 10. 아직 하지 않은 것
 
 | 무엇 | 어디서 |
 | --- | --- |
-| 승인된 신청을 보관 지갑에서 abcToken 으로 지급, 묶은 금액을 장부에서 내보내기, 중복 지급 막기 | PAY-025 · CHN-005/006 |
-| 출금 이력 · 상세 조회 (사용자가 반려 사유를 보는 자리) | PAY-026 |
+| 체인이 되돌린 거래(`PAYING` 에 멈춤)의 복구 · 오래 모르는 거래의 보류 · 재시도 한도 | PAY-026 · CHN-007/008 |
+| 충전 · 출금을 한 목록으로 보는 내역 API (FE 가 한 목록을 원함) | PAY-026 |
+| 실제 체인으로 1 ABC 를 보내 처음부터 끝까지 보기 | 보관 지갑 키를 서버에 넣은 뒤 |
 | 본인 확인 실명 · 생년월일 암호화 저장 | 암호화 키를 서버 설정으로 들이는 작업과 함께 |
 | 플랫폼 부담으로 준 정산금만큼 보관 지갑을 채우기 | 지급 전에 운영자가 한다 (엔진 계약 v2.0 대응의 플랫폼 부담 정산이 들어온 뒤) |
