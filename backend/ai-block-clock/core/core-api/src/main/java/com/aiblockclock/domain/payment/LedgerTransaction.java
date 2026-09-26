@@ -278,10 +278,18 @@ public record LedgerTransaction(
                     LedgerAccountType.ABC_BALANCE, LedgerAccountType.EXECUTION_ESCROW);
             case REFUND -> isOwnMove(outflow, inflows,
                     LedgerAccountType.EXECUTION_ESCROW, LedgerAccountType.ABC_BALANCE);
-            case SETTLEMENT -> outflow.accountType() == LedgerAccountType.EXECUTION_ESCROW
+            case SETTLEMENT -> isSettlementSource(outflow)
                     && inflows.stream()
                             .allMatch(inflow -> inflow.accountType() == LedgerAccountType.PAYOUT_BALANCE);
         };
+    }
+
+    // 정산금은 사용자의 예치에서 나가거나, 플랫폼 탓으로 실패한 실행이면 플랫폼 부담에서 나간다 (엔진 계약 v2.0 8.5).
+    // 플랫폼 부담은 플랫폼 계정 하나뿐이라, 다른 참조로 적힌 칸은 받지 않는다.
+    private static boolean isSettlementSource(LedgerEntry outflow) {
+        return outflow.accountType() == LedgerAccountType.EXECUTION_ESCROW
+                || outflow.accountType() == LedgerAccountType.PLATFORM_EXPENSE
+                && outflow.accountReferenceId().equals(PLATFORM_ACCOUNT_REFERENCE_ID);
     }
 
     // 한 사람의 칸 사이에서만 옮긴다. 받는 칸이 하나이고 주인이 빠지는 칸과 같아야 한다.

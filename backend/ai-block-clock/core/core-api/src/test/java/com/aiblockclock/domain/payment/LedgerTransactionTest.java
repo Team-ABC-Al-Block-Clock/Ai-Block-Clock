@@ -234,6 +234,20 @@ class LedgerTransactionTest {
     }
 
     @Test
+    void 플랫폼_부담은_플랫폼_계정이_아닌_참조로_꺼낼_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.PLATFORM_EXPENSE, "7", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.PAYOUT_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
+    void 플랫폼_부담에서도_정산금이_아닌_잔액으로_넣을_수_없다() {
+        assertRejected(LedgerEventType.SETTLEMENT,
+                new LedgerEntry(LedgerAccountType.PLATFORM_EXPENSE, "PLATFORM", new BigDecimal("-10")),
+                new LedgerEntry(LedgerAccountType.ABC_BALANCE, "8", new BigDecimal("10")));
+    }
+
+    @Test
     void 충전은_발행_계정이_아닌_곳에서_ABC를_꺼낼_수_없다() {
         assertRejected(LedgerEventType.CHARGE,
                 new LedgerEntry(LedgerAccountType.ABC_ISSUANCE, "8", new BigDecimal("-10")),
