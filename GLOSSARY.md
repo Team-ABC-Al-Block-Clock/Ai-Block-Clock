@@ -29,6 +29,7 @@
 | **Agent Score** | 보정 평점과 정규화 사용량의 가중합에 성공률 페널티를 곱한 종합 점수 | 아직 없음 (PAY-019) |
 | **ABC (Credit)** | 수요자용 이용권. 실행 시 차감된다. 사용자 간 전송 불가 — 장부 거래가 종류마다 정해진 모양만 받는다(`LedgerTransaction`) | 아직 없음 ⚠️ 3장 참고 |
 | **정산금 (Payout Balance)** | 공급자용 출금 가능 자산 | 장부 계정 `PAYOUT_BALANCE`. 단계마다 내역은 `ExecutionSettlement`, 공급자가 보는 한 줄은 `SettlementRecord` |
+| **출금 신청 (Withdrawal)** | 공급자가 정산금을 로그인 지갑으로 abcToken 으로 보내 달라고 한 요청. 신청하면 금액이 **출금 예치**로 묶이고, 취소 · 반려되면 정산금으로 돌아온다 | `Withdrawal`, 장부 계정 `WITHDRAWAL_ESCROW` ([abc-withdrawal.md](backend/ai-block-clock/docs/abc-withdrawal.md)) |
 | **기여 노드** | 특정 실행에서 실제로 호출되어 정산 대상이 되는 노드 | 아직 없음 (PAY-010) |
 
 ### 정의와 배치는 다른 것이다
