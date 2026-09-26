@@ -18,6 +18,7 @@ import {
   compactCount,
   dateTimeLabel,
   maskName,
+  mismatchReasonLabel,
   priceLabel,
   ratingLabel,
   runLabel,
@@ -305,7 +306,15 @@ export default function Detail() {
   const proofBadge = proof && proofBadgeOf(proof)
   // 대조해 보라고 두는 값이라 주소는 줄이지 않는다.
   const onChainOwner = proof?.verification.onChainOwnerAddress ?? ''
-  const onChainHash = proof ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…` : ''
+  const onChainHash = proof?.verification.onChainMetadataHash
+    ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…`
+    : ''
+  const proofPending = proof?.blockchain.transactionStatus === 'PENDING'
+  // 확정 대기는 배지가 이미 말한다.
+  const mismatchText =
+    proof && !proof.verification.verified && !proofPending
+      ? mismatchReasonLabel(proof.verification.mismatchReason)
+      : null
 
   const thumbs = shots.map((img, i) => ({
     imageId: img.imageId,
@@ -400,6 +409,14 @@ export default function Detail() {
                 }}
               >
                 {proofBadge.text}
+              </div>
+            )}
+            {mismatchText && (
+              <div
+                className="flex-none text-[12.5px] tracking-[-.01em]"
+                style={{ color: 'rgba(255,196,214,.9)' }}
+              >
+                {mismatchText}
               </div>
             )}
           </div>
@@ -883,7 +900,12 @@ export default function Detail() {
                         '네트워크',
                         `${chainNameOf(proof.blockchain.chainId)} · ${proof.blockchain.chainId}`,
                       ],
-                      ['트랜잭션', shortAddress(proof.blockchain.transactionHash)],
+                      [
+                        '트랜잭션',
+                        proof.blockchain.transactionHash
+                          ? shortAddress(proof.blockchain.transactionHash)
+                          : '—',
+                      ],
                       ['블록', blockLabel(proof.blockchain.blockNumber)],
                       ['등록 시각', dateTimeLabel(proof.blockchain.registeredAt)],
                     ] as const
@@ -909,28 +931,45 @@ export default function Detail() {
                       key={label}
                       style={{ gap: '10px', marginTop: i === 0 ? 0 : '8px' }}
                     >
+                      {/* 확정 전에는 대조할 체인 값이 없다. 불일치로 적지 않는다. */}
                       <span
                         style={{
-                          color: matched ? 'var(--color-accent-bright)' : 'rgba(255,196,214,.9)',
+                          color: proofPending
+                            ? 'var(--color-muted)'
+                            : matched
+                              ? 'var(--color-accent-bright)'
+                              : 'rgba(255,196,214,.9)',
                         }}
                       >
-                        {matched ? `✓ ${label} 일치` : `✗ ${label} 불일치`}
+                        {proofPending
+                          ? `${label} 대조 대기`
+                          : matched
+                            ? `✓ ${label} 일치`
+                            : `✗ ${label} 불일치`}
                       </span>
                       <span className="text-faint text-[12.5px]">{value}</span>
                     </div>
                   ))}
                 </div>
 
-                {/* 외부 주소라 paths 를 거치지 않는다. */}
-                <a
-                  className="text-accent-bright inline-block"
-                  href={proof.blockchain.explorerUrl}
-                  rel="noreferrer"
-                  style={{ marginTop: '18px' }}
-                  target="_blank"
-                >
-                  Polygonscan에서 보기 →
-                </a>
+                {proof.verification.verifiedAt && (
+                  <div className="text-faint text-[12.5px]" style={{ marginTop: '10px' }}>
+                    마지막 검증 {timeLabel(proof.verification.verifiedAt)}
+                  </div>
+                )}
+
+                {/* 외부 주소라 paths 를 거치지 않는다. SSAFY 체인은 탐색기가 없어 기록 조회 주소다. */}
+                {proof.blockchain.explorerUrl && (
+                  <a
+                    className="text-accent-bright inline-block"
+                    href={proof.blockchain.explorerUrl}
+                    rel="noreferrer"
+                    style={{ marginTop: '18px' }}
+                    target="_blank"
+                  >
+                    체인 기록 보기 →
+                  </a>
+                )}
 
                 <div className="text-faint text-[12.5px]" style={{ marginTop: '16px' }}>
                   노드 구성·연결 관계·프롬프트는 블록체인에 기록하지 않습니다. 소유권과 해시만

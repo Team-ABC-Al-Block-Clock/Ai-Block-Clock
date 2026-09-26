@@ -220,8 +220,9 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
   const onChainOwnerAddress = stale ? `0x${hex(`${agent.agentId}:stale-owner`, 40)}` : walletAddress
   const onChainMetadataHash = stale ? `0x${hex(`${agent.agentId}:stale-hash`, 64)}` : metadataHash
 
-  const ownerMatched = onChainOwnerAddress === walletAddress
-  const metadataMatched = onChainMetadataHash === metadataHash
+  const ownerMatched = !pending && onChainOwnerAddress === walletAddress
+  const metadataMatched = !pending && onChainMetadataHash === metadataHash
+  const verified = ownerMatched && metadataMatched
 
   return {
     agentId: agent.agentId,
@@ -229,22 +230,32 @@ export function provenanceOf(agent: AgentDetail): AgentProvenance | null {
     blockchain: {
       network: 'SSAFY',
       chainId: 31221,
-      contractAddress: '0x41e2e64a79b19e9329f82d3d55be5e767a6f571d',
-      transactionHash,
+      contractAddress: pending ? null : '0x41e2e64a79b19e9329f82d3d55be5e767a6f571d',
+      transactionHash: pending ? null : transactionHash,
       transactionStatus: pending ? 'PENDING' : 'CONFIRMED',
       // 등록 화면으로 만든 건은 ID 가 UUID 다 — 숫자만 뽑으면 안전한 정수 범위를 넘는다.
       blockNumber: pending ? null : 15_230_000 + (parseInt(hex(agent.agentId, 6), 16) % 100_000),
       registeredAt: agent.createdAt,
-      explorerUrl: `https://amoy.polygonscan.com/tx/${transactionHash}`,
+      explorerUrl: pending
+        ? null
+        : `https://sto.ssafy.io/v1/tokens/0x41e2e64a79b19e9329f82d3d55be5e767a6f571d/documents/${transactionHash}`,
     },
     verification: {
       offChainOwnerAddress: walletAddress,
-      onChainOwnerAddress,
-      offChainMetadataHash: metadataHash,
-      onChainMetadataHash,
+      onChainOwnerAddress: pending ? null : onChainOwnerAddress,
+      offChainMetadataHash: pending ? null : metadataHash,
+      onChainMetadataHash: pending ? null : onChainMetadataHash,
       ownerMatched,
       metadataMatched,
-      verified: ownerMatched && metadataMatched,
+      verified,
+      mismatchReason: pending
+        ? 'NOT_CONFIRMED'
+        : !ownerMatched
+          ? 'OWNER_MISMATCH'
+          : !metadataMatched
+            ? 'METADATA_CHANGED'
+            : null,
+      verifiedAt: pending ? null : new Date().toISOString(),
     },
   }
 }

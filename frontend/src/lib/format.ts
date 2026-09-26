@@ -1,3 +1,4 @@
+import type { ProvenanceMismatchReason } from '@/api/agents'
 import type { ItemNodeType } from '@/api/workflows'
 
 /** 2400 → '2.4k', 640 → '640' */
@@ -148,3 +149,15 @@ const NODE_TYPE_LABELS: Record<ItemNodeType, string> = {
 }
 
 export const nodeTypeLabel = (type: ItemNodeType) => NODE_TYPE_LABELS[type]
+
+const MISMATCH_REASONS: Record<ProvenanceMismatchReason, string> = {
+  NOT_CONFIRMED: '블록 확정 대기 중',
+  NOT_ON_CHAIN: '체인에 기록이 없어요',
+  OWNER_MISMATCH: '원작자 지갑이 체인 기록과 달라요',
+  METADATA_CHANGED: '등록 뒤 에이전트 내용이 바뀌었어요',
+  RECORD_MISMATCH: '서버 기록이 체인과 달라요',
+}
+
+/** 원본 검증이 어긋난 이유. 모르는 값이 오면 null 이라 화면이 줄을 숨긴다. */
+export const mismatchReasonLabel = (reason: ProvenanceMismatchReason | null) =>
+  (reason && MISMATCH_REASONS[reason]) ?? null

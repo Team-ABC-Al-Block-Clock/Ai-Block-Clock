@@ -231,12 +231,14 @@ describe('getAgentProvenance', () => {
     ])
     expect(Object.keys(provenance.verification).sort()).toEqual([
       'metadataMatched',
+      'mismatchReason',
       'offChainMetadataHash',
       'offChainOwnerAddress',
       'onChainMetadataHash',
       'onChainOwnerAddress',
       'ownerMatched',
       'verified',
+      'verifiedAt',
     ])
     expect(provenance).not.toHaveProperty('status')
   })
@@ -250,18 +252,26 @@ describe('getAgentProvenance', () => {
     expect(provenance.blockchain.transactionStatus).toBe('CONFIRMED')
     expect(provenance.blockchain.transactionHash).toMatch(/^0x[0-9a-f]{64}$/)
     expect(provenance.blockchain.blockNumber).toBeGreaterThan(0)
-    expect(provenance.blockchain.explorerUrl.endsWith(provenance.blockchain.transactionHash)).toBe(
-      true,
-    )
+    expect(provenance.blockchain.explorerUrl).toContain(provenance.blockchain.transactionHash)
     expect(provenance.blockchain.registeredAt).toBe(agent.createdAt)
     expect(provenance.verification.verified).toBe(true)
+    expect(provenance.verification.mismatchReason).toBeNull()
   })
 
-  it('확정 대기 중이면 blockNumber 가 null 이다', async () => {
-    const provenance = await getAgentProvenance('agt_29')
+  it('확정 대기 중이면 체인에서 오는 칸이 전부 null 이다', async () => {
+    const { blockchain, verification } = await getAgentProvenance('agt_29')
 
-    expect(provenance.blockchain.transactionStatus).toBe('PENDING')
-    expect(provenance.blockchain.blockNumber).toBeNull()
+    expect(blockchain.transactionStatus).toBe('PENDING')
+    expect(blockchain.blockNumber).toBeNull()
+    expect(blockchain.transactionHash).toBeNull()
+    expect(blockchain.contractAddress).toBeNull()
+    expect(blockchain.explorerUrl).toBeNull()
+    expect(verification.onChainOwnerAddress).toBeNull()
+    expect(verification.onChainMetadataHash).toBeNull()
+    expect(verification.offChainMetadataHash).toBeNull()
+    expect(verification.verifiedAt).toBeNull()
+    expect(verification.verified).toBe(false)
+    expect(verification.mismatchReason).toBe('NOT_CONFIRMED')
   })
 
   it('대조가 어긋난 건은 verified 가 false 다', async () => {

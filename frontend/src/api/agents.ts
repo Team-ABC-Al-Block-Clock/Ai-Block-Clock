@@ -194,27 +194,41 @@ export interface AgentProvenance {
     nickname: string
     walletAddress: string
   }
+  /** PENDING 이면 registeredAt 말고는 전부 null 이다 */
   blockchain: {
     network: string
     chainId: number
-    contractAddress: string
-    transactionHash: string
+    contractAddress: string | null
+    transactionHash: string | null
     transactionStatus: 'PENDING' | 'CONFIRMED'
     blockNumber: number | null
+    /** 처음 공개한 시각 */
     registeredAt: string
-    explorerUrl: string
+    /** SSAFY 토큰증권 API 의 기록 조회 주소. 열면 체인에 적힌 값이 JSON 으로 보인다 */
+    explorerUrl: string | null
   }
-  /** 등록한 에이전트는 수정할 수 없으므로 정상이면 늘 일치한다. 불일치는 데이터가 손상된 것이다. */
+  /** offChainMetadataHash 는 지금 DB 내용으로 다시 만든 해시라 공개 뒤 내용이 바뀌면 어긋난다. */
   verification: {
     offChainOwnerAddress: string
-    onChainOwnerAddress: string
-    offChainMetadataHash: string
-    onChainMetadataHash: string
+    onChainOwnerAddress: string | null
+    offChainMetadataHash: string | null
+    onChainMetadataHash: string | null
     ownerMatched: boolean
     metadataMatched: boolean
     verified: boolean
+    /** verified 면 null */
+    mismatchReason: ProvenanceMismatchReason | null
+    /** 이번에 대조한 시각 */
+    verifiedAt: string | null
   }
 }
+
+export type ProvenanceMismatchReason =
+  | 'NOT_CONFIRMED'
+  | 'NOT_ON_CHAIN'
+  | 'OWNER_MISMATCH'
+  | 'METADATA_CHANGED'
+  | 'RECORD_MISMATCH'
 
 export interface AgentReview {
   reviewId: string
