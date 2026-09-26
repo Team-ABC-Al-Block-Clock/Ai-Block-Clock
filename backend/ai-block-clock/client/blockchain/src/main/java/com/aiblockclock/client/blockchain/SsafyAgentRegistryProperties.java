@@ -6,7 +6,8 @@ import java.util.regex.Pattern;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 // 에이전트 원본 기록 전용 토큰(등기부)과, 그 토큰에 문서를 쓸 때 서명하는 등기부 지갑의 개인키다.
-// 셋이 모두 비어 있으면 기록을 쓰지 않는 서버로 기동한다. 하나라도 채웠으면 셋 다 맞아야 기동한다.
+// 개인키가 없으면 기록을 쓰지 않는 서버로 기동한다. 주소는 배포한 등기부로 기본값이 있고, 키를 넣은 서버만 쓴다.
+// 키를 넣었으면 주소 · 제한 시간까지 맞아야 기동한다. 주소 형식이 틀린 것은 키가 없어도 거부한다.
 @ConfigurationProperties(prefix = "ssafy.sto.agent-registry")
 public record SsafyAgentRegistryProperties(
         String contractAddress,
@@ -19,13 +20,17 @@ public record SsafyAgentRegistryProperties(
         contractAddress = contractAddress == null ? "" : contractAddress.strip();
         signerPrivateKey = signerPrivateKey == null ? "" : signerPrivateKey.strip();
 
-        if (!contractAddress.isEmpty() || !signerPrivateKey.isEmpty()) {
-            validate(contractAddress, signerPrivateKey, writeTimeout);
+        if (!contractAddress.isEmpty() && !SsafyBlockchainAddress.isValid(contractAddress)) {
+            throw invalidContractAddress();
+        }
+
+        if (!signerPrivateKey.isEmpty()) {
+            validateSigner(contractAddress, signerPrivateKey, writeTimeout);
         }
     }
 
     public boolean isConfigured() {
-        return !contractAddress.isEmpty();
+        return !signerPrivateKey.isEmpty();
     }
 
     // 개인키가 로그 · 오류 메시지에 찍히지 않게 가린다
@@ -36,10 +41,9 @@ public record SsafyAgentRegistryProperties(
                 + ", writeTimeout=" + writeTimeout + "]";
     }
 
-    private static void validate(String contractAddress, String signerPrivateKey, Duration writeTimeout) {
-        if (!SsafyBlockchainAddress.isValid(contractAddress)) {
-            throw new BlockchainClientException(BlockchainClientError.INVALID_CONFIGURATION,
-                    "ssafy.sto.agent-registry.contract-address must be a 0x-prefixed 40-hex blockchain address");
+    private static void validateSigner(String contractAddress, String signerPrivateKey, Duration writeTimeout) {
+        if (contractAddress.isEmpty()) {
+            throw invalidContractAddress();
         }
 
         if (!PRIVATE_KEY_PATTERN.matcher(signerPrivateKey).matches()) {
@@ -53,5 +57,10 @@ public record SsafyAgentRegistryProperties(
             throw new BlockchainClientException(BlockchainClientError.INVALID_CONFIGURATION,
                     "ssafy.sto.agent-registry.write-timeout must be between 1s and " + Integer.MAX_VALUE + "ms");
         }
+    }
+
+    private static BlockchainClientException invalidContractAddress() {
+        return new BlockchainClientException(BlockchainClientError.INVALID_CONFIGURATION,
+                "ssafy.sto.agent-registry.contract-address must be a 0x-prefixed 40-hex blockchain address");
     }
 }

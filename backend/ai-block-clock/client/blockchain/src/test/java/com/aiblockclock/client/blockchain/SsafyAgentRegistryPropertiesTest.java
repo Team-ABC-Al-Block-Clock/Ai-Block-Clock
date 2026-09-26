@@ -43,10 +43,19 @@ class SsafyAgentRegistryPropertiesTest {
     }
 
     @Test
-    void 주소만_있고_개인키가_없으면_기동하지_않는다() {
+    void 주소만_있고_개인키가_없으면_기록을_쓰지_않는_서버로_기동한다() {
         contextRunner.withPropertyValues(
                         "ssafy.sto.agent-registry.contract-address=" + REGISTRY,
                         "ssafy.sto.agent-registry.write-timeout=30s")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(SsafyAgentRegistryProperties.class).isConfigured()).isFalse();
+                });
+    }
+
+    @Test
+    void 주소_형식이_틀리면_개인키가_없어도_기동하지_않는다() {
+        contextRunner.withPropertyValues("ssafy.sto.agent-registry.contract-address=0x1234")
                 .run(context -> assertThat(context).hasFailed());
     }
 
