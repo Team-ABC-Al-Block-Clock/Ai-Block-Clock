@@ -1,5 +1,5 @@
+import { defineChain } from 'viem'
 import { createConfig, http } from 'wagmi'
-import { polygonAmoy } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
 
 /**
@@ -7,9 +7,18 @@ import { injected } from 'wagmi/connectors'
  * projectId 가 필요 없고, 연결 대화상자는 `components/wallet-dialog.ts` 가 그린다.
  */
 
+/** SSAFY 체인. wagmi/chains 에 없는 체인이라 여기서 정의한다.
+ *  탐색기가 없어 `blockExplorers` 를 두지 않는다 — 지갑에 체인을 추가할 때도 그대로 빠진다.
+ *  가스비가 0 이고 EIP-1559 가 없다. 거래를 보낼 때 레거시 + gasPrice 0 으로 맞춘다(`lib/abcToken.ts`). */
+export const chain = defineChain({
+  id: 31221,
+  name: 'SSAFY',
+  nativeCurrency: { name: 'SSAFY', symbol: 'SSF', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.ssafy-blockchain.com'] } },
+})
+
 /** 화면에 네트워크 이름을 적을 때도 이 값에서 가져온다.
  *  손으로 적으면 메인넷으로 옮길 때 화면마다 갈라진다. */
-export const chain = polygonAmoy
 export const chainLabel = chain.name
 
 /** 배너가 "지금 어디에 붙어 있는지" 를 말할 때 쓴다. 모르는 체인은 번호로. */
@@ -21,7 +30,7 @@ const CHAIN_NAMES: Record<number, string> = {
   8453: 'Base',
   42161: 'Arbitrum One',
   11155111: 'Sepolia',
-  [polygonAmoy.id]: polygonAmoy.name,
+  [chain.id]: chain.name,
 }
 
 export function chainNameOf(id: number | undefined): string {

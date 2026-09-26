@@ -413,7 +413,7 @@ function NodeForm({
       >
         <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
           {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
-          {price ? `1회 실행 원가 ${priceLabel(price)}` : '저장하면 원가가 매겨집니다'}
+          {price ? `1회 실행 원가 ${priceLabel(price)}` : '실행 단계에서 원가가 측정됩니다'}
         </span>
         <button
           type="button"

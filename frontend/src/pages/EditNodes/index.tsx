@@ -265,7 +265,7 @@ export default function EditNodes() {
   const runNow = async () => {
     try {
       const id = dirty ? (await save.mutateAsync()).result.workflowId : saved?.workflowId
-      if (id) navigate(`${paths.run.waiting.withoutId}?workflowId=${id}`)
+      if (id) navigate(`${paths.run.waiting}?workflowId=${id}`)
     } catch {
       // 실패 문구는 `save.error` 가 이미 들고 있다. 화면에 머문다.
     }
