@@ -28,6 +28,7 @@ public record ExecutionStartRequest(
         @Schema(description = """
                 시작 노드의 입력 항목에 채운 값. `{ "<key>": 값 }` 모양의 JSON 문자열이다. \
                 필수 항목이 빠졌거나, 타입 · 선택지가 맞지 않거나, 정의하지 않은 항목이 오면 `EXECUTION_009` 이다. \
+                빈 문자열과 공백만 있는 값은 채우지 않은 것과 같게 보므로 필수 항목이면 막힌다. \
                 시작 노드가 없거나 입력 항목이 비어 있으면 보내지 않는다""",
                 example = "{\"brand_name\":\"하루\",\"price_tier\":\"중가\"}", nullable = true)
         String input,

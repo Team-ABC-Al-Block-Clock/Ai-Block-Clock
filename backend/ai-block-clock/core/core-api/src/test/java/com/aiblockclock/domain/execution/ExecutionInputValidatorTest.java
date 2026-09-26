@@ -57,6 +57,25 @@ class ExecutionInputValidatorTest {
     }
 
     @Test
+    @DisplayName("필수 항목에 빈 문자열이 오면 막는다")
+    void rejectsBlankRequiredField() {
+        assertRejects(withStart(FIELDS), "{\"brand_name\":\"\",\"price_tier\":\"중가\"}", "brand_name");
+        assertRejects(withStart(FIELDS), "{\"brand_name\":\"   \",\"price_tier\":\"중가\"}", "brand_name");
+    }
+
+    @Test
+    @DisplayName("필수가 아닌 항목은 빈 문자열로 와도 된다")
+    void allowsBlankOptionalField() {
+        List<InputField> fields = List.of(
+                new InputField("brand_name", "브랜드명", InputFieldType.TEXT, true, List.of()),
+                new InputField("memo", "메모", InputFieldType.LONG_TEXT, false, List.of()),
+                new InputField("price_tier", "가격대", InputFieldType.CHOICE, false, List.of("보급형", "중가")));
+
+        assertThat(validator.validate(withStart(fields), "{\"brand_name\":\"하루\",\"memo\":\"\",\"price_tier\":\"\"}"))
+                .isEqualTo("{\"brand_name\":\"하루\",\"memo\":\"\",\"price_tier\":\"\"}");
+    }
+
+    @Test
     @DisplayName("숫자 항목에 글자가 오면 막는다")
     void rejectsTextForNumber() {
         assertRejects(withStart(FIELDS), "{\"brand_name\":\"하루\",\"price_tier\":\"중가\",\"budget\":\"삼백\"}", "budget");

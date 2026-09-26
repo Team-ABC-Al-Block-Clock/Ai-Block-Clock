@@ -74,7 +74,7 @@ public class ExecutionInputValidator {
     }
 
     private static void ensureMatches(InputField field, JsonNode value) {
-        if (value == null || value.isNull()) {
+        if (isEmpty(value)) {
             if (field.required()) {
                 throw invalid(field.key());
             }
@@ -92,6 +92,10 @@ public class ExecutionInputValidator {
         if (!matches) {
             throw invalid(field.key());
         }
+    }
+
+    private static boolean isEmpty(JsonNode value) {
+        return value == null || value.isNull() || (value.isString() && value.asString().isBlank());
     }
 
     private static CoreException invalid(String key) {
