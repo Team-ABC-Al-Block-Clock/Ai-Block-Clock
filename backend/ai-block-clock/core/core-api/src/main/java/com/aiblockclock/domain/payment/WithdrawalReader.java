@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -38,5 +39,12 @@ public class WithdrawalReader {
         return new RecentWithdrawals(anyInProgress, withdrawalRepository
                 .findLatestCreatedAt(requester.value(), WithdrawalStatus.countedForIntervalStatuses())
                 .orElse(null));
+    }
+
+    // 심사를 기다리는 신청을 오래된 것부터 준다. 관리자가 위에서부터 차례로 심사한다
+    public List<Withdrawal> readAllRequested() {
+        return withdrawalRepository.findAllByStatusOrderByCreatedAtAscIdAsc(WithdrawalStatus.REQUESTED).stream()
+                .map(WithdrawalEntityConverter::toDomain)
+                .toList();
     }
 }

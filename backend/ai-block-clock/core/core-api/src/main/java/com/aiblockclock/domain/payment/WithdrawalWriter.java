@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 @Component
@@ -45,6 +46,26 @@ public class WithdrawalWriter {
     public Withdrawal changeStatus(Withdrawal withdrawal, WithdrawalStatus expectedStatus) {
         int updatedRowCount = withdrawalRepository.updateStatusIfCurrent(
                 withdrawal.getId(), expectedStatus, withdrawal.getStatus(), Instant.now());
+
+        if (updatedRowCount != 1) {
+            throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);
+        }
+
+        return withdrawalRepository.findById(withdrawal.getId())
+                .map(WithdrawalEntityConverter::toDomain)
+                .orElseThrow(() -> new CoreException(ErrorType.WITHDRAWAL_NOT_FOUND));
+    }
+
+    // 도메인에서 내린 심사 결과를 적는다. 심사 대기가 아니게 됐으면(사용자 취소 · 다른 관리자의 심사) 덮지 않고 실패한다.
+    @Transactional
+    public Withdrawal modifyReview(Withdrawal withdrawal) {
+        int updatedRowCount = withdrawalRepository.updateReviewIfCurrent(
+                withdrawal.getId(),
+                WithdrawalStatus.REQUESTED,
+                withdrawal.getStatus(),
+                withdrawal.getReviewer().value(),
+                Instant.now().truncatedTo(ChronoUnit.MICROS),
+                withdrawal.getRejectReason());
 
         if (updatedRowCount != 1) {
             throw new CoreException(ErrorType.WITHDRAWAL_INVALID_STATE);

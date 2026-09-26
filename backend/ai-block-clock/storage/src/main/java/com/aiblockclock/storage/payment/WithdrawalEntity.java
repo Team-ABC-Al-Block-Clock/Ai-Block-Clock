@@ -20,6 +20,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -48,6 +49,16 @@ public class WithdrawalEntity extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private WithdrawalStatus status;
+
+    // 아래 셋은 관리자가 심사한 뒤에만 있다. 조건부 UPDATE(WithdrawalRepository.updateReviewIfCurrent)로만 적는다
+    @Column(name = "reviewer_id")
+    private Long reviewerId;
+
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+
+    @Column(name = "reject_reason", length = 200)
+    private String rejectReason;
 
     public static WithdrawalEntity of(
             UUID requestId,
