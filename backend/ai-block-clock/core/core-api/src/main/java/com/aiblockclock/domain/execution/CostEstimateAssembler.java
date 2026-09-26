@@ -14,8 +14,6 @@ import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.enums.workflow.SourceType;
-import com.aiblockclock.support.error.CoreException;
-import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -58,7 +56,7 @@ public class CostEstimateAssembler {
             }
             // 분기 노드는 값이 없다. 어느 갈래로 갈지 모르므로 두 갈래를 다 더해 떼고, 안 간 쪽은 끝난 뒤 돌려준다.
             case CONTROL -> Stream.empty();
-            case IO -> throw new CoreException(ErrorType.EXECUTION_IO_NODE_NOT_SUPPORTED);
+            case IO -> Stream.empty();
         };
     }
 

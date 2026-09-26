@@ -99,7 +99,7 @@ class NodeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(name, "당신은 학원 성적 데이터 분석가입니다.")))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.baseCost").value("3.000000"))
+                .andExpect(jsonPath("$.data.baseCost").value("0.013500"))
                 .andExpect(jsonPath("$.data.currency").value("ABC"))
                 .andReturn();
 
@@ -108,7 +108,7 @@ class NodeControllerTest {
     }
 
     @Test
-    @DisplayName("출력 형식으로 견본을 고르면 저장하고 돌려준다. 비우면 글이다")
+    @DisplayName("출력 형식으로 JSON 예시를 적으면 저장하고 돌려준다. 비우면 글이다")
     void savesOutputKind() throws Exception {
         MvcResult created = mockMvc.perform(post("/api/v1/nodes")
                         .with(as(owner))
@@ -116,11 +116,11 @@ class NodeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "name": "시장 조사", "prompt": "시장을 조사한다",
-                                  "output": { "kind": "JSON", "sample": "biz.market_research@1" } }
+                                  "output": { "kind": "JSON", "example": { "competition_level": "high", "note": null } } }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.output.kind").value("JSON"))
-                .andExpect(jsonPath("$.data.output.sample").value("biz.market_research@1"))
+                .andExpect(jsonPath("$.data.output.example.competition_level").value("high"))
                 .andReturn();
 
         String nodeId = mapper.readTree(created.getResponse().getContentAsString()).get("data").get("nodeId").asText();
@@ -128,19 +128,25 @@ class NodeControllerTest {
         mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.output.kind").value("JSON"))
-                .andExpect(jsonPath("$.data.output.sample").value("biz.market_research@1"));
+                .andExpect(jsonPath("$.data.output.example.competition_level").value("high"))
+                .andExpect(jsonPath("$.data.output.example.note").isEmpty());
 
         String textId = create("성적 분석");
 
         mockMvc.perform(get("/api/v1/nodes/{id}", textId).with(as(owner)))
                 .andExpect(jsonPath("$.data.output.kind").value("TEXT"))
-                .andExpect(jsonPath("$.data.output.sample").doesNotExist());
+                .andExpect(jsonPath("$.data.output.example").doesNotExist());
     }
 
     @Test
-    @DisplayName("견본인데 견본 ID 가 없거나, 글인데 견본 ID 가 있으면 400 이다")
+    @DisplayName("JSON 인데 예시가 없거나 키 있는 객체가 아니면, 글인데 예시가 있으면 400 이다")
     void rejectsMismatchedOutput() throws Exception {
-        for (String output : List.of("{ \"kind\": \"JSON\" }", "{ \"kind\": \"TEXT\", \"sample\": \"common.text@1\" }")) {
+        for (String output : List.of(
+                "{ \"kind\": \"JSON\" }",
+                "{ \"kind\": \"JSON\", \"example\": {} }",
+                "{ \"kind\": \"JSON\", \"example\": [ \"a\" ] }",
+                "{ \"kind\": \"JSON\", \"example\": \"biz.market_research@1\" }",
+                "{ \"kind\": \"TEXT\", \"example\": { \"a\": 1 } }")) {
             mockMvc.perform(post("/api/v1/nodes")
                             .with(as(owner))
                             .with(csrf().asHeader())
@@ -149,6 +155,26 @@ class NodeControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("COMMON_001"));
         }
+    }
+
+    @Test
+    @DisplayName("모델로 Gemini 2.5 Pro 를 고르면 그대로 저장하고 돌려준다")
+    void savesProModel() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/nodes")
+                        .with(as(owner))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "name": "성적 분석", "prompt": "점수를 비교한다", "model": "GEMINI_2_5_PRO" }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String nodeId = mapper.readTree(created.getResponse().getContentAsString()).get("data").get("nodeId").asText();
+
+        mockMvc.perform(get("/api/v1/nodes/{id}", nodeId).with(as(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.model").value("GEMINI_2_5_PRO"));
     }
 
     @Test

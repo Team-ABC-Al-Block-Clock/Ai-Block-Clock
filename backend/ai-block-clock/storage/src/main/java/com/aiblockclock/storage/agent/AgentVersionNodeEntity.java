@@ -64,12 +64,12 @@ public class AgentVersionNodeEntity {
     @Column(name = "output_kind", length = 10, nullable = false, updatable = false)
     private OutputKind outputKind;
 
-    @Column(name = "output_sample", length = 64, updatable = false)
-    private String outputSample;
+    @Column(name = "output_example", columnDefinition = "text", updatable = false)
+    private String outputExample;
 
     public AgentVersionNodeEntity(UUID agentVersionId, String nodeKey, Long ownerId, String name,
                                   NodeType nodeType, String prompt, AiModel model, BigDecimal baseCost,
-                                  OutputKind outputKind, String outputSample) {
+                                  OutputKind outputKind, String outputExample) {
         this.agentVersionId = agentVersionId;
         this.nodeKey = nodeKey;
         this.ownerId = ownerId;
@@ -79,6 +79,6 @@ public class AgentVersionNodeEntity {
         this.model = model;
         this.baseCost = baseCost;
         this.outputKind = outputKind;
-        this.outputSample = outputSample;
+        this.outputExample = outputExample;
     }
 }

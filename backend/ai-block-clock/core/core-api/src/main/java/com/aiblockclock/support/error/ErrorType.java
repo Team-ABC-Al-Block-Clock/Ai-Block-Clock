@@ -51,6 +51,18 @@ public enum ErrorType {
     USER_ALREADY_ONBOARDED(HttpStatus.CONFLICT, ErrorCode.USER_006,
             "이미 가입을 마쳤습니다.", LogLevel.WARN),
 
+    IDENTITY_VERIFICATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, ErrorCode.USER_007,
+            "제출한 본인 확인을 심사하고 있습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_ALREADY_APPROVED(HttpStatus.CONFLICT, ErrorCode.USER_008,
+            "이미 본인 확인을 마쳤습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.USER_009,
+            "본인 확인을 제출한 적이 없습니다.", LogLevel.WARN),
+
+    IDENTITY_VERIFICATION_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.USER_010,
+            "현재 상태에서는 본인 확인을 심사할 수 없습니다.", LogLevel.WARN),
+
     WORKFLOW_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.WORKFLOW_002,
             "워크플로우를 찾을 수 없습니다.", LogLevel.WARN),
 
@@ -82,13 +94,13 @@ public enum ErrorType {
             "노드 종류와 참조 정보가 맞지 않습니다.", LogLevel.WARN),
 
     WORKFLOW_GRAPH_NOT_TREE(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.", LogLevel.WARN),
+            "분기 노드가 아니면 갈라질 수 없고, 시작점은 하나여야 합니다.", LogLevel.WARN),
 
     WORKFLOW_BRANCH_EDGES_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
             "분기 노드는 참 · 거짓 갈래를 하나씩 내고, 갈래 표시는 분기 노드에서 나가는 선에만 붙습니다.", LogLevel.WARN),
 
     WORKFLOW_BRANCH_CONDITION_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
+            "분기 조건은 이 분기까지 어느 갈래로 와도 거치는 작업 노드나 에이전트의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
             LogLevel.WARN),
 
     WORKFLOW_IO_NODE_DUPLICATED(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
@@ -128,10 +140,16 @@ public enum ErrorType {
             "빈 파일은 붙일 수 없습니다.", LogLevel.WARN),
 
     REF_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
-            "PDF · 텍스트 · 마크다운 · CSV · 이미지만 붙일 수 있습니다.", LogLevel.WARN),
+            "PDF · 텍스트 · 마크다운 · CSV 만 붙일 수 있습니다.", LogLevel.WARN),
 
     REF_FILE_TOTAL_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.NODE_007,
             "노드에 붙인 참고 자료의 합계가 10MB 를 넘습니다.", LogLevel.WARN),
+
+    NODE_TEST_RUN_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.NODE_008,
+            "테스트 실행을 찾을 수 없습니다.", LogLevel.WARN),
+
+    NODE_TEST_RUN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, ErrorCode.NODE_009,
+            "오늘 이 노드로 할 수 있는 테스트 실행을 모두 썼습니다.", LogLevel.WARN),
 
     EXECUTION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
             "실행을 찾을 수 없습니다.", LogLevel.WARN),
@@ -157,14 +175,14 @@ public enum ErrorType {
     EXECUTION_RESULT_UNAVAILABLE(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_008,
             "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
-    EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
-            "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
-
     EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "안에 분기가 있는 에이전트는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
             "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),
+
+    EXECUTION_INPUT_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_009,
+            "입력 값이 시작 노드의 입력 항목과 맞지 않습니다.", LogLevel.WARN),
 
     FILE_NOT_STORED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.FILE_001,
             "올린 파일을 저장하지 못했습니다.", LogLevel.ERROR),
@@ -221,7 +239,34 @@ public enum ErrorType {
             "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN),
 
     CHARGE_SENDER_IS_CUSTODY(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_009,
-            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN);
+            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_AMOUNT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, ErrorCode.PAYMENT_010,
+            "출금 금액이 한 번에 신청할 수 있는 범위를 벗어났습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_PAYOUT_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_011,
+            "출금할 수 있는 정산금이 부족합니다.", LogLevel.WARN),
+
+    WITHDRAWAL_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, ErrorCode.PAYMENT_012,
+            "처리 중인 출금이 있어 새로 신청할 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_TOO_FREQUENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_013,
+            "출금 신청 주기가 지나지 않았습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.PAYMENT_014,
+            "같은 출금 신청이 처리 중입니다. 잠시 뒤 다시 확인해 주세요.", LogLevel.WARN),
+
+    WITHDRAWAL_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.PAYMENT_015,
+            "출금 신청을 찾을 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_INVALID_STATE(HttpStatus.CONFLICT, ErrorCode.PAYMENT_016,
+            "현재 상태에서는 출금 신청을 바꿀 수 없습니다.", LogLevel.WARN),
+
+    WITHDRAWAL_IDENTITY_NOT_VERIFIED(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_017,
+            "본인 확인을 마쳐야 출금을 신청할 수 있습니다.", LogLevel.WARN),
+
+    PAYOUT_CONVERSION_INSUFFICIENT(HttpStatus.CONFLICT, ErrorCode.PAYMENT_018,
+            "옮길 수 있는 정산금이 부족합니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;

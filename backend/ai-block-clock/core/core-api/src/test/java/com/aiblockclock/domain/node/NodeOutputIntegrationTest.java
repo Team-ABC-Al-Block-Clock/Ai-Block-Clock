@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NodeOutputIntegrationTest {
     private static final UserId OWNER = UserId.of(9406L);
     private static final UserId BUYER = UserId.of(9407L);
-    private static final NodeOutput MARKET = new NodeOutput(OutputKind.JSON, "biz.market_research@1");
+    private static final NodeOutput MARKET = new NodeOutput(OutputKind.JSON, "{\"competition_level\":\"high\"}");
     private static final NodeOutput TEXT = new NodeOutput(OutputKind.TEXT, null);
 
     @Autowired

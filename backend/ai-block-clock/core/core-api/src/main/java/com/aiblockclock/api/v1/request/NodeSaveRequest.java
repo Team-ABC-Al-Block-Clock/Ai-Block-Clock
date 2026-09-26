@@ -29,6 +29,8 @@ public record NodeSaveRequest(
     }
 
     public NodeOutput outputOrDefault() {
-        return output == null ? new NodeOutput(OutputKind.TEXT, null) : new NodeOutput(output.kind(), output.sample());
+        return output == null
+                ? new NodeOutput(OutputKind.TEXT, null)
+                : new NodeOutput(output.kind(), output.exampleJson());
     }
 }

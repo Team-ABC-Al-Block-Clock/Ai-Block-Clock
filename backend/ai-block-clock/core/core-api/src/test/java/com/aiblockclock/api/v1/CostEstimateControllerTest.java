@@ -35,7 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Tag("integration")
-@SpringBootTest
+// 금액을 셈하기 쉽게 새로 만든 노드의 원가를 3 ABC 로 둔다. 기본 원가 자체는 NodeControllerTest 가 본다.
+@SpringBootTest(properties = "node.base-cost.default-cost=3")
 @AutoConfigureMockMvc
 @Transactional
 class CostEstimateControllerTest {
