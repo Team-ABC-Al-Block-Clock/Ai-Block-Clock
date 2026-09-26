@@ -57,6 +57,7 @@ export const queryKeys = {
       lists: () => [...queryKeys.users.all, 'favorites'] as const,
       list: (params: ListParams) => [...queryKeys.users.favorites.lists(), params] as const,
     },
+    // BE 에 아직 없어 화면에서는 뺐다. API 가 생기면 내 에이전트 탭으로 다시 붙인다.
     usedAgents: {
       lists: () => [...queryKeys.users.all, 'used-agents'] as const,
       list: (params: ListParams) => [...queryKeys.users.usedAgents.lists(), params] as const,
