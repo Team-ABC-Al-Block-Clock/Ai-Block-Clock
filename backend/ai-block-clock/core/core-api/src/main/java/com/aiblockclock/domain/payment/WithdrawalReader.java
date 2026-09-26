@@ -8,6 +8,7 @@ import com.aiblockclock.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +47,14 @@ public class WithdrawalReader {
         return withdrawalRepository.findFirstByStatusInOrderByReviewedAtAscIdAsc(
                         List.of(WithdrawalStatus.PAYING, WithdrawalStatus.ON_HOLD))
                 .map(WithdrawalEntityConverter::toDomain);
+    }
+
+    // 한 사람의 신청을 최신순으로 앞에서부터 limit 개 준다
+    public List<Withdrawal> readLatest(UserId requester, int limit) {
+        return withdrawalRepository.findAllByRequesterIdOrderByCreatedAtDescIdDesc(
+                        requester.value(), Limit.of(limit)).stream()
+                .map(WithdrawalEntityConverter::toDomain)
+                .toList();
     }
 
     // 다음에 보낼 신청이다. 승인이 오래된 것부터다
