@@ -10,11 +10,9 @@ import {
   addAgentFavorite,
   getMyAgents,
   getMyFavorites,
-  getUsedAgents,
   removeAgentFavorite,
   type AgentDetail,
   type MyAgentSort,
-  type UsedAgentSort,
 } from '@/api/agents'
 import { ApiError } from '@/api/errors'
 import { deleteWorkflow, getMyWorkflows, type WorkflowSort } from '@/api/workflows'
@@ -31,12 +29,11 @@ const PAGE_SIZE = 10
 /** 입력이 멈춘 뒤에만 검색한다. */
 const DEBOUNCE_MS = 300
 
-type Tab = 'selling' | 'favorites' | 'used' | 'flows'
+type Tab = 'selling' | 'favorites' | 'flows'
 
 const TABS = [
   { key: 'selling', label: '판매 중' },
   { key: 'favorites', label: '즐겨찾기' },
-  { key: 'used', label: '사용한 에이전트' },
   { key: 'flows', label: '워크플로우' },
 ] as const satisfies readonly { key: Tab; label: string }[]
 
@@ -47,7 +44,6 @@ const TABS = [
 const SORTS = {
   selling: ['LATEST', 'EXECUTIONS', 'REVENUE'],
   favorites: [],
-  used: ['LAST_EXECUTED', 'MOST_EXECUTED'],
   flows: ['LAST_EXECUTED', 'LATEST'],
 } as const satisfies Record<Tab, readonly string[]>
 
@@ -56,8 +52,7 @@ const SORT_LABEL = {
   EXECUTIONS: '실행 많은 순',
   REVENUE: '수익 높은 순',
   LAST_EXECUTED: '최근 실행 순',
-  MOST_EXECUTED: '많이 쓴 순',
-} as const satisfies Record<MyAgentSort | UsedAgentSort | WorkflowSort, string>
+} as const satisfies Record<MyAgentSort | WorkflowSort, string>
 
 /** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다. */
 const EMPTY = {
@@ -71,13 +66,6 @@ const EMPTY = {
   favorites: {
     heading: '즐겨찾기한 에이전트가 없습니다',
     body: '마켓에서 마음에 드는 에이전트에 별을 눌러 두면 여기에 모입니다.',
-    actions: JSON.stringify([{ label: '마켓 둘러보기', href: paths.search, primary: true }]),
-  },
-  used: {
-    heading: '아직 사용한 에이전트가 없습니다',
-    body:
-      '한 번이라도 실행한 에이전트가 여기에 모입니다.\n ' +
-      '같은 일을 다시 맡길 때 목록에서 바로 실행할 수 있습니다.',
     actions: JSON.stringify([{ label: '마켓 둘러보기', href: paths.search, primary: true }]),
   },
   flows: {
@@ -136,7 +124,6 @@ export default function MyAgents() {
   const [sortAt, setSortAt] = useState<Record<Tab, number>>({
     selling: 0,
     favorites: 0,
-    used: 0,
     flows: 0,
   })
   /** 이름을 함께 붙들어 둔다 — 목록을 무효화하면 그 행이 사라져 제목이 비어 버린다 */
@@ -150,7 +137,6 @@ export default function MyAgents() {
   }, [q])
 
   const sellingSort = SORTS.selling[sortAt.selling]
-  const usedSort = SORTS.used[sortAt.used]
   const flowSort = SORTS.flows[sortAt.flows]
 
   // 탭 하나가 API 하나다. 보이지 않는 목록까지 요청하지 않게 활성 탭만 enabled.
@@ -176,20 +162,6 @@ export default function MyAgents() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: tab === 'favorites',
   })
-  const used = useInfiniteQuery({
-    queryKey: queryKeys.users.usedAgents.list({ keyword, sort: usedSort, size: PAGE_SIZE }),
-    queryFn: ({ pageParam }) =>
-      getUsedAgents({
-        keyword: keyword || undefined,
-        sort: usedSort,
-        cursor: pageParam,
-        size: PAGE_SIZE,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-    placeholderData: keepPreviousData,
-    enabled: tab === 'used',
-  })
   const flows = useInfiniteQuery({
     queryKey: queryKeys.workflows.list({ keyword, sort: flowSort, size: PAGE_SIZE }),
     queryFn: ({ pageParam }) =>
@@ -205,8 +177,7 @@ export default function MyAgents() {
     enabled: tab === 'flows',
   })
 
-  const active =
-    tab === 'selling' ? selling : tab === 'favorites' ? favorites : tab === 'used' ? used : flows
+  const active = tab === 'selling' ? selling : tab === 'favorites' ? favorites : flows
 
   const queryClient = useQueryClient()
 
@@ -223,7 +194,6 @@ export default function MyAgents() {
           prev && { ...prev, favorited: res.favorited, favoriteCount: res.favoriteCount },
       )
       void queryClient.invalidateQueries({ queryKey: queryKeys.users.favorites.lists() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.users.usedAgents.lists() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.agents.lists() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.agents.lists() })
     },
@@ -290,21 +260,7 @@ export default function MyAgents() {
             metrics: [`사용 ${runLabel(a.executionCount)}`, `단가 ${priceLabel(a.price)}`],
             trend: [],
           }))
-        : tab === 'used'
-          ? (used.data?.pages.flatMap((page) => page.content) ?? []).map((a) => ({
-              agentId: a.agentId,
-              name: a.name,
-              desc: a.summary,
-              iconUrl: a.iconUrl,
-              mine: false,
-              favorited: a.favorited,
-              metrics: [
-                `사용 ${runLabel(a.myExecutionCount)}`,
-                `사용 금액 ${priceLabel(a.totalSpent)}`,
-              ],
-              trend: [],
-            }))
-          : []
+        : []
 
   const flowRows = tab === 'flows' ? (flows.data?.pages.flatMap((page) => page.content) ?? []) : []
   const count = tab === 'flows' ? flowRows.length : rows.length
