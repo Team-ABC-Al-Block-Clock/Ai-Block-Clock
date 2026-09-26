@@ -23,4 +23,6 @@ public interface AgentVersionRepository extends JpaRepository<AgentVersionEntity
             where a.publicVersionId = v.id and a.id in :ids
             """)
     List<AgentVersionEntity> findPublicByAgentIds(@Param("ids") Collection<UUID> ids);
+
+    List<AgentVersionEntity> findAllByAgentIdOrderByVersionNoAsc(UUID agentId);
 }

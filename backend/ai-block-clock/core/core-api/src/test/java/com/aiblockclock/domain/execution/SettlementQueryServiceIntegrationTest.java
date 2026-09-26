@@ -92,26 +92,26 @@ class SettlementQueryServiceIntegrationTest {
         SettlementStatistics statistics = settlementQueryService.readStatistics(
                 SELLER, new SettlementSearchCondition(DatePeriod.allDates(), null), SettlementPeriodUnit.DAY);
 
-        assertThat(balance.payout()).isEqualTo("1.500000");
+        assertThat(balance.payout()).isEqualTo("3.000000");
         assertThat(history.content())
                 .extracting(record -> record.executionId(), record -> record.settlement().stepId(),
                         record -> record.settlement().amount().value().stripTrailingZeros(), SettlementRecord::selfUse)
-                .containsExactly(tuple(reserved.getId(), "n1", new BigDecimal("1.5"), false));
+                .containsExactly(tuple(reserved.getId(), "n1", new BigDecimal("3"), false));
         assertThat(statistics.totalAmount()).isEqualByComparingTo(balance.payout());
         assertThat(statistics.executionCount()).isEqualTo(1);
     }
 
     private Execution requested() {
         return Execution.requested(ExecutionId.newId(), ExecutionRequestId.of(UUID.randomUUID()),
-                workflow.getId(), BUYER, 2, null);
+                workflow.getId(), BUYER, 2, null, false);
     }
 
     private static RunStatus run(RunStatus.Node... steps) {
-        return new RunStatus("run-1", "succeeded", null, List.of(steps), List.of(), List.of(), null, null);
+        return new RunStatus("run-1", "succeeded", null, List.of(steps), List.of(), List.of(), null, null, false, null);
     }
 
-    private static RunStatus.Node soldStep(String id, String costAbc, UserId seller) {
+    private static RunStatus.Node soldStep(String id, String costUsd, UserId seller) {
         return new RunStatus.Node(id, "노드 " + id, "llm", "succeeded", null, Long.toString(seller.value()),
-                new BigDecimal(costAbc), null);
+                new BigDecimal(costUsd), null);
     }
 }

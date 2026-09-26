@@ -82,13 +82,13 @@ public enum ErrorType {
             "노드 종류와 참조 정보가 맞지 않습니다.", LogLevel.WARN),
 
     WORKFLOW_GRAPH_NOT_TREE(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "분기 노드가 아니면 갈라질 수 없고, 한 노드로 들어오는 선은 하나뿐입니다.", LogLevel.WARN),
+            "분기 노드가 아니면 갈라질 수 없고, 시작점은 하나여야 합니다.", LogLevel.WARN),
 
     WORKFLOW_BRANCH_EDGES_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
             "분기 노드는 참 · 거짓 갈래를 하나씩 내고, 갈래 표시는 분기 노드에서 나가는 선에만 붙습니다.", LogLevel.WARN),
 
     WORKFLOW_BRANCH_CONDITION_INVALID(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
-            "분기 조건은 이 분기보다 앞에 놓인 작업 노드의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
+            "분기 조건은 이 분기까지 어느 갈래로 와도 거치는 작업 노드나 에이전트의 결과를 `<nodeKey>.<결과 안의 경로>` 로 가리켜야 합니다.",
             LogLevel.WARN),
 
     WORKFLOW_IO_NODE_DUPLICATED(HttpStatus.BAD_REQUEST, ErrorCode.WORKFLOW_013,
@@ -128,10 +128,16 @@ public enum ErrorType {
             "빈 파일은 붙일 수 없습니다.", LogLevel.WARN),
 
     REF_FILE_TYPE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.NODE_006,
-            "PDF · 텍스트 · 마크다운 · CSV · 이미지만 붙일 수 있습니다.", LogLevel.WARN),
+            "PDF · 텍스트 · 마크다운 · CSV 만 붙일 수 있습니다.", LogLevel.WARN),
 
     REF_FILE_TOTAL_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.NODE_007,
             "노드에 붙인 참고 자료의 합계가 10MB 를 넘습니다.", LogLevel.WARN),
+
+    NODE_TEST_RUN_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.NODE_008,
+            "테스트 실행을 찾을 수 없습니다.", LogLevel.WARN),
+
+    NODE_TEST_RUN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, ErrorCode.NODE_009,
+            "오늘 이 노드로 할 수 있는 테스트 실행을 모두 썼습니다.", LogLevel.WARN),
 
     EXECUTION_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
             "실행을 찾을 수 없습니다.", LogLevel.WARN),
@@ -151,8 +157,11 @@ public enum ErrorType {
     EXECUTION_RESULT_NOT_READY(HttpStatus.CONFLICT, ErrorCode.EXECUTION_001,
             "아직 끝나지 않은 실행입니다.", LogLevel.WARN),
 
-    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
+    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_007,
             "그 형식으로 받을 수 있는 결과가 없습니다.", LogLevel.WARN),
+
+    EXECUTION_RESULT_UNAVAILABLE(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_008,
+            "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
     EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),

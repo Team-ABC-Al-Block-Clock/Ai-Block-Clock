@@ -54,6 +54,11 @@ public record ExecutionFailure(
         return fault == ExecutionFault.PLATFORM;
     }
 
+    // 이 실패가 그 에이전트의 성공률을 깎는가다. 공급자 탓이어도 엔진이 성공률에 넣지 말라고 한 오류는 깎지 않는다.
+    public boolean countsAgainst(AgentId candidate) {
+        return fault == ExecutionFault.SUPPLIER && affectsSuccessRate && candidate.equals(agent);
+    }
+
     private static ExecutionFailure platform(String errorCode) {
         return new ExecutionFailure(null, errorCode, ExecutionFault.PLATFORM, false, null, null);
     }
