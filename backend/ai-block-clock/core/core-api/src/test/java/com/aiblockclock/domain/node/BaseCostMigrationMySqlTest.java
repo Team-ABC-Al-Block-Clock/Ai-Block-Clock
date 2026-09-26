@@ -34,11 +34,11 @@ class BaseCostMigrationMySqlTest {
 
             Flyway.configure().dataSource(dataSource).load().migrate();
 
-            assertThat(baseCostOf(jdbc, "node_definition", "id = 'temporary'")).isEqualByComparingTo("0.018");
+            assertThat(baseCostOf(jdbc, "node_definition", "id = 'temporary'")).isEqualByComparingTo("0.0135");
             assertThat(baseCostOf(jdbc, "node_definition", "id = 'seeded'")).isEqualByComparingTo("0.5");
-            assertThat(baseCostOf(jdbc, "agent_version", "id = 'all-temporary'")).isEqualByComparingTo("0.036");
+            assertThat(baseCostOf(jdbc, "agent_version", "id = 'all-temporary'")).isEqualByComparingTo("0.027");
             assertThat(baseCostOf(jdbc, "agent_version_node", "agent_version_id = 'all-temporary' and node_key = 'n1'"))
-                    .isEqualByComparingTo("0.018");
+                    .isEqualByComparingTo("0.0135");
             assertThat(baseCostOf(jdbc, "agent_version", "id = 'hand-priced'")).isEqualByComparingTo("1.25");
             assertThat(baseCostOf(jdbc, "agent_version_node", "agent_version_id = 'hand-priced' and node_key = 'n2'"))
                     .isEqualByComparingTo("1");

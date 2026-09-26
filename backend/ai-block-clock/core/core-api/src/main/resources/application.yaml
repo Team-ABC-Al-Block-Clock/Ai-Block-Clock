@@ -49,12 +49,12 @@ file-store:
 
 # 노드 원가(Base Cost, NOD-007). 엔진은 달러 원가만 주고 ABC 원가는 우리가 정한다 (엔진 계약 v2.0 8.1).
 # 판매자가 테스트 실행으로 잰 달러 원가가 있으면 최근 sample-size 번의 중앙값 × margin × abc-per-usd 이고, 없으면 default-cost 다.
-#   default-cost  gemini-2.5-pro 기본(09-26)의 노드당 최대 실측 약 0.0118 달러 × 1.5. 계약 13장의 Flash 최댓값 0.0028 에
-#                 같은 브리프에서 잰 Pro / Flash 비 4.2 를 곱했다. 계약이 권하는 "실측 최댓값의 1.5 배"를 따른다
+#   default-cost  gemini-2.5-pro 기본(09-26) 노드당 최대 실측 0.009 달러 × 1.5 = 0.0135. AI 파트가 09-26 에 알린
+#                 Pro 실측(노드당 0.005 ~ 0.009 달러)에 계약이 권하는 "실측 최댓값의 1.5 배"를 적용했다
 #   abc-per-usd   1 ABC = 1 달러 (팀 결정)
 node:
   base-cost:
-    default-cost: ${NODE_BASE_COST_DEFAULT:0.018}
+    default-cost: ${NODE_BASE_COST_DEFAULT:0.0135}
     abc-per-usd: ${ABC_PER_USD:1}
     margin: ${NODE_BASE_COST_MARGIN:1.5}
     sample-size: ${NODE_BASE_COST_SAMPLE_SIZE:5}

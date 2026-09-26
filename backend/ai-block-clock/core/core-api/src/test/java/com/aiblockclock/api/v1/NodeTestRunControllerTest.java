@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// 새 노드의 원가는 기본값 0.018 로 시작한다. 잰 원가가 있으면 최근 다섯 번의 중앙값 × 1.5 다.
+// 새 노드의 원가는 기본값 0.0135 로 시작한다. 잰 원가가 있으면 최근 다섯 번의 중앙값 × 1.5 다.
 @Tag("integration")
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -91,7 +91,7 @@ class NodeTestRunControllerTest {
                 .andExpect(jsonPath("$.data.status").value("RUNNING"))
                 .andExpect(jsonPath("$.data.nodeId").value(nodeId))
                 .andExpect(jsonPath("$.data.mock").value(false))
-                .andExpect(jsonPath("$.data.baseCost").value("0.018000"))
+                .andExpect(jsonPath("$.data.baseCost").value("0.013500"))
                 .andExpect(jsonPath("$.data.costUsd").isEmpty());
 
         ArgumentCaptor<RunRequest> sent = ArgumentCaptor.captor();
@@ -184,7 +184,7 @@ class NodeTestRunControllerTest {
         mockMvc.perform(get("/api/v1/nodes/{nodeId}/test-runs/{id}", nodeId, testRunId).with(as(owner)))
                 .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.data.mock").value(true))
-                .andExpect(jsonPath("$.data.baseCost").value("0.018000"));
+                .andExpect(jsonPath("$.data.baseCost").value("0.013500"));
     }
 
     @Test
@@ -195,7 +195,7 @@ class NodeTestRunControllerTest {
         mockMvc.perform(get("/api/v1/nodes/{nodeId}/test-runs/{id}", nodeId, testRunId).with(as(owner)))
                 .andExpect(jsonPath("$.data.status").value("FAILED"))
                 .andExpect(jsonPath("$.data.failureCode").value("MODEL_TIMEOUT"))
-                .andExpect(jsonPath("$.data.baseCost").value("0.018000"))
+                .andExpect(jsonPath("$.data.baseCost").value("0.013500"))
                 .andExpect(jsonPath("$.data.result").isEmpty());
     }
 
