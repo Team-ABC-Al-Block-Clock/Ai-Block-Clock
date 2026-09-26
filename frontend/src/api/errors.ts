@@ -71,6 +71,23 @@ export const USER_ERROR = {
   IMAGE_CONFLICT: 'USER_007',
 } as const
 
+/**
+ * 노드·참고 자료 실패 코드.
+ *
+ * `NODE_006` 은 빈 파일과 형식 불가가 함께 쓴다 — 응답만으로는 사유를 가를 수 없어,
+ * 제출 전 검사(`describeRefFileProblem`)가 먼저 막고 이 문구는 그물로만 둔다.
+ */
+export const NODE_ERROR = {
+  /** 없는 노드 — 404 */
+  NOT_FOUND: 'NODE_001',
+  /** 다른 곳에서 이미 지워진 자료 — 404 */
+  REF_FILE_NOT_FOUND: 'NODE_005',
+  /** 빈 파일이거나 받지 않는 형식 — 400 */
+  REF_FILE_REJECTED: 'NODE_006',
+  /** 노드에 붙은 자료의 합계가 10MB 를 넘음 — 413 */
+  REF_FILE_TOO_LARGE: 'NODE_007',
+} as const
+
 export const EXECUTION_ERROR = {
   RESULT_NOT_FOUND: 'EXECUTION_007',
 } as const
