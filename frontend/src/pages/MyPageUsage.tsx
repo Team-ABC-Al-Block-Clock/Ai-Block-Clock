@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar'
 import MyPageFrame from '@/components/MyPageFrame'
 import type { CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditHistory, getCreditTransactions } from '@/api/credits'
-import { paths } from '@/routes/paths'
 import StatusDot from '@/components/StatusDot'
 import { amountLabel, priceLabel, shortAddress, timeLabel } from '@/lib/format'
 import { PERIODS, rangeOf } from '@/lib/period'
@@ -81,10 +80,6 @@ export default function MyPageUsage() {
     !list.isPending && !list.isError && (walletTab ? walletRows : history).length === 0
 
   const available = balance.data?.availableAmount
-  const reserved = balance.data?.reservedAmount
-  // 잔액이 0 이면 나눗셈이 NaN 이라 빈 고리로 둔다.
-  const total = Number(available ?? 0) + Number(reserved ?? 0)
-  const gaugeArc = total > 0 ? (452.39 * Number(available ?? 0)) / total : 0
 
   const handlePickPeriod = (at: number) => {
     setPeriodAt(at)
@@ -328,93 +323,27 @@ export default function MyPageUsage() {
           animation: 'rise .7s .26s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        <div className="flex items-center justify-between">
-          <div className="text-[17px] font-semibold tracking-[-.01em] text-white">코인 잔액</div>
-          <div className="flex" style={{ gap: '8px' }}>
-            <a
-              href={paths.my.credit}
-              style={{
-                height: '30px',
-                padding: '0 12px',
-                borderRadius: '9px',
-                background: 'rgba(185,141,169,.28)',
-                color: '#f0dcea',
-              }}
-              className="flex items-center text-[13px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(185,141,169,.44)] hover:text-[#fff]"
-            >
-              예치
-            </a>
-            <a
-              href={paths.my.credit}
-              style={{
-                height: '30px',
-                padding: '0 12px',
-                borderRadius: '9px',
-                color: 'rgba(255,240,247,.86)',
-              }}
-              className="flex items-center bg-[rgba(255,255,255,.10)] text-[13px] font-semibold tracking-[-.01em] transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.2)] hover:text-[#fff]"
-            >
-              출금
-            </a>
+        <div className="text-[17px] font-semibold tracking-[-.01em] text-white">코인 잔액</div>
+        <div
+          className="flex flex-col items-center justify-center text-center"
+          style={{ height: '200px' }}
+        >
+          <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.62)' }}>
+            지금 쓸 수 있는 ABC
           </div>
-        </div>
-        <div className="relative" style={{ marginTop: '10px', width: '266px', height: '124px' }}>
-          <svg
-            className="absolute top-0 left-0"
-            width="266"
-            height="124"
-            viewBox="0 0 266 124"
-            fill="none"
+          <div
+            className="text-[40px] font-semibold tracking-[-.02em] text-white"
+            style={{ marginTop: '8px', lineHeight: '1.1' }}
           >
-            <g transform="translate(133,62) rotate(-90) scale(0.76)">
-              <circle r="72" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="12" />
-              <circle
-                r="72"
-                fill="none"
-                stroke="#c9a9dd"
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={`${gaugeArc} 452.39`}
-                style={{ animation: 'gaugeIn 1.1s .5s cubic-bezier(.3,.7,.2,1) both' }}
-              />
-            </g>
-          </svg>
-          <div className="absolute left-0 text-center" style={{ top: '43px', width: '266px' }}>
-            <div
-              className="text-[22px] font-semibold tracking-[-.02em] text-white"
-              style={{ lineHeight: '1.1' }}
-            >
-              {available ? amountLabel(available) : '—'}
-            </div>
-            <div
-              className="text-[12px]"
-              style={{ marginTop: '1px', color: 'rgba(255,236,246,.6)', lineHeight: '1.2' }}
-            >
-              ABC 사용 가능
-            </div>
+            {available ? amountLabel(available) : '—'}
+          </div>
+          <div className="text-[15px] font-semibold" style={{ marginTop: '4px', color: '#c9a9dd' }}>
+            ABC
           </div>
         </div>
-        <div className="flex flex-col" style={{ marginTop: '10px', gap: '6px' }}>
-          <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[13px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              실행에 잠긴 코인
-            </span>
-            <span className="text-[13px] font-semibold" style={{ color: '#c9a9dd' }}>
-              {reserved ? priceLabel(reserved) : '—'}
-            </span>
-          </div>
-          {/* 예치금·이번 달 사용은 잔액 응답에 없다. */}
-          <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[13px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              잠긴 코인은 실행이 끝나면 정산되거나 되돌아옵니다
-            </span>
-          </div>
-          {/* PAY-004 — 남에게 ABC 가 가는 길은 정산금 적립 하나뿐이다. */}
-          <div className="flex justify-between" style={{ alignItems: 'baseline' }}>
-            <span className="text-[13px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-              ABC 는 다른 사용자에게 양도할 수 없습니다
-            </span>
-          </div>
+        {/* PAY-004 — 남에게 ABC 가 가는 길은 정산금 적립 하나뿐이다. */}
+        <div className="text-center text-[13px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+          ABC 는 양도할 수 없어요
         </div>
       </div>
 
@@ -486,7 +415,7 @@ export default function MyPageUsage() {
         </div>
         <div
           className="flex flex-col overflow-y-auto"
-          style={{ marginTop: '8px', height: '256px' }}
+          style={{ marginTop: '8px', height: '292px' }}
         >
           {walletTab &&
             walletRows.map((h) => {
