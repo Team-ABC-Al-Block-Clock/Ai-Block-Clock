@@ -155,7 +155,10 @@ export default function MyPageSales() {
     ],
     data: entryRows.map((e) => [
       timeLabel(e.settledAt),
-      agentName(e.agentId),
+      // 이름 목록은 수익 상위 30개뿐이다. 못 찾으면 실행 때 남은 노드 이름을 쓴다.
+      e.agentId && !agentNames.data?.has(e.agentId)
+        ? (e.nodeName ?? '에이전트')
+        : agentName(e.agentId),
       priceLabel(e.amount),
       e.selfUse ? '직접 사용' : '판매',
     ]),

@@ -69,13 +69,14 @@ export default function MyPageUsage() {
       for (let i = 0; i < TREND_PAGE_LIMIT; i++) {
         const page = await getCreditTransactions({ ...range, size: 50, cursor })
         rows.push(...page.content)
-        if (!page.hasNext || !page.nextCursor) break
+        if (!page.hasNext || !page.nextCursor) return { rows, cut: false }
         cursor = page.nextCursor
       }
-      return rows
+      // 끊긴 채로 합계를 보여 주면 적게 쓴 것처럼 보인다. 끊겼다고 알린다.
+      return { rows, cut: true }
     },
   })
-  const trendRows = trend.data ?? []
+  const trendRows = trend.data?.rows ?? []
   const totals = usageTotals(trendRows)
   const series = trend.data ? dailySeries(usagePeriods(trendRows), range) : []
   const spendLine = trendPath(
@@ -256,7 +257,7 @@ export default function MyPageUsage() {
           style={{ marginTop: '5px', width: '534px', color: 'rgba(255,236,246,.6)' }}
         >
           {trend.data
-            ? `${period.label} 총 사용 ${priceLabel(totals.spent)} · 실행 ${runLabel(totals.executionCount)}`
+            ? `${period.label} 총 사용 ${priceLabel(totals.spent)} · 실행 ${runLabel(totals.executionCount)}${trend.data.cut ? ' · 최근 1,000건 기준' : ''}`
             : trend.isError
               ? '사용량을 불러오지 못했습니다.'
               : '사용량을 불러오는 중입니다.'}

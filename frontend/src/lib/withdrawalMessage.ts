@@ -1,4 +1,4 @@
-import type { WithdrawalStatus } from '@/api/withdrawals'
+import { IN_PROGRESS_WITHDRAWAL, type WithdrawalStatus } from '@/api/withdrawals'
 import { ApiError, WITHDRAWAL_ERROR } from '@/api/errors'
 import { dateTimeLabel } from '@/lib/format'
 
@@ -36,9 +36,18 @@ const availableAtOf = (data: unknown) =>
     ? String((data as { availableAt: unknown }).availableAt)
     : null
 
-export function withdrawalErrorText(error: unknown): string {
-  if (!(error instanceof ApiError)) return '출금을 신청하지 못했습니다.'
-  if (error.isNetworkError) return '서버에 닿지 못했습니다. 연결을 확인하고 다시 신청해 주세요.'
+const FAILED_TEXT = {
+  request: '출금을 신청하지 못했습니다.',
+  cancel: '출금 신청을 취소하지 못했습니다.',
+  convert: 'ABC 로 전환하지 못했습니다.',
+} as const
+
+export function withdrawalErrorText(
+  error: unknown,
+  action: keyof typeof FAILED_TEXT = 'request',
+): string {
+  if (!(error instanceof ApiError)) return FAILED_TEXT[action]
+  if (error.isNetworkError) return '서버에 닿지 못했습니다. 연결을 확인하고 다시 시도해 주세요.'
   switch (error.code) {
     case WITHDRAWAL_ERROR.AMOUNT_OUT_OF_RANGE:
       return '한 번에 1 ~ 1,000 ABC 까지 출금할 수 있습니다.'
@@ -60,7 +69,7 @@ export function withdrawalErrorText(error: unknown): string {
     case WITHDRAWAL_ERROR.IDENTITY_NOT_VERIFIED:
       return '본인 확인을 승인받아야 출금할 수 있습니다.'
     default:
-      return error.message || '출금을 신청하지 못했습니다.'
+      return error.message || FAILED_TEXT[action]
   }
 }
 
@@ -82,7 +91,7 @@ export function historyStatus(type: 'CHARGE' | 'WITHDRAWAL', status: string) {
   const tone: HistoryTone =
     status === 'PAID'
       ? 'done'
-      : ['REQUESTED', 'APPROVED', 'PAYING', 'ON_HOLD'].includes(status)
+      : (IN_PROGRESS_WITHDRAWAL as readonly string[]).includes(status)
         ? 'progress'
         : 'closed'
   return { label: withdrawalStatusText(status as WithdrawalStatus).title, tone }

@@ -85,7 +85,7 @@ export function usePayoutWithdrawal() {
       setTouchedId(result.withdrawalId)
       void refreshCredits()
     },
-    onError: (e) => setError(withdrawalErrorText(e)),
+    onError: (e) => setError(withdrawalErrorText(e, 'request')),
   })
 
   const cancel = useMutation({
@@ -94,7 +94,7 @@ export function usePayoutWithdrawal() {
       setTouchedId(result.withdrawalId)
       void refreshCredits()
     },
-    onError: (e) => setError(withdrawalErrorText(e)),
+    onError: (e) => setError(withdrawalErrorText(e, 'cancel')),
   })
 
   const convert = useMutation({
@@ -106,7 +106,7 @@ export function usePayoutWithdrawal() {
       setNotice(`${chargeAmountLabel(result.convertedAmount)} 를 ABC 로 전환했습니다.`)
       void queryClient.invalidateQueries({ queryKey: queryKeys.credits.transactions.lists() })
     },
-    onError: (e) => setError(withdrawalErrorText(e)),
+    onError: (e) => setError(withdrawalErrorText(e, 'convert')),
   })
 
   const start = (run: () => void) => {

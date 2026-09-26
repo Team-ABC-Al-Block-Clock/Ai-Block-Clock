@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import MyPageFrame from '@/components/MyPageFrame'
 import { getCreditBalance } from '@/api/credits'
-import { WITHDRAWAL_LIMITS } from '@/api/withdrawals'
+import { IN_PROGRESS_WITHDRAWAL, WITHDRAWAL_LIMITS } from '@/api/withdrawals'
 import { useAbcCharge, type AbcCharge } from '@/hooks/useAbcCharge'
 import { usePayoutWithdrawal } from '@/hooks/usePayoutWithdrawal'
 import { useWalletAbcBalance } from '@/hooks/useWalletAbcBalance'
@@ -119,7 +119,7 @@ export default function MyPageCredit() {
       ? [100, 200, 400, payoutFloor]
       : [500, 1000, 2500, 5000]
   const raw = presetAmounts.map((amount) => ({
-    credit: amount.toLocaleString() + ' ABC',
+    credit: chargeAmountLabel(amount),
     amount,
     disabled: withdraw
       ? amount > payout || amount < MIN_AMOUNT
@@ -498,26 +498,35 @@ export default function MyPageCredit() {
                 </div>
               </div>
               {/* PAYING 부터는 체인으로 나가는 중이라 취소가 없다. */}
+              {/* 끝나기 전에는 접지 않는다 — 접으면 새로 신청하려다 PAYMENT_012 에 막힌다. */}
               <div className="flex flex-col" style={{ gap: '8px' }}>
-                <div
-                  onClick={handleDismissWithdrawal}
-                  style={{
-                    width: '300px',
-                    height: withdrawal.status === 'REQUESTED' ? '50px' : '60px',
-                    borderRadius: '10px',
-                    background: 'var(--color-accent)',
-                    color: 'var(--color-accent-ink)',
-                    transition: 'filter .16s',
-                  }}
-                  className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
-                >
-                  확인
-                </div>
+                {!IN_PROGRESS_WITHDRAWAL.includes(withdrawal.status) && (
+                  <div
+                    onClick={handleDismissWithdrawal}
+                    style={{
+                      width: '300px',
+                      height: '60px',
+                      borderRadius: '10px',
+                      background: 'var(--color-accent)',
+                      color: 'var(--color-accent-ink)',
+                      transition: 'filter .16s',
+                    }}
+                    className="flex cursor-pointer items-center justify-center text-[17px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
+                  >
+                    확인
+                  </div>
+                )}
                 {withdrawal.status === 'REQUESTED' && (
                   <div
                     onClick={payoutFlow.busy ? undefined : payoutFlow.cancel}
-                    className="flex cursor-pointer items-center justify-center text-[15.5px] font-semibold hover:text-white"
-                    style={{ height: '24px', color: 'rgba(255,236,246,.72)' }}
+                    className="box-border flex cursor-pointer items-center justify-center text-[16px] font-semibold transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.1)] hover:text-white"
+                    style={{
+                      width: '240px',
+                      height: '50px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,236,246,.32)',
+                      color: 'rgba(255,236,246,.86)',
+                    }}
                   >
                     {payoutFlow.busy ? '취소하는 중' : '신청 취소'}
                   </div>
@@ -564,7 +573,7 @@ export default function MyPageCredit() {
                   ))}
                 </div>
                 {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
-                {!withdraw && charge.error && (
+                {mode === 'deposit' && charge.error && (
                   <div
                     className="text-[15px]"
                     style={{ marginTop: '10px', color: 'rgba(255,196,214,.9)' }}
