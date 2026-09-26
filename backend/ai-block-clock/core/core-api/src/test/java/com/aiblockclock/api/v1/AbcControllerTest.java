@@ -95,7 +95,21 @@ class AbcControllerTest {
         mockMvc.perform(get("/api/v1/credits/balance").with(as(me)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.availableAmount").value("0.000000"))
-                .andExpect(jsonPath("$.data.reservedAmount").value("0.000000"));
+                .andExpect(jsonPath("$.data.reservedAmount").value("0.000000"))
+                .andExpect(jsonPath("$.data.payoutAmount").value("0.000000"));
+    }
+
+    @Test
+    void 잔액에는_공급자로서_받은_정산금도_따로_준다() throws Exception {
+        LedgerAccountEntity balanceAccount = saveAccount(LedgerAccountType.ABC_BALANCE, referenceIdOf(me));
+        LedgerAccountEntity payoutAccount = saveAccount(LedgerAccountType.PAYOUT_BALANCE, referenceIdOf(me));
+        addBalance(balanceAccount, "70");
+        addBalance(payoutAccount, "12.5");
+
+        mockMvc.perform(get("/api/v1/credits/balance").with(as(me)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableAmount").value("70.000000"))
+                .andExpect(jsonPath("$.data.payoutAmount").value("12.500000"));
     }
 
     @Test

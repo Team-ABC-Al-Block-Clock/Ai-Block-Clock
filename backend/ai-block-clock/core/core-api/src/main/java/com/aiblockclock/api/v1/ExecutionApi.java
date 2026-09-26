@@ -4,6 +4,7 @@ import com.aiblockclock.api.v1.request.ExecutionStartRequest;
 import com.aiblockclock.api.v1.response.ExecutionProgressResponse;
 import com.aiblockclock.api.v1.response.ExecutionStartResponse;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.enums.execution.ExecutionResultFormat;
 import com.aiblockclock.support.response.ApiResult;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
 
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -91,6 +94,33 @@ public interface ExecutionApi {
             UserId requester,
             @Parameter(description = "접수 때 받은 실행 ID", required = true,
                     example = "8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13") UUID executionId);
+
+    @Operation(summary = "실행 결과 받기",
+            description = """
+                    끝난 실행의 결과를 파일로 내려준다. **봉투가 아니라 파일 자체를 돌려주므로
+                    `ApiResult` 로 감싸지 않는다.**
+
+                    결과는 실행이 끝나는 것을 본 순간 실행 엔진에서 받아 보관해 둔다. 엔진은 결과를 임시
+                    저장소에 두고 재기동하면 잊기 때문이다. 받아 두지 못했으면 이 요청에서 한 번 더 시도한다.
+
+                    `format` 을 비우면 결과 JSON 이다. PDF 는 렌더가 실패해도 실행은 성공이므로
+                    없을 수 있고, 그때는 `404` 다.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "결과 파일"),
+            @ApiResponse(responseCode = "404", description = """
+                    없는 실행이거나 내 실행이 아니다.
+                    그 형식으로 받을 수 있는 결과가 없다 (`EXECUTION_001`)""", content = @Content),
+            @ApiResponse(responseCode = "409", description = "아직 끝나지 않은 실행이다 (`EXECUTION_001`)",
+                    content = @Content),
+            @ApiResponse(responseCode = "502", description = "실행 엔진에 닿지 못했다 (`EXECUTION_002`)",
+                    content = @Content)
+    })
+    ResponseEntity<Resource> download(
+            UserId requester,
+            @Parameter(description = "접수 때 받은 실행 ID", required = true,
+                    example = "8a1c3b7e-2a44-4d1e-9b77-0b2a6f4e5c13") UUID executionId,
+            @Parameter(description = "받을 형식. 비우면 `JSON`") ExecutionResultFormat format);
 
     @Operation(summary = "진행 상황 구독",
             description = """

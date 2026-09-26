@@ -1,10 +1,13 @@
 package com.aiblockclock.domain.payment;
 
+import com.aiblockclock.enums.payment.ChargeStatus;
+import com.aiblockclock.enums.payment.ChargeStatusReason;
 import com.aiblockclock.storage.payment.ChargeRequestRepository;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,13 +17,17 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ChargeRequestWriterTest {
@@ -106,6 +113,35 @@ class ChargeRequestWriterTest {
     private DataIntegrityViolationException constraintFailure(String constraintName) {
         return new DataIntegrityViolationException("constraint failure",
                 new ConstraintViolationException("constraint failure", new SQLException(), constraintName));
+    }
+
+    @Test
+    void 닫힌_줄을_지운_뒤에_새_요청을_넣는다() {
+        when(repository.deleteIfFailedAndVersionMatches(1L, 3L, ChargeStatus.FAILED)).thenReturn(1);
+        when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChargeRequest replaced = writer.replaceClosedRequest(closedRequest(), request());
+
+        assertThat(replaced.getUserReferenceId()).isEqualTo("test-user");
+        InOrder order = inOrder(repository);
+        order.verify(repository).deleteIfFailedAndVersionMatches(1L, 3L, ChargeStatus.FAILED);
+        order.verify(repository).saveAndFlush(any());
+    }
+
+    @Test
+    void 읽은_뒤_다른_요청이_먼저_바꿨으면_넣지_않고_동시_변경으로_알린다() {
+        when(repository.deleteIfFailedAndVersionMatches(1L, 3L, ChargeStatus.FAILED)).thenReturn(0);
+
+        assertThatThrownBy(() -> writer.replaceClosedRequest(closedRequest(), request()))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.CHARGE_REQUEST_CONCURRENTLY_MODIFIED));
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    private ChargeRequest closedRequest() {
+        return ChargeRequest.restore(1L, "other-user", "other-wallet", 12345L, "test-hash",
+                DepositAmount.of(new BigDecimal("1.000001")), Instant.EPOCH, null, ChargeStatus.FAILED,
+                ChargeStatusReason.SENDER_WALLET_MISMATCH, null, 3L);
     }
 
     private ChargeRequest request() {

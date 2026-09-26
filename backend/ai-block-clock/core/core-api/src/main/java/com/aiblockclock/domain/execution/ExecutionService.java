@@ -9,6 +9,8 @@ import com.aiblockclock.client.ai.RunRequest;
 import com.aiblockclock.client.ai.RunStatus;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.Workflow;
+import com.aiblockclock.enums.execution.ExecutionResultFormat;
+import com.aiblockclock.enums.execution.ExecutionStatus;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -35,6 +37,9 @@ public class ExecutionService {
     private final AiRuntimeClient aiRuntimeClient;
     private final ExecutionWriter executionWriter;
     private final ExecutionReader executionReader;
+    private final ExecutionResultHarvester executionResultHarvester;
+    private final ExecutionResultReader executionResultReader;
+    private final ExecutionResultStore executionResultStore;
     private final ExecutionProgressStore progressStore;
     private final ExecutionMonitor executionMonitor;
 
@@ -112,6 +117,10 @@ public class ExecutionService {
         // 뒤에서 따라가던 모니터가 닫지 못한 실행이다. 모니터와 같은 자리에서 닫아야 쓰지 않은 만큼이 돌아온다.
         if (progress.status().isFinished()) {
             executionReservationManager.finish(execution.getId(), progress.status(), run);
+
+            if (progress.status() == ExecutionStatus.SUCCEEDED) {
+                executionResultHarvester.harvest(execution);
+            }
         } else if (progress.status() != execution.getStatus()) {
             executionWriter.moveTo(execution.getId(), progress.status());
         }
@@ -131,6 +140,33 @@ public class ExecutionService {
             return ExecutionProgress.concluded(
                     execution.getId(), execution.getStatus(), execution.getPromptCount());
         }
+    }
+
+    public ExecutionResult download(ExecutionId id, UserId requester, ExecutionResultFormat format) {
+        Execution execution = executionReader.read(id);
+
+        if (!execution.isRequestedBy(requester)) {
+            throw new CoreException(ErrorType.EXECUTION_NOT_FOUND);
+        }
+
+        if (execution.getStatus() != ExecutionStatus.SUCCEEDED) {
+            throw new CoreException(ErrorType.EXECUTION_RESULT_NOT_READY);
+        }
+
+        return executionResultReader.read(id, format)
+                .or(() -> retry(execution, format))
+                .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_RESULT_NOT_FOUND,
+                        Map.of("format", format.name())));
+    }
+
+    public Path locate(ExecutionResult result) {
+        return executionResultStore.locate(result);
+    }
+
+    private Optional<ExecutionResult> retry(Execution execution, ExecutionResultFormat format) {
+        executionResultHarvester.harvest(execution);
+
+        return executionResultReader.read(execution.getId(), format);
     }
 
     // 떼어 둔 뒤에는 무엇이 실패하든 돌려준다. 실행 번호를 남기지 못한 경우는 엔진이 이미 받았지만,

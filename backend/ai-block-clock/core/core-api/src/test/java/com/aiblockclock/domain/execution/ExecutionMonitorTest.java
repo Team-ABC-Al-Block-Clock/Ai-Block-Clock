@@ -35,11 +35,13 @@ class ExecutionMonitorTest {
     private final AiRuntimeClient aiRuntimeClient = mock(AiRuntimeClient.class);
     private final ExecutionWriter executionWriter = mock(ExecutionWriter.class);
     private final ExecutionReservationManager reservationManager = mock(ExecutionReservationManager.class);
+    private final ExecutionResultHarvester executionResultHarvester = mock(ExecutionResultHarvester.class);
     private final ExecutionProgressStore store = new ExecutionProgressStore();
     private final RecordingListener listener = new RecordingListener();
 
     private final ExecutionMonitor sut = new ExecutionMonitor(
-            aiRuntimeClient, executionWriter, reservationManager, store, PROPERTIES, List.of(listener), clock);
+            aiRuntimeClient, executionWriter, reservationManager, executionResultHarvester,
+            store, PROPERTIES, List.of(listener), clock);
 
     @Test
     @DisplayName("맡기자마자 접수 상태를 한 번 흘려보낸다 — 엔진을 두드리기 전이다")
@@ -100,7 +102,8 @@ class ExecutionMonitorTest {
     void stopsWhenTheRunIsDone() {
         RunStatus finished = succeeded();
         given(aiRuntimeClient.read(anyString())).willReturn(finished);
-        sut.begin(execution());
+        Execution started = execution();
+        sut.begin(started);
 
         assertThat(sut.poll(ExecutionId.of(ID))).isFalse();
 
@@ -108,6 +111,7 @@ class ExecutionMonitorTest {
         assertThat(store.find(ExecutionId.of(ID))).isEmpty();
         then(reservationManager).should().finish(ExecutionId.of(ID), ExecutionStatus.SUCCEEDED, finished);
         then(executionWriter).should(never()).moveTo(ExecutionId.of(ID), ExecutionStatus.SUCCEEDED);
+        then(executionResultHarvester).should().harvest(started);
     }
 
     @Test

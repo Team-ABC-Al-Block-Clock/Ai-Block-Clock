@@ -148,6 +148,12 @@ public enum ErrorType {
     EXECUTION_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.EXECUTION_004,
             "파일 크기가 10MB 를 넘습니다.", LogLevel.WARN),
 
+    EXECUTION_RESULT_NOT_READY(HttpStatus.CONFLICT, ErrorCode.EXECUTION_001,
+            "아직 끝나지 않은 실행입니다.", LogLevel.WARN),
+
+    EXECUTION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_001,
+            "그 형식으로 받을 수 있는 결과가 없습니다.", LogLevel.WARN),
+
     EXECUTION_IO_NODE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
             "시작 노드와 끝 노드가 놓인 워크플로우는 아직 실행할 수 없습니다.", LogLevel.WARN),
 
@@ -209,7 +215,10 @@ public enum ErrorType {
             "충전 요청이 다른 처리에 의해 변경되었습니다.", LogLevel.WARN),
 
     ABC_BALANCE_INSUFFICIENT(HttpStatus.PAYMENT_REQUIRED, ErrorCode.PAYMENT_008,
-            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN);
+            "ABC 잔액이 부족합니다. 충전한 뒤 다시 실행해 주세요.", LogLevel.WARN),
+
+    CHARGE_SENDER_IS_CUSTODY(HttpStatus.FORBIDDEN, ErrorCode.PAYMENT_009,
+            "입금 보관 지갑으로는 충전할 수 없습니다.", LogLevel.WARN);
 
     private final HttpStatus status;
     private final ErrorCode code;
