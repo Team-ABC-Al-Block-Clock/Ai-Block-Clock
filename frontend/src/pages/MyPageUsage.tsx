@@ -6,32 +6,17 @@ import { getCreditBalance, getCreditTransactions } from '@/api/credits'
 import { paths } from '@/routes/paths'
 import StatusDot from '@/components/StatusDot'
 import { amountLabel, priceLabel, shortAddress, timeLabel } from '@/lib/format'
+import { PERIODS, rangeOf } from '@/lib/period'
 import { queryKeys } from '@/lib/queryKeys'
 
 /** 마켓(9)·마이페이지 목록(10)과 다르다. */
 const PAGE_SIZE = 20
 
-/** 기간 필터. `days` 가 0 이면 조건을 안 붙인다 — from·to 는 한쪽만 보낼 수 없다. */
-const PERIODS = [
-  { label: '최근 7일', days: 7 },
-  { label: '최근 30일', days: 30 },
-  { label: '최근 90일', days: 90 },
-  { label: '전체 기간', days: 0 },
-]
-
-/** 서버가 UTC 날짜 경계로 자르므로 UTC 로 만든다. */
-const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10)
-
-function rangeOf(days: number) {
-  if (days === 0) return {}
-  const now = Date.now()
-  return { from: utcDay(now - (days - 1) * 86_400_000), to: utcDay(now) }
-}
-
 const TYPE_LABELS: Record<CreditTransactionType, string> = {
   CHARGE: '충전',
   RESERVE: '사용',
   REFUND: '환불',
+  PAYOUT_CONVERSION: '정산금 옮김',
 }
 
 /** 들어오는 것은 초록, 나가는 것은 분홍. */
@@ -39,6 +24,7 @@ const TYPE_COLORS: Record<CreditTransactionType, string> = {
   CHARGE: '#9ad0b4',
   RESERVE: '#ffb0cd',
   REFUND: '#9ad0b4',
+  PAYOUT_CONVERSION: '#9ad0b4',
 }
 
 export default function MyPageUsage() {

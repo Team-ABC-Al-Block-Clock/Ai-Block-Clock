@@ -10,10 +10,12 @@ export interface CreditBalance {
   availableAmount: string
   /** 실행이 선차감해 잠근 금액 */
   reservedAmount: string
+  /** 판매로 받은 정산금. 실행에는 못 쓰고 출금하거나 ABC 로 옮긴다 */
+  payoutAmount: string
 }
 
 /** 서버 LedgerEventType 의 SETTLEMENT 은 내 계정을 거치지 않아 오지 않는다. */
-export type CreditTransactionType = 'CHARGE' | 'RESERVE' | 'REFUND'
+export type CreditTransactionType = 'CHARGE' | 'RESERVE' | 'REFUND' | 'PAYOUT_CONVERSION'
 
 export interface CreditTransaction {
   /** 서버가 Long 이라 숫자다 */
@@ -87,3 +89,13 @@ export const createCharge = (params: { transactionHash: string; amount: string }
 
 export const getCharge = (chargeId: string) =>
   api.get<ChargeStatusView>(`/credits/charges/${chargeId}`)
+
+export interface PayoutConversion {
+  /** 같은 requestId 를 다시 보냈으면 처음 옮긴 금액이다 */
+  convertedAmount: string
+  balance: CreditBalance
+}
+
+/** 정산금 → ABC 한 방향뿐이다. requestId 는 누를 때마다 새로, 재시도는 같은 값으로 보낸다. */
+export const convertPayout = (params: { requestId: string; amount: string }) =>
+  api.post<PayoutConversion>('/credits/payout-conversions', params)

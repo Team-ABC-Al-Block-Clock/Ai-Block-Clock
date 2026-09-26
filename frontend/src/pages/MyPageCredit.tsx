@@ -2,11 +2,27 @@ import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import { getCreditBalance } from '@/api/credits'
+import { WITHDRAWAL_LIMITS } from '@/api/withdrawals'
 import { useAbcCharge, type AbcCharge } from '@/hooks/useAbcCharge'
+import { usePayoutWithdrawal } from '@/hooks/usePayoutWithdrawal'
 import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
-import { chargeAmountLabel, priceLabel } from '@/lib/format'
+import { chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
+import { withdrawalStatusText } from '@/lib/withdrawalMessage'
+import { useAuthStore } from '@/stores/authStore'
+
+const { MIN_AMOUNT, MAX_AMOUNT } = WITHDRAWAL_LIMITS
+
+/** 출금은 정산금 안에서, 한 번에 1 ~ 1,000 ABC 다. 막혔으면 이유를 준다. */
+function withdrawBlock(amount: string, payout: number) {
+  if (!isSendableAmount(amount)) return '출금할 금액을 입력해 주세요.'
+  const n = Number(trimAbcAmount(amount))
+  if (n < MIN_AMOUNT || n > MAX_AMOUNT)
+    return `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC 까지 출금할 수 있습니다.`
+  if (n > payout) return '정산금이 부족합니다.'
+  return null
+}
 
 /**
  * 충전 단계별 화면 문구와 버튼.
@@ -57,6 +73,8 @@ export default function MyPageCredit() {
   const [mode, setMode] = useState('deposit')
   const [typed, setTyped] = useState('')
   const charge = useAbcCharge()
+  const payoutFlow = usePayoutWithdrawal()
+  const wallet = useAuthStore((s) => s.profile?.wallet.address ?? s.walletAddress)
 
   const balance = useQuery({
     queryKey: queryKeys.credits.balance(),
@@ -67,23 +85,25 @@ export default function MyPageCredit() {
   const DEPOSITED = 2500,
     WALLET = 3120
   // 프리셋 계산에만 숫자를 쓴다. 표시는 서버 문자열 그대로다.
-  const available = Number(balance.data?.availableAmount ?? 0)
+  const payout = Number(balance.data?.payoutAmount ?? 0)
+  // 1,000 을 넘겨 보내면 PAYMENT_010 이다.
+  const payoutMax = Math.min(Math.floor(payout * 1e6) / 1e6, MAX_AMOUNT)
   const withdraw = mode === 'withdraw'
   const raw = withdraw
     ? [
         { amount: 100 },
         { amount: 200 },
         { amount: 400 },
-        { amount: available, note: '전액 출금' },
+        { amount: payoutMax, note: payout > MAX_AMOUNT ? '최대 출금' : '전액 출금' },
       ].map((p) => ({
         credit: p.amount.toLocaleString() + ' ABC',
         // 잔액을 넘는 금액은 뺀 결과가 음수라 「출금 후 -260 ABC」 가 되어 버린다.
         price:
-          p.amount > available
-            ? '잔액 부족'
-            : p.note || '출금 후 ' + (available - p.amount).toLocaleString() + ' ABC',
+          p.amount > payout
+            ? '정산금 부족'
+            : p.note || '출금 후 ' + (payout - p.amount).toLocaleString() + ' ABC',
         amount: p.amount,
-        disabled: p.amount > available || p.amount <= 0,
+        disabled: p.amount > payout || p.amount < MIN_AMOUNT,
       }))
     : [500, 1000, 2500, 5000].map((amount) => ({
         credit: amount.toLocaleString() + ' ABC',
@@ -115,41 +135,62 @@ export default function MyPageCredit() {
   const handlePickDeposit = () => {
     setMode('deposit')
     setPick(2)
+    payoutFlow.clearMessages()
   }
   const handlePickWithdraw = () => {
     setMode('withdraw')
     setPick(2)
+    payoutFlow.clearMessages()
   }
   const bgDeposit = withdraw ? 'rgba(255,255,255,.09)' : 'rgba(255,255,255,.9)'
   const fgDeposit = withdraw ? 'rgba(255,240,247,.78)' : '#3a1030'
   const bgWithdraw = withdraw ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.09)'
   const fgWithdraw = withdraw ? '#3a1030' : 'rgba(255,240,247,.78)'
-  const bannerLabel = withdraw ? '출금 가능 코인' : '현재 사용 가능 코인'
+  const bannerLabel = withdraw ? '출금 가능 정산금' : '현재 사용 가능 코인'
   // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
-  const bannerValue = balance.data ? priceLabel(balance.data.availableAmount) : '—'
+  const bannerValue = balance.data
+    ? priceLabel(withdraw ? balance.data.payoutAmount : balance.data.availableAmount)
+    : '—'
   const reserved = balance.data?.reservedAmount
   const reservedNote =
     reserved && Number(reserved) > 0 ? `실행에 잠긴 코인 ${priceLabel(reserved)} · ` : ''
   const bannerNote = balance.isError
     ? '잔액을 불러오지 못했습니다'
     : withdraw
-      ? reservedNote + '출금은 연결된 MetaMask 지갑으로 전송됩니다'
-      : reservedNote + '예치한 코인은 언제든 출금할 수 있습니다'
+      ? '판매로 받은 정산금을 연결된 지갑으로 보냅니다'
+      : reservedNote + '충전한 코인은 서비스 안에서만 쓰며 출금되지 않습니다'
   const pickerTitle = withdraw ? '출금 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
-    ? '예치금 ' + DEPOSITED.toLocaleString() + ' ABC · 사용 중인 코인은 출금할 수 없습니다'
+    ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
     : '지갑 잔액 ' + WALLET.toLocaleString() + ' ABC · ABC 는 다른 사용자에게 양도할 수 없습니다'
-  const inputPlaceholder = withdraw ? '출금할 코인을 입력하세요' : '예치할 코인을 입력하세요'
+  const inputPlaceholder = withdraw ? '출금할 정산금을 입력하세요' : '예치할 코인을 입력하세요'
   const summaryTitle = withdraw ? '출금 요약' : '예치 요약'
-  const sumLabel = withdraw ? '출금 코인' : '예치 코인'
-  const ctaLabel = withdraw ? '출금하기' : '예치하기'
+  const sumLabel = withdraw ? '출금 정산금' : '예치 코인'
+  const ctaLabel = withdraw ? '출금 신청' : '예치하기'
 
-  // 출금은 서버에 기능이 없다 — 예치일 때만 지갑을 연다.
+  const blocked = withdraw ? withdrawBlock(amount, payout) : null
+  const canConvert = withdraw && isSendableAmount(amount) && Number(trimAbcAmount(amount)) <= payout
+  const withdrawal = withdraw ? payoutFlow.withdrawal : null
+  const withdrawalCard = withdrawal && withdrawalStatusText(withdrawal.status)
+
   const charging = !withdraw && charge.phase !== 'idle'
   const chargeCard = describeCharge(charge, () => {
     charge.reset()
     setTyped('')
   })
+  const handleCta = () => {
+    if (!withdraw) return void charge.send(amount)
+    if (blocked || payoutFlow.busy) return
+    payoutFlow.request(amount)
+  }
+  const handleConvert = () => {
+    if (!canConvert || payoutFlow.busy) return
+    payoutFlow.convert(amount)
+  }
+  const handleDismissWithdrawal = () => {
+    payoutFlow.dismiss()
+    setTyped('')
+  }
 
   return (
     <>
@@ -176,7 +217,7 @@ export default function MyPageCredit() {
           animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
-        지갑의 ABC 코인을 서비스에 예치하거나, 사용하지 않은 코인을 지갑으로 되돌립니다.
+        지갑의 ABC 코인을 서비스에 예치하거나, 판매로 받은 정산금을 연결된 지갑으로 보냅니다.
       </div>
 
       <div
@@ -385,6 +426,59 @@ export default function MyPageCredit() {
               </div>
             )}
           </>
+        ) : withdrawal && withdrawalCard ? (
+          <>
+            <div style={{ width: '530px' }}>
+              <div className="text-[13px] font-semibold tracking-[-.01em] text-white">
+                {withdrawalCard.title} · {chargeAmountLabel(withdrawal.amount)}
+              </div>
+              <div
+                className="text-[12.5px]"
+                style={{ marginTop: '10px', color: 'rgba(255,236,246,.72)' }}
+              >
+                {withdrawal.rejectReason
+                  ? `${withdrawalCard.note} 사유: ${withdrawal.rejectReason}`
+                  : withdrawalCard.note}
+              </div>
+              <div
+                className="truncate text-[11.5px]"
+                style={{ marginTop: '8px', color: 'rgba(255,196,214,.9)' }}
+              >
+                {payoutFlow.error ?? (
+                  <span style={{ color: 'rgba(255,236,246,.5)' }}>
+                    받을 지갑 {shortAddress(withdrawal.walletAddress)} · 신청 번호{' '}
+                    {withdrawal.withdrawalId}
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* PAYING 부터는 체인으로 나가는 중이라 취소가 없다. */}
+            <div className="flex flex-col" style={{ gap: '8px' }}>
+              <div
+                onClick={handleDismissWithdrawal}
+                style={{
+                  width: '262px',
+                  height: withdrawal.status === 'REQUESTED' ? '40px' : '52px',
+                  borderRadius: '10px',
+                  background: 'var(--color-accent)',
+                  color: 'var(--color-accent-ink)',
+                  transition: 'filter .16s',
+                }}
+                className="flex cursor-pointer items-center justify-center text-[15px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
+              >
+                확인
+              </div>
+              {withdrawal.status === 'REQUESTED' && (
+                <div
+                  onClick={payoutFlow.busy ? undefined : payoutFlow.cancel}
+                  className="flex cursor-pointer items-center justify-center text-[12.5px] font-semibold hover:text-white"
+                  style={{ height: '20px', color: 'rgba(255,236,246,.72)' }}
+                >
+                  {payoutFlow.busy ? '취소하는 중' : '신청 취소'}
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           <>
             <div style={{ width: '530px' }}>
@@ -405,14 +499,14 @@ export default function MyPageCredit() {
                 style={{ marginTop: '8px', alignItems: 'baseline' }}
               >
                 <span className="text-[12px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-                  예상 가스비
+                  {withdraw ? '받을 지갑' : '예상 가스비'}
                 </span>
                 {/* 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다. */}
                 <span
                   className="text-[13px] font-semibold"
                   style={{ color: 'rgba(255,255,255,.86)' }}
                 >
-                  0 SSF
+                  {withdraw ? (wallet ? shortAddress(wallet) : '—') : '0 SSF'}
                 </span>
               </div>
               {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
@@ -424,20 +518,49 @@ export default function MyPageCredit() {
                   {charge.error}
                 </div>
               )}
+              {withdraw && (payoutFlow.error || payoutFlow.notice || (typed.trim() && blocked)) && (
+                <div
+                  className="text-[12px]"
+                  style={{
+                    marginTop: '10px',
+                    color:
+                      payoutFlow.error || !payoutFlow.notice ? 'rgba(255,196,214,.9)' : '#9ad0b4',
+                  }}
+                >
+                  {payoutFlow.error ?? payoutFlow.notice ?? blocked}
+                </div>
+              )}
             </div>
-            <div
-              onClick={withdraw ? undefined : () => void charge.send(amount)}
-              style={{
-                width: '262px',
-                height: '52px',
-                borderRadius: '10px',
-                background: 'var(--color-accent)',
-                color: 'var(--color-accent-ink)',
-                transition: 'filter .16s',
-              }}
-              className="flex cursor-pointer items-center justify-center text-[16px] font-semibold tracking-[-.01em] hover:brightness-[1.06]"
-            >
-              {ctaLabel}
+            <div className="flex flex-col" style={{ gap: '8px' }}>
+              <div
+                onClick={handleCta}
+                style={{
+                  width: '262px',
+                  height: withdraw ? '40px' : '52px',
+                  borderRadius: '10px',
+                  background: 'var(--color-accent)',
+                  color: 'var(--color-accent-ink)',
+                  opacity: blocked ? 0.5 : 1,
+                  transition: 'filter .16s',
+                }}
+                className={`flex items-center justify-center text-[16px] font-semibold tracking-[-.01em] ${blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-[1.06]'}`}
+              >
+                {withdraw && payoutFlow.busy ? '처리 중' : ctaLabel}
+              </div>
+              {/* 반대 방향(ABC → 정산금)은 없다. */}
+              {withdraw && (
+                <div
+                  onClick={handleConvert}
+                  title="정산금을 실행에 쓸 수 있는 ABC 로 옮깁니다. 되돌릴 수 없습니다."
+                  className={`flex items-center justify-center text-[12.5px] font-semibold ${canConvert ? 'cursor-pointer hover:text-white' : 'cursor-not-allowed'}`}
+                  style={{
+                    height: '20px',
+                    color: canConvert ? 'rgba(255,236,246,.72)' : 'rgba(255,236,246,.35)',
+                  }}
+                >
+                  대신 서비스에서 쓸 ABC 로 옮기기
+                </div>
+              )}
             </div>
           </>
         )}

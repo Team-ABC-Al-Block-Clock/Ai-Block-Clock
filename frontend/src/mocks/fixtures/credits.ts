@@ -5,6 +5,8 @@ import type { CreditBalance, CreditTransaction } from '@/api/credits'
 export const CREDIT_BALANCE: CreditBalance = {
   availableAmount: '640.000000',
   reservedAmount: '350.000000',
+  // 1,000 을 넘겨 「전액 출금」이 상한에서 잘리는 것을 본다.
+  payoutAmount: '1240.500000',
 }
 
 /**

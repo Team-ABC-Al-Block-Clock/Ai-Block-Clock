@@ -15,7 +15,7 @@ import { scene } from '@/mocks/scenario'
 const DEFAULT_SIZE = 20
 const MAX_SIZE = 50
 
-const TYPES: CreditTransactionType[] = ['CHARGE', 'RESERVE', 'REFUND']
+const TYPES: CreditTransactionType[] = ['CHARGE', 'RESERVE', 'REFUND', 'PAYOUT_CONVERSION']
 
 const invalidRequest = () => fail(400, 'COMMON_001', '조회 조건이 올바르지 않습니다.')
 
