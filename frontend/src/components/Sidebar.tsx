@@ -1,7 +1,5 @@
-import { useAccount } from 'wagmi'
-
+import { useWalletStatus } from '@/hooks/useWalletStatus'
 import { shortAddress } from '@/lib/format'
-import { chain, chainLabel, chainNameOf } from '@/lib/wagmi'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 import StatusDot from '@/components/StatusDot'
@@ -32,23 +30,7 @@ interface SidebarProps {
 
 export default function Sidebar({ active, editing = false }: SidebarProps) {
   const profile = useAuthStore((s) => s.profile)
-  const { address, chainId, status } = useAccount()
-  // 지갑이 붙어 있으면 지갑이 말하는 값을, 아직이면 서버가 기억하는 값을 보여 준다.
-  const walletAddress = address ?? profile?.wallet.address ?? ''
-  const network =
-    status === 'connected'
-      ? chainNameOf(chainId)
-      : profile
-        ? chainNameOf(profile.wallet.chainId)
-        : chainLabel
-  const connection =
-    status === 'connected'
-      ? chainId === chain.id
-        ? { text: '정상 연결', color: '#9ad0b4', dot: '#84bf9f' }
-        : { text: '다른 네트워크', color: '#ffb0cd', dot: '#e9aec4' }
-      : status === 'connecting' || status === 'reconnecting'
-        ? { text: '연결 확인 중', color: 'rgba(255,236,246,.62)', dot: 'rgba(255,236,246,.45)' }
-        : { text: '연결 끊김', color: '#ff8a8a', dot: '#ff8a8a' }
+  const { walletAddress, network, connection } = useWalletStatus()
   // App 이 문서에서 받아 세션과 지갑 연결을 함께 끊는다. 프로필 메뉴와 같은 길이다.
   const handleLogout = () => document.dispatchEvent(new CustomEvent('logout'))
 

@@ -1,13 +1,12 @@
 import { useMutation } from '@tanstack/react-query'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import MyPageFrame from '@/components/MyPageFrame'
 import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
 import { ApiError } from '@/api/errors'
-import { shortAddress } from '@/lib/format'
 import { describeImageProblem } from '@/lib/imageFile'
-import { chainLabel, chainNameOf } from '@/lib/wagmi'
+import { useWalletStatus } from '@/hooks/useWalletStatus'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
 import StatusDot from '@/components/StatusDot'
@@ -138,17 +137,17 @@ export default function MyPageEdit() {
     setToast(null)
     setRemoveImage(true)
   }
-  const payments = [
-    {
-      icon: 'WALLET',
-      label: '연결된 지갑',
-      // 제공자·네트워크도 서버가 준다 — 손으로 적으면 배포가 바뀔 때 갈라진다
-      brand: profile?.wallet.provider ?? 'MetaMask',
-      number: shortAddress(profile?.wallet.address ?? ''),
-      subLabel: '네트워크',
-      subValue: profile ? chainNameOf(profile.wallet.chainId) : chainLabel,
-    },
-  ]
+  const wallet = useWalletStatus()
+  const [copied, setCopied] = useState(false)
+  const handleCopyAddress = () => {
+    void navigator.clipboard
+      ?.writeText(wallet.walletAddress)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => undefined)
+  }
 
   useEffect(() => {
     return () => {
@@ -371,63 +370,89 @@ export default function MyPageEdit() {
           left: '442px',
           top: '464px',
           width: '900px',
-          height: '166px',
+          height: '214px',
           padding: '24px',
           borderRadius: '16px',
           animation: 'rise .7s .22s cubic-bezier(.2,.8,.25,1) both',
         }}
       >
         <div className="text-[16px] font-semibold tracking-[-.01em] text-white">지갑 연결</div>
-        <div className="flex" style={{ marginTop: '20px', gap: '24px' }}>
-          {payments.map((p, i) => (
-            <Fragment key={i}>
+        <div
+          className="box-border flex items-center"
+          style={{
+            marginTop: '18px',
+            height: '96px',
+            padding: '0 22px',
+            borderRadius: '14px',
+            background: 'rgba(255,255,255,.06)',
+            gap: '18px',
+          }}
+        >
+          <div
+            className="flex flex-none items-center justify-center rounded-full"
+            style={{
+              width: '56px',
+              height: '56px',
+              background: 'linear-gradient(135deg, rgba(233,174,196,.45), rgba(160,148,194,.45))',
+            }}
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="13" rx="3" stroke="#fff" strokeWidth="1.8" />
+              <path d="M3 10h18" stroke="#fff" strokeWidth="1.8" />
+              <circle cx="16.5" cy="14.5" r="1.4" fill="#fff" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center" style={{ gap: '10px' }}>
+              <div className="text-[17px] font-semibold text-white">{wallet.provider}</div>
               <div
-                className="box-border flex flex-1 items-center"
+                className="flex items-center text-[13px] font-semibold"
                 style={{
-                  height: '86px',
-                  padding: '18px',
+                  gap: '6px',
+                  height: '24px',
+                  padding: '0 10px',
                   borderRadius: '12px',
-                  background: 'rgba(255,255,255,.06)',
-                  gap: '16px',
+                  background: 'rgba(255,255,255,.08)',
+                  color: wallet.connection.color,
                 }}
               >
-                <div
-                  className="flex flex-none items-center justify-center text-[11.5px] font-semibold tracking-[.02em]"
-                  style={{
-                    width: '56px',
-                    height: '56px',
-                    borderRadius: '11px',
-                    background: 'rgba(255,220,235,.10)',
-                    color: 'rgba(255,226,238,.8)',
-                  }}
-                >
-                  {p.icon}
-                </div>
-                <div className="flex-1">
-                  <div className="text-[15px]" style={{ color: 'rgba(255,236,246,.62)' }}>
-                    {p.label}
-                  </div>
-                  <div
-                    className="flex"
-                    style={{ marginTop: '5px', gap: '9px', alignItems: 'baseline' }}
-                  >
-                    <div className="text-[15px] font-semibold text-white">{p.brand}</div>
-                    <div className="text-[15px]" style={{ color: 'rgba(255,255,255,.86)' }}>
-                      {p.number}
-                    </div>
-                  </div>
-                  <div className="flex" style={{ marginTop: '4px', gap: '7px' }}>
-                    <div className="text-[14.5px]" style={{ color: 'rgba(255,236,246,.58)' }}>
-                      {p.subLabel}
-                    </div>
-                    <div className="text-[14.5px]" style={{ color: 'rgba(255,255,255,.8)' }}>
-                      {p.subValue}
-                    </div>
-                  </div>
-                </div>
+                <StatusDot size={7} color={wallet.connection.dot} />
+                {wallet.connection.text}
               </div>
-            </Fragment>
-          ))}
+            </div>
+            {/* 대조해 보라고 두는 값이라 주소를 줄이지 않는다. */}
+            <div
+              className="truncate text-[14.5px]"
+              style={{
+                marginTop: '6px',
+                color: 'rgba(255,255,255,.82)',
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '.01em',
+              }}
+            >
+              {wallet.walletAddress || '—'}
+            </div>
+          </div>
+          <div className="flex-none text-right" style={{ width: '120px' }}>
+            <div className="text-[13px]" style={{ color: 'rgba(255,236,246,.58)' }}>
+              네트워크
+            </div>
+            <div className="text-[15px] font-semibold text-white" style={{ marginTop: '4px' }}>
+              {wallet.network}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyAddress}
+            disabled={!wallet.walletAddress}
+            className="flex flex-none cursor-pointer items-center bg-[rgba(255,255,255,.10)] text-[14px] font-semibold whitespace-nowrap transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.22)]"
+            style={{ height: '38px', padding: '0 16px', borderRadius: '11px', color: '#fff' }}
+          >
+            {copied ? '복사됨' : '주소 복사'}
+          </button>
+        </div>
+        <div className="text-[13px]" style={{ marginTop: '12px', color: 'rgba(255,236,246,.55)' }}>
+          다른 지갑을 쓰려면 로그아웃한 뒤 그 지갑으로 다시 로그인해 주세요.
         </div>
       </div>
 
