@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.AbcAmount;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.domain.workflow.GraphFixtures;
@@ -11,6 +12,7 @@ import com.aiblockclock.enums.workflow.InputSource;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -65,6 +67,6 @@ class RuntimeWorkflowTest {
 
     private static PlannedPrompt prompt(String placedKey, String name, UserId owner) {
         return new PlannedPrompt(NodeKey.of(placedKey), name, owner, Prompt.of(name + "을 한다"),
-                InputSource.defaultSource(), List.of());
+                InputSource.defaultSource(), List.of(), AbcAmount.of(new BigDecimal("0.018")));
     }
 }

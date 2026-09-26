@@ -158,9 +158,9 @@ class AgentRunOutcomesTest {
     }
 
     // 엔진은 우리가 보낸 주인과 에이전트를 단계마다 그대로 돌려준다.
-    private static RunStatus.Node step(String id, String state, String costAbc, String owner, UUID agent) {
+    private static RunStatus.Node step(String id, String state, String costUsd, String owner, UUID agent) {
         return new RunStatus.Node(id, "노드 " + id, "llm", state, agent == null ? null : agent.toString(), owner,
-                new BigDecimal(costAbc), null);
+                new BigDecimal(costUsd), null);
     }
 
     private static RunStatus.Failure failure(String stepId, String fault, boolean affectsSuccessRate) {

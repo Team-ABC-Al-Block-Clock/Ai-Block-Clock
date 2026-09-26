@@ -49,9 +49,10 @@ public class ExecutionWriter {
     }
 
     @Transactional
-    public void appendChargeRates(ExecutionId id, ChargeRates rates) {
-        executionChargeRateRepository.saveAll(rates.byStep().entrySet().stream()
-                .map(rate -> new ExecutionChargeRateEntity(id.value(), rate.getKey(), rate.getValue()))
+    public void appendStepPrices(ExecutionId id, StepPrices prices) {
+        executionChargeRateRepository.saveAll(prices.byStep().entrySet().stream()
+                .map(step -> new ExecutionChargeRateEntity(id.value(), step.getKey(),
+                        step.getValue().multiplier(), step.getValue().price().value()))
                 .toList());
     }
 

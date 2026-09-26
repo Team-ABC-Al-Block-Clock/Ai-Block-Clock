@@ -275,46 +275,52 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     @Test
-    void 접수할_때_단계마다_실측_원가에_곱할_배율을_남긴다() {
+    void 접수할_때_단계마다_받을_단가와_그_배율을_남긴다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
         assertThat(executionChargeRateRepository.findAllByExecutionId(reserved.getId().value()))
-                .extracting(ExecutionChargeRateEntity::getStepId, rate -> rate.getPriceMultiplier().stripTrailingZeros())
-                .containsExactlyInAnyOrder(tuple("n1", BigDecimal.ONE), tuple("n2", BigDecimal.ONE));
+                .extracting(ExecutionChargeRateEntity::getStepId, rate -> rate.getPriceMultiplier().stripTrailingZeros(),
+                        rate -> rate.getUnitPrice().stripTrailingZeros())
+                .containsExactlyInAnyOrder(
+                        tuple("n1", BigDecimal.ONE, new BigDecimal("3")),
+                        tuple("n2", BigDecimal.ONE, new BigDecimal("3")));
     }
 
-    // 떼어 둔 6 중 성공한 두 단계의 실측 0.5 + 0.25 만 쓰고 5.25 를 돌려준다.
+    // 떼어 둔 6 은 두 단계의 단가 3 + 3 이다. 모두 성공하면 전부 쓰고 돌려줄 것이 없다.
     @Test
-    void 끝나면_성공한_단계의_실측_원가만큼만_쓰고_나머지를_돌려준다() {
+    void 모두_성공하면_단계마다_정해_둔_단가만큼_쓰고_돌려줄_것이_없어_환불을_적지_않는다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
         finish(reserved, run("succeeded", null,
                 step("n1", "succeeded", "0.5"), step("n2", "succeeded", "0.25")));
 
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.25");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("0.75");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("6");
         assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.SUCCEEDED);
         assertThat(entityOf(reserved).getFailureFault()).isNull();
         assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-refund:" + reserved.getId().value()))
-                .get().extracting(LedgerTransactionEntity::getEventType).isEqualTo(LedgerEventType.REFUND);
+                .isEmpty();
         assertBalancesMatchEntries();
     }
 
+    // 성공한 n1 의 단가 3 만 쓰고 실패한 n2 의 단가 3 은 돌려준다.
     @Test
-    void 실패한_단계와_돌지_않은_단계는_사용액에_넣지_않는다() {
+    void 실패한_단계와_돌지_않은_단계의_단가는_돌려준다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
         finish(reserved, run("failed", failure("supplier"),
                 step("n1", "succeeded", "0.5"), step("n2", "failed", "0.3")));
 
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.5");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("0.5");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("3");
         assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-refund:" + reserved.getId().value()))
+                .get().extracting(LedgerTransactionEntity::getEventType).isEqualTo(LedgerEventType.REFUND);
         assertBalancesMatchEntries();
     }
 
@@ -332,41 +338,42 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     @Test
-    void 실측이_떼어_둔_것을_넘으면_돌려줄_것이_없어_환불을_적지_않고_떼어_둔_것을_모두_정산한다() {
+    void 엔진이_잰_원가가_단가보다_커도_단가만큼만_받는다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        finish(reserved, run("succeeded", null,
-                step("n1", "succeeded", "5"), step("n2", "succeeded", "4")));
+        finish(reserved, run("failed", failure("supplier"),
+                step("n1", "succeeded", "5"), step("n2", "failed", "4")));
 
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("6");
-        assertThat(statusOf(reserved)).isEqualTo(ExecutionStatus.SUCCEEDED);
-        assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-refund:" + reserved.getId().value()))
-                .isEmpty();
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("3");
+        assertBalancesMatchEntries();
     }
 
+    // 접수 · 환불 · 정산 세 거래가 한 번씩만 남는다.
     @Test
     void 같은_끝을_두_번_봐도_한_번만_돌려주고_한_번만_적립한다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
-        RunStatus finished = run("succeeded", null, step("n1", "succeeded", "0.5"), step("n2", "succeeded", "0.5"));
+        RunStatus finished = run("failed", failure("supplier"),
+                step("n1", "succeeded", "0.5"), step("n2", "failed", "0.5"));
 
         finish(reserved, finished);
         finish(reserved, finished);
 
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("3");
         assertThat(ledgerTransactionRepository.count()).isEqualTo(3);
-        assertThat(executionSettlementRepository.count()).isEqualTo(2);
+        assertThat(executionSettlementRepository.count()).isEqualTo(1);
     }
 
     @Test
     void 폴링이_겹쳐_같은_끝을_동시에_봐도_한_번만_돌려주고_한_번만_적립한다() throws Exception {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
-        RunStatus finished = run("succeeded", null, step("n1", "succeeded", "0.5"), step("n2", "succeeded", "0.5"));
+        RunStatus finished = run("failed", failure("supplier"),
+                step("n1", "succeeded", "0.5"), step("n2", "failed", "0.5"));
 
         List<Outcome> outcomes = runConcurrently(List.of(
                 () -> {
@@ -381,11 +388,11 @@ class ExecutionReservationManagerIntegrationTest {
                 }));
 
         assertThat(outcomes).containsOnly(Outcome.DONE);
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("3");
         assertThat(ledgerTransactionRepository.count()).isEqualTo(3);
-        assertThat(executionSettlementRepository.count()).isEqualTo(2);
+        assertThat(executionSettlementRepository.count()).isEqualTo(1);
         assertBalancesMatchEntries();
     }
 
@@ -426,7 +433,7 @@ class ExecutionReservationManagerIntegrationTest {
                     assertThat(execution.getFaultSupplierId()).isEqualTo(9602L);
                     assertThat(execution.getFaultAgentId()).isEqualTo(agent);
                 });
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.5");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
     }
 
     @Test
@@ -457,7 +464,7 @@ class ExecutionReservationManagerIntegrationTest {
                 step("n1", "succeeded", "0.5"), step("n2", "failed", "0")));
 
         assertThat(entityOf(reserved).getFailureFault()).isEqualTo(ExecutionFault.SUPPLIER);
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9.5");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("7");
     }
 
     @Test
@@ -472,7 +479,7 @@ class ExecutionReservationManagerIntegrationTest {
         assertThat(ledgerTransactionRepository.count()).isZero();
     }
 
-    // 떼어 둔 6 중 1.5 + 0.25 를 두 판매자에게 주고 4.25 를 돌려준다. 예치에는 아무것도 남지 않는다.
+    // 떼어 둔 6 을 두 판매자에게 단가 3 씩 준다. 엔진이 잰 원가(1.5 · 0.25)와 상관없다. 예치에는 아무것도 남지 않는다.
     @Test
     void 끝나면_쓴_만큼을_단계_주인의_정산금으로_옮기고_예치를_비운다() {
         charge("10");
@@ -481,10 +488,10 @@ class ExecutionReservationManagerIntegrationTest {
         finish(reserved, run("succeeded", null,
                 soldStep("n1", "succeeded", "1.5", SELLER), soldStep("n2", "succeeded", "0.25", OTHER_SELLER)));
 
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("8.25");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("1.5");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, OTHER_SELLER)).isEqualByComparingTo("0.25");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("3");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, OTHER_SELLER)).isEqualByComparingTo("3");
         assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isZero();
         assertThat(ledgerTransactionRepository.findByIdempotencyKey("execution-settlement:" + reserved.getId().value()))
                 .get().extracting(LedgerTransactionEntity::getEventType).isEqualTo(LedgerEventType.SETTLEMENT);
@@ -504,8 +511,8 @@ class ExecutionReservationManagerIntegrationTest {
                         ExecutionSettlementEntity::getNodeName, ExecutionSettlementEntity::getSupplierId,
                         settlement -> settlement.getAmountAbc().stripTrailingZeros())
                 .containsExactlyInAnyOrder(
-                        tuple(reserved.getId().value(), "n1", "노드 n1", SELLER.value(), new BigDecimal("1.5")),
-                        tuple(reserved.getId().value(), "n2", "노드 n2", OTHER_SELLER.value(), new BigDecimal("0.25")));
+                        tuple(reserved.getId().value(), "n1", "노드 n1", SELLER.value(), new BigDecimal("3")),
+                        tuple(reserved.getId().value(), "n2", "노드 n2", OTHER_SELLER.value(), new BigDecimal("3")));
         assertThat(executionSettlementRepository.findAll())
                 .allSatisfy(settlement -> assertThat(settlement.getCreatedAt()).isNotNull());
     }
@@ -523,7 +530,7 @@ class ExecutionReservationManagerIntegrationTest {
                 .add(balanceOf(LedgerAccountType.PAYOUT_BALANCE, OTHER_SELLER));
 
         assertThat(refunded.add(settled)).isEqualByComparingTo("6");
-        assertThat(settled).isEqualByComparingTo("0.7");
+        assertThat(settled).isEqualByComparingTo("3");
         assertBalancesMatchEntries();
     }
 
@@ -541,21 +548,6 @@ class ExecutionReservationManagerIntegrationTest {
                 .isEmpty();
     }
 
-    // 실측 5 + 4 = 9 가 떼어 둔 6 을 넘어 둘 다 6/9 로 줄어든다.
-    @Test
-    void 실측이_떼어_둔_것을_넘으면_판매자_몫을_같은_비율로_줄여_떼어_둔_만큼만_준다() {
-        charge("10");
-        Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
-
-        finish(reserved, run("succeeded", null,
-                soldStep("n1", "succeeded", "5", SELLER), soldStep("n2", "succeeded", "4", OTHER_SELLER)));
-
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("3.333334");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, OTHER_SELLER)).isEqualByComparingTo("2.666666");
-        assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
-        assertBalancesMatchEntries();
-    }
-
     @Test
     void 자기_에이전트를_자기가_쓰면_쓴_만큼이_자기_정산금이_된다() {
         charge("10");
@@ -563,8 +555,8 @@ class ExecutionReservationManagerIntegrationTest {
 
         finish(reserved, run("succeeded", null, step("n1", "succeeded", "0.5"), step("n2", "succeeded", "0.5")));
 
-        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("9");
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("1");
+        assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("4");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE)).isEqualByComparingTo("6");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");
     }
 
@@ -680,15 +672,17 @@ class ExecutionReservationManagerIntegrationTest {
         assertThat(outcomes).containsOnly(Outcome.DONE);
         assertThat(agentGradeMetricRepository.count()).isEqualTo(1);
         assertThat(agentGradeMetricReader.read(agent).successfulRuns()).isEqualTo(2);
-        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("2");
+        assertThat(balanceOf(LedgerAccountType.PAYOUT_BALANCE, SELLER)).isEqualByComparingTo("12");
     }
 
     @Test
-    void mock_실행은_쓴_것이_없어_정산을_적지_않는다() {
+    void mock_실행은_모델을_부르지_않아_전부_돌려주고_정산을_적지_않는다() {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        finish(reserved, run("succeeded", null, step("n1", "succeeded", "0"), step("n2", "succeeded", "0")));
+        finish(reserved, new RunStatus("run-1", "succeeded", null,
+                List.of(step("n1", "succeeded", "0"), step("n2", "succeeded", "0")), List.of(), List.of(), null, null,
+                true, null));
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(executionSettlementRepository.count()).isZero();
@@ -767,13 +761,13 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     // 워크플로우의 노드는 모두 OWNER 가 만든 것이라, 따로 적지 않은 단계는 OWNER 의 것이다 (자기 것을 자기가 쓰는 실행).
-    private static RunStatus.Node step(String id, String state, String costAbc) {
-        return new RunStatus.Node(id, id, "llm", state, null, OWNER_REFERENCE_ID, new BigDecimal(costAbc), null);
+    private static RunStatus.Node step(String id, String state, String costUsd) {
+        return new RunStatus.Node(id, id, "llm", state, null, OWNER_REFERENCE_ID, new BigDecimal(costUsd), null);
     }
 
-    private static RunStatus.Node soldStep(String id, String state, String costAbc, UserId seller) {
+    private static RunStatus.Node soldStep(String id, String state, String costUsd, UserId seller) {
         return new RunStatus.Node(id, "노드 " + id, "llm", state, null, Long.toString(seller.value()),
-                new BigDecimal(costAbc), null);
+                new BigDecimal(costUsd), null);
     }
 
     // 엔진은 우리가 보낸 주인과 에이전트를 단계마다 그대로 돌려준다.
@@ -782,9 +776,9 @@ class ExecutionReservationManagerIntegrationTest {
     }
 
     // 판매자의 에이전트 안에서 돈 단계다. 실측 원가가 있어 모델을 실제로 부른 것이다.
-    private static RunStatus.Node agentStep(String id, String state, String costAbc, UserId seller, AgentId agent) {
+    private static RunStatus.Node agentStep(String id, String state, String costUsd, UserId seller, AgentId agent) {
         return new RunStatus.Node(id, "노드 " + id, "llm", state, agent.value().toString(),
-                Long.toString(seller.value()), new BigDecimal(costAbc), null);
+                Long.toString(seller.value()), new BigDecimal(costUsd), null);
     }
 
     private static RunStatus.Failure failure(String fault) {
