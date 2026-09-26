@@ -160,13 +160,14 @@ export default function MyPageCredit() {
     ? '출금 가능 정산금'
     : convert
       ? '전환 가능 정산금'
-      : '현재 사용 가능 ABC'
+      : '현재 사용 가능 금액'
   // 불러오는 중에 0 을 띄우면 잔액이 비어 보였다가 튄다.
   const bannerValue = balance.data
     ? priceLabel(usesPayout ? balance.data.payoutAmount : balance.data.availableAmount)
     : '—'
   const reserved = balance.data?.reservedAmount
-  const reservedNote = reserved && Number(reserved) > 0 ? `실행 중 ${priceLabel(reserved)} · ` : ''
+  const reservedNote =
+    reserved && Number(reserved) > 0 ? `실행에 잠긴 금액 ${priceLabel(reserved)} · ` : ''
   const bannerNote = balance.isError
     ? '잔액을 불러오지 못했습니다'
     : withdraw

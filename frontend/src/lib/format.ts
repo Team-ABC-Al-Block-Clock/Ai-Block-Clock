@@ -38,6 +38,12 @@ export function chargeAmountLabel(amount: string | number) {
   return `${CHARGE_AMOUNT.format(amount as Intl.StringNumericLiteral)} ABC`
 }
 
+/** 204800 → '200KB', 1363148 → '1.3MB' — 1KB 미만은 올려서 '1KB' 로 적는다. */
+export function fileSizeLabel(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')}MB`
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`
+}
+
 /** 4.7 · 35 → '4.7 (35)', 리뷰 0건 → '—' */
 export function ratingLabel(averageRating: number | null, reviewCount: number) {
   if (averageRating === null || reviewCount === 0) return '—'

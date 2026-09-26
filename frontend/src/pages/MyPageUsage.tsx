@@ -195,7 +195,7 @@ export default function MyPageUsage() {
               className="text-[12.5px] whitespace-nowrap"
               style={{ color: 'var(--color-muted)' }}
             >
-              사용 ABC
+              사용 금액
             </div>
           </div>
           <div className="flex items-center" style={{ gap: '7px' }}>

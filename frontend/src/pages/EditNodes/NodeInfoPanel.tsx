@@ -4,12 +4,14 @@ import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
 import { priceLabel } from '@/lib/format'
 import ModelSelect from '@/components/ModelSelect'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
+import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
+import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
 
 /**
  * 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리.
  *
- * 세로는 424px 까지다. 그 아래는 팔레트가 쓴다(`NodePalettePanel`) — 같은 `SidePanel` 안에
- * 절대 배치라, 넘치면 팔레트가 위를 덮어 버튼이 눌리지 않는다.
+ * 세로는 `PANEL_SPLIT_Y` 까지다. 그 아래는 팔레트가 쓴다(`NodePalettePanel`) — 같은 `SidePanel`
+ * 안에 절대 배치라, 넘치면 팔레트가 위를 덮어 버튼이 눌리지 않는다.
  *
  * 고친 값은 캔버스에만 머문다. 기본 노드는 워크플로우를 저장할 때 배치와 함께
  * 서버에 만들어지기 때문이다(`NodePlacementRequest`).
@@ -28,6 +30,23 @@ const rowStyle = (top: string) => ({
 })
 
 type FormValues = { name: string; prompt: string; model: AiModel }
+
+/**
+ * 폼의 세로 좌표. 라벨은 칸에서 22px 위다.
+ *
+ * 자료 칸이 늘어난 만큼 아래가 통째로 내려간다 — 마지막 줄이 `PANEL_SPLIT_Y` 를 넘으면
+ * 팔레트가 덮는다.
+ */
+const FILES_Y = 156
+const MODEL_Y = FILES_Y + REF_FIELD_HEIGHT + 30
+const PROMPT_Y = MODEL_Y + 72
+/** 안쪽 여백을 빼면 다섯 줄이 선다. 두 줄로는 프롬프트를 적다가 바로 스크롤이 생긴다. */
+const PROMPT_HEIGHT = 150
+const FOOT_Y = PROMPT_Y + PROMPT_HEIGHT + 10
+
+/** 에이전트 쪽 세로 좌표. 설명은 길이에 따라 늘고, 메타 세 줄은 그 아래 고정이다. */
+const SUMMARY_Y = 206
+const META_Y = 366
 
 /** 설명 아래 한 줄짜리 값. 라벨은 왼쪽, 값은 오른쪽 끝에 세운다. */
 function MetaRow({ label, value }: { label: string; value: string }) {
@@ -80,11 +99,13 @@ function FieldLabel({ top, children }: { top: string; children: React.ReactNode 
 function NodeForm({
   initial,
   price,
+  files,
   onApply,
 }: {
   initial: FormValues
   /** 서버가 매긴 1회 실행 원가. 저장하기 전에는 없다 */
   price: string | null
+  files: RefFileSlot
   onApply: (v: FormValues) => void
 }) {
   const [name, setName] = useState(initial.name)
@@ -112,44 +133,26 @@ function NodeForm({
         <PencilIcon />
       </div>
 
-      {/* 「노드 추가」 패널과 같은 자리·같은 차림. 참고 자료 붙이기는 아직 손대지 않았다. */}
-      <FieldLabel top="134px">입력 파일</FieldLabel>
-      <div
-        className="bg-surface-card absolute flex items-center justify-between"
-        style={{
-          ...rowStyle('156px'),
-          height: '42px',
-          borderRadius: '11px',
-          padding: '0 6px 0 12px',
-        }}
-      >
-        <div className="truncate text-[16.5px]" style={{ color: 'rgba(255,255,255,.5)' }}>
-          파일을 선택하세요
-        </div>
-        <div
-          className="flex flex-none items-center text-[14px] font-semibold text-white"
-          style={{
-            height: '30px',
-            padding: '0 14px',
-            borderRadius: '8px',
-            background: 'rgba(255,255,255,.16)',
-          }}
-        >
-          찾기
-        </div>
-      </div>
+      {/* 「노드 추가」 패널과 같은 자리·같은 차림. 붙이고 떼는 것은 여기서 바로 서버로 나간다. */}
+      <FieldLabel top={`${FILES_Y - 22}px`}>입력 파일</FieldLabel>
+      <RefFileField slot={files} style={{ position: 'absolute', ...rowStyle(`${FILES_Y}px`) }} />
 
-      <FieldLabel top="206px">AI 모델</FieldLabel>
+      <FieldLabel top={`${MODEL_Y - 22}px`}>AI 모델</FieldLabel>
       <ModelSelect
         value={model}
         onChange={setModel}
-        style={{ ...rowStyle('228px'), height: '42px', fontSize: '16.5px' }}
+        style={{ ...rowStyle(`${MODEL_Y}px`), height: '42px', fontSize: '16.5px' }}
       />
 
-      <FieldLabel top="278px">프롬프트</FieldLabel>
+      <FieldLabel top={`${PROMPT_Y - 22}px`}>프롬프트</FieldLabel>
       <div
         className="bg-surface-card absolute"
-        style={{ ...rowStyle('300px'), height: '68px', borderRadius: '11px', padding: '9px 12px' }}
+        style={{
+          ...rowStyle(`${PROMPT_Y}px`),
+          height: `${PROMPT_HEIGHT}px`,
+          borderRadius: '11px',
+          padding: '9px 12px',
+        }}
       >
         <textarea
           className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[16.5px] leading-[1.55] text-white outline-0"
@@ -157,13 +160,13 @@ function NodeForm({
           onChange={(ev) => setPrompt(ev.target.value)}
           placeholder="이 노드가 할 일을 프롬프트로 적으세요"
           aria-label="프롬프트"
-          style={{ height: '50px' }}
+          style={{ height: `${PROMPT_HEIGHT - 18}px` }}
         />
       </div>
 
       <div
         className="absolute flex items-center justify-between"
-        style={{ ...rowStyle('378px'), height: '32px' }}
+        style={{ ...rowStyle(`${FOOT_Y}px`), height: '32px' }}
       >
         <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
           {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
@@ -204,6 +207,8 @@ type NodeInfoPanelProps = {
    * 에이전트면 undefined — 남의 내부 구성이라 열지 않고 한 줄 설명만 보여준다.
    */
   basic?: { id: string; name: string; prompt: string; model: AiModel; price: string | null }
+  /** 고른 기본 노드에 붙은 참고 자료. 에이전트면 쓰지 않는다 */
+  files: RefFileSlot
   /** 에이전트의 한 줄 설명. */
   summary?: string | null
   /** 에이전트의 단가·실행 횟수·만든 사람. 모르는 값은 비워 둔다. */
@@ -219,6 +224,7 @@ export default function NodeInfoPanel({
   initial,
   typeLabel,
   basic,
+  files,
   summary,
   meta,
   onApply,
@@ -240,6 +246,7 @@ export default function NodeInfoPanel({
         key={basic.id}
         initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
         price={basic.price}
+        files={files}
         onApply={(values) => onApply(basic.id, values)}
       />
     )
@@ -284,9 +291,9 @@ export default function NodeInfoPanel({
       <div
         className="scroll-thin absolute text-[16.5px] leading-[1.75] tracking-[-.003em]"
         style={{
-          ...rowStyle('206px'),
-          // 아래 메타 행이 300px 에서 시작한다. 서버 상한(80자)까지 차도 넘지 않게 자른다.
-          maxHeight: '86px',
+          ...rowStyle(`${SUMMARY_Y}px`),
+          // 아래 메타 행까지가 한계다. 서버 상한(80자)이면 이 폭에서 넉 줄이라 86px 로는 잘렸다.
+          maxHeight: `${META_Y - SUMMARY_Y - 14}px`,
           color: summary ? 'rgba(255,246,251,.94)' : 'rgba(255,236,246,.5)',
         }}
       >
@@ -294,7 +301,7 @@ export default function NodeInfoPanel({
       </div>
 
       {meta && (
-        <div className="absolute flex flex-col" style={{ ...rowStyle('300px'), gap: '1px' }}>
+        <div className="absolute flex flex-col" style={{ ...rowStyle(`${META_Y}px`), gap: '1px' }}>
           <MetaRow label="단가" value={meta.price ? priceLabel(meta.price) : '—'} />
           <MetaRow
             label="총 실행 횟수"
