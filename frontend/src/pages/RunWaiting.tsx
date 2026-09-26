@@ -51,6 +51,8 @@ const BEFORE_RESERVE = new Set([
   'WORKFLOW_014',
   'EXECUTION_003',
   'EXECUTION_005',
+  // 입력란 검사(`ExecutionInputValidator`)는 선차감 앞에서 돈다.
+  'EXECUTION_009',
   'FILE_002',
   INSUFFICIENT,
 ])
