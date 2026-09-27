@@ -22,7 +22,7 @@ export default function MyPageEdit() {
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
 
   /**
-   * 고른 파일과 삭제 의사는 배타적이다 — 서버가 둘을 같이 받으면 USER_007 로 거절한다.
+   * 고른 파일과 삭제 의사는 배타적이다.
    *
    * 미리보기 URL 을 파일과 한 덩어리로 들고 다닌다. 저장 전에도 얼굴이 바뀌어야 무엇을
    * 올리는지 알 수 있고, URL 을 이펙트에서 만들면 렌더 한 번은 옛 얼굴로 지나간다.
@@ -69,7 +69,7 @@ export default function MyPageEdit() {
       updateMyProfile({
         nickname: trimmedNickname,
         introduction: trimmedIntro,
-        // 둘 중 하나만 보낸다. 같이 보내면 서버가 USER_007 로 거절한다.
+        // 둘 중 하나만 보낸다.
         ...(picked ? { profileImageFile: picked.file } : {}),
         ...(removeImage ? { removeProfileImage: true } : {}),
       }),
@@ -111,7 +111,7 @@ export default function MyPageEdit() {
     e.target.value = ''
     if (!file) return
 
-    // 서버도 USER_004·USER_005 로 막지만, 여기서 걸러야 5MB 를 올렸다가 거절당하지 않는다.
+    // 서버는 형식·크기를 검사하지 않아 여기서만 거른다.
     const problem = describeImageProblem(file)
     if (problem) {
       // 거절하면 앞서 고른 것도 버린다 — 토스트가 사라진 뒤 다른 파일이 저장되지 않게.

@@ -4,6 +4,7 @@ import type {
   ConditionOperator,
   ControlType,
   InputField,
+  InputSource,
   IoType,
   ItemNodeType,
   PlacedSourceType,
@@ -68,6 +69,8 @@ export interface CanvasNodeData {
   ioType?: IoType | null
   /** 분기 노드만. 조건을 채우지 않으면 저장이 물린다 */
   condition?: CanvasCondition | null
+  /** 고르는 화면이 없어 불러온 값을 다시 저장할 때 싣는다 */
+  inputSource?: InputSource | null
   /** 시작 노드만. 고르는 화면은 아직 없고 불러온 값을 다시 저장할 때 싣는다 */
   fields?: InputField[] | null
   /** 끝 노드만. 고르는 화면은 아직 없고 기본값을 싣고 다닌다 */
@@ -114,93 +117,6 @@ export interface CanvasNodeData {
 const PLACED_FLOATY = 'floaty 6.6s ease-in-out infinite'
 
 /**
- * 다섯 칸짜리 예시 구성. 화면 초기값으로 쓰지 않는다 — 캔버스는 빈 상태로 연다.
- * 그래프 함수를 검사할 때 손으로 짜는 대신 쓰는 표본이다.
- */
-export const CANVAS_NODES: CanvasNodeData[] = [
-  {
-    id: 'seed-1',
-    name: '파일 수집',
-    nodeType: 'LLM',
-    sourceType: 'NODE',
-    sourceId: 'node_001',
-    price: '4',
-    summary: null,
-    prompt: null,
-    model: null,
-    x: 12,
-    y: 400,
-    mine: true,
-    floaty: 'floaty 6.4s ease-in-out infinite',
-    enter: 'uiIn .7s .18s cubic-bezier(.2,.8,.25,1) backwards',
-  },
-  {
-    id: 'seed-2',
-    name: '내용 분석',
-    nodeType: 'LLM',
-    sourceType: 'NODE',
-    sourceId: 'node_002',
-    price: '12',
-    summary: null,
-    prompt: null,
-    model: null,
-    x: 209,
-    y: 320,
-    mine: true,
-    floaty: 'floaty 6.9s .3s ease-in-out infinite',
-    enter: 'uiIn .7s .26s cubic-bezier(.2,.8,.25,1) backwards',
-  },
-  {
-    id: 'seed-3',
-    name: '분류 및 태깅',
-    nodeType: 'LLM',
-    sourceType: 'NODE',
-    sourceId: 'node_003',
-    price: '6',
-    summary: null,
-    prompt: null,
-    model: null,
-    x: 406,
-    y: 440,
-    mine: true,
-    floaty: 'floaty 7.1s .8s ease-in-out infinite',
-    enter: 'uiIn .7s .34s cubic-bezier(.2,.8,.25,1) backwards',
-  },
-  {
-    id: 'seed-4',
-    name: '요약 생성',
-    nodeType: 'LLM',
-    sourceType: 'NODE',
-    sourceId: 'node_004',
-    price: '15',
-    summary: null,
-    prompt: null,
-    model: null,
-    x: 603,
-    y: 330,
-    mine: true,
-    floaty: 'floaty 6.8s .4s ease-in-out infinite',
-    enter: 'uiIn .7s .42s cubic-bezier(.2,.8,.25,1) backwards',
-  },
-  {
-    id: 'seed-5',
-    name: '결과 전달',
-    nodeType: 'LLM',
-    sourceType: 'NODE',
-    sourceId: 'node_005',
-    price: '3',
-    summary: null,
-    prompt: null,
-    model: null,
-    x: 800,
-    y: 430,
-    mine: true,
-    floaty: 'floaty 7.6s 1.2s ease-in-out infinite',
-    enter: 'uiIn .7s .5s cubic-bezier(.2,.8,.25,1) backwards',
-  },
-]
-
-/**
  * 분기 조건. 서버가 받는 `left`(`<nodeKey>.<경로>`)를 캔버스에서는 둘로 나눠 든다.
  *
  * 노드 키는 저장할 때 비로소 매겨진다(`n1…nN`). 조건에 키를 박아 두면 노드 하나를 지우거나
@@ -228,15 +144,6 @@ export interface CanvasEdge {
 function edgeId(from: string, to: string, when?: boolean): string {
   return `${from}__${to}${when === undefined ? '' : when ? '__true' : '__false'}`
 }
-
-const seedEdge = (from: string, to: string): CanvasEdge => ({ id: edgeId(from, to), from, to })
-
-export const CANVAS_EDGES: CanvasEdge[] = [
-  seedEdge('seed-1', 'seed-2'),
-  seedEdge('seed-2', 'seed-3'),
-  seedEdge('seed-3', 'seed-4'),
-  seedEdge('seed-4', 'seed-5'),
-]
 
 /** 분기 조건이 읽을 수 있는 종류. 제어·입출력은 낼 결과가 없다. */
 export const isConditionSource = (node: CanvasNodeData) =>

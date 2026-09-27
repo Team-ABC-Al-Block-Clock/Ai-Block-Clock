@@ -90,7 +90,7 @@ export default function Signup() {
     join.mutate()
   }
 
-  /** 고르는 즉시 막는다 — 서버도 USER_004·USER_005 로 막지만 왕복할 이유가 없다. */
+  /** 서버는 형식·크기를 검사하지 않아 고르는 즉시 여기서 막는다. */
   const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     // 같은 파일을 다시 고를 수 있게 값을 비운다. 안 그러면 onChange 가 안 뜬다.

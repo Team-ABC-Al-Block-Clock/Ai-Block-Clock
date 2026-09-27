@@ -7,7 +7,7 @@ export const PROFILE: UserProfile = {
   introduction: '온체인 리서치 에이전트를 만듭니다.',
   profileImageUrl: null,
   wallet: {
-    provider: 'MetaMask',
+    provider: 'METAMASK',
     address: '0x1f9c4b2e7a0d5c83916fe2b47c0a91d3e5b8072a',
     network: 'SSAFY',
     chainId: 31221,

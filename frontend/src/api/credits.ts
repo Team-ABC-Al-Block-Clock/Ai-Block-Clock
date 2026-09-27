@@ -44,8 +44,8 @@ export const getCreditBalance = () => api.get<CreditBalance>('/credits/balance')
 export const getCreditTransactions = (params: CreditTransactionQuery = {}) =>
   api.get<CursorPage<CreditTransaction>>('/credits/transactions', { params })
 
-/** 확인 중 · 적립 완료 · 실패. CONFIRMED·FAILED 가 되면 더 묻지 않는다. */
-export type ChargeStatus = 'PENDING' | 'CONFIRMED' | 'FAILED'
+/** 확인 중 · 적립 완료 · 실패 · 취소. PENDING 이 아니면 더 묻지 않는다. */
+export type ChargeStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'CANCELED'
 
 /** 실패한 이유. 화면 문구는 `lib/chargeMessage.ts` 가 만든다. */
 export type ChargeFailureReason =

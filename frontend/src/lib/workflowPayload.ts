@@ -36,8 +36,6 @@ import {
  *
  * 좌표는 보내지 않는다. 서버가 저장하지 않아서(`NodePlacementRequest`) 다시 열면 이어진
  * 모양만 남는다 — 그것으로 다시 늘어놓는다(`toCanvasWorkflow`).
- *
- * `inputSource` 도 보내지 않는다. 고르는 화면이 없어 서버 기본값(`PREV`)에 맡긴다.
  */
 export function toWorkflowGraph(
   nodes: CanvasNodeData[],
@@ -51,7 +49,11 @@ export function toWorkflowGraph(
 
   const placements: NodePlacement[] = []
   for (const node of order.nodes) {
-    const placed = { nodeKey: keyOf.get(node.id)!, sourceType: node.sourceType }
+    const placed = {
+      nodeKey: keyOf.get(node.id)!,
+      sourceType: node.sourceType,
+      ...(node.inputSource ? { inputSource: node.inputSource } : {}),
+    }
 
     if (node.sourceType === 'CONTROL') {
       // 조건이 읽는 앞 노드는 여기서야 키를 얻는다. 조건이 비어 있으면 서버가 물린다.
@@ -239,6 +241,7 @@ export function toCanvasWorkflow(
       sourceType: node.sourceType,
       controlType: control,
       ioType: io,
+      inputSource: node.inputSource,
       fields: io === 'START' ? node.fields : null,
       condition: toCanvasCondition(node.condition, idOf),
       resultShape: node.resultShape,

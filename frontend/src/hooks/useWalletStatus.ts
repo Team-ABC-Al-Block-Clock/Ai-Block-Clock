@@ -3,6 +3,8 @@ import { useAccount } from 'wagmi'
 import { chain, chainLabel, chainNameOf } from '@/lib/wagmi'
 import { useAuthStore } from '@/stores/authStore'
 
+const PROVIDER_LABELS: Record<string, string> = { METAMASK: 'MetaMask' }
+
 /** 주소는 로그인한 지갑이다 — 출금도 그리로 간다. 상태만 지금 붙은 지갑을 본다. */
 export function useWalletStatus() {
   const profile = useAuthStore((s) => s.profile)
@@ -10,11 +12,7 @@ export function useWalletStatus() {
 
   const walletAddress = profile?.wallet.address ?? address ?? ''
   const network =
-    status === 'connected'
-      ? chainNameOf(chainId)
-      : profile
-        ? chainNameOf(profile.wallet.chainId)
-        : chainLabel
+    status === 'connected' ? chainNameOf(chainId) : (profile?.wallet.network ?? chainLabel)
   const connection =
     status === 'connected'
       ? profile && address && address.toLowerCase() !== profile.wallet.address.toLowerCase()
@@ -26,5 +24,6 @@ export function useWalletStatus() {
         ? { text: '연결 확인 중', color: 'rgba(255,236,246,.62)', dot: 'rgba(255,236,246,.45)' }
         : { text: '연결 끊김', color: '#ff8a8a', dot: '#ff8a8a' }
 
-  return { walletAddress, network, connection, provider: profile?.wallet.provider ?? 'MetaMask' }
+  const provider = profile?.wallet.provider ?? 'METAMASK'
+  return { walletAddress, network, connection, provider: PROVIDER_LABELS[provider] ?? provider }
 }

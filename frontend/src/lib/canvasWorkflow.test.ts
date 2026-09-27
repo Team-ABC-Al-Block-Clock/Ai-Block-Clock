@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT } from '@/components/CanvasPane'
 import { ZOOM_MIN, fitViewport } from '@/lib/viewport'
 
+import { CANVAS_EDGES, CANVAS_NODES } from '@/test/canvasFixture'
+
 import {
-  CANVAS_EDGES,
-  CANVAS_NODES,
   NO_BOUNDS,
   canConnect,
   graphProblem,
