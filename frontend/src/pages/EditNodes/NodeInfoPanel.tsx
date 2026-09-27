@@ -7,7 +7,7 @@ import type { CanvasCondition } from '@/lib/canvasWorkflow'
 import { priceLabel } from '@/lib/format'
 import type { NodeValues } from '@/lib/canvasReducer'
 import {
-  EXAMPLE_INVALID,
+  outputDraftProblem,
   readOutputDraft,
   sameOutput,
   toOutputDraft,
@@ -519,7 +519,7 @@ function NodeForm({
         <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
           {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
           {!output
-            ? EXAMPLE_INVALID
+            ? outputDraftProblem(outputDraft)
             : price
               ? `1회 실행 원가 ${priceLabel(price)}`
               : '실행 단계에서 원가가 측정됩니다'}

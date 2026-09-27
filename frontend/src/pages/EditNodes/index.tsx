@@ -38,7 +38,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { describeCondition } from '@/lib/branchCondition'
 import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
 import type { NodeValues } from '@/lib/canvasReducer'
-import { EXAMPLE_INVALID, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
+import { outputDraftProblem, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
@@ -915,7 +915,7 @@ export default function EditNodes() {
                   draftFilled
                     ? '노드를 만들어 팔레트에 넣습니다'
                     : !draftOutput
-                      ? EXAMPLE_INVALID
+                      ? (outputDraftProblem(draft.output) ?? undefined)
                       : '이름과 프롬프트를 적어 주세요'
                 }
                 style={{

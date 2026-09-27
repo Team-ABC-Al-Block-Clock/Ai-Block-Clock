@@ -12,7 +12,7 @@ import type {
 } from '@/api/workflows'
 
 import { conditionProblem } from './branchCondition'
-import { EXAMPLE_INVALID, validOutputExample } from './nodeOutput'
+import { outputExampleProblem } from './nodeOutput'
 import { roundedPath, routeEdge } from './edgeRoute'
 import type { ContentBox } from './viewport'
 
@@ -603,8 +603,9 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
 
   for (const node of nodes) {
     const next = out.get(node.id) ?? []
-    if (node.output?.kind === 'JSON' && !validOutputExample(node.output.example))
-      return fail(`${node.name}: ${EXAMPLE_INVALID}`)
+    const exampleProblem =
+      node.output?.kind === 'JSON' ? outputExampleProblem(node.output.example) : null
+    if (exampleProblem) return fail(`${node.name}: ${exampleProblem}`)
     if (node.controlType) {
       if (!node.condition) return fail('분기 노드에 조건을 넣어 주세요')
       // 조건이 읽던 자리가 지워지거나 뒤로 밀렸을 수 있다. 서버도 같은 것을 본다

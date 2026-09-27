@@ -21,10 +21,47 @@ function hasShape(value: unknown): boolean {
   return values.length > 0 && values.every(hasShape)
 }
 
-export function validOutputExample(example: unknown): example is Record<string, unknown> {
-  return (
-    typeof example === 'object' && example !== null && !Array.isArray(example) && hasShape(example)
-  )
+/** 엔진 `shape.MAX_DEPTH` · `MAX_KEYS`. 넘으면 실행 때 `OUTPUT_EXAMPLE_INVALID` 로 물린다. */
+const MAX_DEPTH = 5
+const MAX_KEYS = 60
+
+/**
+ * 엔진이 물릴 예시인지. 문제가 없으면 `null`.
+ *
+ * 깊이와 키 수는 엔진 `check_example` 처럼 배열의 첫 원소만 따라 센다 — 모든 원소를 세면
+ * 엔진은 받는 긴 목록 예시를 여기서 막게 된다.
+ */
+export function outputExampleProblem(example: unknown): string | null {
+  if (typeof example !== 'object' || example === null || Array.isArray(example))
+    return EXAMPLE_INVALID
+  if (!hasShape(example)) return '출력 예시에 빈 객체({})가 있습니다'
+  let keys = 0
+  const walk = (value: unknown, depth: number): string | null => {
+    if (depth > MAX_DEPTH) return `출력 예시의 중첩은 ${MAX_DEPTH}단계까지입니다`
+    if (Array.isArray(value)) return value.length ? walk(value[0], depth + 1) : null
+    if (value === null || typeof value !== 'object') return null
+    for (const sub of Object.values(value)) {
+      keys += 1
+      if (keys > MAX_KEYS) return `출력 예시의 키는 ${MAX_KEYS}개까지입니다`
+      const found = walk(sub, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  return walk(example, 1)
+}
+
+export const validOutputExample = (example: unknown): example is Record<string, unknown> =>
+  outputExampleProblem(example) === null
+
+/** 폼에 적힌 예시가 왜 안 되는지. 글 출력이거나 문제가 없으면 `null`. */
+export function outputDraftProblem(draft: OutputDraft): string | null {
+  if (draft.kind === 'TEXT') return null
+  try {
+    return outputExampleProblem(JSON.parse(draft.text))
+  } catch {
+    return EXAMPLE_INVALID
+  }
 }
 
 /** 서버가 받는 값으로. 예시가 틀렸으면 `null`. */
