@@ -113,8 +113,7 @@ export default function Detail() {
 
   const reviewItems = reviews.data?.pages.flatMap((page) => page.content) ?? []
 
-  /* 리뷰는 페이지 가운데라 끝에 닿을 때마다 이어받으면 아래 원본 증명이 계속 밀려난다.
-     더 볼지는 누를 때마다 사용자가 정한다. */
+  // 더 볼지는 누를 때마다 사용자가 정한다. 저절로 자라면 읽던 자리를 잃는다.
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = reviews
 
   const queryClient = useQueryClient()
@@ -493,7 +492,7 @@ export default function Detail() {
           </>
         )}
 
-        <SectionTitle delay=".44s">리뷰 {compactCount(agent.reviewCount)}</SectionTitle>
+        <SectionTitle delay=".44s">원본 증명</SectionTitle>
         <div
           className="box-border text-[16px] tracking-[-.01em]"
           style={{
@@ -501,113 +500,6 @@ export default function Detail() {
             borderRadius: '14px',
             background: 'var(--color-surface-inset)',
             animation: 'unfold .8s .46s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          {/* 목록 대신 들어가는 한 줄들은 가운데로 둔다 — 왼쪽에 붙이면 첫 번째
-              리뷰처럼 보인다. 빈 화면을 가운데 두는 것은 empty-state 와 같은 규칙이다. */}
-          {reviews.isPending && (
-            <div className="text-center" style={{ color: INK.faint }}>
-              불러오는 중…
-            </div>
-          )}
-
-          {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다.
-              쓰라고 부추기지 않는다 — 리뷰를 남기는 화면이 아직 없다. */}
-          {!reviews.isPending && !reviews.isError && reviewItems.length === 0 && (
-            <div className="text-center font-medium" style={{ color: INK.label }}>
-              아직 리뷰가 없습니다.
-            </div>
-          )}
-
-          {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다.
-              여기서도 다시 받는 중이면 오류 대신 진행을 보여 준다. */}
-          {reviews.isError &&
-            reviewItems.length === 0 &&
-            (reviews.isFetching ? (
-              <div className="text-center" style={{ color: INK.faint }}>
-                불러오는 중…
-              </div>
-            ) : (
-              <div className="flex items-center justify-center" style={{ gap: '12px' }}>
-                <span className="font-medium" style={{ color: INK.bad }}>
-                  리뷰를 불러오지 못했습니다.
-                </span>
-                <button
-                  className="cursor-pointer underline"
-                  onClick={() => void reviews.refetch()}
-                  style={{ background: 'none', border: 0, padding: 0, color: INK.label }}
-                  type="button"
-                >
-                  다시 시도
-                </button>
-              </div>
-            ))}
-
-          {reviewItems.map((review, i) => (
-            <div
-              key={review.reviewId}
-              style={{
-                borderTop: i === 0 ? 0 : '1px solid rgba(255,255,255,.16)',
-                paddingTop: i === 0 ? 0 : '18px',
-                marginTop: i === 0 ? 0 : '18px',
-              }}
-            >
-              <div className="flex items-center" style={{ gap: '10px' }}>
-                <span className="font-bold text-white">{maskName(review.authorNickname)}</span>
-                <span className="font-semibold" style={{ color: 'var(--color-accent-bright)' }}>
-                  ★ {review.rating}
-                </span>
-                <span className="text-[14px]" style={{ color: INK.faint }}>
-                  {timeLabel(review.createdAt)}
-                </span>
-              </div>
-              <div
-                className="font-medium"
-                style={{
-                  marginTop: '8px',
-                  lineHeight: '1.65',
-                  color: INK.body,
-                  whiteSpace: 'pre-line',
-                }}
-              >
-                {review.content}
-              </div>
-            </div>
-          ))}
-
-          {(hasNextPage || isFetchNextPageError) && (
-            <button
-              className="w-full cursor-pointer font-semibold disabled:cursor-default"
-              disabled={isFetchingNextPage}
-              onClick={() => void fetchNextPage()}
-              style={{
-                marginTop: '20px',
-                padding: '10px 0',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,.2)',
-                background: 'none',
-                color: isFetchNextPageError && !isFetchingNextPage ? INK.bad : INK.label,
-              }}
-              type="button"
-            >
-              {/* 진행 중이 실패보다 앞선다. 재시도에도 오류 문구가 그대로면 눌린 줄 모른다. */}
-              {isFetchingNextPage
-                ? '불러오는 중…'
-                : isFetchNextPageError
-                  ? '리뷰를 더 불러오지 못했습니다. 다시 시도'
-                  : '더 보기'}
-            </button>
-          )}
-        </div>
-
-        <SectionTitle delay=".5s">원본 증명</SectionTitle>
-        <div
-          className="box-border text-[16px] tracking-[-.01em]"
-          style={{
-            padding: '24px',
-            borderRadius: '14px',
-            background: 'var(--color-surface-inset)',
-            animation: 'unfold .8s .52s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
           {provenance.isPending && <div style={{ color: INK.faint }}>불러오는 중…</div>}
@@ -727,6 +619,113 @@ export default function Detail() {
                 기록합니다.
               </div>
             </>
+          )}
+        </div>
+
+        <SectionTitle delay=".5s">리뷰 {compactCount(agent.reviewCount)}</SectionTitle>
+        <div
+          className="box-border text-[16px] tracking-[-.01em]"
+          style={{
+            padding: '24px',
+            borderRadius: '14px',
+            background: 'var(--color-surface-inset)',
+            animation: 'unfold .8s .52s cubic-bezier(.2,.8,.25,1) both',
+          }}
+        >
+          {/* 목록 대신 들어가는 한 줄들은 가운데로 둔다 — 왼쪽에 붙이면 첫 번째
+              리뷰처럼 보인다. 빈 화면을 가운데 두는 것은 empty-state 와 같은 규칙이다. */}
+          {reviews.isPending && (
+            <div className="text-center" style={{ color: INK.faint }}>
+              불러오는 중…
+            </div>
+          )}
+
+          {/* 상세가 reviewCount 를 주므로 0건은 실패가 아니라 정상이다.
+              쓰라고 부추기지 않는다 — 리뷰를 남기는 화면이 아직 없다. */}
+          {!reviews.isPending && !reviews.isError && reviewItems.length === 0 && (
+            <div className="text-center font-medium" style={{ color: INK.label }}>
+              아직 리뷰가 없습니다.
+            </div>
+          )}
+
+          {/* 다음 장이 실패한 것은 목록 전체의 실패가 아니다 — 이미 받은 건은 남긴다.
+              여기서도 다시 받는 중이면 오류 대신 진행을 보여 준다. */}
+          {reviews.isError &&
+            reviewItems.length === 0 &&
+            (reviews.isFetching ? (
+              <div className="text-center" style={{ color: INK.faint }}>
+                불러오는 중…
+              </div>
+            ) : (
+              <div className="flex items-center justify-center" style={{ gap: '12px' }}>
+                <span className="font-medium" style={{ color: INK.bad }}>
+                  리뷰를 불러오지 못했습니다.
+                </span>
+                <button
+                  className="cursor-pointer underline"
+                  onClick={() => void reviews.refetch()}
+                  style={{ background: 'none', border: 0, padding: 0, color: INK.label }}
+                  type="button"
+                >
+                  다시 시도
+                </button>
+              </div>
+            ))}
+
+          {reviewItems.map((review, i) => (
+            <div
+              key={review.reviewId}
+              style={{
+                borderTop: i === 0 ? 0 : '1px solid rgba(255,255,255,.16)',
+                paddingTop: i === 0 ? 0 : '18px',
+                marginTop: i === 0 ? 0 : '18px',
+              }}
+            >
+              <div className="flex items-center" style={{ gap: '10px' }}>
+                <span className="font-bold text-white">{maskName(review.authorNickname)}</span>
+                <span className="font-semibold" style={{ color: 'var(--color-accent-bright)' }}>
+                  ★ {review.rating}
+                </span>
+                <span className="text-[14px]" style={{ color: INK.faint }}>
+                  {timeLabel(review.createdAt)}
+                </span>
+              </div>
+              <div
+                className="font-medium"
+                style={{
+                  marginTop: '8px',
+                  lineHeight: '1.65',
+                  color: INK.body,
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {review.content}
+              </div>
+            </div>
+          ))}
+
+          {(hasNextPage || isFetchNextPageError) && (
+            <button
+              className="w-full cursor-pointer font-semibold disabled:cursor-default"
+              disabled={isFetchingNextPage}
+              onClick={() => void fetchNextPage()}
+              style={{
+                marginTop: '20px',
+                padding: '10px 0',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,.2)',
+                background: 'none',
+                color: isFetchNextPageError && !isFetchingNextPage ? INK.bad : INK.label,
+              }}
+              type="button"
+            >
+              {/* 진행 중이 실패보다 앞선다. 재시도에도 오류 문구가 그대로면 눌린 줄 모른다. */}
+              {isFetchingNextPage
+                ? '불러오는 중…'
+                : isFetchNextPageError
+                  ? '리뷰를 더 불러오지 못했습니다. 다시 시도'
+                  : '더 보기'}
+            </button>
           )}
         </div>
 
