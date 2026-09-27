@@ -95,7 +95,11 @@ export default function Search() {
     placeholderData: keepPreviousData,
   })
 
-  const agents = data?.pages.flatMap((page) => page.content) ?? []
+  // 커서가 오프셋이라 장 사이에 등록이 끼면 앞 장 끝 항목이 다시 온다. 먼저 받은 것을 남긴다.
+  const seen = new Set<string>()
+  const agents = (data?.pages.flatMap((page) => page.content) ?? []).filter(
+    (a) => !seen.has(a.agentId) && Boolean(seen.add(a.agentId)),
+  )
 
   // 무한 스크롤. 그리드가 #gridScroll 안에서 스크롤되므로 그것을 root 로 삼는다 —
   // 뷰포트를 root 로 두면 컨테이너를 끝까지 내려도 sentinel 이 교차하지 않는다.
