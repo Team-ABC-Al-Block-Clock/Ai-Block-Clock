@@ -38,46 +38,68 @@ load_dotenv(ROOT / ".env")
 # 약 100k 토큰. 실측 노드당 6k 토큰이라 8노드 체인에서도 여유가 크다. 요약 · 절단은 하지 않는다.
 MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS") or 400_000)
 
-# 계약 §7.1 — 판매자 참고 파일. mime 4종, 노드당 합계 10MB. 어기면 REF_FILE_REJECTED · supplier.
-# 텍스트 계열은 본문("## 참고 자료")에 넣고 PDF 는 Gemini inline 첨부로 보낸다.
-REF_MIME = {".pdf": "application/pdf", ".txt": "text/plain", ".md": "text/markdown", ".csv": "text/csv"}
-MAX_REF_BYTES = 10 * 1024 * 1024
+# 계약 §7.1 — 파일. 사용자 업로드(`file`, 여러 개)와 판매자 참고 파일(`ref_file_<node>_<n>`) 규칙이 같다.
+#   표(xlsx · xls · csv) → 마크다운 표로 본문에 · 글(txt · md) → 본문 그대로 · PDF · 사진 → Gemini inline 첨부.
+#   합계 10MB(사용자 업로드 전체 · 노드당 참고 파일). 위반은 사용자 파일이면 consumer, 참고 파일이면 supplier.
+#   사용자 파일은 **모든 LLM 노드**에 간다 — 앞 결과 전체를 넘기는 것과 같은 원칙(§5.4).
+TABLE_SUFFIXES = {".xlsx", ".xls", ".csv"}
+TEXT_SUFFIXES = {".txt", ".md"}
+ATTACH_MIME = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg",
+               ".jpeg": "image/jpeg", ".webp": "image/webp"}
+FILE_SUFFIXES = TABLE_SUFFIXES | TEXT_SUFFIXES | set(ATTACH_MIME)
+MAX_FILE_BYTES = 10 * 1024 * 1024
 _PDF_CHARS_PER_BYTE = 0.25              # 상한 계산용 추정치 — PDF 1바이트 ≈ 0.25자 텍스트
+_IMAGE_CHARS = 1_000                    # 사진 1장 ≈ 260 토큰 ≈ 1,000자로 센다
+REF_MIME = ATTACH_MIME                  # 옛 이름 — 테스트 · 문서 호환
+MAX_REF_BYTES = MAX_FILE_BYTES
 
 
-class RefFileRejected(Exception):
+class FileRejected(Exception):
     pass
 
 
-def load_ref_files(paths: list) -> tuple[str, list[tuple[bytes, str, str]], int]:
-    """참고 파일을 검사해 `(본문 절, PDF 첨부, PDF 추정 글자 수)` 로 돌려준다.
+RefFileRejected = FileRejected          # 옛 이름
 
-    거부 사유는 판매자 몫이다 — 붙인 사람이 형식 · 크기를 지키지 않은 것(계약 §9.2).
+
+def load_files(paths: list, *, title: str) -> tuple[str, list[tuple[bytes, str, str]], int]:
+    """파일 목록 → `(본문 절, 첨부, 첨부의 상한 추정 글자 수)`. 형식 · 합계 크기 위반은 FileRejected.
+
+    본문 절은 `## {title}` 아래 `### 파일명` 으로 파일마다 하나. 표는 마크다운 표, 글은 그대로,
+    첨부(PDF · 사진)는 "(첨부)" 한 줄만 적고 실물은 `attachments` 로 모델에 간다.
     """
     total = 0
     sections: list[str] = []
     attachments: list[tuple[bytes, str, str]] = []
-    pdf_chars = 0
-    for raw in paths:
+    est_chars = 0
+    for raw in paths or []:
         p = Path(raw)
-        mime = REF_MIME.get(p.suffix.lower())
-        if not mime:
-            raise RefFileRejected(f"허용하지 않는 형식: {p.name} (허용: {', '.join(sorted(REF_MIME))})")
+        suffix = p.suffix.lower()
+        if suffix not in FILE_SUFFIXES:
+            raise FileRejected(f"허용하지 않는 형식: {p.name} (허용: {', '.join(sorted(FILE_SUFFIXES))})")
         if not p.exists():
-            raise RefFileRejected(f"파일이 없습니다: {p.name}")
+            raise FileRejected(f"파일이 없습니다: {p.name}")
         size = p.stat().st_size
         total += size
-        if total > MAX_REF_BYTES:
-            raise RefFileRejected(f"노드당 합계 {MAX_REF_BYTES // 1024 // 1024}MB 초과 ({p.name} 포함 {total / 1024 / 1024:.1f}MB)")
-        if mime == "application/pdf":
+        if total > MAX_FILE_BYTES:
+            raise FileRejected(f"합계 {MAX_FILE_BYTES // 1024 // 1024}MB 초과 ({p.name} 포함 {total / 1024 / 1024:.1f}MB)")
+        if suffix in ATTACH_MIME:
+            mime = ATTACH_MIME[suffix]
             attachments.append((p.read_bytes(), mime, p.name))
-            pdf_chars += int(size * _PDF_CHARS_PER_BYTE)
-            sections.append(f"### {p.name}\n(PDF 첨부 {size // 1024}KB — 함께 읽는다)")
+            est_chars += int(size * _PDF_CHARS_PER_BYTE) if mime == "application/pdf" else _IMAGE_CHARS
+            what = "PDF" if mime == "application/pdf" else "사진"
+            sections.append(f"### {p.name}\n({what} 첨부 {max(size // 1024, 1)}KB — 함께 읽는다)")
+        elif suffix in TABLE_SUFFIXES:
+            sections.append(f"### {p.name}\n{excel_to_markdown(p)}")
         else:
             sections.append(f"### {p.name}\n{p.read_text(encoding='utf-8', errors='replace')}")
-    return "## 참고 자료\n" + "\n\n".join(sections), attachments, pdf_chars
+    if not sections:
+        return "", [], 0
+    return f"## {title}\n" + "\n\n".join(sections), attachments, est_chars
 
-ProgressHook = Callable[[str, dict], None]
+
+def load_ref_files(paths: list) -> tuple[str, list[tuple[bytes, str, str]], int]:
+    """판매자 참고 파일. 거부 사유는 판매자 몫이다 — 붙인 사람이 형식 · 크기를 지키지 않은 것(계약 §9.2)."""
+    return load_files(paths, title="참고 자료")
 
 
 def _now() -> str:
@@ -119,13 +141,15 @@ def resolve_prompts(wf: dict) -> dict:
     return wf
 
 
-def build_user_input(comment: str, file_path: str | Path | None) -> str:
-    """진입 노드에 폼 견본이 없을 때 넘기는 자유 입력 — 코멘트와 올린 파일(표)의 텍스트."""
+def build_user_input(comment: str, files=None) -> str:
+    """`out/input.md` 기록용 — 코멘트와 올린 파일의 본문 텍스트. `files` 는 경로 하나 또는 목록."""
+    paths = [files] if isinstance(files, (str, Path)) else list(files or [])
     parts = []
     if comment:
         parts.append(f"## 코멘트\n{comment.strip()}")
-    if file_path:
-        parts.append(f"## 올린 파일\n{excel_to_markdown(file_path)}")
+    text, _, _ = load_files(paths, title="올린 파일")
+    if text:
+        parts.append(text)
     return "\n\n".join(parts) if parts else "(입력 없음)"
 
 
@@ -162,7 +186,10 @@ def build_input_message(sections: list[tuple[str, object]], comment: str) -> str
 
 def input_sections(graph, sources: list[tuple[str, str | None]], received: object,
                    input_payload: dict | None, user_input: str) -> list[tuple[str, object]]:
-    """`fan_in_sources` 결과를 절 제목이 달린 목록으로. 진입 노드는 사용자 입력이 절 하나다."""
+    """`fan_in_sources` 결과를 절 제목이 달린 목록으로. 진입 노드는 사용자 입력이 절 하나다.
+
+    올린 파일은 여기 넣지 않는다 — 모든 LLM 노드 메시지 끝에 "## 올린 파일" 절로 따로 붙는다(execute).
+    """
     if not sources:
         return [("사용자 입력", input_payload if input_payload is not None else user_input)]
     if len(sources) == 1 and sources[0][1] is None:
@@ -203,6 +230,7 @@ def execute(
     comment: str = "",
     file_path: str | Path | None = None,
     mock: bool = False,
+    files: list | None = None,
     input_payload: dict | None = None,
     mock_overrides: dict | None = None,
     run_id: str | None = None,
@@ -219,7 +247,9 @@ def execute(
     `mode="test"` 는 판매자 사전 테스트다(계약 v2.0 §7.1) — 실행 경로 · 토큰 · USD · 결과물은
     같고 정산 입력(`contribution`)만 비운다. 횟수 · 크레딧 제한은 백엔드가 건다.
     `ref_files` 는 노드 id → 참고 파일 경로 목록(계약 §7.1). 전개된 에이전트 안 노드는 `a1.n1` 처럼 접두 id 로.
+    `files` 는 사용자가 올린 파일 경로 목록(표 · 글 · PDF · 사진). `file_path` 는 옛 단일 인자. 둘 다 모든 LLM 노드에 간다.
     """
+    user_files = ([file_path] if file_path else []) + list(files or [])
     wf = resolve_prompts(wf)
     wf_canvas = wf                                      # 검증 · 상한은 사용자가 놓은 캔버스 기준으로 본다
     try:
@@ -244,7 +274,8 @@ def execute(
         "started_at": _now(),
         "finished_at": None,
         "total_duration_ms": None,
-        "inputs": {"comment": comment, "file": Path(file_path).name if file_path else None},
+        "inputs": {"comment": comment, "file": Path(user_files[0]).name if user_files else None,
+                   "files": [Path(f).name for f in user_files]},
         "nodes": [
             {"id": n.get("id"), "name": n.get("name") or n.get("id"), "status": "pending",
              "type": n.get("type") or "llm",
@@ -280,10 +311,12 @@ def execute(
         return result
 
     try:
-        user_input = build_user_input(comment, file_path)
+        # 사용자 파일 — 표 · 글은 본문, PDF · 사진은 첨부. 모든 LLM 노드에 간다(계약 §7.1). 위반은 consumer
+        user_text, user_attachments, user_chars = load_files(user_files, title="올린 파일")
+        user_input = build_user_input(comment) if not user_text else build_user_input(comment) + "\n\n" + user_text
     except Exception as e:
         result.update(status="failed", finished_at=_now(),
-                      error={"code": "FILE_PARSE_FAILED", "message": str(e)[:500], "node_id": None})
+                      error={**errors.describe("FILE_PARSE_FAILED", detail=str(e)[:500]), "node_id": None})
         _settlement(result, 0, "FILE_PARSE_FAILED")
         _save(out_dir, result)
         emit("run.failed", {"run_id": run_id, "error": result["error"]})
@@ -410,24 +443,31 @@ def execute(
         else:
             message = build_input_message(
                 input_sections(graph, sources, received, input_payload, user_input), comment)
-        # 판매자 참고 파일 — 텍스트는 본문에, PDF 는 첨부로. 형식 · 크기 위반은 supplier(계약 §7.1)
-        attachments: list = []
-        pdf_chars = 0
+        # 사용자가 올린 파일 — 모든 LLM 노드가 본다(계약 §7.1). 표 · 글은 본문, PDF · 사진은 첨부
+        attachments: list = list(user_attachments)
+        est_chars = user_chars
+        if user_text:
+            message += "\n\n" + user_text
+        # 판매자 참고 파일 — 같은 규칙. 형식 · 크기 위반은 supplier(계약 §7.1)
         if (ref_files or {}).get(node_id):
             try:
-                ref_text, attachments, pdf_chars = load_ref_files(ref_files[node_id])
-            except RefFileRejected as e:
+                ref_text, ref_attachments, ref_chars = load_ref_files(ref_files[node_id])
+            except FileRejected as e:
                 entry.update(status="failed", finished_at=_now())
                 return fail(node_id, "REF_FILE_REJECTED", str(e), fault="supplier", index=index)
             message += "\n\n" + ref_text
-        if len(message) + pdf_chars > MAX_INPUT_CHARS:
+            attachments += ref_attachments
+            est_chars += ref_chars
+        if len(message) + est_chars > MAX_INPUT_CHARS:
             entry.update(status="failed", finished_at=_now())
             return fail(node_id, "INPUT_TOO_LARGE",
-                        f"입력 {len(message) + pdf_chars:,}자 > 상한 {MAX_INPUT_CHARS:,}자",
+                        f"입력 {len(message) + est_chars:,}자 > 상한 {MAX_INPUT_CHARS:,}자",
                         fault="platform", index=index)
         system = prompt.system
         (out_dir / "nodes" / f"{node_id}.request.md").write_text(
-            _REQUEST_TMPL.format(system=system, user=message), encoding="utf-8")
+            _REQUEST_TMPL.format(system=system, user=message)
+            + (f"\n\n# attachments\n" + "\n".join(f"- {n} ({m})" for _, m, n in attachments) if attachments else ""),
+            encoding="utf-8")
 
         try:
             if example:
@@ -566,9 +606,10 @@ def _save(out_dir: Path, result: dict) -> None:
     (out_dir / "run.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_workflow(workflow_id: str, comment: str, file_path: str | None, mock: bool = False,
+def run_workflow(workflow_id: str, comment: str, files: list | str | None, mock: bool = False,
                  input_payload: dict | None = None, mock_overrides: dict | None = None, ref_files: dict | None = None) -> dict:
-    return execute(load_workflow(workflow_id), comment=comment, file_path=file_path, mock=mock,
+    files = [files] if isinstance(files, str) else files
+    return execute(load_workflow(workflow_id), comment=comment, files=files, mock=mock,
                    input_payload=input_payload, mock_overrides=mock_overrides, verbose=True, ref_files=ref_files)
 
 
@@ -576,7 +617,7 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description="워크플로우 러너 (계약 v2.0)")
     ap.add_argument("--workflow", default="report")
-    ap.add_argument("--file", default=None, help="엑셀/CSV 경로")
+    ap.add_argument("--file", action="append", default=[], help="사용자 파일(표 · 글 · PDF · 사진). 여러 번 지정 가능")
     ap.add_argument("--comment", default="")
     ap.add_argument("--mock", action="store_true", help="LLM 호출 없이 파이프라인만 확인")
     ap.add_argument("--input", default=None, help="진입 노드 입력 payload JSON 파일 경로")
@@ -595,7 +636,7 @@ def main() -> None:
     for item in args.mock_set:
         target, _, value = item.partition("=")
         overrides[target] = value
-    run = run_workflow(args.workflow, args.comment, args.file, mock=args.mock,
+    run = run_workflow(args.workflow, args.comment, args.file or None, mock=args.mock,
                        input_payload=payload, mock_overrides=overrides, ref_files=ref_files or None)
     if run["status"] != "succeeded":
         print(f"\n실패  {run['error']}")

@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
 SERVICE_TOKEN = os.getenv("ABC_SERVICE_TOKEN", "")          # 비어 있으면 인증 검사를 건너뛴다(스파이크 기본값)
-ALLOWED_SUFFIXES = {".xlsx", ".xls", ".csv"}
+ALLOWED_SUFFIXES = runner.FILE_SUFFIXES           # 표 · 글 · PDF · 사진 (계약 §7.1)
 MAX_UPLOAD_MB = 10
 
 app = FastAPI(
@@ -115,7 +115,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     }
 
 
-def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: bool,
+def _execute(run_id: str, wf: dict, comment: str, files: list[str] | None, mock: bool,
              input_payload: dict | None = None, mode: str = "run",
              ref_files: dict[str, list[str]] | None = None) -> None:
     try:
@@ -123,15 +123,15 @@ def _execute(run_id: str, wf: dict, comment: str, file_path: str | None, mock: b
         # 그래야 폴링으로 노드별 진행 상황이 실시간으로 보인다.
         with _lock:
             state = _runs[run_id]
-        runner.execute(wf, comment=comment, file_path=file_path, mock=mock, run_id=run_id,
+        runner.execute(wf, comment=comment, files=files, mock=mock, run_id=run_id,
                        input_payload=input_payload, state=state, mode=mode, ref_files=ref_files)
     except Exception as e:  # 러너가 삼키지 못한 예외까지 방어
         with _lock:
             _runs[run_id]["status"] = "failed"
             _runs[run_id]["error"] = {"code": "RUNTIME_INTERNAL", "message": str(e)[:500], "node_id": None}
     finally:
-        if file_path and Path(file_path).exists():
-            Path(file_path).unlink(missing_ok=True)
+        for f in files or []:                    # 임시 업로드 파일 정리(폴더째)
+            shutil.rmtree(Path(f).parent, ignore_errors=True)
 
 
 @app.get("/v1/health", summary="상태 확인")
@@ -194,7 +194,7 @@ async def create_run(
     comment: str = Form("", description="사용자가 입력한 자연어 코멘트"),
     mock: bool = Form(False, description="true 면 LLM 을 호출하지 않고 파이프라인만 실행"),
     mode: str = Form("run", description="run(기본) | test — 판매자 사전 테스트. 결과는 같고 contribution 만 비운다"),
-    file: UploadFile | None = File(None, description="사용자가 올리는 엑셀 또는 CSV (선택)"),
+    file: list[UploadFile] = File([], description="사용자가 올리는 파일 — 표(xlsx · xls · csv) · 글(txt · md) · PDF · 사진(png · jpg · webp). 여러 개 가능, 합계 10MB. 모든 LLM 노드가 본다"),
 ) -> JSONResponse:
     try:
         wf = json.loads(workflow)
@@ -223,22 +223,25 @@ async def create_run(
                                                      "message": "워크플로우 정의 오류",
                                                      "errors": report["errors"]})
 
-    saved_path: str | None = None
-    if file and file.filename:
-        suffix = Path(file.filename).suffix.lower()
+    saved_paths: list[str] = []
+    upload_dir: str | None = None
+    total_mb = 0.0
+    for up in [f for f in (file or []) if f and f.filename]:
+        suffix = Path(up.filename).suffix.lower()
         if suffix not in ALLOWED_SUFFIXES:
             raise HTTPException(status_code=400, detail={
                 "code": "UNSUPPORTED_FILE_TYPE",
                 "message": f"허용 확장자: {', '.join(sorted(ALLOWED_SUFFIXES))} (받은 값: {suffix or '없음'})"})
-        fd, tmp = tempfile.mkstemp(suffix=suffix)
-        with os.fdopen(fd, "wb") as out:
-            shutil.copyfileobj(file.file, out)
-        size_mb = Path(tmp).stat().st_size / 1024 / 1024
-        if size_mb > MAX_UPLOAD_MB:
-            Path(tmp).unlink(missing_ok=True)
+        upload_dir = upload_dir or tempfile.mkdtemp(prefix="abc-upload-")
+        dest = Path(upload_dir) / str(len(saved_paths)) / Path(up.filename).name   # 원래 파일명 유지 — 절 제목에 쓴다
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest, "wb") as out:
+            shutil.copyfileobj(up.file, out)
+        total_mb += dest.stat().st_size / 1024 / 1024
+        if total_mb > MAX_UPLOAD_MB:
             raise HTTPException(status_code=400, detail={
-                "code": "FILE_TOO_LARGE", "message": f"최대 {MAX_UPLOAD_MB}MB (받은 값: {size_mb:.1f}MB)"})
-        saved_path = tmp
+                "code": "FILE_TOO_LARGE", "message": f"올린 파일 합계 최대 {MAX_UPLOAD_MB}MB (받은 값: {total_mb:.1f}MB)"})
+        saved_paths.append(str(dest))
 
     # 판매자 참고 파일 — 폼 필드 `ref_file_<node_id>_<n>` (계약 §7.1). 노드 id 로 묶어 러너에 넘긴다.
     # 검사(mime · 크기)는 러너가 실행 시점에 하고 위반은 REF_FILE_REJECTED · supplier 로 실패시킨다.
@@ -276,7 +279,7 @@ async def create_run(
             "result": None, "error": None,
         }
 
-    background.add_task(_execute, run_id, wf, comment, saved_path, mock, input_payload, mode,
+    background.add_task(_execute, run_id, wf, comment, saved_paths or None, mock, input_payload, mode,
                         ref_files or None)
     return JSONResponse(status_code=202, content={
         "run_id": run_id,

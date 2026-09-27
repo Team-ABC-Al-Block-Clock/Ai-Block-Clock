@@ -65,7 +65,7 @@ def test_PDF_는_첨부로_넘어간다(tmp_path, monkeypatch):
 
 
 def test_허용하지_않는_형식은_공급자_책임으로_실패(tmp_path):
-    bad = tmp_path / "표.xlsx"
+    bad = tmp_path / "가이드.docx"
     bad.write_bytes(b"x")
     run = runner.execute(_memo_wf(), mock=True, ref_files={"memo": [bad]})
     assert run["status"] == "failed" and run["error"]["code"] == "REF_FILE_REJECTED"
@@ -73,7 +73,7 @@ def test_허용하지_않는_형식은_공급자_책임으로_실패(tmp_path):
 
 
 def test_노드당_합계_상한을_넘으면_거부(tmp_path, monkeypatch):
-    monkeypatch.setattr(runner, "MAX_REF_BYTES", 100)
+    monkeypatch.setattr(runner, "MAX_FILE_BYTES", 100)
     a, b = tmp_path / "a.txt", tmp_path / "b.txt"
     a.write_bytes(b"x" * 60)
     b.write_bytes(b"x" * 60)
