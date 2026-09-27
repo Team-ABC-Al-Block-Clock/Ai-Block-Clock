@@ -477,7 +477,7 @@ export default function Detail() {
             </div>
             <div className="flex flex-col" style={{ gap: '2px' }}>
               <div className="text-[14px] font-semibold tracking-[-.01em] text-white">
-                {agent.owner.nickname}
+                {agent.owner.nickname ?? '—'}
               </div>
               <div className="text-[12px]" style={{ color: 'rgba(255,236,246,.6)' }}>
                 만든 사람
