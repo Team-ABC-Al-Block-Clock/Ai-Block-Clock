@@ -20,6 +20,7 @@ import {
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
+import { describeCondition } from '@/lib/branchCondition'
 import { amountLabel, priceLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { useNavigate } from 'react-router-dom'
@@ -263,6 +264,14 @@ export default function RunWaiting() {
                 <ControlNode
                   key={node.id}
                   kind={kind}
+                  sublabel={
+                    node.controlType
+                      ? describeCondition(
+                          node.condition,
+                          (id) => nodes.find((it) => it.id === id)?.name,
+                        )
+                      : undefined
+                  }
                   x={node.x}
                   y={node.y}
                   floaty={node.floaty}
