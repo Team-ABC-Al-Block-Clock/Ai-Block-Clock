@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { jsonToBlocks, parseInline, parseMarkdown } from './markdown'
+import { jsonToMarkdown, parseInline, parseMarkdown } from './markdown'
 
 describe('parseMarkdown', () => {
   it('제목·문단·목록·표·코드를 가른다', () => {
@@ -67,34 +67,31 @@ describe('parseInline — 한 줄 코드 묶음', () => {
   })
 })
 
-describe('jsonToBlocks', () => {
-  it('키를 제목으로, 비어 있는 선택 항목은 뺀다', () => {
-    expect(jsonToBlocks({ level: 'high', memo: null, tags: ['a', 'b'] })).toEqual([
-      { type: 'heading', level: 2, text: 'level' },
-      { type: 'paragraph', text: 'high' },
-      { type: 'heading', level: 2, text: 'tags' },
-      { type: 'list', ordered: false, items: ['a', 'b'] },
-    ])
-  })
-
-  it('같은 모양 객체 배열은 표로', () => {
-    expect(jsonToBlocks([{ name: 'A', score: 1 }, { name: 'B' }])).toEqual([
-      {
-        type: 'table',
-        header: ['name', 'score'],
-        rows: [
-          ['A', '1'],
-          ['B', ''],
-        ],
-      },
-    ])
-  })
-
-  it('안쪽 객체는 한 단계 작은 제목', () => {
-    expect(jsonToBlocks({ detail: { level: 'high' } })[1]).toEqual({
-      type: 'heading',
-      level: 3,
-      text: 'level',
-    })
+describe('jsonToMarkdown', () => {
+  it('엔진 to_markdown 과 같은 글 — 키는 제목, 한 겹만 펴고 아래는 눕힌다', () => {
+    expect(
+      jsonToMarkdown({
+        level: 'high',
+        memo: null,
+        tags: ['a', { name: 'b', note: null }],
+        detail: { score: 3, meta: { x: 1, y: [2, 3] } },
+      }),
+    ).toBe(
+      [
+        '## level',
+        '',
+        'high',
+        '',
+        '## tags',
+        '',
+        '- a',
+        '- name: b',
+        '',
+        '## detail',
+        '',
+        '- **score**: 3',
+        '- **meta**: x: 1 · y: 2, 3',
+      ].join('\n'),
+    )
   })
 })

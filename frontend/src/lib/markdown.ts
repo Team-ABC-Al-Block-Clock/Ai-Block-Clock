@@ -110,34 +110,35 @@ export function parseInline(text: string): InlinePart[] {
   return parts
 }
 
-const isScalar = (value: unknown): value is string | number | boolean =>
-  typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+/** 한 줄에 눕히는 값. 엔진 `shape._inline` 과 같다. */
+function inline(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (Array.isArray(value)) return value.map(inline).join(', ')
+  if (typeof value === 'object')
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, sub]) => sub !== null)
+      .map(([key, sub]) => `${key}: ${inline(sub)}`)
+      .join(' · ')
+  return String(value)
+}
 
-const isFlatObject = (value: unknown): value is Record<string, unknown> =>
-  !!value &&
-  typeof value === 'object' &&
-  !Array.isArray(value) &&
-  Object.values(value).every((it) => it === null || isScalar(it))
-
-/** JSON 결과를 문서 조각으로. PDF 처럼 키를 제목으로 두고, 비어 있는 선택 항목은 뺀다. */
-export function jsonToBlocks(value: unknown, level = 2): MarkdownBlock[] {
-  if (value === null || value === undefined) return []
-  if (isScalar(value)) return [{ type: 'paragraph', text: String(value) }]
-
-  if (Array.isArray(value)) {
-    if (value.every(isScalar)) return [{ type: 'list', ordered: false, items: value.map(String) }]
-    if (value.length > 0 && value.every(isFlatObject)) {
-      const header = [...new Set(value.flatMap((row) => Object.keys(row)))]
-      const rows = value.map((row) =>
-        header.map((key) => (row[key] == null ? '' : String(row[key]))),
-      )
-      return [{ type: 'table', header, rows }]
-    }
-    return value.flatMap((item) => jsonToBlocks(item, level))
-  }
-
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
-    const body = jsonToBlocks(item, Math.min(level + 1, 6))
-    return body.length ? [{ type: 'heading' as const, level, text: key }, ...body] : []
-  })
+/**
+ * JSON 결과를 문서 마크다운으로. 엔진 `shape.to_markdown` 과 같은 규칙이라 받은 PDF 와 같은 글이 된다.
+ *
+ * 키가 제목이고 맨 위에서 null 인 키는 뺀다. 한 겹만 펴고 그 아래는 한 줄로 눕힌다.
+ */
+export function jsonToMarkdown(payload: Record<string, unknown>): string {
+  return Object.entries(payload)
+    .filter(([, value]) => value !== null)
+    .map(([key, value]) => {
+      const body = Array.isArray(value)
+        ? value.map((item) => `- ${inline(item)}`).join('\n')
+        : typeof value === 'object'
+          ? Object.entries(value as Record<string, unknown>)
+              .map(([sub, item]) => `- **${sub}**: ${inline(item)}`)
+              .join('\n')
+          : String(value)
+      return `## ${key}\n\n${body}`
+    })
+    .join('\n\n')
 }

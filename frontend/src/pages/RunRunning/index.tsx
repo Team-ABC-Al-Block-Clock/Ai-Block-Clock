@@ -21,7 +21,7 @@ import {
 } from '@/lib/canvasWorkflow'
 import { describeCondition } from '@/lib/branchCondition'
 import { queryKeys } from '@/lib/queryKeys'
-import { resultOf } from '@/lib/runResult'
+import { resultOf, resultProblem } from '@/lib/runResult'
 import {
   branchTaken,
   cardStatuses,
@@ -339,15 +339,9 @@ export default function RunRunning() {
     },
     enabled: !!executionId && finished,
     staleTime: Infinity,
-    retry: 1,
+    // 파일이 아직 없으면 서버가 그 자리에서 다시 거둬 온다(`ExecutionService.download`). 재시도는 공용 기본에 맡긴다.
   })
-  const resultNotice = result.data
-    ? null
-    : result.isError
-      ? '결과를 불러오지 못했습니다. JSON 으로 받아 확인해 주세요'
-      : result.isSuccess
-        ? '결과를 읽을 수 없습니다. JSON 으로 받아 확인해 주세요'
-        : '결과를 불러오는 중입니다'
+  const resultNotice = resultProblem(result)
   const handleCopyResult = () => {
     if (!result.data) return
     const txt = result.data.text
