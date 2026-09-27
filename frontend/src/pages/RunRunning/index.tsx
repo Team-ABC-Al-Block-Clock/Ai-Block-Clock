@@ -21,7 +21,7 @@ import {
 } from '@/lib/canvasWorkflow'
 import { describeCondition } from '@/lib/branchCondition'
 import { queryKeys } from '@/lib/queryKeys'
-import { resultTextOf } from '@/lib/runResult'
+import { resultOf } from '@/lib/runResult'
 import {
   branchTaken,
   cardStatuses,
@@ -33,6 +33,8 @@ import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
+
+import ResultDocument from './ResultDocument'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
 /** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
@@ -325,17 +327,17 @@ export default function RunRunning() {
     }
   })
   const result = useQuery({
-    queryKey: [...queryKeys.executions.detail(executionId ?? ''), 'result'],
+    queryKey: queryKeys.executions.result(executionId ?? ''),
     queryFn: async () => {
       const { blob } = await fetchResult(executionId!, 'JSON')
-      return resultTextOf(JSON.parse(await blob.text()))
+      return resultOf(JSON.parse(await blob.text()))
     },
     enabled: !!executionId && finished,
     staleTime: Infinity,
     retry: 1,
   })
-  const resultText = result.data
-    ? result.data
+  const resultNotice = result.data
+    ? null
     : result.isError
       ? '결과를 불러오지 못했습니다. JSON 으로 받아 확인해 주세요'
       : result.isSuccess
@@ -343,7 +345,7 @@ export default function RunRunning() {
         : '결과를 불러오는 중입니다'
   const handleCopyResult = () => {
     if (!result.data) return
-    const txt = result.data
+    const txt = result.data.text
     const ta = document.createElement('textarea')
     ta.value = txt
     ta.setAttribute('readonly', '')
@@ -369,14 +371,6 @@ export default function RunRunning() {
     clearTimeout(copyTimer.current)
     copyTimer.current = setTimeout(() => setCopied(false), 1900)
   }
-  const resultLines = resultText.split('\n').map((text) => ({
-    text: text === '' ? '\u00a0' : text,
-    color: text.startsWith('#')
-      ? 'rgba(255,255,255,.92)'
-      : text.startsWith('[')
-        ? 'rgba(255,206,226,.88)'
-        : 'rgba(255,255,255,.62)',
-  }))
   const [downloading, setDownloading] = useState(false)
   const [downloadProblem, setDownloadProblem] = useState<'PDF_MISSING' | 'FAILED' | null>(null)
 
@@ -968,22 +962,13 @@ export default function RunRunning() {
                 animation: 'uiIn .6s .2s cubic-bezier(.2,.8,.25,1) both',
               }}
             >
-              <div className="flex flex-col" style={{ width: '100%', gap: '9px' }}>
-                {resultLines.map((r, i) => (
-                  <div
-                    key={i}
-                    className="text-[17px] tracking-[-.005em]"
-                    style={{
-                      lineHeight: '1.55',
-                      color: r.color,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {r.text}
-                  </div>
-                ))}
-              </div>
+              {result.data ? (
+                <ResultDocument blocks={result.data.blocks} />
+              ) : (
+                <div className="text-[16px]" style={{ color: 'rgba(255,255,255,.6)' }}>
+                  {resultNotice}
+                </div>
+              )}
             </div>
           </>
         )}

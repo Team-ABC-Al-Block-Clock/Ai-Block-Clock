@@ -92,6 +92,9 @@ export const queryKeys = {
     list: (params: ListParams) => [...queryKeys.executions.lists(), params] as const,
     details: () => [...queryKeys.executions.all, 'detail'] as const,
     detail: (executionId: string) => [...queryKeys.executions.details(), executionId] as const,
+    /** 결과 JSON. 끝난 실행은 바뀌지 않는다 */
+    result: (executionId: string) =>
+      [...queryKeys.executions.detail(executionId), 'result'] as const,
     nodeLogs: (executionId: string, nodeId: string) =>
       [...queryKeys.executions.detail(executionId), 'nodes', nodeId, 'logs'] as const,
     /** 실행 전 견적. 워크플로우가 기준이라 실행 id 아래가 아니다. */
