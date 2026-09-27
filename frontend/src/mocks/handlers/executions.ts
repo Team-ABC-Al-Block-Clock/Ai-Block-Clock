@@ -1,4 +1,4 @@
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 
 import { API_BASE_URL } from '@/api/client'
 import type { CostItem, ExecutionStatus, ExecutionStep, StepStatus } from '@/api/executions'
@@ -246,6 +246,34 @@ export const executionHandlers = [
     if (!run) return fail(404, 'EXECUTION_001', '실행을 찾을 수 없습니다.')
 
     return ok(progressOf(run))
+  }),
+
+  // 결과 JSON 은 엔진 봉투 그대로다. PDF 는 만들지 못한 셈 쳐 JSON 으로 받는 길을 확인한다.
+  http.get(`${API_BASE_URL}/runs/:executionId/result`, async ({ request, params }) => {
+    const forced = await scene(request)
+    if (forced) return forced
+
+    const run = readRuns()[String(params.executionId)]
+    if (!run) return fail(404, 'EXECUTION_001', '실행을 찾을 수 없습니다.')
+    if (progressOf(run).status !== 'SUCCEEDED')
+      return fail(409, 'EXECUTION_001', '아직 끝나지 않은 실행입니다.')
+    if (new URL(request.url).searchParams.get('format') === 'PDF')
+      return fail(404, 'EXECUTION_007', '그 형식으로 받을 수 있는 결과가 없습니다.')
+
+    const envelope = {
+      a2a_version: '2.0',
+      node_id: `n${run.stepNames.length}`,
+      schema_id: 'text',
+      payload: {
+        text: ['# 실행 결과', '', ...run.stepNames.map((name) => `- ${name} 완료`)].join('\n'),
+      },
+    }
+    return new HttpResponse(JSON.stringify(envelope), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="${run.executionId}.json"`,
+      },
+    })
   }),
 
   http.post(`${API_BASE_URL}/executions/cost-estimates`, async ({ request }) => {

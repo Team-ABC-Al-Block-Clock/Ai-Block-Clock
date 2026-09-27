@@ -1,9 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 
 import type { ExecutionFailure, StepStatus } from '@/api/executions'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
-import { downloadResult, type ResultFormat } from '@/api/executions'
+import { downloadResult, fetchResult, type ResultFormat } from '@/api/executions'
 import { ApiError, EXECUTION_ERROR } from '@/api/errors'
 import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
@@ -19,6 +20,8 @@ import {
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { describeCondition } from '@/lib/branchCondition'
+import { queryKeys } from '@/lib/queryKeys'
+import { resultTextOf } from '@/lib/runResult'
 import { nameBranchSteps } from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
@@ -277,23 +280,26 @@ export default function RunRunning() {
         : { display: 'none' }) satisfies CSSProperties,
     }
   })
-  const resultText = [
-    '# 문서 정리 결과',
-    '',
-    '처리 파일  128개 (PDF 112 · 이미지 16)',
-    '분류 주제  7개',
-    '소요 시간  1분 42초',
-    '',
-    '[계약]      문서 24개',
-    '[영수증]    문서 31개',
-    '[회의록]    문서 18개',
-    '[리서치]    문서 22개',
-    '[기타]      문서 33개',
-    '',
-    '저장 위치  /Documents/정리결과',
-  ]
+  const result = useQuery({
+    queryKey: [...queryKeys.executions.detail(executionId ?? ''), 'result'],
+    queryFn: async () => {
+      const { blob } = await fetchResult(executionId!, 'JSON')
+      return resultTextOf(JSON.parse(await blob.text()))
+    },
+    enabled: !!executionId && finished,
+    staleTime: Infinity,
+    retry: 1,
+  })
+  const resultText = result.data
+    ? result.data
+    : result.isError
+      ? '결과를 불러오지 못했습니다. JSON 으로 받아 확인해 주세요'
+      : result.isSuccess
+        ? '결과를 읽을 수 없습니다. JSON 으로 받아 확인해 주세요'
+        : '결과를 불러오는 중입니다'
   const handleCopyResult = () => {
-    const txt = resultText.join('\n')
+    if (!result.data) return
+    const txt = result.data
     const ta = document.createElement('textarea')
     ta.value = txt
     ta.setAttribute('readonly', '')
@@ -319,7 +325,7 @@ export default function RunRunning() {
     clearTimeout(copyTimer.current)
     copyTimer.current = setTimeout(() => setCopied(false), 1900)
   }
-  const resultLines = resultText.map((text) => ({
+  const resultLines = resultText.split('\n').map((text) => ({
     text: text === '' ? '\u00a0' : text,
     color: text.startsWith('#')
       ? 'rgba(255,255,255,.92)'
