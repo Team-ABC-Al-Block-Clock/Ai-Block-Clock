@@ -204,6 +204,10 @@ function BranchForm({
     : operators[0].value
   const parsed = parseConditionRight(right, pickedOperator, field?.kind)
   const canApply = !!picked && !!pickedPath && parsed !== null
+  // 저장된 조건이 지금 후보에 없으면 폼은 첫 후보를 보여 준다. 카드의 조건과 달라 보이니 알린다.
+  const drifted =
+    !!initial &&
+    (picked !== fromId || (!!fields && pickedPath !== path) || pickedOperator !== operator)
 
   if (sources.length === 0)
     return (
@@ -213,8 +217,8 @@ function BranchForm({
           className="absolute text-[15.5px] leading-[1.7]"
           style={{ ...rowStyle('180px'), color: 'rgba(255,236,246,.66)' }}
         >
-          조건 분기 앞에 놓인 노드의 결과를 읽습니다.
-          앞에 있는 기본 노드의 출력 형식을 JSON 으로 바꾸거나 에이전트를 연결해주세요.
+          조건 분기 앞에 놓인 노드의 결과를 읽습니다. 앞에 있는 기본 노드의 출력 형식을 JSON 으로
+          바꾸거나 에이전트를 연결해주세요.
         </div>
       </>
     )
@@ -307,9 +311,15 @@ function BranchForm({
         className="absolute flex items-center justify-between"
         style={{ ...rowStyle('396px'), height: '32px' }}
       >
-        <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
+        <span
+          className="truncate text-[14px]"
+          style={{ color: drifted ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)' }}
+          title={drifted ? '저장된 조건이 지금 출력 예시와 맞지 않습니다' : undefined}
+        >
           {/* 참이면 true 포트, 거짓이면 false 포트로 나간다. */}
-          조건이 참이면 위쪽 선으로 갑니다
+          {drifted
+            ? '저장된 조건과 달라요. 확인 후 적용해 주세요'
+            : '조건이 참이면 위쪽 선으로 갑니다'}
         </span>
         <button
           type="button"
