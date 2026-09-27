@@ -363,6 +363,14 @@ describe('graphProblem', () => {
     expect(graphProblem([], [])).toBe('노드를 하나 이상 놓아 주세요')
   })
 
+  it('저장된 출력 예시에 빈 하위 객체가 있어도 저장·실행을 막는다', () => {
+    const nodes = [
+      { ...nodeAt('a', 0, 0), output: { kind: 'JSON' as const, example: { meta: {} } } },
+    ]
+    expect(graphProblem(nodes, [])).toMatch(/빈 객체/)
+    expect(runProblem(nodes, [])).toMatch(/빈 객체/)
+  })
+
   it('조건 없는 분기', () => {
     const nodes = [nodeAt('a', 0, 0), branch('br', false)]
     expect(graphProblem(nodes, [link('a', 'br')])).toBe('분기 노드에 조건을 넣어 주세요')
@@ -468,6 +476,37 @@ describe('runProblem', () => {
   it('시작에서 종료까지 이어지면 실행할 수 있다', () => {
     const nodes = [io('s', 'START'), nodeAt('a', 0, 0), io('e', 'END')]
     expect(runProblem(nodes, [link('s', 'a'), link('a', 'e')])).toBeNull()
+  })
+
+  it('원본 출력 예시를 고친 뒤에는 기존 분기 값의 종류를 다시 검사한다', () => {
+    const nodes: CanvasNodeData[] = [
+      io('s', 'START'),
+      { ...nodeAt('a', 0, 0), output: { kind: 'JSON', example: { level: 'high' } } },
+      {
+        ...nodeAt('br', 0, 0),
+        sourceType: 'CONTROL',
+        controlType: 'BRANCH',
+        condition: { fromId: 'a', path: 'level', operator: 'EQ', right: 'high' },
+      },
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      io('e', 'END'),
+    ]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'e'),
+      link('f', 'e'),
+    ]
+    expect(runProblem(nodes, edges)).toBeNull()
+    const changed = nodes.map((node) =>
+      node.id === 'a'
+        ? { ...node, output: { kind: 'JSON' as const, example: { level: 3 } } }
+        : node,
+    )
+    expect(runProblem(changed, edges)).toMatch(/비교 값을 다시 입력/)
   })
 
   it('시작이 없으면 그것부터 말한다', () => {
