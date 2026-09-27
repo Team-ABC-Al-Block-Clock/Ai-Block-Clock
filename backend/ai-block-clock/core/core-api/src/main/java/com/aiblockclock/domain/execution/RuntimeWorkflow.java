@@ -48,7 +48,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 "output", Map.of("title", prompt.name()))), refFiles);
     }
 
-    static Map<String, Object> step(String id, PlannedPrompt prompt, Map<String, List<RefFile>> refFiles) {
+    private static Map<String, Object> step(String id, PlannedPrompt prompt, Map<String, List<RefFile>> refFiles) {
         List<RefFile> sent = sentRefFiles(prompt);
         if (!sent.isEmpty()) {
             refFiles.put(prompt.stepId(), sent);
@@ -68,7 +68,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
         return node;
     }
 
-    static Map<String, Object> branch(PlannedBranch branch) {
+    private static Map<String, Object> branch(PlannedBranch branch) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("id", branch.id());
         node.put("type", "branch");
@@ -80,7 +80,7 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
 
     // 에이전트는 저장된 속 그래프를 그대로 끼워 보내고 엔진이 펼친다(계약 5.2). 펼친 단계에는 엔진이 이 agent_id 를 붙여
     // 돌려주므로, 실패한 단계가 어느 에이전트의 것인지 이것으로 안다.
-    static Map<String, Object> agent(PlannedAgent agent, Map<String, List<RefFile>> refFiles) {
+    private static Map<String, Object> agent(PlannedAgent agent, Map<String, List<RefFile>> refFiles) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("id", agent.id());
         node.put("type", "agent");
@@ -95,7 +95,11 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
     private static List<Map<String, Object>> nodesOf(List<PlannedNode> planned, Map<String, List<RefFile>> refFiles) {
         List<Map<String, Object>> nodes = new ArrayList<>();
         for (PlannedNode node : planned) {
-            nodes.add(node.toRuntime(refFiles));
+            nodes.add(switch (node) {
+                case PlannedStep step -> step(step.id(), step.prompt(), refFiles);
+                case PlannedBranch branch -> branch(branch);
+                case PlannedAgent agent -> agent(agent, refFiles);
+            });
         }
 
         return nodes;
