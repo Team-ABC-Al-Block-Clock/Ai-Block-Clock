@@ -23,7 +23,7 @@ import {
   OutputKindToggle,
   OutputModeLink,
 } from '@/components/OutputField'
-import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
+import SidePanel from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
@@ -50,6 +50,7 @@ import { paths } from '@/routes/paths'
 
 import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
+import PanelTabs, { TABS_HEIGHT, type PanelTab } from './PanelTabs'
 import RefFileField from '@/components/RefFileField'
 
 const UNSUPPORTED = '아직 지원하지 않습니다'
@@ -351,6 +352,13 @@ export default function EditNodes() {
   }
 
   const n = nodes.find((node) => node.id === selId)
+  const [panelTab, setPanelTab] = useState<PanelTab>('search')
+  const [tabSelId, setTabSelId] = useState(selId)
+  // 고르면 정보 탭, 풀리면 검색 탭. 고른 채로 직접 누른 탭은 다음 선택까지 둔다.
+  if (tabSelId !== selId) {
+    setTabSelId(selId)
+    setPanelTab(selId ? 'info' : 'search')
+  }
   // 에이전트는 남의 내부 구성이라 자료를 다루지 않는다. 기본 노드만 칸을 세운다.
   const refFiles = useNodeRefFiles(
     n && n.sourceType === 'NODE' ? { canvasId: n.id, sourceId: n.sourceId } : null,
@@ -420,6 +428,8 @@ export default function EditNodes() {
     // 카드가 생긴 뒤에 옮긴다. 원본은 저장할 때 만들어지고, 그때 이 카드 몫으로 올라간다.
     refFiles.handOff(placedId)
     refFiles.clearDraft()
+    // 만든 노드는 바로 손볼 일이 많다. 골라 두면 정보 탭이 열린다.
+    canvas.selectNode(placedId)
     setDraft(EMPTY_DRAFT)
     handleTogglePanel()
   }
@@ -1079,43 +1089,55 @@ export default function EditNodes() {
       </CanvasPane>
 
       <SidePanel>
+        <PanelTabs tab={panelTab} onChange={setPanelTab} selectedName={n ? selName : null} />
+
+        {/* 숨기기만 하고 내리지 않는다. 저장 전에 탭을 옮겨도 고치던 값이 남는다. */}
         <div
-          className="absolute text-[17px] font-semibold tracking-[-.005em] text-white"
-          style={{ left: `${PANEL_INSET}px`, top: `${PANEL_INSET}px` }}
+          role="tabpanel"
+          id="panel-info"
+          aria-labelledby="panel-tab-info"
+          hidden={panelTab !== 'info'}
+          className="scroll-thin absolute right-0 bottom-0 left-0 overflow-x-hidden overflow-y-auto"
+          style={{ top: `${TABS_HEIGHT}px` }}
         >
-          노드 정보
+          <NodeInfoPanel
+            hasSelection={hasSelection}
+            name={selName}
+            initial={selInitial}
+            typeLabel={selTypeLabel}
+            basic={selBasic}
+            branch={selBranch}
+            onApplyCondition={editCondition}
+            files={refFiles.selected}
+            summary={selKind ? controlKindHint(selKind) : n?.summary}
+            meta={
+              n && n.sourceType === 'AGENT'
+                ? { price: n.price, executionCount: n.executionCount, owner: n.owner }
+                : undefined
+            }
+            onApply={applyNodeEdit}
+          />
         </div>
 
-        <NodeInfoPanel
-          hasSelection={hasSelection}
-          name={selName}
-          initial={selInitial}
-          typeLabel={selTypeLabel}
-          basic={selBasic}
-          branch={selBranch}
-          onApplyCondition={editCondition}
-          files={refFiles.selected}
-          summary={selKind ? controlKindHint(selKind) : n?.summary}
-          meta={
-            n && n.sourceType === 'AGENT'
-              ? { price: n.price, executionCount: n.executionCount, owner: n.owner }
-              : undefined
-          }
-          onApply={applyNodeEdit}
-        />
-
-        <NodePalettePanel
-          q={q}
-          cards={cards}
-          isEmpty={isEmpty}
-          isError={isError}
-          isFetchNextPageError={isFetchNextPageError}
-          isFetchingNextPage={isFetchingNextPage}
-          hasNextPage={palette.hasNextPage}
-          onSearch={handleSearch}
-          onRetryNextPage={handleRetryNextPage}
-          refs={palette.refs}
-        />
+        <div
+          role="tabpanel"
+          id="panel-search"
+          aria-labelledby="panel-tab-search"
+          hidden={panelTab !== 'search'}
+        >
+          <NodePalettePanel
+            q={q}
+            cards={cards}
+            isEmpty={isEmpty}
+            isError={isError}
+            isFetchNextPageError={isFetchNextPageError}
+            isFetchingNextPage={isFetchingNextPage}
+            hasNextPage={palette.hasNextPage}
+            onSearch={handleSearch}
+            onRetryNextPage={handleRetryNextPage}
+            refs={palette.refs}
+          />
+        </div>
       </SidePanel>
 
       {/* 이름과 판매 여부를 한 줄로 묶어 작업면(0~980) 가운데에 맞춘다 —

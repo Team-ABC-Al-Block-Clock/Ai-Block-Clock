@@ -25,10 +25,7 @@ import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
 
 /**
- * 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리.
- *
- * 세로는 `PANEL_SPLIT_Y` 까지다. 그 아래는 팔레트가 쓴다(`NodePalettePanel`) — 같은 `SidePanel`
- * 안에 절대 배치라, 넘치면 팔레트가 위를 덮어 버튼이 눌리지 않는다.
+ * 「노드 정보」 탭 — 고른 노드를 살펴보고 고치는 자리. 좌표는 탭 아래 스크롤 영역 기준이다.
  *
  * 고친 값은 캔버스에만 머문다. 기본 노드는 워크플로우를 저장할 때 배치와 함께
  * 서버에 만들어지기 때문이다(`NodePlacementRequest`).
@@ -46,26 +43,19 @@ const rowStyle = (top: string) => ({
   width: `${PANEL_CONTENT_WIDTH}px`,
 })
 
-/**
- * 폼의 세로 좌표. 라벨은 칸에서 22px 위다.
- *
- * 자료 칸이 늘어난 만큼 아래가 통째로 내려간다 — 마지막 줄이 `PANEL_SPLIT_Y` 를 넘으면
- * 팔레트가 덮는다.
- */
-const FILES_Y = 156
+/** 폼의 세로 좌표. 라벨은 칸에서 22px 위다. 프롬프트부터는 세로로 쌓는다. */
+const FILES_Y = 120
 const MODEL_Y = FILES_Y + REF_FIELD_HEIGHT + 30
 const PROMPT_Y = MODEL_Y + 72
 /** 안쪽 여백을 빼면 다섯 줄이 선다. 두 줄로는 프롬프트를 적다가 바로 스크롤이 생긴다. */
 const PROMPT_HEIGHT = 150
-/** JSON 이면 예시 칸이 프롬프트 자리를 나눠 쓴다. 늘리면 팔레트 경계를 넘는다. */
-const PROMPT_HEIGHT_JSON = 68
-const EXAMPLE_HEIGHT = 68
+const EXAMPLE_HEIGHT = 130
 /** 모델과 출력 형식은 한 줄에 반씩. */
 const HALF_WIDTH = (PANEL_CONTENT_WIDTH - 8) / 2
 
 /** 에이전트 쪽 세로 좌표. 설명은 길이에 따라 늘고, 메타 세 줄은 그 아래 고정이다. */
-const SUMMARY_Y = 206
-const META_Y = 366
+const SUMMARY_Y = 170
+const META_Y = 330
 
 /** 설명 아래 한 줄짜리 값. 라벨은 왼쪽, 값은 오른쪽 끝에 세운다. */
 function MetaRow({ label, value }: { label: string; value: string }) {
@@ -220,7 +210,7 @@ function BranchForm({
         <HeadCard {...head} />
         <div
           className="absolute text-[15.5px] leading-[1.7]"
-          style={{ ...rowStyle('180px'), color: 'rgba(255,236,246,.66)' }}
+          style={{ ...rowStyle('144px'), color: 'rgba(255,236,246,.66)' }}
         >
           조건 분기 앞에 놓인 노드의 결과를 읽습니다. 앞에 있는 기본 노드의 출력 형식을 JSON 으로
           바꾸거나 에이전트를 연결해주세요.
@@ -232,19 +222,19 @@ function BranchForm({
     <>
       <HeadCard {...head} />
 
-      <FieldLabel top="176px">읽을 노드</FieldLabel>
+      <FieldLabel top="140px">읽을 노드</FieldLabel>
       <Picker
-        top="198px"
+        top="162px"
         label="읽을 노드"
         value={picked}
         onChange={setFromId}
         options={sources.map((source) => ({ value: source.id, label: source.name }))}
       />
 
-      <FieldLabel top="248px">값 경로</FieldLabel>
+      <FieldLabel top="212px">값 경로</FieldLabel>
       {fields && fields.length > 0 ? (
         <Picker
-          top="270px"
+          top="234px"
           label="값 경로"
           value={pickedPath}
           onChange={setPath}
@@ -253,14 +243,14 @@ function BranchForm({
       ) : fields ? (
         <div
           className="absolute text-[14.5px] leading-[1.5]"
-          style={{ ...rowStyle('272px'), color: 'rgba(255,236,246,.66)' }}
+          style={{ ...rowStyle('236px'), color: 'rgba(255,236,246,.66)' }}
         >
           출력 예시에 견줄 수 있는 칸(글자·숫자·참거짓)이 없습니다
         </div>
       ) : (
         <div
           className="bg-surface-card absolute flex items-center"
-          style={{ ...rowStyle('270px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
+          style={{ ...rowStyle('234px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
         >
           <input
             className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
@@ -273,10 +263,9 @@ function BranchForm({
         </div>
       )}
 
-      {/* 비교와 값은 한 줄에 둔다. 따로 쌓으면 패널 높이(424px)를 넘어 팔레트가 덮는다. */}
-      <FieldLabel top="320px">비교할 값</FieldLabel>
+      <FieldLabel top="284px">비교할 값</FieldLabel>
       <Picker
-        top="342px"
+        top="306px"
         label="비교"
         value={pickedOperator}
         onChange={setOperator}
@@ -287,7 +276,7 @@ function BranchForm({
         className="bg-surface-card absolute flex items-center"
         style={{
           left: `${PANEL_INSET + 140}px`,
-          top: '342px',
+          top: '306px',
           width: `${PANEL_CONTENT_WIDTH - 140}px`,
           height: '42px',
           borderRadius: '11px',
@@ -314,7 +303,7 @@ function BranchForm({
 
       <div
         className="absolute flex items-center justify-between"
-        style={{ ...rowStyle('396px'), height: '32px' }}
+        style={{ ...rowStyle('360px'), height: '32px' }}
       >
         <span
           className="truncate text-[14px]"
@@ -366,7 +355,7 @@ function HeadCard({
     <div
       className="absolute box-border flex items-center"
       style={{
-        ...rowStyle('58px'),
+        ...rowStyle('22px'),
         height: '104px',
         borderRadius: '12px',
         background: 'rgba(255,255,255,.11)',
@@ -423,16 +412,12 @@ function NodeForm({
     !sameOutput(output, initial.output ?? readOutputDraft(toOutputDraft()))
   const canApply = changed && !!name.trim() && !!prompt.trim() && !!output
 
-  const promptHeight = json ? PROMPT_HEIGHT_JSON : PROMPT_HEIGHT
-  const exampleY = PROMPT_Y + promptHeight + 30
-  const footY = json ? exampleY + EXAMPLE_HEIGHT + 10 : PROMPT_Y + PROMPT_HEIGHT + 10
-
   return (
     <>
-      <FieldLabel top="62px">노드 이름</FieldLabel>
+      <FieldLabel top="26px">노드 이름</FieldLabel>
       <div
         className="bg-surface-card absolute flex items-center"
-        style={{ ...rowStyle('84px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
+        style={{ ...rowStyle('48px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
       >
         <input
           className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
@@ -483,93 +468,90 @@ function NodeForm({
         }}
       />
 
-      <FieldLabel top={`${PROMPT_Y - 22}px`}>프롬프트</FieldLabel>
+      {/* 아래는 출력 필드 줄 수만큼 늘어난다. 탭 안에서 스크롤된다. */}
       <div
-        className="bg-surface-card absolute"
-        style={{
-          ...rowStyle(`${PROMPT_Y}px`),
-          height: `${promptHeight}px`,
-          borderRadius: '11px',
-          padding: '9px 12px',
-        }}
+        className="absolute flex flex-col"
+        style={{ ...rowStyle(`${PROMPT_Y - 22}px`), paddingBottom: '24px' }}
       >
-        <textarea
-          className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[16.5px] leading-[1.55] text-white outline-0"
-          value={prompt}
-          onChange={(ev) => setPrompt(ev.target.value)}
-          placeholder="이 노드가 할 일을 프롬프트로 적으세요"
-          aria-label="프롬프트"
-          style={{ height: `${promptHeight - 18}px` }}
-        />
-      </div>
-
-      {json && (
-        <>
-          <FieldLabel top={`${exampleY - 22}px`}>
-            {outputDraft.form ? '출력 필드' : '출력 예시'}
-          </FieldLabel>
-          <OutputModeLink
-            draft={outputDraft}
-            onChange={setOutputDraft}
-            style={{
-              position: 'absolute',
-              right: `${PANEL_INSET}px`,
-              top: `${exampleY - 21}px`,
-              fontSize: '13px',
-            }}
-          />
-          {outputDraft.form ? (
-            <OutputFieldsBox
-              fields={outputDraft.fields}
-              onChange={(fields) => setOutputDraft((it) => ({ ...it, fields }))}
-              height={EXAMPLE_HEIGHT}
-              dense
-              style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
-            />
-          ) : (
-            <OutputExampleBox
-              value={outputDraft.text}
-              onChange={(text) => setOutputDraft((it) => ({ ...it, text }))}
-              invalid={!!outputDraft.text.trim() && !output}
-              height={EXAMPLE_HEIGHT}
-              fontSize="14px"
-              style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
-            />
-          )}
-        </>
-      )}
-
-      <div
-        className="absolute flex items-center justify-between"
-        style={{ ...rowStyle(`${footY}px`), height: '32px' }}
-      >
-        <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
-          {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
-          {!output
-            ? outputDraftProblem(outputDraft)
-            : price
-              ? `1회 실행 원가 ${priceLabel(price)}`
-              : '실행 단계에서 원가가 측정됩니다'}
-        </span>
-        <button
-          type="button"
-          disabled={!canApply}
-          onClick={() =>
-            output && onApply({ name: name.trim(), prompt: prompt.trim(), model, output })
-          }
-          title={canApply ? '고친 값을 캔버스에 반영합니다' : '바뀐 것이 없습니다'}
-          className="flex-none border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
-          style={{
-            height: '32px',
-            padding: '0 18px',
-            borderRadius: '16px',
-            background: 'var(--color-accent)',
-            color: 'var(--color-accent-ink)',
-            cursor: canApply ? 'pointer' : 'default',
-          }}
+        <div className="text-[15px]" style={{ height: '22px', color: 'rgba(255,214,232,.85)' }}>
+          프롬프트
+        </div>
+        <div
+          className="bg-surface-card"
+          style={{ height: `${PROMPT_HEIGHT}px`, borderRadius: '11px', padding: '9px 12px' }}
         >
-          저장
-        </button>
+          <textarea
+            className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[16.5px] leading-[1.55] text-white outline-0"
+            value={prompt}
+            onChange={(ev) => setPrompt(ev.target.value)}
+            placeholder="이 노드가 할 일을 프롬프트로 적으세요"
+            aria-label="프롬프트"
+            style={{ height: `${PROMPT_HEIGHT - 18}px` }}
+          />
+        </div>
+
+        {json && (
+          <>
+            <div
+              className="flex items-baseline justify-between text-[15px]"
+              style={{ height: '22px', marginTop: '8px', color: 'rgba(255,214,232,.85)' }}
+            >
+              {outputDraft.form ? '출력 필드' : '출력 예시'}
+              <OutputModeLink
+                draft={outputDraft}
+                onChange={setOutputDraft}
+                style={{ fontSize: '13px' }}
+              />
+            </div>
+            {outputDraft.form ? (
+              <OutputFieldsBox
+                fields={outputDraft.fields}
+                onChange={(fields) => setOutputDraft((it) => ({ ...it, fields }))}
+              />
+            ) : (
+              <OutputExampleBox
+                value={outputDraft.text}
+                onChange={(text) => setOutputDraft((it) => ({ ...it, text }))}
+                invalid={!!outputDraft.text.trim() && !output}
+                height={EXAMPLE_HEIGHT}
+                fontSize="14px"
+              />
+            )}
+          </>
+        )}
+
+        <div
+          className="flex flex-none items-center justify-between"
+          style={{ height: '32px', marginTop: '10px' }}
+        >
+          <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
+            {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
+            {!output
+              ? outputDraftProblem(outputDraft)
+              : price
+                ? `1회 실행 원가 ${priceLabel(price)}`
+                : '실행 단계에서 원가가 측정됩니다'}
+          </span>
+          <button
+            type="button"
+            disabled={!canApply}
+            onClick={() =>
+              output && onApply({ name: name.trim(), prompt: prompt.trim(), model, output })
+            }
+            title={canApply ? '고친 값을 캔버스에 반영합니다' : '바뀐 것이 없습니다'}
+            className="flex-none border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
+            style={{
+              height: '32px',
+              padding: '0 18px',
+              borderRadius: '16px',
+              background: 'var(--color-accent)',
+              color: 'var(--color-accent-ink)',
+              cursor: canApply ? 'pointer' : 'default',
+            }}
+          >
+            저장
+          </button>
+        </div>
       </div>
     </>
   )
@@ -609,7 +591,6 @@ type NodeInfoPanelProps = {
   onApply: (id: string, values: NodeValues) => void
 }
 
-/** 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리. */
 export default function NodeInfoPanel({
   hasSelection,
   name,
@@ -627,7 +608,7 @@ export default function NodeInfoPanel({
     return (
       <div
         className="absolute text-[15.5px]"
-        style={{ ...rowStyle('64px'), color: 'rgba(255,236,246,.66)' }}
+        style={{ ...rowStyle('28px'), color: 'rgba(255,236,246,.66)' }}
       >
         캔버스에서 노드를 선택하면 상세 정보를 조회할 수 있습니다
       </div>
@@ -662,7 +643,7 @@ export default function NodeInfoPanel({
     <>
       <HeadCard initial={initial} name={name} typeLabel={typeLabel} />
 
-      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('180px')}>
+      <div className="absolute text-[15.5px] font-semibold" style={labelStyle('144px')}>
         설명
       </div>
       <div

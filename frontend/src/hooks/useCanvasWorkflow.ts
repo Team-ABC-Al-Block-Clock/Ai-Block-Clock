@@ -561,6 +561,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     onHover: (id: string) => dispatch({ type: 'hover', id }),
     handleHoverOut: () => dispatch({ type: 'hover', id: null }),
     onSelectEdge: (id: string) => dispatch({ type: 'selectEdge', id }),
+    selectNode: (id: string) => dispatch({ type: 'selectNode', id }),
     handleSelect,
     handleNodePointerDown,
     handleNodePointerMove,

@@ -12,13 +12,6 @@ export const CARD_GUTTER = 16
 export const PANEL_HEIGHT = 1024
 /** 패널 바닥 여백 */
 export const PANEL_BOTTOM = 24
-/**
- * 위아래를 가르는 선. 위는 고른 노드, 아래는 팔레트다.
- *
- * 위쪽은 절대 배치라 늘어나지 않는다 — 칸이 모자라면 이 값을 내리고 아래를 덜어 온다.
- * 팔레트는 카드 한 줄이 148px 이라, 여기서 더 내리면 두 줄이 온전히 서지 못한다.
- */
-export const PANEL_SPLIT_Y = 600
 
 type Props = {
   children: ReactNode

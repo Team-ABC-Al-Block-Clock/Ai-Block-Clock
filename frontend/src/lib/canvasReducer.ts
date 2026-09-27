@@ -106,6 +106,8 @@ export type CanvasAction =
   | { type: 'pressNode'; id: string }
   /** 같은 카드를 다시 눌렀다 뗌 — 선택을 푼다. */
   | { type: 'releaseSelection' }
+  /** 끌지 않고 고르기만 한다. 노드 추가 패널로 만든 노드가 그렇다. */
+  | { type: 'selectNode'; id: string }
   | { type: 'selectEdge'; id: string }
   | { type: 'clearSelection' }
   | { type: 'hover'; id: string | null }
@@ -138,6 +140,10 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
 
     case 'releaseSelection':
       return { ...state, selId: null }
+
+    case 'selectNode':
+      if (!state.nodes.some((node) => node.id === action.id)) return state
+      return { ...state, selId: action.id, selEdge: null }
 
     case 'selectEdge':
       // 같은 선을 다시 누르면 선택을 푼다.
