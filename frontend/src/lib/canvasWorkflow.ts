@@ -476,14 +476,8 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
   return null
 }
 
-/**
- * 분기를 포함한 에이전트는 실행이 지원되지 않아 판매를 막는다.
- *
- * 소유권은 작업 노드에서 확인한다. 입출력의 `mine` 은 null 이다.
- */
-export function sellProblem(nodes: Pick<CanvasNodeData, 'mine' | 'controlType'>[]): string | null {
-  if (nodes.some((node) => node.controlType))
-    return '분기가 있는 워크플로우는 현재 마켓에 등록할 수 없습니다'
+/** 소유권은 작업 노드에서 확인한다. 제어·입출력의 `mine` 은 null 이다. */
+export function sellProblem(nodes: Pick<CanvasNodeData, 'mine'>[]): string | null {
   if (nodes.some((node) => node.mine === false))
     return '다른 사람의 노드나 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
   if (!nodes.some((node) => node.mine === true)) return '판매할 내 노드를 하나 이상 넣어 주세요'

@@ -169,13 +169,13 @@ describe('moveNodeTo', () => {
 })
 
 describe('canSellWorkflow', () => {
-  it('전부 내 노드여도 분기가 있으면 판매할 수 없다', () => {
+  it('분기가 있어도 작업 노드가 전부 내 것이면 팔 수 있다', () => {
     const nodes = [
       nodeAt('a', 0, 0),
       { ...nodeAt('br', 0, 0), controlType: 'BRANCH' as const, mine: null },
     ]
-    expect(canSellWorkflow(nodes)).toBe(false)
-    expect(sellProblem(nodes)).toMatch(/분기가 있는 워크플로우/)
+    expect(canSellWorkflow(nodes)).toBe(true)
+    expect(sellProblem(nodes)).toBeNull()
   })
   it('내 것만 있으면 팔 수 있다', () => {
     expect(canSellWorkflow([nodeAt('a', 0, 200), nodeAt('b', 400, 300)])).toBe(true)
