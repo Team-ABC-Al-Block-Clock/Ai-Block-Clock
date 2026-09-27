@@ -8,17 +8,52 @@ import { api } from '@/api/client'
  */
 
 /** 서버가 아는 모델. 비워 보내면 서버가 기본값을 고른다. */
-export type AiModel = 'GEMINI_2_5_FLASH' | 'GEMINI_2_5_PRO'
+export type ServerModel = 'GEMINI_2_5_FLASH' | 'GEMINI_2_5_PRO'
 
-/** 고르는 자리에 쓰는 이름. 서버 enum 이 늘어나면 여기만 고친다. */
-export const AI_MODELS: { value: AiModel; label: string; hint?: string }[] = [
-  { value: 'GEMINI_2_5_FLASH', label: 'Gemini 2.5 Flash', hint: '빠름 · 원가 낮음' },
-  // 고르면 단가가 오른다 — 노드당 15~35초에 원가가 약 네 배다(AI 연동 가이드 13장).
-  { value: 'GEMINI_2_5_PRO', label: 'Gemini 2.5 Pro', hint: '정밀 · 느리고 원가 4배' },
-]
+/** 실제로 도는 유일한 모델. 무엇을 골라도 이 값을 싣고, 만들기 자리의 첫 선택이다. */
+export const DEFAULT_AI_MODEL: ServerModel = 'GEMINI_2_5_PRO'
 
-/** 서버 기본값과 같은 값. 만들기 자리의 첫 선택이다. */
-export const DEFAULT_AI_MODEL: AiModel = 'GEMINI_2_5_FLASH'
+/** 고르는 자리에 보이는 모델. GMS 텍스트 모델 목록으로, 보여 주기만 하고 실행은 기본 모델로 한다. */
+export const AI_MODELS = [
+  { value: 'GEMINI_2_5_PRO', label: 'Gemini 2.5 Pro', hint: '정밀 추론 · 긴 문서' },
+  { value: 'GEMINI_2_5_FLASH', label: 'Gemini 2.5 Flash', hint: '빠른 범용' },
+  { value: 'GPT_5_5', label: 'GPT-5.5', hint: '고급 추론 · 긴 맥락' },
+  { value: 'GPT_5_5_PRO', label: 'GPT-5.5 Pro', hint: '최고 사양 추론 · 코딩' },
+  { value: 'GPT_5_4', label: 'GPT-5.4', hint: '범용 플래그십' },
+  { value: 'GPT_5_4_PRO', label: 'GPT-5.4 Pro', hint: '전문 분석 · 대형 코드' },
+  { value: 'GPT_5_4_MINI', label: 'GPT-5.4 mini', hint: '실시간 · 대량 호출' },
+  { value: 'GPT_5_4_NANO', label: 'GPT-5.4 nano', hint: '초고속 · 단순 반복' },
+  { value: 'GPT_5_2', label: 'GPT-5.2', hint: '에이전트 · 코드 작업' },
+  { value: 'GPT_5_2_PRO', label: 'GPT-5.2 Pro', hint: '깊은 사고 · 난제' },
+  { value: 'GPT_5_1', label: 'GPT-5.1', hint: '코딩 · 에이전트' },
+  { value: 'GPT_5', label: 'GPT-5', hint: '고급 추론' },
+  { value: 'GPT_5_MINI', label: 'GPT-5 mini', hint: '균형 잡힌 범용' },
+  { value: 'GPT_5_NANO', label: 'GPT-5 nano', hint: '초경량 · 대량 배치' },
+  { value: 'GPT_4_1', label: 'GPT-4.1', hint: '긴 맥락 · 안정성' },
+  { value: 'GPT_4_1_MINI', label: 'GPT-4.1 mini', hint: '가성비 · 프로토타입' },
+  { value: 'GPT_4_1_NANO', label: 'GPT-4.1 nano', hint: '경량 · 챗봇' },
+  { value: 'GPT_4O', label: 'GPT-4o', hint: '멀티모달 · 빠른 응답' },
+  { value: 'GPT_4O_MINI', label: 'GPT-4o mini', hint: '경제적 멀티모달' },
+  { value: 'O3_MINI', label: 'o3-mini', hint: '소형 추론 · 구조화 출력' },
+  { value: 'GEMINI_3_5_FLASH', label: 'Gemini 3.5 Flash', hint: '초고속 · 긴 맥락' },
+  { value: 'GEMINI_2_5_FLASH_LITE', label: 'Gemini 2.5 Flash-Lite', hint: '초경량 · 대량 작업' },
+  { value: 'CLAUDE_OPUS_4_8', label: 'Claude Opus 4.8', hint: '전략 분석 · 다단계 추론' },
+  { value: 'CLAUDE_OPUS_4_7', label: 'Claude Opus 4.7', hint: '정밀 논리 · 연구 분석' },
+  { value: 'CLAUDE_OPUS_4_6', label: 'Claude Opus 4.6', hint: '고난도 종합 분석' },
+  { value: 'CLAUDE_SONNET_4_6', label: 'Claude Sonnet 4.6', hint: '코딩 · 문서 추출' },
+  { value: 'CLAUDE_SONNET_4_5', label: 'Claude Sonnet 4.5', hint: '에이전트 · 코딩' },
+  { value: 'CLAUDE_HAIKU_4_5', label: 'Claude Haiku 4.5', hint: '가장 빠른 응답' },
+  { value: 'CLAUDE_OPUS_4_5', label: 'Claude Opus 4.5', hint: '최대 지능 · 실용성' },
+  { value: 'CLAUDE_OPUS_4_1', label: 'Claude Opus 4.1', hint: '고급 코딩 · 추론' },
+] as const satisfies readonly { value: string; label: string; hint?: string }[]
+
+export type AiModel = (typeof AI_MODELS)[number]['value']
+
+/** 서버에 싣는 값. 목록은 보여 주기용이라 늘 기본 모델이다. */
+export const serverModel = (model: AiModel): ServerModel => {
+  void model
+  return DEFAULT_AI_MODEL
+}
 
 /** 붙여 둔 참고 자료. */
 export interface RefFile {
@@ -32,7 +67,7 @@ export interface NodeDetail {
   nodeId: string
   name: string
   prompt: string
-  model: AiModel
+  model: ServerModel
   /** 1회 실행 원가. 금액은 오차를 피해 문자열로 온다 */
   baseCost: string
   currency: string
@@ -53,7 +88,10 @@ export interface NodeSaveBody {
 }
 
 export const updateNode = (nodeId: string, body: NodeSaveBody) =>
-  api.put<NodeDetail>(`/nodes/${nodeId}`, body)
+  api.put<NodeDetail>(`/nodes/${nodeId}`, {
+    ...body,
+    ...(body.model ? { model: serverModel(body.model) } : {}),
+  })
 
 /**
  * 서버 `RefFileFormat` 과 같은 값. 한 건이 아니라 노드에 붙은 것의 합계가 상한이다.

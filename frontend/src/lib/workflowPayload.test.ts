@@ -25,6 +25,18 @@ const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData =>
 const link = (from: string, to: string): CanvasEdge => ({ id: `${from}__${to}`, from, to })
 
 describe('toWorkflowGraph', () => {
+  it('새로 만들 노드는 어떤 모델을 골라도 기본 모델로 싣는다', () => {
+    const graph = toWorkflowGraph(
+      [
+        node('a', { sourceId: '', nodeType: 'LLM', prompt: 'p', model: 'GPT_5_5' }),
+        node('b', { sourceId: '', nodeType: 'LLM', prompt: 'p', model: 'GEMINI_2_5_FLASH' }),
+      ],
+      [link('a', 'b')],
+    )
+
+    expect(graph?.nodes.map((n) => n.model)).toEqual(['GEMINI_2_5_PRO', 'GEMINI_2_5_PRO'])
+  })
+
   it('선을 따라간 순서로 키를 매긴다', () => {
     const graph = toWorkflowGraph(
       [node('a'), node('b'), node('c')],

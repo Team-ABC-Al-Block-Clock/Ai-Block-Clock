@@ -7,7 +7,9 @@ import {
   describeRefFileProblem,
   detachRefFile,
   getNode,
+  AI_MODELS,
   REF_FILE_LIMITS,
+  serverModel,
   updateNode,
 } from '@/api/nodes'
 import { estimateCost } from '@/api/executions'
@@ -169,6 +171,42 @@ describe('updateNode', () => {
     expect(updated.name).toBe('고친 뒤')
     expect(Number(updated.baseCost)).toBeGreaterThan(1)
     expect((await getNode(sourceId)).name).toBe('고친 뒤')
+  })
+
+  it('어떤 모델을 골라도 기본 모델로 싣는다', async () => {
+    const saved = await saveWorkflow({
+      name: '모델 검증',
+      nodes: [
+        {
+          nodeKey: 'n1',
+          sourceType: 'NODE' as const,
+          nodeType: 'LLM' as const,
+          name: '모델',
+          prompt: '프롬프트',
+        },
+      ],
+      edges: [],
+    })
+    const sourceId = saved.nodes[0].sourceId!
+
+    const updated = await updateNode(sourceId, {
+      name: '모델',
+      prompt: '프롬프트',
+      model: 'CLAUDE_OPUS_4_8',
+    })
+
+    expect(updated.model).toBe('GEMINI_2_5_PRO')
+  })
+})
+
+describe('serverModel', () => {
+  it('서버가 아는 모델이어도 기본 모델로', () => {
+    expect(serverModel('GEMINI_2_5_FLASH')).toBe('GEMINI_2_5_PRO')
+    expect(serverModel('GPT_5_5')).toBe('GEMINI_2_5_PRO')
+  })
+
+  it('목록 값이 겹치지 않는다', () => {
+    expect(new Set(AI_MODELS.map((item) => item.value)).size).toBe(AI_MODELS.length)
   })
 })
 

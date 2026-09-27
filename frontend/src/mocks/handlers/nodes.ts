@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/api/client'
 import {
   NODE_NAME_MAX,
   REF_FILE_LIMITS,
-  type AiModel,
+  type ServerModel,
   type NodeDetail,
   type NodeSaveBody,
   type RefFile,
@@ -52,7 +52,7 @@ function writeCreated(all: Record<string, NodeDetail>) {
   }
 }
 
-const DEFAULT_MODEL: AiModel = 'GEMINI_2_5_FLASH'
+const DEFAULT_MODEL: ServerModel = 'GEMINI_2_5_FLASH'
 
 /**
  * 저장하며 만드는 기본 노드. 서버는 프롬프트와 모델로 원가를 매긴다 —
@@ -61,7 +61,7 @@ const DEFAULT_MODEL: AiModel = 'GEMINI_2_5_FLASH'
 export function createLlmNode(placement: {
   name?: string
   prompt?: string
-  model?: AiModel
+  model?: ServerModel
 }): string {
   const all = readCreated()
   const node: NodeDetail = {
@@ -104,7 +104,9 @@ export const nodeHandlers = [
     const node = findNode(nodeId)
     if (!node) return fail(404, 'NODE_001', '노드를 찾을 수 없습니다.')
 
-    const body = (await info.request.json()) as NodeSaveBody
+    const body = (await info.request.json()) as Omit<NodeSaveBody, 'model'> & {
+      model?: ServerModel
+    }
     const violations: Record<string, string> = {}
     if (typeof body?.name !== 'string' || !body.name.trim() || body.name.length > NODE_NAME_MAX)
       violations.name = '이름이 올바르지 않습니다.'

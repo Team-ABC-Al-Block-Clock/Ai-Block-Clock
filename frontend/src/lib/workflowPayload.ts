@@ -1,5 +1,5 @@
 import type { EdgePlacement, NodePlacement, WorkflowDetail, WorkflowGraph } from '@/api/workflows'
-import type { AiModel } from '@/api/nodes'
+import { serverModel, type AiModel } from '@/api/nodes'
 import { NODE_SIZE, type CanvasEdge, type CanvasNodeData, linearOrder } from '@/lib/canvasWorkflow'
 
 /**
@@ -35,7 +35,7 @@ export function toWorkflowGraph(
         nodeType: 'LLM',
         name: node.name,
         prompt: node.prompt ?? '',
-        ...(node.model ? { model: node.model } : {}),
+        ...(node.model ? { model: serverModel(node.model) } : {}),
       }
     }
     return { ...placed, sourceId: node.sourceId }

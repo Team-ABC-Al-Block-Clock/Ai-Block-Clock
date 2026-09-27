@@ -118,7 +118,11 @@ export default function EditNodes() {
 
   const [name, setName] = useState('문서 정리')
   /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
-  const [draft, setDraft] = useState({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+  const [draft, setDraft] = useState<{ name: string; prompt: string; model: AiModel }>({
+    name: '',
+    prompt: '',
+    model: DEFAULT_AI_MODEL,
+  })
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
