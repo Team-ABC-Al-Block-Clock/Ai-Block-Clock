@@ -2,7 +2,7 @@
  * 라우트 패턴의 단일 소스. `App.tsx` 의 <Route>, `lib/shell.ts` 의 껍데기 설정, 화면의 링크 주소 파생.
  */
 
-/** 핸들러가 아직 없어 넘길 ID 가 없는 화면만 `[ID 없는 경로, ID 있는 경로]` 순. */
+/** ID 없이도 열리는 화면만 `[ID 없는 경로, ID 있는 경로]` 순. */
 export const routePatterns = {
   home: ['/'],
   login: ['/login'],
@@ -31,15 +31,15 @@ export const routePatterns = {
 
 export type ScreenKey = keyof typeof routePatterns
 
-/** 핸들러가 붙어 넘길 ID 가 항상 있는 화면. */
+/** ID 가 늘 있는 화면. */
 function requiredIdPath([withId]: readonly [string]) {
   return (id: string) => withId.replace(/:[^/]+/, id)
 }
 
-/** ID 필수. 아직 ID 가 없으면 `.withoutId` 사용. */
+/** ID 가 있으면 인자로, 없으면 `.withoutId`. */
 function idPath([plain, withId]: readonly [string, string]) {
   const build = (id: string) => withId.replace(/:[^/]+/, id)
-  /** 핸들러가 붙기 전까지만 쓰는 임시 경로 */
+  /** ID 없는 경로. 편집 화면에서는 새 워크플로우다 */
   build.withoutId = plain
   return build
 }
