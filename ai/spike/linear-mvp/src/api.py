@@ -24,7 +24,8 @@ from fastapi import (BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTP
                      UploadFile)
 from fastapi.responses import FileResponse, JSONResponse
 
-from . import graph, runner
+from . import graph, runner, template_import
+from .llm import LLM
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -78,12 +79,15 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
     result = None
     if run.get("result"):
         has_pdf = bool(run["result"].get("pdf"))
+        has_html = bool(run["result"].get("html"))
         has_envelope = bool(run["result"].get("envelope"))
         result = {
             "type": run["result"].get("type"),
             "output": run["result"].get("output"),          # 종단 노드의 선언 {kind, example}
             "artifact_url": f"/v1/runs/{run['run_id']}/artifact" if has_envelope else None,
-            "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if has_pdf else None,
+            "html_url": f"/v1/runs/{run['run_id']}/html" if has_html else None,      # 서식을 입힌 HTML (계약 v2.2)
+            "pdf_url": f"/v1/runs/{run['run_id']}/pdf" if has_pdf else None,        # 그 HTML 의 PDF. 실패면 null
+            "template": run["result"].get("template"),      # {applied: user|default, name, fallback_reason, mapping}
         }
 
     return {
@@ -111,6 +115,7 @@ def _public(run: dict, include_node_output: bool = False) -> dict:
         "not_executed": run.get("not_executed", []),
         "failure": run.get("failure"),
         "result": result,
+        "warnings": run.get("warnings", []),          # 성공했지만 알릴 것 — 서식 폴백 · 짝짓기 · PDF 실패
         "error": run["error"],
     }
 
@@ -276,7 +281,7 @@ async def create_run(
             "totals": {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0},
             "agents": [],
             "contribution": [], "not_executed": [], "failure": None,
-            "result": None, "error": None,
+            "result": None, "warnings": [], "error": None,
         }
 
     background.add_task(_execute, run_id, wf, comment, saved_paths or None, mock, input_payload, mode,
@@ -316,6 +321,51 @@ def get_artifact(run_id: str) -> dict:
             "code": "ARTIFACT_NOT_READY",
             "message": f"실행 상태: {run.get('status')}"})
     return envelope
+
+
+@app.get("/v1/runs/{run_id}/html", summary="서식을 입힌 결과 HTML", dependencies=[Depends(auth)])
+def get_run_html(run_id: str):
+    """결과 JSON 에 서식(사용자 서식 또는 기본 서식)을 입힌 HTML. 화면에 바로 띄우거나 저장한다(계약 v2.2 §7.4)."""
+    from fastapi.responses import HTMLResponse
+    with _lock:
+        run = _runs.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": run_id})
+    html = (run.get("result") or {}).get("html")
+    if not html or not Path(html).exists():
+        raise HTTPException(status_code=409, detail={"code": "HTML_NOT_READY", "message": f"현재 상태: {run['status']}"})
+    return HTMLResponse(Path(html).read_text(encoding="utf-8"))
+
+
+@app.post("/v1/templates/convert", summary="디자인(PDF · 사진) → 빈칸 뚫린 HTML 서식", dependencies=[Depends(auth)])
+async def convert_template(
+    design: list[UploadFile] = File(..., description="디자인 파일 — PDF · png · jpg · webp. 여러 장이면 페이지 순서대로"),
+    hint: str = Form("", description="서식에 대한 사용자 설명(선택). 예: '2쪽 보고서, 표지 제목은 브랜드명'"),
+    mock: bool = Form(False, description="true 면 AI 없이 기본 서식을 돌려준다(형식 확인용)"),
+) -> dict:
+    """캔바형 서식 등록. 올릴 때 한 번 AI 를 부르고, 결과 HTML 은 **백엔드가 보관**해 실행 때 `output.template.html` 로 보낸다.
+    Runtime 은 보관하지 않는다(stateless). 과금 대상 실행이 아니다(계약 v2.2 §7.8)."""
+    files: list[tuple[bytes, str, str]] = []
+    for up in design:
+        suffix = Path(up.filename or "").suffix.lower()
+        mime = runner.ATTACH_MIME.get(suffix)
+        if not mime:
+            raise HTTPException(status_code=400, detail={
+                "code": "UNSUPPORTED_FILE_TYPE", "message": f"디자인은 pdf · png · jpg · webp 만 (받은 값: {suffix or '없음'})"})
+        data = await up.read()
+        if len(data) > MAX_UPLOAD_MB * 1024 * 1024:
+            raise HTTPException(status_code=400, detail={"code": "FILE_TOO_LARGE", "message": f"최대 {MAX_UPLOAD_MB}MB"})
+        files.append((data, mime, Path(up.filename).name))
+    try:
+        llm = LLM(mock=mock)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "LLM_INIT_FAILED", "message": str(e)[:200]})
+    try:
+        out = template_import.convert(llm, files, hint=hint)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail={"code": runner._error_code(e), "message": str(e)[:300]})
+    return {"html": out.html, "placeholders": out.placeholders, "repaired": out.repaired,
+            "problems": out.problems, "usage": out.usage}
 
 
 @app.get("/v1/runs/{run_id}/pdf", summary="결과 PDF 내려받기", response_class=FileResponse,

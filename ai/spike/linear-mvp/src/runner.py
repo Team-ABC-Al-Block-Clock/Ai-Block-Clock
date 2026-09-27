@@ -21,14 +21,14 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
-from . import errors, pricing, shape
+from . import errors, pricing, render, shape
 from . import expand as expand_mod
 from . import graph as graph_mod
 from . import nodes as node_runner
 from . import prompts
 from .excel_to_text import excel_to_markdown
 from .llm import LLM
-from .pdf import markdown_to_pdf
+from .pdf import html_to_pdf
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_ROOT = ROOT / "out"
@@ -293,6 +293,7 @@ def execute(
         "not_executed": [],
         "failure": None,
         "result": None,
+        "warnings": [],                 # 실행은 성공했지만 알릴 것 — 서식 폴백 · PDF 실패 (계약 v2.2 §7.2)
         "error": None,
         "out_dir": str(out_dir),
     }
@@ -519,23 +520,37 @@ def execute(
             what = f"JSON  교정 {meta['repair_count']}회" if example else "글"
             print(f"{meta['duration_ms']/1000:.1f}s  {what}  in {meta['usage']['input_tokens']} / out {meta['usage']['output_tokens']} tokens")
 
-    # 산출물 = 종단 노드의 봉투(계약 v2.0 §5.5 · §7.3). 글이면 본문 그대로, 견본이면 라벨로 문서를 만든다
+    # 산출물 셋 — 종단 노드의 봉투(JSON 원본) · 서식을 입힌 HTML · 그 HTML 의 PDF (계약 v2.2 §5.5 · §7.2)
+    # 서식은 요청의 output.template(백엔드가 보관한 HTML). 없으면 기본 서식. 서식 · PDF 실패는 실행 실패가 아니다
     output_cfg = wf.get("output", {}) or {}
     result["result"] = {"type": output_cfg.get("type", "pdf"), "output": last_spec,
-                        "markdown": prev_output, "pdf": None, "envelope": last_envelope}
-    if output_cfg.get("type", "pdf") == "pdf" and prev_output:
+                        "markdown": prev_output, "html": None, "pdf": None, "template": None,
+                        "envelope": last_envelope}
+    if last_envelope and last_envelope.get("payload") is not None:
+        rendered = render.apply(output_cfg.get("template"), last_envelope["payload"],
+                                title=output_cfg.get("title") or wf.get("name"), llm=llm)
+        html_path = out_dir / "report.html"
+        html_path.write_text(rendered.html, encoding="utf-8")
+        result["result"]["html"] = str(html_path)
+        result["result"]["template"] = {"applied": rendered.applied, "name": rendered.template_name,
+                                        "fallback_reason": rendered.fallback_reason, "mapping": rendered.mapping}
+        for w in rendered.warnings:
+            code = ("TEMPLATE_RENDER_FAILED" if rendered.fallback_reason
+                    else "TEMPLATE_BLANKS" if "비워" in w else "TEMPLATE_MAPPED")
+            result["warnings"].append({"code": code, "message": w})
         try:
-            pdf_path = markdown_to_pdf(prev_output, output_cfg.get("title") or wf.get("name", "리포트"),
-                                       out_dir / "report.pdf")
-            result["result"]["pdf"] = str(pdf_path)
+            result["result"]["pdf"] = str(html_to_pdf(rendered.html, out_dir / "report.pdf"))
         except Exception as e:
-            result.update(status="failed", finished_at=_now(),
-                          total_duration_ms=int((time.perf_counter() - started) * 1000),
-                          error={"code": "PDF_RENDER_FAILED", "message": str(e)[:500], "node_id": None})
-            _settlement(result, len(nodes) - 1, "PDF_RENDER_FAILED")
-            _save(out_dir, result)
-            emit("run.failed", {"run_id": run_id, "error": result["error"]})
-            return result
+            result["warnings"].append({"code": "PDF_RENDER_FAILED", "message": str(e)[:300]})
+            if rendered.applied == "user":                         # 사용자 서식이 PDF 엔진을 넘어서면 기본 서식으로 한 번 더
+                try:
+                    fallback = render.apply(None, last_envelope["payload"],
+                                            title=output_cfg.get("title") or wf.get("name"))
+                    result["result"]["pdf"] = str(html_to_pdf(fallback.html, out_dir / "report.pdf"))
+                    result["warnings"].append({"code": "PDF_RENDER_FAILED",
+                                               "message": "PDF 는 기본 서식으로 만들었습니다(HTML 은 사용자 서식)"})
+                except Exception as e2:
+                    result["warnings"].append({"code": "PDF_RENDER_FAILED", "message": str(e2)[:300]})
 
     result.update(status="succeeded", finished_at=_now(),
                   total_duration_ms=int((time.perf_counter() - started) * 1000))
@@ -623,6 +638,7 @@ def main() -> None:
     ap.add_argument("--input", default=None, help="진입 노드 입력 payload JSON 파일 경로")
     ap.add_argument("--mock-set", action="append", default=[], metavar="NODE_ID.FIELD=VALUE",
                     help="mock 값 지정. 여러 번 가능. 예: n1.competition_level=low (에이전트 안 노드는 a1.n1. 도 된다)")
+    ap.add_argument("--template", default=None, help="사용자 서식 HTML 파일 (output.template.html 로 들어간다)")
     ap.add_argument("--ref", action="append", default=[], metavar="NODE_ID=PATH",
                     help="노드 참고 파일. 여러 번 지정 가능. 예: --ref n1=data/checklist.md")
     args = ap.parse_args()
@@ -636,16 +652,25 @@ def main() -> None:
     for item in args.mock_set:
         target, _, value = item.partition("=")
         overrides[target] = value
-    run = run_workflow(args.workflow, args.comment, args.file or None, mock=args.mock,
-                       input_payload=payload, mock_overrides=overrides, ref_files=ref_files or None)
+    wf = load_workflow(args.workflow)
+    if args.template:
+        wf.setdefault("output", {})["template"] = {"name": Path(args.template).name,
+                                                    "html": Path(args.template).read_text(encoding="utf-8")}
+    run = execute(wf, comment=args.comment, files=args.file or None, mock=args.mock, input_payload=payload,
+                  mock_overrides=overrides, ref_files=ref_files or None, verbose=True)
     if run["status"] != "succeeded":
         print(f"\n실패  {run['error']}")
         sys.exit(1)
     print(f"\n완료  {run['total_duration_ms']/1000:.1f}s  "
           f"tokens in {run['totals']['input_tokens']} / out {run['totals']['output_tokens']}")
     print(f"출력  {run['out_dir']}")
+    if run["result"] and run["result"].get("html"):
+        t = run["result"].get("template") or {}
+        print(f"HTML  {run['result']['html']}  (서식: {t.get('applied')} · {t.get('name')})")
     if run["result"] and run["result"].get("pdf"):
         print(f"PDF   {run['result']['pdf']}")
+    for w in run.get("warnings") or []:
+        print(f"주의  {w['code']}: {w['message']}")
 
 
 if __name__ == "__main__":
