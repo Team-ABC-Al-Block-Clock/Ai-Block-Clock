@@ -10,10 +10,17 @@ import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import ControlNode from '@/components/ControlNode'
-import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
+import CanvasPane, {
+  PANEL_CLIP,
+  PANE_CONTENT_WIDTH,
+  PANE_HEIGHT,
+  PANE_WIDTH,
+} from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
   canSellWorkflow,
+  NODE_SIZE,
+  sellProblem,
   chainPositions,
   edgeGeometry,
   type CanvasEdge,
@@ -25,9 +32,11 @@ import { resultOf, resultProblem } from '@/lib/runResult'
 import {
   branchTaken,
   cardStatuses,
+  edgeWasTaken,
   inCanvasOrder,
   nameBranchSteps,
   reachedNodes,
+  runFocus,
 } from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
@@ -46,10 +55,6 @@ const EMPTY_EDGES: CanvasEdge[] = []
  * 마지막 카드의 오른쪽 끝이 968 이고 패널 앞 경계가 980 이다.
  */
 const CAMERA_MIN_NODES = 6
-/** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
-const CAMERA_LEAD = 2
-/** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
-const CAMERA_STEP = 197
 
 /** 실행 엔진이 매기는 오류 코드. 없는 코드가 와도 화면이 비지 않게 기본 문구를 둔다. */
 const FAILURE_TEXT: Record<string, string> = {
@@ -153,15 +158,23 @@ export default function RunRunning() {
     [progress?.steps, branchNames],
   )
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
-  const statuses = useMemo(
-    () =>
-      cardStatuses(
-        runnable.map((node) => node.id),
-        branchNames.length,
-        steps,
-      ),
-    [runnable, branchNames, steps],
-  )
+  const statuses = useMemo(() => {
+    const mapped = cardStatuses(
+      runnable.map((node) => node.id),
+      branchNames.length,
+      steps,
+      runnable.map((node) => node.name),
+      runnable.map((node) => (node.sourceType === 'AGENT' ? 'AGENT' : 'NODE')),
+    )
+    if (!mapped) return null
+    defs
+      .filter((node) => node.controlType)
+      .forEach((node, i) => {
+        const step = steps[steps.length - branchNames.length + i]
+        if (step) mapped.set(node.id, step.status)
+      })
+    return mapped
+  }, [defs, runnable, branchNames, steps])
 
   const canSell = canSellWorkflow(defs)
 
@@ -269,11 +282,18 @@ export default function RunRunning() {
   })
   // 단계를 받았으면 실제로 지나간 길만 칠한다. 못 받았으면 한 줄 차례로 짐작한다.
   const reached = statuses
-    ? reachedNodes(defs, statuses, steps.slice(runnable.length), finished)
+    ? reachedNodes(
+        defs,
+        statuses,
+        steps.slice(Math.max(0, steps.length - branchNames.length)),
+        finished,
+      )
     : null
   const lit = geometry.map((edge, i) => {
     const link = edgeList.find((it) => it.id === edge.id)
-    return reached ? !!link && reached.has(link.from) && reached.has(link.to) : i < activeAt
+    return reached && statuses
+      ? !!link && edgeWasTaken(link, edgeList, reached, statuses)
+      : i < activeAt
   })
   const edges = geometry.map((edge, i) => ({
     ...edge,
@@ -286,7 +306,8 @@ export default function RunRunning() {
       node.condition,
       (id) => defs.find((it) => it.id === id)?.name,
     )
-    const taken = reached && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
+    const taken =
+      reached?.has(node.id) && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
     return taken === null ? condition : `${condition} →\u00a0${taken}`
   }
   /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
@@ -297,10 +318,14 @@ export default function RunRunning() {
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
-   * 앞의 두 자리는 그대로 두고 세 번째부터 밀어, 지금 도는 카드가 늘 화면 가운데쯤에 온다.
+   * 카드의 실제 위치를 기준으로 가운데에 둔다. 완료·실패 때도 마지막 위치를 유지한다.
    */
+  const focusId = statuses ? runFocus(defs, statuses) : g?.id
+  const focus = defs.find((node) => node.id === focusId)
   const camera =
-    defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
+    defs.length >= CAMERA_MIN_NODES && focus
+      ? Math.min(0, (PANE_CONTENT_WIDTH - NODE_SIZE) / 2 - focus.x)
+      : 0
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
   const logLines = (
     statuses
@@ -308,6 +333,8 @@ export default function RunRunning() {
           defs,
           runnable.map((node) => node.id),
           labeledSteps,
+          runnable.map((node) => node.name),
+          runnable.map((node) => (node.sourceType === 'AGENT' ? 'AGENT' : 'NODE')),
         )
       : labeledSteps
   )
@@ -861,9 +888,7 @@ export default function RunRunning() {
                       : `${paths.register}?executionId=${executionId}`,
                   }
                 : {})}
-              title={
-                canSell ? undefined : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
-              }
+              title={sellProblem(defs) ?? undefined}
               aria-disabled={!canSell}
               style={{
                 left: '237px',

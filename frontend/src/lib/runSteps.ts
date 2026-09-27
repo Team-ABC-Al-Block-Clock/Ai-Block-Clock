@@ -15,19 +15,78 @@ export function nameBranchSteps(steps: ExecutionStep[], branchNames: string[]): 
   return [...steps.slice(0, offset), ...tail.map((step, i) => ({ ...step, name: branchNames[i] }))]
 }
 
-/**
- * 작업 카드마다 단계 상태. 서버 단계는 작업 카드 차례에 분기가 뒤에 붙어 온다.
- *
- * 에이전트는 안의 단계 수만큼 펼쳐져 수가 어긋난다. 그때는 `null` — 잘못 짝지으면 엉뚱한
- * 카드가 켜진다.
- */
+type CardType = 'NODE' | 'AGENT'
+
+/** 작업 단계가 각 카드에 속하는 유일한 구간을 찾는다. 이름이나 경계가 모호하면 추측하지 않는다. */
+function workGroups(
+  cardIds: string[],
+  branchCount: number,
+  steps: ExecutionStep[],
+  cardNames: string[],
+  cardTypes: CardType[],
+): ExecutionStep[][] | null {
+  const count = steps.length - branchCount
+  if (cardIds.length === 0 || count < cardIds.length) return null
+  const work = steps.slice(0, count)
+  if (count === cardIds.length) return work.map((step) => [step])
+  if (cardNames.length !== cardIds.length) return null
+
+  // 기본 노드는 한 단계이고, 에이전트는 여러 단계를 차지한다. 기본 노드의 이름으로
+  // 경계를 찾되, 같은 이름이나 인접한 에이전트 때문에 두 가지 배정이 가능하면 중단한다.
+  const memo = new Map<string, number[][]>()
+  const partitions = (card: number, start: number): number[][] => {
+    if (card === cardIds.length) return start === count ? [[]] : []
+    const key = `${card}:${start}`
+    const cached = memo.get(key)
+    if (cached) return cached
+    const results: number[][] = []
+    const last = cardTypes[card] === 'NODE' ? start + 1 : count - (cardIds.length - card - 1)
+    for (let end = start + 1; end <= last; end++) {
+      if (cardTypes[card] !== 'AGENT' && work[end - 1]?.name !== cardNames[card]) break
+      for (const tail of partitions(card + 1, end)) {
+        results.push([end, ...tail])
+        if (results.length === 2) break
+      }
+      if (results.length === 2) break
+    }
+    memo.set(key, results)
+    return results
+  }
+  const choices = partitions(0, 0)
+  if (choices.length !== 1) return null
+  let start = 0
+  return choices[0].map((end) => {
+    const group = work.slice(start, end)
+    start = end
+    return group
+  })
+}
+
+/** 작업 카드마다 내부 단계의 상태를 합친다. 분기 단계는 응답의 끝에 붙는다. */
 export function cardStatuses(
   cardIds: string[],
   branchCount: number,
   steps: ExecutionStep[],
+  cardNames: string[] = [],
+  cardTypes: CardType[] = [],
 ): Map<string, StepStatus> | null {
-  if (steps.length === 0 || steps.length !== cardIds.length + branchCount) return null
-  return new Map(cardIds.map((id, i) => [id, steps[i].status]))
+  const groups = workGroups(cardIds, branchCount, steps, cardNames, cardTypes)
+  if (!groups) return null
+  return new Map(
+    cardIds.map((id, i) => {
+      const statuses = groups[i].map((step) => step.status)
+      const status: StepStatus = statuses.includes('failed')
+        ? 'failed'
+        : statuses.every((status) => status === 'skipped')
+          ? 'skipped'
+          : statuses.every((status) => status === 'succeeded' || status === 'skipped')
+            ? 'succeeded'
+            : statuses.some((status) => status === 'running' || status === 'succeeded')
+              ? 'running'
+              : 'pending'
+      return [id, status]
+    }),
+  )
 }
 
 const REACHED: StepStatus[] = ['running', 'succeeded', 'failed']
@@ -64,11 +123,17 @@ export function inCanvasOrder(
   nodes: { id: string; controlType?: unknown }[],
   cardIds: string[],
   steps: ExecutionStep[],
+  cardNames: string[] = [],
+  cardTypes: CardType[] = [],
 ): ExecutionStep[] {
-  const work = new Map(cardIds.map((id, i) => [id, steps[i]]))
-  let branch = cardIds.length
+  const branchCount = nodes.filter((node) => node.controlType).length
+  const groups = workGroups(cardIds, branchCount, steps, cardNames, cardTypes)
+  if (!groups) return steps
+  const work = new Map(cardIds.map((id, i) => [id, groups[i]]))
+  let branch = steps.length - branchCount
   return nodes.flatMap((node) => {
-    const step = node.controlType ? steps[branch++] : work.get(node.id)
+    if (!node.controlType) return work.get(node.id) ?? []
+    const step = steps[branch++]
     return step ? [step] : []
   })
 }
@@ -86,7 +151,45 @@ export function branchTaken(
 ): boolean | null {
   const target = (when: boolean) => edges.find((it) => it.from === branchId && it.when === when)?.to
   const [yes, no] = [target(true), target(false)]
-  if ((yes && reached.has(yes)) || (no && statuses.get(no) === 'skipped')) return true
-  if ((no && reached.has(no)) || (yes && statuses.get(yes) === 'skipped')) return false
-  return null
+  if (!yes || !no) return null
+  const downstream = (from: string) => {
+    const seen = new Set<string>()
+    const pending = [from]
+    while (pending.length) {
+      const id = pending.pop()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      pending.push(...edges.filter((edge) => edge.from === id).map((edge) => edge.to))
+    }
+    return seen
+  }
+  // 상대 갈래에서도 닿는 대상은 합류점이다. 그곳의 성공은 어느 갈래의 증거도 아니다.
+  const yesOnly = !downstream(no).has(yes)
+  const noOnly = !downstream(yes).has(no)
+  const tookYes = (yesOnly && reached.has(yes)) || (noOnly && statuses.get(no) === 'skipped')
+  const tookNo = (noOnly && reached.has(no)) || (yesOnly && statuses.get(yes) === 'skipped')
+  return tookYes === tookNo ? null : tookYes
+}
+
+/** 합류점이 켜져 있어도 선택되지 않은 분기 선은 켜지지 않는다. */
+export function edgeWasTaken(
+  edge: { from: string; to: string; when?: boolean | null },
+  edges: { from: string; to: string; when?: boolean | null }[],
+  reached: Set<string>,
+  statuses: Map<string, StepStatus>,
+): boolean {
+  if (!reached.has(edge.from) || !reached.has(edge.to)) return false
+  return edge.when == null || branchTaken(edge.from, edges, reached, statuses) === edge.when
+}
+
+/** 실행이 멈춰도 실패한 카드 또는 마지막으로 완료된 카드에 카메라를 둔다. */
+export function runFocus(
+  nodes: { id: string }[],
+  statuses: Map<string, StepStatus>,
+): string | undefined {
+  return (
+    nodes.find((node) => statuses.get(node.id) === 'failed') ??
+    nodes.find((node) => statuses.get(node.id) === 'running') ??
+    nodes.findLast((node) => statuses.get(node.id) === 'succeeded')
+  )?.id
 }

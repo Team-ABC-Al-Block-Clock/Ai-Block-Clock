@@ -95,13 +95,16 @@ function quoteOf(detail: WorkflowDetail) {
 
 /** 접수 때 굳히는 단계 이름. 견적과 같은 자리를 읽어 금액과 단계가 어긋나지 않게 한다. */
 const stepNamesOf = (detail: WorkflowDetail) =>
-  priced(detail).map(
-    ({ sourceId }) =>
-      PLACEABLE_ITEMS.find((item) => item.itemId === sourceId)?.name ??
-      // 기본 노드는 팔레트에 없다. 저장하며 만들어진 원본에서 찾는다 — 견적과 같은 자리다.
-      findNode(sourceId)?.name ??
-      '이름 없는 단계',
-  )
+  [
+    ...priced(detail).map(
+      ({ sourceId }) =>
+        PLACEABLE_ITEMS.find((item) => item.itemId === sourceId)?.name ??
+        // 기본 노드는 팔레트에 없다. 저장하며 만들어진 원본에서 찾는다 — 견적과 같은 자리다.
+        findNode(sourceId)?.name ??
+        '이름 없는 단계',
+    ),
+    ...detail.nodes.filter((node) => node.controlType).map((_, i) => `b${i + 1}`),
+  ]
 
 /**
  * 실패 화면을 볼 자리. 몇 번째 단계에서 멎게 할지 적어 둔다 — 0부터 센다.
