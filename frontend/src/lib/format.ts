@@ -1,5 +1,5 @@
 import type { ProvenanceMismatchReason } from '@/api/agents'
-import type { ItemNodeType } from '@/api/workflows'
+import type { ControlKind, ControlType, IoType, ItemNodeType } from '@/api/workflows'
 
 /** 2400 → '2.4k', 640 → '640' */
 export function compactCount(n: number) {
@@ -146,15 +146,54 @@ export function josa(name: string) {
 
 /** `Record<ItemNodeType, string>` 이라 유형이 늘어나면 채울 때까지 컴파일이 실패한다. */
 const NODE_TYPE_LABELS: Record<ItemNodeType, string> = {
-  // 서버 `NodeType` 은 아직 TRIGGER·TOOL 을 들고 있지만 팔레트에는 에이전트만 오르고
-  // 캔버스에서 만드는 것은 LLM 뿐이라, 화면에 실제로 나오는 것은 아래 둘이다.
-  TRIGGER: '트리거',
   LLM: '기본',
-  TOOL: '도구',
   AGENT: '에이전트',
 }
 
 export const nodeTypeLabel = (type: ItemNodeType) => NODE_TYPE_LABELS[type]
+
+/** 제어 노드는 `nodeType` 이 없어 종류 이름을 대신 쓴다. */
+const CONTROL_TYPE_LABELS: Record<ControlType, string> = {
+  BRANCH: '분기',
+}
+
+export const controlTypeLabel = (type: ControlType) => CONTROL_TYPE_LABELS[type]
+
+const IO_TYPE_LABELS: Record<IoType, string> = {
+  START: '시작',
+  END: '종료',
+}
+
+export const ioTypeLabel = (type: IoType) => IO_TYPE_LABELS[type]
+
+/** 카드에 적히는 이름. 제어·입출력은 팔레트에 없어 이름을 여기서 받는다. */
+const KIND_NAMES: Record<ControlKind, string> = {
+  BRANCH: '조건 분기',
+  START: '시작',
+  END: '종료',
+}
+
+export const controlKindName = (kind: ControlKind) => KIND_NAMES[kind]
+
+/** 노드 정보 패널이 설명 자리에 쓰는 한 줄. 제어·입출력은 팔레트에 없어 설명도 없다. */
+const KIND_HINTS: Record<ControlKind, string> = {
+  BRANCH: '조건이 참이면 true, 거짓이면 false 로 갈라집니다.',
+  START: '워크플로우를 시작합니다. 실행할 때 올린 입력이 다음 노드로 넘어갑니다.',
+  END: '워크플로우가 끝납니다. 마지막 노드의 결과를 결과 화면으로 내보냅니다.',
+}
+
+export const controlKindHint = (kind: ControlKind) => KIND_HINTS[kind]
+
+/** 카드 아래에 붙는 종류 이름. 셋 중 채워진 것을 쓴다 — 한 노드는 하나만 갖는다. */
+export function placedKindLabel(node: {
+  nodeType?: ItemNodeType | null
+  controlType?: ControlType | null
+  ioType?: IoType | null
+}): string {
+  if (node.ioType) return ioTypeLabel(node.ioType)
+  if (node.controlType) return controlTypeLabel(node.controlType)
+  return node.nodeType ? nodeTypeLabel(node.nodeType) : ''
+}
 
 const MISMATCH_REASONS: Record<ProvenanceMismatchReason, string> = {
   NOT_CONFIRMED: '블록 확정 대기 중',

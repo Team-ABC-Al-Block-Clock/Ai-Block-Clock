@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { AiModel } from '@/api/nodes'
+import type { AiModel, NodeOutput } from '@/api/nodes'
 import type { CursorPage, CursorParams } from '@/api/page'
 
 export interface WorkflowSummary {
@@ -40,10 +40,10 @@ export const getMyWorkflows = (params: WorkflowQuery = {}) =>
 export interface NodePlacement {
   /** 이 워크플로우 안에서만 통하는 키. 최대 64자 */
   nodeKey: string
-  sourceType: SourceType
+  sourceType: PlacedSourceType
   /** `sourceType` 이 NODE 일 때만 보낸다. `sourceId` 와 함께 보내면 종류를 대조한다 */
   nodeType?: NodeType
-  /** 원본 노드 또는 에이전트의 id. 저장하며 만들 `LLM` 은 비운다 */
+  /** 원본 노드 또는 에이전트의 id. 저장하며 만들 `LLM` 과 제어·입출력 노드는 비운다 */
   sourceId?: string
   /** 새로 만들 노드의 이름. `LLM` 일 때만 */
   name?: string
@@ -51,12 +51,27 @@ export interface NodePlacement {
   prompt?: string
   /** 새로 만들 노드가 쓸 모델. 비우면 서버 기본 모델 */
   model?: AiModel
+  /** 새로 만들 노드의 출력 형식. 비우면 `TEXT` */
+  output?: NodeOutput
+  /** `sourceType` 이 CONTROL 일 때만. 조건과 함께 보내야 한다 */
+  controlType?: ControlType
+  /** `controlType` 이 BRANCH 일 때만. 빠지면 서버가 물린다 */
+  condition?: BranchCondition
+  /** `sourceType` 이 IO 일 때만 */
+  ioType?: IoType
+  /** 시작 노드만. 실행 화면이 이것으로 입력란을 그린다 */
+  fields?: InputField[]
+  /** 끝 노드만. 서버가 둘 다 있어야 받는다(`NodePlacementRequest.matchesIoType`) */
+  resultShape?: ResultShape
+  resultFormat?: ResultFormat
 }
 
 export interface EdgePlacement {
   edgeKey: string
   sourceNodeKey: string
   targetNodeKey: string
+  /** 분기에서 나가는 선만. 조건이 참인 갈래가 `true` 다. 나머지 선은 비운다 */
+  when?: boolean | null
 }
 
 /** 저장·수정이 함께 싣는 부분. 노드는 최소 하나, 노드가 하나면 선은 빈 배열이다. */
@@ -69,8 +84,8 @@ export interface WorkflowGraph {
 /** 저장하며 만들어진 노드가 받은 id. 보낸 `nodeKey` 로 되짚는다. */
 export interface PlacedNodeId {
   nodeKey: string
-  sourceType: SourceType
-  /** 제어 노드면 null */
+  sourceType: PlacedSourceType
+  /** 제어·입출력 노드면 null */
   sourceId: string | null
 }
 
@@ -89,14 +104,30 @@ export interface SavedWorkflow {
 /** 서버가 돌려주는 배치. `versionId` 는 에이전트 노드만 갖는다. */
 /**
  * 저장된 배치. 보낼 때와 달리 서버가 이미 원본을 만들어 둔 뒤라 `sourceId` 가 채워져 온다
- * (제어 노드만 null). 이름·프롬프트는 여기 실려 오지 않아 `GET /nodes/{id}` 로 따로 읽는다.
+ * (제어·입출력 노드만 null). 프롬프트는 여기 실려 오지 않아 `GET /nodes/{id}` 로 따로 읽는다.
  */
 export interface PlacedNode {
   nodeKey: string
-  sourceType: SourceType
-  sourceId: string
+  sourceType: PlacedSourceType
+  /** 제어·입출력 노드면 null */
+  sourceId: string | null
   versionId: string | null
   inputSource: 'USER' | 'PREV' | 'PREV_AND_USER'
+  /** 원본을 찾지 못하면 null */
+  name: string | null
+  /** 판매 등록을 막지 않는가. 서버가 판정한다. 제어·입출력은 null */
+  mine: boolean | null
+  /** 제어 노드가 아니면 null */
+  controlType: ControlType | null
+  /** 분기 노드가 아니면 null */
+  condition: BranchCondition | null
+  /** 입출력 노드가 아니면 null */
+  ioType: IoType | null
+  /** 시작 노드가 아니면 빈 배열 */
+  fields: InputField[]
+  /** 끝 노드가 아니면 null */
+  resultShape: ResultShape | null
+  resultFormat: ResultFormat | null
 }
 
 export interface WorkflowDetail extends SavedWorkflow {
@@ -136,13 +167,64 @@ export const deleteWorkflow = (workflowId: string) =>
   api.delete<DeletedWorkflow>(`/workflows/${workflowId}`)
 
 /** 직접 만들 수 있는 노드 종류 */
-export type NodeType = 'TRIGGER' | 'LLM' | 'TOOL'
+export type NodeType = 'LLM'
 
 /** 검색 결과의 유형. 다른 사람의 에이전트는 내부 구성을 공개하지 않아 'AGENT' 로만 온다. */
 export type ItemNodeType = NodeType | 'AGENT'
 
-/** 캔버스에 놓은 것이 기본 노드인지 에이전트인지. 서버 `SourceType` 을 그대로 따른다. */
+/** 팔레트에 오르는 것. 원본이 있어 `sourceId` 로 가리킬 수 있다. */
 export type SourceType = 'NODE' | 'AGENT'
+
+/** 캔버스에 놓을 수 있는 것 전부. 제어·입출력은 원본이 없어 `sourceId` 가 없다. */
+export type PlacedSourceType = SourceType | 'CONTROL' | 'IO'
+
+/** 제어 노드 종류. 서버가 받는 것은 아직 분기뿐이다 — 병합·반복은 타입이 없다 */
+export type ControlType = 'BRANCH'
+
+/** 입출력 노드 종류 */
+export type IoType = 'START' | 'END'
+
+/** 시작 노드가 실행할 때 받을 입력란 하나. */
+export interface InputField {
+  /** 영문 소문자로 시작. `comment` 는 쓸 수 없다 */
+  key: string
+  label: string
+  type: 'TEXT' | 'LONG_TEXT' | 'NUMBER' | 'CHOICE' | 'BOOLEAN'
+  required: boolean
+  /** `CHOICE` 일 때만 */
+  choices: string[]
+}
+
+/**
+ * 끝 노드가 내는 결과의 구조와 형식.
+ *
+ * 내려받을 때 고르는 `api/executions.ts` 의 `ResultFormat`(JSON·PDF)과는 다른 값이다 —
+ * 이쪽은 워크플로우가 무엇을 만들지를 정한다.
+ */
+export type ResultShape = 'TEXT' | 'DOCUMENT' | 'TABLE'
+export type ResultFormat = 'PDF' | 'MD' | 'XLSX' | 'CSV'
+
+/** 제어·입출력 노드의 종류. 한 노드는 이 중 하나를 갖는다 */
+export type ControlKind = ControlType | IoType
+
+/** 분기 조건의 비교 방법. `IN` 이면 `right` 가 배열이다 */
+export type ConditionOperator = 'EQ' | 'NE' | 'GT' | 'GE' | 'LT' | 'LE' | 'IN'
+
+/** 비교할 수 있는 값. 서버는 문자열·숫자·불리언만 받는다 */
+export type ConditionLiteral = string | number | boolean
+
+/**
+ * 분기 조건. 앞 노드 결과의 값 하나를 리터럴과 견준다.
+ *
+ * `left` 는 어느 길로 와도 이 분기 앞에 있는 노드·에이전트만 가리킨다. 제어·입출력은 서버가
+ * `WORKFLOW_013` 으로 물린다(`WorkflowGraph.ensureConditionReadsUpstream`).
+ */
+export interface BranchCondition {
+  /** `<nodeKey>.<결과 안의 경로>`. 예: `n1.competition_level` */
+  left: string
+  operator: ConditionOperator
+  right: ConditionLiteral | ConditionLiteral[]
+}
 
 /** 편집 화면은 늘 ALL 로 불러온다. */
 export type PaletteScope = 'MINE' | 'ALL'

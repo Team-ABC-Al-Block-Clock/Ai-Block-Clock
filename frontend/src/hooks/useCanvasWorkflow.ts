@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
-import type { AiModel } from '@/api/nodes'
 import { PANE_CONTENT_WIDTH, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import {
   canvasReducer,
   seededCanvasState,
+  type NodePort,
+  type NodeValues,
   type PlacedSeed,
-  type PortSide,
 } from '@/lib/canvasReducer'
 import {
   NODE_SIZE,
+  type CanvasCondition,
   type CanvasEdge,
   type CanvasNodeData,
   canConnect,
@@ -98,6 +99,9 @@ interface Pan {
  * 포인터를 따라 DOM 을 직접 고치고(드래그 중 리렌더를 피한다), 언제 어떤 액션을
  * 낼지만 정한다. 좌표 변환은 `lib/viewport` 한 곳에 모여 있다.
  */
+/** 옆에 놓을 때 이웃과 띄우는 거리(px). 포트를 따로 겨냥할 만큼은 벌린다. */
+const BESIDE_GAP = 72
+
 export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
   // 첫 렌더에서만 읽는다. 뒤늦게 바뀌어도 이미 사용자가 손댄 캔버스를 되돌리지 않는다.
   const [state, dispatch] = useReducer(canvasReducer, seeds, seededCanvasState)
@@ -302,11 +306,11 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
 
   /** 포트를 누르면 노드가 아니라 선을 끈다. */
   const handlePortDown =
-    (id: string) => (side: PortSide, ev: React.PointerEvent<HTMLDivElement>) => {
+    (id: string) => (port: NodePort, ev: React.PointerEvent<HTMLDivElement>) => {
       if (ev.button !== 0) return
       // 막지 않으면 노드까지 같이 드래그된다.
       ev.stopPropagation()
-      dispatch({ type: 'startLink', from: { id, side } })
+      dispatch({ type: 'startLink', from: { id, ...port } })
       // 포트에서 손을 떼도 click 이 노드로 올라온다. 선택이 뒤집히지 않게 막는다.
       moved.current = true
       try {
@@ -321,7 +325,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     const node = held && nodes.find((n) => n.id === held.id)
     const point = node && toCanvasPoint(ev.clientX, ev.clientY)
     if (!held || !node || !point) return
-    const anchor = portPoint(node, held.side)
+    const anchor = portPoint(node, held.side, held.when)
     const d = held.side === 'out' ? edgePath(anchor, point) : edgePath(point, anchor)
     tempRef.current?.setAttribute('d', d)
   }
@@ -337,7 +341,13 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
       dispatch({ type: 'cancelLink' })
       return
     }
-    dispatch({ type: 'endLink', targetId: target.id, side })
+    // 분기의 출력만 갈래를 들고 있다. 없으면 붙이지 않는다.
+    const when = hit?.getAttribute('data-when')
+    dispatch({
+      type: 'endLink',
+      targetId: target.id,
+      port: { side, ...(when === null ? {} : { when: when === 'true' }) },
+    })
   }
 
   /** 끌면 화면 이동, 안 끌고 떼면 선택 해제. 손을 떼는 순간 가른다. */
@@ -442,6 +452,35 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
       y: (PANE_HEIGHT / 2 - view.ty) / view.k,
     })
 
+  /**
+   * 놓인 것들의 옆 빈자리에 놓는다. 캔버스가 비어 있으면 가운데.
+   *
+   * 가운데에 놓으면 겹침만 풀려 이웃과 `NODE_GAP` 만큼 붙는다 — 포트끼리 맞닿아 어느 쪽을
+   * 겨냥하는지 알기 어렵다. 흐름이 왼쪽에서 오른쪽으로 가므로 시작은 왼쪽, 나머지는
+   * 오른쪽에 둔다.
+   */
+  const placeBeside = (side: 'left' | 'right', seed: Omit<PlacedSeed, 'id'>) => {
+    const bounds = nodesBounds(nodes)
+    if (!bounds) return placeAtCenter(seed)
+
+    const beside =
+      side === 'left'
+        ? bounds.minX - BESIDE_GAP - NODE_SIZE / 2
+        : bounds.maxX + BESIDE_GAP + NODE_SIZE / 2
+    // 놓인 것들이 화면을 가득 채우면 옆자리가 판 밖이다. 보이지 않는 곳에 놓으면 아무 일도
+    // 일어나지 않은 것처럼 보이는데, 칩은 비활성이 되고 저장은 막힌다.
+    const half = NODE_SIZE / 2
+    const inView = (at: number, offset: number, span: number) =>
+      Math.min(
+        Math.max(at, (-offset + half * view.k) / view.k),
+        (span - offset - half * view.k) / view.k,
+      )
+    return placeFromPalette(seed, {
+      x: inView(beside, view.tx, PANE_CONTENT_WIDTH),
+      y: inView((bounds.minY + bounds.maxY) / 2, view.ty, PANE_HEIGHT),
+    })
+  }
+
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key !== 'Delete' && ev.key !== 'Backspace') return
@@ -457,11 +496,12 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
   }, [selId, selEdge, nodes])
 
   // 선을 드래그하는 동안 이을 수 있는 포트만 밝게.
-  const portOpen = (id: string, side: PortSide) => {
+  const portOpen = (id: string, port: NodePort) => {
     if (!linkFrom) return true
-    if (side === linkFrom.side) return false
+    if (port.side === linkFrom.side) return false
+    const outward = linkFrom.side === 'out' ? linkFrom : { ...port, id }
     const [a, b] = linkFrom.side === 'out' ? [linkFrom.id, id] : [id, linkFrom.id]
-    return canConnect(edges, a, b)
+    return canConnect(nodes, edges, a, b, outward.when)
   }
 
   // 경로 탐색은 무겁다. 노드나 선이 바뀔 때만 다시 찾는다.
@@ -482,8 +522,9 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     linkFrom,
     canSell: canSellWorkflow(nodes),
     /** 고른 기본 노드의 값을 고친다. 서버에는 워크플로우를 저장할 때 함께 나간다. */
-    editNode: (id: string, values: { name: string; prompt: string; model: AiModel }) =>
-      dispatch({ type: 'editNode', id, ...values }),
+    editNode: (id: string, values: NodeValues) => dispatch({ type: 'editNode', id, values }),
+    editCondition: (id: string, condition: CanvasCondition) =>
+      dispatch({ type: 'editCondition', id, condition }),
     /** 저장 응답이 준 원본 id 를 캔버스에 되쓴다. */
     attachSources: (sourceIdByNodeId: Record<string, string>) =>
       dispatch({ type: 'attachSources', sourceIdByNodeId }),
@@ -498,6 +539,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
     refs: { paneRef, worldRef, gridRef, glowRef, tempRef },
     placeFromPalette,
     placeAtCenter,
+    placeBeside,
     toCanvasPoint,
     onHover: (id: string) => dispatch({ type: 'hover', id }),
     handleHoverOut: () => dispatch({ type: 'hover', id: null }),

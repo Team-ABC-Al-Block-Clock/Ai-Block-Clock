@@ -1,13 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 
 import type { ExecutionFailure, StepStatus } from '@/api/executions'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
-import { downloadResult, type ResultFormat } from '@/api/executions'
+import { downloadResult, fetchResult, type ResultFormat } from '@/api/executions'
 import { ApiError, EXECUTION_ERROR } from '@/api/errors'
 import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
+import ControlNode from '@/components/ControlNode'
 import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
@@ -17,10 +19,22 @@ import {
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
+import { describeCondition } from '@/lib/branchCondition'
+import { queryKeys } from '@/lib/queryKeys'
+import { resultOf, resultProblem } from '@/lib/runResult'
+import {
+  branchTaken,
+  cardStatuses,
+  inCanvasOrder,
+  nameBranchSteps,
+  reachedNodes,
+} from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
+
+import ResultDocument from './ResultDocument'
 
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
 /** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
@@ -114,6 +128,40 @@ export default function RunRunning() {
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
+  /**
+   * 서버가 세는 단계. 제어·입출력은 일을 하지 않아 빠진다.
+   *
+   * `progress.done` 과 `steps` 는 이 수를 센다. 카드 목록으로 그대로 짝지으면 시작 노드 하나에
+   * 한 칸씩 밀려, 도는 중인 카드가 아닌 옆 카드가 켜진다.
+   */
+  const runnable = useMemo(() => defs.filter((node) => !node.controlType && !node.ioType), [defs])
+  /** 갈래가 있으면 단계를 받기 전에는 어느 쪽이 돌지 몰라 짐작해 켜지 않는다. */
+  const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
+  /** 불러온 캔버스는 서버가 훑은 차례라, 분기도 서버가 엔진에 싣는 차례와 같다. */
+  const branchNames = useMemo(
+    () =>
+      defs
+        .filter((node) => node.controlType)
+        .map(
+          (node) =>
+            `${node.name} · ${describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)}`,
+        ),
+    [defs],
+  )
+  const steps = useMemo(
+    () => nameBranchSteps(progress?.steps ?? [], branchNames),
+    [progress?.steps, branchNames],
+  )
+  const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
+  const statuses = useMemo(
+    () =>
+      cardStatuses(
+        runnable.map((node) => node.id),
+        branchNames.length,
+        steps,
+      ),
+    [runnable, branchNames, steps],
+  )
 
   const canSell = canSellWorkflow(defs)
 
@@ -134,18 +182,26 @@ export default function RunRunning() {
     : settled
   // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
-  const active = Math.min(defs.length - 1, progress?.done ?? 0)
+  const runningAt = statuses
+    ? runnable.findIndex((node) => statuses.get(node.id) === 'running')
+    : -1
+  const active = statuses
+    ? runningAt
+    : branching
+      ? -1
+      : Math.min(runnable.length - 1, progress?.done ?? 0)
   /**
-   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
-   * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
+   * 도는 중인 단계가 카드 목록에서 몇 번째인가. 선을 칠할 때 쓴다.
+   *
+   * 갈래가 없을 때만 센다 — 그때는 선도 카드와 같은 차례라 선 index 와 견줄 수 있다.
    */
-  const aligned = progress && progress.steps.length === defs.length ? progress.steps : null
+  const activeAt = runnable[active] ? defs.findIndex((node) => node.id === runnable[active].id) : -1
   /**
    * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
    * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
    */
   const finished = progress?.status === 'SUCCEEDED'
-  const g: CanvasNodeData | undefined = defs[active]
+  const g: CanvasNodeData | undefined = runnable[active]
   const glowStyle: CSSProperties =
     g && !finished
       ? {
@@ -162,25 +218,37 @@ export default function RunRunning() {
           transition: 'left .6s cubic-bezier(.2,.8,.25,1),top .6s cubic-bezier(.2,.8,.25,1)',
         }
       : { display: 'none' }
-  const nodes = defs.map((d, i) => {
-    const step = aligned?.[i]
+  const nodes = defs.map((d) => {
+    // 제어·입출력은 단계가 아니다. 도는 표시도 완료 표시도 붙지 않는다.
+    const i = stepAt.get(d.id)
+    const status = i === undefined ? undefined : statuses?.get(d.id)
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
-    const stepDone = step ? step.status === 'succeeded' : !lost && (i < active || finished)
-    const stepRunning = step ? step.status === 'running' : !lost && i === active && !finished
-    const stepFailed = step?.status === 'failed'
+    const known = i !== undefined && (!!statuses || !branching)
+    const stepDone = status ? status === 'succeeded' : known && !lost && (i < active || finished)
+    const stepRunning = status ? status === 'running' : known && !lost && i === active && !finished
+    const stepFailed = status === 'failed'
+    const stepSkipped = status === 'skipped'
     return {
       ...d,
       background: stepRunning
         ? 'rgba(255,255,255,.17)'
         : stepDone || stepFailed
           ? 'rgba(255,255,255,.115)'
-          : 'rgba(255,255,255,.06)',
+          : stepSkipped
+            ? 'rgba(255,255,255,.03)'
+            : 'rgba(255,255,255,.06)',
       numberColor: stepRunning
         ? '#fff'
         : stepDone
           ? 'rgba(255,255,255,.9)'
           : 'rgba(255,255,255,.5)',
-      nameColor: stepRunning ? '#fff' : stepDone ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.55)',
+      nameColor: stepRunning
+        ? '#fff'
+        : stepDone
+          ? 'rgba(255,255,255,.9)'
+          : stepSkipped
+            ? 'rgba(255,255,255,.3)'
+            : 'rgba(255,255,255,.55)',
       sublabelColor: stepFailed
         ? 'rgba(255,170,194,.9)'
         : stepRunning
@@ -188,20 +256,44 @@ export default function RunRunning() {
           : stepDone
             ? 'rgba(154,208,180,.85)'
             : 'rgba(255,236,246,.4)',
-      stateLabel: step
-        ? labelOf(step.status)
-        : stepRunning
-          ? '진행 중'
-          : stepDone
-            ? '완료'
-            : '대기',
+      stateLabel: status
+        ? labelOf(status)
+        : !known
+          ? ''
+          : stepRunning
+            ? '진행 중'
+            : stepDone
+              ? '완료'
+              : '대기',
     }
+  })
+  // 단계를 받았으면 실제로 지나간 길만 칠한다. 못 받았으면 한 줄 차례로 짐작한다.
+  const reached = statuses
+    ? reachedNodes(defs, statuses, steps.slice(runnable.length), finished)
+    : null
+  const lit = geometry.map((edge, i) => {
+    const link = edgeList.find((it) => it.id === edge.id)
+    return reached ? !!link && reached.has(link.from) && reached.has(link.to) : i < activeAt
   })
   const edges = geometry.map((edge, i) => ({
     ...edge,
-    stroke: i < active ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
+    stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
-  const liveEdges = geometry.slice(0, Math.max(0, active))
+  const liveEdges = geometry.filter((_, i) => lit[i])
+  /** 분기 카드 밑 한 줄. 판정이 나면 포트 이름과 같은 true·false 를 뒤에 붙인다. */
+  const branchLabel = (node: CanvasNodeData) => {
+    const condition = describeCondition(
+      node.condition,
+      (id) => defs.find((it) => it.id === id)?.name,
+    )
+    const taken = reached && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
+    return taken === null ? condition : `${condition} →\u00a0${taken}`
+  }
+  /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
+  const labeledSteps = nameBranchSteps(
+    progress?.steps ?? [],
+    defs.filter((node) => node.controlType).map((node) => `${node.name} · ${branchLabel(node)}`),
+  )
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
@@ -209,11 +301,20 @@ export default function RunRunning() {
    */
   const camera =
     defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
-  // 펼친 단계를 그대로 적는다 — 카드와 수가 달라도 여기서는 순서만 맞으면 된다.
-  const logLines = progress?.steps.map((step) => step.name) ?? []
-  const shown = progress ? Math.min(logLines.length, progress.done + 1) : 0
-  const logs = logLines.slice(0, shown).map((text, i) => {
-    const last = i === shown - 1 && !finished
+  // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
+  const logLines = (
+    statuses
+      ? inCanvasOrder(
+          defs,
+          runnable.map((node) => node.id),
+          labeledSteps,
+        )
+      : labeledSteps
+  )
+    .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
+    .map((step) => step.name)
+  const logs = logLines.map((text, i) => {
+    const last = i === logLines.length - 1 && !finished
     return {
       text,
       dot: last ? 'rgba(255,194,216,.9)' : 'rgba(154,208,180,.7)',
@@ -230,23 +331,20 @@ export default function RunRunning() {
         : { display: 'none' }) satisfies CSSProperties,
     }
   })
-  const resultText = [
-    '# 문서 정리 결과',
-    '',
-    '처리 파일  128개 (PDF 112 · 이미지 16)',
-    '분류 주제  7개',
-    '소요 시간  1분 42초',
-    '',
-    '[계약]      문서 24개',
-    '[영수증]    문서 31개',
-    '[회의록]    문서 18개',
-    '[리서치]    문서 22개',
-    '[기타]      문서 33개',
-    '',
-    '저장 위치  /Documents/정리결과',
-  ]
+  const result = useQuery({
+    queryKey: queryKeys.executions.result(executionId ?? ''),
+    queryFn: async () => {
+      const { blob } = await fetchResult(executionId!, 'JSON')
+      return resultOf(JSON.parse(await blob.text()))
+    },
+    enabled: !!executionId && finished,
+    staleTime: Infinity,
+    // 파일이 아직 없으면 서버가 그 자리에서 다시 거둬 온다(`ExecutionService.download`). 재시도는 공용 기본에 맡긴다.
+  })
+  const resultNotice = resultProblem(result)
   const handleCopyResult = () => {
-    const txt = resultText.join('\n')
+    if (!result.data) return
+    const txt = result.data.text
     const ta = document.createElement('textarea')
     ta.value = txt
     ta.setAttribute('readonly', '')
@@ -272,14 +370,6 @@ export default function RunRunning() {
     clearTimeout(copyTimer.current)
     copyTimer.current = setTimeout(() => setCopied(false), 1900)
   }
-  const resultLines = resultText.map((text) => ({
-    text: text === '' ? '\u00a0' : text,
-    color: text.startsWith('#')
-      ? 'rgba(255,255,255,.92)'
-      : text.startsWith('[')
-        ? 'rgba(255,206,226,.88)'
-        : 'rgba(255,255,255,.62)',
-  }))
   const [downloading, setDownloading] = useState(false)
   const [downloadProblem, setDownloadProblem] = useState<'PDF_MISSING' | 'FAILED' | null>(null)
 
@@ -304,6 +394,8 @@ export default function RunRunning() {
   }
 
   const downloadLabel = downloading ? '받는 중…' : '결과 다운로드 (PDF)'
+  /** PDF 옆 JSON 버튼 폭. */
+  const JSON_BUTTON_WIDTH = 104
 
   const copyLabel = copied ? '복사됨' : '복사'
   const copyBg = copied ? 'rgba(154,208,180,.26)' : 'rgba(255,255,255,.1)'
@@ -323,7 +415,13 @@ export default function RunRunning() {
     : lost
       ? '실행은 계속되고 있습니다. 새로고침해 주세요.'
       : progress?.failure
-        ? describeFailure(progress.failure)
+        ? describeFailure({
+            ...progress.failure,
+            stepName:
+              labeledSteps[
+                progress.steps.findLastIndex((it) => it.name === progress.failure?.stepName)
+              ]?.name ?? progress.failure.stepName,
+          })
         : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 
   const stepTitle = run.missing
@@ -335,7 +433,10 @@ export default function RunRunning() {
         : finished
           ? '실행 완료'
           : progress
-            ? (progress.currentStepName ?? '실행을 준비하는 중')
+            ? (progress.currentStepName ??
+              (progress.total > 0 && progress.done >= progress.total
+                ? '결과를 정리하는 중'
+                : '실행을 준비하는 중'))
             : g
               ? `${g.name} 중`
               : '워크플로우를 불러오는 중'
@@ -401,24 +502,40 @@ export default function RunRunning() {
               </g>
             </CanvasEdgeLayer>
 
-            {nodes.map((n) => (
-              <CanvasNode
-                key={n.id}
-                index={chainAt?.get(n.id)}
-                name={n.name}
-                sublabel={n.stateLabel}
-                x={n.x}
-                y={n.y}
-                mine={n.mine}
-                floaty={n.floaty}
-                enter={n.enter}
-                background={n.background}
-                numberColor={n.numberColor}
-                nameColor={n.nameColor}
-                sublabelColor={n.sublabelColor}
-                glass
-              />
-            ))}
+            {nodes.map((n) => {
+              const kind = n.controlType ?? n.ioType
+              if (kind)
+                return (
+                  <ControlNode
+                    key={n.id}
+                    kind={kind}
+                    sublabel={n.controlType ? branchLabel(n) : undefined}
+                    x={n.x}
+                    y={n.y}
+                    floaty={n.floaty}
+                    enter={n.enter}
+                    glass
+                  />
+                )
+              return (
+                <CanvasNode
+                  key={n.id}
+                  index={chainAt?.get(n.id)}
+                  name={n.name}
+                  sublabel={n.stateLabel}
+                  x={n.x}
+                  y={n.y}
+                  mine={n.mine}
+                  floaty={n.floaty}
+                  enter={n.enter}
+                  background={n.background}
+                  numberColor={n.numberColor}
+                  nameColor={n.nameColor}
+                  sublabelColor={n.sublabelColor}
+                  glass
+                />
+              )
+            })}
           </div>
         </div>
       </CanvasPane>
@@ -623,7 +740,7 @@ export default function RunRunning() {
                   color: 'rgba(255,236,246,.76)',
                 }}
               >
-                결과를 텍스트 파일로 저장하세요.
+                결과를 PDF 나 JSON 파일로 받을 수 있습니다.
               </div>
             </div>
 
@@ -634,7 +751,7 @@ export default function RunRunning() {
               style={{
                 left: `${PANEL_INSET}px`,
                 top: '508px',
-                width: `${PANEL_CONTENT_WIDTH}px`,
+                width: `${PANEL_CONTENT_WIDTH - JSON_BUTTON_WIDTH - 8}px`,
                 height: '56px',
                 borderRadius: '12px',
                 background: 'var(--color-accent)',
@@ -663,6 +780,26 @@ export default function RunRunning() {
               </div>
             </button>
 
+            <button
+              type="button"
+              onClick={() => handleDownload('JSON')}
+              disabled={!executionId || downloading}
+              title="엔진이 낸 결과 JSON 을 그대로 받습니다"
+              style={{
+                left: `${PANEL_INSET + PANEL_CONTENT_WIDTH - JSON_BUTTON_WIDTH}px`,
+                top: '508px',
+                width: `${JSON_BUTTON_WIDTH}px`,
+                height: '56px',
+                borderRadius: '12px',
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
+                animation: 'uiIn .6s .08s cubic-bezier(.2,.8,.25,1) both',
+                opacity: downloading ? 0.7 : 1,
+              }}
+              className="bg-surface-card absolute flex cursor-pointer items-center justify-center border-0 font-[inherit] text-[16px] font-bold text-white hover:bg-[rgba(255,255,255,.16)] disabled:cursor-default"
+            >
+              JSON
+            </button>
+
             {downloadProblem && (
               <div
                 role="alert"
@@ -675,18 +812,7 @@ export default function RunRunning() {
                 }}
               >
                 {downloadProblem === 'PDF_MISSING' ? (
-                  <>
-                    PDF 를 만들지 못했습니다.{' '}
-                    <button
-                      type="button"
-                      onClick={() => handleDownload('JSON')}
-                      disabled={downloading}
-                      className="cursor-pointer font-bold underline disabled:cursor-default"
-                      style={{ color: 'rgba(255,236,246,.92)' }}
-                    >
-                      결과 JSON 으로 받기
-                    </button>
-                  </>
+                  <>PDF 를 만들지 못했습니다. 옆의 JSON 으로 받아 주세요</>
                 ) : (
                   '결과를 받지 못했습니다. 잠시 후 다시 눌러 주세요'
                 )}
@@ -839,22 +965,13 @@ export default function RunRunning() {
                 animation: 'uiIn .6s .2s cubic-bezier(.2,.8,.25,1) both',
               }}
             >
-              <div className="flex flex-col" style={{ width: '100%', gap: '9px' }}>
-                {resultLines.map((r, i) => (
-                  <div
-                    key={i}
-                    className="text-[17px] tracking-[-.005em]"
-                    style={{
-                      lineHeight: '1.55',
-                      color: r.color,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {r.text}
-                  </div>
-                ))}
-              </div>
+              {result.data ? (
+                <ResultDocument blocks={result.data.blocks} />
+              ) : (
+                <div className="text-[16px]" style={{ color: 'rgba(255,255,255,.6)' }}>
+                  {resultNotice}
+                </div>
+              )}
             </div>
           </>
         )}

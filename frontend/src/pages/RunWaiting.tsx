@@ -11,6 +11,7 @@ import {
 } from '@/api/executions'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
+import ControlNode from '@/components/ControlNode'
 import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
@@ -50,6 +51,8 @@ const BEFORE_RESERVE = new Set([
   'WORKFLOW_014',
   'EXECUTION_003',
   'EXECUTION_005',
+  // 입력란 검사(`ExecutionInputValidator`)는 선차감 앞에서 돈다.
+  'EXECUTION_009',
   'FILE_002',
   INSUFFICIENT,
 ])
@@ -252,21 +255,36 @@ export default function RunWaiting() {
             </g>
           </CanvasEdgeLayer>
 
-          {nodes.map((node) => (
-            <CanvasNode
-              key={node.id}
-              index={chainAt?.get(node.id)}
-              name={node.name}
-              sublabel="대기"
-              x={node.x}
-              y={node.y}
-              mine={node.mine}
-              floaty={node.floaty}
-              enter={node.enter}
-              background="rgba(255,255,255,.075)"
-              numberColor="rgba(255,255,255,.9)"
-            />
-          ))}
+          {nodes.map((node) => {
+            // 제어·입출력은 돌지 않는다. 「대기」를 붙이면 차례를 기다리는 것처럼 보인다.
+            const kind = node.controlType ?? node.ioType
+            if (kind)
+              return (
+                <ControlNode
+                  key={node.id}
+                  kind={kind}
+                  x={node.x}
+                  y={node.y}
+                  floaty={node.floaty}
+                  enter={node.enter}
+                />
+              )
+            return (
+              <CanvasNode
+                key={node.id}
+                index={chainAt?.get(node.id)}
+                name={node.name}
+                sublabel="대기"
+                x={node.x}
+                y={node.y}
+                mine={node.mine}
+                floaty={node.floaty}
+                enter={node.enter}
+                background="rgba(255,255,255,.075)"
+                numberColor="rgba(255,255,255,.9)"
+              />
+            )
+          })}
         </div>
       </CanvasPane>
 

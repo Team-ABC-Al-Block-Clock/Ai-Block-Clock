@@ -14,12 +14,11 @@ const LABEL_PAGES_MAX = 10
 /**
  * 저장된 워크플로우를 캔버스 모양으로 읽는다. 편집·대기·진행 세 화면이 같이 쓴다.
  *
- * 서버는 배치에 이름을 싣지 않아(`NodeResponse` 는 `sourceId` 까지다) 팔레트에서 따로 받아
+ * 이름·판매 판정은 상세 응답에 오지만 단가·설명·만든 사람은 없어 팔레트에서 따로 받아
  * 채운다. 옆 팔레트를 쓸 수 없다 — 그쪽은 검색어와 스크롤에 따라 일부만 들고 있어서,
  * 저장된 노드가 거기 없을 수 있다. 여기서는 끝까지 넘겨 받아 표로 만든다.
  *
- * 이름표가 도착할 때까지 `canvas` 를 내주지 않는다. 먼저 내주면 카드가 전부
- * 「알 수 없는 노드」로 굳는다.
+ * 이름표가 도착할 때까지 `canvas` 를 내주지 않는다. 먼저 내주면 카드 단가가 전부 비어 굳는다.
  */
 export function useSavedWorkflow(workflowId: string | undefined) {
   const detail = useQuery({
@@ -50,15 +49,15 @@ export function useSavedWorkflow(workflowId: string | undefined) {
 
   /**
    * 팔레트가 모르는 내 노드. 팔레트에는 마켓 에이전트만 실려서, 「노드 추가」로 만들어
-   * 넣은 노드는 여기로 빠진다. 이름을 못 채우면 카드가 「알 수 없는 노드」로 굳고
-   * `mine` 이 false 가 되어 편집도 막힌다.
+   * 넣은 노드는 여기로 빠진다. 프롬프트·모델·출력 형식은 여기서만 받아 편집 폼이 선다.
    */
   const missing = useMemo(() => {
     if (!detail.data || !labels.isSuccess) return []
     const known = new Set((labels.data ?? []).map((item) => item.itemId))
     const ids = detail.data.nodes
-      .filter((node) => node.sourceType === 'NODE' && !known.has(node.sourceId))
+      .filter((node) => node.sourceType === 'NODE')
       .map((node) => node.sourceId)
+      .filter((id): id is string => !!id && !known.has(id))
     return [...new Set(ids)]
   }, [detail.data, labels.data, labels.isSuccess])
 
@@ -101,6 +100,7 @@ export function useSavedWorkflow(workflowId: string | undefined) {
         summary: null,
         prompt: node.prompt,
         model: node.model,
+        output: node.output,
         // 남의 노드는 서버가 `NODE_002` 로 막아 여기까지 오지 않는다.
         mine: true,
       })
@@ -114,8 +114,7 @@ export function useSavedWorkflow(workflowId: string | undefined) {
     detail: detail.data,
     canvas,
     isPending: !!workflowId && (detail.isPending || labels.isPending || !extrasSettled),
-    // 이름표가 빠져도 카드가 통째로 이름을 잃는다. 같은 실패로 다룬다.
-    // 이름표가 빠져도 카드가 통째로 이름을 잃는다. 개별 조회도 같은 실패로 다룬다.
+    // 이름표가 빠지면 단가와 편집 폼이 통째로 빈다. 개별 조회도 같은 실패로 다룬다.
     error: detail.error ?? labels.error ?? extras.find((query) => query.error)?.error ?? null,
     refetch: () => {
       void detail.refetch()
