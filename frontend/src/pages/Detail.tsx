@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
@@ -51,6 +51,17 @@ const AUTH_CODES: string[] = [AUTH_ERROR.NOT_IDENTIFIED, AUTH_ERROR.NOT_IDENTIFI
 
 /** 한 번에 불러오는 리뷰 개수. */
 const REVIEW_PAGE_SIZE = 5
+
+/** 버튼을 누른 뒤 목록 끝에 남겨 두는 빈 자리. 센티넬과 '불러오는 중'·'다시 시도' 가
+ *  여기 들어가고, 다음 장은 이 자리부터 채워진다. 바닥에 닿기 전에 끝이 보여야
+ *  리뷰가 붙는 것이 눈에 들어온다. */
+const REVIEW_LANDING = 84
+
+/** 바닥에 닿고 나서 다음 장을 받기까지 두는 시간.
+ *  닿자마자 채우면 다섯 줄이 한 번에 튀어 깜빡인 것처럼 보인다. 기다리는 동안
+ *  '불러오는 중' 을 먼저 보여 주면 목록이 늘어난 것이 사건으로 읽힌다.
+ *  튕겨서 바닥을 스치기만 한 경우에는 벗어나는 순간 취소된다. */
+const REVIEW_HOLD_MS = 400
 
 /** 글자 색. 어두운 배경에서 읽히도록 공용 토큰(muted .66 · faint .48)보다 진하게 둔다. */
 const INK = {
@@ -113,8 +124,47 @@ export default function Detail() {
 
   const reviewItems = reviews.data?.pages.flatMap((page) => page.content) ?? []
 
-  // 더 볼지는 누를 때마다 사용자가 정한다. 저절로 자라면 읽던 자리를 잃는다.
+  /* 처음에는 '더 보기' 버튼만 둔다. 상세를 보러 온 사람에게 리뷰가 먼저 자라면
+     읽던 자리를 잃는다 — 더 볼지는 사용자가 정한다. 한 번 누르면 그 뒤로는
+     끝에 닿을 때마다 이어받는다.
+     불린 대신 어느 에이전트에서 눌렀는지를 담는다 — 다른 상세로 옮기면 effect 로
+     되돌리지 않아도 저절로 버튼 상태로 돌아간다. */
+  const [autoLoadFor, setAutoLoadFor] = useState<string | null>(null)
+  const reviewAutoLoad = autoLoadFor === agentId
+
+  /* root 를 주지 않아도 된다 — 교차 계산은 조상의 클립(#detailScroll)까지 함께 본다.
+     실패한 커서로 다시 관찰하지 않는다 — 교차할 때마다 같은 요청이 반복된다.
+
+     rootMargin 은 두지 않고 센티넬도 목록이 아니라 페이지 맨 아래에 둔다. 조금이라도
+     미리 받으면 사용자가 끝에 닿기 전에 다음 장이 화면 밖에 그려져, 내려가 보면
+     처음부터 다 있었던 것처럼 보인다. 바닥에 닿은 뒤에만 받는다.
+
+     그래도 자라는 것이 보이도록 목록 끝에 빈 자리(REVIEW_LANDING)를 남긴다.
+     바닥에 닿은 순간 그 자리가 화면에 있으므로, 비어 있던 곳이 새 리뷰로 채워진다. */
+  const reviewEndRef = useRef<HTMLDivElement>(null)
+  /** 바닥에 닿아 다음 장을 기다리는 중. 아직 요청 전이다. */
+  const [reviewHold, setReviewHold] = useState(false)
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = reviews
+  useEffect(() => {
+    const node = reviewEndRef.current
+    if (!node || !reviewAutoLoad || !hasNextPage || isFetchNextPageError) return
+    let hold: ReturnType<typeof setTimeout> | undefined
+    const observer = new IntersectionObserver(([entry]) => {
+      clearTimeout(hold)
+      // 바닥을 벗어나면 기다리던 것을 취소한다 — 스쳐 지나간 것은 요청이 아니다.
+      if (!entry.isIntersecting || isFetchingNextPage) return setReviewHold(false)
+      setReviewHold(true)
+      hold = setTimeout(() => {
+        setReviewHold(false)
+        void fetchNextPage()
+      }, REVIEW_HOLD_MS)
+    })
+    observer.observe(node)
+    return () => {
+      clearTimeout(hold)
+      observer.disconnect()
+    }
+  }, [reviewAutoLoad, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   const queryClient = useQueryClient()
   const favorite = useMutation({
@@ -704,32 +754,56 @@ export default function Detail() {
             </div>
           ))}
 
-          {(hasNextPage || isFetchNextPageError) && (
-            <button
-              className="w-full cursor-pointer font-semibold disabled:cursor-default"
-              disabled={isFetchingNextPage}
-              onClick={() => void fetchNextPage()}
-              style={{
-                marginTop: '20px',
-                padding: '10px 0',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,.2)',
-                background: 'none',
-                color: isFetchNextPageError && !isFetchingNextPage ? INK.bad : INK.label,
-              }}
-              type="button"
-            >
-              {/* 진행 중이 실패보다 앞선다. 재시도에도 오류 문구가 그대로면 눌린 줄 모른다. */}
-              {isFetchingNextPage
-                ? '불러오는 중…'
-                : isFetchNextPageError
-                  ? '리뷰를 더 불러오지 못했습니다. 다시 시도'
-                  : '더 보기'}
-            </button>
-          )}
+          {(hasNextPage || isFetchNextPageError) &&
+            (reviewAutoLoad ? (
+              /* 빈 자리 한가운데에 놓는다. 위에 붙여 두면 마지막 리뷰의 꼬리처럼
+                 보여서 안내인 줄 모른다. */
+              <div
+                className="flex items-center justify-center text-[14px]"
+                style={{ marginTop: '16px', height: `${REVIEW_LANDING - 16}px`, color: INK.faint }}
+              >
+                {/* 진행 중이 실패보다 앞선다. 재시도 중에도 오류 문구가 그대로면
+                    눌린 것인지 알 수 없다 — 재시도는 백오프까지 붙어 몇 초가 걸린다.
+                    다시 실패하면 버튼이 돌아온다. */}
+                {reviewHold || isFetchingNextPage ? (
+                  '불러오는 중…'
+                ) : isFetchNextPageError ? (
+                  <button
+                    className="cursor-pointer underline"
+                    onClick={() => void fetchNextPage()}
+                    style={{ background: 'none', border: 0, padding: 0, color: INK.label }}
+                    type="button"
+                  >
+                    리뷰를 더 불러오지 못했습니다. 다시 시도
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <button
+                className="w-full cursor-pointer font-semibold disabled:cursor-default"
+                disabled={isFetchingNextPage}
+                onClick={() => {
+                  setAutoLoadFor(agentId)
+                  void fetchNextPage()
+                }}
+                style={{
+                  marginTop: '20px',
+                  padding: '10px 0',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,.2)',
+                  background: 'none',
+                  color: INK.label,
+                }}
+                type="button"
+              >
+                더 보기
+              </button>
+            ))}
         </div>
 
-        <div style={{ height: '64px', flex: 'none' }}></div>
+        {/* 페이지의 마지막 1px. 여기가 보인다는 것은 바닥에 닿았다는 뜻이다. */}
+        <div style={{ height: '63px', flex: 'none' }}></div>
+        <div ref={reviewEndRef} style={{ height: '1px', flex: 'none' }}></div>
       </div>
     </div>
   )
