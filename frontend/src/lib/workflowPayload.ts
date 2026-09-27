@@ -17,7 +17,7 @@ const DEFAULT_RESULT: { shape: ResultShape; format: ResultFormat } = {
   shape: 'DOCUMENT',
   format: 'PDF',
 }
-import type { AiModel, NodeOutput } from '@/api/nodes'
+import { serverModel, type AiModel, type NodeOutput } from '@/api/nodes'
 import { controlKindName } from '@/lib/format'
 import {
   NODE_SIZE,
@@ -94,7 +94,7 @@ export function toWorkflowGraph(
         nodeType: 'LLM',
         name: node.name,
         prompt: node.prompt ?? '',
-        ...(node.model ? { model: node.model } : {}),
+        ...(node.model ? { model: serverModel(node.model) } : {}),
         ...(node.output ? { output: node.output } : {}),
       })
       continue

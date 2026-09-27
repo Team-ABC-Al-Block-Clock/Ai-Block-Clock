@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { AiModel, NodeOutput } from '@/api/nodes'
+import type { ServerModel, NodeOutput } from '@/api/nodes'
 import type { CursorPage, CursorParams } from '@/api/page'
 
 export interface WorkflowSummary {
@@ -50,7 +50,7 @@ export interface NodePlacement {
   /** 새로 만들 노드의 프롬프트 원문. `LLM` 일 때만 */
   prompt?: string
   /** 새로 만들 노드가 쓸 모델. 비우면 서버 기본 모델 */
-  model?: AiModel
+  model?: ServerModel
   /** 새로 만들 노드의 출력 형식. 비우면 `TEXT` */
   output?: NodeOutput
   /** `sourceType` 이 CONTROL 일 때만. 조건과 함께 보내야 한다 */

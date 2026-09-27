@@ -98,6 +98,31 @@ describe('toWorkflowGraph — 분기·입출력', () => {
     expect(byKey.get(keyOf('br'))).toMatchObject({ sourceType: 'CONTROL', controlType: 'BRANCH' })
   })
 
+  it('분기 그래프의 새 노드는 Pro로 보내면서 JSON 출력과 조건을 유지한다', () => {
+    const { nodes, edges } = scene()
+    const output = { kind: 'JSON' as const, example: { level: 'high' } }
+    const graph = toWorkflowGraph(
+      nodes.map((item) =>
+        item.id === 'a'
+          ? { ...item, sourceId: '', prompt: '분류', model: 'CLAUDE_OPUS_4_8', output }
+          : item,
+      ),
+      edges,
+    )
+    const sourceKey = Object.entries(graph!.nodeIdByKey).find(([, id]) => id === 'a')![0]
+
+    expect(graph!.nodes.find((item) => item.nodeKey === sourceKey)).toMatchObject({
+      model: 'GEMINI_2_5_PRO',
+      output,
+    })
+    expect(graph!.nodes.find((item) => item.controlType === 'BRANCH')?.condition).toEqual({
+      left: `${sourceKey}.level`,
+      operator: 'EQ',
+      right: 'high',
+    })
+    expect(graph!.edges.filter((edge) => edge.when !== undefined)).toHaveLength(2)
+  })
+
   // 노드 키는 저장할 때 매겨진다. 캔버스 id 를 그대로 보내면 서버가 못 찾는다.
   it('조건의 left 를 노드 키로 옮긴다', () => {
     const { nodes, edges } = scene()
@@ -192,6 +217,18 @@ describe('toWorkflowGraph — 분기·입출력', () => {
 })
 
 describe('toWorkflowGraph', () => {
+  it('새로 만들 노드는 어떤 모델을 골라도 기본 모델로 싣는다', () => {
+    const graph = toWorkflowGraph(
+      [
+        node('a', { sourceId: '', nodeType: 'LLM', prompt: 'p', model: 'GPT_5_5' }),
+        node('b', { sourceId: '', nodeType: 'LLM', prompt: 'p', model: 'GEMINI_2_5_FLASH' }),
+      ],
+      [link('a', 'b')],
+    )
+
+    expect(graph?.nodes.map((n) => n.model)).toEqual(['GEMINI_2_5_PRO', 'GEMINI_2_5_PRO'])
+  })
+
   it('선을 따라간 순서로 키를 매긴다', () => {
     const graph = toWorkflowGraph(
       [node('a'), node('b'), node('c')],

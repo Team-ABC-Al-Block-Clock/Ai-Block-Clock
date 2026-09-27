@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
-import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode } from '@/api/nodes'
+import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode, type AiModel } from '@/api/nodes'
 import {
   replaceWorkflow,
   saveWorkflow,
@@ -83,7 +83,12 @@ function ControlChip({
 /** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
 const NAME_MAX = 40
 
-const EMPTY_DRAFT = {
+const EMPTY_DRAFT: {
+  name: string
+  prompt: string
+  model: AiModel
+  output: ReturnType<typeof toOutputDraft>
+} = {
   name: '',
   prompt: '',
   model: DEFAULT_AI_MODEL,
