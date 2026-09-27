@@ -104,14 +104,21 @@ const targetsOf = (nodes: { id: string; sourceId: string }[]) =>
 /** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
 const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
 
+const dataOf = (error: ApiError) =>
+  typeof error.data === 'object' && error.data !== null
+    ? (error.data as Record<string, unknown>)
+    : {}
+
 /** 다시 눌러도 통과하지 않는 코드는 문구를 가른다 — "잠시 후 다시" 로 뭉개면 계속 누른다. */
 function describeSaveError(error: unknown): string | null {
   if (!error) return null
   if (!(error instanceof ApiError)) return SAVE_FAILED
   if (error.code === 'WORKFLOW_016')
     return '다른 곳에서 먼저 수정되었습니다. 화면을 다시 열어 주세요'
-  if (error.code === 'WORKFLOW_006') return '노드는 20개까지 이을 수 있습니다'
-  if (error.code === 'WORKFLOW_007') return '연결이 너무 깁니다. 10단계까지 이을 수 있습니다'
+  const data = dataOf(error)
+  if (error.code === 'WORKFLOW_006') return `노드는 ${data.limit ?? 20}개까지 이을 수 있습니다`
+  if (error.code === 'WORKFLOW_007')
+    return `연결이 너무 깁니다. ${data.limit ?? 10}단계까지 이을 수 있습니다`
   if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
   // 서버가 그래프를 물리는 나머지 갈래. 빠져 있으면 고칠 곳을 모른 채 같은 저장만 되풀이한다.
   if (error.code === 'WORKFLOW_005') return '연결이 고리를 이룹니다. 돌아오는 선을 지워 주세요'
@@ -120,7 +127,11 @@ function describeSaveError(error: unknown): string | null {
   if (error.code === 'WORKFLOW_014') return '노드를 하나 이상 놓아야 저장할 수 있습니다'
   if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
   if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
-  if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
+  // COMMON_001 은 검증 실패 전체다. 이름만 따로 알린다.
+  if (error.code === 'COMMON_001')
+    return 'name' in data
+      ? '이름을 확인해 주세요'
+      : '저장할 수 없는 값이 있습니다. 노드 설정을 확인해 주세요'
   return SAVE_FAILED
 }
 
