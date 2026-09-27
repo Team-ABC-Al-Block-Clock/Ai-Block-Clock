@@ -55,7 +55,7 @@ public interface ExecutionApi {
             @ApiResponse(responseCode = "400", description = """
                     요청 본문이 올바르지 않다 (`COMMON_001`).
                     빈 파일이거나 엑셀 · CSV 가 아니다 (`EXECUTION_003`).
-                    안에 분기가 있는 에이전트를 놓아 아직 실행할 수 없다 (`EXECUTION_005`).
+                    끝이 여럿인 에이전트를 분기 조건이 가리켜 어느 단계를 읽을지 정할 수 없다 (`EXECUTION_005`).
                     `input` 이 시작 노드의 입력 항목과 맞지 않는다 (`EXECUTION_009`). `error.data.key` 에 걸린 항목이 온다""", content = @Content),
             @ApiResponse(responseCode = "402", description = """
                     ABC 잔액이 모자란다 (`PAYMENT_008`). `error.data` 에 `estimatedAmount` · `availableAmount` ·

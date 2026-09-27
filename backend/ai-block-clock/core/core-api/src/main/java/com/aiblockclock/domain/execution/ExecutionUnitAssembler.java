@@ -1,5 +1,6 @@
 package com.aiblockclock.domain.execution;
 
+import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.agent.AgentVersionId;
 import com.aiblockclock.domain.agent.AgentVersionNodeReader;
 import com.aiblockclock.domain.agent.AgentVersionReader;
@@ -8,8 +9,10 @@ import com.aiblockclock.domain.node.NodeDefinition;
 import com.aiblockclock.domain.node.NodeDefinitionId;
 import com.aiblockclock.domain.node.NodeDefinitionReader;
 import com.aiblockclock.domain.node.RefFileReader;
+import com.aiblockclock.domain.workflow.ControlNode;
 import com.aiblockclock.domain.workflow.GraphNode;
 import com.aiblockclock.domain.workflow.NodeKey;
+import com.aiblockclock.domain.workflow.WorkflowGraph;
 import com.aiblockclock.support.error.CoreException;
 import com.aiblockclock.support.error.ErrorType;
 
@@ -27,8 +30,14 @@ public class ExecutionUnitAssembler {
     private final AgentVersionReader agentVersionReader;
     private final AgentVersionNodeReader agentVersionNodeReader;
 
+    public UnitGraph assemble(WorkflowGraph graph) {
+        return new UnitGraph(graph.nodesInOrder().stream()
+                .map(placed -> new PlacedUnit(placed.key(), assemble(placed)))
+                .toList(), graph.edgesInOrder());
+    }
+
     // 캔버스에 놓인 자리는 살아 있는 노드를 따라간다. 아직 굳힌 것이 아니라 고치는 대로 바뀌는 게 맞다.
-    public ExecutionUnit assemble(GraphNode placed) {
+    private ExecutionUnit assemble(GraphNode placed) {
         return switch (placed.sourceType()) {
             case NODE -> {
                 NodeDefinitionId nodeId = NodeDefinitionId.of(placed.reference().referenceId());
@@ -39,7 +48,7 @@ public class ExecutionUnitAssembler {
                         refFileReader.read(nodeId), node.getSpec().baseCost());
             }
             case AGENT -> expand(placed);
-            case CONTROL -> new ControlUnit();
+            case CONTROL -> control(placed);
             case IO -> new IoUnit();
         };
     }
@@ -48,10 +57,11 @@ public class ExecutionUnitAssembler {
     private ExecutionUnit expand(GraphNode placed) {
         AgentVersionId versionId = AgentVersionId.of(placed.reference().versionId());
         Map<NodeKey, VersionNode> frozen = agentVersionNodeReader.read(versionId);
+        WorkflowGraph inside = agentVersionReader.readGraph(versionId);
 
-        return new AgentUnit(agentVersionReader.readGraph(versionId).nodesInOrder().stream()
-                .map(inside -> assembleInside(inside, frozen))
-                .toList());
+        return new AgentUnit(AgentId.of(placed.reference().referenceId()), new UnitGraph(inside.nodesInOrder().stream()
+                .map(node -> new PlacedUnit(node.key(), assembleInside(node, frozen)))
+                .toList(), inside.edgesInOrder()));
     }
 
     private ExecutionUnit assembleInside(GraphNode placed, Map<NodeKey, VersionNode> frozen) {
@@ -63,9 +73,13 @@ public class ExecutionUnitAssembler {
                         node.spec().model(), node.spec().output(), node.refFiles(), node.spec().baseCost());
             }
             case AGENT -> expand(placed);
-            case CONTROL -> throw new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+            case CONTROL -> control(placed);
             case IO -> new IoUnit();
         };
+    }
+
+    private static ControlUnit control(GraphNode placed) {
+        return new ControlUnit(((ControlNode) placed).condition());
     }
 
     private static VersionNode require(Map<NodeKey, VersionNode> frozen, NodeKey key) {

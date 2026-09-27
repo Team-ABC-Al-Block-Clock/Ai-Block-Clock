@@ -2,23 +2,14 @@ package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.RefFile;
-import com.aiblockclock.domain.workflow.BranchCondition;
 import com.aiblockclock.domain.workflow.ConditionOperator;
-import com.aiblockclock.domain.workflow.ControlNode;
-import com.aiblockclock.domain.workflow.GraphEdge;
-import com.aiblockclock.domain.workflow.GraphNode;
-import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.domain.workflow.Workflow;
 import com.aiblockclock.enums.node.OutputKind;
-import com.aiblockclock.enums.workflow.SourceType;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -33,89 +24,100 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
     }
 
     public static RuntimeWorkflow of(Workflow workflow, ExecutionPlan plan) {
-        List<Map<String, Object>> nodes = new ArrayList<>();
-        List<Map<String, Object>> edges = new ArrayList<>();
         Map<String, List<RefFile>> refFiles = new LinkedHashMap<>();
-        Map<NodeKey, UUID> agents = agentsBySlot(workflow);
-        Map<NodeKey, String> entries = new HashMap<>();
-        Map<NodeKey, String> exits = new HashMap<>();
-
-        for (int index = 0; index < plan.prompts().size(); index++) {
-            String stepId = stepIdOf(index);
-            PlannedPrompt prompt = plan.prompts().get(index);
-            List<RefFile> sent = sentRefFiles(prompt);
-
-            nodes.add(node(stepId, prompt, agents.get(prompt.placedKey()), sent));
-
-            if (!sent.isEmpty()) {
-                refFiles.put(stepId, sent);
-            }
-
-            String previous = exits.put(prompt.placedKey(), stepId);
-
-            if (previous == null) {
-                entries.put(prompt.placedKey(), stepId);
-            } else {
-                edges.add(edge(previous, stepId, null));
-            }
-        }
-
-        List<ControlNode> branches = workflow.getGraph().nodesInOrder().stream()
-                .filter(ControlNode.class::isInstance)
-                .map(ControlNode.class::cast)
-                .toList();
-
-        for (int index = 0; index < branches.size(); index++) {
-            String branchId = "b" + (index + 1);
-            entries.put(branches.get(index).key(), branchId);
-            exits.put(branches.get(index).key(), branchId);
-        }
-
-        branches.forEach(branch -> nodes.add(branch(exits.get(branch.key()), branch.condition(), exits)));
-
-        for (GraphEdge placed : workflow.getGraph().edgesInOrder()) {
-            String from = exits.get(placed.sourceNodeKey());
-            String to = entries.get(placed.targetNodeKey());
-
-            if (from != null && to != null) {
-                edges.add(edge(from, to, placed.when()));
-            }
-        }
 
         return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
                 "id", workflow.getId().value().toString(),
                 "name", workflow.getName(),
                 "model", plan.model().key(),
-                "nodes", nodes,
-                "edges", edges,
+                "nodes", nodesOf(plan.nodes(), refFiles),
+                "edges", edgesOf(plan.edges()),
                 "output", Map.of("title", workflow.getName()))), refFiles);
     }
 
     // 판매자 테스트 실행은 노드 하나만 돈다. 실행과 같은 모양이라 엔진은 같은 규칙으로 돌리고 원가를 잰다.
     public static RuntimeWorkflow forTest(String id, PlannedPrompt prompt) {
-        String nodeId = stepIdOf(0);
-        List<RefFile> sent = sentRefFiles(prompt);
-        Map<String, List<RefFile>> refFiles = sent.isEmpty() ? Map.of() : Map.of(nodeId, sent);
+        Map<String, List<RefFile>> refFiles = new LinkedHashMap<>();
 
         return new RuntimeWorkflow(MAPPER.writeValueAsString(Map.of(
                 "id", id,
                 "name", prompt.name(),
                 "model", prompt.model().key(),
-                "nodes", List.of(node(nodeId, prompt, null, sent)),
+                "nodes", List.of(step(prompt.stepId(), prompt, refFiles)),
                 "edges", List.of(),
                 "output", Map.of("title", prompt.name()))), refFiles);
     }
 
-    // 엔진은 이 번호로 단계마다 결과를 돌려준다. 끝난 뒤 값을 셀 때도 같은 번호로 찾는다.
-    public static String stepIdOf(int index) {
-        return "n" + (index + 1);
+    private static Map<String, Object> step(String id, PlannedPrompt prompt, Map<String, List<RefFile>> refFiles) {
+        List<RefFile> sent = sentRefFiles(prompt);
+        if (!sent.isEmpty()) {
+            refFiles.put(prompt.stepId(), sent);
+        }
+
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("id", id);
+        node.put("type", "llm");
+        node.put("name", prompt.name());
+        node.put("owner_id", Long.toString(prompt.owner().value()));
+        node.put("prompt", prompt.prompt().value());
+        node.put("output", outputOf(prompt.output()));
+        if (!sent.isEmpty()) {
+            node.put("ref_files", sent.stream().map(RefFile::filename).toList());
+        }
+
+        return node;
     }
 
-    // 캔버스에 놓인 에이전트 자리마다 그 에이전트다. 에이전트 안의 에이전트도 바깥 자리의 에이전트로 묶는다.
-    private static Map<NodeKey, UUID> agentsBySlot(Workflow workflow) {
-        return workflow.getGraph().nodesInOrder().stream()
-                .filter(placed -> placed.sourceType() == SourceType.AGENT)
-                .collect(Collectors.toMap(GraphNode::key, placed -> placed.reference().referenceId()));
+    private static Map<String, Object> branch(PlannedBranch branch) {
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("id", branch.id());
+        node.put("type", "branch");
+        node.put("condition", Map.of("left", branch.left(), "op", opOf(branch.operator()),
+                "right", branch.right()));
+
+        return node;
+    }
+
+    // 에이전트는 저장된 속 그래프를 그대로 끼워 보내고 엔진이 펼친다(계약 5.2). 펼친 단계에는 엔진이 이 agent_id 를 붙여
+    // 돌려주므로, 실패한 단계가 어느 에이전트의 것인지 이것으로 안다.
+    private static Map<String, Object> agent(PlannedAgent agent, Map<String, List<RefFile>> refFiles) {
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("id", agent.id());
+        node.put("type", "agent");
+        node.put("agent", Map.of(
+                "agent_id", agent.agent().value().toString(),
+                "nodes", nodesOf(agent.nodes(), refFiles),
+                "edges", edgesOf(agent.edges())));
+
+        return node;
+    }
+
+    private static List<Map<String, Object>> nodesOf(List<PlannedNode> planned, Map<String, List<RefFile>> refFiles) {
+        List<Map<String, Object>> nodes = new ArrayList<>();
+        for (PlannedNode node : planned) {
+            nodes.add(switch (node) {
+                case PlannedStep step -> step(step.id(), step.prompt(), refFiles);
+                case PlannedBranch branch -> branch(branch);
+                case PlannedAgent agent -> agent(agent, refFiles);
+            });
+        }
+
+        return nodes;
+    }
+
+    private static List<Map<String, Object>> edgesOf(List<PlannedEdge> planned) {
+        List<Map<String, Object>> edges = new ArrayList<>();
+        for (PlannedEdge link : planned) {
+            Map<String, Object> edge = new LinkedHashMap<>();
+            edge.put("from", link.from());
+            edge.put("to", link.to());
+            if (link.when() != null) {
+                edge.put("when", link.when());
+            }
+            edges.add(edge);
+        }
+
+        return edges;
     }
 
     // 엔진이 받지 않는 형식(계약 v2.0 전에 붙인 이미지)은 싣지 않는다. 실으면 엔진이 그 단계를 공급자 탓으로 실패시키고,
@@ -126,59 +128,10 @@ public record RuntimeWorkflow(String json, Map<String, List<RefFile>> refFiles) 
                 .toList();
     }
 
-    // agent_id 는 엔진이 단계마다 그대로 돌려준다. 실패한 단계가 어느 에이전트의 것인지 이것으로 안다.
-    private static Map<String, Object> node(String id, PlannedPrompt prompt, UUID agent, List<RefFile> refFiles) {
-        Map<String, Object> node = new LinkedHashMap<>();
-        node.put("id", id);
-        node.put("type", "llm");
-        node.put("name", prompt.name());
-        node.put("owner_id", Long.toString(prompt.owner().value()));
-
-        if (agent != null) {
-            node.put("agent_id", agent.toString());
-        }
-
-        node.put("prompt", prompt.prompt().value());
-        node.put("output", outputOf(prompt.output()));
-
-        if (!refFiles.isEmpty()) {
-            node.put("ref_files", refFiles.stream().map(RefFile::filename).toList());
-        }
-
-        return node;
-    }
-
     private static Map<String, Object> outputOf(NodeOutput output) {
         return output.kind() == OutputKind.JSON
                 ? Map.of("kind", "json", "example", MAPPER.readTree(output.example()))
                 : Map.of("kind", "text");
-    }
-
-    // 분기 조건은 캔버스 자리를 가리키고, 엔진은 단계 번호로 읽는다. 에이전트 자리는 그 에이전트의 마지막 단계다.
-    private static Map<String, Object> branch(String id, BranchCondition condition, Map<NodeKey, String> exits) {
-        String left = condition.left();
-        String path = left.substring(left.indexOf('.') + 1);
-        String source = exits.get(condition.source().orElseThrow());
-
-        Map<String, Object> node = new LinkedHashMap<>();
-        node.put("id", id);
-        node.put("type", "branch");
-        node.put("condition", Map.of("left", source + "." + path, "op", opOf(condition.operator()),
-                "right", condition.right()));
-
-        return node;
-    }
-
-    private static Map<String, Object> edge(String from, String to, Boolean when) {
-        Map<String, Object> edge = new LinkedHashMap<>();
-        edge.put("from", from);
-        edge.put("to", to);
-
-        if (when != null) {
-            edge.put("when", when);
-        }
-
-        return edge;
     }
 
     private static String opOf(ConditionOperator operator) {
