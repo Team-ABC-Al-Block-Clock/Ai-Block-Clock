@@ -13,6 +13,7 @@ import {
   chainPositions,
   clampToBounds,
   canSellWorkflow,
+  sellProblem,
   connect,
   disconnect,
   edgeGeometry,
@@ -168,6 +169,14 @@ describe('moveNodeTo', () => {
 })
 
 describe('canSellWorkflow', () => {
+  it('전부 내 노드여도 분기가 있으면 판매할 수 없다', () => {
+    const nodes = [
+      nodeAt('a', 0, 0),
+      { ...nodeAt('br', 0, 0), controlType: 'BRANCH' as const, mine: null },
+    ]
+    expect(canSellWorkflow(nodes)).toBe(false)
+    expect(sellProblem(nodes)).toMatch(/분기가 있는 워크플로우/)
+  })
   it('내 것만 있으면 팔 수 있다', () => {
     expect(canSellWorkflow([nodeAt('a', 0, 200), nodeAt('b', 400, 300)])).toBe(true)
   })

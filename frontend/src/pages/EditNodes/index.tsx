@@ -30,6 +30,7 @@ import {
   graphProblem,
   isConditionSource,
   runProblem,
+  sellProblem,
   upstreamOf,
 } from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
@@ -1111,7 +1112,7 @@ export default function EditNodes() {
           title={
             canSell
               ? '실행이 끝나면 완료 화면에서 마켓에 등록할 수 있어요'
-              : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+              : (sellProblem(nodes) ?? undefined)
           }
           style={{
             height: '28px',

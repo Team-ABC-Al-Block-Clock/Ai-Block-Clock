@@ -469,14 +469,20 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
 }
 
 /**
- * 다른 사람의 에이전트가 하나라도 섞이면 팔 수 없다. 빈 캔버스도 등록할 것이 없다.
+ * 분기를 포함한 에이전트는 실행이 지원되지 않아 판매를 막는다.
  *
- * 제어·입출력은 `mine` 이 null 이다 — 가리킬 원본이 없어 판정 대상이 아니라 막지 않는다.
+ * 소유권은 작업 노드에서 확인한다. 입출력의 `mine` 은 null 이다.
  */
-export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
-  // 제어·입출력만 놓인 구성은 팔 것이 없다. 하나는 내 것이어야 한다.
-  return nodes.some((node) => node.mine === true) && nodes.every((node) => node.mine !== false)
+export function sellProblem(nodes: Pick<CanvasNodeData, 'mine' | 'controlType'>[]): string | null {
+  if (nodes.some((node) => node.controlType))
+    return '분기가 있는 워크플로우는 현재 마켓에 등록할 수 없습니다'
+  if (nodes.some((node) => node.mine === false))
+    return '다른 사람의 노드나 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+  if (!nodes.some((node) => node.mine === true)) return '판매할 내 노드를 하나 이상 넣어 주세요'
+  return null
 }
+
+export const canSellWorkflow = (nodes: CanvasNodeData[]): boolean => sellProblem(nodes) === null
 
 /**
  * 카드에 박는 순번. 한 줄이 아니면 `null` — 그때는 번호를 감춘다.
