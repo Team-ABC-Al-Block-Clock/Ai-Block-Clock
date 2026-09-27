@@ -96,6 +96,18 @@ class PlaceableItemControllerTest {
     }
 
     @Test
+    @DisplayName("판매자가 적어 둔 입력 예시와 인사말을 함께 내린다")
+    void carriesUsageExampleAndOnboardingMessage() throws Exception {
+        registerAgent(other);
+
+        mockMvc.perform(get(PLACEABLE).param("scope", "ALL").with(as(me)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].usageExample")
+                        .value("성적표 엑셀을 올려서 학생별 리포트를 만들어 줘"))
+                .andExpect(jsonPath("$.data.content[0].onboardingMessage").value("무엇을 분석할까요?"));
+    }
+
+    @Test
     @DisplayName("내 에이전트는 등급이 높아도 원가로, 남의 에이전트는 할증을 붙인 판매가로 내린다")
     void pricesMyAgentAtBaseCost() throws Exception {
         String myAgent = registerAgent(me);
@@ -173,7 +185,9 @@ class PlaceableItemControllerTest {
                                 {
                                   "workflowId": "%s", "revision": 1,
                                   "name": "성적 분석 에이전트", "summary": "성적을 분석한다",
-                                  "description": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다"
+                                  "description": "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다",
+                                  "usageExample": "성적표 엑셀을 올려서 학생별 리포트를 만들어 줘",
+                                  "onboardingMessage": "무엇을 분석할까요?"
                                 }
                                 """.formatted(workflowId)))
                 .andExpect(status().isCreated())

@@ -102,7 +102,7 @@ class AgentIndexServiceTest {
     // 재산정 배치가 등급을 바꾼 뒤 다시 넣으면, 색인도 바뀐 등급과 재료에서 계산한 성공률(120 / 125)을 받는다.
     @Test
     void 전체_다시_넣기는_가격_등급과_재료에서_계산한_성공률을_실어_보낸다() {
-        PublicAgent seeded = new PublicAgent(AgentId.newId(), OWNER, "성적 분석 에이전트", "한 줄 소개",
+        PublicAgent seeded = new PublicAgent(AgentId.newId(), OWNER, "성적 분석 에이전트", "한 줄 소개", null, null,
                 Tier.TIER_2, AbcAmount.of(new BigDecimal("6")));
         PublicAgent fresh = publicAgent("가정통신문 작성기");
         given(agentReader.readPublic()).willReturn(List.of(seeded, fresh));
@@ -161,7 +161,7 @@ class AgentIndexServiceTest {
     }
 
     private static PublicAgent publicAgent(String name) {
-        return new PublicAgent(AgentId.newId(), OWNER, name, "한 줄 소개",
+        return new PublicAgent(AgentId.newId(), OWNER, name, "한 줄 소개", null, null,
                 Tier.initial(), AbcAmount.of(new BigDecimal("6")));
     }
 

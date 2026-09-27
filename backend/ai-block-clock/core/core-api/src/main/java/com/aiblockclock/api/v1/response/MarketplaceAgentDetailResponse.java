@@ -24,7 +24,8 @@ public record MarketplaceAgentDetailResponse(
         @Schema(description = "상세 설명", example = "학생별 점수 표를 받아 이번 기간과 지난 기간을 비교한다")
         String description,
 
-        @Schema(description = "실행 예시. 적지 않았으면 null", nullable = true)
+        @Schema(description = "입력 예시. 구매자의 프롬프트 입력창에 예시로 띄운다. 적지 않았으면 null",
+                example = "성적표 엑셀을 올려서 학생별 리포트를 만들어 줘", nullable = true)
         String usageExample,
 
         @Schema(description = "아이콘 주소. 올린 적이 없으면 null", nullable = true)
