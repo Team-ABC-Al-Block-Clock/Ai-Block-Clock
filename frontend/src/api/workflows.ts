@@ -37,12 +37,16 @@ export const getMyWorkflows = (params: WorkflowQuery = {}) =>
  * 를 실어 보내면 저장할 때 서버가 만든다. 에이전트와 이미 만들어진 노드는 `sourceId` 로
  * 가리킨다.
  */
+export type InputSource = 'USER' | 'PREV' | 'PREV_AND_USER'
+
 export interface NodePlacement {
   /** 이 워크플로우 안에서만 통하는 키. 최대 64자 */
   nodeKey: string
   sourceType: PlacedSourceType
   /** `sourceType` 이 NODE 일 때만 보낸다. `sourceId` 와 함께 보내면 종류를 대조한다 */
   nodeType?: NodeType
+  /** 비우면 서버가 PREV 로 채운다 */
+  inputSource?: InputSource
   /** 원본 노드 또는 에이전트의 id. 저장하며 만들 `LLM` 과 제어·입출력 노드는 비운다 */
   sourceId?: string
   /** 새로 만들 노드의 이름. `LLM` 일 때만 */
@@ -112,7 +116,7 @@ export interface PlacedNode {
   /** 제어·입출력 노드면 null */
   sourceId: string | null
   versionId: string | null
-  inputSource: 'USER' | 'PREV' | 'PREV_AND_USER'
+  inputSource: InputSource
   /** 원본을 찾지 못하면 null */
   name: string | null
   /** 판매 등록을 막지 않는가. 서버가 판정한다. 제어·입출력은 null */

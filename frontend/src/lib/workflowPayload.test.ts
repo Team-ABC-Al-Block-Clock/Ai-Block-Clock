@@ -567,6 +567,15 @@ describe('toCanvasWorkflow', () => {
     expect(graph?.edges).toHaveLength(2)
   })
 
+  it('저장된 입력 출처를 다시 저장할 때 그대로 싣는다', () => {
+    const saved = detail(2)
+    saved.nodes[1] = { ...saved.nodes[1], inputSource: 'PREV_AND_USER' }
+    const canvas = toCanvasWorkflow(saved, known)
+    const graph = toWorkflowGraph(canvas.nodes, canvas.edges)
+
+    expect(graph?.nodes.map((n) => n.inputSource)).toEqual(['PREV', 'PREV_AND_USER'])
+  })
+
   it('노드 하나면 선이 없다', () => {
     const canvas = toCanvasWorkflow(detail(1), known)
 
