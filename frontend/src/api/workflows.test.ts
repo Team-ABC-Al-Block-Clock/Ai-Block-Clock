@@ -211,9 +211,12 @@ describe('getNodePalette', () => {
       'mine',
       'name',
       'nodeType',
+      // 카드가 아니라 실행 대기 화면이 쓴다 — 첫 에이전트의 인사말과 입력 예시다.
+      'onboardingMessage',
       'owner',
       'price',
       'summary',
+      'usageExample',
     ])
   })
 

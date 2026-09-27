@@ -290,7 +290,7 @@ export default function Detail() {
     `★ ${ratingLabel(agent.averageRating, agent.reviewCount)}`,
     `즐겨찾기 ${compactCount(agent.favoriteCount)}`,
   ]
-  // 실행 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
+  // 입력 예시가 없으면 그 자리가 비므로 증명 섹션을 그만큼 끌어올린다.
   const proofTop = agent.usageExample ? 1440 : 1268
 
   /* 리뷰는 위쪽 좌표를 건드리지 않고 바닥을 늘릴 수 있도록 페이지의 마지막 블록으로 한다.
@@ -830,7 +830,7 @@ export default function Detail() {
                   animation: 'rise .7s .5s cubic-bezier(.2,.8,.25,1) both',
                 }}
               >
-                실행 예시
+                입력 예시
               </div>
               <div
                 className="absolute box-border"

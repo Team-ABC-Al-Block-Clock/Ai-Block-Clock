@@ -31,8 +31,27 @@ import SidePanel, { CARD_GUTTER, PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/comp
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
 
-/** 판매자가 비워 두었거나, 마켓 에이전트가 아니라 직접 만든 워크플로우를 돌릴 때 쓴다. */
+/**
+ * 판매자가 비워 두었거나, 놓인 에이전트가 없어 빌려 올 인사말이 없을 때 쓴다.
+ * 서버 상한은 20자라 한 줄에 들어간다.
+ */
 const DEFAULT_ONBOARDING_MESSAGE = '무엇을 도와드릴까요?'
+
+/**
+ * 입력 예시도 같은 규칙으로 떨어진다. 이 화면이 받는 것은 프롬프트와 엑셀·CSV 한 장뿐이라
+ * (`RUN_FILE_LIMITS`), 폴더나 메일처럼 우리가 닿지 못하는 것을 시키는 예시를 두지 않는다.
+ */
+const DEFAULT_PROMPT_EXAMPLE = '예: 올린 성적표로 반별 평균을 내고 가정통신문을 써 줘'
+
+/**
+ * placeholder 자리에 담기는 글자 수. 364×104px 에 16.5px 글꼴이라 세 줄 남짓이다.
+ * placeholder 는 `text-overflow` 가 듣지 않아 넘치면 그냥 잘린다 — 여기서 먼저 줄인다.
+ */
+const PROMPT_EXAMPLE_MAX = 60
+
+/** 넘치면 끝을 줄임표로 바꾼다. 자른 티를 내야 잘린 문장으로 읽히지 않는다. */
+const clamp = (text: string, max: number) =>
+  text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
 /** 서버가 받는 코멘트 길이. 넘겨 보내면 `COMMON_001` 이라 입력칸에서 먼저 막는다. */
 const COMMENT_MAX = 500
@@ -96,8 +115,24 @@ export default function RunWaiting() {
   const geometry = useMemo(() => edgeGeometry(nodes, edgeList), [nodes, edgeList])
   const chainAt = useMemo(() => chainPositions(nodes, edgeList), [nodes, edgeList])
   const view = useMemo(() => fitVerticalViewport(nodesBounds(nodes), PANE_HEIGHT), [nodes])
-  // 에이전트 조회가 붙으면 여기로 들어온다. 최대 200자라 넘치면 줄바꿈된다.
-  const onboardingMessage = ''
+
+  /**
+   * 맨 앞 에이전트. 판매자가 적어 둔 인사말과 입력 예시를 이 화면이 빌려 쓴다.
+   *
+   * 차례는 `chainAt` 을 따르되, 갈래가 있으면 그것이 `null` 이라 서버가 준 배열 순서로
+   * 물러선다 — 선을 따라간 순서로 오므로 그때도 앞쪽이 앞이다.
+   */
+  const leadAgent = useMemo(() => {
+    const agents = nodes.filter((node) => node.sourceType === 'AGENT')
+    if (!chainAt) return agents[0]
+    return agents
+      .slice()
+      .sort((a, b) => (chainAt.get(a.id) ?? Infinity) - (chainAt.get(b.id) ?? Infinity))[0]
+  }, [nodes, chainAt])
+
+  const onboardingMessage = leadAgent?.onboardingMessage ?? ''
+  /** 서버가 500자까지 받는 값이라 placeholder 자리에 넘친다. 세 줄에 담기는 만큼만 쓴다. */
+  const promptExample = clamp(leadAgent?.usageExample ?? '', PROMPT_EXAMPLE_MAX)
   /**
    * 입력칸을 React 가 들고 있는다. DOM 리스너로 붙이면 안내를 거쳐 입력칸이 사라졌다 돌아올 때
    * 리스너도 값도 어긋난다 — 빈 칸인데 실행이 켜져 있는 상태가 된다.
@@ -360,7 +395,7 @@ export default function RunWaiting() {
             value={prompt}
             onChange={(ev) => setPrompt(ev.target.value)}
             maxLength={COMMENT_MAX}
-            placeholder="예: 다운로드 폴더의 PDF를 주제별로 분류해줘"
+            placeholder={promptExample || DEFAULT_PROMPT_EXAMPLE}
             style={{
               left: '18px',
               top: '16px',

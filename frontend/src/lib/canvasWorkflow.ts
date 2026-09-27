@@ -89,6 +89,9 @@ export interface CanvasNodeData {
   executionCount?: number | null
   /** 에이전트를 등록한 사람. 모르면 비운다 */
   owner?: string | null
+  /** 판매자가 적은 인사말과 입력 예시. 실행 대기 화면이 첫 에이전트의 것을 쓴다 */
+  onboardingMessage?: string | null
+  usageExample?: string | null
   /** 팔레트 항목의 `price`. 팔레트에서 못 찾은 노드는 null 이다 */
   price: string | null
   /** 팔레트 항목의 `summary`. 에이전트는 내부 구성 대신 이것을 보여준다 */
