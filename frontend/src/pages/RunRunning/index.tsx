@@ -473,8 +473,9 @@ export default function RunRunning() {
     ? ''
     : progress
       ? `${progress.done} / ${progress.total} 단계`
-      : defs.length
-        ? `${finished ? defs.length : active + 1} / ${defs.length} 단계`
+      : runnable.length
+        ? // 서버처럼 작업 단계만 세고, 진행을 받기 전에는 끝난 단계가 없다.
+          `0 / ${runnable.length} 단계`
         : ''
 
   useEffect(() => () => clearTimeout(copyTimer.current), [])
