@@ -357,6 +357,8 @@ export default function RunRunning() {
   }
 
   const downloadLabel = downloading ? '받는 중…' : '결과 다운로드 (PDF)'
+  /** PDF 옆 JSON 버튼 폭. */
+  const JSON_BUTTON_WIDTH = 104
 
   const copyLabel = copied ? '복사됨' : '복사'
   const copyBg = copied ? 'rgba(154,208,180,.26)' : 'rgba(255,255,255,.1)'
@@ -696,7 +698,7 @@ export default function RunRunning() {
                   color: 'rgba(255,236,246,.76)',
                 }}
               >
-                결과를 텍스트 파일로 저장하세요.
+                결과를 PDF 나 JSON 파일로 받을 수 있습니다.
               </div>
             </div>
 
@@ -707,7 +709,7 @@ export default function RunRunning() {
               style={{
                 left: `${PANEL_INSET}px`,
                 top: '508px',
-                width: `${PANEL_CONTENT_WIDTH}px`,
+                width: `${PANEL_CONTENT_WIDTH - JSON_BUTTON_WIDTH - 8}px`,
                 height: '56px',
                 borderRadius: '12px',
                 background: 'var(--color-accent)',
@@ -736,6 +738,26 @@ export default function RunRunning() {
               </div>
             </button>
 
+            <button
+              type="button"
+              onClick={() => handleDownload('JSON')}
+              disabled={!executionId || downloading}
+              title="엔진이 낸 결과 JSON 을 그대로 받습니다"
+              style={{
+                left: `${PANEL_INSET + PANEL_CONTENT_WIDTH - JSON_BUTTON_WIDTH}px`,
+                top: '508px',
+                width: `${JSON_BUTTON_WIDTH}px`,
+                height: '56px',
+                borderRadius: '12px',
+                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.18)',
+                animation: 'uiIn .6s .08s cubic-bezier(.2,.8,.25,1) both',
+                opacity: downloading ? 0.7 : 1,
+              }}
+              className="bg-surface-card absolute flex cursor-pointer items-center justify-center border-0 font-[inherit] text-[16px] font-bold text-white hover:bg-[rgba(255,255,255,.16)] disabled:cursor-default"
+            >
+              JSON
+            </button>
+
             {downloadProblem && (
               <div
                 role="alert"
@@ -748,18 +770,7 @@ export default function RunRunning() {
                 }}
               >
                 {downloadProblem === 'PDF_MISSING' ? (
-                  <>
-                    PDF 를 만들지 못했습니다.{' '}
-                    <button
-                      type="button"
-                      onClick={() => handleDownload('JSON')}
-                      disabled={downloading}
-                      className="cursor-pointer font-bold underline disabled:cursor-default"
-                      style={{ color: 'rgba(255,236,246,.92)' }}
-                    >
-                      결과 JSON 으로 받기
-                    </button>
-                  </>
+                  <>PDF 를 만들지 못했습니다. 옆의 JSON 으로 받아 주세요</>
                 ) : (
                   '결과를 받지 못했습니다. 잠시 후 다시 눌러 주세요'
                 )}
