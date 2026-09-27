@@ -1,9 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AGENT_LIMITS, createAgent } from '@/api/agents'
 import { ApiError } from '@/api/errors'
+import { getWorkflow } from '@/api/workflows'
+import { sellProblem } from '@/lib/canvasWorkflow'
 import { describeImageProblem } from '@/lib/imageFile'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
@@ -221,6 +223,18 @@ export default function RegisterForm() {
   const [searchParams] = useSearchParams()
   const workflowId = searchParams.get('workflowId') ?? ''
   const revision = Number(searchParams.get('revision') ?? 0)
+  const workflow = useQuery({
+    queryKey: queryKeys.workflows.detail(workflowId),
+    queryFn: () => getWorkflow(workflowId),
+    enabled: !!workflowId,
+  })
+  const registrationProblem = !workflowId
+    ? '등록할 워크플로우를 선택해 주세요'
+    : workflow.isError
+      ? '워크플로우를 확인하지 못했습니다. 다시 열어 주세요'
+      : !workflow.data
+        ? '워크플로우를 확인하고 있습니다'
+        : sellProblem(workflow.data.nodes)
   /**
    * 취소하고 돌아갈 자리. 실행 결과에서 들어왔으면 그 실행으로 되돌린다 — 워크플로우를 잃으면
    * 빈 캔버스가 뜬다. 접수 번호 없이 들어오는 길은 내 에이전트 목록뿐이라 그리로 보낸다.
@@ -234,13 +248,13 @@ export default function RegisterForm() {
   const [asking, setAsking] = useState<{ name: string } | null>(null)
 
   const askSubmit = () => {
-    if (register.isPending) return
+    if (register.isPending || registrationProblem) return
     setAsking({ name: read(FIELD.name) })
   }
 
   const submit = () => {
     setAsking(null)
-    if (register.isPending) return
+    if (register.isPending || registrationProblem) return
     register.mutate({
       workflowId,
       revision,
@@ -252,7 +266,7 @@ export default function RegisterForm() {
     })
   }
 
-  const errorMessage = describeRegisterError(register.error)
+  const errorMessage = registrationProblem ?? describeRegisterError(register.error)
 
   const [inShots, setInShots] = useState<Picked[]>([])
   const [outShots, setOutShots] = useState<Picked[]>([])
@@ -713,6 +727,7 @@ export default function RegisterForm() {
           <button
             type="button"
             onClick={askSubmit}
+            disabled={register.isPending || !!registrationProblem}
             style={{
               left: '1008px',
               top: '1628px',
@@ -724,7 +739,7 @@ export default function RegisterForm() {
               color: 'var(--color-accent-ink)',
               transition: 'transform .18s',
             }}
-            className="absolute flex cursor-pointer items-center justify-center text-[16.5px] font-bold tracking-[-.005em] hover:-translate-y-[2px]"
+            className="absolute flex cursor-pointer items-center justify-center text-[16.5px] font-bold tracking-[-.005em] hover:-translate-y-[2px] disabled:cursor-default disabled:opacity-45"
           >
             {register.isPending ? '등록 중…' : '등록 완료'}
           </button>

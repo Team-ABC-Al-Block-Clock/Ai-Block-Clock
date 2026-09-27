@@ -4,8 +4,10 @@ import { API_BASE_URL } from '@/api/client'
 import {
   NODE_NAME_MAX,
   REF_FILE_LIMITS,
+  TEXT_OUTPUT,
   type AiModel,
   type NodeDetail,
+  type NodeOutput,
   type NodeSaveBody,
   type RefFile,
 } from '@/api/nodes'
@@ -62,6 +64,7 @@ export function createLlmNode(placement: {
   name?: string
   prompt?: string
   model?: AiModel
+  output?: NodeOutput
 }): string {
   const all = readCreated()
   const node: NodeDetail = {
@@ -70,6 +73,7 @@ export function createLlmNode(placement: {
     name: placement.name?.trim() || '이름 없는 노드',
     prompt: placement.prompt?.trim() ?? '',
     model: placement.model ?? DEFAULT_MODEL,
+    output: placement.output ?? TEXT_OUTPUT,
     baseCost: String(Math.max(1, Math.ceil((placement.prompt?.length ?? 0) / 40))),
     currency: 'ABC',
     refFiles: [],
@@ -118,6 +122,8 @@ export const nodeHandlers = [
       name: body.name.trim(),
       prompt: body.prompt.trim(),
       model: body.model ?? DEFAULT_MODEL,
+      // 서버처럼 빠지면 글로 되돌린다.
+      output: body.output ?? TEXT_OUTPUT,
       // 원가는 프롬프트와 모델로 다시 매겨진다.
       baseCost: String(Math.max(1, Math.ceil(body.prompt.trim().length / 40))),
     }

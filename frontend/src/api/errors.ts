@@ -95,7 +95,11 @@ export const NODE_ERROR = {
 } as const
 
 export const EXECUTION_ERROR = {
+  /** 아직 끝나지 않은 실행 — 409. 없는 실행(404)과 코드가 같아 상태로 가른다 */
+  RESULT_NOT_READY: 'EXECUTION_001',
   RESULT_NOT_FOUND: 'EXECUTION_007',
+  /** 실패로 끝난 실행이라 결과가 없음 — 404 */
+  RESULT_UNAVAILABLE: 'EXECUTION_008',
 } as const
 
 /**
