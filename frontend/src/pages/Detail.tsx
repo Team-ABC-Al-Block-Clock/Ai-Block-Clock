@@ -911,7 +911,9 @@ export default function Detail() {
                     [
                       [
                         '원작자',
-                        `${proof.owner.nickname}  ${shortAddress(proof.owner.walletAddress)}`,
+                        proof.owner.nickname
+                          ? `${proof.owner.nickname}  ${shortAddress(proof.owner.walletAddress)}`
+                          : shortAddress(proof.owner.walletAddress),
                       ],
                       // 네트워크 이름은 손으로 적지 않는다 — chainId 로 찾는다.
                       [
