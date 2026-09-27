@@ -18,6 +18,7 @@ import {
   compactCount,
   dateTimeLabel,
   maskName,
+  mismatchReasonLabel,
   priceLabel,
   ratingLabel,
   runLabel,
@@ -82,6 +83,9 @@ function proofBadgeOf(proof: AgentProvenance) {
 }
 
 type ShotTab = AgentImage['type']
+
+/** 증명 카드의 대조 한 줄. */
+type ProofRow = [label: string, matched: boolean, value: string]
 
 export default function Detail() {
   const { agentId } = useParams<{ agentId: string }>()
@@ -306,7 +310,29 @@ export default function Detail() {
   const proofBadge = proof && proofBadgeOf(proof)
   // 대조해 보라고 두는 값이라 주소는 줄이지 않는다.
   const onChainOwner = proof?.verification.onChainOwnerAddress ?? ''
-  const onChainHash = proof ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…` : ''
+  const onChainHash = proof?.verification.onChainMetadataHash
+    ? `${proof.verification.onChainMetadataHash.slice(0, 18)}…`
+    : ''
+  const proofPending = proof?.blockchain.transactionStatus === 'PENDING'
+  const proofReason = proof?.verification.mismatchReason ?? null
+  // 체인에 없으면 대조할 값이 비어 있다. 빈칸 대신 이유를 적는다.
+  const onChainMissing = proofReason === 'NOT_ON_CHAIN' ? '체인 기록 없음' : ''
+  // 확정 전과 체인 기록 없음은 대조할 상대가 없다. 불일치로 적지 않는다.
+  const noCompare = proofPending ? '대조 대기' : onChainMissing ? '대조 불가' : ''
+  const proofRows: ProofRow[] = proof
+    ? [
+        ['원작자 주소', proof.verification.ownerMatched, onChainOwner || onChainMissing],
+        ['메타데이터 해시', proof.verification.metadataMatched, onChainHash || onChainMissing],
+        // 두 값은 맞는데 서버에 적어 둔 기록이 체인과 다르다. 어긋난 줄을 따로 보여 준다.
+        // 이유는 배지 옆 줄이 이미 말하므로 값 칸은 비운다 — 대조할 단일 값도 없다.
+        ...(proofReason === 'RECORD_MISMATCH' ? [['서버 기록', false, ''] as ProofRow] : []),
+      ]
+    : []
+  // 확정 대기는 배지가 이미 말한다.
+  const mismatchText =
+    proof && !proof.verification.verified && !proofPending
+      ? mismatchReasonLabel(proof.verification.mismatchReason)
+      : null
 
   const thumbs = shots.map((img, i) => ({
     imageId: img.imageId,
@@ -401,6 +427,14 @@ export default function Detail() {
                 }}
               >
                 {proofBadge.text}
+              </div>
+            )}
+            {mismatchText && (
+              <div
+                className="flex-none text-[12.5px] tracking-[-.01em]"
+                style={{ color: 'rgba(255,196,214,.9)' }}
+              >
+                {mismatchText}
               </div>
             )}
           </div>
@@ -884,7 +918,12 @@ export default function Detail() {
                         '네트워크',
                         `${chainNameOf(proof.blockchain.chainId)} · ${proof.blockchain.chainId}`,
                       ],
-                      ['트랜잭션', shortAddress(proof.blockchain.transactionHash)],
+                      [
+                        '트랜잭션',
+                        proof.blockchain.transactionHash
+                          ? shortAddress(proof.blockchain.transactionHash)
+                          : '—',
+                      ],
                       ['블록', blockLabel(proof.blockchain.blockNumber)],
                       ['등록 시각', dateTimeLabel(proof.blockchain.registeredAt)],
                     ] as const
@@ -899,12 +938,7 @@ export default function Detail() {
                 </div>
 
                 <div style={{ marginTop: '18px' }}>
-                  {(
-                    [
-                      ['원작자 주소', proof.verification.ownerMatched, onChainOwner],
-                      ['메타데이터 해시', proof.verification.metadataMatched, onChainHash],
-                    ] as const
-                  ).map(([label, matched, value], i) => (
+                  {proofRows.map(([label, matched, value], i) => (
                     <div
                       className="flex items-center"
                       key={label}
@@ -912,26 +946,42 @@ export default function Detail() {
                     >
                       <span
                         style={{
-                          color: matched ? 'var(--color-accent-bright)' : 'rgba(255,196,214,.9)',
+                          color: noCompare
+                            ? 'var(--color-muted)'
+                            : matched
+                              ? 'var(--color-accent-bright)'
+                              : 'rgba(255,196,214,.9)',
                         }}
                       >
-                        {matched ? `✓ ${label} 일치` : `✗ ${label} 불일치`}
+                        {noCompare
+                          ? `${label} ${noCompare}`
+                          : matched
+                            ? `✓ ${label} 일치`
+                            : `✗ ${label} 불일치`}
                       </span>
                       <span className="text-faint text-[12.5px]">{value}</span>
                     </div>
                   ))}
                 </div>
 
-                {/* 외부 주소라 paths 를 거치지 않는다. */}
-                <a
-                  className="text-accent-bright inline-block"
-                  href={proof.blockchain.explorerUrl}
-                  rel="noreferrer"
-                  style={{ marginTop: '18px' }}
-                  target="_blank"
-                >
-                  Polygonscan에서 보기 →
-                </a>
+                {proof.verification.verifiedAt && (
+                  <div className="text-faint text-[12.5px]" style={{ marginTop: '10px' }}>
+                    마지막 검증 {dateTimeLabel(proof.verification.verifiedAt)}
+                  </div>
+                )}
+
+                {/* 외부 주소라 paths 를 거치지 않는다. SSAFY 체인은 탐색기가 없어 기록 조회 주소다. */}
+                {proof.blockchain.explorerUrl && (
+                  <a
+                    className="text-accent-bright inline-block"
+                    href={proof.blockchain.explorerUrl}
+                    rel="noreferrer"
+                    style={{ marginTop: '18px' }}
+                    target="_blank"
+                  >
+                    체인 기록 보기 →
+                  </a>
+                )}
 
                 <div className="text-faint text-[12.5px]" style={{ marginTop: '16px' }}>
                   노드 구성·연결 관계·프롬프트는 블록체인에 기록하지 않습니다. 소유권과 해시만
