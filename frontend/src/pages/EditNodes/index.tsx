@@ -415,7 +415,8 @@ export default function EditNodes() {
       mine: null,
       ...(kind === 'BRANCH' ? { controlType: 'BRANCH' as const } : { ioType: kind }),
     })
-    closeAddPanel()
+    // 패널만 닫는다. 적던 노드 초안과 붙인 자료는 × 로 닫을 때처럼 남긴다.
+    handleTogglePanel()
   }
 
   /** 시작·종료는 저마다 하나뿐이다. 둘을 놓으면 서버가 `WORKFLOW_013` 으로 물린다. */
