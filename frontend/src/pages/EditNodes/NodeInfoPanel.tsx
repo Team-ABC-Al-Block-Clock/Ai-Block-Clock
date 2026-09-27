@@ -14,7 +14,12 @@ import {
   type OutputField,
 } from '@/lib/nodeOutput'
 import ModelSelect from '@/components/ModelSelect'
-import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
+import {
+  OutputExampleBox,
+  OutputFieldsBox,
+  OutputKindToggle,
+  OutputModeLink,
+} from '@/components/OutputField'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
@@ -500,15 +505,37 @@ function NodeForm({
 
       {json && (
         <>
-          <FieldLabel top={`${exampleY - 22}px`}>출력 예시</FieldLabel>
-          <OutputExampleBox
-            value={outputDraft.text}
-            onChange={(text) => setOutputDraft((it) => ({ ...it, text }))}
-            invalid={!!outputDraft.text.trim() && !output}
-            height={EXAMPLE_HEIGHT}
-            fontSize="14px"
-            style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
+          <FieldLabel top={`${exampleY - 22}px`}>
+            {outputDraft.form ? '출력 필드' : '출력 예시'}
+          </FieldLabel>
+          <OutputModeLink
+            draft={outputDraft}
+            onChange={setOutputDraft}
+            style={{
+              position: 'absolute',
+              right: `${PANEL_INSET}px`,
+              top: `${exampleY - 21}px`,
+              fontSize: '13px',
+            }}
           />
+          {outputDraft.form ? (
+            <OutputFieldsBox
+              fields={outputDraft.fields}
+              onChange={(fields) => setOutputDraft((it) => ({ ...it, fields }))}
+              height={EXAMPLE_HEIGHT}
+              dense
+              style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
+            />
+          ) : (
+            <OutputExampleBox
+              value={outputDraft.text}
+              onChange={(text) => setOutputDraft((it) => ({ ...it, text }))}
+              invalid={!!outputDraft.text.trim() && !output}
+              height={EXAMPLE_HEIGHT}
+              fontSize="14px"
+              style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
+            />
+          )}
         </>
       )}
 

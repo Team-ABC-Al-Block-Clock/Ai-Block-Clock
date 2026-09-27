@@ -17,7 +17,12 @@ import ControlNode from '@/components/ControlNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
 import ModelSelect from '@/components/ModelSelect'
-import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
+import {
+  OutputExampleBox,
+  OutputFieldsBox,
+  OutputKindToggle,
+  OutputModeLink,
+} from '@/components/OutputField'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
@@ -866,14 +871,39 @@ export default function EditNodes() {
                 style={{ height: '44px', fontSize: '16px', marginBottom: '14px' }}
               />
               {draft.output.kind === 'JSON' && (
-                <OutputExampleBox
-                  value={draft.output.text}
-                  onChange={(text) => setDraft((it) => ({ ...it, output: { ...it.output, text } }))}
-                  invalid={!!draft.output.text.trim() && !draftOutput}
-                  height={130}
-                  fontSize="14.5px"
-                  style={{ marginBottom: '14px' }}
-                />
+                <>
+                  <div
+                    className="flex items-baseline justify-between text-[17px]"
+                    style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
+                  >
+                    {draft.output.form ? '출력 필드' : '출력 예시'}
+                    <OutputModeLink
+                      draft={draft.output}
+                      onChange={(output) => setDraft((it) => ({ ...it, output }))}
+                      style={{ fontSize: '14px' }}
+                    />
+                  </div>
+                  {draft.output.form ? (
+                    <OutputFieldsBox
+                      fields={draft.output.fields}
+                      onChange={(fields) =>
+                        setDraft((it) => ({ ...it, output: { ...it.output, fields } }))
+                      }
+                      style={{ marginBottom: '14px' }}
+                    />
+                  ) : (
+                    <OutputExampleBox
+                      value={draft.output.text}
+                      onChange={(text) =>
+                        setDraft((it) => ({ ...it, output: { ...it.output, text } }))
+                      }
+                      invalid={!!draft.output.text.trim() && !draftOutput}
+                      height={130}
+                      fontSize="14.5px"
+                      style={{ marginBottom: '14px' }}
+                    />
+                  )}
+                </>
               )}
 
               <div

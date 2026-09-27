@@ -1,26 +1,45 @@
 import { describe, expect, it } from 'vitest'
 
+import type { OutputKind } from '@/api/nodes'
+
 import {
+  blankField,
   EXAMPLE_INVALID,
+  fieldIssues,
   fieldKind,
+  fieldsExample,
+  fieldsFrom,
   outputDraftProblem,
   outputExampleProblem,
   readOutputDraft,
   sameOutput,
   scalarFields,
+  switchOutputMode,
   toOutputDraft,
+  type FieldDraft,
 } from './nodeOutput'
+
+const raw = (kind: OutputKind, text: string) => ({ kind, form: false, fields: [], text })
+
+const field = (name: string, kind: FieldDraft['kind'], value = ''): FieldDraft => ({
+  ...blankField(),
+  name,
+  kind,
+  value,
+})
+
+const form = (...fields: FieldDraft[]) => ({ kind: 'JSON' as const, form: true, fields, text: '' })
 
 describe('readOutputDraft', () => {
   it('글이면 예시를 버린다', () => {
-    expect(readOutputDraft({ kind: 'TEXT', text: '{"a":1}' })).toEqual({
+    expect(readOutputDraft(raw('TEXT', '{"a":1}'))).toEqual({
       kind: 'TEXT',
       example: null,
     })
   })
 
   it('JSON 객체면 그대로 싣는다', () => {
-    expect(readOutputDraft({ kind: 'JSON', text: '{"level":"high"}' })).toEqual({
+    expect(readOutputDraft(raw('JSON', '{"level":"high"}'))).toEqual({
       kind: 'JSON',
       example: { level: 'high' },
     })
@@ -28,13 +47,13 @@ describe('readOutputDraft', () => {
 
   // 서버가 `isExampleMatchingKind` 로 물리는 것들이다.
   it.each(['', '{', '[]', '{}', '"high"', '3'])('객체가 아니거나 비었으면 null — %s', (text) => {
-    expect(readOutputDraft({ kind: 'JSON', text })).toBeNull()
+    expect(readOutputDraft(raw('JSON', text))).toBeNull()
   })
 
   it.each(['{"meta":{}}', '{"meta":{"detail":{}}}', '{"items":[{"id":1},{}]}'])(
     '하위 객체와 배열 안의 빈 객체도 거른다 — %s',
     (text) => {
-      expect(readOutputDraft({ kind: 'JSON', text })).toBeNull()
+      expect(readOutputDraft(raw('JSON', text))).toBeNull()
     },
   )
 
@@ -60,14 +79,14 @@ describe('readOutputDraft', () => {
   })
 
   it('폼 문구는 무엇이 틀렸는지 말한다', () => {
-    expect(outputDraftProblem({ kind: 'JSON', text: '{' })).toBe(EXAMPLE_INVALID)
-    expect(outputDraftProblem({ kind: 'JSON', text: '{"meta":{}}' })).toMatch(/빈 객체/)
-    expect(outputDraftProblem({ kind: 'TEXT', text: '{' })).toBeNull()
+    expect(outputDraftProblem(raw('JSON', '{'))).toBe(EXAMPLE_INVALID)
+    expect(outputDraftProblem(raw('JSON', '{"meta":{}}'))).toMatch(/빈 객체/)
+    expect(outputDraftProblem(raw('TEXT', '{'))).toBeNull()
   })
 
   it('값이 있는 하위 객체와 null 은 보존한다', () => {
     const example = { meta: { name: null }, items: [{ id: 1 }], tags: [] }
-    expect(readOutputDraft({ kind: 'JSON', text: JSON.stringify(example) })).toEqual({
+    expect(readOutputDraft(raw('JSON', JSON.stringify(example)))).toEqual({
       kind: 'JSON',
       example,
     })
@@ -75,13 +94,120 @@ describe('readOutputDraft', () => {
 })
 
 describe('toOutputDraft', () => {
-  it('비어 있으면 글', () => {
-    expect(toOutputDraft(null)).toEqual({ kind: 'TEXT', text: '' })
+  it('비어 있으면 글, JSON 을 고르면 빈 줄 하나짜리 폼', () => {
+    const draft = toOutputDraft(null)
+    expect(draft).toMatchObject({ kind: 'TEXT', form: true, text: '' })
+    expect(draft.fields).toHaveLength(1)
+    expect(draft.fields[0]).toMatchObject({ name: '', kind: 'string', value: '' })
   })
 
-  it('예시를 되읽어도 같은 값이다', () => {
-    const output = { kind: 'JSON' as const, example: { a: 1, b: { c: null } } }
+  it('한 단계짜리 예시는 폼으로 연다', () => {
+    const draft = toOutputDraft({ kind: 'JSON', example: { level: 'high', score: 72, ok: false } })
+    expect(draft.form).toBe(true)
+    expect(draft.fields.map(({ name, kind, value }) => [name, kind, value])).toEqual([
+      ['level', 'string', 'high'],
+      ['score', 'number', '72'],
+      ['ok', 'boolean', 'false'],
+    ])
+  })
+
+  it.each([{ tags: ['a'] }, { meta: { level: 'x' } }, { level: null }])(
+    '목록 · 하위 객체 · null 이 있으면 직접 입력으로 연다 — %j',
+    (example) => {
+      expect(toOutputDraft({ kind: 'JSON', example }).form).toBe(false)
+    },
+  )
+
+  it.each([
+    { a: 1, b: { c: null } },
+    { level: 'high', score: 72, ok: false },
+  ])('예시를 되읽어도 같은 값이다 — %j', (example) => {
+    const output = { kind: 'JSON' as const, example }
     expect(sameOutput(readOutputDraft(toOutputDraft(output)), output)).toBe(true)
+  })
+})
+
+describe('출력 폼', () => {
+  it('타입대로 JSON 을 만들고 빈 값은 기본값으로 채운다', () => {
+    expect(
+      fieldsExample([
+        field('level', 'string', 'high'),
+        field(' score ', 'number', '72'),
+        field('ok', 'boolean', 'false'),
+        field('memo', 'string'),
+        field('count', 'number'),
+        field('done', 'boolean'),
+      ]),
+    ).toEqual({ level: 'high', score: 72, ok: false, memo: '', count: 0, done: true })
+  })
+
+  it('폼이면 필드로 읽는다', () => {
+    expect(readOutputDraft(form(field('level', 'string', 'high')))).toEqual({
+      kind: 'JSON',
+      example: { level: 'high' },
+    })
+  })
+
+  it('이름과 값이 다 빈 줄은 없는 것으로 본다', () => {
+    expect(readOutputDraft(form(field('a', 'number', '1'), field('', 'string')))).toEqual({
+      kind: 'JSON',
+      example: { a: 1 },
+    })
+  })
+
+  it('필드가 없으면 막는다', () => {
+    const issues = fieldIssues([field('', 'string')])
+    expect(issues.message).toMatch(/하나 이상/)
+    expect(issues.names.size).toBe(0)
+    expect(readOutputDraft(form(field('', 'string')))).toBeNull()
+  })
+
+  it('값만 있고 이름이 없는 줄을 짚는다', () => {
+    const blank = field('', 'string', 'high')
+    const issues = fieldIssues([field('a', 'string'), blank])
+    expect([...issues.names]).toEqual([blank.id])
+    expect(issues.message).toMatch(/이름/)
+  })
+
+  it('겹친 이름은 두 줄 모두 짚는다', () => {
+    const a = field('score', 'number')
+    const b = field(' score', 'string')
+    const issues = fieldIssues([a, b])
+    expect([...issues.names].sort()).toEqual([a.id, b.id].sort())
+    expect(outputDraftProblem(form(a, b))).toMatch(/두 번/)
+  })
+
+  it('숫자 필드에 숫자가 아닌 값을 짚는다', () => {
+    const bad = field('score', 'number', 'high')
+    expect([...fieldIssues([bad]).values]).toEqual([bad.id])
+    expect(readOutputDraft(form(bad))).toBeNull()
+  })
+
+  it('61번째 키는 엔진 한도로 막는다', () => {
+    const fields = Array.from({ length: 61 }, (_, i) => field(`k${i}`, 'number'))
+    expect(outputDraftProblem(form(...fields))).toMatch(/60개/)
+  })
+})
+
+describe('switchOutputMode', () => {
+  it('폼에서 직접 입력으로 가면 적은 필드가 JSON 으로 옮겨진다', () => {
+    const next = switchOutputMode(form(field('level', 'string', 'high')))
+    expect(next?.form).toBe(false)
+    expect(JSON.parse(next!.text)).toEqual({ level: 'high' })
+  })
+
+  it('한 단계짜리 JSON 만 폼으로 돌아간다', () => {
+    const flat = switchOutputMode(raw('JSON', '{"score":3}'))
+    expect(flat?.fields.map((it) => [it.name, it.kind, it.value])).toEqual([
+      ['score', 'number', '3'],
+    ])
+    expect(switchOutputMode(raw('JSON', '{"meta":{"a":1}}'))).toBeNull()
+    expect(switchOutputMode(raw('JSON', '{'))).toBeNull()
+    expect(switchOutputMode(raw('JSON', ''))?.fields).toHaveLength(1)
+  })
+
+  it('fieldsFrom 은 앞뒤 공백이 있는 키를 폼으로 읽지 않는다', () => {
+    expect(fieldsFrom({ ' a': 1 })).toBeNull()
   })
 })
 

@@ -1,15 +1,126 @@
 import type { NodeOutput, OutputKind } from '@/api/nodes'
 
-/** 폼이 들고 있는 출력 형식. 예시는 고치는 동안 JSON 이 아닐 수 있어 글자로 둔다. */
+/** 출력 폼의 한 줄. 값은 적는 동안 숫자가 아닐 수 있어 글자로 둔다. */
+export interface FieldDraft {
+  id: number
+  name: string
+  kind: FieldKind
+  value: string
+}
+
+/** 폼이 들고 있는 출력 형식. `form` 이면 `fields` 를, 아니면 `text` 를 읽는다. */
 export interface OutputDraft {
   kind: OutputKind
+  form: boolean
+  fields: FieldDraft[]
   text: string
 }
 
-export const toOutputDraft = (output?: NodeOutput | null): OutputDraft => ({
-  kind: output?.kind ?? 'TEXT',
-  text: output?.example ? JSON.stringify(output.example, null, 2) : '',
+/** 엔진 `MAX_KEYS` 와 같다. */
+export const FIELDS_MAX = 60
+
+let fieldSeq = 0
+export const blankField = (): FieldDraft => ({
+  id: ++fieldSeq,
+  name: '',
+  kind: 'string',
+  value: '',
 })
+
+/** 한 단계짜리 글자·숫자·참거짓 객체만 폼으로 읽는다. null 은 되읽으면 "" 가 돼 뺀다. */
+export function fieldsFrom(example: unknown): FieldDraft[] | null {
+  if (typeof example !== 'object' || example === null || Array.isArray(example)) return null
+  const fields: FieldDraft[] = []
+  for (const [name, value] of Object.entries(example)) {
+    if (!name || name !== name.trim()) return null
+    if (typeof value === 'string') fields.push({ ...blankField(), name, value })
+    else if (typeof value === 'number')
+      fields.push({ ...blankField(), name, kind: 'number', value: String(value) })
+    else if (typeof value === 'boolean')
+      fields.push({ ...blankField(), name, kind: 'boolean', value: String(value) })
+    else return null
+  }
+  return fields.length ? fields : [blankField()]
+}
+
+export function toOutputDraft(output?: NodeOutput | null): OutputDraft {
+  const example = output?.example
+  const fields = example ? fieldsFrom(example) : null
+  return {
+    kind: output?.kind ?? 'TEXT',
+    form: !example || !!fields,
+    fields: fields ?? [blankField()],
+    text: example ? JSON.stringify(example, null, 2) : '',
+  }
+}
+
+const numberOf = (value: string) => (value.trim() ? Number(value) : 0)
+const isBlank = (field: FieldDraft) => !field.name.trim() && !field.value.trim()
+
+export interface FieldIssues {
+  names: Set<number>
+  values: Set<number>
+  message: string | null
+}
+
+/** 폼에서 막을 줄. 이름과 값이 다 빈 줄은 없는 것으로 본다. */
+export function fieldIssues(fields: FieldDraft[]): FieldIssues {
+  const names = new Set<number>()
+  const values = new Set<number>()
+  let message: string | null = null
+  const note = (text: string) => (message ??= text)
+  const byName = new Map<string, FieldDraft[]>()
+  for (const field of fields) {
+    if (isBlank(field)) continue
+    const name = field.name.trim()
+    if (!name) {
+      names.add(field.id)
+      note('필드 이름을 적어 주세요')
+    } else byName.set(name, [...(byName.get(name) ?? []), field])
+    if (field.kind === 'number' && !Number.isFinite(numberOf(field.value))) {
+      values.add(field.id)
+      note(`${name || '숫자 필드'} 의 예시 값은 숫자로 적어 주세요`)
+    }
+  }
+  for (const [name, same] of byName) {
+    if (same.length < 2) continue
+    same.forEach((field) => names.add(field.id))
+    note(`필드 이름 ${name} 이 두 번 있습니다`)
+  }
+  if (!byName.size && !names.size) note('출력 필드를 하나 이상 적어 주세요')
+  return { names, values, message }
+}
+
+/** 폼을 JSON 예시로. 값을 비우면 "" · 0 · true 로 채운다. */
+export function fieldsExample(fields: FieldDraft[]): Record<string, unknown> {
+  const example: Record<string, unknown> = {}
+  for (const field of fields) {
+    const name = field.name.trim()
+    if (!name) continue
+    if (field.kind === 'number') {
+      const n = numberOf(field.value)
+      example[name] = Number.isFinite(n) ? n : 0
+    } else if (field.kind === 'boolean') example[name] = field.value !== 'false'
+    else example[name] = field.value
+  }
+  return example
+}
+
+/** 폼과 직접 입력을 오간다. 직접 입력이 폼으로 읽히지 않으면 `null`. */
+export function switchOutputMode(draft: OutputDraft): OutputDraft | null {
+  if (draft.form)
+    return {
+      ...draft,
+      form: false,
+      text: JSON.stringify(fieldsExample(draft.fields), null, 2),
+    }
+  try {
+    const fields = draft.text.trim() ? fieldsFrom(JSON.parse(draft.text)) : [blankField()]
+    return fields && { ...draft, form: true, fields }
+  } catch {
+    return null
+  }
+}
 
 export const EXAMPLE_INVALID = '출력 예시를 빈 객체({})가 없는 JSON 객체로 적어 주세요'
 
@@ -57,6 +168,8 @@ export const validOutputExample = (example: unknown): example is Record<string, 
 /** 폼에 적힌 예시가 왜 안 되는지. 글 출력이거나 문제가 없으면 `null`. */
 export function outputDraftProblem(draft: OutputDraft): string | null {
   if (draft.kind === 'TEXT') return null
+  if (draft.form)
+    return fieldIssues(draft.fields).message ?? outputExampleProblem(fieldsExample(draft.fields))
   try {
     return outputExampleProblem(JSON.parse(draft.text))
   } catch {
@@ -67,6 +180,11 @@ export function outputDraftProblem(draft: OutputDraft): string | null {
 /** 서버가 받는 값으로. 예시가 틀렸으면 `null`. */
 export function readOutputDraft(draft: OutputDraft): NodeOutput | null {
   if (draft.kind === 'TEXT') return { kind: 'TEXT', example: null }
+  if (draft.form) {
+    if (fieldIssues(draft.fields).message) return null
+    const example = fieldsExample(draft.fields)
+    return validOutputExample(example) ? { kind: 'JSON', example } : null
+  }
   try {
     const example: unknown = JSON.parse(draft.text)
     return validOutputExample(example) ? { kind: 'JSON', example } : null

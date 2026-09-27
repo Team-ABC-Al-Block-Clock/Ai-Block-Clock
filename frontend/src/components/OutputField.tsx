@@ -1,13 +1,22 @@
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 
 import type { OutputKind } from '@/api/nodes'
+import {
+  blankField,
+  fieldIssues,
+  FIELDS_MAX,
+  switchOutputMode,
+  type FieldDraft,
+  type FieldKind,
+  type OutputDraft,
+} from '@/lib/nodeOutput'
 
 const KINDS: { value: OutputKind; label: string; hint: string }[] = [
   { value: 'TEXT', label: '글', hint: '자유 텍스트로 냅니다' },
   {
     value: 'JSON',
     label: 'JSON',
-    hint: '예시와 같은 모양으로 냅니다. 분기 조건이 이 칸을 읽습니다',
+    hint: '적은 필드 모양으로 냅니다. 분기 조건이 이 필드를 읽습니다',
   },
 ]
 
@@ -86,6 +95,222 @@ export function OutputExampleBox({
         spellCheck={false}
         style={{ height: `${height - 16}px`, fontSize, lineHeight: 1.45 }}
       />
+    </div>
+  )
+}
+
+const FIELD_KINDS: { value: FieldKind; label: string }[] = [
+  { value: 'string', label: '글자' },
+  { value: 'number', label: '숫자' },
+  { value: 'boolean', label: '참/거짓' },
+]
+
+const BAD_RING = 'inset 0 0 0 1px rgba(255,150,170,.8)'
+
+/** 폼과 JSON 직접 입력을 오가는 링크. 목록·하위 객체가 든 JSON 은 폼으로 못 연다. */
+export function OutputModeLink({
+  draft,
+  onChange,
+  style,
+}: {
+  draft: OutputDraft
+  onChange: (next: OutputDraft) => void
+  style?: CSSProperties
+}) {
+  const next = switchOutputMode(draft)
+  return (
+    <button
+      type="button"
+      disabled={!next}
+      onClick={() => next && onChange(next)}
+      title={next ? undefined : '목록이나 하위 객체가 있어 폼으로 열 수 없습니다'}
+      className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] underline underline-offset-[3px] disabled:cursor-default disabled:opacity-45"
+      style={{ color: 'var(--color-accent-bright)', ...style }}
+    >
+      {draft.form ? 'JSON 으로 직접 적기' : '폼으로 적기'}
+    </button>
+  )
+}
+
+/** JSON 출력의 필드를 한 줄씩. `height` 를 주면 그 안에서 스크롤한다. */
+export function OutputFieldsBox({
+  fields,
+  onChange,
+  height,
+  dense = false,
+  style,
+}: {
+  fields: FieldDraft[]
+  onChange: (next: FieldDraft[]) => void
+  height?: number
+  dense?: boolean
+  style?: CSSProperties
+}) {
+  const focusId = useRef<number | null>(null)
+  const rowsRef = useRef<HTMLDivElement>(null)
+  const issues = fieldIssues(fields)
+  const rowHeight = dense ? 26 : 36
+  const fontSize = dense ? '13.5px' : '15px'
+  const columns = dense
+    ? 'minmax(0,1.2fr) 76px minmax(0,1fr) 24px'
+    : 'minmax(0,1.2fr) 88px minmax(0,1fr) 28px'
+
+  useEffect(() => {
+    if (focusId.current === null) return
+    const input = rowsRef.current?.querySelector<HTMLInputElement>(
+      `[data-field="${focusId.current}"]`,
+    )
+    input?.focus()
+    input?.scrollIntoView({ block: 'nearest' })
+    focusId.current = null
+  }, [fields])
+
+  const patch = (id: number, next: Partial<FieldDraft>) =>
+    onChange(fields.map((field) => (field.id === id ? { ...field, ...next } : field)))
+
+  const changeKind = (field: FieldDraft, kind: FieldKind) =>
+    patch(field.id, {
+      kind,
+      value: kind === 'boolean' ? 'true' : field.kind === 'boolean' ? '' : field.value,
+    })
+
+  const add = () => {
+    const field = blankField()
+    onChange([...fields, field])
+    focusId.current = field.id
+  }
+
+  const cell: CSSProperties = {
+    height: `${rowHeight}px`,
+    minWidth: 0,
+    borderRadius: '8px',
+    fontSize,
+  }
+
+  return (
+    <div
+      ref={rowsRef}
+      className="scroll-thin flex flex-col"
+      style={{
+        background: 'rgba(255,255,255,.05)',
+        borderRadius: '11px',
+        padding: dense ? '4px' : '10px',
+        gap: dense ? '4px' : '6px',
+        ...(height === undefined ? {} : { height: `${height}px`, overflowY: 'auto' }),
+        ...style,
+      }}
+    >
+      {!dense && (
+        <div
+          className="grid text-[13px]"
+          style={{ gridTemplateColumns: columns, gap: '6px', color: 'rgba(255,236,246,.48)' }}
+        >
+          <span>이름</span>
+          <span>타입</span>
+          <span>예시 값 (선택)</span>
+        </div>
+      )}
+      {fields.map((field) => (
+        <div
+          key={field.id}
+          className="grid flex-none items-center"
+          style={{ gridTemplateColumns: columns, gap: dense ? '4px' : '6px' }}
+        >
+          <input
+            data-field={field.id}
+            className="bg-surface-card border-0 font-mono text-white outline-0"
+            value={field.name}
+            onChange={(ev) => patch(field.id, { name: ev.target.value })}
+            placeholder={dense ? '이름' : '예: score'}
+            aria-label="필드 이름"
+            spellCheck={false}
+            style={{
+              ...cell,
+              padding: '0 9px',
+              boxShadow: issues.names.has(field.id) ? BAD_RING : undefined,
+            }}
+          />
+          <select
+            className="bg-surface-card cursor-pointer border-0 font-[inherit] text-white outline-0"
+            value={field.kind}
+            onChange={(ev) => changeKind(field, ev.target.value as FieldKind)}
+            aria-label="필드 타입"
+            style={{ ...cell, padding: '0 4px 0 7px' }}
+          >
+            {FIELD_KINDS.map((kind) => (
+              <option key={kind.value} value={kind.value} style={{ color: '#1d1430' }}>
+                {kind.label}
+              </option>
+            ))}
+          </select>
+          {field.kind === 'boolean' ? (
+            <select
+              className="bg-surface-card cursor-pointer border-0 font-[inherit] text-white outline-0"
+              value={field.value}
+              onChange={(ev) => patch(field.id, { value: ev.target.value })}
+              aria-label="예시 값"
+              style={{ ...cell, padding: '0 4px 0 7px' }}
+            >
+              <option value="true" style={{ color: '#1d1430' }}>
+                true
+              </option>
+              <option value="false" style={{ color: '#1d1430' }}>
+                false
+              </option>
+            </select>
+          ) : (
+            <input
+              className="bg-surface-card border-0 font-[inherit] text-white outline-0"
+              value={field.value}
+              onChange={(ev) => patch(field.id, { value: ev.target.value })}
+              placeholder={field.kind === 'number' ? '예: 72' : dense ? '예시 값' : '예: high'}
+              aria-label="예시 값"
+              inputMode={field.kind === 'number' ? 'decimal' : undefined}
+              style={{
+                ...cell,
+                padding: '0 9px',
+                boxShadow: issues.values.has(field.id) ? BAD_RING : undefined,
+              }}
+            />
+          )}
+          <button
+            type="button"
+            disabled={fields.length === 1}
+            onClick={() => onChange(fields.filter((it) => it.id !== field.id))}
+            aria-label="필드 삭제"
+            className="flex cursor-pointer items-center justify-center border-0 bg-transparent font-[inherit] hover:bg-[rgba(255,255,255,.12)] hover:text-white disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent"
+            style={{
+              height: dense ? '22px' : '28px',
+              borderRadius: '7px',
+              fontSize: '17px',
+              color: 'rgba(255,236,246,.55)',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        disabled={fields.length >= FIELDS_MAX}
+        title={fields.length >= FIELDS_MAX ? `필드는 ${FIELDS_MAX}개까지입니다` : undefined}
+        className="flex flex-none cursor-pointer items-center justify-center border-0 bg-transparent font-[inherit] font-semibold hover:bg-[rgba(233,183,210,.08)] disabled:cursor-default disabled:opacity-45"
+        style={{
+          height: dense ? '22px' : '34px',
+          borderRadius: '8px',
+          border: '1px dashed rgba(233,183,210,.45)',
+          color: 'var(--color-accent-bright)',
+          fontSize: dense ? '13px' : '14.5px',
+        }}
+      >
+        ＋ 필드 추가
+      </button>
+      {!dense && (issues.names.size > 0 || issues.values.size > 0) && (
+        <div className="text-[13px]" style={{ color: 'rgba(255,150,170,.9)' }}>
+          {issues.message}
+        </div>
+      )}
     </div>
   )
 }
