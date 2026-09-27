@@ -20,8 +20,12 @@ public record NodeUnit(
     }
 
     @Override
-    public List<PlannedPrompt> flatten(NodeKey placedKey) {
-        return List.of(new PlannedPrompt(placedKey, name, owner, prompt, model, output, inputSource,
-                refFiles, baseCost));
+    public void place(NodeKey key, PlanLevel level) {
+        level.step(key, this);
+    }
+
+    PlannedPrompt plan(String stepId, NodeKey placedKey) {
+        return new PlannedPrompt(stepId, placedKey, name, owner, prompt, model, output, inputSource,
+                refFiles, baseCost);
     }
 }

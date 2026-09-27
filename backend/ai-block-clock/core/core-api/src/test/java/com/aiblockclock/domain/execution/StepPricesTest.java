@@ -1,9 +1,11 @@
 package com.aiblockclock.domain.execution;
 
 import com.aiblockclock.domain.AbcAmount;
+import com.aiblockclock.domain.agent.AgentId;
 import com.aiblockclock.domain.node.NodeOutput;
 import com.aiblockclock.domain.node.Prompt;
 import com.aiblockclock.domain.user.UserId;
+import com.aiblockclock.domain.workflow.GraphFixtures;
 import com.aiblockclock.domain.workflow.NodeKey;
 import com.aiblockclock.enums.node.AiModel;
 import com.aiblockclock.enums.node.OutputKind;
@@ -24,8 +26,13 @@ class StepPricesTest {
     void 에이전트_안의_단계는_제_원가에_그_에이전트의_배율을_곱한_값을_받는다() {
         NodeKey node = NodeKey.of("n1");
         NodeKey agent = NodeKey.of("n2");
-        ExecutionPlan plan = new ExecutionPlan(List.of(
-                prompt(node, "0.02"), prompt(agent, "0.01"), prompt(agent, "0.03")));
+        ExecutionPlan plan = ExecutionPlanner.plan(new UnitGraph(List.of(
+                new PlacedUnit(node, step("0.02")),
+                new PlacedUnit(agent, new AgentUnit(AgentId.newId(), new UnitGraph(List.of(
+                        new PlacedUnit(NodeKey.of("s1"), step("0.01")),
+                        new PlacedUnit(NodeKey.of("s2"), step("0.03"))),
+                        List.of(GraphFixtures.edge("e1", "s1", "s2")))))),
+                List.of(GraphFixtures.edge("e1", "n1", "n2"))));
         CostEstimate estimate = CostEstimate.of(List.of(
                 item(node, SourceType.NODE, BigDecimal.ONE),
                 item(agent, SourceType.AGENT, new BigDecimal("1.30"))));
@@ -36,9 +43,9 @@ class StepPricesTest {
             assertThat(step.multiplier()).isEqualByComparingTo("1");
             assertThat(step.price().value()).isEqualByComparingTo("0.02");
         });
-        assertThat(prices.of("n2")).get().extracting(step -> step.price().value())
+        assertThat(prices.of("a1.n1")).get().extracting(step -> step.price().value())
                 .isEqualTo(new BigDecimal("0.013000"));
-        assertThat(prices.of("n3")).get().extracting(step -> step.price().value())
+        assertThat(prices.of("a1.n2")).get().extracting(step -> step.price().value())
                 .isEqualTo(new BigDecimal("0.039000"));
     }
 
@@ -46,14 +53,19 @@ class StepPricesTest {
     @Test
     void 단가는_장부와_같은_소수_여섯째_자리에서_반올림한다() {
         NodeKey agent = NodeKey.of("n1");
-        ExecutionPlan plan = new ExecutionPlan(List.of(prompt(agent, "0.0042"), prompt(agent, "0.000005")));
+        ExecutionPlan plan = ExecutionPlanner.plan(new UnitGraph(List.of(
+                new PlacedUnit(agent, new AgentUnit(AgentId.newId(), new UnitGraph(List.of(
+                        new PlacedUnit(NodeKey.of("s1"), step("0.0042")),
+                        new PlacedUnit(NodeKey.of("s2"), step("0.000005"))),
+                        List.of(GraphFixtures.edge("e1", "s1", "s2")))))),
+                List.of()));
         CostEstimate estimate = CostEstimate.of(List.of(item(agent, SourceType.AGENT, new BigDecimal("1.30"))));
 
         StepPrices prices = StepPrices.of(plan, estimate);
 
-        assertThat(prices.of("n1")).get().extracting(step -> step.price().value())
+        assertThat(prices.of("a1.n1")).get().extracting(step -> step.price().value())
                 .isEqualTo(new BigDecimal("0.005460"));
-        assertThat(prices.of("n2")).get().extracting(step -> step.price().value())
+        assertThat(prices.of("a1.n2")).get().extracting(step -> step.price().value())
                 .isEqualTo(new BigDecimal("0.000007"));
     }
 
@@ -62,10 +74,9 @@ class StepPricesTest {
         assertThat(new StepPrices(Map.of()).of("n1")).isEmpty();
     }
 
-    private static PlannedPrompt prompt(NodeKey placedKey, String baseCost) {
-        return new PlannedPrompt(placedKey, "단계", UserId.of(1L), Prompt.of("프롬프트"), AiModel.defaultModel(),
-                new NodeOutput(OutputKind.TEXT, null), InputSource.PREV, List.of(),
-                AbcAmount.of(new BigDecimal(baseCost)));
+    private static NodeUnit step(String baseCost) {
+        return new NodeUnit(InputSource.PREV, UserId.of(1L), "단계", Prompt.of("프롬프트"), AiModel.defaultModel(),
+                new NodeOutput(OutputKind.TEXT, null), List.of(), AbcAmount.of(new BigDecimal(baseCost)));
     }
 
     private static CostItem item(NodeKey key, SourceType sourceType, BigDecimal multiplier) {

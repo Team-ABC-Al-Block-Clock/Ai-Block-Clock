@@ -46,7 +46,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 @RequiredArgsConstructor
 public class NodeTestRunService {
-    private static final NodeKey TESTED_SLOT = NodeKey.of(RuntimeWorkflow.stepIdOf(0));
+    private static final String TESTED_STEP = "n1";
+    private static final NodeKey TESTED_SLOT = NodeKey.of(TESTED_STEP);
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     private final NodeTestRunManager nodeTestRunManager;
@@ -188,7 +189,7 @@ public class NodeTestRunService {
 
     // 저장한 출력 형식 그대로 돌린다. 글로 재면 엔진의 형식 검사 · 교정이 없어 토큰이 덜 들고, 그만큼 원가가 낮게 잡힌다.
     private PlannedPrompt promptOf(NodeDefinition node) {
-        return new PlannedPrompt(TESTED_SLOT, node.getSpec().name(), node.getOwner(), node.getPrompt(),
+        return new PlannedPrompt(TESTED_STEP, TESTED_SLOT, node.getSpec().name(), node.getOwner(), node.getPrompt(),
                 node.getSpec().model(), node.getSpec().output(), InputSource.defaultSource(),
                 refFileReader.read(node.getId()), node.getSpec().baseCost());
     }
