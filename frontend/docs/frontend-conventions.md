@@ -334,6 +334,8 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 ### ABC 충전
 
+화면 용어는 「충전」이다. 백엔드의 「예치」는 실행을 접수할 때 잔액에서 떼어 묶어 두는 금액이라 뜻이 달라 화면에 쓰지 않는다.
+
 지갑이 abcToken 을 보관 지갑으로 보내고, 서버가 그 거래를 체인에서 확인해 같은 수만큼 적립한다. 접수는 `POST /credits/charges`, 확인은 `GET /credits/charges/{chargeId}` 이고 두 응답이 같은 모양이라 화면도 한 코드로 그린다. 흐름은 `hooks/useAbcCharge.ts`, 주소·자릿수는 `lib/abcToken.ts`, 실패 문구는 `lib/chargeMessage.ts` 한 곳에 모은다.
 
 - 해시를 받자마자 접수한다. 영수증을 기다리는 사이 새로고침하거나 창을 닫으면 해시가 어디에도 남지 않아 토큰만 나간 상태가 된다. 접수보다 `localStorage` 에 먼저 적는 것도 같은 이유다
