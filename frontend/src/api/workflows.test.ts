@@ -460,6 +460,23 @@ describe('mock 이 실서버와 같은 선에서 거절한다', () => {
     })
   })
 
+  // 합류를 받게 되며 들어오는 선이 둘인 자리가 생겼다. 머리에서 다 닿아도 고리일 수 있다.
+  it('머리에서 다 닿는 고리도 WORKFLOW_005 로 걸린다', async () => {
+    const cyclic = {
+      nodes: line('node_001', 'node_002', 'node_003').nodes,
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 'n1', targetNodeKey: 'n2' },
+        { edgeKey: 'e2', sourceNodeKey: 'n2', targetNodeKey: 'n3' },
+        { edgeKey: 'e3', sourceNodeKey: 'n3', targetNodeKey: 'n2' },
+      ],
+    }
+
+    await expect(saveWorkflow({ ...cyclic, name: '고리' })).rejects.toMatchObject({
+      code: 'WORKFLOW_005',
+      status: 400,
+    })
+  })
+
   // 목록이 거는 편집 링크가 전부 404 면 mock 으로 화면을 확인할 수 없다.
   it('픽스처 워크플로우도 단건 조회가 된다', async () => {
     const detail = await getWorkflow('wf_001')

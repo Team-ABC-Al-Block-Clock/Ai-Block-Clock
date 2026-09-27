@@ -169,16 +169,20 @@ function rejectGraph(graph: WorkflowGraph, name: unknown) {
   if (graph.nodes.some((node) => node.ioType === 'START' && node.nodeKey !== heads[0]))
     return fail(400, 'WORKFLOW_013', '시작 노드가 맨 앞에 있어야 합니다.')
 
-  // 개수만으로는 고리를 못 거른다 — A→B, B→A 도 위를 통과한다. 머리에서 다 닿는지 본다.
+  // 머리에서 다 닿아도 고리일 수 있다 — A→B→C→B. 서버 `walk` 처럼 들어오는 선을 다 채운 자리만 푼다.
+  const waiting = new Map([...keys].map((key) => [key, 0]))
+  for (const edge of edges) waiting.set(edge.targetNodeKey, waiting.get(edge.targetNodeKey)! + 1)
   let walked = 0
-  const seen = new Set<string>()
-  const walk = (key: string) => {
-    if (seen.has(key)) return
-    seen.add(key)
+  const pending = [heads[0]]
+  while (pending.length > 0) {
+    const key = pending.pop()!
     walked += 1
-    for (const edge of out.get(key) ?? []) walk(edge.targetNodeKey)
+    for (const edge of out.get(key) ?? []) {
+      const left = waiting.get(edge.targetNodeKey)! - 1
+      waiting.set(edge.targetNodeKey, left)
+      if (left === 0) pending.push(edge.targetNodeKey)
+    }
   }
-  walk(heads[0])
   if (walked !== graph.nodes.length)
     return fail(400, 'WORKFLOW_005', '연결이 고리를 이루거나 끊겨 있습니다.')
 
