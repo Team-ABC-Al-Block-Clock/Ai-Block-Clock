@@ -11,17 +11,28 @@ export const toOutputDraft = (output?: NodeOutput | null): OutputDraft => ({
   text: output?.example ? JSON.stringify(output.example, null, 2) : '',
 })
 
-export const EXAMPLE_INVALID = '출력 예시를 키가 하나 이상인 JSON 객체로 적어 주세요'
+export const EXAMPLE_INVALID = '출력 예시를 빈 객체({})가 없는 JSON 객체로 적어 주세요'
+
+/** 엔진은 하위 객체와 배열 안의 객체에도 적어도 한 개의 필드를 요구한다. */
+function hasShape(value: unknown): boolean {
+  if (Array.isArray(value)) return value.every(hasShape)
+  if (value === null || typeof value !== 'object') return true
+  const values = Object.values(value)
+  return values.length > 0 && values.every(hasShape)
+}
+
+export function validOutputExample(example: unknown): example is Record<string, unknown> {
+  return (
+    typeof example === 'object' && example !== null && !Array.isArray(example) && hasShape(example)
+  )
+}
 
 /** 서버가 받는 값으로. 예시가 틀렸으면 `null`. */
 export function readOutputDraft(draft: OutputDraft): NodeOutput | null {
   if (draft.kind === 'TEXT') return { kind: 'TEXT', example: null }
   try {
     const example: unknown = JSON.parse(draft.text)
-    const isObject = typeof example === 'object' && example !== null && !Array.isArray(example)
-    return isObject && Object.keys(example).length > 0
-      ? { kind: 'JSON', example: example as Record<string, unknown> }
-      : null
+    return validOutputExample(example) ? { kind: 'JSON', example } : null
   } catch {
     return null
   }

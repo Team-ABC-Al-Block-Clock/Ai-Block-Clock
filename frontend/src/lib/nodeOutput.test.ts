@@ -21,6 +21,21 @@ describe('readOutputDraft', () => {
   it.each(['', '{', '[]', '{}', '"high"', '3'])('객체가 아니거나 비었으면 null — %s', (text) => {
     expect(readOutputDraft({ kind: 'JSON', text })).toBeNull()
   })
+
+  it.each(['{"meta":{}}', '{"meta":{"detail":{}}}', '{"items":[{"id":1},{}]}'])(
+    '하위 객체와 배열 안의 빈 객체도 거른다 — %s',
+    (text) => {
+      expect(readOutputDraft({ kind: 'JSON', text })).toBeNull()
+    },
+  )
+
+  it('값이 있는 하위 객체와 null 은 보존한다', () => {
+    const example = { meta: { name: null }, items: [{ id: 1 }], tags: [] }
+    expect(readOutputDraft({ kind: 'JSON', text: JSON.stringify(example) })).toEqual({
+      kind: 'JSON',
+      example,
+    })
+  })
 })
 
 describe('toOutputDraft', () => {
