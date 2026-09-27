@@ -20,7 +20,7 @@ NODE_KEYS = {"id", "name", "type", "status", "output", "agent_id", "owner_id",
              "retries", "repair_count", "model", "cost_usd", "skip_reason", "branch_taken"}
 TOP_KEYS = {"run_id", "status", "mode", "workflow", "mock", "progress", "nodes", "agents", "totals", "started_at",
             "finished_at", "total_duration_ms", "contribution", "not_executed", "failure",
-            "result", "error"}
+            "result", "warnings", "error"}
 
 
 def _run(workflow: str = "brand_agent") -> dict:
@@ -68,7 +68,9 @@ def test_완료_결과는_URL_로_안내한다():
     body = _run()
     assert body["result"] == {"type": "pdf", "output": {"kind": "json", "example": shape.LEGACY_EXAMPLES["biz.brand_strategy@1"]},
                               "artifact_url": f"/v1/runs/{body['run_id']}/artifact",
-                              "pdf_url": f"/v1/runs/{body['run_id']}/pdf"}
+                              "html_url": f"/v1/runs/{body['run_id']}/html",
+                              "pdf_url": f"/v1/runs/{body['run_id']}/pdf",
+                              "template": {"applied": "default", "name": "document", "fallback_reason": None, "mapping": {}}}
 
 
 def test_totals_에_원가_합계가_있다():

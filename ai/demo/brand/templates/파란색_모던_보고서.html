@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>비전 & 브랜딩 방향 전략 보고서</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        :root {
+            --brand-dark-blue: #0d1b4c;
+            --brand-blue: #303f9f;
+            --light-gray-bg: #f5f5f5;
+            --light-gray-text: #bdbdbd;
+            --dark-text: #333;
+            --border-color: #0d1b4c;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "KR", sans-serif;
+            background-color: #ffffff;
+            color: var(--dark-text);
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+        }
+
+        .page {
+            width: 210mm;
+            height: 297mm;
+            padding: 25mm 20mm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .sub-header {
+            background-color: var(--brand-dark-blue);
+            color: white;
+            padding: 8px 15px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .main-title {
+            font-size: 36px;
+            font-weight: 900;
+            color: var(--brand-dark-blue);
+            margin: 0 0 40px 0;
+        }
+
+        .vision-section {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .vision-graphic {
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            line-height: 1;
+            width: 220px;
+        }
+
+        .vision-graphic::before {
+            content: '';
+            position: absolute;
+            width: 220px;
+            height: 150px;
+            background-color: #f0f0f0;
+            transform: skewX(-20deg);
+            z-index: -1;
+            top: -10px;
+            left: -30px;
+        }
+
+        .vision-graphic .year {
+            font-size: 64px;
+            font-weight: 300;
+            color: var(--light-gray-text);
+        }
+
+        .vision-graphic .text {
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--brand-dark-blue);
+        }
+
+        .vision-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .vision-item {
+            border-top: 2px solid var(--brand-blue);
+            padding-top: 8px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .purpose-positioning-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 50px;
+        }
+
+        .purpose-positioning-section .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .box-title {
+            border: 2px solid var(--border-color);
+            padding: 10px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--brand-dark-blue);
+            margin-bottom: 15px;
+        }
+
+        .list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .gray-box {
+            background-color: var(--light-gray-bg);
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.8;
+            flex-grow: 1;
+        }
+
+        .gray-box p {
+            margin: 0 0 5px 0;
+        }
+        .gray-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .core-strategy-section {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--brand-dark-blue);
+            margin-bottom: 25px;
+        }
+
+        .strategy-flow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .flow-box {
+            width: 100px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 5px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .flow-box.outline {
+            border: 2px solid var(--brand-dark-blue);
+            color: var(--brand-dark-blue);
+        }
+
+        .flow-box.solid {
+            background-color: var(--brand-blue);
+            color: white;
+        }
+
+        .arrow {
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 15px solid var(--brand-blue);
+            margin: 0 15px;
+        }
+
+        footer {
+            margin-top: auto;
+            background-color: var(--light-gray-bg);
+            text-align: center;
+            padding: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--dark-text);
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-shape {
+            position: absolute;
+            width: 150px;
+            height: 80px;
+            background-color: var(--brand-dark-blue);
+            bottom: -25mm;
+            z-index: -1;
+        }
+
+        .footer-shape.left {
+            left: -20mm;
+            transform: skewX(45deg);
+            transform-origin: bottom left;
+        }
+
+        .footer-shape.right {
+            right: -20mm;
+            transform: skewX(-45deg);
+            transform-origin: bottom right;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <div class="company-name">LARANA INSIGHT LAB</div>
+            <div class="date">{{ 날짜 }}</div>
+        </header>
+
+        <div class="sub-header">2026 Vision & Branding Strategy</div>
+
+        <h1 class="main-title">비전 & 브랜딩 방향 전략 보고서</h1>
+
+        <section class="vision-section">
+            <div class="vision-graphic">
+                <span class="year">2026</span>
+                <span class="text">VISION</span>
+            </div>
+            <div class="vision-list">
+                {% for item in 비전목록 %}
+                <div class="vision-item">{{ item }}</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="purpose-positioning-section">
+            <div class="column">
+                <div class="box-title">Brand Purpose</div>
+                <ul class="list">
+                    {% for item in 브랜드목적_목록 %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+                <div class="gray-box">
+                    {% if 핵심메시지 %}<p>핵심 메시지 : {{ 핵심메시지 }}</p>{% endif %}
+                    {% if 보조메시지 %}<p>보조 메시지 : {{ 보조메시지 }}</p>{% endif %}
+                    {% if 일상메시지 %}<p>일상 메시지 : {{ 일상메시지 }}</p>{% endif %}
+                </div>
+            </div>
+            <div class="column">
+                <div class="box-title">Brand Positioning</div>
+                <ul class="list">
+                    {% for item in 브랜드포지셔닝_목록 %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+                <div class="gray-box">
+                    {% for item in 스토리콘텐츠_목록 %}
+                    <p>{{ item }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="core-strategy-section">
+            <h2 class="section-title">핵심 전략</h2>
+            <div class="strategy-flow">
+                {% for item in 핵심전략_흐름 %}
+                    {% if loop.index is odd %}
+                        <div class="flow-box outline">{{ item }}</div>
+                    {% else %}
+                        <div class="flow-box solid">{{ item }}</div>
+                    {% endif %}
+                    {% if not loop.last %}
+                    <div class="arrow"></div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+
+        <footer>
+            <div class="footer-shape left"></div>
+            <p>{{ 총평 }}</p>
+            <div class="footer-shape right"></div>
+        </footer>
+    </div>
+    <!-- placeholders: 날짜, 비전목록, 브랜드목적_목록, 브랜드포지셔닝_목록, 핵심메시지, 보조메시지, 일상메시지, 스토리콘텐츠_목록, 핵심전략_흐름, 총평 -->
+</body>
+</html>
