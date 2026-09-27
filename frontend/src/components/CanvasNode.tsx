@@ -50,6 +50,19 @@ const SUBLABEL_FIT: CSSProperties = {
   textOverflow: 'ellipsis',
 }
 
+/** 분기는 조건과 판정을 함께 적어 길다. 한 줄로 자르면 판정이 잘려 두 줄까지 접는다. */
+const SUBLABEL_WRAP: CSSProperties = {
+  maxWidth: `${NODE_SIZE - 30}px`,
+  textAlign: 'center',
+  lineHeight: 1.3,
+  wordBreak: 'keep-all',
+  overflowWrap: 'anywhere',
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 2,
+  overflow: 'hidden',
+}
+
 /** 선을 잇는 자리. */
 const PORT_DOT = 12
 const PORT_HIT = 24
@@ -393,7 +406,7 @@ export default function CanvasNode({
           className="text-[13.5px] font-medium"
           style={{
             ...OVER_BACKDROP,
-            ...SUBLABEL_FIT,
+            ...(shape === 'hex' ? SUBLABEL_WRAP : SUBLABEL_FIT),
             color: sublabelColor,
             letterSpacing: '.05em',
           }}

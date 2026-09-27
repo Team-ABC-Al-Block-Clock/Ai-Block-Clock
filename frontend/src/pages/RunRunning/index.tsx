@@ -287,7 +287,7 @@ export default function RunRunning() {
       (id) => defs.find((it) => it.id === id)?.name,
     )
     const taken = reached && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
-    return taken === null ? condition : `${condition} → ${taken}`
+    return taken === null ? condition : `${condition} →\u00a0${taken}`
   }
   /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
   const labeledSteps = nameBranchSteps(
@@ -433,7 +433,10 @@ export default function RunRunning() {
         : finished
           ? '실행 완료'
           : progress
-            ? (progress.currentStepName ?? '실행을 준비하는 중')
+            ? (progress.currentStepName ??
+              (progress.total > 0 && progress.done >= progress.total
+                ? '결과를 정리하는 중'
+                : '실행을 준비하는 중'))
             : g
               ? `${g.name} 중`
               : '워크플로우를 불러오는 중'
