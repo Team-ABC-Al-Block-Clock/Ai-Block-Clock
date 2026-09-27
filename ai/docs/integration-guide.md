@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | **v2.1** (2026-09-26 저녁 — **견본(카탈로그 11종) 삭제, 출력은 판매자가 노드마다 JSON 예시로 지정**. v2.0 09-25: 입력 형식 폐지 · 출력 선언 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
+| 상태 | **v2.2** (2026-09-27 — **서식(템플릿): 산출물에 HTML 추가, 사용자 서식 `output.template`, 디자인 → 서식 변환 API**, 사용자 파일 확장. v2.1 09-26: 견본 삭제 · 출력 JSON 예시. v2.0 09-25: 입력 형식 폐지 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
 | 이전 | 확정본 09-19 · 09-22 갱신(검증 응답의 견적, 노드 필드 8종, 결과 URL, 정의 검증 코드, 원가 산출) |
 | 작성 | AI 파트 트랙 A (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
@@ -11,7 +11,19 @@
 > **이 문서 하나만 보면 된다.** 필드 정의 · 엔드포인트 · 정산 · 오류 · 함정이 전부 여기 있다.
 > 서비스 전체 흐름은 [`../../docs/service-flow.md`](../../docs/service-flow.md).
 
-### v2.1에서 바뀐 것 (09-26 저녁) — 먼저 읽을 것
+### v2.2에서 바뀐 것 (09-27) — 먼저 읽을 것
+
+| 바뀐 것 | v2.1 | v2.2 (지금) | 왜 |
+| --- | --- | --- | --- |
+| **산출물** | JSON(`/artifact`) + PDF(`/pdf`, 기본 서식 하나) | **JSON + 서식을 입힌 HTML(`/html`) + 그 HTML의 PDF**. `result.html_url` · `result.template` 추가 | 화면에 바로 띄우고, 서식은 곧 HTML |
+| **사용자 서식** | 없음(`template_id` 무시) | `output.template: {name, html}` — 백엔드가 보관한 Jinja HTML을 실행 요청에 실어 보낸다. 없으면 기본 서식(`document` · `card`) | 캔바 · 미리캔버스처럼 내 서식으로 결과 받기 |
+| **자리표시자 ≠ 키** | — | 서식의 빈칸 이름과 결과 JSON 키가 같으면 AI 없이, 다르면 실행 끝에 **AI가 한 번 경로를 짝짓는다**(`messages.core` · `reasons.0.axis` · 반복 항목 속성까지. 값은 JSON에서 그대로). 못 채운 빈칸은 비워 두고 `warnings[]` | 판매자마다 키가 다르다 |
+| **디자인 → 서식** | 없음 | **`POST /v1/templates/convert`** — PDF · 사진을 올리면 빈칸 뚫린 HTML 서식을 돌려준다(AI 1회 + 교정 1회). 백엔드가 보관 | 등록 때 한 번, 실행마다 재사용 |
+| **`warnings[]`** | 없음 | 실행 응답 최상위. 서식 폴백 · 짝짓기 · PDF 실패처럼 "성공했지만 알릴 것" | 실행 실패로 만들지 않기 위해 |
+| PDF 실패 | 실행 실패(`PDF_RENDER_FAILED`) | **실행 실패 아님** — `pdf_url: null` + 경고. 사용자 서식이 PDF 엔진을 넘으면 PDF만 기본 서식으로 | HTML이 원본이므로 |
+| 사용자 파일 | `file` 하나(표만) | 여러 개 · 표 · 글 · PDF · 사진, 입력란 값과 함께, 모든 LLM 노드에 (§7.1) | |
+
+### v2.1에서 바뀐 것 (09-26 저녁)
 
 | 바뀐 것 | v2.0 (09-25) | v2.1 (지금) | 왜 |
 | --- | --- | --- | --- |
@@ -70,7 +82,7 @@
 | v2.0 — 입력 폐지 · 별칭 · `cost_usd` · `agents[]` · `mode=test` · 분기 참조 검사 | **동작 중** (09-26 master) |
 | **v2.1 — 견본 삭제 · `output {kind, example}` · `input {example}`** | **09-26 저녁 develop-AI** |
 | 노드별 참고 파일 `ref_files` | **동작 중** (09-26) — txt · md · csv는 본문 절, PDF는 inline 첨부 |
-| 템플릿 `output.template_id` | 다음 버전. 지금은 기본 문서형 렌더(예시의 키가 제목 · 글은 본문) |
+| 서식 — 기본 2종 · 사용자 서식 `output.template` · `GET /v1/runs/{id}/html` · `POST /v1/templates/convert` | **동작 중** (09-27) |
 
 ---
 
@@ -218,7 +230,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
     { "from": "n4",  "to": "n5" }                          // 브랜드 전략 → 법률 검토. 형식 검사 없음
   ],
 
-  "output": { "template_id": null, "title": "브랜드 전략 보고서" }
+  "output": { "title": "브랜드 전략 보고서", "template": null }
 }
 ```
 
@@ -350,15 +362,26 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 **워크플로우 최상위 `output`**
 
 ```jsonc
-"output": { "template_id": null, "title": "브랜드 전략 보고서" }
+"output": {
+  "title": "브랜드 전략 보고서",                       // 선택. 서식의 {{ title }}
+  "template": {                                    // 선택. 없으면 기본 서식
+    "name": "그린 보고서",                            // 화면 표시용
+    "html": "<!DOCTYPE html>… {{ 헤드라인 }} … {% for p in 포지셔닝 %}…{% endfor %} …",   // 백엔드가 보관한 서식 HTML
+    "default": "document"                          // 사용자 서식이 없거나 실패했을 때 쓸 기본 서식: document | card
+  }
+}
 ```
 
 | 필드 | 설명 |
 | --- | --- |
-| `template_id` | 선택. 다음 버전. 지금은 무시하고 기본 문서형 |
-| `title` | 선택. PDF 제목 |
+| `title` | 선택. 서식의 `{{ title }}`. 없으면 결과 JSON의 짧은 문자열 값 하나 |
+| `template.html` | 선택. **Jinja2 HTML 서식.** `{{ 키 }}`로 결과 JSON 키를, `{% for x in 목록 %}`로 배열을 쓴다. `<script>` · 외부 URL · 이벤트 속성 금지, 200,000자 이하. 기본 제공 변수 `title` · `date` · `fields`(키 · 값 HTML 목록) · `text`(글 출력 본문). 필터 `md`(마크다운) · `fmt`(아무 값이나 HTML로) |
+| `template.name` | 선택. 응답 `result.template.name` |
+| `template.default` | 선택. `document`(문서형, 기본) · `card`(카드형) |
 
-산출물은 **종단 노드의 봉투**다(`/artifact`). PDF는 항상 만든다 — JSON이면 **키 이름을 제목**으로 절을 자동 배치하고(한글 키면 한글 제목, 비어 있는 선택 항목은 뺀다), 글이면 그대로 문서로. **템플릿 렌더 실패는 실행 실패가 아니다.** JSON은 정상 반환하고 `TEMPLATE_RENDER_FAILED`를 경고로 남긴다. `output.schema_id`는 없어졌다(보내면 무시).
+**서식 적용 순서(실행 끝, 정산과 무관).** ① 서식이 쓰는 빈칸 이름과 결과 JSON 키를 대조한다 → 빠진 빈칸이 있으면 **AI가 한 번** 어느 **경로**를 넣을지 짝짓는다(`headline` · `messages.core` · `reasons.0.axis` · 반복 항목의 `목록[].title`→`label`. 경로만 받으므로 내용을 지어낼 수 없다. `result.template.mapping`에 기록, `warnings[]`에 `TEMPLATE_MAPPED`) → 결과에 없는 빈칸(디자인의 고정 칸 등)은 **비워 두고** `TEMPLATE_BLANKS` → ② 붓는다 → ③ 서식 자체가 깨졌으면(문법 · 금지 요소) **기본 서식**으로 만들고 `TEMPLATE_RENDER_FAILED`. 어느 경우든 실행은 성공이고 `/artifact` · `/html`은 있다.
+
+산출물은 셋이다 — **종단 노드의 봉투**(`/artifact`, JSON 원본) · **서식을 입힌 HTML**(`/html`) · **그 HTML의 PDF**(`/pdf`). 기본 서식은 **키 이름을 제목**으로 절을 자동 배치하고(한글 키면 한글 제목, 비어 있는 선택 항목은 뺀다), 글 출력이면 본문을 그대로 문서로. `output.schema_id` · `template_id`는 없어졌다(보내면 무시).
 
 ### 5.6 그래프 규모 상한
 
@@ -558,11 +581,15 @@ curl -X POST $BASE/v1/runs \
   "status": "succeeded",
   "finished_at": "2026-09-25T01:07:02+00:00",
   "total_duration_ms": 131000,
+  "warnings": [ { "code": "TEMPLATE_MAPPED", "message": "서식 빈칸 헤드라인←headline 을(를) 짝지어 채웠습니다" } ],   // 성공했지만 알릴 것 (v2.2)
   "result": {
     "type": "pdf",
     "output": { "kind": "text" },                                          // 종단 노드의 형식
     "artifact_url": "/v1/runs/20260925-100451-688/artifact",   // 결과 JSON (봉투) — 항상 있다
-    "pdf_url": "/v1/runs/20260925-100451-688/pdf"              // PDF. 렌더 실패면 null (실행 실패 아님)
+    "html_url": "/v1/runs/20260925-100451-688/html",           // 서식을 입힌 HTML (v2.2) — 항상 있다
+    "pdf_url": "/v1/runs/20260925-100451-688/pdf",             // 그 HTML 의 PDF. 실패면 null (실행 실패 아님)
+    "template": { "applied": "user", "name": "그린 보고서", "fallback_reason": null,   // user | default
+                  "mapping": { "헤드라인": "headline" } }
   }
 }
 ```
@@ -573,10 +600,10 @@ curl -X POST $BASE/v1/runs \
 
 **백엔드는 이것도 스토리지에 저장한다.** 글 출력이면 `payload.text`가 본문이다.
 
-### 7.4 `GET /v1/runs/{run_id}/pdf` — 결과 PDF
+### 7.4 `GET /v1/runs/{run_id}/html` · `/pdf` — 서식을 입힌 결과
 
-`application/pdf`. 아직이면 409 `PDF_NOT_READY`.
-Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사라진다. **백엔드 스토리지에 저장하고 프론트에는 백엔드가 발급한 URL을 준다.**
+`/html`은 `text/html`(서식이 입혀진 완결 HTML 문서 — 그대로 화면에 띄우거나 저장), `/pdf`는 `application/pdf`(같은 HTML을 A4로). 아직이면 409 `HTML_NOT_READY` · `PDF_NOT_READY`. PDF는 사용자 서식의 CSS를 다 재현하지 못할 수 있다(단순 HTML→PDF 엔진). 화면 표시는 HTML을, 인쇄 · 다운로드는 PDF를 쓴다.
+Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사라진다. **백엔드 스토리지에 셋(JSON · HTML · PDF)을 저장하고 프론트에는 백엔드가 발급한 URL을 준다.**
 
 ### 7.5 `POST /v1/workflows/validate` — 저장 시점 검증 + 도는 노드 목록
 
@@ -638,6 +665,23 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 ### 7.6 `GET /v1/schemas` — 없어짐 (v2.1)
 
 견본이 없어져 **빈 목록**을 돌려준다: `{ "deprecated": true, "schemas": [], "message": "…" }`. `GET /v1/schemas/{id}`는 404 `SCHEMA_NOT_FOUND`. 부르는 코드가 있어도 깨지지 않게 한 버전 유지하고 다음 버전에서 지운다. **프론트는 드롭다운 · 폼을 노드의 `output.example` · `input.example`로 그린다**(§6.1).
+
+### 7.8 `POST /v1/templates/convert` — 디자인(PDF · 사진) → 빈칸 뚫린 HTML 서식 (v2.2)
+
+캔바 · 미리캔버스처럼 사용자(또는 판매자)가 **자기 디자인**을 올리면 그 레이아웃 · 색 · 고정 문구를 재현한 Jinja HTML 서식을 돌려준다. **올릴 때 한 번** AI를 부르고(교정 1회 포함 최대 2회), 결과 HTML은 **백엔드가 보관**해 실행 때 `output.template.html`로 보낸다. Runtime은 보관하지 않는다. 실행이 아니므로 과금 대상이 아니다.
+
+```jsonc
+// 요청 multipart/form-data
+//   design: PDF · png · jpg · webp (여러 장이면 페이지 순서대로, 각 10MB)   hint: 서식 설명(선택)   mock: true 면 AI 없이 기본 서식
+// 응답 200
+{ "html": "<!DOCTYPE html>…{{ 제목 }}…",
+  "placeholders": ["제목", "브랜드명", "포지셔닝"],   // 서식이 쓰는 빈칸 — 프론트가 미리보기 · 안내에 쓴다
+  "repaired": false,                                  // 검사에 걸려 한 번 고쳤는가
+  "problems": [],                                     // 남은 문제. 비어 있지 않으면 사용자에게 보여 주고 다시 올리게 한다
+  "usage": { "input_tokens": 3120, "output_tokens": 2400, "model": "gemini-2.5-pro" } }
+```
+
+400 `UNSUPPORTED_FILE_TYPE` · `FILE_TOO_LARGE`, 502 모델 오류. 서식은 `<script>` · 외부 URL 없이 인라인 CSS만이라 그대로 화면에 띄워도 된다.
 
 ### 7.7 보조
 
@@ -767,8 +811,9 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | `MODEL_API_ERROR` | 모델 API 5xx 또는 기타 | `supplier` | 반영 | 가능 |
 | `FILE_PARSE_FAILED` | 업로드 파일을 읽지 못함 | `consumer` | 미반영 | 무의미 |
 | `RATE_LIMITED` | 요청 상한. 10초 간격 2회 재시도 후 실패 | `platform` | 미반영 | 잠시 후 |
-| `TEMPLATE_RENDER_FAILED` | 템플릿 렌더 실패. **실행 실패 아님** — JSON은 정상 반환 | `platform` | 미반영 | 무의미 |
-| `PDF_RENDER_FAILED` | PDF 생성 실패 | `platform` | 미반영 | 무의미 |
+| `TEMPLATE_RENDER_FAILED` | (v2.2부터 **`warnings[]`**로만) 사용자 서식을 못 써 기본 서식으로 만듦. 실행은 성공 | — | — | — |
+| `PDF_RENDER_FAILED` | (v2.2부터 **`warnings[]`**로만) PDF 실패. `pdf_url: null`, HTML · JSON은 있다 | — | — | — |
+| `TEMPLATE_MAPPED` · `TEMPLATE_BLANKS` | (`warnings[]`) 서식 빈칸을 AI가 짝지어 채웠다 · 결과에 없는 빈칸을 비워 두었다 — 정보 | — | — | — |
 | `LLM_INIT_FAILED` | API 키 없음 등 설정 오류 | `platform` | 미반영 | 무의미 |
 | `RUNTIME_INTERNAL` | Runtime 내부 오류 | `platform` | 미반영 | AI 파트에 알릴 것 |
 
@@ -808,7 +853,8 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 4 | 저장 | (백엔드 경유) `validate` 응답 | `errors[]`는 해당 `node_id`에 빨간 표시. `warnings[]`는 노란 안내. 최대 청구액은 **백엔드가 계산한 값**을 표시 |
 | 5 | 실행 폼 | 진입 노드 `input.example` | 예시의 키가 입력란 이름, 값 타입이 입력 종류(문자 · 숫자 · 참거짓), 값이 `null`인 키는 선택 표시. 없으면 코멘트 + 파일만 |
 | 6 | 진행 | 폴링 응답 `progress` · `nodes[]` | `percent` · `current_node_name`. `type: branch`는 "판정 → 예/아니오"(`branch_taken`), `status: skipped`는 "건너뜀 — 분기로 선택되지 않음". 판매자별 사용량은 `agents[]` |
-| 7 | 결과 | `result.artifact_url` · `pdf_url` | JSON 보기 · 다운로드, PDF 다운로드. `pdf_url`이 `null`이면 JSON만 |
+| 7 | 결과 | `result.html_url` · `artifact_url` · `pdf_url` · `template` · `warnings[]` | **HTML을 화면에 띄운다**(iframe 또는 새 창). PDF 다운로드. `template.applied`가 `default`면 "기본 서식으로 만들었습니다" 안내, `warnings[]` 문구 표시 |
+| 7-1 | 서식 등록 | `POST /v1/templates/convert` (백엔드 경유) | 디자인 업로드 → 돌아온 `html`을 미리보기(iframe) → `placeholders` 안내 → 저장. 실행 화면의 "서식 고르기"(플랫폼 기본 2종 · 판매자 제공 · 내 서식) |
 | 8 | 실패 | `error.message` · `error.hint` | 그대로 표시하면 된다. `error.detail`은 표시하지 않는다 |
 | 9 | 마켓 카드 | 에이전트의 진입 노드 `input` · 종단 노드 `output` | "입력: 브랜드 기획 요청서 / 출력: 브랜드 전략 보고서" 또는 "입력: 자유 / 출력: 글" |
 
@@ -939,6 +985,7 @@ GMS 경유 · JSON 구조화 출력. 아래 09-22 · 09-25 · 2단계 표는 **`
 | 분기 판정 | 경쟁사 4 → **low** | 경쟁사 5 → **high** |
 | 추가 (09-26 오후, 프롬프트 01 판정 대상을 오프라인 일반 매장으로 좁힌 뒤) | — | 클라이밍 테이프 브리프 **low** · 참고 파일 md + PDF 첨부 1회 86.7초 · $0.029 / 노드 01 단독 high 3/3 · low 3/3 |
 | **v2.1 (09-26 저녁, 견본 삭제 · 출력 JSON 예시)** | — | 칫솔 **high**(경쟁사 5) 79.7초 · $0.0278 / 클라이밍 테이프 **low**(경쟁사 3) 79.7초 · $0.0248 — **둘 다 교정 0회.** 견본의 선택지 · 개수 제약 없이도 예시 모양 강제와 프롬프트 지시만으로 분기가 기대대로 갈렸다 |
+| **v2.2 서식 (09-27)** | — | 디자인 PDF(2쪽) → 서식 변환 **105초 · 5,142/6,212 토큰 · 약 $0.07**(교정 1회 포함, 빈칸 24개) / 실행 끝 짝짓기 **20 ~ 25초 · 약 $0.01**, 24개 중 21개를 경로로 배치(3개는 결과에 없는 디자인 고정 칸 → 빈칸). 짝짓기 시간은 실행 시간에 더해진다 |
 
 Pro는 노드당 최대 32초라 폴링 중단 기준을 **노드 수 × 60초**로 올렸다(§10). 2단계 9노드는 약 3분으로 예상되며 5분(PER-003) 안이다. 같은 칫솔 브리프에서 Flash가 low, Pro가 high를 낸 것은 `competitors` 개수(4 vs 5)의 차이 — 시연 전 Pro로 `--runs 10` 준수율을 다시 잰다(트랙 B).
 
