@@ -16,9 +16,9 @@ import { withdrawalStatusText } from '@/lib/withdrawalMessage'
 
 const { MIN_AMOUNT, MAX_AMOUNT, INTERVAL_HOURS } = WITHDRAWAL_LIMITS
 
-type Mode = 'deposit' | 'withdraw' | 'convert'
+type Mode = 'charge' | 'withdraw' | 'convert'
 const MODES: { key: Mode; label: string }[] = [
-  { key: 'deposit', label: '예치' },
+  { key: 'charge', label: '충전' },
   { key: 'withdraw', label: '출금' },
   { key: 'convert', label: 'ABC 전환' },
 ]
@@ -86,7 +86,7 @@ function describeCharge(charge: AbcCharge, finish: () => void) {
 
 export default function MyPageCredit() {
   const [pick, setPick] = useState(2)
-  const [mode, setMode] = useState<Mode>('deposit')
+  const [mode, setMode] = useState<Mode>('charge')
   const [asking, setAsking] = useState<string | null>(null)
   const [typed, setTyped] = useState('')
   const charge = useAbcCharge()
@@ -175,7 +175,7 @@ export default function MyPageCredit() {
       : convert
         ? '정산금을 실행에 쓸 수 있는 ABC 로 바꿉니다'
         : reservedNote + '충전한 ABC 는 서비스 안에서만 쓰며 출금되지 않습니다'
-  const pickerTitle = withdraw ? '출금 금액 선택' : convert ? '전환 금액 선택' : '예치 금액 선택'
+  const pickerTitle = withdraw ? '출금 금액 선택' : convert ? '전환 금액 선택' : '충전 금액 선택'
   const pickerNote = withdraw
     ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · ${INTERVAL_HOURS}시간에 한 번 신청할 수 있습니다`
     : convert
@@ -183,10 +183,10 @@ export default function MyPageCredit() {
       : `지갑의 abcToken ${walletBalance.amount === null ? '—' : `${amountLabel(walletBalance.amount)}개`} · ABC 는 양도할 수 없습니다`
   const inputPlaceholder = usesPayout
     ? `${withdraw ? '출금' : '전환'}할 정산금을 입력하세요`
-    : '예치할 금액을 입력하세요'
-  const summaryTitle = withdraw ? '출금 요약' : convert ? '전환 요약' : '예치 요약'
-  const sumLabel = withdraw ? '출금 정산금' : convert ? '전환 정산금' : '예치 금액'
-  const ctaLabel = withdraw ? '출금 신청' : convert ? 'ABC로 전환하기' : '예치하기'
+    : '충전할 금액을 입력하세요'
+  const summaryTitle = withdraw ? '출금 요약' : convert ? '전환 요약' : '충전 요약'
+  const sumLabel = withdraw ? '출금 정산금' : convert ? '전환 정산금' : '충전 금액'
+  const ctaLabel = withdraw ? '출금 신청' : convert ? 'ABC로 전환하기' : '충전하기'
   const picked = isSendableAmount(amount) ? Number(trimAbcAmount(amount)) : null
   // 정산금을 넘는 금액은 뺀 결과가 음수라 비워 둔다.
   const payoutAfter = picked !== null && picked <= payout ? priceLabel(payout - picked) : '—'
@@ -202,7 +202,7 @@ export default function MyPageCredit() {
           { label: '전환 후 정산금', value: payoutAfter },
         ]
       : [
-          { label: '예치 후 사용 가능', value: availableAfter },
+          { label: '충전 후 사용 가능', value: availableAfter },
           // 가스비가 0 인 체인이다. 「≈」 를 붙이면 조금은 든다는 말이 된다.
           { label: '예상 가스비', value: '0 SSF' },
         ]
@@ -215,13 +215,13 @@ export default function MyPageCredit() {
   const withdrawal = withdraw ? payoutFlow.withdrawal : null
   const withdrawalCard = withdrawal && withdrawalStatusText(withdrawal.status)
 
-  const charging = mode === 'deposit' && charge.phase !== 'idle'
+  const charging = mode === 'charge' && charge.phase !== 'idle'
   const chargeCard = describeCharge(charge, () => {
     charge.reset()
     setTyped('')
   })
   const handleCta = () => {
-    if (mode === 'deposit') return void charge.send(amount)
+    if (mode === 'charge') return void charge.send(amount)
     if (blocked || payoutFlow.busy) return
     // 전환은 되돌릴 수 없어 한 번 더 묻는다.
     if (convert) return setAsking(trimAbcAmount(amount))
@@ -265,7 +265,7 @@ export default function MyPageCredit() {
             animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          예치/출금
+          충전/출금
         </div>
         <div
           className="absolute text-[13px] tracking-[-.01em]"
@@ -277,7 +277,7 @@ export default function MyPageCredit() {
             animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
           }}
         >
-          지갑의 abcToken 을 예치해 ABC 로 충전하거나, 판매로 받은 정산금을 지갑으로 출금합니다.
+          지갑의 abcToken 으로 ABC 를 충전하거나, 판매로 받은 정산금을 지갑으로 출금합니다.
         </div>
 
         <div
@@ -575,7 +575,7 @@ export default function MyPageCredit() {
                   ))}
                 </div>
                 {/* 지갑을 열기 전에 걸린 것들 — 금액이 틀렸거나 지갑이 다르거나 거절했다. */}
-                {mode === 'deposit' && charge.error && (
+                {mode === 'charge' && charge.error && (
                   <div
                     className="text-[15px]"
                     style={{ marginTop: '10px', color: 'rgba(255,196,214,.9)' }}
