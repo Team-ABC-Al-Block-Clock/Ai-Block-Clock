@@ -171,4 +171,28 @@ describe('conditionProblem', () => {
     expect(conditionProblem(source(json), condition('level'))).toBeNull()
     expect(conditionProblem(source(null, 'AGENT'), condition('whatever'))).toBeNull()
   })
+
+  it('출력 예시가 숫자로 바뀌면 남아 있는 문자열 비교를 막는다', () => {
+    const changed = source({ kind: 'JSON', example: { level: 3 } })
+    expect(conditionProblem(changed, condition('level'))).toMatch(/비교 값을 다시 입력/)
+    expect(conditionProblem(changed, { ...condition('level'), right: 3 })).toBeNull()
+  })
+
+  it('IN 의 모든 값이 출력 예시의 종류와 맞아야 한다', () => {
+    const changed = source({ kind: 'JSON', example: { level: 3 } })
+    expect(
+      conditionProblem(changed, { ...condition('level'), operator: 'IN', right: [3, '4'] }),
+    ).toMatch(/비교 값을 다시 입력/)
+    expect(
+      conditionProblem(changed, { ...condition('level'), operator: 'IN', right: [3, 4] }),
+    ).toBeNull()
+  })
+
+  it('불리언 예시에 문자열 true 를 비교하지 않는다', () => {
+    const changed = source({ kind: 'JSON', example: { level: true } })
+    expect(conditionProblem(changed, { ...condition('level'), right: 'true' })).toMatch(
+      /비교 값을 다시 입력/,
+    )
+    expect(conditionProblem(changed, { ...condition('level'), right: true })).toBeNull()
+  })
 })

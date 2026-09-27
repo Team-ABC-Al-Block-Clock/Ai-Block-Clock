@@ -153,5 +153,17 @@ export function conditionProblem(
   if (!kind) return '분기 조건의 값 경로가 출력 예시에 없습니다'
   if (!OPERATORS_BY_KIND[kind].includes(condition.operator))
     return '분기 조건의 비교 방법이 값의 종류와 맞지 않습니다'
+  const right = condition.right
+  if (
+    condition.operator === 'IN' ? !Array.isArray(right) || right.length === 0 : Array.isArray(right)
+  )
+    return '분기 조건의 비교 값을 다시 입력해 주세요'
+  const values = Array.isArray(right) ? right : [right]
+  if (
+    values.some(
+      (value) => typeof value !== kind || (typeof value === 'number' && !Number.isFinite(value)),
+    )
+  )
+    return '출력 예시의 값 종류가 바뀌었습니다. 분기 조건의 비교 값을 다시 입력해 주세요'
   return null
 }
