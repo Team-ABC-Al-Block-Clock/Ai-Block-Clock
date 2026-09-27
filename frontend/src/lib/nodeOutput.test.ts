@@ -183,6 +183,16 @@ describe('출력 폼', () => {
     expect(readOutputDraft(form(bad))).toBeNull()
   })
 
+  it('__proto__ 도 필드로 남는다', () => {
+    const example = JSON.parse('{"__proto__":"example","score":10}') as Record<string, unknown>
+    const output = { kind: 'JSON' as const, example }
+    const draft = toOutputDraft(output)
+    expect(draft.form).toBe(true)
+    const read = readOutputDraft(draft)
+    expect(Object.keys(read!.example!)).toEqual(['__proto__', 'score'])
+    expect(sameOutput(read, output)).toBe(true)
+  })
+
   it('61번째 키는 엔진 한도로 막는다', () => {
     const fields = Array.from({ length: 61 }, (_, i) => field(`k${i}`, 'number'))
     expect(outputDraftProblem(form(...fields))).toMatch(/60개/)
@@ -191,19 +201,34 @@ describe('출력 폼', () => {
 
 describe('switchOutputMode', () => {
   it('폼에서 직접 입력으로 가면 적은 필드가 JSON 으로 옮겨진다', () => {
-    const next = switchOutputMode(form(field('level', 'string', 'high')))
+    const { next } = switchOutputMode(form(field('level', 'string', 'high')))
     expect(next?.form).toBe(false)
     expect(JSON.parse(next!.text)).toEqual({ level: 'high' })
   })
 
+  // 옮기면 0 으로 바뀌거나 마지막 값만 남아, 돌아와도 적은 것을 되찾을 수 없다.
+  it.each([
+    ['숫자가 아닌 값', [field('score', 'number', 'abc')], /숫자/],
+    ['겹친 이름', [field('a', 'string', 'x'), field('a', 'string', 'y')], /두 번/],
+    ['이름 없는 값', [field('a', 'string'), field('', 'string', 'high')], /이름/],
+  ])('%s이 있으면 직접 입력으로 넘어가지 않는다', (_, fields, reason) => {
+    const result = switchOutputMode(form(...fields))
+    expect(result.next).toBeUndefined()
+    expect(result.reason).toMatch(reason)
+  })
+
+  it('빈 폼은 넘어간다', () => {
+    expect(switchOutputMode(form(field('', 'string'))).next?.text).toBe('{}')
+  })
+
   it('한 단계짜리 JSON 만 폼으로 돌아간다', () => {
-    const flat = switchOutputMode(raw('JSON', '{"score":3}'))
-    expect(flat?.fields.map((it) => [it.name, it.kind, it.value])).toEqual([
+    const { next } = switchOutputMode(raw('JSON', '{"score":3}'))
+    expect(next?.fields.map((it) => [it.name, it.kind, it.value])).toEqual([
       ['score', 'number', '3'],
     ])
-    expect(switchOutputMode(raw('JSON', '{"meta":{"a":1}}'))).toBeNull()
-    expect(switchOutputMode(raw('JSON', '{'))).toBeNull()
-    expect(switchOutputMode(raw('JSON', ''))?.fields).toHaveLength(1)
+    expect(switchOutputMode(raw('JSON', '{"meta":{"a":1}}')).reason).toMatch(/하위 객체/)
+    expect(switchOutputMode(raw('JSON', '{')).reason).toMatch(/JSON 을 고친/)
+    expect(switchOutputMode(raw('JSON', '')).next?.fields).toHaveLength(1)
   })
 
   it('fieldsFrom 은 앞뒤 공백이 있는 키를 폼으로 읽지 않는다', () => {

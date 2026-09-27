@@ -91,35 +91,43 @@ export function fieldIssues(fields: FieldDraft[]): FieldIssues {
   return { names, values, message }
 }
 
-/** 폼을 JSON 예시로. 값을 비우면 "" · 0 · true 로 채운다. */
+/** 폼을 JSON 예시로. 값을 비우면 "" · 0 · true 로 채운다. `__proto__` 도 키로 남게 fromEntries 로 만든다. */
 export function fieldsExample(fields: FieldDraft[]): Record<string, unknown> {
-  const example: Record<string, unknown> = {}
-  for (const field of fields) {
-    const name = field.name.trim()
-    if (!name) continue
-    if (field.kind === 'number') {
-      const n = numberOf(field.value)
-      example[name] = Number.isFinite(n) ? n : 0
-    } else if (field.kind === 'boolean') example[name] = field.value !== 'false'
-    else example[name] = field.value
-  }
-  return example
+  return Object.fromEntries(
+    fields
+      .filter((field) => field.name.trim())
+      .map((field) => {
+        const name = field.name.trim()
+        if (field.kind === 'number') {
+          const n = numberOf(field.value)
+          return [name, Number.isFinite(n) ? n : 0]
+        }
+        if (field.kind === 'boolean') return [name, field.value !== 'false']
+        return [name, field.value]
+      }),
+  )
 }
 
-/** 폼과 직접 입력을 오간다. 직접 입력이 폼으로 읽히지 않으면 `null`. */
-export function switchOutputMode(draft: OutputDraft): OutputDraft | null {
-  if (draft.form)
+export type ModeSwitch = { next: OutputDraft; reason?: never } | { next?: never; reason: string }
+
+/** 폼과 직접 입력을 오간다. 옮기다 값을 잃거나 폼으로 읽히지 않으면 그 이유를 돌려준다. */
+export function switchOutputMode(draft: OutputDraft): ModeSwitch {
+  if (draft.form) {
+    const issues = fieldIssues(draft.fields)
+    if (issues.names.size || issues.values.size) return { reason: issues.message ?? '' }
     return {
-      ...draft,
-      form: false,
-      text: JSON.stringify(fieldsExample(draft.fields), null, 2),
+      next: { ...draft, form: false, text: JSON.stringify(fieldsExample(draft.fields), null, 2) },
     }
-  try {
-    const fields = draft.text.trim() ? fieldsFrom(JSON.parse(draft.text)) : [blankField()]
-    return fields && { ...draft, form: true, fields }
-  } catch {
-    return null
   }
+  let parsed: unknown
+  try {
+    parsed = draft.text.trim() ? JSON.parse(draft.text) : {}
+  } catch {
+    return { reason: 'JSON 을 고친 뒤 폼으로 돌아갈 수 있습니다' }
+  }
+  const fields = fieldsFrom(parsed)
+  if (!fields) return { reason: '목록이나 하위 객체가 있어 폼으로 열 수 없습니다' }
+  return { next: { ...draft, form: true, fields } }
 }
 
 export const EXAMPLE_INVALID = '출력 예시를 빈 객체({})가 없는 JSON 객체로 적어 주세요'

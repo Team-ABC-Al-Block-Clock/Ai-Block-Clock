@@ -109,7 +109,7 @@ const COLUMNS = 'minmax(0,1.2fr) 88px minmax(0,1fr) 28px'
 
 const BAD_RING = 'inset 0 0 0 1px rgba(255,150,170,.8)'
 
-/** 폼과 JSON 직접 입력을 오가는 링크. 목록·하위 객체가 든 JSON 은 폼으로 못 연다. */
+/** 폼과 JSON 직접 입력을 오가는 링크. 옮길 수 없으면 꺼 두고 이유를 띄운다. */
 export function OutputModeLink({
   draft,
   onChange,
@@ -119,13 +119,13 @@ export function OutputModeLink({
   onChange: (next: OutputDraft) => void
   style?: CSSProperties
 }) {
-  const next = switchOutputMode(draft)
+  const { next, reason } = switchOutputMode(draft)
   return (
     <button
       type="button"
       disabled={!next}
       onClick={() => next && onChange(next)}
-      title={next ? undefined : '목록이나 하위 객체가 있어 폼으로 열 수 없습니다'}
+      title={reason}
       className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] underline underline-offset-[3px] disabled:cursor-default disabled:opacity-45"
       style={{ color: 'var(--color-accent-bright)', ...style }}
     >
