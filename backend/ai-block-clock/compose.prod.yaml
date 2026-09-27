@@ -8,9 +8,8 @@
 
 services:
   mysql:
-    # 로컬에서는 툴 접속을 위해 3306 을 열지만, 운영에서는 열지 않는다.
-    # backend 는 같은 compose 네트워크로 접근하므로 노출이 필요 없다.
-    ports: !reset []
+    ports: !override
+      - "127.0.0.1:3306:3306"
     restart: unless-stopped
 
   backend:
