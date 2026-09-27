@@ -226,7 +226,7 @@ export default function NodePalettePanel({
                 </div>
                 <div className="flex justify-between text-[13px]">
                   <span style={{ color: 'rgba(255,236,246,.72)' }}>만든 사람</span>
-                  <span className="font-semibold text-white">{item.owner.nickname}</span>
+                  <span className="font-semibold text-white">{item.owner.nickname ?? '—'}</span>
                 </div>
                 <div
                   className="text-[12.5px]"
