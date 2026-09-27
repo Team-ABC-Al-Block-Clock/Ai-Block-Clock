@@ -9,7 +9,7 @@ import {
   type WithdrawalStatus,
 } from '@/api/withdrawals'
 import { trimAbcAmount } from '@/lib/abcToken'
-import { chargeAmountLabel } from '@/lib/format'
+import { priceLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { withdrawalErrorText } from '@/lib/withdrawalMessage'
 
@@ -127,7 +127,7 @@ export function usePayoutWithdrawal() {
     onSuccess: (result) => {
       conversionId.clear()
       queryClient.setQueryData(queryKeys.credits.balance(), result.balance)
-      setNotice(`${chargeAmountLabel(result.convertedAmount)} 를 ABC 로 전환했습니다.`)
+      setNotice(`${priceLabel(result.convertedAmount)} 를 ABC 로 전환했습니다.`)
       void queryClient.invalidateQueries({ queryKey: queryKeys.credits.transactions.lists() })
     },
     onError: (e) => setError(withdrawalErrorText(e, 'convert')),

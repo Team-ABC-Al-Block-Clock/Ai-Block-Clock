@@ -10,7 +10,7 @@ import { useWalletAbcBalance } from '@/hooks/useWalletAbcBalance'
 import { useWalletStatus } from '@/hooks/useWalletStatus'
 import { isSendableAmount, trimAbcAmount } from '@/lib/abcToken'
 import { chargeFailureText } from '@/lib/chargeMessage'
-import { amountLabel, chargeAmountLabel, priceLabel, shortAddress } from '@/lib/format'
+import { amountLabel, priceLabel, shortAddress } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { withdrawalStatusText } from '@/lib/withdrawalMessage'
 
@@ -70,7 +70,7 @@ function describeCharge(charge: AbcCharge, finish: () => void) {
     case 'confirmed':
       return {
         title: '충전 완료',
-        note: `${chargeAmountLabel(charge.status?.creditedAmount ?? charge.requestedAmount ?? '0')} 를 적립했습니다.`,
+        note: `${priceLabel(charge.status?.creditedAmount ?? charge.requestedAmount ?? '0')} 를 적립했습니다.`,
         action: { label: '확인', run: finish },
       }
     case 'failed':
@@ -120,7 +120,7 @@ export default function MyPageCredit() {
       ? ['100', '200', '400', payoutText]
       : ['500', '1000', '2500', '5000']
   const raw = presetAmounts.map((amount) => ({
-    credit: chargeAmountLabel(amount),
+    credit: priceLabel(amount),
     amount,
     disabled: withdraw
       ? Number(amount) > payout || Number(amount) < MIN_AMOUNT
@@ -148,7 +148,7 @@ export default function MyPageCredit() {
   // 직접 입력이 있으면 그 값이 이긴다. 프리셋은 비워 뒀을 때의 기본값이다.
   const amount = typed.trim() || cur.amount
   // 요약은 실제로 보낼 값을 그대로 보여 준다 — 프리셋만 따르면 직접 입력한 금액이 화면에서 사라진다.
-  const sumCredit = isSendableAmount(amount) ? chargeAmountLabel(trimAbcAmount(amount)) : '—'
+  const sumCredit = isSendableAmount(amount) ? priceLabel(trimAbcAmount(amount)) : '—'
   const handlePickMode = (next: Mode) => {
     setMode(next)
     setPick(2)
@@ -476,7 +476,7 @@ export default function MyPageCredit() {
             <>
               <div style={{ width: '530px' }}>
                 <div className="text-[15.5px] font-semibold tracking-[-.01em] text-white">
-                  {withdrawalCard.title} · {chargeAmountLabel(withdrawal.amount)}
+                  {withdrawalCard.title} · {priceLabel(withdrawal.amount)}
                 </div>
                 <div
                   className="text-[15.5px]"
@@ -634,7 +634,7 @@ export default function MyPageCredit() {
         open={asking ? '' : undefined}
         heading="정산금을 ABC 로 전환할까요?"
         body-text={'전환한 ABC 는 실행에만 쓸 수 있고\n정산금으로 되돌릴 수 없습니다.'}
-        note-text={asking ? `${chargeAmountLabel(asking)} 전환` : undefined}
+        note-text={asking ? `${priceLabel(asking)} 전환` : undefined}
         confirm-label="전환하기"
         cancel-label="취소"
       />

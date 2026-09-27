@@ -17,7 +17,7 @@ export interface AgentSummary {
   reviewCount: number
   /** 로그인한 사용자가 즐겨찾기했는지. 미로그인이면 항상 false */
   favorited: boolean
-  owner: { nickname: string }
+  owner: { nickname: string | null }
   createdAt: string
 }
 
@@ -55,7 +55,7 @@ export interface AgentDetail {
   reviewCount: number
   favorited: boolean
   favoriteCount: number
-  owner: { userId: string; nickname: string; profileImageUrl: string | null }
+  owner: { userId: string; nickname: string | null; profileImageUrl: string | null }
   createdAt: string
 }
 
@@ -152,7 +152,7 @@ export interface FavoriteAgent {
   price: string
   /** 누적 실행 횟수 */
   executionCount: number
-  owner: { nickname: string }
+  owner: { nickname: string | null }
   /** 즐겨찾기한 시각. 이 값 역순이 목록 순서다 */
   favoritedAt: string
 }
@@ -165,7 +165,7 @@ export interface UsedAgent {
   iconUrl: string | null
   /** 1회 실행 가격(단가) */
   price: string
-  owner: { nickname: string }
+  owner: { nickname: string | null }
   /** 요청자 본인이 실행한 횟수. 마켓 카드의 `executionCount`(전체 누적)와 다른 값이라 이름을 구분한다 */
   myExecutionCount: number
   /** 이 에이전트에 요청자가 쓴 누적 금액 */
@@ -191,7 +191,7 @@ export interface UsedAgentsQuery extends CursorParams {
 export interface AgentProvenance {
   agentId: string
   owner: {
-    nickname: string
+    nickname: string | null
     walletAddress: string
   }
   /** PENDING 이면 계약 · 거래 · 블록 · 조회 주소가 null 이다 — network · chainId 는 그대로 온다 */

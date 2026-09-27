@@ -237,7 +237,7 @@ export interface PlaceableItem {
   iconUrl: string | null
   /** 내 에이전트에만 MY 칩을 붙인다. 다른 사람의 에이전트가 섞이면 마켓에 판매 등록할 수 없다.  */
   mine: boolean
-  owner: { nickname: string }
+  owner: { nickname: string | null }
   executionCount: number
   /** 실행 1회당 단가 */
   price: string

@@ -95,7 +95,11 @@ export default function Search() {
     placeholderData: keepPreviousData,
   })
 
-  const agents = data?.pages.flatMap((page) => page.content) ?? []
+  // 커서가 오프셋이라 장 사이에 등록이 끼면 앞 장 끝 항목이 다시 온다. 먼저 받은 것을 남긴다.
+  const seen = new Set<string>()
+  const agents = (data?.pages.flatMap((page) => page.content) ?? []).filter(
+    (a) => !seen.has(a.agentId) && Boolean(seen.add(a.agentId)),
+  )
 
   // 무한 스크롤. 그리드가 #gridScroll 안에서 스크롤되므로 그것을 root 로 삼는다 —
   // 뷰포트를 root 로 두면 컨테이너를 끝까지 내려도 sentinel 이 교차하지 않는다.
@@ -128,7 +132,7 @@ export default function Search() {
     initial: a.name.trim().charAt(0).toUpperCase(),
     uses: runLabel(a.executionCount),
     price: priceLabel(a.price),
-    author: a.owner.nickname,
+    author: a.owner.nickname ?? '—',
     infoOpen: infoAt === a.agentId,
     infoBg: infoAt === a.agentId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
     info: (e: React.MouseEvent) => {
@@ -446,6 +450,23 @@ export default function Search() {
           ))}
           {/* 이 칸이 보이면 다음 페이지를 불러온다. 마지막 페이지면 걸지 않는다. */}
           <div ref={sentinelRef} style={{ width: '100%', height: '1px' }} />
+          {isFetchNextPageError && (
+            <div
+              className="flex justify-center text-[14px]"
+              style={{ width: '100%', gap: '12px', color: 'rgba(255,236,246,.62)' }}
+            >
+              <span>다음 목록을 불러오지 못했습니다.</span>
+              <button
+                className="cursor-pointer text-white underline"
+                disabled={isFetchingNextPage}
+                onClick={() => void fetchNextPage()}
+                style={{ background: 'none', border: 0, padding: 0 }}
+                type="button"
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
