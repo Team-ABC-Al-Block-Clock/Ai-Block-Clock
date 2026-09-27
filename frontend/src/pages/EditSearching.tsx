@@ -39,8 +39,8 @@ const PREVIEW_ENTER = 'uiIn .5s cubic-bezier(.2,.8,.25,1) backwards'
 /** 작업면 한가운데. 안내와 검색 중 표시가 같은 축에 선다. */
 const PANE_TEXT_WIDTH = 980
 
-/** 한 줄로 펴서 작업면에 들어가는 최대. 서버도 `WORKFLOW_006` 으로 같은 수에서 자른다. */
-const MAX_PICKED = 20
+/** 고른 순서대로 한 줄로 잇는다. 서버 깊이 한도(`WORKFLOW_007`)를 넘지 않게 자른다. */
+const MAX_PICKED = 10
 
 export default function EditSearching() {
   const navigate = useNavigate()
