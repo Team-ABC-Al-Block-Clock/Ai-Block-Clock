@@ -276,6 +276,9 @@ export function canConnect(
   if (target.ioType === 'START' || source.ioType === 'END') return false
   // 시작과 종료를 맞붙이면 하는 일이 없는 워크플로우가 된다.
   if (source.ioType === 'START' && target.ioType === 'END') return false
+  // 서버는 종료로 들어가는 선을 엔진에 싣지 않는다(`RuntimeWorkflow.of`). 분기에서 바로 종료로
+  // 가면 엔진이 갈래 하나뿐인 분기를 받아 실행을 물린다.
+  if (source.controlType && target.ioType === 'END') return false
   // 선 id 는 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막는다.
   if (edges.some((edge) => edge.from === from && edge.to === to)) return false
 
@@ -451,10 +454,15 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
   if (!order) return problem
 
   const has = (type: IoType) => order.nodes.some((node) => node.ioType === type)
-  // 종료는 하나뿐이다. 갈래를 종료로 모으려면 두 갈래에서 같은 종료로 선을 긋는다(합류).
+  // 종료는 하나뿐이다. 갈래를 종료로 모으려면 두 갈래가 노드를 거쳐 같은 종료로 가게 잇는다(합류).
   if (!has('START') && !has('END')) return '시작·종료 노드는 필수입니다'
   if (!has('START')) return '시작 노드를 놓아 주세요'
   if (!has('END')) return '종료 노드를 놓아 주세요'
+  // 그을 때 막지만 불러온 구성에는 남아 있을 수 있다(`canConnect`).
+  const ends = new Set(order.nodes.filter((node) => node.ioType === 'END').map((node) => node.id))
+  const branches = new Set(order.nodes.filter((node) => node.controlType).map((node) => node.id))
+  if (order.edges.some((edge) => branches.has(edge.from) && ends.has(edge.to)))
+    return '분기 갈래는 노드를 하나 이상 거쳐 종료로 이어 주세요'
   for (const node of order.nodes) {
     const condition = node.condition
     const problem =

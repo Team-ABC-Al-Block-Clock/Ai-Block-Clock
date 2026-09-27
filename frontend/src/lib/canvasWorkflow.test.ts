@@ -547,17 +547,50 @@ describe('runProblem', () => {
       controlType: 'BRANCH' as const,
       condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
     }
-    const nodes = [io('s', 'START'), text, branch, nodeAt('t', 0, 0), io('e', 'END')]
+    const nodes = [
+      io('s', 'START'),
+      text,
+      branch,
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      io('e', 'END'),
+    ]
     const edges = [
       link('s', 'a'),
       link('a', 'br'),
       { ...link('br', 't'), when: true },
-      { ...link('br', 'e'), when: false },
+      { ...link('br', 'f'), when: false },
+      link('f', 'e'),
       link('t', 'e'),
     ]
 
     expect(graphProblem(nodes, edges)).toBeNull()
     expect(runProblem(nodes, edges)).toMatch(/JSON/)
+  })
+
+  // 서버가 종료로 가는 선을 엔진에 싣지 않아 갈래 하나뿐인 분기가 된다.
+  it('분기 갈래가 바로 종료로 가면 잇지 않고, 불러온 구성은 실행을 막는다', () => {
+    const branch = {
+      ...nodeAt('br', 0, 0),
+      nodeType: null,
+      sourceType: 'CONTROL' as const,
+      sourceId: '',
+      mine: null,
+      controlType: 'BRANCH' as const,
+      condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
+    }
+    const nodes = [io('s', 'START'), nodeAt('a', 0, 0), branch, nodeAt('t', 0, 0), io('e', 'END')]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      link('t', 'e'),
+    ]
+
+    expect(canConnect(nodes, edges, 'br', 'e', false)).toBe(false)
+    expect(runProblem(nodes, [...edges, { ...link('br', 'e'), when: false }])).toMatch(
+      /노드를 하나 이상 거쳐/,
+    )
   })
 
   // 시작과 종료만 맞붙이면 하는 일이 없다. 그을 때부터 막는다.
