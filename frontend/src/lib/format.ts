@@ -12,8 +12,8 @@ export function runLabel(n: number) {
   return n.toLocaleString() + '회'
 }
 
-/** 문자열 인자를 10진수 그대로 파싱한다 — Number 로 되돌리지 않아 소수점 오차가 없다. */
-const AMOUNT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 })
+/** 문자열 인자를 10진수 그대로 파싱한다 — Number 로 되돌리지 않아 소수점 오차가 없다. 자릿수는 BE 금액 scale 6 이다. */
+const AMOUNT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 6 })
 
 /**
  * '540.00' → '540', '1248.50' → '1,248.5'. 단위를 따로 적는 자리에 쓴다.
@@ -26,17 +26,9 @@ export function amountLabel(amount: string | number) {
   return AMOUNT.format(amount as Intl.StringNumericLiteral)
 }
 
-/** '540.00' → '540 ABC', '1248.50' → '1,248.5 ABC' */
+/** '540.00' → '540 ABC', '0.013500' → '0.0135 ABC' */
 export function priceLabel(price: string | number) {
   return `${amountLabel(price)} ABC`
-}
-
-/** 충전이 보내는 소수 6자리를 그대로 적는다. `priceLabel` 은 2자리에서 끊어 보낸 값과 달라진다. */
-const CHARGE_AMOUNT = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 6 })
-
-/** '1.123456' → '1.123456 ABC', '2500' → '2,500 ABC' */
-export function chargeAmountLabel(amount: string | number) {
-  return `${CHARGE_AMOUNT.format(amount as Intl.StringNumericLiteral)} ABC`
 }
 
 /** 204800 → '200KB', 1363148 → '1.3MB' — 1KB 미만은 올려서 '1KB' 로 적는다. */

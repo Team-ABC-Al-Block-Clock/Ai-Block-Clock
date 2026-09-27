@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   blockLabel,
-  chargeAmountLabel,
   dateTimeLabel,
   josa,
   maskName,
@@ -28,18 +27,15 @@ describe('priceLabel', () => {
     expect(priceLabel('1248.05')).toBe('1,248.05 ABC')
   })
 
+  it('BE 금액 scale 인 소수 6자리까지 끊지 않는다', () => {
+    // 2자리에서 끊으면 실행 단가 0.0135 가 0.01 로 보인다
+    expect(priceLabel('0.013500')).toBe('0.0135 ABC')
+    expect(priceLabel('1.123456')).toBe('1.123456 ABC')
+  })
+
   it('문자열을 숫자로 되돌리지 않는다', () => {
     // Number 를 거치면 오차가 생기는 자릿수. 문자열 그대로 통과해야 한다.
     expect(priceLabel('9007199254740993.1')).toBe('9,007,199,254,740,993.1 ABC')
-  })
-})
-
-describe('chargeAmountLabel', () => {
-  it('충전이 보내는 소수 6자리를 끊지 않는다', () => {
-    // priceLabel 로 적으면 '1.12 ABC' 가 되어 실제로 보내는 값과 달라진다
-    expect(chargeAmountLabel('1.123456')).toBe('1.123456 ABC')
-    expect(chargeAmountLabel('2500')).toBe('2,500 ABC')
-    expect(chargeAmountLabel('11.25')).toBe('11.25 ABC')
   })
 })
 
