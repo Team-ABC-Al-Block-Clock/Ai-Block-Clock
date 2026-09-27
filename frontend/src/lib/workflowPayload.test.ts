@@ -351,6 +351,7 @@ describe('toCanvasWorkflow — 분기·입출력', () => {
 
     expect(yes.y).toBeLessThan(br.y)
     expect(no.y).toBeGreaterThan(br.y)
+    expect(br.y - yes.y).toBe(no.y - br.y)
   })
 
   it('갈라진 자리는 같은 가로줄에 겹치지 않는다', () => {

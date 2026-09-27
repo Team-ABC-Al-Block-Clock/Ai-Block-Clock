@@ -124,6 +124,8 @@ const RESTORE_ROW = NODE_SIZE + 24
 const RESTORE_X0 = 12
 /** 짝수 깊이는 아래, 홀수 깊이는 위. */
 const RESTORE_Y = [430, 325] as const
+/** 갈래가 있으면 지그재그 없이 이 줄에서 위아래로 같은 거리만큼 벌린다. */
+const RESTORE_AXIS = (RESTORE_Y[0] + RESTORE_Y[1]) / 2
 
 /** 팔레트가 아는 표시용 정보. 서버 응답에 종류·단가가 없어 밖에서 채워 준다. */
 export interface NodeLabel {
@@ -201,6 +203,7 @@ export function toCanvasWorkflow(
     )
     lanes.set(node.nodeKey, from.length ? from.reduce((a, b) => a + b, 0) / from.length : 0)
   }
+  const branched = detail.nodes.some((node) => node.controlType)
   const taken = new Set<string>()
   const laneOf = (key: string, depth: number) => {
     let lane = lanes.get(key) ?? 0
@@ -245,7 +248,7 @@ export function toCanvasWorkflow(
       executionCount: label?.executionCount ?? null,
       owner: label?.owner ?? null,
       x: RESTORE_X0 + depth * RESTORE_STEP,
-      y: RESTORE_Y[depth % RESTORE_Y.length] + lane * RESTORE_ROW,
+      y: (branched ? RESTORE_AXIS : RESTORE_Y[depth % RESTORE_Y.length]) + lane * RESTORE_ROW,
       // 서버 판정이 먼저다. 모르는 것은 남의 것으로 둔다 — 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
       mine: control || io ? null : (node.mine ?? label?.mine ?? false),
       floaty: '',
