@@ -72,3 +72,21 @@ export function inCanvasOrder(
     return step ? [step] : []
   })
 }
+
+/**
+ * 분기가 어느 쪽으로 갔는지. 아직 모르면 `null`.
+ *
+ * 서버는 판정 값을 넘기지 않아 갈래 끝의 상태로 읽는다 — 한쪽이 지나갔거나 반대쪽이 건너뛰었으면 그쪽이다.
+ */
+export function branchTaken(
+  branchId: string,
+  edges: { from: string; to: string; when?: boolean | null }[],
+  reached: Set<string>,
+  statuses: Map<string, StepStatus>,
+): boolean | null {
+  const target = (when: boolean) => edges.find((it) => it.from === branchId && it.when === when)?.to
+  const [yes, no] = [target(true), target(false)]
+  if ((yes && reached.has(yes)) || (no && statuses.get(no) === 'skipped')) return true
+  if ((no && reached.has(no)) || (yes && statuses.get(yes) === 'skipped')) return false
+  return null
+}

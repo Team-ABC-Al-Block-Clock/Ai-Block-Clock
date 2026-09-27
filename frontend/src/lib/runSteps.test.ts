@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { StepStatus } from '@/api/executions'
 
-import { cardStatuses, inCanvasOrder, nameBranchSteps, reachedNodes } from './runSteps'
+import { branchTaken, cardStatuses, inCanvasOrder, nameBranchSteps, reachedNodes } from './runSteps'
 
 describe('nameBranchSteps', () => {
   const step = (name: string) => ({ name, status: 'succeeded' as const })
@@ -92,5 +92,24 @@ describe('inCanvasOrder', () => {
       't',
       'f',
     ])
+  })
+})
+
+describe('branchTaken', () => {
+  const edges = [
+    { from: 'br', to: 't', when: true },
+    { from: 'br', to: 'f', when: false },
+  ]
+
+  it('반대쪽이 건너뛰었으면 이쪽으로 갔다', () => {
+    expect(branchTaken('br', edges, new Set(), new Map([['t', 'skipped' as const]]))).toBe(false)
+  })
+
+  it('한쪽이 지나갔으면 그쪽이다', () => {
+    expect(branchTaken('br', edges, new Set(['t']), new Map())).toBe(true)
+  })
+
+  it('아직 모르면 null', () => {
+    expect(branchTaken('br', edges, new Set(), new Map([['t', 'pending' as const]]))).toBeNull()
   })
 })

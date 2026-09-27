@@ -22,7 +22,13 @@ import {
 import { describeCondition } from '@/lib/branchCondition'
 import { queryKeys } from '@/lib/queryKeys'
 import { resultTextOf } from '@/lib/runResult'
-import { cardStatuses, inCanvasOrder, nameBranchSteps, reachedNodes } from '@/lib/runSteps'
+import {
+  branchTaken,
+  cardStatuses,
+  inCanvasOrder,
+  nameBranchSteps,
+  reachedNodes,
+} from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
@@ -272,6 +278,15 @@ export default function RunRunning() {
     stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
   const liveEdges = geometry.filter((_, i) => lit[i])
+  /** 분기 카드 밑 한 줄. 판정이 나면 결과를 앞에 둬 조건이 잘려도 방향은 보이게 한다. */
+  const branchLabel = (node: CanvasNodeData) => {
+    const condition = describeCondition(
+      node.condition,
+      (id) => defs.find((it) => it.id === id)?.name,
+    )
+    const taken = reached && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
+    return taken === null ? condition : `${taken ? '참' : '거짓'} · ${condition}`
+  }
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
@@ -497,6 +512,7 @@ export default function RunRunning() {
                   <ControlNode
                     key={n.id}
                     kind={kind}
+                    sublabel={n.controlType ? branchLabel(n) : undefined}
                     x={n.x}
                     y={n.y}
                     floaty={n.floaty}
