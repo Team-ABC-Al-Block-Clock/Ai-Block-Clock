@@ -47,6 +47,21 @@ describe('parseConditionRight', () => {
     expect(parseConditionRight('high', 'EQ')).toBe('high')
   })
 
+  it('둘째 이후 값의 따옴표 안 쉼표를 보존한다', () => {
+    expect(parseConditionRight('high, "a,b", "c,d"', 'IN')).toEqual(['high', 'a,b', 'c,d'])
+    expect(parseConditionRight('high, "a,b"', 'IN', 'string')).toEqual(['high', 'a,b'])
+  })
+
+  it('따옴표·역슬래시·빈 문자열도 재적용할 때 보존한다', () => {
+    const values = ['high', 'a"b,c', 'a\\b', '', ' true ', '줄\n바꿈']
+    expect(parseConditionRight(formatConditionRight(values), 'IN')).toEqual(values)
+    expect(parseConditionRight(formatConditionRight(values), 'IN', 'string')).toEqual(values)
+  })
+
+  it.each(['high, "a,b', 'high,,low', 'high,'])('미완성 목록을 저장하지 않는다 — %s', (text) => {
+    expect(parseConditionRight(text, 'IN')).toBeNull()
+  })
+
   it('채운 것이 없으면 null 이다', () => {
     expect(parseConditionRight('  ', 'EQ')).toBeNull()
     expect(parseConditionRight(' , , ', 'IN')).toBeNull()

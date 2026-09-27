@@ -45,23 +45,51 @@ const OPERATOR_SIGNS: Record<ConditionOperator, string> = {
  */
 export function parseLiteral(text: string): ConditionLiteral {
   const value = text.trim()
-  const quoted = value.length >= 2 && value.startsWith('"') && value.endsWith('"')
-  if (quoted) return value.slice(1, -1)
+  if (value.startsWith('"')) return quotedString(value) ?? value
   if (value === 'true') return true
   if (value === 'false') return false
   // `Number('')` 은 0 이다. 빈 칸이 0 으로 새지 않게 먼저 거른다.
-  if (value !== '' && !Number.isNaN(Number(value))) return Number(value)
+  if (value !== '' && Number.isFinite(Number(value))) return Number(value)
   return value
 }
 
-/** 따옴표 안의 쉼표는 자르지 않는다 — `"a,b"` 는 한 값이다. */
-const IN_ITEM = /"[^"]*"|[^,]+/g
+function quotedString(value: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return typeof parsed === 'string' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+/** 앞의 공백과 이스케이프를 보존하고, 따옴표 밖의 쉼표만 구분자로 쓴다. */
+function splitList(text: string): string[] | null {
+  const items: string[] = []
+  let start = 0
+  let quoted = false
+  let escaped = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (escaped) escaped = false
+    else if (quoted && char === '\\') escaped = true
+    else if (char === '"') quoted = !quoted
+    else if (char === ',' && !quoted) {
+      items.push(text.slice(start, i).trim())
+      start = i + 1
+    }
+  }
+  if (quoted || escaped) return null
+  items.push(text.slice(start).trim())
+  return items.some((item) => item === '') ? null : items
+}
 
 /** 칸의 종류를 알면 그 종류로만 읽는다. 글자 칸에 적은 `12` 가 숫자로 새면 엔진이 같다고 보지 않는다. */
 function parseAs(text: string, kind?: FieldKind | null): ConditionLiteral | null {
   const value = text.trim()
-  if (kind === 'string') return value.replace(/^"(.*)"$/, '$1')
-  if (kind === 'number') return value !== '' && !Number.isNaN(Number(value)) ? Number(value) : null
+  if (value.startsWith('"')) return !kind || kind === 'string' ? quotedString(value) : null
+  if (kind === 'string') return value
+  if (kind === 'number')
+    return value !== '' && Number.isFinite(Number(value)) ? Number(value) : null
   if (kind === 'boolean') return value === 'true' ? true : value === 'false' ? false : null
   return parseLiteral(value)
 }
@@ -74,7 +102,8 @@ export function parseConditionRight(
 ): ConditionLiteral | ConditionLiteral[] | null {
   if (operator !== 'IN') return text.trim() === '' ? null : parseAs(text, kind)
 
-  const items = (text.match(IN_ITEM) ?? []).map((part) => part.trim()).filter((part) => part !== '')
+  const items = splitList(text)
+  if (!items) return null
   const values = items.map((item) => parseAs(item, kind))
   return values.length === 0 || values.includes(null) ? null : (values as ConditionLiteral[])
 }
@@ -87,8 +116,9 @@ export function parseConditionRight(
  */
 const reread = (value: ConditionLiteral): string =>
   // 쉼표가 들었으면 `IN` 이 되읽을 때 두 값으로 갈린다. 그것도 감싼다.
-  typeof value === 'string' && (parseLiteral(value) !== value || value.includes(','))
-    ? `"${value}"`
+  typeof value === 'string' &&
+  (value === '' || parseLiteral(value) !== value || /[,"\\\r\n]/.test(value))
+    ? JSON.stringify(value)
     : String(value)
 
 export function formatConditionRight(right: CanvasCondition['right']): string {
