@@ -211,6 +211,8 @@ export interface CanvasNodeProps {
   name: string
   /** 노드 유형(편집) 또는 진행 상태(실행) */
   sublabel: string
+  /** 부제 아래 한 줄. 분기 판정처럼 부제가 길어도 잘리면 안 되는 것 */
+  note?: string
   x: number
   y: number
   /** 참이면 MY 칩과 테두리. 판정 대상이 아닌 자리는 null */
@@ -252,6 +254,7 @@ export default function CanvasNode({
   index,
   name,
   sublabel,
+  note,
   x,
   y,
   mine,
@@ -406,12 +409,25 @@ export default function CanvasNode({
           className="text-[13.5px] font-medium"
           style={{
             ...OVER_BACKDROP,
-            ...(shape === 'hex' ? SUBLABEL_WRAP : SUBLABEL_FIT),
+            ...(shape === 'hex' && !note ? SUBLABEL_WRAP : SUBLABEL_FIT),
             color: sublabelColor,
             letterSpacing: '.05em',
           }}
         >
           {sublabel}
+        </div>
+      )}
+      {note && (
+        <div
+          className="text-[13.5px] font-bold"
+          style={{
+            ...OVER_BACKDROP,
+            ...SUBLABEL_FIT,
+            color: sublabelColor,
+            letterSpacing: '.05em',
+          }}
+        >
+          {note}
         </div>
       )}
     </div>

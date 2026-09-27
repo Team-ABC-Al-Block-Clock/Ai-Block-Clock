@@ -300,20 +300,22 @@ export default function RunRunning() {
     stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
   const liveEdges = geometry.filter((_, i) => lit[i])
-  /** 분기 카드 밑 한 줄. 판정이 나면 포트 이름과 같은 true·false 를 뒤에 붙인다. */
-  const branchLabel = (node: CanvasNodeData) => {
-    const condition = describeCondition(
-      node.condition,
-      (id) => defs.find((it) => it.id === id)?.name,
-    )
+  const branchCondition = (node: CanvasNodeData) =>
+    describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)
+  /** 판정은 포트 이름과 같은 true·false 로 적는다. 아직 모르면 null. */
+  const branchVerdict = (node: CanvasNodeData) => {
     const taken =
       reached?.has(node.id) && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
-    return taken === null ? condition : `${condition} →\u00a0${taken}`
+    return taken === null ? null : `→ ${taken}`
   }
   /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
   const labeledSteps = nameBranchSteps(
     progress?.steps ?? [],
-    defs.filter((node) => node.controlType).map((node) => `${node.name} · ${branchLabel(node)}`),
+    defs
+      .filter((node) => node.controlType)
+      .map((node) =>
+        [`${node.name} · ${branchCondition(node)}`, branchVerdict(node)].filter(Boolean).join(' '),
+      ),
   )
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
@@ -536,7 +538,8 @@ export default function RunRunning() {
                   <ControlNode
                     key={n.id}
                     kind={kind}
-                    sublabel={n.controlType ? branchLabel(n) : undefined}
+                    sublabel={n.controlType ? branchCondition(n) : undefined}
+                    note={(n.controlType && branchVerdict(n)) || undefined}
                     x={n.x}
                     y={n.y}
                     floaty={n.floaty}
@@ -723,13 +726,16 @@ export default function RunRunning() {
               {logs.map((l, i) => (
                 <div
                   key={i}
-                  className="flex items-center"
+                  className="flex items-start"
                   style={{ gap: '8px', animation: 'lineIn .34s ease both' }}
                 >
-                  <StatusDot size={6} color={l.dot} />
+                  {/* 분기 줄은 조건과 판정까지 적어 길다. 자르면 판정이 사라져 줄을 바꾼다. */}
+                  <div className="flex flex-none" style={{ height: '27px', alignItems: 'center' }}>
+                    <StatusDot size={6} color={l.dot} />
+                  </div>
                   <div
-                    className="overflow-hidden text-[18px] tracking-[-.005em] whitespace-nowrap"
-                    style={{ color: l.color, textOverflow: 'ellipsis' }}
+                    className="min-w-0 text-[18px] tracking-[-.005em]"
+                    style={{ color: l.color, overflowWrap: 'anywhere' }}
                   >
                     {l.text}
                   </div>
