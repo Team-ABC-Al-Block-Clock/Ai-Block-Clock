@@ -165,6 +165,15 @@ export default function RunRunning() {
 
   const canSell = canSellWorkflow(defs)
 
+  /**
+   * 등록 화면에 넘길 주소. `revision` 은 사용자가 지금 보고 있는 회차다 — 등록 화면이
+   * 다시 받아 오면 그 사이 원본이 바뀌어도 회차가 맞아 버려, 어긋남을 잡는 `WORKFLOW_016`
+   * 이 영영 안 걸린다. 서버가 `@Positive` 로 받으므로 회차를 얻기 전에는 보내지 않는다.
+   */
+  const revision = loaded.detail?.revision
+  const canSellNow = canSell && !!workflowId && !!revision
+  const registerHref = `${paths.register}?workflowId=${workflowId}&revision=${revision}&executionId=${executionId}`
+
   const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const failed = progress?.status === 'FAILED'
@@ -853,18 +862,20 @@ export default function RunRunning() {
             {/* 워크플로우 전체 실행에 성공해야 마켓에 판매 등록 가능. */}
             {/* 등록 화면에서 취소하면 여기로 돌아온다 — 워크플로우를 실어 보내야 빈 화면이 되지 않는다. */}
             <a
-              {...(canSell
+              {...(canSellNow
                 ? {
                     // 접수 번호도 함께 넘긴다. 돌아올 때 이 실행으로 되돌아와야 결과를 잃지 않는다.
-                    href: workflowId
-                      ? `${paths.register}?workflowId=${workflowId}&executionId=${executionId}`
-                      : `${paths.register}?executionId=${executionId}`,
+                    href: registerHref,
                   }
                 : {})}
               title={
-                canSell ? undefined : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+                canSell
+                  ? canSellNow
+                    ? undefined
+                    : '워크플로우를 읽는 중입니다'
+                  : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
               }
-              aria-disabled={!canSell}
+              aria-disabled={!canSellNow}
               style={{
                 left: '237px',
                 top: '576px',

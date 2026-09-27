@@ -1,9 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { AGENT_LIMITS, createAgent } from '@/api/agents'
 import { ApiError } from '@/api/errors'
+import { getWorkflow } from '@/api/workflows'
 import { describeImageProblem } from '@/lib/imageFile'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
@@ -244,10 +245,29 @@ export default function RegisterForm() {
     },
   })
 
-  // TODO: 굳힐 워크플로우와 보던 회차. 캔버스 저장이 붙을 때까지 비어 나간다.
+  /**
+   * 굳힐 워크플로우와 사용자가 보던 회차. 실행 결과 화면이 실어 보낸다.
+   *
+   * 회차를 여기서 다시 받아 오지 않는다 — 그러면 그 사이 원본이 바뀌어도 늘 최신과 맞아,
+   * 어긋남을 잡으라고 둔 `WORKFLOW_016` 이 영영 안 걸린다. 서버는 `@Positive` 라 0 을 받지
+   * 않으므로, 없거나 0 이면 보내지 않고 화면에서 막는다.
+   */
   const [searchParams] = useSearchParams()
   const workflowId = searchParams.get('workflowId') ?? ''
   const revision = Number(searchParams.get('revision') ?? 0)
+  const ready = !!workflowId && Number.isInteger(revision) && revision > 0
+
+  /**
+   * 에이전트 이름은 워크플로우 이름을 그대로 쓴다. 상세만 받는다 — `useSavedWorkflow` 는
+   * 팔레트와 노드까지 끌어와 캔버스를 세우는데, 이 화면은 이름 한 줄이면 된다.
+   */
+  const workflow = useQuery({
+    queryKey: queryKeys.workflows.detail(workflowId),
+    queryFn: () => getWorkflow(workflowId),
+    enabled: !!workflowId,
+    staleTime: Infinity,
+  })
+  const workflowName = workflow.data?.name ?? ''
   /**
    * 취소하고 돌아갈 자리. 실행 결과에서 들어왔으면 그 실행으로 되돌린다 — 워크플로우를 잃으면
    * 빈 캔버스가 뜬다. 접수 번호 없이 들어오는 길은 내 에이전트 목록뿐이라 그리로 보낸다.
@@ -280,6 +300,10 @@ export default function RegisterForm() {
 
   const askSubmit = () => {
     if (register.isPending) return
+
+    // 굳힐 대상 없이 보내면 서버가 `COMMON_001` 로 끊는다. 여기서 먼저 막고 길을 알려 준다.
+    if (!ready)
+      return setLocalProblem('실행 결과 화면의 「판매 등록」으로 들어와야 등록할 수 있습니다')
 
     const problems = missingFields()
     if (problems.length) return setLocalProblem(`${problems.join(' · ')} 을(를) 채워 주세요`)
@@ -500,7 +524,9 @@ export default function RegisterForm() {
             className="absolute text-[13px] tracking-[-.005em]"
             style={{ left: '272px', top: '400px', color: 'rgba(255,236,246,.68)' }}
           >
-            권장 크기: 256×256px
+            {/* 서버에 파일을 받는 자리가 없어 지금은 보내지 못한다 — 고른 것이 사라지는 것처럼
+                보이지 않게 미리 알린다. `POST /agents` 가 multipart 를 받게 되면 지운다. */}
+            권장 크기: 256×256px · 아이콘과 스크린샷은 아직 저장되지 않습니다
           </div>
           {imageProblem?.where === 'icon' && (
             <ImageProblemLine text={imageProblem.text} top={400} />
@@ -567,12 +593,18 @@ export default function RegisterForm() {
               animation: 'rise .7s .16s cubic-bezier(.2,.8,.25,1) both',
             }}
           >
-            {/* TODO: 워크플로우 이름을 그대로 쓴다. 지금은 자리표시자라 모두 같은 이름이 된다. */}
+            {/* 워크플로우 이름을 그대로 쓴다. 편집 화면에서 정한 이름이 곧 에이전트 이름이다. */}
             <input
               className="absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] outline-0"
               type="text"
               id={FIELD.name}
-              defaultValue="문서 정리"
+              // 도착하면 갈아 끼운다. defaultValue 로 두면 첫 렌더의 빈 값이 굳는다.
+              value={workflowName}
+              // 넘겨받은 워크플로우가 없으면 쿼리가 꺼져 있어 `isPending` 이 참인 채로 굳는다.
+              placeholder={
+                !workflowId ? '' : workflow.isPending ? '이름을 읽는 중…' : '이름을 읽지 못했습니다'
+              }
+              onChange={() => undefined}
               maxLength={AGENT_LIMITS.name.max}
               readOnly
               style={{

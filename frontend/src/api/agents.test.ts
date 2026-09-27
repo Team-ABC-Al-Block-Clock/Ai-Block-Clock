@@ -308,7 +308,7 @@ describe('getAgentProvenance', () => {
 
   it('블록 번호는 UUID 로 등록한 건에서도 안전한 정수다', async () => {
     const created = await createAgent({
-      workflowId: '33567ab2-e08b-461b-a0f2-51a857df5ec7',
+      workflowId: 'wf_001',
       revision: 1,
       name: '증명 확인용',
       summary: '한 줄',
@@ -485,7 +485,7 @@ describe('즐겨찾기', () => {
 describe('createAgent', () => {
   const INPUT = {
     // 굳힐 워크플로우와 사용자가 보던 회차. 둘 다 서버가 필수로 받는다.
-    workflowId: '33567ab2-e08b-461b-a0f2-51a857df5ec7',
+    workflowId: 'wf_001',
     revision: 1,
     name: '테스트 등록',
     summary: '등록 직후 상태를 확인한다',
@@ -499,6 +499,29 @@ describe('createAgent', () => {
   afterEach(async () => {
     const { AGENTS } = await import('@/mocks/fixtures/agents')
     AGENTS.length = 30
+  })
+
+  it('회차 0 은 서버가 `@Positive` 로 막는다 — 어느 칸인지도 실어 온다', async () => {
+    await expect(createAgent({ ...INPUT, revision: 0 })).rejects.toSatisfy(
+      (error: unknown) =>
+        error instanceof ApiError &&
+        error.code === 'COMMON_001' &&
+        !!(error.data as Record<string, string>).revision,
+    )
+  })
+
+  it('굳힐 워크플로우가 없으면 WORKFLOW_002 다', async () => {
+    await expect(createAgent({ ...INPUT, workflowId: 'wf_없음' })).rejects.toMatchObject({
+      code: 'WORKFLOW_002',
+      status: 404,
+    })
+  })
+
+  it('보던 회차가 어긋나면 WORKFLOW_016 이다', async () => {
+    await expect(createAgent({ ...INPUT, revision: 99 })).rejects.toMatchObject({
+      code: 'WORKFLOW_016',
+      status: 409,
+    })
   })
 
   it('등록하면 ID 를 주고, 그 ID 로 상세를 조회할 수 있다', async () => {

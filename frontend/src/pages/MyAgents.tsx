@@ -59,9 +59,10 @@ const EMPTY = {
   selling: {
     heading: '판매 중인 에이전트가 없습니다',
     body:
-      '직접 만든 에이전트를 등록하면 다른 사람이 쓸 때마다 정산금이 쌓입니다.\n ' +
+      '워크플로우를 만들어 한 번 실행하면 그 결과 화면에서 마켓에 등록할 수 있습니다.\n ' +
       '등록한 에이전트는 여기서 실행 횟수와 수익을 확인할 수 있습니다.',
-    actions: JSON.stringify([{ label: '에이전트 등록하기', href: paths.register, primary: true }]),
+    // 등록은 굳힐 워크플로우와 보던 회차가 있어야 한다. 빈손으로 등록 화면에 보내면 막힌다.
+    actions: JSON.stringify([{ label: '워크플로우 만들기', href: paths.home, primary: true }]),
   },
   favorites: {
     heading: '즐겨찾기한 에이전트가 없습니다',
