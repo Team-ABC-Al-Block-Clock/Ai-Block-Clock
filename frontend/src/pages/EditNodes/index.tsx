@@ -174,7 +174,9 @@ export default function EditNodes() {
   } = canvas
   const { paneRef, worldRef, gridRef, glowRef, tempRef } = canvas.refs
 
-  const [name, setName] = useState('문서 정리')
+  /** 빈 칸으로 시작한다. 자리표시자를 깔아 두면 손대지 않은 이름이 그대로 저장되고,
+   *  판매 등록이 워크플로우 이름을 그대로 쓰므로 에이전트까지 같은 이름이 된다. */
+  const [name, setName] = useState('')
   /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
@@ -1087,6 +1089,7 @@ export default function EditNodes() {
             value={name}
             onChange={(ev) => setName(ev.target.value)}
             maxLength={NAME_MAX}
+            placeholder="워크플로우 이름"
             aria-label="워크플로우 이름"
             style={{ left: '14px', top: '9px', width: '245px', height: '28px', padding: '0 6px' }}
           />
