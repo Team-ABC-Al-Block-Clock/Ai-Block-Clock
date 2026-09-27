@@ -340,6 +340,8 @@ export default function EditNodes() {
   const targets = targetsOf(nodes)
   const unsentFiles = refFiles.unsentIn(Object.keys(targets))
   const unsentNotice = unsentFiles ? `참고 자료 ${unsentFiles}개가 붙지 않았습니다` : null
+  // 실행이 막힌 까닭도 버튼 아래에 적는다. 비활성 버튼의 툴팁은 보이지 않는 브라우저가 있다.
+  const statusNotice = saveError ?? saveBlocked ?? unsentNotice ?? runBlocked
   const g = nodes.find((node) => node.id === hovId) ?? n // 빛은 호버 중인 노드를 따라간다
   const selRing: CSSProperties = g
     ? {
@@ -962,7 +964,7 @@ export default function EditNodes() {
           {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
         </button>
 
-        {(saveError ?? saveBlocked ?? unsentNotice) && (
+        {statusNotice && (
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
@@ -970,13 +972,16 @@ export default function EditNodes() {
               left: 'calc(760px + var(--edge, 0px))',
               top: 'calc(974px + var(--edge-y, 0px))',
               width: '240px',
-              color: (saveError ?? unsentNotice) ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
-              // 저장이 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
+              color:
+                statusNotice === saveError || statusNotice === unsentNotice
+                  ? 'rgba(255,196,214,.9)'
+                  : 'rgba(255,236,246,.6)',
+              // 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
             }}
           >
-            {saveError ?? saveBlocked ?? unsentNotice}
+            {statusNotice}
             {/* 저장 버튼은 이미 「저장됨」이라 다시 눌리지 않는다. 보낼 길을 여기 둔다. */}
-            {!saveError && !saveBlocked && unsentNotice && (
+            {statusNotice === unsentNotice && (
               <button
                 type="button"
                 onClick={() => void refFiles.flush(targets)}
