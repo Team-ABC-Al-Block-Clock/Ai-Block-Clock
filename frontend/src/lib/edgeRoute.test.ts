@@ -63,6 +63,18 @@ describe('routeEdge', () => {
     expect(route[0]).toEqual(from)
     expect(route[route.length - 1]).toEqual(to)
   })
+
+  it('위·아래로 옮긴 분기 포트에서도 카드를 피해 경로를 찾는다', () => {
+    const centers = [{ x: 0, y: 0 }, { x: 600, y: 0 }]
+    for (const when of [true, false]) {
+      const from = portPoint(card(0, 0), 'out', when)
+      const to = portPoint(card(600, 0), 'in')
+      const route = routeEdge(from, to, centers)
+
+      expect(route?.[0]).toEqual(from)
+      expect(route?.at(-1)).toEqual(to)
+    }
+  })
 })
 
 describe('roundedPath', () => {

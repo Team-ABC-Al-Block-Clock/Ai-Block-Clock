@@ -221,8 +221,8 @@ export interface CanvasEdge {
 }
 
 /** 선의 이름은 양 끝에서. */
-function edgeId(from: string, to: string): string {
-  return `${from}__${to}`
+function edgeId(from: string, to: string, when?: boolean): string {
+  return `${from}__${to}${when === undefined ? '' : when ? '__true' : '__false'}`
 }
 
 const seedEdge = (from: string, to: string): CanvasEdge => ({ id: edgeId(from, to), from, to })
@@ -275,7 +275,7 @@ export function canConnect(
   if (target.ioType === 'START' || source.ioType === 'END') return false
   // 시작과 종료를 맞붙이면 하는 일이 없는 워크플로우가 된다.
   if (source.ioType === 'START' && target.ioType === 'END') return false
-  // 선 id 가 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막힌다.
+  // 선 id 는 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막는다.
   if (edges.some((edge) => edge.from === from && edge.to === to)) return false
 
   const out = edges.filter((edge) => edge.from === from)
@@ -298,7 +298,10 @@ export function connect(
   when?: boolean,
 ): CanvasEdge[] {
   if (!canConnect(nodes, edges, from, to, when)) return edges
-  return [...edges, { id: edgeId(from, to), from, to, ...(when === undefined ? {} : { when }) }]
+  return [
+    ...edges,
+    { id: edgeId(from, to, when), from, to, ...(when === undefined ? {} : { when }) },
+  ]
 }
 
 /** 선 하나 삭제. 없는 id 면 목록 그대로. */

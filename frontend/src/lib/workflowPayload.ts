@@ -259,7 +259,14 @@ export function toCanvasWorkflow(
     const from = idOf.get(edge.sourceNodeKey)
     const to = idOf.get(edge.targetNodeKey)
     return from && to
-      ? [{ id: `${from}__${to}`, from, to, ...(edge.when == null ? {} : { when: edge.when }) }]
+      ? [
+          {
+            id: `${from}__${to}${edge.when == null ? '' : edge.when ? '__true' : '__false'}`,
+            from,
+            to,
+            ...(edge.when == null ? {} : { when: edge.when }),
+          },
+        ]
       : []
   })
 

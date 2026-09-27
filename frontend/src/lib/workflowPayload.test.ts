@@ -122,6 +122,27 @@ describe('toWorkflowGraph — 분기·입출력', () => {
     expect(withWhen.map((edge) => edge.when).sort()).toEqual([false, true])
   })
 
+  it('분기 한쪽이 바로 종료로 가는 선도 실행 그래프에 포함한다', () => {
+    const nodes = [io('s', 'START'), node('a'), branch('br', 'a'), io('e', 'END'), node('f')]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      branchLink('br', 'e', true),
+      branchLink('br', 'f', false),
+      link('f', 'e'),
+    ]
+    const graph = toWorkflowGraph(nodes, edges)!
+    const keyOf = (id: string) =>
+      Object.entries(graph.nodeIdByKey).find(([, value]) => value === id)![0]
+
+    expect(graph.edges).toContainEqual({
+      edgeKey: expect.any(String),
+      sourceNodeKey: keyOf('br'),
+      targetNodeKey: keyOf('e'),
+      when: true,
+    })
+  })
+
   // 서버는 참 갈래를 먼저 끝까지 간다. 순서가 다르면 다시 불러올 때 자리가 흔들린다.
   it('참 갈래를 먼저 훑는다', () => {
     const { nodes, edges } = scene()
