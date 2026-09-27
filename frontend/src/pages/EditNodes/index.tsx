@@ -812,7 +812,7 @@ export default function EditNodes() {
               <div
                 className="bg-surface-card"
                 style={{
-                  height: '150px',
+                  height: '112px',
                   borderRadius: '9px',
                   padding: '11px 12px',
                   marginBottom: '14px',
@@ -824,7 +824,7 @@ export default function EditNodes() {
                   onChange={(ev) => setDraft((it) => ({ ...it, prompt: ev.target.value }))}
                   placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
                   aria-label="프롬프트"
-                  style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
+                  style={{ width: '100%', height: '90px', resize: 'none', lineHeight: '1.5' }}
                 ></textarea>
               </div>
 
