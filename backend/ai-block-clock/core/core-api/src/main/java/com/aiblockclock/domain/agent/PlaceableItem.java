@@ -11,6 +11,8 @@ public record PlaceableItem(
         String ownerNickname,
         AbcAmount price,
         String summary,
+        String usageExample,
+        String onboardingMessage,
         long executionCount
 ) {
 }

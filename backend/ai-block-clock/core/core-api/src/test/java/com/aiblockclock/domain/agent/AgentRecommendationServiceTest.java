@@ -85,7 +85,7 @@ class AgentRecommendationServiceTest {
     }
 
     private static PublicAgent publicAgent(String name) {
-        return new PublicAgent(AgentId.newId(), OWNER, name, "한 줄 소개",
+        return new PublicAgent(AgentId.newId(), OWNER, name, "한 줄 소개", null, null,
                 Tier.initial(), AbcAmount.of(new BigDecimal("6")));
     }
 }

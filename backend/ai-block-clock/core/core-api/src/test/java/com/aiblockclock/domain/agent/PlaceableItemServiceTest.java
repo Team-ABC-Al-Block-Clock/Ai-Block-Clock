@@ -29,6 +29,8 @@ import static org.mockito.Mockito.mock;
 class PlaceableItemServiceTest {
     private static final UserId ME = UserId.of(9401L);
     private static final UserId OTHER = UserId.of(9402L);
+    private static final String USAGE_EXAMPLE = "성적표 엑셀을 올려서 학생별 리포트를 만들어 줘";
+    private static final String ONBOARDING_MESSAGE = "무엇을 분석할까요?";
 
     private final AgentReader agentReader = mock(AgentReader.class);
     private final AgentGradeMetricReader agentGradeMetricReader = mock(AgentGradeMetricReader.class);
@@ -106,8 +108,20 @@ class PlaceableItemServiceTest {
         assertThat(second.hasNext()).isFalse();
     }
 
+    @Test
+    @DisplayName("판매자가 적어 둔 입력 예시와 인사말을 함께 내린다")
+    void carriesUsageExampleAndOnboardingMessage() {
+        given(agentReader.readPublic()).willReturn(List.of(agent(ME, "내 에이전트")));
+
+        CursorPage<PlaceableItem> page = service.find(ME, PlaceableScope.ALL, null, null, 20);
+
+        assertThat(page.content())
+                .extracting(PlaceableItem::usageExample, PlaceableItem::onboardingMessage)
+                .containsExactly(tuple(USAGE_EXAMPLE, ONBOARDING_MESSAGE));
+    }
+
     private static PublicAgent agent(UserId owner, String name) {
-        return new PublicAgent(AgentId.newId(), owner, name, "한 줄 소개",
+        return new PublicAgent(AgentId.newId(), owner, name, "한 줄 소개", USAGE_EXAMPLE, ONBOARDING_MESSAGE,
                 Tier.initial(), AbcAmount.of(new BigDecimal("6")));
     }
 

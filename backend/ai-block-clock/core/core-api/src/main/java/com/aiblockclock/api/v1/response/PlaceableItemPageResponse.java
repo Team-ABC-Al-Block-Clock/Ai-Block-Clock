@@ -62,7 +62,15 @@ public record PlaceableItemPageResponse(
             String price,
 
             @Schema(description = "한 줄 소개", nullable = true)
-            String summary
+            String summary,
+
+            @Schema(description = "판매자가 적어 둔 입력 예시. 프롬프트 입력창의 예시로 쓴다. 적지 않았으면 null",
+                    example = "성적표 엑셀을 올려서 학생별 리포트를 만들어 줘", nullable = true)
+            String usageExample,
+
+            @Schema(description = "실행을 시작할 때 띄울 인사말. 적지 않았으면 null",
+                    example = "무엇을 분석할까요?", nullable = true)
+            String onboardingMessage
     ) {
         static PlaceableItemResponse from(PlaceableItem item) {
             return new PlaceableItemResponse(
@@ -75,7 +83,9 @@ public record PlaceableItemPageResponse(
                     new OwnerResponse(item.ownerNickname()),
                     item.executionCount(),
                     item.price().value().toPlainString(),
-                    item.summary());
+                    item.summary(),
+                    item.usageExample(),
+                    item.onboardingMessage());
         }
     }
 
