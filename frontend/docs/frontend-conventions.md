@@ -301,6 +301,16 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 편집·대기·진행 세 화면이 `hooks/useSavedWorkflow.ts` 로 같은 워크플로우를 읽는다. 대기·진행은 `?workflowId=` 로 받고, 없으면 빈 캔버스를 그린다.
 
+### 노드 출력 형식
+
+기본 노드는 출력을 글(`TEXT`) 또는 JSON 예시(`output.example`)로 선언한다. 분기 조건은 JSON 예시의 칸만 읽는다. 변환 · 검사는 `lib/nodeOutput.ts` 한 곳에서 한다.
+
+- JSON 은 폼(이름 · 타입 · 예시 값)으로 적고 프론트가 예시 객체로 바꿔 보낸다. 서버 · 엔진이 받는 값은 직접 적은 JSON 과 같다
+- 폼은 한 단계짜리 글자 · 숫자 · 참거짓만 다룬다. 목록 · 하위 객체 · null 이 든 예시는 「JSON 으로 직접 적기」로 연다. 전환하다 값을 잃는 입력(숫자가 아닌 값 · 겹친 이름 · 이름 없는 값)이 있으면 넘어가지 않는다
+- 예시는 엔진 `check_example` 과 같은 규칙으로 검사한다 — 빈 하위 객체 금지, 중첩 5단계, 키 60개. 서버는 맨 위 객체만 보고 저장해, 걸러내지 않으면 실행할 때마다 `OUTPUT_EXAMPLE_INVALID` 다
+- 예시 객체는 `Object.fromEntries` 로 만든다. `{}` 에 대입하면 `__proto__` 키가 사라진다
+- 기존 노드를 고칠 때는 `PUT /nodes/{id}` 에 `output` 을 늘 싣는다. 빠지면 서버가 글로 되돌린다
+
 ### 실행 견적
 
 실행 대기 화면의 「실행 예상 비용」은 `POST /executions/cost-estimates` 가 준 값이다. 금액은 서버와 같이 소수점 여섯 자리 문자열이라 숫자로 바꾸는 곳은 `Number()` 한 번뿐이고, 표시는 `lib/format.ts` 를 거친다.
