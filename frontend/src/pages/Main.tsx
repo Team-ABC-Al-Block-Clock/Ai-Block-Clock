@@ -13,10 +13,10 @@ const FULL_TITLE = '안녕하세요.\n어떤 워크플로우를 만들고 싶으
  * 짧은 이름은 칩에, 하고 싶은 일을 적은 문장은 질의에 둔다.
  */
 const SUGGESTIONS = [
-  { label: '문서 정리', query: '문서를 항목별로 정리하고 싶어' },
-  { label: '일정 요약', query: '이번 주 일정을 한눈에 보게 요약하고 싶어' },
-  { label: '메일 초안', query: '받은 메일에 답장 초안을 써 주면 좋겠어' },
-  { label: '코드 리뷰', query: '우리 팀이 쓴 코드를 검토해 주면 좋겠어' },
+  { label: '문서 정리', query: '올린 문서를 항목별로 정리하고 싶어' },
+  { label: '성적 리포트', query: '성적표를 올리면 학생별 리포트를 받고 싶어' },
+  { label: '문의 답변', query: '문의 목록을 받아 답변 초안을 쓰고 싶어' },
+  { label: '매출 점검', query: '매출 표에서 이상한 값을 찾아 주면 좋겠어' },
 ] as const
 
 export default function Main() {

@@ -41,7 +41,7 @@ export interface AgentDetail {
   summary: string
   /** 상세 설명 */
   description: string
-  /** 실행 예시. 안 적었으면 null */
+  /** 판매자가 적은 입력 프롬프트 예시. 안 적었으면 null */
   usageExample: string | null
   iconUrl: string | null
   images: AgentImage[]

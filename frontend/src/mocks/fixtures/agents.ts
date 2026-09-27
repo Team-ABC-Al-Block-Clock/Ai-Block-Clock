@@ -52,15 +52,15 @@ interface Seed {
 // prettier-ignore
 const SEEDS: Seed[] = [
   // 평점·실행 횟수가 높은 쪽
-  { name: '메일 초안', summary: '받은 메일에 답장 초안 작성', price: '540', revenue: '9946800', successRate: 0.986, averageRating: 4.8, reviewCount: 214, executionCount: 18420, favoriteCount: 642, owner: '이싸피', hasIcon: true },
+  { name: '문의 답변 초안', summary: '문의 내용을 받아 답변 초안 작성', price: '540', revenue: '9946800', successRate: 0.986, averageRating: 4.8, reviewCount: 214, executionCount: 18420, favoriteCount: 642, owner: '이싸피', hasIcon: true },
   { name: 'CS 응답', summary: '문의에 맞는 답변을 제안', price: '630', revenue: '9594900', successRate: 0.982, averageRating: 4.7, reviewCount: 186, executionCount: 15230, favoriteCount: 517, owner: '이싸피', hasIcon: true },
   { name: '뉴스 브리핑', summary: '오늘 기사를 세 줄로 요약', price: '360', revenue: '7970400', successRate: 0.991, averageRating: 4.9, reviewCount: 302, executionCount: 22140, favoriteCount: 908, owner: '박싸피', hasIcon: false },
   { name: 'Contract Analyzer', summary: '계약 검토와 위험 요소 분석', price: '1170', revenue: '1460160', successRate: 0.964, averageRating: 4.6, reviewCount: 94, executionCount: 1248, favoriteCount: 213, owner: '이싸피', hasIcon: true },
   { name: '성적 분석 리포트', summary: '엑셀 성적표를 통계 JSON 으로 정리', price: '810', revenue: '3126600', successRate: 0.978, averageRating: 4.8, reviewCount: 128, executionCount: 3860, favoriteCount: 341, owner: '최싸피', hasIcon: false },
 
-  { name: '문서 정리', summary: '폴더의 파일을 주제별로 분류', price: '390', revenue: '3673800', successRate: 0.972, averageRating: 4.4, reviewCount: 152, executionCount: 9420, favoriteCount: 428, owner: '이싸피', hasIcon: true },
+  { name: '문서 정리', summary: '올린 문서를 주제별로 분류', price: '390', revenue: '3673800', successRate: 0.972, averageRating: 4.4, reviewCount: 152, executionCount: 9420, favoriteCount: 428, owner: '이싸피', hasIcon: true },
   { name: '코드 리뷰', summary: '변경된 코드의 문제를 지적', price: '858', revenue: '833976', successRate: 0.951, averageRating: 4.3, reviewCount: 78, executionCount: 972, favoriteCount: 186, owner: '이싸피', hasIcon: false },
-  { name: '회의록 작성', summary: '녹취 텍스트를 항목별로 정리', price: '624', revenue: '3856320', successRate: 0.968, averageRating: 4.5, reviewCount: 110, executionCount: 6180, favoriteCount: 297, owner: '김싸피', hasIcon: true },
+  { name: '회의록 작성', summary: '올린 회의 기록을 항목별로 정리', price: '624', revenue: '3856320', successRate: 0.968, averageRating: 4.5, reviewCount: 110, executionCount: 6180, favoriteCount: 297, owner: '김싸피', hasIcon: true },
   { name: '리서치 수집', summary: '주제별 자료를 모아 출처 정리', price: '936', revenue: '4034160', successRate: 0.943, averageRating: 4.2, reviewCount: 66, executionCount: 4310, favoriteCount: 158, owner: '정싸피', hasIcon: false },
   { name: '리포트 작성', summary: '데이터를 문장으로 풀어 씀', price: '780', revenue: '4087200', successRate: 0.959, averageRating: 4.4, reviewCount: 88, executionCount: 5240, favoriteCount: 224, owner: '최싸피', hasIcon: true },
   { name: '계약서 검토', summary: '조항의 위험 요소를 표시', price: '1092', revenue: '969696', successRate: 0.937, averageRating: 4.1, reviewCount: 42, executionCount: 888, favoriteCount: 121, owner: '이싸피', hasIcon: false },
@@ -69,7 +69,7 @@ const SEEDS: Seed[] = [
   { name: 'API 문서화', summary: '코드에서 API 문서 초안 생성', price: '702', revenue: '2442960', successRate: 0.946, averageRating: 4.2, reviewCount: 61, executionCount: 3480, favoriteCount: 172, owner: '최싸피', hasIcon: true },
   { name: '가정통신문 생성', summary: '분석 결과를 학부모용 문장으로', price: '598', revenue: '2224560', successRate: 0.969, averageRating: 4.6, reviewCount: 97, executionCount: 3720, favoriteCount: 253, owner: '정싸피', hasIcon: false },
 
-  { name: '일정 요약', summary: '캘린더를 하루 단위로 정리', price: '220', revenue: '1579600', successRate: 0.965, averageRating: 3.9, reviewCount: 64, executionCount: 7180, favoriteCount: 208, owner: '김싸피', hasIcon: true },
+  { name: '기간 집계', summary: '일정 표를 하루 단위로 정리', price: '220', revenue: '1579600', successRate: 0.965, averageRating: 3.9, reviewCount: 64, executionCount: 7180, favoriteCount: 208, owner: '김싸피', hasIcon: true },
   { name: '데이터 추출', summary: '표에서 필요한 열만 뽑아냄', price: '374', revenue: '239360', successRate: 0.928, averageRating: 3.7, reviewCount: 38, executionCount: 640, favoriteCount: 94, owner: '최싸피', hasIcon: false },
   { name: '번역 정리', summary: '문서를 번역하고 용어 통일', price: '572', revenue: '709280', successRate: 0.934, averageRating: 3.8, reviewCount: 55, executionCount: 1240, favoriteCount: 131, owner: '이싸피', hasIcon: true },
   { name: '영수증 정리', summary: '영수증 사진에서 금액을 추출', price: '418', revenue: '468160', successRate: 0.906, averageRating: 3.6, reviewCount: 47, executionCount: 1120, favoriteCount: 108, owner: '박싸피', hasIcon: false },

@@ -662,7 +662,7 @@ export default function RegisterForm() {
               type="text"
               id={FIELD.summary}
               maxLength={AGENT_LIMITS.summary.max}
-              placeholder="예: 지정한 폴더의 문서를 읽고 주제별 폴더로 분류합니다"
+              placeholder="예: 올린 문서를 읽고 주제별로 분류해 표로 돌려줍니다"
               style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
             />
           </div>

@@ -10,7 +10,7 @@ export const NODE_DETAILS: NodeDetail[] = [
   {
     nodeId: 'node_001',
     name: '파일 수집',
-    prompt: '지정한 폴더를 훑어 새로 들어온 파일을 모아 준다.',
+    prompt: '올린 엑셀·CSV 를 표로 읽어 준다.',
     model: 'GEMINI_2_5_FLASH',
     output: { kind: 'TEXT', example: null },
     baseCost: '4',
