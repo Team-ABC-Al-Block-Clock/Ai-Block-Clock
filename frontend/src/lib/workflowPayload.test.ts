@@ -375,6 +375,44 @@ describe('toCanvasWorkflow — 분기·입출력', () => {
     expect(br.y - yes.y).toBe(no.y - br.y)
   })
 
+  // 리뷰에서 나온 모양. 합류가 반 칸 줄에 서면 옆 갈래 카드와 겹쳤다.
+  it('중첩 분기 뒤 합류가 옆 카드와 겹치지 않고 판 위로 넘치지 않는다', () => {
+    const branchAt = (key: string, left: string) =>
+      placed(key, {
+        sourceType: 'CONTROL',
+        sourceId: null,
+        controlType: 'BRANCH',
+        condition: { left: `${left}.level`, operator: 'EQ', right: 'high' },
+      })
+    const nested: WorkflowDetail = {
+      ...detail,
+      nodes: [
+        placed('s', { sourceType: 'IO', sourceId: null, ioType: 'START' }),
+        placed('w1', { sourceId: 'node_001' }),
+        branchAt('b1', 'w1'),
+        branchAt('b2', 'w1'),
+        placed('j', { sourceId: 'node_002' }),
+        placed('x', { sourceId: 'node_003' }),
+        placed('e', { sourceType: 'IO', sourceId: null, ioType: 'END' }),
+      ],
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 's', targetNodeKey: 'w1' },
+        { edgeKey: 'e2', sourceNodeKey: 'w1', targetNodeKey: 'b1' },
+        { edgeKey: 'e3', sourceNodeKey: 'b1', targetNodeKey: 'b2', when: true },
+        { edgeKey: 'e4', sourceNodeKey: 'b1', targetNodeKey: 'j', when: false },
+        { edgeKey: 'e5', sourceNodeKey: 'b2', targetNodeKey: 'j', when: true },
+        { edgeKey: 'e6', sourceNodeKey: 'b2', targetNodeKey: 'x', when: false },
+        { edgeKey: 'e7', sourceNodeKey: 'j', targetNodeKey: 'e' },
+        { edgeKey: 'e8', sourceNodeKey: 'x', targetNodeKey: 'e' },
+      ],
+    }
+    const nodes = toCanvasWorkflow(nested, () => undefined).nodes
+    for (const [i, a] of nodes.entries())
+      for (const b of nodes.slice(i + 1))
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(168)
+    expect(Math.min(...nodes.map((it) => it.y))).toBeGreaterThanOrEqual(0)
+  })
+
   it('갈라진 자리는 같은 가로줄에 겹치지 않는다', () => {
     const { nodes } = canvas()
     const [yes, no] = [nodes[3], nodes[4]]

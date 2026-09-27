@@ -126,6 +126,8 @@ const RESTORE_X0 = 12
 const RESTORE_Y = [430, 325] as const
 /** 갈래가 있으면 지그재그 없이 이 줄에서 위아래로 같은 거리만큼 벌린다. */
 const RESTORE_AXIS = (RESTORE_Y[0] + RESTORE_Y[1]) / 2
+/** 맨 위 카드가 이보다 올라가면 전체를 내린다. 실행 화면은 끌어 옮길 수 없어 판 위로 넘친 카드를 못 본다. */
+const RESTORE_TOP = 140
 
 /** 팔레트가 아는 표시용 정보. 서버 응답에 종류·단가가 없어 밖에서 채워 준다. */
 export interface NodeLabel {
@@ -194,23 +196,24 @@ export function toCanvasWorkflow(
     return at
   }
   // 갈래는 참을 위 줄, 거짓을 아래 줄로 벌리고 합류는 들어온 줄들의 가운데로 돌아온다.
-  // 상세는 부모를 자식보다 먼저 싣는다(`WorkflowGraph.nodesInOrder`).
-  const lanes = new Map<string, number>()
-  for (const node of detail.nodes) {
-    const incoming = detail.edges.filter((edge) => edge.targetNodeKey === node.nodeKey)
-    const from = incoming.map(
-      (edge) => (lanes.get(edge.sourceNodeKey) ?? 0) + (edge.when == null ? 0 : edge.when ? -1 : 1),
-    )
-    lanes.set(node.nodeKey, from.length ? from.reduce((a, b) => a + b, 0) / from.length : 0)
-  }
+  // 상세는 부모를 자식보다 먼저 싣는다(`WorkflowGraph.nodesInOrder`). 밀린 줄은 자식이 이어받는다.
   const branched = detail.nodes.some((node) => node.controlType)
+  const lanes = new Map<string, number>()
   const taken = new Set<string>()
-  const laneOf = (key: string, depth: number) => {
-    let lane = lanes.get(key) ?? 0
+  for (const node of detail.nodes) {
+    const from = detail.edges
+      .filter((edge) => edge.targetNodeKey === node.nodeKey)
+      .map(
+        (edge) =>
+          (lanes.get(edge.sourceNodeKey) ?? 0) + (edge.when == null ? 0 : edge.when ? -1 : 1),
+      )
+    // 합류는 가운데가 반 칸일 수 있다. 정수 줄로 맞춰야 옆 카드와 겹치는지 가릴 수 있다.
+    let lane = from.length ? Math.round(from.reduce((a, b) => a + b, 0) / from.length) : 0
+    const depth = depthOf(node.nodeKey)
     // 갈래 안의 갈래가 옆 갈래와 같은 자리에 오면 바깥으로 민다.
     while (taken.has(`${depth}:${lane}`)) lane += lane < 0 ? -1 : 1
     taken.add(`${depth}:${lane}`)
-    return lane
+    lanes.set(node.nodeKey, lane)
   }
 
   const nodes = detail.nodes.map((node) => {
@@ -218,7 +221,7 @@ export function toCanvasWorkflow(
     const io = node.ioType
     const label = node.sourceId ? describe(node.sourceId) : undefined
     const depth = depthOf(node.nodeKey)
-    const lane = laneOf(node.nodeKey, depth)
+    const lane = lanes.get(node.nodeKey) ?? 0
 
     return {
       id: idOf.get(node.nodeKey)!,
@@ -270,5 +273,7 @@ export function toCanvasWorkflow(
       : []
   })
 
-  return { nodes, edges }
+  const top = Math.min(...nodes.map((node) => node.y))
+  const shift = nodes.length && top < RESTORE_TOP ? RESTORE_TOP - top : 0
+  return { nodes: shift ? nodes.map((node) => ({ ...node, y: node.y + shift })) : nodes, edges }
 }
