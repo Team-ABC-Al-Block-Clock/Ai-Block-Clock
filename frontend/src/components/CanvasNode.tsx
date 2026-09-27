@@ -360,33 +360,33 @@ export default function CanvasNode({
           </div>
         ))}
       {mine && <div style={MY_CHIP}>MY</div>}
-      {/* 번호가 사라져도 자리는 남긴다 — 빼 버리면 아래 이름과 유형이 위로 밀려 카드가 들썩인다.
-          제어·입출력은 차례를 갖지 않아 자리째 없앤다. 알약 높이에 세 줄은 들어가지 않는다. */}
-      {shape === 'circle' && (
+      {/* 번호는 이름 위에 띄운다 — 흐름에 넣으면 번호가 없을 때 빈자리만큼 이름이 가운데서 밀린다.
+          제어·입출력은 차례를 갖지 않아 번호가 없다. */}
+      <div className="relative flex justify-center" style={OVER_BACKDROP}>
+        {shape === 'circle' && index !== undefined && (
+          <div
+            className="absolute text-[14px] font-semibold"
+            style={{
+              bottom: 'calc(100% + 5px)',
+              color: numberColor,
+              lineHeight: '1',
+              opacity: 0.72,
+              letterSpacing: '.04em',
+            }}
+          >
+            {index + 1}
+          </div>
+        )}
         <div
-          className="text-[14px] font-semibold"
+          className="text-[21px] font-bold tracking-[-.01em]"
           style={{
-            ...OVER_BACKDROP,
-            color: numberColor,
-            lineHeight: '1',
-            opacity: 0.72,
-            letterSpacing: '.04em',
-            visibility: index === undefined ? 'hidden' : undefined,
+            color: nameColor,
+            textShadow: shape === 'circle' ? TEXT_SHADOW.circle : TEXT_SHADOW.filled,
+            ...NAME_FIT,
           }}
         >
-          {(index ?? 0) + 1}
+          {name}
         </div>
-      )}
-      <div
-        className="text-[21px] font-bold tracking-[-.01em]"
-        style={{
-          ...OVER_BACKDROP,
-          color: nameColor,
-          textShadow: shape === 'circle' ? TEXT_SHADOW.circle : TEXT_SHADOW.filled,
-          ...NAME_FIT,
-        }}
-      >
-        {name}
       </div>
       {sublabel && (
         <div
