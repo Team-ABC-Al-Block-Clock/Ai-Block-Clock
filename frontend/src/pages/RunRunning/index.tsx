@@ -280,15 +280,20 @@ export default function RunRunning() {
     stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
   const liveEdges = geometry.filter((_, i) => lit[i])
-  /** 분기 카드 밑 한 줄. 판정이 나면 결과를 앞에 둬 조건이 잘려도 방향은 보이게 한다. */
+  /** 분기 카드 밑 한 줄. 판정이 나면 포트 이름과 같은 true·false 를 뒤에 붙인다. */
   const branchLabel = (node: CanvasNodeData) => {
     const condition = describeCondition(
       node.condition,
       (id) => defs.find((it) => it.id === id)?.name,
     )
     const taken = reached && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
-    return taken === null ? condition : `${taken ? '참' : '거짓'} · ${condition}`
+    return taken === null ? condition : `${condition} → ${taken}`
   }
+  /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
+  const labeledSteps = nameBranchSteps(
+    progress?.steps ?? [],
+    defs.filter((node) => node.controlType).map((node) => `${node.name} · ${branchLabel(node)}`),
+  )
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
@@ -302,9 +307,9 @@ export default function RunRunning() {
       ? inCanvasOrder(
           defs,
           runnable.map((node) => node.id),
-          steps,
+          labeledSteps,
         )
-      : steps
+      : labeledSteps
   )
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
     .map((step) => step.name)
@@ -419,8 +424,9 @@ export default function RunRunning() {
         ? describeFailure({
             ...progress.failure,
             stepName:
-              steps[progress.steps.findLastIndex((it) => it.name === progress.failure?.stepName)]
-                ?.name ?? progress.failure.stepName,
+              labeledSteps[
+                progress.steps.findLastIndex((it) => it.name === progress.failure?.stepName)
+              ]?.name ?? progress.failure.stepName,
           })
         : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 
