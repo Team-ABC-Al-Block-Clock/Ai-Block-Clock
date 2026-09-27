@@ -90,6 +90,17 @@ describe('선택', () => {
     expect(after.selId).toBeNull()
     expect(after.selEdge).toBeNull()
   })
+  it('끌지 않고 고르기만 할 수 있다', () => {
+    const after = canvasReducer(stateOf({ selEdge: 'a__b' }), { type: 'selectNode', id: 'b' })
+    expect(after.selId).toBe('b')
+    expect(after.selEdge).toBeNull()
+    expect(after.dragId).toBeNull()
+  })
+
+  it('없는 노드는 고르지 않는다', () => {
+    const state = stateOf()
+    expect(canvasReducer(state, { type: 'selectNode', id: 'x' })).toBe(state)
+  })
 })
 
 describe('드래그', () => {
