@@ -29,7 +29,8 @@ from markupsafe import Markup, escape
 TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
 DEFAULTS = {"document": "document.html", "card": "card.html"}
 FORBIDDEN = re.compile(r"<\s*(script|iframe|object|embed)\b|\bjavascript:|\bon\w+\s*=|\bsrc\s*=\s*[\"']?https?://", re.I)
-BUILTINS = {"title", "date", "fields", "text", "loop", "range", "namespace", "dict", "lipsum", "cycler", "joiner"}
+BUILTINS = {"title", "date", "fields", "text", "loop", "range", "namespace", "dict", "lipsum", "cycler", "joiner",
+            "not", "and", "or", "in", "is", "if", "else", "true", "false", "none", "True", "False", "None"}   # Jinja 키워드
 MAX_TEMPLATE_CHARS = 200_000
 
 
@@ -68,9 +69,27 @@ def fmt(value: Any) -> Markup:
     return Markup(escape(str(value)))
 
 
+class Item(dict):
+    """목록의 객체 항목. `{{ 항목.label }}` 로도 쓰고, `{{ 항목 }}` 으로 통째로 찍으면 값들을 ` · ` 로 이어 읽기 좋게 나온다."""
+
+    def __html__(self) -> str:
+        return " · ".join(str(escape(v)) for v in self.values() if v not in (None, ""))
+
+    def __str__(self) -> str:
+        return " · ".join(str(v) for v in self.values() if v not in (None, ""))
+
+
+def _wrap(value: Any) -> Any:
+    if isinstance(value, list):
+        return [Item({k: _wrap(v) for k, v in x.items()}) if isinstance(x, dict) else _wrap(x) for x in value]
+    if isinstance(value, dict):
+        return {k: _wrap(v) for k, v in value.items()}
+    return value
+
+
 def prepare(payload: dict, title: str | None) -> dict[str, Any]:
-    """서식에 넘길 변수. 결과 JSON 의 키 그대로 + 기본 변수(title · date · fields · text)."""
-    ctx: dict[str, Any] = dict(payload)
+    """서식에 넘길 변수. 결과 JSON 의 키 그대로(목록 항목은 Item) + 기본 변수(title · date · fields · text)."""
+    ctx: dict[str, Any] = {k: _wrap(v) for k, v in payload.items()}
     ctx["title"] = title or next((str(v) for k, v in payload.items() if isinstance(v, str) and len(v) < 60), "결과")
     ctx["date"] = datetime.now().strftime("%Y-%m-%d")
     if set(payload) == {"text"}:                          # 글 출력
@@ -90,7 +109,7 @@ def placeholders(html: str) -> set[str]:
     used = {m.split(".")[0].split("[")[0].split("|")[0].strip()
             for m in re.findall(r"\{\{\s*([^\s}|]+)", html)}
     used |= set(re.findall(r"\{%\s*for\s+[\w, ]+\s+in\s+([A-Za-z_가-힣][\w가-힣]*)", html))
-    used |= set(re.findall(r"\{%\s*if\s+([A-Za-z_가-힣][\w가-힣]*)", html))
+    used |= set(re.findall(r"\{%\s*(?:if|elif)\s+(?:not\s+)?([A-Za-z_가-힣][\w가-힣]*)", html))
     loop_vars = set(re.findall(r"\{%\s*for\s+([\w가-힣]+)\s+in", html))
     return {u for u in used if u and u not in BUILTINS and u not in loop_vars and not u.startswith("'") and not u.startswith('"')}
 
@@ -186,7 +205,8 @@ def ai_mapping(llm, missing: set[str], item_slots: set[str], payload: dict) -> d
               "`목록[].속성` 형태의 빈칸은 그 목록 항목 안의 키 이름만 답한다(항목이 문자열이면 \".\"). "
               "서식에 같은 종류의 고정 칸이 여러 개면(예: 포지셔닝_고객 · 포지셔닝_제품) 목록의 원소를 순서대로 배치한다 — "
               "\"positioning.0\", \"positioning.1\", 항목이 객체면 \"reasons.0.axis\"처럼 경로를 끝까지 적는다. 목록 전체(`positioning[]`)는 반복문 빈칸에만 준다. "
-              "오늘 날짜는 \"date\", 문서 제목은 \"title\". 맞는 것이 없으면 null. "
+              "빈칸 이름이 날짜 · 발행일 · date 같은 뜻이면 반드시 \"date\", 문서 제목이면 \"title\". "
+              "뜻이 가까운 목록이 있으면(예: 스토리 · 사례 ← reasons[]) 비우지 말고 그 목록을 준다. 정말 맞는 것이 없을 때만 null. "
               "출력 예: {\"헤드라인\": \"headline\", \"메시지_핵심\": \"messages.core\", \"목적목록[].title\": \"label\", \"발행일\": \"date\"}")
     schema = {"type": "object", "properties": {m: {"type": "string", "nullable": True} for m in asks},
               "required": asks}
@@ -206,6 +226,11 @@ def _apply_mapping(ctx: dict[str, Any], payload: dict, missing: set[str], loops:
     filled: list[str] = []
     for ph in sorted(missing):
         path = mapping.get(ph)
+        # 이름만으로 확실한 것은 AI 답과 무관하게 채운다 — 날짜 · 제목
+        if not path and re.search(r"날짜|발행일|작성일|date", ph, re.I):
+            path = mapping[ph] = "date"
+        elif not path and re.search(r"^(제목|문서제목|title)$", ph, re.I):
+            path = mapping[ph] = "title"
         value = None
         if path in ("date", "title"):
             value = ctx[path]
@@ -219,7 +244,7 @@ def _apply_mapping(ctx: dict[str, Any], payload: dict, missing: set[str], loops:
         if ph in loops and isinstance(value, list):
             aliased = []
             for item in value:
-                base = dict(item) if isinstance(item, dict) else {}
+                base = Item(item) if isinstance(item, dict) else Item()
                 for attr in loops[ph]:
                     key = mapping.get(f"{ph}[].{attr}")
                     if key == "." or (not isinstance(item, dict) and key is None):
@@ -228,8 +253,10 @@ def _apply_mapping(ctx: dict[str, Any], payload: dict, missing: set[str], loops:
                         base[attr] = item.get(key) if key else (item.get(attr) if attr in item else "")
                     else:
                         base[attr] = item
-                aliased.append(base)
+                aliased.append(base if isinstance(item, dict) else (base if loops[ph] else item))
             value = aliased
+        elif isinstance(value, (list, dict)):
+            value = _wrap(value)
         ctx[ph] = value
         filled.append(f"{ph}←{path}")
     empty = [ph for ph in sorted(missing) if not mapping.get(ph)]

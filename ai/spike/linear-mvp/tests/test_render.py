@@ -97,6 +97,7 @@ def test_스크립트가_든_서식은_거부하고_폴백한다():
 def test_자리표시자_추출():
     assert render.placeholders(USER_TPL) == {"headline", "positioning", "messages", "summary_md"}
     assert render.placeholders("{{ title }} {{ date }} {% for f in fields %}{{ f.key }}{% endfor %}") == set()
+    assert render.placeholders("{% if not 메모 %}없음{% endif %}{% if 제목 and 부제 %}x{% endif %}") == {"메모", "제목"}
 
 
 # --- 러너 · API ---------------------------------------------------------------
@@ -164,3 +165,16 @@ def test_변환_API_mock_은_AI_없이_기본_서식을_준다():
     assert res.status_code == 200 and res.json()["html"].startswith("<!DOCTYPE html>") and "제목" in res.json()["placeholders"]
     bad = client.post("/v1/templates/convert", data={"mock": "true"}, files=[("design", ("d.docx", b"x", "application/octet-stream"))])
     assert bad.status_code == 400 and bad.json()["detail"]["code"] == "UNSUPPORTED_FILE_TYPE"
+
+
+def test_목록_항목을_통째로_찍으면_값을_이어_보여_준다():
+    tpl = "<!DOCTYPE html><html><body>{% for r in reasons %}<li>{{ r }}</li>{% endfor %}{% for p in 목적 %}<b>{{ p }}</b>{% endfor %}</body></html>"
+    payload = {"reasons": [{"axis": "제품", "detail": "대나무"}], "purpose": [{"label": "가치"}]}
+    r = render.apply({"name": "s", "html": tpl}, payload, llm=MapLLM({"목적": "purpose[]"}))
+    assert "<li>제품 · 대나무</li>" in r.html and "<b>가치</b>" in r.html and "{'" not in r.html
+
+
+def test_날짜_제목_빈칸은_AI_가_비워도_채운다():
+    tpl = "<!DOCTYPE html><html><body>{{ 발행일 }}|{{ 제목 }}|{{ 기타 }}</body></html>"
+    r = render.apply({"name": "s", "html": tpl}, {"a": 1}, title="T", llm=MapLLM({"발행일": None, "제목": None, "기타": None}))
+    assert r.mapping == {"발행일": "date", "제목": "title"} and "|T|" in r.html and "20" in r.html
