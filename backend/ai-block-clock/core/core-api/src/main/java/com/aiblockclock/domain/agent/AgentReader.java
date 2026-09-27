@@ -107,6 +107,8 @@ public class AgentReader {
                 UserId.of(version.getAgent().getOwnerId()),
                 version.getAgent().getName(),
                 version.getAgent().getSummary(),
+                version.getAgent().getUsageExample(),
+                version.getAgent().getOnboardingMessage(),
                 version.getTier(),
                 AbcAmount.of(version.getBaseCost()));
     }

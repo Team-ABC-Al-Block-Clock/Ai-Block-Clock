@@ -73,8 +73,8 @@ class AgentExpansionIntegrationTest {
     }
 
     @Test
-    @DisplayName("안에 분기가 있는 에이전트는 아직 펴지 않는다")
-    void refusesAgentWithBranchInside() {
+    @DisplayName("안에 분기가 있는 에이전트는 속의 분기와 갈래를 그대로 품고 펼쳐진다")
+    void keepsTheBranchInsideTheAgent() {
         NodePlacement branch = new NodePlacement(NodeKey.of("br1"), SourceType.CONTROL, null,
                 InputSource.defaultSource(), null, ControlType.BRANCH,
                 new BranchCondition("n1.competition_level", ConditionOperator.EQ, "high"), null, null, null, null);
@@ -91,10 +91,15 @@ class AgentExpansionIntegrationTest {
                         null, null, null, null, null, null, null)),
                 List.of());
 
-        assertThatThrownBy(() -> executionPlanAssembler.assemble(placed))
-                .isInstanceOf(CoreException.class)
-                .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+        ExecutionPlan plan = executionPlanAssembler.assemble(placed);
+        PlannedAgent expanded = (PlannedAgent) plan.nodes().get(0);
+
+        assertThat(expanded.agent()).isEqualTo(branched.agent().getId());
+        assertThat(expanded.nodes()).extracting(PlannedNode::id).containsExactly("n1", "b1", "n2", "n3");
+        assertThat(((PlannedBranch) expanded.nodes().get(1)).left()).isEqualTo("n1.competition_level");
+        assertThat(expanded.edges()).containsExactlyInAnyOrder(new PlannedEdge("n1", "b1", null),
+                new PlannedEdge("b1", "n2", true), new PlannedEdge("b1", "n3", false));
+        assertThat(plan.prompts()).extracting(PlannedPrompt::stepId).containsExactly("a1.n1", "a1.n2", "a1.n3");
     }
 
     @Test

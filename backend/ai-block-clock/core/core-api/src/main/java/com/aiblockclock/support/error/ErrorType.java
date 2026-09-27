@@ -172,8 +172,8 @@ public enum ErrorType {
     EXECUTION_RESULT_UNAVAILABLE(HttpStatus.NOT_FOUND, ErrorCode.EXECUTION_008,
             "실패로 끝난 실행이라 결과가 없습니다.", LogLevel.WARN),
 
-    EXECUTION_BRANCH_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
-            "안에 분기가 있는 에이전트는 아직 실행할 수 없습니다.", LogLevel.WARN),
+    EXECUTION_BRANCH_SOURCE_AMBIGUOUS(HttpStatus.BAD_REQUEST, ErrorCode.EXECUTION_005,
+            "끝이 여럿인 에이전트는 분기 조건으로 가리킬 수 없습니다.", LogLevel.WARN),
 
     EXECUTION_ALREADY_REQUESTED(HttpStatus.CONFLICT, ErrorCode.EXECUTION_006,
             "같은 실행 요청을 이미 처리하고 있습니다.", LogLevel.WARN),

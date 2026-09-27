@@ -142,7 +142,7 @@ class MyAgentServiceTest {
     }
 
     private static SellingAgent selling(String name, String summary, String createdAt) {
-        PublicAgent agent = new PublicAgent(AgentId.newId(), ME, name, summary,
+        PublicAgent agent = new PublicAgent(AgentId.newId(), ME, name, summary, null, null,
                 Tier.initial(), AbcAmount.of(new BigDecimal("6")));
 
         return new SellingAgent(agent, null, Instant.parse(createdAt));

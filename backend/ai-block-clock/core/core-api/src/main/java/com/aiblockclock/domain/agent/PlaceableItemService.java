@@ -81,6 +81,8 @@ public class PlaceableItemService {
                 ownerNickname,
                 mine ? agent.baseCost() : agent.price(),
                 agent.summary(),
+                agent.usageExample(),
+                agent.onboardingMessage(),
                 metric.countedRuns());
     }
 }
