@@ -6,7 +6,7 @@ import iconUrl from '@/assets/logo.png'
  *
  * 한 쪽이 10건이라, 무한 스크롤을 확인하려면 내 에이전트가 11건이어야 한다.
  */
-type Seed = Omit<PlaceableItem, 'owner'> & { owner: string }
+type Seed = Omit<PlaceableItem, 'owner' | 'onboardingMessage' | 'usageExample'> & { owner: string }
 
 const ME = '이싸피'
 
