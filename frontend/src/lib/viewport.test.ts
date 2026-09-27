@@ -8,6 +8,7 @@ import {
   ZOOM_MIN,
   clampZoom,
   fitViewport,
+  fitVerticalViewport,
   gridPosition,
   gridSize,
   panBy,
@@ -23,6 +24,30 @@ import {
 const toDesign = (view: Viewport, cx: number, cy: number) => ({
   x: (cx - view.tx) / view.k,
   y: (cy - view.ty) / view.k,
+})
+
+describe('fitVerticalViewport', () => {
+  it('이미 들어오는 구성과 빈 화면은 움직이지 않는다', () => {
+    expect(fitVerticalViewport(null, 1024)).toEqual(INITIAL_VIEWPORT)
+    expect(fitVerticalViewport({ minX: 12, maxX: 968, minY: 325, maxY: 598 }, 1024)).toEqual(
+      INITIAL_VIEWPORT,
+    )
+  })
+
+  it('false 방향 3중 분기의 마지막 카드까지 화면 안에 넣는다', () => {
+    const bounds = { minX: 12, maxX: 1362, minY: 185.5, maxY: 1121.5 }
+    const view = fitVerticalViewport(bounds, 1024)
+    expect(view.k).toBeLessThan(1)
+    expect(bounds.minY * view.k + view.ty).toBeCloseTo(140)
+    expect(bounds.maxY * view.k + view.ty).toBeCloseTo(1000)
+  })
+
+  it('위아래로 크게 벌어진 구성도 자르지 않는다', () => {
+    const bounds = { minX: 0, maxX: 2000, minY: -300, maxY: 3600 }
+    const view = fitVerticalViewport(bounds, 1024)
+    expect(bounds.minY * view.k + view.ty).toBeCloseTo(140)
+    expect(bounds.maxY * view.k + view.ty).toBeCloseTo(1000)
+  })
 })
 
 describe('clampZoom', () => {

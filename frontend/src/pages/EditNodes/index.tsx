@@ -4,12 +4,20 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/errors'
 import { DEFAULT_AI_MODEL, NODE_NAME_MAX, updateNode, type AiModel } from '@/api/nodes'
-import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
+import {
+  replaceWorkflow,
+  saveWorkflow,
+  type ControlKind,
+  type IoType,
+  type WorkflowGraph,
+} from '@/api/workflows'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
-import CanvasNode from '@/components/CanvasNode'
+import CanvasNode, { type CanvasNodeProps } from '@/components/CanvasNode'
+import ControlNode from '@/components/ControlNode'
 import CanvasPane from '@/components/CanvasPane'
 import CanvasWorld from '@/components/CanvasWorld'
 import ModelSelect from '@/components/ModelSelect'
+import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
 import SidePanel, { PANEL_INSET } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
@@ -17,10 +25,20 @@ import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
 import { useNodeRefFiles } from '@/hooks/useNodeRefFiles'
 import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
-import { chainPositions } from '@/lib/canvasWorkflow'
+import {
+  chainPositions,
+  graphProblem,
+  isConditionSource,
+  runProblem,
+  sellProblem,
+  upstreamOf,
+} from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { nodeTypeLabel, priceLabel } from '@/lib/format'
+import { describeCondition } from '@/lib/branchCondition'
+import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
+import type { NodeValues } from '@/lib/canvasReducer'
+import { outputDraftProblem, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
@@ -29,8 +47,53 @@ import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
 import RefFileField from '@/components/RefFileField'
 
+const UNSUPPORTED = '아직 지원하지 않습니다'
+
+/** 「제어 흐름 노드」 줄의 칩. 누르면 캔버스 가운데에 하나 놓인다. */
+function ControlChip({
+  label,
+  disabled = false,
+  title,
+  onClick,
+}: {
+  label: string
+  disabled?: boolean
+  title?: string
+  onClick: () => void
+}) {
+  return (
+    <div
+      onClick={disabled ? undefined : onClick}
+      title={title}
+      style={{
+        height: '36px',
+        padding: '0 15px',
+        borderRadius: '10px',
+        opacity: disabled ? 0.45 : 1,
+      }}
+      className={`bg-surface-card flex items-center text-[12.5px] font-semibold whitespace-nowrap text-white ${
+        disabled ? 'cursor-default' : 'cursor-pointer hover:bg-[rgba(255,255,255,.2)]'
+      }`}
+    >
+      {label}
+    </div>
+  )
+}
+
 /** 이름 길이. 서버가 `@Size(max = 40)` 으로 막는다. */
 const NAME_MAX = 40
+
+const EMPTY_DRAFT: {
+  name: string
+  prompt: string
+  model: AiModel
+  output: ReturnType<typeof toOutputDraft>
+} = {
+  name: '',
+  prompt: '',
+  model: DEFAULT_AI_MODEL,
+  output: toOutputDraft(),
+}
 
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
 
@@ -52,9 +115,9 @@ function describeSaveError(error: unknown): string | null {
   if (error.code === 'WORKFLOW_015') return '캔버스에 없는 노드가 섞여 있습니다. 다시 놓아 주세요'
   // 서버가 그래프를 물리는 나머지 갈래. 빠져 있으면 고칠 곳을 모른 채 같은 저장만 되풀이한다.
   if (error.code === 'WORKFLOW_005') return '연결이 고리를 이룹니다. 돌아오는 선을 지워 주세요'
-  if (error.code === 'WORKFLOW_013') return '연결이 규칙에 맞지 않습니다. 한 줄로 이어 주세요'
+  if (error.code === 'WORKFLOW_013')
+    return '연결이 서버 규칙에 맞지 않습니다. 시작·분기·종료 연결을 확인해 주세요'
   if (error.code === 'WORKFLOW_014') return '노드를 하나 이상 놓아야 저장할 수 있습니다'
-  if (error.code === 'WORKFLOW_017') return '놓인 노드의 종류가 서버와 다릅니다. 다시 놓아 주세요'
   if (error.code === 'WORKFLOW_003') return '이 워크플로우를 수정할 권한이 없습니다'
   if (error.code === 'WORKFLOW_002') return '워크플로우를 찾을 수 없습니다'
   if (error.code === 'COMMON_001') return '이름을 확인해 주세요'
@@ -91,6 +154,7 @@ export default function EditNodes() {
     linkFrom,
     canSell,
     editNode,
+    editCondition,
     attachSources,
     repriceBySource,
     portOpen,
@@ -118,11 +182,7 @@ export default function EditNodes() {
 
   const [name, setName] = useState('문서 정리')
   /** 왼쪽 아래 「노드 추가」 패널에 적는 값. 패널을 닫으면 함께 버린다. */
-  const [draft, setDraft] = useState<{ name: string; prompt: string; model: AiModel }>({
-    name: '',
-    prompt: '',
-    model: DEFAULT_AI_MODEL,
-  })
+  const [draft, setDraft] = useState(EMPTY_DRAFT)
   /** 저장하고 나면 생긴다. 다음 저장부터는 이 회차로 갈아 끼운다. */
   const [saved, setSaved] = useState<{ workflowId: string; revision: number } | null>(null)
 
@@ -147,7 +207,7 @@ export default function EditNodes() {
     )
   }, [loaded, canvas])
 
-  // 한 줄이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
+  // 서버가 받는 모양이 아니면 null 이다. 저장 가능 여부와 보낼 내용이 같은 계산에서 나온다.
   const graph = useMemo(() => toWorkflowGraph(nodes, edges), [nodes, edges])
   // 카드 순번. 갈래가 있으면 차례가 없으므로 번호를 감춘다.
   const chainAt = useMemo(() => chainPositions(nodes, edges), [nodes, edges])
@@ -159,13 +219,8 @@ export default function EditNodes() {
 
   /** 원가는 프롬프트와 모델로 다시 매겨진다. 받은 값을 카드에 되쓴다. */
   const editOriginal = useMutation({
-    mutationFn: ({
-      sourceId,
-      values,
-    }: {
-      sourceId: string
-      values: { name: string; prompt: string; model: AiModel }
-    }) => updateNode(sourceId, values),
+    mutationFn: ({ sourceId, values }: { sourceId: string; values: NodeValues }) =>
+      updateNode(sourceId, values),
     onSuccess: (node) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.detail(node.nodeId) })
       repriceBySource(node.nodeId, node.baseCost)
@@ -176,7 +231,7 @@ export default function EditNodes() {
     // 보낸 내용을 함께 돌려준다. `onSuccess` 에서 `pending` 을 다시 읽으면 요청이 나가는 동안
     // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
     mutationFn: async () => {
-      if (!graph) throw new Error('한 줄로 이어진 워크플로우가 아니다')
+      if (!graph) throw new Error('서버가 받는 모양의 워크플로우가 아니다')
       const shape = shapeOf(graph, trimmedName)
       const { nodeIdByKey } = graph
       const result = saved
@@ -221,15 +276,12 @@ export default function EditNodes() {
   /** 못 누르는 이유. 없으면 누를 수 있다 — 버튼을 죽여 두기만 하면 왜인지 알 길이 없다. */
   const saveBlocked = loaded.isPending
     ? '워크플로우를 불러오는 중입니다'
-    : !nodes.length
-      ? '노드를 하나 이상 놓아 주세요'
-      : !graph
-        ? '노드를 한 줄로 이어 주세요'
-        : !trimmedName
-          ? '워크플로우 이름을 적어 주세요'
-          : null
+    : (graphProblem(nodes, edges) ?? (trimmedName ? null : '워크플로우 이름을 적어 주세요'))
   const canSave = !saveBlocked && !save.isPending && dirty
-  const canRun = !saveBlocked && !save.isPending
+
+  /** 못 실행하는 이유. 저장보다 한 단계 더 본다 — 어디서 시작해 어디서 끝나는지까지. */
+  const runBlocked = saveBlocked ?? runProblem(nodes, edges)
+  const canRun = !runBlocked && !save.isPending
   const saveError = describeSaveError(save.error)
 
   const navigate = useNavigate()
@@ -293,6 +345,12 @@ export default function EditNodes() {
   const targets = targetsOf(nodes)
   const unsentFiles = refFiles.unsentIn(Object.keys(targets))
   const unsentNotice = unsentFiles ? `참고 자료 ${unsentFiles}개가 붙지 않았습니다` : null
+  // 실행이 막힌 까닭도 버튼 아래에 적는다. 비활성 버튼의 툴팁은 보이지 않는 브라우저가 있다.
+  // 원본을 못 고치면 캔버스에는 고친 값이 남고 서버는 예전 값을 든다. 워크플로우 저장은 원본을 건드리지 않는다.
+  const editError = editOriginal.isError
+    ? '노드를 서버에 고치지 못했습니다. 다시 저장해 주세요'
+    : null
+  const statusNotice = saveError ?? editError ?? saveBlocked ?? unsentNotice ?? runBlocked
   const g = nodes.find((node) => node.id === hovId) ?? n // 빛은 호버 중인 노드를 따라간다
   const selRing: CSSProperties = g
     ? {
@@ -312,10 +370,11 @@ export default function EditNodes() {
         transition: 'transform .2s,opacity .25s ease',
       }
     : { display: 'none' }
-  const draftFilled = !!draft.name.trim() && !!draft.prompt.trim()
+  const draftOutput = readOutputDraft(draft.output)
+  const draftFilled = !!draft.name.trim() && !!draft.prompt.trim() && !!draftOutput
 
   const closeAddPanel = () => {
-    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    setDraft(EMPTY_DRAFT)
     refFiles.clearDraft()
     handleTogglePanel()
   }
@@ -325,7 +384,7 @@ export default function EditNodes() {
    * 기본 노드는 워크플로우를 저장할 때 배치와 함께 만들어진다(`NodePlacementRequest`).
    */
   const handleCreate = () => {
-    if (!draftFilled) return
+    if (!draftFilled || !draftOutput) return
     const placedId = canvas.placeAtCenter({
       name: draft.name.trim(),
       nodeType: 'LLM',
@@ -337,14 +396,42 @@ export default function EditNodes() {
       summary: null,
       prompt: draft.prompt.trim(),
       model: draft.model,
+      output: draftOutput,
       mine: true,
     })
     // 카드가 생긴 뒤에 옮긴다. 원본은 저장할 때 만들어지고, 그때 이 카드 몫으로 올라간다.
     refFiles.handOff(placedId)
     refFiles.clearDraft()
-    setDraft({ name: '', prompt: '', model: DEFAULT_AI_MODEL })
+    setDraft(EMPTY_DRAFT)
     handleTogglePanel()
   }
+
+  /**
+   * 제어·입출력 노드를 캔버스 가운데에 놓는다.
+   *
+   * 팔레트를 거치지 않는다 — 가리킬 원본이 없어 서버에 만들 것도, 값을 받아 올 곳도 없다.
+   * 종류만 실어 두면 저장할 때 `sourceType` 이 `CONTROL`·`IO` 로 나간다.
+   */
+  const handlePlaceControl = (kind: ControlKind) => {
+    // 시작은 맨 앞이라 왼쪽, 분기·종료는 뒤로 이어지니 오른쪽에 둔다.
+    canvas.placeBeside(kind === 'START' ? 'left' : 'right', {
+      name: controlKindName(kind),
+      nodeType: null,
+      sourceType: kind === 'BRANCH' ? 'CONTROL' : 'IO',
+      sourceId: '',
+      price: null,
+      summary: null,
+      prompt: null,
+      model: null,
+      mine: null,
+      ...(kind === 'BRANCH' ? { controlType: 'BRANCH' as const } : { ioType: kind }),
+    })
+    // 패널만 닫는다. 적던 노드 초안과 붙인 자료는 × 로 닫을 때처럼 남긴다.
+    handleTogglePanel()
+  }
+
+  /** 시작·종료는 저마다 하나뿐이다. 둘을 놓으면 서버가 `WORKFLOW_013` 으로 물린다. */
+  const ioPlaced = (type: IoType) => nodes.some((node) => node.ioType === type)
 
   const hasSelection = !!n
   // 에이전트는 열지 않는다 — 남의 내부 구성이다. 기본 노드는 캔버스가 값을 들고 있다.
@@ -354,7 +441,7 @@ export default function EditNodes() {
    * 원본을 가리키는 배치는 저장할 때 `sourceId` 만 보내므로 이름·프롬프트가 함께 나가지 않는다.
    * 여기서 `PUT` 하지 않으면 고친 값이 다음 저장에서 버려진다.
    */
-  const applyNodeEdit = (id: string, values: { name: string; prompt: string; model: AiModel }) => {
+  const applyNodeEdit = (id: string, values: NodeValues) => {
     editNode(id, values)
     const sourceId = nodes.find((node) => node.id === id)?.sourceId
     if (sourceId) editOriginal.mutate({ sourceId, values })
@@ -368,12 +455,28 @@ export default function EditNodes() {
           name: n.name,
           prompt: n.prompt ?? '',
           model: n.model ?? DEFAULT_AI_MODEL,
+          output: n.output ?? null,
           price: n.price,
         }
       : undefined
+  /** 고른 것이 분기일 때 조건이 읽을 수 있는 자리(`WorkflowGraph.ensureConditionReadsUpstream`). */
+  const selBranch = useMemo(() => {
+    if (!n?.controlType) return undefined
+    // 글 출력 노드는 견줄 칸이 없다. 에이전트는 출력 형식을 몰라 경로를 손으로 적는다.
+    const sources = upstreamOf(nodes, edges, n.id)
+      .filter((node) => isConditionSource(node) && node.output?.kind !== 'TEXT')
+      .map((node) => ({
+        id: node.id,
+        name: node.name,
+        fields: node.output?.example ? scalarFields(node.output.example) : null,
+      }))
+    return { id: n.id, condition: n.condition ?? null, sources }
+  }, [n, nodes, edges])
+
+  const selKind = n?.controlType ?? n?.ioType
   const selName = n ? n.name : ''
   const selInitial = n ? n.name.trim().charAt(0) : ''
-  const selTypeLabel = n ? nodeTypeLabel(n.nodeType) : ''
+  const selTypeLabel = n ? placedKindLabel(n) : ''
 
   // 없거나 남의 워크플로우다. 여기서 끊지 않으면 자리표시자 다섯 개가 그대로 떠 있어
   // 무언가 불러와진 것처럼 보이고, 거기서 저장하면 엉뚱한 새 워크플로우가 하나 더 생긴다.
@@ -473,44 +576,88 @@ export default function EditNodes() {
           <div className="pointer-events-none absolute inset-0">
             <div ref={glowRef} style={selRing}></div>
 
-            {nodes.map((node) => (
-              <CanvasNode
-                key={node.id}
-                index={chainAt?.get(node.id)}
-                name={node.name}
-                sublabel={node.price === null ? '—' : priceLabel(node.price)}
-                x={node.x}
-                y={node.y}
-                mine={node.mine}
-                floaty={node.floaty}
-                enter={node.enter}
-                background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
-                sublabelColor="rgba(230,196,212,.85)"
-                title={
-                  node.mine
-                    ? undefined
-                    : '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
-                }
-                nodeId={node.id}
-                dragging={dragId === node.id}
-                onSelect={handleSelect}
-                onPointerDown={handleNodePointerDown(node.id)}
-                onPortDown={handlePortDown(node.id)}
-                portDim={(side) => !portOpen(node.id, side)}
+            {nodes.map((node) => {
+              // 끌고 놓기와 선 잇기는 종류를 가리지 않는다. 모양만 갈린다.
+              const grip: Pick<
+                CanvasNodeProps,
+                | 'x'
+                | 'y'
+                | 'floaty'
+                | 'enter'
+                | 'nodeId'
+                | 'dragging'
+                | 'onSelect'
+                | 'onPointerDown'
+                | 'onPortDown'
+                | 'portDim'
+                | 'onPointerMove'
+                | 'onPointerUp'
+                | 'onPointerCancel'
+                | 'onHover'
+                | 'onHoverOut'
+              > = {
+                x: node.x,
+                y: node.y,
+                floaty: node.floaty,
+                enter: node.enter,
+                nodeId: node.id,
+                dragging: dragId === node.id,
+                onSelect: handleSelect,
+                onPointerDown: handleNodePointerDown(node.id),
+                onPortDown: handlePortDown(node.id),
+                portDim: (side) => !portOpen(node.id, side),
                 // 노드 이동은 grab ref, 선 연결은 linkFrom state 로 각자 가른다.
-                onPointerMove={(ev) => {
+                onPointerMove: (ev) => {
                   handleNodePointerMove(ev)
                   handlePortMove(ev)
-                }}
-                onPointerUp={(ev) => {
+                },
+                onPointerUp: (ev) => {
                   handleNodePointerUp()
                   handlePortUp(ev)
-                }}
-                onPointerCancel={handlePointerCancel}
-                onHover={() => onHover(node.id)}
-                onHoverOut={handleHoverOut}
-              />
-            ))}
+                },
+                onPointerCancel: handlePointerCancel,
+                onHover: () => onHover(node.id),
+                onHoverOut: handleHoverOut,
+              }
+
+              const kind = node.controlType ?? node.ioType
+              if (kind) {
+                return (
+                  <ControlNode
+                    key={node.id}
+                    {...grip}
+                    kind={kind}
+                    selected={node.id === selId}
+                    sublabel={
+                      node.controlType
+                        ? describeCondition(
+                            node.condition,
+                            (id) => nodes.find((it) => it.id === id)?.name,
+                          )
+                        : undefined
+                    }
+                  />
+                )
+              }
+
+              return (
+                <CanvasNode
+                  key={node.id}
+                  {...grip}
+                  index={chainAt?.get(node.id)}
+                  name={node.name}
+                  sublabel={node.price === null ? '—' : priceLabel(node.price)}
+                  mine={node.mine}
+                  background={node.id === selId ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.11)'}
+                  sublabelColor="rgba(230,196,212,.85)"
+                  title={
+                    node.mine === false
+                      ? '다른 사람의 에이전트 — 이 구성은 마켓에 등록할 수 없습니다'
+                      : undefined
+                  }
+                />
+              )
+            })}
           </div>
 
           {/* 끄는 중인 선은 카드 위에 둔다 — 이어진 선과 달리 카드를 피해 가지 않아서,
@@ -678,7 +825,7 @@ export default function EditNodes() {
               <div
                 className="bg-surface-card"
                 style={{
-                  height: '150px',
+                  height: '112px',
                   borderRadius: '9px',
                   padding: '11px 12px',
                   marginBottom: '14px',
@@ -690,9 +837,31 @@ export default function EditNodes() {
                   onChange={(ev) => setDraft((it) => ({ ...it, prompt: ev.target.value }))}
                   placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
                   aria-label="프롬프트"
-                  style={{ width: '100%', height: '128px', resize: 'none', lineHeight: '1.5' }}
+                  style={{ width: '100%', height: '90px', resize: 'none', lineHeight: '1.5' }}
                 ></textarea>
               </div>
+
+              <div
+                className="text-[17px]"
+                style={{ color: 'rgba(255,214,232,.85)', marginBottom: '8px' }}
+              >
+                출력 형식
+              </div>
+              <OutputKindToggle
+                value={draft.output.kind}
+                onChange={(kind) => setDraft((it) => ({ ...it, output: { ...it.output, kind } }))}
+                style={{ height: '44px', fontSize: '16px', marginBottom: '14px' }}
+              />
+              {draft.output.kind === 'JSON' && (
+                <OutputExampleBox
+                  value={draft.output.text}
+                  onChange={(text) => setDraft((it) => ({ ...it, output: { ...it.output, text } }))}
+                  invalid={!!draft.output.text.trim() && !draftOutput}
+                  height={130}
+                  fontSize="14.5px"
+                  style={{ marginBottom: '14px' }}
+                />
+              )}
 
               <div
                 className="text-[17px]"
@@ -700,25 +869,28 @@ export default function EditNodes() {
               >
                 제어 흐름 노드
               </div>
-              <div className="flex" style={{ gap: '8px', marginBottom: '2px' }}>
-                <div
-                  style={{ height: '36px', padding: '0 13px', borderRadius: '10px' }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold whitespace-nowrap text-white hover:bg-[rgba(255,255,255,.2)]"
-                >
-                  조건 분기 (if / else)
-                </div>
-                <div
-                  style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
-                >
-                  반복
-                </div>
-                <div
-                  style={{ height: '36px', padding: '0 15px', borderRadius: '10px' }}
-                  className="bg-surface-card flex cursor-pointer items-center text-[12.5px] font-semibold text-white hover:bg-[rgba(255,255,255,.2)]"
-                >
-                  병합
-                </div>
+              <div className="flex flex-wrap" style={{ gap: '8px', marginBottom: '2px' }}>
+                <ControlChip
+                  label="시작"
+                  disabled={ioPlaced('START')}
+                  title={ioPlaced('START') ? '시작 노드는 하나만 놓을 수 있습니다' : undefined}
+                  onClick={() => handlePlaceControl('START')}
+                />
+                <ControlChip
+                  label="종료"
+                  disabled={ioPlaced('END')}
+                  title={ioPlaced('END') ? '종료 노드는 하나만 놓을 수 있습니다' : undefined}
+                  onClick={() => handlePlaceControl('END')}
+                />
+                <ControlChip label="조건 분기" onClick={() => handlePlaceControl('BRANCH')} />
+                {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 병합은 노드 없이 두 갈래를 같은 노드로 잇는다. */}
+                <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
+                <ControlChip
+                  label="병합"
+                  disabled
+                  title="두 갈래에서 같은 노드로 선을 이으면 합쳐집니다"
+                  onClick={() => {}}
+                />
               </div>
             </div>
 
@@ -745,7 +917,11 @@ export default function EditNodes() {
                 onClick={handleCreate}
                 disabled={!draftFilled}
                 title={
-                  draftFilled ? '노드를 만들어 팔레트에 넣습니다' : '이름과 프롬프트를 적어 주세요'
+                  draftFilled
+                    ? '노드를 만들어 팔레트에 넣습니다'
+                    : !draftOutput
+                      ? (outputDraftProblem(draft.output) ?? undefined)
+                      : '이름과 프롬프트를 적어 주세요'
                 }
                 style={{
                   height: '40px',
@@ -797,7 +973,7 @@ export default function EditNodes() {
           {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
         </button>
 
-        {(saveError ?? saveBlocked ?? unsentNotice) && (
+        {statusNotice && (
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
@@ -805,13 +981,18 @@ export default function EditNodes() {
               left: 'calc(760px + var(--edge, 0px))',
               top: 'calc(974px + var(--edge-y, 0px))',
               width: '240px',
-              color: (saveError ?? unsentNotice) ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
-              // 저장이 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
+              color:
+                statusNotice === saveError ||
+                statusNotice === editError ||
+                statusNotice === unsentNotice
+                  ? 'rgba(255,196,214,.9)'
+                  : 'rgba(255,236,246,.6)',
+              // 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
             }}
           >
-            {saveError ?? saveBlocked ?? unsentNotice}
+            {statusNotice}
             {/* 저장 버튼은 이미 「저장됨」이라 다시 눌리지 않는다. 보낼 길을 여기 둔다. */}
-            {!saveError && !saveBlocked && unsentNotice && (
+            {statusNotice === unsentNotice && (
               <button
                 type="button"
                 onClick={() => void refFiles.flush(targets)}
@@ -826,13 +1007,13 @@ export default function EditNodes() {
 
         {/*
           저장하지 않고 눌러도 넘어간다 — 먼저 저장하고 그 워크플로우로 실행 화면을 연다.
-          저장이 막힌 상태(빈 캔버스·갈래·이름 없음)면 저장 버튼과 같은 이유로 여기도 막힌다.
+          저장이 막힌 상태면 여기도 막히고, 시작·종료가 이어지지 않아도 막힌다.
         */}
         <button
           type="button"
           onClick={() => void runNow()}
           disabled={!canRun}
-          title={saveBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
+          title={runBlocked ?? (dirty ? '저장하고 실행 화면으로 갑니다' : '실행 화면으로 갑니다')}
           style={{
             left: 'calc(800px + var(--edge, 0px))',
             top: 'calc(915px + var(--edge-y, 0px))',
@@ -868,8 +1049,10 @@ export default function EditNodes() {
           initial={selInitial}
           typeLabel={selTypeLabel}
           basic={selBasic}
+          branch={selBranch}
+          onApplyCondition={editCondition}
           files={refFiles.selected}
-          summary={n?.summary}
+          summary={selKind ? controlKindHint(selKind) : n?.summary}
           meta={
             n && n.sourceType === 'AGENT'
               ? { price: n.price, executionCount: n.executionCount, owner: n.owner }
@@ -946,7 +1129,7 @@ export default function EditNodes() {
           title={
             canSell
               ? '실행이 끝나면 완료 화면에서 마켓에 등록할 수 있어요'
-              : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+              : (sellProblem(nodes) ?? undefined)
           }
           style={{
             height: '28px',

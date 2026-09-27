@@ -1,8 +1,20 @@
 import { useState } from 'react'
 
-import { NODE_NAME_MAX, type AiModel } from '@/api/nodes'
+import { NODE_NAME_MAX, type AiModel, type NodeOutput } from '@/api/nodes'
+import type { ConditionOperator } from '@/api/workflows'
+import { formatConditionRight, operatorsFor, parseConditionRight } from '@/lib/branchCondition'
+import type { CanvasCondition } from '@/lib/canvasWorkflow'
 import { priceLabel } from '@/lib/format'
+import type { NodeValues } from '@/lib/canvasReducer'
+import {
+  outputDraftProblem,
+  readOutputDraft,
+  sameOutput,
+  toOutputDraft,
+  type OutputField,
+} from '@/lib/nodeOutput'
 import ModelSelect from '@/components/ModelSelect'
+import { OutputExampleBox, OutputKindToggle } from '@/components/OutputField'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
@@ -29,8 +41,6 @@ const rowStyle = (top: string) => ({
   width: `${PANEL_CONTENT_WIDTH}px`,
 })
 
-type FormValues = { name: string; prompt: string; model: AiModel }
-
 /**
  * 폼의 세로 좌표. 라벨은 칸에서 22px 위다.
  *
@@ -42,7 +52,11 @@ const MODEL_Y = FILES_Y + REF_FIELD_HEIGHT + 30
 const PROMPT_Y = MODEL_Y + 72
 /** 안쪽 여백을 빼면 다섯 줄이 선다. 두 줄로는 프롬프트를 적다가 바로 스크롤이 생긴다. */
 const PROMPT_HEIGHT = 150
-const FOOT_Y = PROMPT_Y + PROMPT_HEIGHT + 10
+/** JSON 이면 예시 칸이 프롬프트 자리를 나눠 쓴다. 늘리면 팔레트 경계를 넘는다. */
+const PROMPT_HEIGHT_JSON = 68
+const EXAMPLE_HEIGHT = 68
+/** 모델과 출력 형식은 한 줄에 반씩. */
+const HALF_WIDTH = (PANEL_CONTENT_WIDTH - 8) / 2
 
 /** 에이전트 쪽 세로 좌표. 설명은 길이에 따라 늘고, 메타 세 줄은 그 아래 고정이다. */
 const SUMMARY_Y = 206
@@ -96,24 +110,317 @@ function FieldLabel({ top, children }: { top: string; children: React.ReactNode 
   )
 }
 
+/** 조건이 읽을 수 있는 앞 노드. 이름만 있으면 고르게 할 수 있다. */
+export interface ConditionSource {
+  id: string
+  name: string
+  /** 견줄 수 있는 칸. 에이전트처럼 출력 형식을 모르면 null — 경로를 손으로 적는다 */
+  fields: OutputField[] | null
+}
+
+/** 패널 안의 드롭다운. 네이티브 `select` 로 둔다 — 값이 몇 개 없고 키보드가 그냥 먹는다. */
+function Picker<T extends string>({
+  value,
+  onChange,
+  options,
+  label,
+  top,
+  width,
+}: {
+  value: T
+  onChange: (next: T) => void
+  options: { value: T; label: string }[]
+  label: string
+  top: string
+  /** 비우면 패널 폭 전체 */
+  width?: number
+}) {
+  return (
+    <div
+      className="bg-surface-card absolute flex items-center"
+      style={{
+        ...rowStyle(top),
+        ...(width === undefined ? {} : { width: `${width}px` }),
+        height: '42px',
+        borderRadius: '11px',
+        padding: '0 8px 0 12px',
+      }}
+    >
+      <select
+        className="w-full cursor-pointer border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
+        value={value}
+        onChange={(ev) => onChange(ev.target.value as T)}
+        aria-label={label}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value} style={{ color: '#1d1430' }}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+/**
+ * 분기 조건을 고치는 자리.
+ *
+ * 읽을 노드는 고르게만 한다 — 손으로 적게 두면 앞에 없는 노드를 가리켜 `WORKFLOW_013` 을
+ * 받는데, 코드 하나에 여러 원인이 몰려 있어 무엇이 틀렸는지 돌려주지 못한다.
+ */
+function BranchForm({
+  id,
+  head,
+  initial,
+  sources,
+  onApply,
+}: {
+  id: string
+  head: { initial: string; name: string; typeLabel: string }
+  initial: CanvasCondition | null
+  sources: ConditionSource[]
+  onApply: (condition: CanvasCondition) => void
+}) {
+  const [fromId, setFromId] = useState(initial?.fromId ?? sources[0]?.id ?? '')
+  const [path, setPath] = useState(initial?.path ?? '')
+  const [operator, setOperator] = useState<ConditionOperator>(initial?.operator ?? 'EQ')
+  const [right, setRight] = useState(initial ? formatConditionRight(initial.right) : '')
+
+  /**
+   * 고른 값이 후보에 없으면 첫 후보로 본다.
+   *
+   * 폼은 분기 id 로만 다시 서서, 분기를 고른 채 앞에 노드를 이으면 후보만 늘고 `fromId` 는
+   * 빈 채로 남는다. 그대로 두면 `select` 는 첫 후보를 보여주는데 값은 비어 있어 「적용」이
+   * 영영 죽는다 — 후보가 하나뿐이면 골라서 빠져나올 수도 없다.
+   */
+  const picked = sources.some((source) => source.id === fromId) ? fromId : (sources[0]?.id ?? '')
+  const fields = sources.find((source) => source.id === picked)?.fields ?? null
+  // 칸을 고르는 동안에도 같은 까닭으로 후보 밖의 값은 첫 칸으로 본다.
+  const field = fields ? (fields.find((it) => it.path === path) ?? fields[0]) : undefined
+  const pickedPath = fields ? (field?.path ?? '') : path.trim()
+  const operators = operatorsFor(field?.kind)
+  const pickedOperator = operators.some((it) => it.value === operator)
+    ? operator
+    : operators[0].value
+  const parsed = parseConditionRight(right, pickedOperator, field?.kind)
+  const canApply = !!picked && !!pickedPath && parsed !== null
+  // 저장된 조건이 지금 후보에 없으면 폼은 첫 후보를 보여 준다. 카드의 조건과 달라 보이니 알린다.
+  const drifted =
+    !!initial &&
+    (picked !== fromId || (!!fields && pickedPath !== path) || pickedOperator !== operator)
+
+  if (sources.length === 0)
+    return (
+      <>
+        <HeadCard {...head} />
+        <div
+          className="absolute text-[15.5px] leading-[1.7]"
+          style={{ ...rowStyle('180px'), color: 'rgba(255,236,246,.66)' }}
+        >
+          조건 분기 앞에 놓인 노드의 결과를 읽습니다. 앞에 있는 기본 노드의 출력 형식을 JSON 으로
+          바꾸거나 에이전트를 연결해주세요.
+        </div>
+      </>
+    )
+
+  return (
+    <>
+      <HeadCard {...head} />
+
+      <FieldLabel top="176px">읽을 노드</FieldLabel>
+      <Picker
+        top="198px"
+        label="읽을 노드"
+        value={picked}
+        onChange={setFromId}
+        options={sources.map((source) => ({ value: source.id, label: source.name }))}
+      />
+
+      <FieldLabel top="248px">값 경로</FieldLabel>
+      {fields && fields.length > 0 ? (
+        <Picker
+          top="270px"
+          label="값 경로"
+          value={pickedPath}
+          onChange={setPath}
+          options={fields.map((it) => ({ value: it.path, label: it.path }))}
+        />
+      ) : fields ? (
+        <div
+          className="absolute text-[14.5px] leading-[1.5]"
+          style={{ ...rowStyle('272px'), color: 'rgba(255,236,246,.66)' }}
+        >
+          출력 예시에 견줄 수 있는 칸(글자·숫자·참거짓)이 없습니다
+        </div>
+      ) : (
+        <div
+          className="bg-surface-card absolute flex items-center"
+          style={{ ...rowStyle('270px'), height: '42px', borderRadius: '11px', padding: '0 12px' }}
+        >
+          <input
+            className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
+            value={path}
+            onChange={(ev) => setPath(ev.target.value)}
+            placeholder="예: competition_level"
+            aria-label="값 경로"
+          />
+          <PencilIcon />
+        </div>
+      )}
+
+      {/* 비교와 값은 한 줄에 둔다. 따로 쌓으면 패널 높이(424px)를 넘어 팔레트가 덮는다. */}
+      <FieldLabel top="320px">비교할 값</FieldLabel>
+      <Picker
+        top="342px"
+        label="비교"
+        value={pickedOperator}
+        onChange={setOperator}
+        options={operators}
+        width={132}
+      />
+      <div
+        className="bg-surface-card absolute flex items-center"
+        style={{
+          left: `${PANEL_INSET + 140}px`,
+          top: '342px',
+          width: `${PANEL_CONTENT_WIDTH - 140}px`,
+          height: '42px',
+          borderRadius: '11px',
+          padding: '0 12px',
+        }}
+      >
+        <input
+          className="w-full border-0 bg-transparent font-[inherit] text-[16.5px] text-white outline-0"
+          value={right}
+          onChange={(ev) => setRight(ev.target.value)}
+          placeholder={
+            pickedOperator === 'IN'
+              ? '쉼표로 나눠서'
+              : field?.kind === 'boolean'
+                ? 'true 또는 false'
+                : field?.kind === 'number'
+                  ? '예: 3'
+                  : '예: high'
+          }
+          aria-label="비교할 값"
+        />
+        <PencilIcon />
+      </div>
+
+      <div
+        className="absolute flex items-center justify-between"
+        style={{ ...rowStyle('396px'), height: '32px' }}
+      >
+        <span
+          className="truncate text-[14px]"
+          style={{ color: drifted ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)' }}
+          title={drifted ? '저장된 조건이 지금 출력 예시와 맞지 않습니다' : undefined}
+        >
+          {/* 참이면 true 포트, 거짓이면 false 포트로 나간다. */}
+          {drifted
+            ? '저장된 조건과 달라요. 확인 후 적용해 주세요'
+            : '조건이 참이면 위쪽 선으로 갑니다'}
+        </span>
+        <button
+          type="button"
+          disabled={!canApply}
+          onClick={() =>
+            canApply &&
+            onApply({ fromId: picked, path: pickedPath, operator: pickedOperator, right: parsed })
+          }
+          title={canApply ? '조건을 캔버스에 반영합니다' : '빈 칸이나 값의 종류를 확인해 주세요'}
+          className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
+          style={{
+            height: '32px',
+            padding: '0 18px',
+            borderRadius: '9px',
+            background: 'var(--color-accent)',
+            color: 'var(--color-accent-ink)',
+            cursor: canApply ? 'pointer' : 'default',
+          }}
+          key={id}
+        >
+          적용
+        </button>
+      </div>
+    </>
+  )
+}
+
+/** 패널 맨 위의 머리 카드. 고른 것이 무엇인지 한 줄로 세운다 — 종류를 가리지 않는다. */
+function HeadCard({
+  initial,
+  name,
+  typeLabel,
+}: {
+  initial: string
+  name: string
+  typeLabel: string
+}) {
+  return (
+    <div
+      className="absolute box-border flex items-center"
+      style={{
+        ...rowStyle('58px'),
+        height: '104px',
+        borderRadius: '12px',
+        background: 'rgba(255,255,255,.11)',
+        padding: '0 16px',
+        gap: '16px',
+      }}
+    >
+      <div
+        className="relative flex-none overflow-hidden bg-[rgba(255,255,255,.10)]"
+        style={{ width: '48px', height: '48px', borderRadius: '10px' }}
+      >
+        <div
+          className="absolute inset-0 flex items-center justify-center text-[17px] font-semibold"
+          style={{ color: 'rgba(255,226,238,.65)' }}
+        >
+          {initial}
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-col" style={{ gap: '4px' }}>
+        <div className="truncate text-[18px] font-semibold tracking-[-.005em] text-white">
+          {name}
+        </div>
+        <div className="text-[14.5px]" style={{ color: 'rgba(255,224,238,.88)' }}>
+          {typeLabel} 노드
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function NodeForm({
   initial,
   price,
   files,
   onApply,
 }: {
-  initial: FormValues
+  initial: { name: string; prompt: string; model: AiModel; output: NodeOutput | null }
   /** 서버가 매긴 1회 실행 원가. 저장하기 전에는 없다 */
   price: string | null
   files: RefFileSlot
-  onApply: (v: FormValues) => void
+  onApply: (v: NodeValues) => void
 }) {
   const [name, setName] = useState(initial.name)
   const [prompt, setPrompt] = useState(initial.prompt)
   const [model, setModel] = useState<AiModel>(initial.model)
+  const [outputDraft, setOutputDraft] = useState(() => toOutputDraft(initial.output))
 
-  const changed = name !== initial.name || prompt !== initial.prompt || model !== initial.model
-  const canApply = changed && !!name.trim() && !!prompt.trim()
+  const output = readOutputDraft(outputDraft)
+  const json = outputDraft.kind === 'JSON'
+  const changed =
+    name !== initial.name ||
+    prompt !== initial.prompt ||
+    model !== initial.model ||
+    !sameOutput(output, initial.output ?? readOutputDraft(toOutputDraft()))
+  const canApply = changed && !!name.trim() && !!prompt.trim() && !!output
+
+  const promptHeight = json ? PROMPT_HEIGHT_JSON : PROMPT_HEIGHT
+  const exampleY = PROMPT_Y + promptHeight + 30
+  const footY = json ? exampleY + EXAMPLE_HEIGHT + 10 : PROMPT_Y + PROMPT_HEIGHT + 10
 
   return (
     <>
@@ -141,7 +448,34 @@ function NodeForm({
       <ModelSelect
         value={model}
         onChange={setModel}
-        style={{ ...rowStyle(`${MODEL_Y}px`), height: '42px', fontSize: '16.5px' }}
+        style={{
+          ...rowStyle(`${MODEL_Y}px`),
+          width: `${HALF_WIDTH}px`,
+          height: '42px',
+          fontSize: '16.5px',
+        }}
+      />
+      <div
+        className="absolute text-[15px]"
+        style={{
+          left: `${PANEL_INSET + HALF_WIDTH + 8}px`,
+          top: `${MODEL_Y - 22}px`,
+          color: 'rgba(255,214,232,.85)',
+        }}
+      >
+        출력 형식
+      </div>
+      <OutputKindToggle
+        value={outputDraft.kind}
+        onChange={(kind) => setOutputDraft((it) => ({ ...it, kind }))}
+        style={{
+          position: 'absolute',
+          left: `${PANEL_INSET + HALF_WIDTH + 8}px`,
+          top: `${MODEL_Y}px`,
+          width: `${HALF_WIDTH}px`,
+          height: '42px',
+          fontSize: '15.5px',
+        }}
       />
 
       <FieldLabel top={`${PROMPT_Y - 22}px`}>프롬프트</FieldLabel>
@@ -149,7 +483,7 @@ function NodeForm({
         className="bg-surface-card absolute"
         style={{
           ...rowStyle(`${PROMPT_Y}px`),
-          height: `${PROMPT_HEIGHT}px`,
+          height: `${promptHeight}px`,
           borderRadius: '11px',
           padding: '9px 12px',
         }}
@@ -160,24 +494,44 @@ function NodeForm({
           onChange={(ev) => setPrompt(ev.target.value)}
           placeholder="이 노드가 할 일을 프롬프트로 적으세요"
           aria-label="프롬프트"
-          style={{ height: `${PROMPT_HEIGHT - 18}px` }}
+          style={{ height: `${promptHeight - 18}px` }}
         />
       </div>
 
+      {json && (
+        <>
+          <FieldLabel top={`${exampleY - 22}px`}>출력 예시</FieldLabel>
+          <OutputExampleBox
+            value={outputDraft.text}
+            onChange={(text) => setOutputDraft((it) => ({ ...it, text }))}
+            invalid={!!outputDraft.text.trim() && !output}
+            height={EXAMPLE_HEIGHT}
+            fontSize="14px"
+            style={{ position: 'absolute', ...rowStyle(`${exampleY}px`) }}
+          />
+        </>
+      )}
+
       <div
         className="absolute flex items-center justify-between"
-        style={{ ...rowStyle(`${FOOT_Y}px`), height: '32px' }}
+        style={{ ...rowStyle(`${footY}px`), height: '32px' }}
       >
         <span className="truncate text-[14px]" style={{ color: 'rgba(255,236,246,.6)' }}>
           {/* 원가는 서버가 프롬프트와 모델로 매긴다. 저장해 봐야 안다. */}
-          {price ? `1회 실행 원가 ${priceLabel(price)}` : '실행 단계에서 원가가 측정됩니다'}
+          {!output
+            ? outputDraftProblem(outputDraft)
+            : price
+              ? `1회 실행 원가 ${priceLabel(price)}`
+              : '실행 단계에서 원가가 측정됩니다'}
         </span>
         <button
           type="button"
           disabled={!canApply}
-          onClick={() => onApply({ name: name.trim(), prompt: prompt.trim(), model })}
+          onClick={() =>
+            output && onApply({ name: name.trim(), prompt: prompt.trim(), model, output })
+          }
           title={canApply ? '고친 값을 캔버스에 반영합니다' : '바뀐 것이 없습니다'}
-          className="border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
+          className="flex-none border-0 font-[inherit] text-[14px] font-semibold disabled:cursor-default disabled:opacity-45"
           style={{
             height: '32px',
             padding: '0 18px',
@@ -206,15 +560,26 @@ type NodeInfoPanelProps = {
    *
    * 에이전트면 undefined — 남의 내부 구성이라 열지 않고 한 줄 설명만 보여준다.
    */
-  basic?: { id: string; name: string; prompt: string; model: AiModel; price: string | null }
+  basic?: {
+    id: string
+    name: string
+    prompt: string
+    model: AiModel
+    output: NodeOutput | null
+    price: string | null
+  }
   /** 고른 기본 노드에 붙은 참고 자료. 에이전트면 쓰지 않는다 */
   files: RefFileSlot
   /** 에이전트의 한 줄 설명. */
   summary?: string | null
   /** 에이전트의 단가·실행 횟수·만든 사람. 모르는 값은 비워 둔다. */
   meta?: { price: string | null; executionCount?: number | null; owner?: string | null }
+  /** 고른 것이 분기 노드일 때. `sources` 는 어느 길로 와도 앞에 있는 노드·에이전트다. */
+  branch?: { id: string; condition: CanvasCondition | null; sources: ConditionSource[] }
+  /** 고친 조건을 캔버스에 돌려준다. */
+  onApplyCondition: (id: string, condition: CanvasCondition) => void
   /** 고친 값을 캔버스에 돌려준다. 저장은 워크플로우를 저장할 때 서버로 함께 나간다. */
-  onApply: (id: string, values: { name: string; prompt: string; model: AiModel }) => void
+  onApply: (id: string, values: NodeValues) => void
 }
 
 /** 패널 위쪽 — 고른 노드를 살펴보고 고치는 자리. */
@@ -227,7 +592,9 @@ export default function NodeInfoPanel({
   files,
   summary,
   meta,
+  branch,
   onApply,
+  onApplyCondition,
 }: NodeInfoPanelProps) {
   if (!hasSelection)
     return (
@@ -239,12 +606,25 @@ export default function NodeInfoPanel({
       </div>
     )
 
+  // 분기는 이름이 종류로 정해져 있어 고칠 것이 조건뿐이다.
+  if (branch)
+    return (
+      <BranchForm
+        key={branch.id}
+        id={branch.id}
+        head={{ initial, name, typeLabel }}
+        initial={branch.condition}
+        sources={branch.sources}
+        onApply={(condition) => onApplyCondition(branch.id, condition)}
+      />
+    )
+
   // 기본 노드는 폼이 이름을 들고 있어 머리 카드도 종류 줄도 겹친다. 폼만 세운다.
   if (basic)
     return (
       <NodeForm
         key={basic.id}
-        initial={{ name: basic.name, prompt: basic.prompt, model: basic.model }}
+        initial={basic}
         price={basic.price}
         files={files}
         onApply={(values) => onApply(basic.id, values)}
@@ -253,37 +633,7 @@ export default function NodeInfoPanel({
 
   return (
     <>
-      <div
-        className="absolute box-border flex items-center"
-        style={{
-          ...rowStyle('58px'),
-          height: '104px',
-          borderRadius: '12px',
-          background: 'rgba(255,255,255,.11)',
-          padding: '0 16px',
-          gap: '16px',
-        }}
-      >
-        <div
-          className="relative flex-none overflow-hidden bg-[rgba(255,255,255,.10)]"
-          style={{ width: '48px', height: '48px', borderRadius: '10px' }}
-        >
-          <div
-            className="absolute inset-0 flex items-center justify-center text-[17px] font-semibold"
-            style={{ color: 'rgba(255,226,238,.65)' }}
-          >
-            {initial}
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-col" style={{ gap: '4px' }}>
-          <div className="truncate text-[18px] font-semibold tracking-[-.005em] text-white">
-            {name}
-          </div>
-          <div className="text-[14.5px]" style={{ color: 'rgba(255,224,238,.88)' }}>
-            {typeLabel} 노드
-          </div>
-        </div>
-      </div>
+      <HeadCard initial={initial} name={name} typeLabel={typeLabel} />
 
       <div className="absolute text-[15.5px] font-semibold" style={labelStyle('180px')}>
         설명

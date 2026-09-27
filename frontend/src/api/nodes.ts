@@ -55,6 +55,18 @@ export const serverModel = (model: AiModel): ServerModel => {
   return DEFAULT_AI_MODEL
 }
 
+/** 노드가 결과를 내는 형식. `JSON` 이면 결과가 `example` 과 같은 모양이고, 분기 조건은 그 칸만 읽는다. */
+export type OutputKind = 'TEXT' | 'JSON'
+
+export interface NodeOutput {
+  kind: OutputKind
+  /** `JSON` 일 때만. 키가 하나 이상인 객체이고 값이 null 인 키는 선택 항목이다 */
+  example: Record<string, unknown> | null
+}
+
+/** 서버 기본값. 비워 보내면 이 값이 된다. */
+export const TEXT_OUTPUT: NodeOutput = { kind: 'TEXT', example: null }
+
 /** 붙여 둔 참고 자료. */
 export interface RefFile {
   refFileId: string
@@ -68,6 +80,7 @@ export interface NodeDetail {
   name: string
   prompt: string
   model: ServerModel
+  output: NodeOutput
   /** 1회 실행 원가. 금액은 오차를 피해 문자열로 온다 */
   baseCost: string
   currency: string
@@ -85,6 +98,8 @@ export interface NodeSaveBody {
   name: string
   prompt: string
   model?: AiModel | null
+  /** 빠지면 서버가 `TEXT` 로 되돌린다. 고칠 때마다 싣는다 */
+  output: NodeOutput
 }
 
 export const updateNode = (nodeId: string, body: NodeSaveBody) =>

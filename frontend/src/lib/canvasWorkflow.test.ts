@@ -8,9 +8,12 @@ import {
   CANVAS_NODES,
   NO_BOUNDS,
   canConnect,
+  graphProblem,
+  runProblem,
   chainPositions,
   clampToBounds,
   canSellWorkflow,
+  sellProblem,
   connect,
   disconnect,
   edgeGeometry,
@@ -25,6 +28,9 @@ import {
   resolveOverlap,
   portPoint,
   removeNode,
+  treeOrder,
+  upstreamOf,
+  type CanvasEdge,
   type CanvasNodeData,
 } from './canvasWorkflow'
 
@@ -66,7 +72,7 @@ const apart = (nodes: CanvasNodeData[], id: string, x: number, y: number) =>
 const nodeAt = (id: string, x: number, y: number): CanvasNodeData => ({
   id,
   name: id,
-  nodeType: 'TOOL',
+  nodeType: 'LLM',
   sourceType: 'NODE',
   sourceId: `src-${id}`,
   price: '1',
@@ -163,6 +169,14 @@ describe('moveNodeTo', () => {
 })
 
 describe('canSellWorkflow', () => {
+  it('분기가 있어도 작업 노드가 전부 내 것이면 팔 수 있다', () => {
+    const nodes = [
+      nodeAt('a', 0, 0),
+      { ...nodeAt('br', 0, 0), controlType: 'BRANCH' as const, mine: null },
+    ]
+    expect(canSellWorkflow(nodes)).toBe(true)
+    expect(sellProblem(nodes)).toBeNull()
+  })
   it('내 것만 있으면 팔 수 있다', () => {
     expect(canSellWorkflow([nodeAt('a', 0, 200), nodeAt('b', 400, 300)])).toBe(true)
   })
@@ -174,6 +188,19 @@ describe('canSellWorkflow', () => {
 
   it('빈 캔버스는 등록할 것이 없다', () => {
     expect(canSellWorkflow([])).toBe(false)
+  })
+  // 제어·입출력만 놓인 구성은 팔 것이 없다.
+  it('제어·입출력만 있으면 팔 수 없다', () => {
+    const start = {
+      ...nodeAt('s', 0, 0),
+      nodeType: null,
+      sourceType: 'IO' as const,
+      sourceId: '',
+      mine: null,
+      ioType: 'START' as const,
+    }
+    expect(canSellWorkflow([start])).toBe(false)
+    expect(canSellWorkflow([start, nodeAt('a', 0, 0)])).toBe(true)
   })
 })
 
@@ -237,18 +264,378 @@ describe('linearOrder', () => {
   })
 })
 
+describe('treeOrder — 선 차례', () => {
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const branch = (id: string) => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'CONTROL' as const,
+    sourceId: '',
+    mine: null,
+    controlType: 'BRANCH' as const,
+    condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
+  })
+
+  /**
+   * 서버는 노드를 훑은 뒤 노드마다 제 갈래를 모은다(`WorkflowGraph.edgesInOrder`).
+   * 차례가 어긋나면 다시 불러올 때 선 키가 달라진다.
+   */
+  it('노드를 먼저, 그 노드의 갈래를 모아서 센다', () => {
+    const nodes = [
+      nodeAt('a', 0, 0),
+      branch('br'),
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      nodeAt('z', 0, 0),
+    ]
+    const edges = [
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'z'),
+    ]
+    const order = treeOrder(nodes, edges)
+
+    expect(order?.nodes.map((n) => n.id)).toEqual(['a', 'br', 't', 'z', 'f'])
+    expect(order?.edges.map((e) => e.id)).toEqual(['a__br', 'br__t', 'br__f', 't__z'])
+  })
+
+  // 서버 `walk` 는 들어오는 선을 다 채운 뒤에야 합류를 센다.
+  it('합류는 두 갈래를 다 지난 뒤에 센다', () => {
+    const nodes = [
+      nodeAt('a', 0, 0),
+      branch('br'),
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      nodeAt('j', 0, 0),
+    ]
+    const edges = [
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'j'),
+      link('f', 'j'),
+    ]
+    const order = treeOrder(nodes, edges)
+
+    expect(order?.nodes.map((n) => n.id)).toEqual(['a', 'br', 't', 'f', 'j'])
+    expect(order?.edges.map((e) => e.id)).toEqual(['a__br', 'br__t', 'br__f', 't__j', 'f__j'])
+  })
+})
+
+describe('upstreamOf', () => {
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const nodes = ['a', 'br', 't', 'f', 'j', 'z'].map((id) => nodeAt(id, 0, 0))
+  const edges = [
+    link('a', 'br'),
+    { ...link('br', 't'), when: true },
+    { ...link('br', 'f'), when: false },
+    link('t', 'j'),
+    link('f', 'j'),
+    link('j', 'z'),
+  ]
+
+  it('한 줄이면 앞의 것 전부, 가까운 것부터', () => {
+    expect(upstreamOf(nodes, edges, 't').map((n) => n.id)).toEqual(['br', 'a'])
+  })
+
+  // 한쪽 갈래에만 있는 노드는 다른 갈래로 오면 값이 없다.
+  it('합류 뒤에서는 어느 길로 와도 거치는 것만', () => {
+    expect(upstreamOf(nodes, edges, 'z').map((n) => n.id)).toEqual(['j', 'br', 'a'])
+  })
+})
+
+describe('graphProblem', () => {
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const io = (id: string, ioType: 'START' | 'END') => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'IO' as const,
+    sourceId: '',
+    mine: null,
+    ioType,
+  })
+  const branch = (id: string, withCondition = true) => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'CONTROL' as const,
+    sourceId: '',
+    mine: null,
+    controlType: 'BRANCH' as const,
+    condition: withCondition
+      ? { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' }
+      : null,
+  })
+  const LOOSE = '노드를 빠짐없이 하나로 이어 주세요'
+
+  it('빈 캔버스', () => {
+    expect(graphProblem([], [])).toBe('노드를 하나 이상 놓아 주세요')
+  })
+
+  it('저장된 출력 예시에 빈 하위 객체가 있어도 저장·실행을 막는다', () => {
+    const nodes = [
+      { ...nodeAt('a', 0, 0), output: { kind: 'JSON' as const, example: { meta: {} } } },
+    ]
+    expect(graphProblem(nodes, [])).toMatch(/빈 객체/)
+    expect(runProblem(nodes, [])).toMatch(/빈 객체/)
+  })
+
+  it('조건 없는 분기', () => {
+    const nodes = [nodeAt('a', 0, 0), branch('br', false)]
+    expect(graphProblem(nodes, [link('a', 'br')])).toBe('분기 노드에 조건을 넣어 주세요')
+  })
+
+  it('한쪽만 이은 분기', () => {
+    const nodes = [nodeAt('a', 0, 0), branch('br'), nodeAt('t', 0, 0)]
+    const edges = [link('a', 'br'), { ...link('br', 't'), when: true }]
+    expect(graphProblem(nodes, edges)).toBe('분기의 true·false 갈래를 하나씩 이어 주세요')
+  })
+
+  it('끊긴 자리', () => {
+    const nodes = [nodeAt('a', 0, 0), nodeAt('b', 0, 0), nodeAt('c', 0, 0)]
+    expect(graphProblem(nodes, [link('a', 'b')])).toBe(LOOSE)
+  })
+
+  // 지운 자리를 가리키는 조건이 남으면 저장 버튼은 켜져 있는데 눌러도 되지 않는다.
+  it('조건이 읽던 노드가 사라지면 막는다', () => {
+    const nodes = [nodeAt('a', 0, 0), branch('br')]
+    const after = removeNode(nodes, [link('a', 'br')], 'a')
+
+    expect(after.nodes[0].condition).toBeNull()
+    expect(graphProblem(after.nodes, after.edges)).toBe('분기 노드에 조건을 넣어 주세요')
+  })
+
+  it('조건이 읽는 노드가 분기 앞에 없으면 막는다', () => {
+    // 조건은 a 를 읽는데 a 는 분기 뒤에 있다.
+    const nodes = [branch('br'), nodeAt('a', 0, 0), nodeAt('t', 0, 0), nodeAt('f', 0, 0)]
+    const edges = [
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'a'),
+    ]
+    expect(graphProblem(nodes, edges)).toBe('분기 조건이 읽을 노드를 다시 골라 주세요')
+  })
+
+  it('조건은 에이전트도 읽는다', () => {
+    const agent = { ...nodeAt('a', 0, 0), sourceType: 'AGENT' as const, nodeType: 'AGENT' as const }
+    const nodes = [agent, branch('br'), nodeAt('t', 0, 0), nodeAt('f', 0, 0)]
+    const edges = [
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+    ]
+    expect(graphProblem(nodes, edges)).toBeNull()
+  })
+
+  it('이을 수 있는 구성이면 까닭이 없다', () => {
+    const nodes = [io('s', 'START'), nodeAt('a', 0, 0)]
+    expect(graphProblem(nodes, [link('s', 'a')])).toBeNull()
+  })
+
+  /**
+   * 아래는 `canConnect` 와 팔레트 칩이 그을 때 막아 화면에서는 나올 수 없다.
+   * 서버에서 불러온 구성이 규칙을 어겼을 때 `treeOrder` 가 엉뚱한 차례를 내지 않는지만 본다.
+   */
+  describe('그을 때 이미 막힌 것들', () => {
+    const blocked = (nodes: CanvasNodeData[], edges: CanvasEdge[]) => {
+      expect(graphProblem(nodes, edges)).toBe(LOOSE)
+      expect(treeOrder(nodes, edges)).toBeNull()
+    }
+
+    it('머리가 둘', () => {
+      blocked(
+        [nodeAt('a', 0, 0), nodeAt('b', 0, 0), nodeAt('c', 0, 0)],
+        [link('a', 'c'), link('b', 'c')],
+      )
+    })
+
+    it('일하는 노드에서 낸 갈래', () => {
+      blocked(
+        [nodeAt('a', 0, 0), nodeAt('b', 0, 0), nodeAt('c', 0, 0)],
+        [link('a', 'b'), link('a', 'c')],
+      )
+    })
+
+    it('종료에서 나가는 선', () => {
+      blocked([io('e', 'END'), nodeAt('a', 0, 0)], [link('e', 'a')])
+    })
+
+    it('시작이 맨 앞이 아님', () => {
+      blocked([nodeAt('a', 0, 0), io('s', 'START')], [link('a', 's')])
+    })
+
+    it('시작·종료가 둘씩', () => {
+      blocked([io('s1', 'START'), io('s2', 'START')], [])
+      blocked([io('e1', 'END'), io('e2', 'END')], [])
+    })
+  })
+})
+
+describe('runProblem', () => {
+  const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const io = (id: string, ioType: 'START' | 'END') => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'IO' as const,
+    sourceId: '',
+    mine: null,
+    ioType,
+  })
+
+  it('시작에서 종료까지 이어지면 실행할 수 있다', () => {
+    const nodes = [io('s', 'START'), nodeAt('a', 0, 0), io('e', 'END')]
+    expect(runProblem(nodes, [link('s', 'a'), link('a', 'e')])).toBeNull()
+  })
+
+  it('원본 출력 예시를 고친 뒤에는 기존 분기 값의 종류를 다시 검사한다', () => {
+    const nodes: CanvasNodeData[] = [
+      io('s', 'START'),
+      { ...nodeAt('a', 0, 0), output: { kind: 'JSON', example: { level: 'high' } } },
+      {
+        ...nodeAt('br', 0, 0),
+        sourceType: 'CONTROL',
+        controlType: 'BRANCH',
+        condition: { fromId: 'a', path: 'level', operator: 'EQ', right: 'high' },
+      },
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      io('e', 'END'),
+    ]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('t', 'e'),
+      link('f', 'e'),
+    ]
+    expect(runProblem(nodes, edges)).toBeNull()
+    const changed = nodes.map((node) =>
+      node.id === 'a'
+        ? { ...node, output: { kind: 'JSON' as const, example: { level: 3 } } }
+        : node,
+    )
+    expect(runProblem(changed, edges)).toMatch(/비교 값을 다시 입력/)
+  })
+
+  it('시작이 없으면 그것부터 말한다', () => {
+    const nodes = [nodeAt('a', 0, 0), io('e', 'END')]
+    expect(runProblem(nodes, [link('a', 'e')])).toBe('시작 노드를 놓아 주세요')
+  })
+
+  it('종료가 없으면 그것부터 말한다', () => {
+    const nodes = [io('s', 'START'), nodeAt('a', 0, 0)]
+    expect(runProblem(nodes, [link('s', 'a')])).toBe('종료 노드를 놓아 주세요')
+  })
+
+  it('저장은 되어도 실행은 막힌다 — 일감만 이어 둔 구성', () => {
+    const nodes = [nodeAt('a', 0, 0), nodeAt('b', 0, 0)]
+    expect(treeOrder(nodes, [link('a', 'b')])).not.toBeNull()
+    expect(graphProblem(nodes, [link('a', 'b')])).toBeNull()
+    expect(runProblem(nodes, [link('a', 'b')])).toBe('시작·종료 노드는 필수입니다')
+  })
+
+  // 저장은 서버가 받지만 엔진이 `BRANCH_ON_TEXT_OUTPUT` 으로 물린다. 돈을 떼기 전에 막는다.
+  it('분기가 글 출력 노드를 읽으면 실행을 막는다', () => {
+    const text = { ...nodeAt('a', 0, 0), output: { kind: 'TEXT' as const, example: null } }
+    const branch = {
+      ...nodeAt('br', 0, 0),
+      nodeType: null,
+      sourceType: 'CONTROL' as const,
+      sourceId: '',
+      mine: null,
+      controlType: 'BRANCH' as const,
+      condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
+    }
+    const nodes = [
+      io('s', 'START'),
+      text,
+      branch,
+      nodeAt('t', 0, 0),
+      nodeAt('f', 0, 0),
+      io('e', 'END'),
+    ]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      { ...link('br', 'f'), when: false },
+      link('f', 'e'),
+      link('t', 'e'),
+    ]
+
+    expect(graphProblem(nodes, edges)).toBeNull()
+    expect(runProblem(nodes, edges)).toMatch(/JSON/)
+  })
+
+  // 서버가 종료로 가는 선을 엔진에 싣지 않아 갈래 하나뿐인 분기가 된다.
+  it('분기 갈래가 바로 종료로 가면 잇지 않고, 불러온 구성은 실행을 막는다', () => {
+    const branch = {
+      ...nodeAt('br', 0, 0),
+      nodeType: null,
+      sourceType: 'CONTROL' as const,
+      sourceId: '',
+      mine: null,
+      controlType: 'BRANCH' as const,
+      condition: { fromId: 'a', path: 'level', operator: 'EQ' as const, right: 'high' },
+    }
+    const nodes = [io('s', 'START'), nodeAt('a', 0, 0), branch, nodeAt('t', 0, 0), io('e', 'END')]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      { ...link('br', 't'), when: true },
+      link('t', 'e'),
+    ]
+
+    expect(canConnect(nodes, edges, 'br', 'e', false)).toBe(false)
+    expect(runProblem(nodes, [...edges, { ...link('br', 'e'), when: false }])).toMatch(
+      /노드를 하나 이상 거쳐/,
+    )
+  })
+
+  // 시작과 종료만 맞붙이면 하는 일이 없다. 그을 때부터 막는다.
+  it('시작과 종료를 바로 잇지 못한다', () => {
+    const nodes = [io('s', 'START'), io('e', 'END')]
+    expect(canConnect(nodes, [], 's', 'e')).toBe(false)
+  })
+})
+
 describe('chainPositions', () => {
   const chain = (...ids: string[]) => ids.map((id, i) => nodeAt(id, i * 200, 300))
   const link = (from: string, to: string) => ({ id: edgeId(from, to), from, to })
+  const io = (id: string, ioType: 'START' | 'END') => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'IO' as const,
+    sourceId: '',
+    mine: null,
+    ioType,
+  })
+  /** 시작 → … → 종료. 번호는 이 모양이 갖춰진 뒤에야 나온다. */
+  const run = (...ids: string[]) => {
+    const nodes = [io('s', 'START'), ...ids.map((id) => nodeAt(id, 0, 0)), io('e', 'END')]
+    const keys = ['s', ...ids, 'e']
+    return { nodes, edges: keys.slice(1).map((id, i) => link(keys[i], id)) }
+  }
 
   it('놓은 순서가 아니라 이어진 차례로 번호를 준다', () => {
     // c 를 먼저 놓았지만 선으로는 맨 끝이다.
-    const nodes = [nodeAt('c', 0, 0), nodeAt('a', 0, 0), nodeAt('b', 0, 0)]
-    const at = chainPositions(nodes, [link('a', 'b'), link('b', 'c')])
+    const { nodes, edges } = run('a', 'b', 'c')
+    const at = chainPositions([nodes[3], ...nodes.slice(0, 3), nodes[4]], edges)
 
     expect(at?.get('a')).toBe(0)
     expect(at?.get('b')).toBe(1)
     expect(at?.get('c')).toBe(2)
+  })
+
+  // 어디서 시작해 어디서 끝나는지 정해지기 전에는 실행할 수 없다. 번호도 주지 않는다.
+  it('시작·종료가 붙기 전에는 차례가 없다', () => {
+    const nodes = chain('a', 'b')
+    expect(chainPositions(nodes, [link('a', 'b')])).toBeNull()
+
+    const { nodes: half, edges } = run('a')
+    // 종료를 떼면 다시 없다.
+    expect(chainPositions(half.slice(0, 2), edges.slice(0, 1))).toBeNull()
   })
 
   // 갈래가 있으면 차례라는 것이 없다. 지어내면 "이 순서로 실행된다" 로 잘못 읽힌다.
@@ -261,8 +648,20 @@ describe('chainPositions', () => {
     expect(chainPositions(chain('a', 'b', 'c'), [link('a', 'b')])).toBeNull()
   })
 
-  it('노드 하나는 첫 번째다', () => {
-    expect(chainPositions(chain('a'), [])?.get('a')).toBe(0)
+  it('일감이 하나면 그것이 첫 번째다', () => {
+    const { nodes, edges } = run('a')
+    expect(chainPositions(nodes, edges)?.get('a')).toBe(0)
+  })
+
+  // 시작이 1 번을 가져가면 첫 일감이 2 번으로 밀린다.
+  it('제어·입출력은 번호를 세지 않는다', () => {
+    const { nodes, edges } = run('a', 'b')
+    const at = chainPositions(nodes, edges)
+
+    expect(at?.get('a')).toBe(0)
+    expect(at?.get('b')).toBe(1)
+    expect(at?.has('s')).toBe(false)
+    expect(at?.has('e')).toBe(false)
   })
 })
 
@@ -433,70 +832,119 @@ describe('CANVAS_EDGES', () => {
 })
 
 describe('canConnect', () => {
+  /** a → b → c. 넷째 d 와 다섯째 e 는 아직 아무 데도 붙어 있지 않다. */
+  const 노드 = ['a', 'b', 'c', 'd', 'e'].map((id) => nodeAt(id, 0, 0))
   const 사슬 = [
     { id: 'a__b', from: 'a', to: 'b' },
     { id: 'b__c', from: 'b', to: 'c' },
   ]
 
+  const 분기 = (id: string) => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'CONTROL' as const,
+    sourceId: '',
+    mine: null,
+    controlType: 'BRANCH' as const,
+  })
+  const io = (id: string, ioType: 'START' | 'END') => ({
+    ...nodeAt(id, 0, 0),
+    nodeType: null,
+    sourceType: 'IO' as const,
+    sourceId: '',
+    mine: null,
+    ioType,
+  })
+
   it('빈 입력이면 이을 수 있다', () => {
-    expect(canConnect(사슬, 'a', 'd')).toBe(true)
+    expect(canConnect(노드, 사슬, 'c', 'd')).toBe(true)
   })
 
-  it('입력이 이미 찬 노드로는 못 잇는다 — 선은 하나만 받는다', () => {
-    expect(canConnect(사슬, 'a', 'c')).toBe(false)
+  it('입력이 찬 노드로도 잇는다 — 합류', () => {
+    expect(canConnect(노드, 사슬, 'd', 'c')).toBe(true)
   })
 
-  it('출력은 여러 갈래로 나뉠 수 있다', () => {
-    const 갈래 = connect(사슬, 'a', 'd')
-    expect(갈래).toHaveLength(3)
-    expect(canConnect(갈래, 'a', 'e')).toBe(true)
+  it('분기의 참·거짓을 한 노드로 보내지는 못한다', () => {
+    const nodes = [분기('br'), nodeAt('d', 0, 0)]
+    const 참 = [{ id: 'br__d', from: 'br', to: 'd', when: true }]
+    expect(canConnect(nodes, 참, 'br', 'd', false)).toBe(false)
+  })
+
+  // 갈래를 내려면 분기 노드를 놓아야 한다. 일하는 노드는 어느 쪽으로 갈지 정할 곳이 없다.
+  it('일하는 노드에서 두 갈래는 못 낸다', () => {
+    expect(canConnect(노드, 사슬, 'a', 'd')).toBe(false)
   })
 
   it('자기 자신은 못 잇는다', () => {
-    expect(canConnect(사슬, 'a', 'a')).toBe(false)
+    expect(canConnect(노드, 사슬, 'a', 'a')).toBe(false)
   })
 
   it('이미 있는 선은 다시 못 잇는다', () => {
-    expect(canConnect(사슬, 'a', 'b')).toBe(false)
+    expect(canConnect(노드, 사슬, 'a', 'b')).toBe(false)
   })
 
   it('바로 되돌아가는 선은 막는다', () => {
-    expect(canConnect(사슬, 'b', 'a')).toBe(false)
+    expect(canConnect(노드, 사슬, 'b', 'a')).toBe(false)
   })
 
   it('멀리 돌아 고리가 되는 선도 막는다', () => {
-    expect(canConnect(사슬, 'c', 'a')).toBe(false)
+    expect(canConnect(노드, 사슬, 'c', 'a')).toBe(false)
   })
 
-  it('고리가 아니어도 입력이 찼으면 막는다', () => {
-    expect(canConnect([...사슬, { id: 'a__d', from: 'a', to: 'd' }], 'd', 'c')).toBe(false)
+  it('분기는 참·거짓을 하나씩 낸다', () => {
+    const nodes = [분기('br'), nodeAt('d', 0, 0), nodeAt('e', 0, 0), nodeAt('f', 0, 0)]
+    const 참 = [{ id: 'br__d', from: 'br', to: 'd', when: true }]
+
+    expect(canConnect(nodes, 참, 'br', 'e', false)).toBe(true)
+    // 같은 갈래를 두 번 잇지는 못한다.
+    expect(canConnect(nodes, 참, 'br', 'e', true)).toBe(false)
+    // 갈래를 고르지 않은 선도 받지 않는다.
+    expect(canConnect(nodes, 참, 'br', 'e')).toBe(false)
+  })
+
+  it('일하는 노드의 선에는 갈래를 붙일 수 없다', () => {
+    expect(canConnect(노드, [], 'a', 'b', true)).toBe(false)
+  })
+
+  it('시작 앞과 종료 뒤로는 잇지 못한다', () => {
+    const nodes = [io('s', 'START'), io('e', 'END'), nodeAt('a', 0, 0)]
+    expect(canConnect(nodes, [], 'a', 's')).toBe(false)
+    expect(canConnect(nodes, [], 'e', 'a')).toBe(false)
+    expect(canConnect(nodes, [], 's', 'a')).toBe(true)
+    expect(canConnect(nodes, [], 'a', 'e')).toBe(true)
+  })
+
+  it('캔버스에 없는 노드와는 잇지 않는다', () => {
+    expect(canConnect(노드, 사슬, 'a', 'zzz')).toBe(false)
   })
 })
 
 describe('connect', () => {
+  const 노드 = ['a', 'b', 'c'].map((id) => nodeAt(id, 0, 0))
+
   it('이을 수 있으면 끝에 붙인다', () => {
-    const after = connect([], 'a', 'b')
+    const after = connect(노드, [], 'a', 'b')
     expect(after).toHaveLength(1)
     expect(after[0]).toMatchObject({ id: edgeId('a', 'b'), from: 'a', to: 'b' })
   })
 
   it('이을 수 없으면 목록이 그대로다', () => {
     const before = [{ id: 'a__b', from: 'a', to: 'b' }]
-    expect(connect(before, 'b', 'a')).toBe(before)
-    expect(connect(before, 'a', 'a')).toBe(before)
-    expect(connect(before, 'a', 'b')).toBe(before)
+    expect(connect(노드, before, 'b', 'a')).toBe(before)
+    expect(connect(노드, before, 'a', 'a')).toBe(before)
+    expect(connect(노드, before, 'a', 'b')).toBe(before)
   })
 
   it('원래 목록을 건드리지 않는다', () => {
     const before = [{ id: 'a__b', from: 'a', to: 'b' }]
-    connect(before, 'b', 'c')
+    connect(노드, before, 'b', 'c')
     expect(before).toHaveLength(1)
   })
 
   it('자리표시자에 이어 붙여도 고리가 생기지 않는다', () => {
-    expect(canConnect(CANVAS_EDGES, 'seed-5', 'seed-1')).toBe(false)
+    expect(canConnect(CANVAS_NODES, CANVAS_EDGES, 'seed-5', 'seed-1')).toBe(false)
     // seed-5 는 이미 seed-4 에게서 받고 있다
-    expect(canConnect(CANVAS_EDGES, 'seed-1', 'seed-5')).toBe(false)
+    expect(canConnect(CANVAS_NODES, CANVAS_EDGES, 'seed-1', 'seed-5')).toBe(false)
   })
 })
 
@@ -534,7 +982,7 @@ describe('removeNode', () => {
 
   it('지운 뒤 남은 노드의 입력이 비어 다시 이을 수 있다', () => {
     const after = removeNode(CANVAS_NODES, CANVAS_EDGES, 'seed-2')
-    expect(canConnect(after.edges, 'seed-1', 'seed-3')).toBe(true)
+    expect(canConnect(after.nodes, after.edges, 'seed-1', 'seed-3')).toBe(true)
   })
 
   it('없는 id 면 둘 다 그대로다', () => {
@@ -727,7 +1175,7 @@ describe('chainEdges', () => {
     const incoming = edges.map((e) => e.to)
     expect(new Set(incoming).size).toBe(incoming.length)
     // 끝에서 처음으로 되돌아가는 선은 이을 수 없다.
-    expect(canConnect(edges, 'ag_4', 'ag_0')).toBe(false)
+    expect(canConnect(nodes(5), edges, 'ag_4', 'ag_0')).toBe(false)
   })
 
   it('한 장이거나 없으면 이을 곳이 없다', () => {

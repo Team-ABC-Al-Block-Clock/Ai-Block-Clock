@@ -1,6 +1,18 @@
-import type { AiModel } from '@/api/nodes'
-import type { ItemNodeType, SourceType } from '@/api/workflows'
+import type { AiModel, NodeOutput } from '@/api/nodes'
+import type {
+  ConditionLiteral,
+  ConditionOperator,
+  ControlType,
+  InputField,
+  IoType,
+  ItemNodeType,
+  PlacedSourceType,
+  ResultFormat,
+  ResultShape,
+} from '@/api/workflows'
 
+import { conditionProblem } from './branchCondition'
+import { outputExampleProblem } from './nodeOutput'
 import { roundedPath, routeEdge } from './edgeRoute'
 import type { ContentBox } from './viewport'
 
@@ -46,9 +58,21 @@ export interface CanvasNodeData {
   /** 같은 항목을 두 번 놓을 수 있어 이름으로는 가를 수 없다. */
   id: string
   name: string
-  nodeType: ItemNodeType
-  /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드와 에이전트를 가른다 */
-  sourceType: SourceType
+  /** 팔레트에서 온 것만. 제어·입출력 노드는 종류를 `controlType`·`ioType` 이 들고 있어 null */
+  nodeType: ItemNodeType | null
+  /** 팔레트 항목의 `itemType`. 서버는 이 값으로 노드·에이전트·제어·입출력을 가른다 */
+  sourceType: PlacedSourceType
+  /** 제어 노드만. 그 밖에는 비운다 */
+  controlType?: ControlType | null
+  /** 입출력 노드만. 그 밖에는 비운다 */
+  ioType?: IoType | null
+  /** 분기 노드만. 조건을 채우지 않으면 저장이 물린다 */
+  condition?: CanvasCondition | null
+  /** 시작 노드만. 고르는 화면은 아직 없고 불러온 값을 다시 저장할 때 싣는다 */
+  fields?: InputField[] | null
+  /** 끝 노드만. 고르는 화면은 아직 없고 기본값을 싣고 다닌다 */
+  resultShape?: ResultShape | null
+  resultFormat?: ResultFormat | null
   /**
    * 팔레트 항목의 `itemId`. 화면용 `id` 와 달리 서버가 아는 원본을 가리킨다.
    *
@@ -59,6 +83,8 @@ export interface CanvasNodeData {
   prompt: string | null
   /** 기본 노드가 쓸 모델. 에이전트는 null */
   model: AiModel | null
+  /** 기본 노드의 출력 형식. 에이전트와 아직 모르는 노드는 비운다 */
+  output?: NodeOutput | null
   /** 에이전트의 누적 실행 횟수. 모르면 비운다 — 0 과 「모름」은 다르다 */
   executionCount?: number | null
   /** 에이전트를 등록한 사람. 모르면 비운다 */
@@ -69,7 +95,8 @@ export interface CanvasNodeData {
   summary: string | null
   x: number
   y: number
-  mine: boolean
+  /** 판매 등록을 막는 자리인가. 제어·입출력은 판정 대상이 아니라 null */
+  mine: boolean | null
   /** 계속 도는 모션. 드래그가 끝나면 이것만 되돌린다. */
   floaty: string
   /**
@@ -91,7 +118,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-1',
     name: '파일 수집',
-    nodeType: 'TRIGGER',
+    nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_001',
     price: '4',
@@ -123,7 +150,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-3',
     name: '분류 및 태깅',
-    nodeType: 'TOOL',
+    nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_003',
     price: '6',
@@ -155,7 +182,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   {
     id: 'seed-5',
     name: '결과 전달',
-    nodeType: 'TOOL',
+    nodeType: 'LLM',
     sourceType: 'NODE',
     sourceId: 'node_005',
     price: '3',
@@ -170,16 +197,33 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   },
 ]
 
+/**
+ * 분기 조건. 서버가 받는 `left`(`<nodeKey>.<경로>`)를 캔버스에서는 둘로 나눠 든다.
+ *
+ * 노드 키는 저장할 때 비로소 매겨진다(`n1…nN`). 조건에 키를 박아 두면 노드 하나를 지우거나
+ * 순서가 바뀔 때마다 조건이 딴 곳을 가리킨다 — 캔버스 id 로 들고 있다가 보낼 때 옮긴다.
+ */
+export interface CanvasCondition {
+  /** 조건이 읽는, 이 분기보다 앞에 놓인 기본 노드의 캔버스 id */
+  fromId: string
+  /** 그 결과 안의 경로. 예: `competition_level` */
+  path: string
+  operator: ConditionOperator
+  right: ConditionLiteral | ConditionLiteral[]
+}
+
 /** 노드를 잇는 선. `from` 의 출력에서 `to` 의 입력으로 간다. */
 export interface CanvasEdge {
   id: string
   from: string
   to: string
+  /** 분기에서 나가는 선만. 조건이 참인 갈래가 `true` 다 */
+  when?: boolean | null
 }
 
 /** 선의 이름은 양 끝에서. */
-function edgeId(from: string, to: string): string {
-  return `${from}__${to}`
+function edgeId(from: string, to: string, when?: boolean): string {
+  return `${from}__${to}${when === undefined ? '' : when ? '__true' : '__false'}`
 }
 
 const seedEdge = (from: string, to: string): CanvasEdge => ({ id: edgeId(from, to), from, to })
@@ -190,6 +234,10 @@ export const CANVAS_EDGES: CanvasEdge[] = [
   seedEdge('seed-3', 'seed-4'),
   seedEdge('seed-4', 'seed-5'),
 ]
+
+/** 분기 조건이 읽을 수 있는 종류. 제어·입출력은 낼 결과가 없다. */
+export const isConditionSource = (node: CanvasNodeData) =>
+  node.sourceType === 'NODE' || node.sourceType === 'AGENT'
 
 /** `from` 에서 선을 따라 `to` 에 닿는지. */
 function reaches(edges: CanvasEdge[], from: string, to: string): boolean {
@@ -206,20 +254,58 @@ function reaches(edges: CanvasEdge[], from: string, to: string): boolean {
 }
 
 /**
- * 이어도 되는 짝인지. 자기 자신·중복·고리를 막는다.
+ * 이어도 되는 짝인지. 서버 규칙(`WorkflowGraph.walk`)을 그을 때부터 지킨다.
  *
- * 입력은 하나만. 들어오는 선이 여럿이면 어느 것을 기다릴지 알 수 없다. 출력은 여러 갈래 가능.
+ * 들어오는 선은 여럿이어도 된다 — 분기의 두 갈래를 한 노드로 모으는 합류다. 나가는 선은
+ * 분기만 참·거짓 둘이고 나머지는 하나다.
  */
-export function canConnect(edges: CanvasEdge[], from: string, to: string): boolean {
+export function canConnect(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+  from: string,
+  to: string,
+  when?: boolean,
+): boolean {
   if (from === to) return false
-  if (edges.some((edge) => edge.to === to)) return false
+
+  const source = nodes.find((node) => node.id === from)
+  const target = nodes.find((node) => node.id === to)
+  if (!source || !target) return false
+
+  // 시작 앞과 종료 뒤에는 아무것도 올 수 없다.
+  if (target.ioType === 'START' || source.ioType === 'END') return false
+  // 시작과 종료를 맞붙이면 하는 일이 없는 워크플로우가 된다.
+  if (source.ioType === 'START' && target.ioType === 'END') return false
+  // 서버는 종료로 들어가는 선을 엔진에 싣지 않는다(`RuntimeWorkflow.of`). 분기에서 바로 종료로
+  // 가면 엔진이 갈래 하나뿐인 분기를 받아 실행을 물린다.
+  if (source.controlType && target.ioType === 'END') return false
+  // 선 id 는 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막는다.
+  if (edges.some((edge) => edge.from === from && edge.to === to)) return false
+
+  const out = edges.filter((edge) => edge.from === from)
+  if (source.controlType) {
+    if (when === undefined) return false
+    if (out.some((edge) => edge.when === when)) return false
+  } else if (when !== undefined || out.length > 0) {
+    return false
+  }
+
   return !reaches(edges, to, from)
 }
 
-/** 선 연결. 이을 수 없는 짝이면 목록 그대로. */
-export function connect(edges: CanvasEdge[], from: string, to: string): CanvasEdge[] {
-  if (!canConnect(edges, from, to)) return edges
-  return [...edges, { id: edgeId(from, to), from, to }]
+/** 선 연결. 이을 수 없는 짝이면 목록 그대로. `when` 은 분기에서 나가는 선에만 준다. */
+export function connect(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+  from: string,
+  to: string,
+  when?: boolean,
+): CanvasEdge[] {
+  if (!canConnect(nodes, edges, from, to, when)) return edges
+  return [
+    ...edges,
+    { id: edgeId(from, to, when), from, to, ...(when === undefined ? {} : { when }) },
+  ]
 }
 
 /** 선 하나 삭제. 없는 id 면 목록 그대로. */
@@ -236,17 +322,36 @@ export function removeNode(
 ): { nodes: CanvasNodeData[]; edges: CanvasEdge[] } {
   if (!nodes.some((node) => node.id === id)) return { nodes, edges }
   return {
-    nodes: nodes.filter((node) => node.id !== id),
+    // 지운 자리를 읽던 조건은 함께 비운다. 남겨 두면 가리킬 곳이 없는 채로 저장까지 가서,
+    // 저장 버튼은 켜져 있는데 눌러도 되지 않는 상태에 갇힌다.
+    nodes: nodes
+      .filter((node) => node.id !== id)
+      .map((node) => (node.condition?.fromId === id ? { ...node, condition: null } : node)),
     edges: edges.filter((edge) => edge.from !== id && edge.to !== id),
   }
 }
 
-/** 선이 드나드는 자리. 입력은 왼쪽, 출력은 오른쪽, 둘 다 카드 높이의 가운데. */
+/**
+ * 포트가 카드 높이의 가운데에서 벗어나는 거리.
+ *
+ * 분기만 오른쪽에 둘을 낸다 — 참이 위, 거짓이 아래다. 카드를 그리는 쪽과 선을 긋는 쪽이
+ * 같은 값을 봐야 점과 선이 어긋나지 않는다.
+ */
+const BRANCH_PORT_DY = 30
+
+export const portOffsetY = (when?: boolean): number =>
+  when === undefined ? 0 : when ? -BRANCH_PORT_DY : BRANCH_PORT_DY
+
+/** 선이 드나드는 자리. 입력은 왼쪽, 출력은 오른쪽. */
 export function portPoint(
   node: Pick<CanvasNodeData, 'x' | 'y'>,
   side: 'in' | 'out',
+  when?: boolean,
 ): { x: number; y: number } {
-  return { x: side === 'out' ? node.x + NODE_SIZE : node.x, y: node.y + NODE_SIZE / 2 }
+  return {
+    x: side === 'out' ? node.x + NODE_SIZE : node.x,
+    y: node.y + NODE_SIZE / 2 + portOffsetY(when),
+  }
 }
 
 /**
@@ -273,7 +378,13 @@ export function edgeGeometry(
     const from = nodes.find((node) => node.id === edge.from)
     const to = nodes.find((node) => node.id === edge.to)
     if (!from || !to) return []
-    return [{ ...edge, d: edgePath(portPoint(from, 'out'), portPoint(to, 'in'), avoid) }]
+    // 분기는 출력이 둘이라 선도 제 갈래의 점에서 나가야 한다.
+    return [
+      {
+        ...edge,
+        d: edgePath(portPoint(from, 'out', edge.when ?? undefined), portPoint(to, 'in'), avoid),
+      },
+    ]
   })
 }
 
@@ -288,34 +399,121 @@ export function nodesBounds(nodes: CanvasNodeData[]): ContentBox | null {
   }
 }
 
-/** 다른 사람의 에이전트가 하나라도 섞이면 팔 수 없다. 빈 캔버스도 등록할 것이 없다. */
-export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
-  return nodes.length > 0 && nodes.every((node) => node.mine)
+/**
+ * 어느 길로 와도 `id` 앞에서 거치는 노드. 가까운 것부터.
+ *
+ * 분기 조건은 이 안의 것만 읽는다 — 합류 뒤에서 한쪽 갈래에만 있는 노드를 읽으면 다른 갈래로
+ * 왔을 때 값이 없다(`WorkflowGraph.passedOnEveryPath`).
+ */
+export function upstreamOf(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+  id: string,
+): CanvasNodeData[] {
+  const parents = new Map<string, string[]>()
+  for (const edge of edges) parents.set(edge.to, [...(parents.get(edge.to) ?? []), edge.from])
+
+  const memo = new Map<string, Set<string>>()
+  const passed = (at: string): Set<string> => {
+    const known = memo.get(at)
+    if (known) return known
+    // 고리가 섞여 와도 끝없이 되돌지 않게 먼저 비워 둔다.
+    memo.set(at, new Set())
+    const through = (parents.get(at) ?? []).map((parent) => new Set([...passed(parent), parent]))
+    const common = through.length
+      ? through.reduce((a, b) => new Set([...a].filter((key) => b.has(key))))
+      : new Set<string>()
+    memo.set(at, common)
+    return common
+  }
+  const onEveryPath = passed(id)
+
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const walked: CanvasNodeData[] = []
+  const seen = new Set<string>([id])
+  const queue = [...(parents.get(id) ?? [])]
+  while (queue.length > 0) {
+    const at = queue.shift()!
+    if (seen.has(at)) continue
+    seen.add(at)
+    const node = byId.get(at)
+    if (node && onEveryPath.has(at)) walked.push(node)
+    queue.push(...(parents.get(at) ?? []))
+  }
+  return walked
 }
+
+/**
+ * 실행을 막는 까닭 한 줄. 실행할 수 있으면 `null`.
+ *
+ * 저장은 그 전에도 된다 — 짓다 만 것을 두고 나갔다가 이어서 고칠 수 있어야 한다. 실행만
+ * 막는다. 어디서 시작해 어디서 끝나는지 정해지지 않으면 서버가 돌릴 자리를 모른다.
+ */
+export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string | null {
+  const { problem, order } = checkGraph(nodes, edges)
+  if (!order) return problem
+
+  const has = (type: IoType) => order.nodes.some((node) => node.ioType === type)
+  // 종료는 하나뿐이다. 갈래를 종료로 모으려면 두 갈래가 노드를 거쳐 같은 종료로 가게 잇는다(합류).
+  if (!has('START') && !has('END')) return '시작·종료 노드는 필수입니다'
+  if (!has('START')) return '시작 노드를 놓아 주세요'
+  if (!has('END')) return '종료 노드를 놓아 주세요'
+  // 그을 때 막지만 불러온 구성에는 남아 있을 수 있다(`canConnect`).
+  const ends = new Set(order.nodes.filter((node) => node.ioType === 'END').map((node) => node.id))
+  const branches = new Set(order.nodes.filter((node) => node.controlType).map((node) => node.id))
+  if (order.edges.some((edge) => branches.has(edge.from) && ends.has(edge.to)))
+    return '분기 갈래는 노드를 하나 이상 거쳐 종료로 이어 주세요'
+  for (const node of order.nodes) {
+    const condition = node.condition
+    const problem =
+      condition &&
+      conditionProblem(
+        order.nodes.find((it) => it.id === condition.fromId),
+        condition,
+      )
+    if (problem) return problem
+  }
+  return null
+}
+
+/** 소유권은 작업 노드에서 확인한다. 제어·입출력의 `mine` 은 null 이다. */
+export function sellProblem(nodes: Pick<CanvasNodeData, 'mine'>[]): string | null {
+  if (nodes.some((node) => node.mine === false))
+    return '다른 사람의 노드나 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+  if (!nodes.some((node) => node.mine === true)) return '판매할 내 노드를 하나 이상 넣어 주세요'
+  return null
+}
+
+export const canSellWorkflow = (nodes: CanvasNodeData[]): boolean => sellProblem(nodes) === null
 
 /**
  * 카드에 박는 순번. 한 줄이 아니면 `null` — 그때는 번호를 감춘다.
  *
  * 놓은 순서로 매기면 선과 어긋난 번호가 박혀 "이 차례로 실행된다" 고 잘못 읽힌다.
  * 갈래가 있으면 차례라는 것이 아예 없으므로 지어내지 않는다.
+ *
+ * 제어·입출력은 세지 않는다.
+ *
+ * 시작에서 종료까지 이어지기 전에도 번호를 주지 않는다. 아직 실행할 수 없는 구성인데
+ * 번호가 붙으면 "이대로 돌아간다" 로 읽힌다.
  */
 export function chainPositions(
   nodes: CanvasNodeData[],
   edges: CanvasEdge[],
 ): Map<string, number> | null {
   const order = linearOrder(nodes, edges)
-  return order && new Map(order.map((node, i) => [node.id, i]))
+  if (!order) return null
+  if (order[0].ioType !== 'START' || order[order.length - 1].ioType !== 'END') return null
+
+  const positions = new Map<string, number>()
+  for (const node of order) {
+    if (node.controlType || node.ioType) continue
+    positions.set(node.id, positions.size)
+  }
+  return positions
 }
 
-/**
- * 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`.
- *
- * 캔버스는 갈래를 만들 수 있게 두고(`canConnect`) 여기서 판정만 한다 — 서버가 아직 선형만
- * 받으므로(`WORKFLOW_013`) 저장 버튼 옆에 가능 여부를 띄우는 데 쓴다. 서버가 갈래를 받게 되면
- * 이 함수만 풀면 되고 편집 화면은 그대로다.
- *
- * 판정과 순서를 함께 낸다. 저장할 때 이 순서로 `n1…nN` 키를 매기기 때문에 두 번 훑을 이유가 없다.
- */
+/** 한 줄로 이어진 순서. 갈라지거나 합쳐지거나 끊겨 있으면 `null`. 카드 순번에만 쓴다. */
 export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): CanvasNodeData[] | null {
   if (nodes.length === 0) return null
   // 한 줄이면 선은 노드보다 정확히 하나 적다. 남거나 모자라면 끊겼거나 겹친 것이다.
@@ -346,6 +544,128 @@ export function linearOrder(nodes: CanvasNodeData[], edges: CanvasEdge[]): Canva
   // 따로 떨어진 덩어리가 있으면 머리에서 다 닿지 못한다.
   return order.length === nodes.length ? order : null
 }
+
+/** 참 갈래를 먼저. 분기가 아닌 자리는 나가는 선이 하나뿐이라 그대로다. */
+const branchFirst = (next: CanvasEdge[]) =>
+  [...next].sort((a, b) => Number(b.when === true) - Number(a.when === true))
+
+/** 분기 조건이 읽는 자리가 아직 제 앞에 있는 노드·에이전트인가. */
+function readsUpstream(
+  nodes: CanvasNodeData[],
+  edges: CanvasEdge[],
+  branch: CanvasNodeData,
+): boolean {
+  const from = branch.condition?.fromId
+  if (!from) return false
+  return upstreamOf(nodes, edges, branch.id).some(
+    (node) => node.id === from && isConditionSource(node),
+  )
+}
+
+interface GraphCheck {
+  /** 저장할 수 없는 까닭. 저장할 수 있으면 null */
+  problem: string | null
+  /** 저장할 수 있을 때의 훑는 차례. 아니면 null */
+  order: { nodes: CanvasNodeData[]; edges: CanvasEdge[] } | null
+}
+
+/**
+ * 그을 때 이미 막은 것들에 쓰는 문구.
+ *
+ * 일하는 노드의 갈래·종료에서 나가는 선·맨 앞이 아닌 시작·둘씩 놓인 시작과 종료는
+ * `canConnect` 와 팔레트 칩이 손대기 전에 막는다. 그래도 검사는 남긴다 — 서버에서 불러온
+ * 구성이 규칙을 어길 수 있고, 그때 `treeOrder` 가 엉뚱한 차례를 내면 저장이 조용히 망가진다.
+ * 화면에 뜰 자리가 없으니 따로 문구를 두지 않는다.
+ */
+const LOOSE = '노드를 빠짐없이 하나로 이어 주세요'
+
+function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
+  const fail = (problem: string): GraphCheck => ({ problem, order: null })
+
+  if (nodes.length === 0) return fail('노드를 하나 이상 놓아 주세요')
+  if (nodes.filter((node) => node.ioType === 'START').length > 1) return fail(LOOSE)
+  if (nodes.filter((node) => node.ioType === 'END').length > 1) return fail(LOOSE)
+
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const out = new Map<string, CanvasEdge[]>()
+  const waiting = new Map(nodes.map((node) => [node.id, 0]))
+  for (const edge of edges) {
+    if (!byId.has(edge.from) || !byId.has(edge.to)) return fail(LOOSE)
+    waiting.set(edge.to, waiting.get(edge.to)! + 1)
+    out.set(edge.from, [...(out.get(edge.from) ?? []), edge])
+  }
+
+  for (const node of nodes) {
+    const next = out.get(node.id) ?? []
+    const exampleProblem =
+      node.output?.kind === 'JSON' ? outputExampleProblem(node.output.example) : null
+    if (exampleProblem) return fail(`${node.name}: ${exampleProblem}`)
+    if (node.controlType) {
+      if (!node.condition) return fail('분기 노드에 조건을 넣어 주세요')
+      // 조건이 읽던 자리가 지워지거나 뒤로 밀렸을 수 있다. 서버도 같은 것을 본다
+      // (`WorkflowGraph.ensureConditionReadsUpstream`).
+      if (!readsUpstream(nodes, edges, node))
+        return fail('분기 조건이 읽을 노드를 다시 골라 주세요')
+      // 참 하나 거짓 하나. 한쪽만 걸려 있으면 아직 저장할 수 없다.
+      if (
+        next.length !== 2 ||
+        next.filter((edge) => edge.when === true).length !== 1 ||
+        next.filter((edge) => edge.when === false).length !== 1
+      )
+        return fail('분기의 true·false 갈래를 하나씩 이어 주세요')
+      continue
+    }
+    if (next.length > 1 || next.some((edge) => edge.when != null)) return fail(LOOSE)
+    if (node.ioType === 'END' && next.length > 0) return fail(LOOSE)
+  }
+
+  const roots = nodes.filter((node) => waiting.get(node.id) === 0)
+  if (roots.length !== 1) return fail(LOOSE)
+  // 시작 노드를 놓았으면 그것이 맨 앞이어야 한다.
+  if (nodes.some((node) => node.ioType === 'START' && node.id !== roots[0].id)) return fail(LOOSE)
+
+  // 서버 `walk` 와 같은 차례 — 합류는 들어오는 선을 다 채운 뒤에, 갈래는 참 쪽부터.
+  // 노드 키와 선 키가 이 차례로 매겨진다.
+  const walked: CanvasNodeData[] = []
+  const walkedEdges: CanvasEdge[] = []
+  const pending = [roots[0].id]
+  while (pending.length > 0) {
+    const id = pending.pop()!
+    walked.push(byId.get(id)!)
+    const next = branchFirst(out.get(id) ?? [])
+    walkedEdges.push(...next)
+    for (const edge of [...next].reverse()) {
+      const left = waiting.get(edge.to)! - 1
+      waiting.set(edge.to, left)
+      if (left === 0) pending.push(edge.to)
+    }
+  }
+
+  // 루트에서 못 닿은 자리가 남으면 끊겼거나 고리다.
+  if (walked.length !== nodes.length) return fail(LOOSE)
+  return { problem: null, order: { nodes: walked, edges: walkedEdges } }
+}
+
+/**
+ * 저장할 수 있는 모양이면 서버가 훑는 순서, 아니면 `null`.
+ *
+ * 서버 규칙(`WorkflowGraph.walk`) — 루트 하나, 분기는 참·거짓 두 갈래, 나머지는 나가는 선
+ * 하나, 종료 노드는 나가는 선이 없다. 들어오는 선은 여럿이어도 된다(합류).
+ *
+ * 선도 같은 순서로 낸다 — 노드 키와 선 키가 서버가 돌려주는 차례와 같아야 다시 불러왔을 때
+ * 자리가 흔들리지 않는다.
+ */
+export const treeOrder = (nodes: CanvasNodeData[], edges: CanvasEdge[]) =>
+  checkGraph(nodes, edges).order
+
+/**
+ * 저장을 막는 까닭 한 줄. 저장할 수 있으면 `null`.
+ *
+ * 어겨도 서버가 막지만 코드가 `WORKFLOW_013` 하나뿐이라, 다녀와서는 어디가 잘못인지 짚어
+ * 줄 수 없다. 그을 때부터 막고 여기서 까닭을 말한다.
+ */
+export const graphProblem = (nodes: CanvasNodeData[], edges: CanvasEdge[]) =>
+  checkGraph(nodes, edges).problem
 
 /** 겹치는 카드가 하나라도 있는지. */
 function overlaps(nodes: CanvasNodeData[], id: string, x: number, y: number): boolean {
@@ -527,7 +847,7 @@ export function seedCanvasNodes(
 export function chainEdges(nodes: CanvasNodeData[]): CanvasEdge[] {
   return nodes
     .slice(1)
-    .reduce<CanvasEdge[]>((edges, node, i) => connect(edges, nodes[i].id, node.id), [])
+    .reduce<CanvasEdge[]>((edges, node, i) => connect(nodes, edges, nodes[i].id, node.id), [])
 }
 
 /** 이미 정해진 자리에 그대로 놓는다. 겹침은 부르는 쪽에서 이미 풀었다. */

@@ -12,6 +12,7 @@ export const NODE_DETAILS: NodeDetail[] = [
     name: '파일 수집',
     prompt: '지정한 폴더를 훑어 새로 들어온 파일을 모아 준다.',
     model: 'GEMINI_2_5_FLASH',
+    output: { kind: 'TEXT', example: null },
     baseCost: '4',
     currency: 'ABC',
     refFiles: [],
@@ -21,6 +22,11 @@ export const NODE_DETAILS: NodeDetail[] = [
     name: '내용 분석',
     prompt: '문서를 읽고 주제와 핵심 문장을 뽑는다.',
     model: 'GEMINI_2_5_FLASH',
+    // 분기 조건이 읽을 수 있는 노드. 필드 목록이 예시에서 나오는지 여기서 본다.
+    output: {
+      kind: 'JSON',
+      example: { topic: '성적', score: 0, urgent: false, tags: ['…'], detail: { level: 'high' } },
+    },
     baseCost: '12',
     currency: 'ABC',
     // 붙여 둔 자료가 있는 노드. 저장본을 다시 열었을 때 목록이 서는지 여기서 확인한다.
@@ -35,6 +41,7 @@ export const NODE_DETAILS: NodeDetail[] = [
     prompt: '분석 결과를 세 줄로 줄인다.',
     // 기본값이 아닌 모델을 하나 섞는다 — 저장본을 다시 열 때 고른 값이 서는지 여기서 드러난다.
     model: 'GEMINI_2_5_PRO',
+    output: { kind: 'TEXT', example: null },
     baseCost: '15',
     currency: 'ABC',
     refFiles: [],
