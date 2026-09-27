@@ -101,14 +101,14 @@ left: 'calc(-1 * var(--edge, 0px))', right: …    // 격자·어둡기를 캔�
 
 - 경로 문자열을 컴포넌트에 직접 쓰지 않는다. `<a href={paths.my.agents}>`(○) · `<a href="/my/agents">`(✗)
 - 화면을 추가하려면 `routePatterns` 에 키를 하나 넣는다. 위 세 곳이 모두 `Record<ScreenKey, …>` 라서 다 채울 때까지 컴파일이 실패한다
-- ID 를 받는 화면은 `[ID 없는 경로, ID 있는 경로]` 두 패턴을 갖는다. 해당 도메인 mock 핸들러가 아직 없어(8절) 넘길 ID 가 없기 때문이고, 핸들러가 붙으면 앞쪽 패턴과 `.withoutId` 를 같이 지운다 — 남은 호출부가 전부 컴파일 에러로 드러난다
+- ID 를 받는 화면은 인자가 필수인 함수다(`paths.agentDetail(id)`). ID 없이도 열리는 화면만 `[ID 없는 경로, ID 있는 경로]` 두 패턴을 갖고, 지금은 편집 화면 하나다 — ID 가 없으면 새 워크플로우다
 
 ```tsx
-paths.agentDetail(agentId) // ID 가 있으면 언제나 이쪽 — 인자는 필수다
-paths.agentDetail.withoutId // 아직 ID 가 없는 화면만
+paths.edit.nodes(workflowId) // 저장된 워크플로우 — 인자는 필수다
+paths.edit.nodes.withoutId // 새 워크플로우
 ```
 
-인자를 선택으로 두면 ID 를 빠뜨렸을 때 에러 없이 옛 경로로 착지한다.
+인자를 선택으로 두면 ID 를 빠뜨렸을 때 에러 없이 새 워크플로우로 착지한다.
 
 > 이 패턴이 `App.tsx`·`paths.ts`·`shell.ts` 세 곳에 손으로 복제돼 있던 적이 있다. `App.tsx` 에만 `/agent/:agentId` 를 추가하고 `shell.ts` 를 빠뜨렸는데 컴파일이 통과했고, 상세 화면의 배경 밝기와 프로필 메뉴가 사라졌다. 사람이 지키는 규약 대신 타입으로 묶는 이유다.
 
@@ -125,8 +125,6 @@ paths.agentDetail.withoutId // 아직 ID 가 없는 화면만
 - 확인이 끝나기 전을 미인증으로 보지 않는다. 쿠키가 살아 있는지는 부팅 때 `GET /users/me` 로 물어봐야 안다(7절). 그 사이를 미인증으로 그리면 새로고침마다 로그인 화면이 한 번 스친다
 - 막힌 경로를 history state 로 넘기고, 로그인이 끝나면 `redirectTargetFrom(state)` 으로 그 경로로 돌아간다. state 는 사용자가 만질 수 있으므로 내부 경로인지 확인한다 — `//evil.com` 과 `/\evil.com` 은 `/` 로 시작하지만 브라우저가 외부 주소로 읽는다
 - 이동은 `replace` 로 한다. 막힌 경로나 로그인 화면이 히스토리에 남으면 뒤로 가기가 다시 그 자리로 튕긴다
-
----
 
 ### 가입을 마치지 않은 계정은 가입 화면에 붙잡아 둔다
 
@@ -207,9 +205,7 @@ export const getMyProfile = () => api.get<UserProfile>('/users/me')
 
 ### 명세가 확정되지 않은 필드는 추정임을 적는다
 
-지금 추정인 것은 `POST /agents` 요청 본문(`CreateAgentRequest`) 하나다 — 등록 명세가 아직 없다.
-
-추정 필드는 `api/` 안에만 둔다. 화면에 필드명을 직접 박지 않는다 — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다.
+추정 필드는 `api/` 안에만 두고 추정이라고 적는다. 화면에 필드명을 직접 박지 않는다 — 명세가 오면 고칠 곳이 `api/` 로 한정되어야 한다. 지금 추정인 필드는 없다.
 
 ### 목록은 전부 커서다 — 전체 개수를 만들지 않는다
 
