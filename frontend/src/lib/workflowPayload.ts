@@ -191,15 +191,31 @@ export function toCanvasWorkflow(
     depths.set(key, at)
     return at
   }
-  const filled = new Map<number, number>()
+  // 갈래는 참을 위 줄, 거짓을 아래 줄로 벌리고 합류는 들어온 줄들의 가운데로 돌아온다.
+  // 상세는 부모를 자식보다 먼저 싣는다(`WorkflowGraph.nodesInOrder`).
+  const lanes = new Map<string, number>()
+  for (const node of detail.nodes) {
+    const incoming = detail.edges.filter((edge) => edge.targetNodeKey === node.nodeKey)
+    const from = incoming.map(
+      (edge) => (lanes.get(edge.sourceNodeKey) ?? 0) + (edge.when == null ? 0 : edge.when ? -1 : 1),
+    )
+    lanes.set(node.nodeKey, from.length ? from.reduce((a, b) => a + b, 0) / from.length : 0)
+  }
+  const taken = new Set<string>()
+  const laneOf = (key: string, depth: number) => {
+    let lane = lanes.get(key) ?? 0
+    // 갈래 안의 갈래가 옆 갈래와 같은 자리에 오면 바깥으로 민다.
+    while (taken.has(`${depth}:${lane}`)) lane += lane < 0 ? -1 : 1
+    taken.add(`${depth}:${lane}`)
+    return lane
+  }
 
   const nodes = detail.nodes.map((node) => {
     const control = node.controlType
     const io = node.ioType
     const label = node.sourceId ? describe(node.sourceId) : undefined
     const depth = depthOf(node.nodeKey)
-    const row = filled.get(depth) ?? 0
-    filled.set(depth, row + 1)
+    const lane = laneOf(node.nodeKey, depth)
 
     return {
       id: idOf.get(node.nodeKey)!,
@@ -229,7 +245,7 @@ export function toCanvasWorkflow(
       executionCount: label?.executionCount ?? null,
       owner: label?.owner ?? null,
       x: RESTORE_X0 + depth * RESTORE_STEP,
-      y: RESTORE_Y[depth % RESTORE_Y.length] + row * RESTORE_ROW,
+      y: RESTORE_Y[depth % RESTORE_Y.length] + lane * RESTORE_ROW,
       // 서버 판정이 먼저다. 모르는 것은 남의 것으로 둔다 — 잘못 팔 수 있게 두는 쪽이 더 나쁘다.
       mine: control || io ? null : (node.mine ?? label?.mine ?? false),
       floaty: '',

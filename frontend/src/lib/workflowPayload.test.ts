@@ -346,6 +346,13 @@ describe('toCanvasWorkflow — 분기·입출력', () => {
     expect(t.x).toBeGreaterThan(br.x)
   })
 
+  it('참 갈래는 분기 위로, 거짓 갈래는 아래로 뻗는다', () => {
+    const [, , br, yes, no] = canvas().nodes
+
+    expect(yes.y).toBeLessThan(br.y)
+    expect(no.y).toBeGreaterThan(br.y)
+  })
+
   it('갈라진 자리는 같은 가로줄에 겹치지 않는다', () => {
     const { nodes } = canvas()
     const [yes, no] = [nodes[3], nodes[4]]
