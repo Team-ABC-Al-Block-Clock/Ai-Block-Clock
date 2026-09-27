@@ -5,16 +5,18 @@ import {
   PANEL_CONTENT_WIDTH,
   PANEL_HEIGHT,
   PANEL_INSET,
-  PANEL_SPLIT_Y,
 } from '@/components/SidePanel'
 import type { useNodePalette } from '@/hooks/useNodePalette'
+
+import { TABS_HEIGHT } from './PanelTabs'
 
 /** `scrollbar-width: thin` 이 먹는 폭. 이만큼 넓혀야 카드가 위의 검색칸과 나란히 선다. */
 const SCROLLBAR = 8
 
-/** 가르는 선부터의 거리. 선을 옮기면 아래가 통째로 따라간다. */
-const SEARCH_Y = PANEL_SPLIT_Y + 24
-const GRID_Y = PANEL_SPLIT_Y + 78
+const SEARCH_Y = TABS_HEIGHT + 20
+const GRID_Y = SEARCH_Y + 54
+/** 뒤집어 볼 때 설명이 서버 상한(80자)까지 잘리지 않는 높이. */
+const CARD_HEIGHT = 200
 /** 창이 커지면 위아래로 늘어난 만큼(`--edge-y`) 더 받는다. */
 const GRID_HEIGHT = PANEL_HEIGHT - PANEL_BOTTOM - GRID_Y
 
@@ -33,7 +35,7 @@ type NodePalettePanelProps = {
   refs: Palette['refs']
 }
 
-/** 패널 아래쪽 — 캔버스로 끌어다 놓을 마켓 에이전트를 찾는 자리. */
+/** 「에이전트 검색」 탭 — 캔버스로 끌어다 놓을 마켓 에이전트를 찾는 자리. */
 export default function NodePalettePanel({
   q,
   cards,
@@ -48,17 +50,6 @@ export default function NodePalettePanel({
 }: NodePalettePanelProps) {
   return (
     <>
-      <div
-        className="absolute"
-        style={{
-          left: `${PANEL_INSET}px`,
-          top: `${PANEL_SPLIT_Y}px`,
-          width: `${PANEL_CONTENT_WIDTH}px`,
-          height: '1px',
-          background: 'rgba(255,255,255,.14)',
-        }}
-      ></div>
-
       {/* 돋보기는 장식이라 클릭을 흘려보낸다. input 이 남는 자리를 전부 채워
             상자 어디를 눌러도 입력으로 들어간다 — 예전에는 왼쪽 250px 만 먹었다. */}
       <div
@@ -121,7 +112,7 @@ export default function NodePalettePanel({
             title="캔버스로 드래그하세요"
             style={{
               // 폭은 주지 않고 그리드 열을 그대로 채운다.
-              height: '134px',
+              height: `${CARD_HEIGHT}px`,
               borderRadius: '12px',
               transition: 'background .18s,transform .18s',
               // 자신의 에이전트와 다른 사람 에이전트를 구분할 수 있게 테두리와 칩으로 표시한다.
@@ -158,13 +149,13 @@ export default function NodePalettePanel({
             </div>
             <div
               className="absolute truncate text-[15.5px] font-semibold tracking-[-.005em] text-white"
-              style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, top: '72px' }}
+              style={{ left: `${CARD_GUTTER}px`, right: `${CARD_GUTTER}px`, bottom: '44px' }}
             >
               {item.name}
             </div>
             <div
               className="absolute text-[13px]"
-              style={{ left: `${CARD_GUTTER}px`, top: '99px', color: 'rgba(255,236,246,.7)' }}
+              style={{ left: `${CARD_GUTTER}px`, bottom: '18px', color: 'rgba(255,236,246,.7)' }}
             >
               {item.unit}
             </div>
@@ -174,7 +165,7 @@ export default function NodePalettePanel({
                 className="absolute text-[12px] font-bold tracking-[-.005em]"
                 style={{
                   right: '12px',
-                  top: '96px',
+                  bottom: '16px',
                   height: '20px',
                   padding: '0 8px',
                   lineHeight: '20px',
@@ -209,7 +200,7 @@ export default function NodePalettePanel({
                 style={{
                   padding: '14px',
                   borderRadius: '12px',
-                  background: 'rgba(20,11,36,.94)',
+                  background: 'rgba(20,11,36,.98)',
                   backdropFilter: 'blur(20px) saturate(120%)',
                   WebkitBackdropFilter: 'blur(20px) saturate(120%)',
                   gap: '6px',
@@ -229,7 +220,7 @@ export default function NodePalettePanel({
                   <span className="font-semibold text-white">{item.owner.nickname ?? '—'}</span>
                 </div>
                 <div
-                  className="text-[12.5px]"
+                  className="scroll-thin min-h-0 flex-1 overflow-y-auto text-[12.5px]"
                   style={{
                     marginTop: '3px',
                     lineHeight: '1.45',
