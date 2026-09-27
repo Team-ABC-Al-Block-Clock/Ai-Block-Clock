@@ -77,6 +77,7 @@ const CHARGE_STATUS: Record<string, string> = {
   PENDING: '확인 중',
   CONFIRMED: '적립 완료',
   FAILED: '실패',
+  CANCELED: '취소',
 }
 
 export type HistoryTone = 'done' | 'progress' | 'closed'

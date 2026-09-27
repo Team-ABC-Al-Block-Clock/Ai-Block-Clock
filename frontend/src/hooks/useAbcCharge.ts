@@ -44,6 +44,7 @@ const STATUS_PHASE: Record<ChargeStatus, ChargePhase> = {
   PENDING: 'confirming',
   CONFIRMED: 'confirmed',
   FAILED: 'failed',
+  CANCELED: 'failed',
 }
 
 /** 서버가 아직 아무 말도 하지 않은 구간. 지갑을 기다리는 동안이 여기다. */
