@@ -195,7 +195,7 @@ describe('getMarketplaceAgent', () => {
     expect(agent.successRate).toBe(0)
   })
 
-  it('실행 예시를 안 적은 건이 섞여 있다', async () => {
+  it('입력 예시를 안 적은 건이 섞여 있다', async () => {
     expect((await getMarketplaceAgent('agt_04')).usageExample).toBeNull()
     expect((await getMarketplaceAgent('agt_06')).usageExample).not.toBeNull()
   })
