@@ -25,6 +25,7 @@ final class WorkflowEntityConverter {
         return new WorkflowSummary(
                 WorkflowId.of(entity.getId()),
                 entity.getName(),
+                entity.getDescription(),
                 entity.getLastExecutedAt(),
                 entity.getUpdatedAt());
     }

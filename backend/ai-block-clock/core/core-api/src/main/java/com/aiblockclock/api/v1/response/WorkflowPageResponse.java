@@ -25,6 +25,7 @@ public record WorkflowPageResponse(
                 .map(summary -> new WorkflowItemResponse(
                         summary.id().value().toString(),
                         summary.name(),
+                        summary.description(),
                         summary.lastExecutedAt(),
                         summary.updatedAt()))
                 .toList();
@@ -38,6 +39,10 @@ public record WorkflowPageResponse(
 
             @Schema(description = "워크플로우 이름", example = "성적 분석 리포트")
             String name,
+
+            @Schema(description = "워크플로우 설명. 없으면 null",
+                    example = "엑셀 성적표를 받아 학생별 리포트를 만든다", nullable = true)
+            String description,
 
             @Schema(description = "마지막 실행 시각. 아직 실행하지 않았으면 null", nullable = true)
             Instant lastExecutedAt,
