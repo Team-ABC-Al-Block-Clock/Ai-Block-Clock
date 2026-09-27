@@ -128,7 +128,7 @@ export default function Search() {
     initial: a.name.trim().charAt(0).toUpperCase(),
     uses: runLabel(a.executionCount),
     price: priceLabel(a.price),
-    author: a.owner.nickname,
+    author: a.owner.nickname ?? '—',
     infoOpen: infoAt === a.agentId,
     infoBg: infoAt === a.agentId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
     info: (e: React.MouseEvent) => {
