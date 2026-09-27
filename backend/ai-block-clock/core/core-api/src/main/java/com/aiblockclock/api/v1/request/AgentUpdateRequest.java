@@ -33,7 +33,7 @@ public record AgentUpdateRequest(
                 example = "성적표 엑셀을 올려서 학생별 리포트를 만들어 줘", maxLength = 500, nullable = true)
         @Size(max = 500) String usageExample,
 
-        @Schema(description = "첫 화면에 띄울 인사말", example = "무엇을 분석할까요?",
+        @Schema(description = "실행을 시작할 때 띄울 인사말", example = "무엇을 분석할까요?",
                 maxLength = 20, nullable = true)
         @Size(max = 20) String onboardingMessage
 ) {
