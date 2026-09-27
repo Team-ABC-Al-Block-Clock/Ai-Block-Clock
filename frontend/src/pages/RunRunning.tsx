@@ -18,6 +18,8 @@ import {
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
+import { describeCondition } from '@/lib/branchCondition'
+import { nameBranchSteps } from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
@@ -129,6 +131,21 @@ export default function RunRunning() {
    * (`skipped`)까지 한 줄로 섞여 온다. 짝지으면 가지 않은 갈래가 켜진다. 카드·선 표시만 접는다.
    */
   const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
+  /** 불러온 캔버스는 서버가 훑은 차례라, 분기도 서버가 엔진에 싣는 차례와 같다. */
+  const branchNames = useMemo(
+    () =>
+      defs
+        .filter((node) => node.controlType)
+        .map(
+          (node) =>
+            `${node.name} · ${describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)}`,
+        ),
+    [defs],
+  )
+  const steps = useMemo(
+    () => nameBranchSteps(progress?.steps ?? [], branchNames),
+    [progress?.steps, branchNames],
+  )
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
 
   const canSell = canSellWorkflow(defs)
@@ -161,8 +178,7 @@ export default function RunRunning() {
    * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
    * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
    */
-  const aligned =
-    !branching && progress && progress.steps.length === runnable.length ? progress.steps : null
+  const aligned = !branching && progress && steps.length === runnable.length ? steps : null
   /**
    * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
    * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
@@ -240,7 +256,7 @@ export default function RunRunning() {
   const camera =
     defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
-  const logLines = (progress?.steps ?? [])
+  const logLines = steps
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
     .map((step) => step.name)
   const logs = logLines.map((text, i) => {
@@ -354,7 +370,12 @@ export default function RunRunning() {
     : lost
       ? '실행은 계속되고 있습니다. 새로고침해 주세요.'
       : progress?.failure
-        ? describeFailure(progress.failure)
+        ? describeFailure({
+            ...progress.failure,
+            stepName:
+              steps[progress.steps.findLastIndex((it) => it.name === progress.failure?.stepName)]
+                ?.name ?? progress.failure.stepName,
+          })
         : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 
   const stepTitle = run.missing
