@@ -98,8 +98,7 @@ export const PROFILE_LIMITS = {
  * Content-Type 은 지정하지 않는다 — axios 가 boundary 까지 붙여 준다(7절).
  *
  * 이미지는 교체(`profileImageFile`)와 삭제(`removeProfileImage`)가 갈린다. 파일을 **안 보내는
- * 것**은 "그대로 두라"는 뜻이라 삭제를 표현할 수 없어서 플래그가 따로 있다. 둘을 같이 보내면
- * 서버가 USER_007 로 거절하므로 화면에서도 한쪽만 정해 보낸다.
+ * 것**은 "그대로 두라"는 뜻이라 삭제를 표현할 수 없어서 플래그가 따로 있다. 화면은 한쪽만 정해 보낸다.
  */
 export const updateMyProfile = (params: {
   nickname?: string

@@ -67,14 +67,10 @@ export const USER_ERROR = {
   PROFILE_INVALID: 'USER_002',
   /** 약관 동의 또는 계정 복구 불가 고지 확인이 빠짐 */
   CONSENT_REQUIRED: 'USER_003',
-  /** 프로필 이미지가 PNG·JPG 가 아님 */
-  IMAGE_TYPE: 'USER_004',
-  /** 프로필 이미지가 5MB 를 넘음 */
-  IMAGE_SIZE: 'USER_005',
   /** 이미 가입 절차를 마친 사용자가 다시 호출 — 409 */
   ALREADY_SIGNED_UP: 'USER_006',
-  /** 이미지 교체와 삭제를 한 요청에 같이 보냄 */
-  IMAGE_CONFLICT: 'USER_007',
+  /** 본인 인증을 이미 제출함 — 409 */
+  IDENTITY_ALREADY_SUBMITTED: 'USER_007',
 } as const
 
 /**

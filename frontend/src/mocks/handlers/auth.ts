@@ -58,23 +58,6 @@ function writeProfile(next: UserProfile): void {
 }
 
 /**
- * 이미지 파트 검증. 가입과 프로필 수정이 같은 규칙을 쓴다(명세 USER_004·USER_005).
- * 파일이 아니면 검사할 것이 없다 — 안 보낸 것은 「그대로 두라」는 뜻이다.
- */
-function rejectBadImage(image: FormDataEntryValue | null) {
-  if (!(image instanceof File)) return null
-
-  const { types, maxBytes } = PROFILE_LIMITS.image
-  if (!(types as readonly string[]).includes(image.type)) {
-    return fail(400, USER_ERROR.IMAGE_TYPE, '프로필 이미지는 PNG 또는 JPG 여야 합니다.')
-  }
-  if (image.size > maxBytes) {
-    return fail(400, USER_ERROR.IMAGE_SIZE, '프로필 이미지는 5MB 를 넘을 수 없습니다.')
-  }
-  return null
-}
-
-/**
  * 고른 이미지를 data URL 로 바꾼다 — mock 에는 파일을 둘 CDN 이 없고, blob URL 은
  * 새로고침하면 죽어서 「저장했는데 안 남는다」가 된다.
  *
@@ -212,11 +195,6 @@ export const authHandlers = [
     const image = form.get('profileImageFile')
     const removeImage = form.get('removeProfileImage') === 'true'
 
-    // 교체와 삭제를 같이 보내면 어느 쪽인지 정할 수 없다.
-    if (image instanceof File && removeImage) {
-      return fail(400, USER_ERROR.IMAGE_CONFLICT, '이미지 교체와 삭제를 함께 보낼 수 없습니다.')
-    }
-
     const { nickname: nickLimit, introduction: introLimit } = PROFILE_LIMITS
     if (
       typeof nickname === 'string' &&
@@ -235,9 +213,6 @@ export const authHandlers = [
         `한 줄 소개는 ${introLimit.max}자를 넘을 수 없습니다.`,
       )
     }
-
-    const badImage = rejectBadImage(image)
-    if (badImage) return badImage
 
     // 보내지 않은 필드는 그대로 둔다
     let next = readProfile()
@@ -306,9 +281,6 @@ export const authHandlers = [
         '약관 동의와 계정 복구 불가 고지 확인이 필요합니다.',
       )
     }
-
-    const badImage = rejectBadImage(image)
-    if (badImage) return badImage
 
     const next: UserProfile = {
       ...current,

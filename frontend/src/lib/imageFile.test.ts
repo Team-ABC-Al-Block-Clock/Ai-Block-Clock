@@ -13,7 +13,7 @@ describe('describeImageProblem', () => {
 
   it('type 을 못 읽어도 확장자가 맞으면 통과한다', () => {
     // 플랫폼이 확장자를 매핑하지 못하면 File.type 이 빈 문자열이다. 여기서 막으면
-    // 정상 이미지가 요청도 못 나가고 서버 판정(USER_004)도 받지 못한다.
+    // 정상 이미지가 요청도 못 나간다.
     expect(describeImageProblem(new File(['x'], 'photo.JPG', { type: '' }))).toBeNull()
     // 잘못 등록된 .jpg 는 image/jpg 로 온다 — 표준 타입 목록에 없다.
     expect(describeImageProblem(new File(['x'], 'photo.jpg', { type: 'image/jpg' }))).toBeNull()
