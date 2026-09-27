@@ -1,80 +1,89 @@
 import type { ExecutionStep, StepStatus } from '@/api/executions'
 
-/**
- * 분기 단계에 캔버스 이름을 붙인다.
- *
- * 서버는 분기에 이름을 싣지 않아 엔진이 id(`b1`)를 이름으로 돌려준다. 분기는 작업 단계 뒤에
- * 캔버스 차례대로 붙는다(`RuntimeWorkflow.of`). 끝자리이면서 id 모양일 때만 바꿔, 이름이
- * `b1` 인 작업 노드와 섞이지 않게 한다.
- */
-export function nameBranchSteps(steps: ExecutionStep[], branchNames: string[]): ExecutionStep[] {
-  const offset = steps.length - branchNames.length
-  if (branchNames.length === 0 || offset < 0) return steps
-  const tail = steps.slice(offset)
-  if (!tail.every((step, i) => step.name === `b${i + 1}`)) return steps
-  return [...steps.slice(0, offset), ...tail.map((step, i) => ({ ...step, name: branchNames[i] }))]
+/** 실행 화면의 카드 하나. 시작·종료는 단계가 없어 싣지 않는다. */
+export interface RunCard {
+  id: string
+  kind: 'NODE' | 'AGENT' | 'BRANCH'
+  name: string
 }
 
-type CardType = 'NODE' | 'AGENT'
+/** 캔버스 분기의 단계 이름. 서버가 분기에 이름을 싣지 않아 엔진이 id 를 이름으로 돌려준다. */
+const TOP_BRANCH = /^b\d+$/
 
-/** 작업 단계가 각 카드에 속하는 유일한 구간을 찾는다. 이름이나 경계가 모호하면 추측하지 않는다. */
-function workGroups(
-  cardIds: string[],
-  branchCount: number,
+/**
+ * 카드마다 제 단계를 나눠 준다. 배정이 하나로 떨어지지 않으면 `null` — 추측해 켜지 않는다.
+ *
+ * 서버는 캔버스 차례대로 단계를 싣고 분기를 제자리에 끼운다(`PlanLevel`). 기본 노드는 제 이름 한 단계,
+ * 분기는 `b1` 같은 한 단계, 에이전트는 속 단계 여럿이다. 예전 서버는 분기를 끝에 붙였다 — 그 차례도 받는다.
+ */
+export function stepGroups(
+  cards: RunCard[],
   steps: ExecutionStep[],
-  cardNames: string[],
-  cardTypes: CardType[],
-): ExecutionStep[][] | null {
-  const count = steps.length - branchCount
-  if (cardIds.length === 0 || count < cardIds.length) return null
-  const work = steps.slice(0, count)
-  if (count === cardIds.length) return work.map((step) => [step])
-  if (cardNames.length !== cardIds.length) return null
+): Map<string, ExecutionStep[]> | null {
+  if (cards.length === 0 || steps.length === 0) return null
+  const branchOf = new Map(
+    cards.filter((card) => card.kind === 'BRANCH').map((card, i) => [card.id, `b${i + 1}`]),
+  )
+  const inCanvas = partition(cards, steps, branchOf)
+  if (inCanvas) return inCanvas
+  const tailBranches = [
+    ...cards.filter((card) => card.kind !== 'BRANCH'),
+    ...cards.filter((card) => card.kind === 'BRANCH'),
+  ]
+  return partition(tailBranches, steps, branchOf)
+}
 
-  // 기본 노드는 한 단계이고, 에이전트는 여러 단계를 차지한다. 기본 노드의 이름으로
-  // 경계를 찾되, 같은 이름이나 인접한 에이전트 때문에 두 가지 배정이 가능하면 중단한다.
+function partition(
+  cards: RunCard[],
+  steps: ExecutionStep[],
+  branchOf: Map<string, string>,
+): Map<string, ExecutionStep[]> | null {
+  const fits = (card: RunCard, step: ExecutionStep) =>
+    card.kind === 'NODE'
+      ? step.name === card.name
+      : card.kind === 'BRANCH'
+        ? step.name === branchOf.get(card.id)
+        : !TOP_BRANCH.test(step.name)
+
+  // 두 가지 배정이 가능하면 멈춘다. 같은 이름이나 붙어 있는 에이전트 때문에 경계가 모호할 수 있다.
   const memo = new Map<string, number[][]>()
-  const partitions = (card: number, start: number): number[][] => {
-    if (card === cardIds.length) return start === count ? [[]] : []
-    const key = `${card}:${start}`
+  const ends = (at: number, from: number): number[][] => {
+    if (at === cards.length) return from === steps.length ? [[]] : []
+    const key = `${at}:${from}`
     const cached = memo.get(key)
     if (cached) return cached
-    const results: number[][] = []
-    const last = cardTypes[card] === 'NODE' ? start + 1 : count - (cardIds.length - card - 1)
-    for (let end = start + 1; end <= last; end++) {
-      if (cardTypes[card] !== 'AGENT' && work[end - 1]?.name !== cardNames[card]) break
-      for (const tail of partitions(card + 1, end)) {
-        results.push([end, ...tail])
-        if (results.length === 2) break
+    const card = cards[at]
+    const last = Math.min(
+      steps.length,
+      card.kind === 'AGENT' ? steps.length - (cards.length - at - 1) : from + 1,
+    )
+    const found: number[][] = []
+    for (let end = from + 1; end <= last && found.length < 2; end++) {
+      if (!fits(card, steps[end - 1])) break
+      for (const rest of ends(at + 1, end)) {
+        found.push([end, ...rest])
+        if (found.length === 2) break
       }
-      if (results.length === 2) break
     }
-    memo.set(key, results)
-    return results
+    memo.set(key, found)
+    return found
   }
-  const choices = partitions(0, 0)
+  const choices = ends(0, 0)
   if (choices.length !== 1) return null
-  let start = 0
-  return choices[0].map((end) => {
-    const group = work.slice(start, end)
-    start = end
-    return group
+  const groups = new Map<string, ExecutionStep[]>()
+  let from = 0
+  choices[0].forEach((end, i) => {
+    groups.set(cards[i].id, steps.slice(from, end))
+    from = end
   })
+  return groups
 }
 
-/** 작업 카드마다 내부 단계의 상태를 합친다. 분기 단계는 응답의 끝에 붙는다. */
-export function cardStatuses(
-  cardIds: string[],
-  branchCount: number,
-  steps: ExecutionStep[],
-  cardNames: string[] = [],
-  cardTypes: CardType[] = [],
-): Map<string, StepStatus> | null {
-  const groups = workGroups(cardIds, branchCount, steps, cardNames, cardTypes)
-  if (!groups) return null
+/** 카드마다 속 단계의 상태를 하나로 합친다. */
+export function cardStatuses(groups: Map<string, ExecutionStep[]>): Map<string, StepStatus> {
   return new Map(
-    cardIds.map((id, i) => {
-      const statuses = groups[i].map((step) => step.status)
+    [...groups].map(([id, group]) => {
+      const statuses = group.map((step) => step.status)
       const status: StepStatus = statuses.includes('failed')
         ? 'failed'
         : statuses.every((status) => status === 'skipped')
@@ -94,21 +103,18 @@ const REACHED: StepStatus[] = ['running', 'succeeded', 'failed']
 /**
  * 실행이 지나간 자리. 선은 양 끝이 다 지나간 것만 칠한다 — 가지 않은 갈래와 그리로 가는 선은 꺼진 채로 둔다.
  *
- * 분기는 뒤에 붙은 제 단계로, 시작은 첫 단계가 움직였는지로, 종료는 실행이 끝났는지로 본다.
+ * 분기와 작업 카드는 제 단계로, 시작은 첫 단계가 움직였는지로, 종료는 실행이 끝났는지로 본다.
  */
 export function reachedNodes(
-  nodes: { id: string; controlType?: unknown; ioType?: string | null }[],
+  nodes: { id: string; ioType?: string | null }[],
   statuses: Map<string, StepStatus>,
-  branchSteps: ExecutionStep[],
   finished: boolean,
 ): Set<string> {
   const reached = new Set<string>()
   const started = [...statuses.values()].some((status) => status !== 'pending')
-  let branch = 0
   for (const node of nodes) {
-    const hit = node.controlType
-      ? REACHED.includes(branchSteps[branch++]?.status)
-      : node.ioType === 'START'
+    const hit =
+      node.ioType === 'START'
         ? started || finished
         : node.ioType === 'END'
           ? finished
@@ -118,25 +124,9 @@ export function reachedNodes(
   return reached
 }
 
-/** 단계를 캔버스 차례로. 서버는 분기를 끝에 붙여 보내 로그에서 분기가 맨 뒤에 찍힌다. */
-export function inCanvasOrder(
-  nodes: { id: string; controlType?: unknown }[],
-  cardIds: string[],
-  steps: ExecutionStep[],
-  cardNames: string[] = [],
-  cardTypes: CardType[] = [],
-): ExecutionStep[] {
-  const branchCount = nodes.filter((node) => node.controlType).length
-  const groups = workGroups(cardIds, branchCount, steps, cardNames, cardTypes)
-  if (!groups) return steps
-  const work = new Map(cardIds.map((id, i) => [id, groups[i]]))
-  let branch = steps.length - branchCount
-  return nodes.flatMap((node) => {
-    if (!node.controlType) return work.get(node.id) ?? []
-    const step = steps[branch++]
-    return step ? [step] : []
-  })
-}
+/** 단계를 캔버스 차례로. 예전 서버는 분기를 끝에 붙여 보내 로그에서 분기가 맨 뒤에 찍혔다. */
+export const inCanvasOrder = (cards: RunCard[], groups: Map<string, ExecutionStep[]>) =>
+  cards.flatMap((card) => groups.get(card.id) ?? [])
 
 /**
  * 분기가 어느 쪽으로 갔는지. 아직 모르면 `null`.

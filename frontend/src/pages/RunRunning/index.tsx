@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 
-import type { ExecutionFailure, StepStatus } from '@/api/executions'
+import type { ExecutionFailure, ExecutionStep, StepStatus } from '@/api/executions'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
 import { downloadResult, fetchResult, type ResultFormat } from '@/api/executions'
 import { ApiError, EXECUTION_ERROR } from '@/api/errors'
@@ -34,9 +34,10 @@ import {
   cardStatuses,
   edgeWasTaken,
   inCanvasOrder,
-  nameBranchSteps,
   reachedNodes,
   runFocus,
+  stepGroups,
+  type RunCard,
 } from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
@@ -142,39 +143,21 @@ export default function RunRunning() {
   const runnable = useMemo(() => defs.filter((node) => !node.controlType && !node.ioType), [defs])
   /** 갈래가 있으면 단계를 받기 전에는 어느 쪽이 돌지 몰라 짐작해 켜지 않는다. */
   const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
-  /** 불러온 캔버스는 서버가 훑은 차례라, 분기도 서버가 엔진에 싣는 차례와 같다. */
-  const branchNames = useMemo(
+  /** 단계를 가진 카드. 불러온 캔버스는 서버가 훑은 차례라 서버가 엔진에 싣는 차례와 같다. */
+  const cards = useMemo<RunCard[]>(
     () =>
       defs
-        .filter((node) => node.controlType)
-        .map(
-          (node) =>
-            `${node.name} · ${describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)}`,
-        ),
+        .filter((node) => !node.ioType)
+        .map((node) => ({
+          id: node.id,
+          kind: node.controlType ? 'BRANCH' : node.sourceType === 'AGENT' ? 'AGENT' : 'NODE',
+          name: node.name,
+        })),
     [defs],
   )
-  const steps = useMemo(
-    () => nameBranchSteps(progress?.steps ?? [], branchNames),
-    [progress?.steps, branchNames],
-  )
+  const groups = useMemo(() => stepGroups(cards, progress?.steps ?? []), [cards, progress?.steps])
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
-  const statuses = useMemo(() => {
-    const mapped = cardStatuses(
-      runnable.map((node) => node.id),
-      branchNames.length,
-      steps,
-      runnable.map((node) => node.name),
-      runnable.map((node) => (node.sourceType === 'AGENT' ? 'AGENT' : 'NODE')),
-    )
-    if (!mapped) return null
-    defs
-      .filter((node) => node.controlType)
-      .forEach((node, i) => {
-        const step = steps[steps.length - branchNames.length + i]
-        if (step) mapped.set(node.id, step.status)
-      })
-    return mapped
-  }, [defs, runnable, branchNames, steps])
+  const statuses = useMemo(() => (groups ? cardStatuses(groups) : null), [groups])
 
   const canSell = canSellWorkflow(defs)
 
@@ -281,14 +264,7 @@ export default function RunRunning() {
     }
   })
   // 단계를 받았으면 실제로 지나간 길만 칠한다. 못 받았으면 한 줄 차례로 짐작한다.
-  const reached = statuses
-    ? reachedNodes(
-        defs,
-        statuses,
-        steps.slice(Math.max(0, steps.length - branchNames.length)),
-        finished,
-      )
-    : null
+  const reached = statuses ? reachedNodes(defs, statuses, finished) : null
   const lit = geometry.map((edge, i) => {
     const link = edgeList.find((it) => it.id === edge.id)
     return reached && statuses
@@ -308,15 +284,24 @@ export default function RunRunning() {
       reached?.has(node.id) && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
     return taken === null ? null : `→ ${taken}`
   }
-  /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
-  const labeledSteps = nameBranchSteps(
-    progress?.steps ?? [],
-    defs
-      .filter((node) => node.controlType)
-      .map((node) =>
-        [`${node.name} · ${branchCondition(node)}`, branchVerdict(node)].filter(Boolean).join(' '),
-      ),
-  )
+  const branchCards = defs.filter((node) => node.controlType)
+  const branchLabel = (node: CanvasNodeData) =>
+    [`${node.name} · ${branchCondition(node)}`, branchVerdict(node)].filter(Boolean).join(' ')
+  const ownerOf = (step: ExecutionStep) =>
+    groups && defs.find((node) => groups.get(node.id)?.includes(step))
+  /**
+   * 로그와 실패 안내에 쓰는 이름. 서버가 분기에 이름을 싣지 않아 엔진은 `b1`·`a1.b1` 같은 id 를 돌려준다.
+   *
+   * 캔버스 분기는 조건과 판정까지 붙이고, 에이전트 속 분기는 어느 에이전트의 것인지만 적는다.
+   */
+  const stepLabel = (step: ExecutionStep) => {
+    const owner = ownerOf(step)
+    if (owner?.controlType) return branchLabel(owner)
+    if (owner && /(^|\.)b\d+$/.test(step.name)) return `${owner.name} · 분기`
+    const top = /^b(\d+)$/.exec(step.name)
+    const branch = top && !groups ? branchCards[Number(top[1]) - 1] : undefined
+    return branch ? branchLabel(branch) : step.name
+  }
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
@@ -329,19 +314,9 @@ export default function RunRunning() {
       ? Math.min(0, (PANE_CONTENT_WIDTH - NODE_SIZE) / 2 - focus.x)
       : 0
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
-  const logLines = (
-    statuses
-      ? inCanvasOrder(
-          defs,
-          runnable.map((node) => node.id),
-          labeledSteps,
-          runnable.map((node) => node.name),
-          runnable.map((node) => (node.sourceType === 'AGENT' ? 'AGENT' : 'NODE')),
-        )
-      : labeledSteps
-  )
+  const logLines = (groups ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
-    .map((step) => step.name)
+    .map(stepLabel)
   const logs = logLines.map((text, i) => {
     const last = i === logLines.length - 1 && !finished
     return {
@@ -439,6 +414,8 @@ export default function RunRunning() {
     pctR +
     '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
+  const currentStep = progress?.steps.findLast((it) => it.name === progress.currentStepName)
+  const failedStep = progress?.steps.findLast((it) => it.name === progress.failure?.stepName)
   const failureNotice = run.missing
     ? '워크플로우를 다시 실행해 주세요.'
     : lost
@@ -446,10 +423,7 @@ export default function RunRunning() {
       : progress?.failure
         ? describeFailure({
             ...progress.failure,
-            stepName:
-              labeledSteps[
-                progress.steps.findLastIndex((it) => it.name === progress.failure?.stepName)
-              ]?.name ?? progress.failure.stepName,
+            stepName: failedStep ? stepLabel(failedStep) : progress.failure.stepName,
           })
         : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 
@@ -462,7 +436,7 @@ export default function RunRunning() {
         : finished
           ? '실행 완료'
           : progress
-            ? (progress.currentStepName ??
+            ? ((currentStep ? stepLabel(currentStep) : progress.currentStepName) ??
               (progress.total > 0 && progress.done >= progress.total
                 ? '결과를 정리하는 중'
                 : '실행을 준비하는 중'))

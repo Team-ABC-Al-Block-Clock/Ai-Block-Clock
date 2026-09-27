@@ -7,44 +7,96 @@ import {
   cardStatuses,
   edgeWasTaken,
   inCanvasOrder,
-  nameBranchSteps,
   reachedNodes,
   runFocus,
+  stepGroups,
+  type RunCard,
 } from './runSteps'
 
-describe('nameBranchSteps', () => {
-  const step = (name: string) => ({ name, status: 'succeeded' as const })
+const step = (name: string, status: StepStatus = 'succeeded') => ({ name, status })
+const node = (id: string): RunCard => ({ id, kind: 'NODE', name: id })
+const names = (groups: ReturnType<typeof stepGroups>) =>
+  groups && Object.fromEntries([...groups].map(([id, group]) => [id, group.map((it) => it.name)]))
 
-  it('끝에 붙은 분기에 캔버스 이름을 준다', () => {
-    const named = nameBranchSteps([step('시장 조사'), step('차별화'), step('b1')], ['조건 분기'])
-    expect(named.map((it) => it.name)).toEqual(['시장 조사', '차별화', '조건 분기'])
+describe('stepGroups', () => {
+  const cards: RunCard[] = [node('m'), { id: 'br', kind: 'BRANCH', name: '조건 분기' }, node('t')]
+
+  it('캔버스 차례에 분기가 제자리에 끼어도 짝짓는다', () => {
+    expect(names(stepGroups(cards, [step('m'), step('b1'), step('t')]))).toEqual({
+      m: ['m'],
+      br: ['b1'],
+      t: ['t'],
+    })
   })
 
-  it('이름이 b1 인 작업 노드는 끝자리가 아니면 그대로 둔다', () => {
-    const named = nameBranchSteps([step('b1'), step('요약'), step('b1')], ['조건 분기'])
-    expect(named.map((it) => it.name)).toEqual(['b1', '요약', '조건 분기'])
+  it('예전 서버처럼 분기가 끝에 붙어도 짝짓는다', () => {
+    expect(names(stepGroups(cards, [step('m'), step('t'), step('b1')]))).toEqual({
+      m: ['m'],
+      t: ['t'],
+      br: ['b1'],
+    })
   })
 
-  it('끝자리가 분기 id 모양이 아니면 건드리지 않는다', () => {
-    const steps = [step('시장 조사'), step('요약')]
-    expect(nameBranchSteps(steps, ['조건 분기'])).toBe(steps)
+  it('이름이 b1 인 작업 노드와 분기를 헷갈리지 않는다', () => {
+    const tricky: RunCard[] = [node('b1'), { id: 'br', kind: 'BRANCH', name: '분기' }]
+    expect(names(stepGroups(tricky, [step('b1'), step('b1')]))).toEqual({
+      b1: ['b1'],
+      br: ['b1'],
+    })
   })
 
-  it('분기가 둘이면 차례대로', () => {
-    const named = nameBranchSteps([step('a'), step('b1'), step('b2')], ['첫 분기', '둘째 분기'])
-    expect(named.map((it) => it.name)).toEqual(['a', '첫 분기', '둘째 분기'])
+  it('수나 이름이 어긋나면 짝짓지 않는다', () => {
+    expect(stepGroups(cards, [step('m'), step('t')])).toBeNull()
+    expect(stepGroups(cards, [step('m'), step('b1'), step('x')])).toBeNull()
+    expect(stepGroups(cards, [])).toBeNull()
+  })
+
+  it('에이전트 속 분기는 에이전트 단계로 묶는다', () => {
+    const agent: RunCard[] = [
+      node('입력'),
+      { id: 'ag', kind: 'AGENT', name: '마켓 에이전트' },
+      { id: 'br', kind: 'BRANCH', name: '조건 분기' },
+      node('결과'),
+    ]
+    const steps = [
+      step('입력'),
+      step('조사'),
+      step('a1.b1'),
+      step('요약'),
+      step('b1'),
+      step('결과'),
+    ]
+    expect(names(stepGroups(agent, steps))).toEqual({
+      입력: ['입력'],
+      ag: ['조사', 'a1.b1', '요약'],
+      br: ['b1'],
+      결과: ['결과'],
+    })
+  })
+
+  it('붙어 있는 에이전트처럼 배정이 여러 가지면 null', () => {
+    const agents: RunCard[] = [
+      { id: 'a', kind: 'AGENT', name: '첫째' },
+      { id: 'b', kind: 'AGENT', name: '둘째' },
+    ]
+    expect(stepGroups(agents, [step('x'), step('y'), step('z')])).toBeNull()
   })
 })
 
 describe('cardStatuses · reachedNodes', () => {
-  const step = (name: string, status: StepStatus) => ({ name, status })
-  const cards = ['m', 't', 'f', 'j']
+  const cards: RunCard[] = [
+    node('m'),
+    { id: 'br', kind: 'BRANCH', name: '분기' },
+    node('t'),
+    node('f'),
+    node('j'),
+  ]
   const steps = [
-    step('m', 'succeeded'),
+    step('m'),
+    step('b1'),
     step('t', 'skipped'),
     step('f', 'running'),
     step('j', 'pending'),
-    step('b1', 'succeeded'),
   ]
   const nodes = [
     { id: 's', ioType: 'START' },
@@ -56,68 +108,60 @@ describe('cardStatuses · reachedNodes', () => {
     { id: 'e', ioType: 'END' },
   ]
 
-  it('분기가 뒤에 붙어도 작업 카드와 짝짓는다', () => {
-    expect([...cardStatuses(cards, 1, steps)!]).toEqual([
+  it('카드마다 제 단계 상태를 준다', () => {
+    expect([...cardStatuses(stepGroups(cards, steps)!)]).toEqual([
       ['m', 'succeeded'],
+      ['br', 'succeeded'],
       ['t', 'skipped'],
       ['f', 'running'],
       ['j', 'pending'],
     ])
   })
 
-  it('수가 어긋나면 짝짓지 않는다', () => {
-    expect(cardStatuses(cards, 0, steps)).toBeNull()
-    expect(cardStatuses(cards, 1, [])).toBeNull()
-  })
-
-  it('한 카드의 여러 내부 단계를 카드 하나에 묶는다', () => {
-    const expanded = [
-      step('m', 'succeeded'),
-      step('t', 'succeeded'),
-      step('t', 'running'),
-      step('f', 'pending'),
-      step('j', 'pending'),
-      step('b1', 'pending'),
-    ]
-    expect(cardStatuses(cards, 1, expanded, cards)).toEqual(
-      new Map([
-        ['m', 'succeeded'],
-        ['t', 'running'],
-        ['f', 'pending'],
-        ['j', 'pending'],
-      ]),
-    )
+  it('한 카드의 여러 내부 단계를 하나로 합친다', () => {
+    const groups = new Map([
+      ['a', [step('x'), step('y', 'running')]],
+      ['b', [step('x', 'skipped'), step('y', 'succeeded')]],
+      ['c', [step('x', 'skipped')]],
+      ['d', [step('x'), step('y', 'failed')]],
+    ])
+    expect([...cardStatuses(groups)]).toEqual([
+      ['a', 'running'],
+      ['b', 'succeeded'],
+      ['c', 'skipped'],
+      ['d', 'failed'],
+    ])
   })
 
   it('가지 않은 갈래와 아직 안 간 자리는 빼고 지나간 자리만 센다', () => {
-    const statuses = cardStatuses(cards, 1, steps)!
-    expect([...reachedNodes(nodes, statuses, steps.slice(4), false)]).toEqual(['s', 'm', 'br', 'f'])
+    const statuses = cardStatuses(stepGroups(cards, steps)!)
+    expect([...reachedNodes(nodes, statuses, false)]).toEqual(['s', 'm', 'br', 'f'])
   })
 
   it('끝나면 종료도 지나간 자리다', () => {
     const done = steps.map((it) =>
       it.status === 'skipped' ? it : { ...it, status: 'succeeded' as const },
     )
-    const statuses = cardStatuses(cards, 1, done)!
-    expect(reachedNodes(nodes, statuses, done.slice(4), true).has('e')).toBe(true)
+    const statuses = cardStatuses(stepGroups(cards, done)!)
+    expect(reachedNodes(nodes, statuses, true).has('e')).toBe(true)
   })
 })
 
 describe('inCanvasOrder', () => {
-  it('끝에 붙은 분기를 제 자리로 옮긴다', () => {
-    const steps = ['m', 't', 'f', 'b1'].map((name) => ({ name, status: 'succeeded' as const }))
-    const nodes = [
-      { id: 's' },
-      { id: 'm' },
-      { id: 'br', controlType: 'BRANCH' },
-      { id: 't' },
-      { id: 'f' },
+  it('끝에 붙은 분기를 제 자리로 옮기고 내부 단계를 잃지 않는다', () => {
+    const cards: RunCard[] = [
+      node('m'),
+      { id: 'ag', kind: 'AGENT', name: '에이전트' },
+      { id: 'br', kind: 'BRANCH', name: '분기' },
+      node('t'),
     ]
-    expect(inCanvasOrder(nodes, ['m', 't', 'f'], steps).map((it) => it.name)).toEqual([
+    const steps = [step('m'), step('조사'), step('요약'), step('t'), step('b1')]
+    expect(inCanvasOrder(cards, stepGroups(cards, steps)!).map((it) => it.name)).toEqual([
       'm',
+      '조사',
+      '요약',
       'b1',
       't',
-      'f',
     ])
   })
 })
@@ -188,45 +232,6 @@ describe('branchTaken', () => {
     const reached = new Set(['br', 'join'])
     expect(branchTaken('br', joined, reached, new Map())).toBeNull()
     expect(edgeWasTaken(joined[0], joined, reached, new Map())).toBe(false)
-  })
-})
-
-describe('내부 단계의 카드 경계', () => {
-  const expanded = [
-    { name: '입력', status: 'succeeded' as const },
-    { name: '내부 조사', status: 'succeeded' as const },
-    { name: '내부 요약', status: 'pending' as const },
-    { name: '결과', status: 'pending' as const },
-    { name: 'b1', status: 'pending' as const },
-  ]
-  const ids = ['input', 'agent', 'result']
-  const names = ['입력', '마켓 에이전트', '결과']
-  const types = ['NODE', 'AGENT', 'NODE'] as const
-
-  it('내부 이름이 달라도 기본 노드 사이의 에이전트 경계가 확실하면 묶는다', () => {
-    expect(cardStatuses(ids, 1, expanded, names, [...types])).toEqual(
-      new Map([
-        ['input', 'succeeded'],
-        ['agent', 'running'],
-        ['result', 'pending'],
-      ]),
-    )
-  })
-
-  it('단계 배정이 여러 가지면 상태를 지어내지 않는다', () => {
-    expect(cardStatuses(['a', 'b'], 1, expanded, ['첫째', '둘째'], ['AGENT', 'AGENT'])).toBeNull()
-  })
-
-  it('로그에서 내부 단계를 잃지 않고 분기를 제자리에 넣는다', () => {
-    const nodes = [
-      { id: 'input' },
-      { id: 'agent' },
-      { id: 'br', controlType: 'BRANCH' },
-      { id: 'result' },
-    ]
-    expect(inCanvasOrder(nodes, ids, expanded, names, [...types]).map((step) => step.name)).toEqual(
-      ['입력', '내부 조사', '내부 요약', 'b1', '결과'],
-    )
   })
 })
 
