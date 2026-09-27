@@ -35,11 +35,38 @@ type ImageProblem = { where: 'icon' | 'in' | 'out'; text: string }
 
 const FAILED = '등록에 실패했습니다. 잠시 후 다시 시도해 주세요'
 
+/** 서버가 짚어 준 칸의 화면 이름. 여기 없는 칸은 서버가 준 이름을 그대로 보여 준다. */
+const FIELD_LABEL: Record<string, string> = {
+  name: '이름',
+  summary: '한 줄 설명',
+  description: '상세 설명',
+  usageExample: '입력 예시',
+  onboardingMessage: '웰컴 메시지',
+  workflowId: '굳힐 워크플로우',
+  revision: '워크플로우 회차',
+}
+
+/**
+ * `COMMON_001` 이 어느 칸 때문인지. 서버가 `error.data` 에 `{ 칸: 사유 }` 를 실어 보낸다
+ * (`ApiControllerAdvice.handleValidationException`). 이것을 안 읽고 이름·설명을 지목하면
+ * `workflowId`·`revision` 이 빠져 막힌 사람이 엉뚱한 칸만 고치다 만다.
+ */
+function invalidFieldNames(data: unknown): string[] {
+  if (!data || typeof data !== 'object') return []
+  return Object.keys(data as Record<string, unknown>).map((key) => FIELD_LABEL[key] ?? key)
+}
+
 /** 다시 눌러도 통과하지 않는 코드는 문구를 따로 가른다 — "잠시 후 다시" 로 뭉개면 계속 누른다. */
 function describeRegisterError(error: unknown): string | null {
   if (!error) return null
   if (!(error instanceof ApiError)) return FAILED
-  if (error.code === 'COMMON_001') return '이름 · 한 줄 설명 · 상세 설명을 확인해 주세요'
+  if (error.code === 'COMMON_001') {
+    const fields = invalidFieldNames(error.data)
+    // 본문을 아예 읽지 못하면(빈 UUID 등) 짚어 줄 칸도 없이 온다.
+    return fields.length
+      ? `${fields.join(' · ')} 을(를) 확인해 주세요`
+      : '보낸 값이 올바르지 않습니다. 워크플로우를 다시 열어 주세요'
+  }
   // 사용자가 보던 회차와 굳히는 회차가 다르다. 편집 화면을 다시 열어야 한다.
   if (error.code === 'WORKFLOW_016') return '워크플로우가 그 사이 수정되었습니다. 다시 열어 주세요'
   if (error.code === 'AGENT_002' || error.code === 'WORKFLOW_003')
@@ -230,11 +257,34 @@ export default function RegisterForm() {
     ? `${paths.run.running(executionId)}?workflowId=${workflowId}`
     : paths.my.agents
 
-  /** 등록은 수정도 삭제도 되지 않아 한 번 더 묻는다. */
+  /**
+   * 등록하면 곧바로 공개되고 내릴 길이 없어 한 번 더 묻는다.
+   *
+   * 「수정 불가」는 더 이상 참이 아니다 — 서버에 `PUT /agents/{agentId}` 가 생겼다.
+   * 지우는 길만 없다(`AgentController` 에 DELETE 매핑 없음).
+   */
   const [asking, setAsking] = useState<{ name: string } | null>(null)
+  const [localProblem, setLocalProblem] = useState<string | null>(null)
+
+  /**
+   * 서버가 `@NotBlank` 로 막는 세 칸. 확인 팝업까지 가고 나서 되돌아오면 무엇을 잘못했는지
+   * 알기 어려워, 묻기 전에 먼저 본다. 위 한계는 `maxLength` 가 이미 막는다.
+   */
+  const missingFields = () => {
+    const problems: string[] = []
+    if (read(FIELD.name).length < AGENT_LIMITS.name.min) problems.push(FIELD_LABEL.name)
+    if (!read(FIELD.summary)) problems.push(FIELD_LABEL.summary)
+    if (!read(FIELD.description)) problems.push(FIELD_LABEL.description)
+    return problems
+  }
 
   const askSubmit = () => {
     if (register.isPending) return
+
+    const problems = missingFields()
+    if (problems.length) return setLocalProblem(`${problems.join(' · ')} 을(를) 채워 주세요`)
+
+    setLocalProblem(null)
     setAsking({ name: read(FIELD.name) })
   }
 
@@ -252,7 +302,8 @@ export default function RegisterForm() {
     })
   }
 
-  const errorMessage = describeRegisterError(register.error)
+  /** 보내기 전에 화면이 잡아낸 문제. 서버 오류와 같은 자리에 쓴다. */
+  const errorMessage = localProblem ?? describeRegisterError(register.error)
 
   const [inShots, setInShots] = useState<Picked[]>([])
   const [outShots, setOutShots] = useState<Picked[]>([])
@@ -533,7 +584,7 @@ export default function RegisterForm() {
                 cursor: 'not-allowed',
               }}
             />
-            {/* 자물쇠 아이콘 — 수정 불가 표시 */}
+            {/* 자물쇠 아이콘 — 이 칸은 워크플로우 이름을 따라가 고칠 수 없다는 표시 */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -843,7 +894,9 @@ export default function RegisterForm() {
         ref={confirmRef}
         open={asking ? '' : undefined}
         heading="마켓에 등록하시겠습니까?"
-        body-text={'등록 후에는 수정 및 삭제가 불가합니다.\n소유권이 블록체인에 기록됩니다.'}
+        body-text={
+          '등록하면 곧바로 공개되고, 다시 내릴 수 없습니다.\n소유권은 블록체인에 기록될 예정입니다.'
+        }
         note-text={asking?.name || undefined}
         confirm-label="등록하기"
         cancel-label="취소"

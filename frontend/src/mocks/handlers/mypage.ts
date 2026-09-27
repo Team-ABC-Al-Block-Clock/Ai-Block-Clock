@@ -74,9 +74,21 @@ export const mypageHandlers = [
 
     const body = (await request.json()) as Partial<CreateAgentRequest>
     const text = (value: string | undefined) => (value ?? '').trim()
-    // 서버가 필수로 보는 셋. `workflowId` · `revision` 도 필수지만 화면이 아직 줄 수 없다.
-    if (!text(body.name) || !text(body.summary) || !text(body.description))
-      return fail(400, 'COMMON_001', '입력값이 올바르지 않습니다.')
+
+    /**
+     * 서버가 필수로 보는 셋. `workflowId` · `revision` 도 필수지만 화면이 아직 줄 수 없어 뺐다 —
+     * 그래서 실서버에서는 막히는 등록이 여기서는 통과한다(S15P21A403-358).
+     *
+     * 어느 칸이 틀렸는지 `data` 에 실어 보내는 것까지 흉내 낸다. 서버가
+     * `ApiControllerAdvice.handleValidationException` 에서 `{ 칸: 사유 }` 를 넣는다 —
+     * 비워 두면 화면이 그 값을 쓰는지 mock 으로 확인할 수 없다.
+     */
+    const violations: Record<string, string> = {}
+    if (text(body.name).length < 2) violations.name = '2자 이상이어야 합니다'
+    if (!text(body.summary)) violations.summary = '필수 항목입니다'
+    if (!text(body.description)) violations.description = '필수 항목입니다'
+    if (Object.keys(violations).length)
+      return fail(400, 'COMMON_001', '요청 값이 올바르지 않습니다.', violations)
 
     const agent = addAgent({
       name: text(body.name),
