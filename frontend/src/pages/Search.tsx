@@ -32,6 +32,9 @@ const NOTICE_BOX = { left: '272px', top: '470px', width: '896px' } as const
  *  걸리면 backdrop 루트가 되어 카드가 바깥 배경을 못 가져온다. */
 const EMPTY_BOX = { left: '410px', top: '486px', width: '620px' } as const
 
+/** 설명이 서버 상한(80자)이면 이 폭에서 다섯 줄이다. 다 들어가는 높이로 둔다. */
+const CARD_HEIGHT = 240
+
 export default function Search() {
   /**
    * 검색어의 원본은 주소다. 상태에만 두면 새로고침하면 사라지고 링크로 공유할 수 없다 —
@@ -320,7 +323,7 @@ export default function Search() {
               href={paths.agentDetail(c.agentId)}
               style={{
                 width: '280px',
-                height: '176px',
+                height: `${CARD_HEIGHT}px`,
                 borderRadius: '14px',
                 background: `${cardBg}`,
                 boxShadow: '0 10px 34px rgba(10,4,20,.14)',
@@ -393,7 +396,7 @@ export default function Search() {
                     onClick={c.info}
                     style={{
                       width: '280px',
-                      height: '176px',
+                      height: `${CARD_HEIGHT}px`,
                       padding: '22px 24px',
                       borderRadius: '14px',
                       background: 'rgba(20,11,36,.93)',
@@ -429,8 +432,8 @@ export default function Search() {
                 </>
               )}
               <div
-                className="absolute text-[18px] font-semibold tracking-[-.01em] text-white"
-                style={{ left: '24px', top: '94px' }}
+                className="absolute truncate text-[18px] font-semibold tracking-[-.01em] text-white"
+                style={{ left: '24px', top: '94px', width: '232px' }}
               >
                 {c.name}
               </div>
