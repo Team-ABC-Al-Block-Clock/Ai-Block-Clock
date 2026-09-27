@@ -21,7 +21,6 @@ final class PlanLevel {
     private final List<PlannedNode> nodes = new ArrayList<>();
     private final List<PlannedEdge> edges = new ArrayList<>();
     private final Map<NodeKey, Placement> placements = new HashMap<>();
-    private final List<PendingBranch> pending = new ArrayList<>();
 
     private PlanLevel(String prefix, NodeKey slot, Numbering numbering) {
         this.prefix = prefix;
@@ -35,7 +34,6 @@ final class PlanLevel {
 
     PlanLevel lay(UnitGraph graph) {
         graph.units().forEach(placed -> placed.unit().place(placed.key(), this));
-        pending.forEach(this::resolve);
         graph.edges().forEach(this::connect);
 
         return this;
@@ -56,9 +54,14 @@ final class PlanLevel {
     }
 
     void branch(NodeKey key, BranchCondition condition) {
+        String source = condition.source()
+                .map(placements::get)
+                .flatMap(Placement::reference)
+                .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_BRANCH_SOURCE_AMBIGUOUS));
+        String path = condition.left().substring(condition.left().indexOf('.') + 1);
         String id = numbering.nextBranch();
-        pending.add(new PendingBranch(nodes.size(), id, condition));
-        nodes.add(null);
+
+        nodes.add(new PlannedBranch(id, source + "." + path, condition.operator(), condition.right()));
         placements.put(key, Placement.of(id));
     }
 
@@ -76,18 +79,6 @@ final class PlanLevel {
         nodes.addAll(inside.nodes);
         edges.addAll(inside.edges);
         placements.put(key, new Placement(inside.entries(), inside.terminals(), inside.soleTerminal()));
-    }
-
-    private void resolve(PendingBranch branch) {
-        BranchCondition condition = branch.condition();
-        String source = condition.source()
-                .map(placements::get)
-                .flatMap(Placement::reference)
-                .orElseThrow(() -> new CoreException(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED));
-        String path = condition.left().substring(condition.left().indexOf('.') + 1);
-
-        nodes.set(branch.index(), new PlannedBranch(branch.id(), source + "." + path, condition.operator(),
-                condition.right()));
     }
 
     private void connect(GraphEdge edge) {
@@ -128,9 +119,6 @@ final class PlanLevel {
         static Placement of(String id) {
             return new Placement(List.of(id), List.of(id), Optional.of(id));
         }
-    }
-
-    private record PendingBranch(int index, String id, BranchCondition condition) {
     }
 
     private static final class Numbering {

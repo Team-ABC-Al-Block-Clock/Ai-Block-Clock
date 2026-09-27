@@ -165,7 +165,7 @@ class RuntimeWorkflowTest {
         assertThatThrownBy(() -> ExecutionPlanner.plan(canvas))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
-                .isEqualTo(ErrorType.EXECUTION_BRANCH_NOT_SUPPORTED);
+                .isEqualTo(ErrorType.EXECUTION_BRANCH_SOURCE_AMBIGUOUS);
     }
 
     @Test
