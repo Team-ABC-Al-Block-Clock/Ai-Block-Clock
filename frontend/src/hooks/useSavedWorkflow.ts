@@ -85,6 +85,8 @@ export function useSavedWorkflow(workflowId: string | undefined) {
           summary: item.summary,
           executionCount: item.executionCount,
           owner: item.owner.nickname,
+          onboardingMessage: item.onboardingMessage,
+          usageExample: item.usageExample,
           mine: item.mine,
         },
       ]),

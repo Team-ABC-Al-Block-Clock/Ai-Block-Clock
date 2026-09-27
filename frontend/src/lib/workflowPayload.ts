@@ -140,6 +140,9 @@ export interface NodeLabel {
   /** 에이전트만. 우측 패널이 단가 옆에 함께 보여준다 */
   executionCount?: number | null
   owner?: string | null
+  /** 에이전트만. 실행 대기 화면이 첫 에이전트의 것을 인사말·입력 예시로 쓴다 */
+  onboardingMessage?: string | null
+  usageExample?: string | null
   mine: boolean
 }
 
@@ -247,6 +250,8 @@ export function toCanvasWorkflow(
       output: label?.output ?? null,
       executionCount: label?.executionCount ?? null,
       owner: label?.owner ?? null,
+      onboardingMessage: label?.onboardingMessage ?? null,
+      usageExample: label?.usageExample ?? null,
       x: RESTORE_X0 + depth * RESTORE_STEP,
       y: (branched ? RESTORE_AXIS : RESTORE_Y[depth % RESTORE_Y.length]) + lane * RESTORE_ROW,
       // 서버 판정이 먼저다. 모르는 것은 남의 것으로 둔다 — 잘못 팔 수 있게 두는 쪽이 더 나쁘다.

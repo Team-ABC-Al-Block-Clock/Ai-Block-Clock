@@ -242,6 +242,14 @@ export interface PlaceableItem {
   /** 실행 1회당 단가 */
   price: string
   summary: string | null
+  /**
+   * 판매자가 등록할 때 적은 인사말과 입력 예시. 실행 대기 화면이 첫 에이전트의 것을 쓴다.
+   *
+   * 아직 서버가 싣지 않아 늘 `undefined` 다 — `AgentEntity` 에 저장은 되는데 응답에 자리가
+   * 없어 열어 달라고 요청해 두었다. 그때까지는 화면이 기본 문구로 떨어진다.
+   */
+  onboardingMessage?: string | null
+  usageExample?: string | null
 }
 
 export interface NodePalettePage extends CursorPage<PlaceableItem> {

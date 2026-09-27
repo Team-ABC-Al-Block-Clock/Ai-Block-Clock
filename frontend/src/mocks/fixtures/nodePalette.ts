@@ -38,9 +38,36 @@ const SEEDS: Seed[] = [
   { itemId: 'agt_109',  itemType: 'AGENT', nodeType: 'AGENT',   name: '야간 배치 요약', mine: false, owner: '최싸피', iconUrl: null,    executionCount: 0,   price: '110', summary: '밤새 쌓인 로그를 아침에 요약한다' },
 ]
 
+/**
+ * 판매자가 적어 둔 인사말과 입력 예시. 실행 대기 화면이 첫 에이전트의 것을 빌려 쓴다.
+ *
+ * 표에 열을 둘 더 붙이면 한 줄에 안 들어와 분산을 훑을 수 없다. 적은 것만 여기 둔다 —
+ * 판매자가 비워 두는 쪽이 오히려 흔해서, 빠진 항목이 기본 문구로 떨어지는지도 같이 드러난다.
+ */
+const GREETINGS: Record<string, { onboardingMessage?: string; usageExample?: string }> = {
+  // 픽스처 워크플로우는 모두 이 항목으로 시작한다 — 둘 다 적힌 보통의 경우다.
+  agt_2001: {
+    onboardingMessage: '어떤 자료를 볼까요?',
+    usageExample: '올린 표에서 이번 달 것만 골라 정리해 줘',
+  },
+  agt_001: {
+    onboardingMessage: '성적표를 올려 주세요',
+    usageExample: '3학년 2반 성적표로 과목별 평균을 내고 학생별 가정통신문을 써 줘',
+  },
+  // 인사말만 적고 입력 예시는 비운 판매자. 예시만 기본 문구로 떨어지는지 볼 자리다.
+  agt_002: { onboardingMessage: '계약 조건을 표로 올려 주세요' },
+  // 상한(500자)을 꽉 채운 경우. placeholder 가 잘리고 줄임표가 붙는지 볼 자리다.
+  agt_101: {
+    usageExample:
+      `지난 분기 매출 표로 지역별 평균과 분포를 내고 ${'이상치를 표시해 줘 '.repeat(30)}`.trim(),
+  },
+}
+
 export const PLACEABLE_ITEMS: PlaceableItem[] = SEEDS.map((seed) => ({
   ...seed,
   owner: { nickname: seed.owner },
+  onboardingMessage: GREETINGS[seed.itemId]?.onboardingMessage ?? null,
+  usageExample: GREETINGS[seed.itemId]?.usageExample ?? null,
 }))
 
 /** 내 것을 먼저, 그다음 많이 쓰인 순 */
