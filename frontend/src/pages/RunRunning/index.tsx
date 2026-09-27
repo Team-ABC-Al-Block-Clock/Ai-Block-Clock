@@ -23,10 +23,12 @@ import {
   sellProblem,
   chainPositions,
   edgeGeometry,
+  nodesBounds,
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { describeCondition } from '@/lib/branchCondition'
+import { fitVerticalViewport, viewportTransform } from '@/lib/viewport'
 import { queryKeys } from '@/lib/queryKeys'
 import { resultOf, resultProblem } from '@/lib/runResult'
 import {
@@ -134,6 +136,7 @@ export default function RunRunning() {
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
+  const verticalView = useMemo(() => fitVerticalViewport(nodesBounds(defs), PANE_HEIGHT), [defs])
   /**
    * 서버가 세는 단계. 제어·입출력은 일을 하지 않아 빠진다.
    *
@@ -158,6 +161,7 @@ export default function RunRunning() {
   const groups = useMemo(() => stepGroups(cards, progress?.steps ?? []), [cards, progress?.steps])
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
   const statuses = useMemo(() => (groups ? cardStatuses(groups) : null), [groups])
+  const hasSteps = !!progress?.steps.length
 
   const canSell = canSellWorkflow(defs)
 
@@ -183,7 +187,7 @@ export default function RunRunning() {
     : -1
   const active = statuses
     ? runningAt
-    : branching
+    : branching || hasSteps
       ? -1
       : Math.min(runnable.length - 1, progress?.done ?? 0)
   /**
@@ -219,7 +223,7 @@ export default function RunRunning() {
     const i = stepAt.get(d.id)
     const status = i === undefined ? undefined : statuses?.get(d.id)
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
-    const known = i !== undefined && (!!statuses || !branching)
+    const known = i !== undefined && (statuses ? statuses.has(d.id) : !branching && !hasSteps)
     const stepDone = status ? status === 'succeeded' : known && !lost && (i < active || finished)
     const stepRunning = status ? status === 'running' : known && !lost && i === active && !finished
     const stepFailed = status === 'failed'
@@ -309,12 +313,21 @@ export default function RunRunning() {
    */
   const focusId = statuses ? runFocus(defs, statuses) : g?.id
   const focus = defs.find((node) => node.id === focusId)
-  const camera =
-    defs.length >= CAMERA_MIN_NODES && focus
-      ? Math.min(0, (PANE_CONTENT_WIDTH - NODE_SIZE) / 2 - focus.x)
-      : 0
+  const camera = {
+    ...verticalView,
+    tx:
+      defs.length >= CAMERA_MIN_NODES && focus
+        ? Math.min(
+            0,
+            (PANE_CONTENT_WIDTH - NODE_SIZE * verticalView.k) / 2 - focus.x * verticalView.k,
+          )
+        : 0,
+  }
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
-  const logLines = (groups ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
+  // 일부 카드만 짝지었으면 원래 단계를 모두 남긴다. 모호한 에이전트의 로그까지 빠지면 안 된다.
+  const logLines = (
+    groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? [])
+  )
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
     .map(stepLabel)
   const logs = logLines.map((text, i) => {
@@ -479,7 +492,8 @@ export default function RunRunning() {
             style={{
               width: `${PANE_WIDTH}px`,
               height: `${PANE_HEIGHT}px`,
-              transform: `translateX(${camera}px)`,
+              transform: viewportTransform(camera),
+              transformOrigin: '0 0',
               transition: 'transform .6s cubic-bezier(.2,.8,.25,1)',
             }}
           >

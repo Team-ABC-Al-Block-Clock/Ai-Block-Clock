@@ -11,7 +11,7 @@ export interface RunCard {
 const TOP_BRANCH = /^b\d+$/
 
 /**
- * 카드마다 제 단계를 나눠 준다. 배정이 하나로 떨어지지 않으면 `null` — 추측해 켜지 않는다.
+ * 모든 가능한 배정에서 같은 구간을 받는 카드만 제 단계를 준다. 모호한 카드만 비워 둔다.
  *
  * 서버는 캔버스 차례대로 단계를 싣고 분기를 제자리에 끼운다(`PlanLevel`). 기본 노드는 제 이름 한 단계,
  * 분기는 `b1` 같은 한 단계, 에이전트는 속 단계 여럿이다. 예전 서버는 분기를 끝에 붙였다 — 그 차례도 받는다.
@@ -25,12 +25,13 @@ export function stepGroups(
     cards.filter((card) => card.kind === 'BRANCH').map((card, i) => [card.id, `b${i + 1}`]),
   )
   const inCanvas = partition(cards, steps, branchOf)
-  if (inCanvas) return inCanvas
+  if (inCanvas) return inCanvas.size ? inCanvas : null
   const tailBranches = [
     ...cards.filter((card) => card.kind !== 'BRANCH'),
     ...cards.filter((card) => card.kind === 'BRANCH'),
   ]
-  return partition(tailBranches, steps, branchOf)
+  const legacy = partition(tailBranches, steps, branchOf)
+  return legacy?.size ? legacy : null
 }
 
 function partition(
@@ -45,10 +46,9 @@ function partition(
         ? step.name === branchOf.get(card.id)
         : !TOP_BRANCH.test(step.name)
 
-  // 두 가지 배정이 가능하면 멈춘다. 같은 이름이나 붙어 있는 에이전트 때문에 경계가 모호할 수 있다.
-  const memo = new Map<string, number[][]>()
-  const ends = (at: number, from: number): number[][] => {
-    if (at === cards.length) return from === steps.length ? [[]] : []
+  // 끝까지 배정할 수 있는 경계만 남긴다. 상태를 메모해 에이전트 조합을 전부 펼치지 않는다.
+  const memo = new Map<string, number[]>()
+  const ends = (at: number, from: number): number[] => {
     const key = `${at}:${from}`
     const cached = memo.get(key)
     if (cached) return cached
@@ -57,24 +57,32 @@ function partition(
       steps.length,
       card.kind === 'AGENT' ? steps.length - (cards.length - at - 1) : from + 1,
     )
-    const found: number[][] = []
-    for (let end = from + 1; end <= last && found.length < 2; end++) {
+    const found: number[] = []
+    for (let end = from + 1; end <= last; end++) {
       if (!fits(card, steps[end - 1])) break
-      for (const rest of ends(at + 1, end)) {
-        found.push([end, ...rest])
-        if (found.length === 2) break
-      }
+      if (at + 1 === cards.length ? end === steps.length : ends(at + 1, end).length > 0)
+        found.push(end)
     }
     memo.set(key, found)
     return found
   }
-  const choices = ends(0, 0)
-  if (choices.length !== 1) return null
+  if (ends(0, 0).length === 0) return null
   const groups = new Map<string, ExecutionStep[]>()
-  let from = 0
-  choices[0].forEach((end, i) => {
-    groups.set(cards[i].id, steps.slice(from, end))
-    from = end
+  let starts = new Set([0])
+  cards.forEach((card, at) => {
+    const spans = new Map<string, [number, number]>()
+    const next = new Set<number>()
+    for (const from of starts) {
+      for (const end of ends(at, from)) {
+        spans.set(`${from}:${end}`, [from, end])
+        next.add(end)
+      }
+    }
+    if (spans.size === 1) {
+      const [from, end] = [...spans.values()][0]
+      groups.set(card.id, steps.slice(from, end))
+    }
+    starts = next
   })
   return groups
 }

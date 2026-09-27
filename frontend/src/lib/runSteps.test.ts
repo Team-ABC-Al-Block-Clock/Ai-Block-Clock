@@ -81,6 +81,52 @@ describe('stepGroups', () => {
     ]
     expect(stepGroups(agents, [step('x'), step('y'), step('z')])).toBeNull()
   })
+
+  it.each(['canvas', 'legacy'])(
+    '에이전트 경계가 모호해도 분기와 뒤 노드는 보존한다 (%s)',
+    (order) => {
+      const cards: RunCard[] = [
+        { id: 'a', kind: 'AGENT', name: '첫째' },
+        { id: 'b', kind: 'AGENT', name: '둘째' },
+        { id: 'br', kind: 'BRANCH', name: '분기' },
+        node('t'),
+        node('f'),
+      ]
+      const work = [step('x'), step('y'), step('z')]
+      const tail = [step('t'), step('f', 'skipped')]
+      const steps =
+        order === 'canvas' ? [...work, step('b1'), ...tail] : [...work, ...tail, step('b1')]
+      const groups = stepGroups(cards, steps)!
+      expect(groups.has('a')).toBe(false)
+      expect(groups.has('b')).toBe(false)
+      const statuses = cardStatuses(groups)
+      expect(statuses.get('br')).toBe('succeeded')
+      expect(statuses.get('t')).toBe('succeeded')
+      expect(statuses.get('f')).toBe('skipped')
+      const edges = [
+        { from: 'br', to: 't', when: true },
+        { from: 'br', to: 'f', when: false },
+      ]
+      expect(branchTaken('br', edges, reachedNodes(cards, statuses, true), statuses)).toBe(true)
+    },
+  )
+
+  it('여러 경계 후보 중 처음 두 개가 같아도 확정하지 않는다', () => {
+    const cards: RunCard[] = [
+      { id: 'a', kind: 'AGENT', name: '첫째' },
+      { id: 'b', kind: 'AGENT', name: '둘째' },
+      { id: 'c', kind: 'AGENT', name: '셋째' },
+      node('end'),
+    ]
+    expect(
+      names(
+        stepGroups(
+          cards,
+          ['v', 'w', 'x', 'y', 'z', 'end'].map((name) => step(name)),
+        ),
+      ),
+    ).toEqual({ end: ['end'] })
+  })
 })
 
 describe('cardStatuses · reachedNodes', () => {
