@@ -450,6 +450,23 @@ export default function Search() {
           ))}
           {/* 이 칸이 보이면 다음 페이지를 불러온다. 마지막 페이지면 걸지 않는다. */}
           <div ref={sentinelRef} style={{ width: '100%', height: '1px' }} />
+          {isFetchNextPageError && (
+            <div
+              className="flex justify-center text-[14px]"
+              style={{ width: '100%', gap: '12px', color: 'rgba(255,236,246,.62)' }}
+            >
+              <span>다음 목록을 불러오지 못했습니다.</span>
+              <button
+                className="cursor-pointer text-white underline"
+                disabled={isFetchingNextPage}
+                onClick={() => void fetchNextPage()}
+                style={{ background: 'none', border: 0, padding: 0 }}
+                type="button"
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
