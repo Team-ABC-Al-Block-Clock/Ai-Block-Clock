@@ -41,10 +41,9 @@ describe('getMyWorkflows', () => {
     // 노드 개수와 검증 상태는 반환하지 않는다(명세 「필드 최소화」).
     // 삭제 가능 여부(registeredAsAgent·running)도 응답에 없다 — 핸들러만 아는 값이다.
     expect(Object.keys(first).sort()).toEqual([
-      'executionCount',
+      'description',
       'lastExecutedAt',
       'name',
-      'summary',
       'workflowId',
     ])
   })
@@ -78,9 +77,9 @@ describe('getMyWorkflows', () => {
     expect(byName.content.length).toBeGreaterThan(0)
     for (const workflow of byName.content) expect(workflow.name).toContain('리포트')
 
-    // 명세상 검색 대상은 이름뿐이다 — 한 줄 설명에만 있는 말은 걸리지 않는다.
-    const bySummary = await getMyWorkflows({ keyword: '폴더', size: 30 })
-    expect(bySummary.content).toHaveLength(0)
+    // 명세상 검색 대상은 이름뿐이다 — 설명에만 있는 말은 걸리지 않는다.
+    const byDescription = await getMyWorkflows({ keyword: '폴더', size: 30 })
+    expect(byDescription.content).toHaveLength(0)
   })
 
   it('sort·size 가 올바르지 않으면 COMMON_001', async () => {

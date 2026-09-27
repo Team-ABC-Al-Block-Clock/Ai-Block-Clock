@@ -70,7 +70,7 @@ function fixtureDetail(workflowId: string): WorkflowDetail | undefined {
       targetNodeKey: `n${i + 2}`,
     })),
   }
-  return toDetail(workflowId, 1, flow.name, flow.summary, graph)
+  return toDetail(workflowId, 1, flow.name, flow.description, graph)
 }
 
 /** 저장된 것이 없으면 픽스처로 지어 준다. 실행 견적 mock 도 같은 저장소를 읽는다. */

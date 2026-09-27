@@ -508,8 +508,7 @@ export default function MyAgents() {
               <WorkflowCard
                 key={flow.workflowId}
                 name={flow.name}
-                summary={flow.summary}
-                executionCount={flow.executionCount}
+                description={flow.description}
                 lastExecutedAt={flow.lastExecutedAt}
                 href={paths.edit.nodes(flow.workflowId)}
                 delay={i % PAGE_SIZE}
@@ -824,16 +823,14 @@ function AgentRow({
  */
 function WorkflowCard({
   name,
-  summary,
-  executionCount,
+  description,
   lastExecutedAt,
   href,
   delay,
   onDelete,
 }: {
   name: string
-  summary: string
-  executionCount: number
+  description: string | null
   lastExecutedAt: string | null
   href: string
   delay: number
@@ -892,7 +889,7 @@ function WorkflowCard({
         className="text-[14px] tracking-[-.01em]"
         style={{ marginTop: '9px', color: 'rgba(255,236,246,.62)' }}
       >
-        {summary}
+        {description ?? '설명이 없습니다'}
       </div>
 
       <div
@@ -904,7 +901,6 @@ function WorkflowCard({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        <div>실행 {runLabel(executionCount)}</div>
         <div>마지막 실행 {timeLabel(lastExecutedAt)}</div>
       </div>
     </a>
