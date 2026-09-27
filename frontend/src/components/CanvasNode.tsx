@@ -314,6 +314,9 @@ export default function CanvasNode({
         gap: '5px',
         // 판정을 끈 판 안에 들어가도 카드는 눌려야 한다.
         pointerEvents: 'auto',
+        // 바닥이 판정을 흘려 원 밖 네모 귀퉁이까지 눌린다. 원은 판정도 원으로 둔다.
+        // 포트는 자식이라 둥근 경계 밖으로 나와도 눌린다.
+        borderRadius: shape === 'circle' ? '50%' : undefined,
         // 끌 수 있는 카드는 터치를 브라우저에 넘기지 않는다 — 넘기면 팬으로
         // 가로채여 pointercancel 이 나고 드래그가 중간에 끊긴다.
         touchAction: draggable ? 'none' : undefined,
