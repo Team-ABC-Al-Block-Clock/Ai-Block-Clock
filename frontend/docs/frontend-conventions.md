@@ -429,6 +429,7 @@ CSRF 는 mock 이 강제하지 않는다. 발급(`GET /auth/csrf`)만 응답하�
 ## 9. Tailwind
 
 - 반복되는 것만 Tailwind, 1회성 좌표는 인라인이다. 이 프로젝트 화면은 1440×1024 고정 좌표라 좌표를 Tailwind 임의값으로 옮기면 길어지기만 하고 재사용 이득이 없다. 기준은 2회 이상 나오는 선언은 Tailwind, 1회성 수치는 인라인 style
+- 내용 길이로 높이가 바뀌는 곳은 절대 좌표 대신 세로로 쌓는다(flex column). 설명 · 리뷰 · 출력 필드처럼 서버 값이나 입력이 길어지는 자리다. 좌표로 박아 두면 긴 값이 아래 칸에 덮여 잘린다(`pages/Detail.tsx` · `EditNodes/NodeInfoPanel.tsx`)
 - 색·그림자·반경은 토큰으로 쓴다. `index.css` 의 `@theme` 에 정의하고 클래스로 쓴다(`bg-surface-card` · `text-muted` · `shadow-menu`). 토큰에 있는 값을 인라인으로 다시 박지 않는다
 - 클래스 정렬은 Prettier 에 맡긴다. `prettier-plugin-tailwindcss` 가 저장할 때 정렬하므로 손으로 맞추지 않는다
 - 조건부는 지금 세 곳 미만이라 삼항으로 충분하다. 다섯 곳을 넘으면 `clsx` + `tailwind-merge` 로 `cn()` 을 도입하고, 그 전에는 의존성을 늘리지 않는다
