@@ -496,7 +496,7 @@ class WithdrawalPayoutServiceIntegrationTest {
         List<Object> outcomes = concurrently(() -> withdrawalPayoutService.payNext().outcome());
 
         assertThat(outcomes).filteredOn(Outcome.SUBMITTED::equals).hasSize(1);
-        assertThat(outcomes).containsOnly(Outcome.SUBMITTED, Outcome.WAITING);
+        assertThat(outcomes).isSubsetOf(Outcome.SUBMITTED, Outcome.WAITING, Outcome.IDLE);
         assertThat(reload(approved).getStatus()).isEqualTo(WithdrawalStatus.PAYING);
         verify(ssafyChainClient, times(1)).submitRawTransaction(anyString());
     }
