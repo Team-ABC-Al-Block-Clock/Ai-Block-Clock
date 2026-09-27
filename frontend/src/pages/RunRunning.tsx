@@ -22,7 +22,7 @@ import {
 import { describeCondition } from '@/lib/branchCondition'
 import { queryKeys } from '@/lib/queryKeys'
 import { resultTextOf } from '@/lib/runResult'
-import { nameBranchSteps } from '@/lib/runSteps'
+import { cardStatuses, inCanvasOrder, nameBranchSteps, reachedNodes } from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
@@ -127,12 +127,7 @@ export default function RunRunning() {
    * 한 칸씩 밀려, 도는 중인 카드가 아닌 옆 카드가 켜진다.
    */
   const runnable = useMemo(() => defs.filter((node) => !node.controlType && !node.ioType), [defs])
-  /**
-   * 갈래가 있으면 어느 쪽이 도는지 알 수 없다.
-   *
-   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는데, 분기가 있으면 분기 노드와 건너뛴 갈래
-   * (`skipped`)까지 한 줄로 섞여 온다. 짝지으면 가지 않은 갈래가 켜진다. 카드·선 표시만 접는다.
-   */
+  /** 갈래가 있으면 단계를 받기 전에는 어느 쪽이 돌지 몰라 짐작해 켜지 않는다. */
   const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
   /** 불러온 캔버스는 서버가 훑은 차례라, 분기도 서버가 엔진에 싣는 차례와 같다. */
   const branchNames = useMemo(
@@ -150,6 +145,15 @@ export default function RunRunning() {
     [progress?.steps, branchNames],
   )
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
+  const statuses = useMemo(
+    () =>
+      cardStatuses(
+        runnable.map((node) => node.id),
+        branchNames.length,
+        steps,
+      ),
+    [runnable, branchNames, steps],
+  )
 
   const canSell = canSellWorkflow(defs)
 
@@ -170,18 +174,20 @@ export default function RunRunning() {
     : settled
   // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
-  const active = branching ? -1 : Math.min(runnable.length - 1, progress?.done ?? 0)
+  const runningAt = statuses
+    ? runnable.findIndex((node) => statuses.get(node.id) === 'running')
+    : -1
+  const active = statuses
+    ? runningAt
+    : branching
+      ? -1
+      : Math.min(runnable.length - 1, progress?.done ?? 0)
   /**
    * 도는 중인 단계가 카드 목록에서 몇 번째인가. 선을 칠할 때 쓴다.
    *
    * 갈래가 없을 때만 센다 — 그때는 선도 카드와 같은 차례라 선 index 와 견줄 수 있다.
    */
   const activeAt = runnable[active] ? defs.findIndex((node) => node.id === runnable[active].id) : -1
-  /**
-   * `steps` 에 nodeKey 가 없어 순서로만 짝짓는다. 에이전트는 안의 단계 수만큼 펼쳐지므로
-   * 수가 어긋나면 포기하고 진행률로만 칠한다 — 잘못 짝지으면 엉뚱한 카드가 완료로 보인다.
-   */
-  const aligned = !branching && progress && steps.length === runnable.length ? steps : null
   /**
    * 끝났는지는 진행률이 아니라 상태로 가른다. `percent: 100, status: 'RUNNING'` 인 틱이
    * 한 번 오는데, 진행률로 가르면 그동안 결과 화면이 먼저 뜬다.
@@ -207,27 +213,34 @@ export default function RunRunning() {
   const nodes = defs.map((d) => {
     // 제어·입출력은 단계가 아니다. 도는 표시도 완료 표시도 붙지 않는다.
     const i = stepAt.get(d.id)
-    const step = i === undefined ? undefined : aligned?.[i]
+    const status = i === undefined ? undefined : statuses?.get(d.id)
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
-    const known = i !== undefined && !branching
-    const stepDone = step ? step.status === 'succeeded' : known && !lost && (i < active || finished)
-    const stepRunning = step
-      ? step.status === 'running'
-      : known && !lost && i === active && !finished
-    const stepFailed = step?.status === 'failed'
+    const known = i !== undefined && (!!statuses || !branching)
+    const stepDone = status ? status === 'succeeded' : known && !lost && (i < active || finished)
+    const stepRunning = status ? status === 'running' : known && !lost && i === active && !finished
+    const stepFailed = status === 'failed'
+    const stepSkipped = status === 'skipped'
     return {
       ...d,
       background: stepRunning
         ? 'rgba(255,255,255,.17)'
         : stepDone || stepFailed
           ? 'rgba(255,255,255,.115)'
-          : 'rgba(255,255,255,.06)',
+          : stepSkipped
+            ? 'rgba(255,255,255,.03)'
+            : 'rgba(255,255,255,.06)',
       numberColor: stepRunning
         ? '#fff'
         : stepDone
           ? 'rgba(255,255,255,.9)'
           : 'rgba(255,255,255,.5)',
-      nameColor: stepRunning ? '#fff' : stepDone ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.55)',
+      nameColor: stepRunning
+        ? '#fff'
+        : stepDone
+          ? 'rgba(255,255,255,.9)'
+          : stepSkipped
+            ? 'rgba(255,255,255,.3)'
+            : 'rgba(255,255,255,.55)',
       sublabelColor: stepFailed
         ? 'rgba(255,170,194,.9)'
         : stepRunning
@@ -235,8 +248,8 @@ export default function RunRunning() {
           : stepDone
             ? 'rgba(154,208,180,.85)'
             : 'rgba(255,236,246,.4)',
-      stateLabel: step
-        ? labelOf(step.status)
+      stateLabel: status
+        ? labelOf(status)
         : !known
           ? ''
           : stepRunning
@@ -246,11 +259,19 @@ export default function RunRunning() {
               : '대기',
     }
   })
+  // 단계를 받았으면 실제로 지나간 길만 칠한다. 못 받았으면 한 줄 차례로 짐작한다.
+  const reached = statuses
+    ? reachedNodes(defs, statuses, steps.slice(runnable.length), finished)
+    : null
+  const lit = geometry.map((edge, i) => {
+    const link = edgeList.find((it) => it.id === edge.id)
+    return reached ? !!link && reached.has(link.from) && reached.has(link.to) : i < activeAt
+  })
   const edges = geometry.map((edge, i) => ({
     ...edge,
-    stroke: i < activeAt ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
+    stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
-  const liveEdges = geometry.slice(0, Math.max(0, activeAt))
+  const liveEdges = geometry.filter((_, i) => lit[i])
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
@@ -259,7 +280,15 @@ export default function RunRunning() {
   const camera =
     defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
-  const logLines = steps
+  const logLines = (
+    statuses
+      ? inCanvasOrder(
+          defs,
+          runnable.map((node) => node.id),
+          steps,
+        )
+      : steps
+  )
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
     .map((step) => step.name)
   const logs = logLines.map((text, i) => {
