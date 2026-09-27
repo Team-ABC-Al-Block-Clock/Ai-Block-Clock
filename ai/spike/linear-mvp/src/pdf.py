@@ -76,6 +76,28 @@ def markdown_to_html(md_text: str) -> str:
     return markdown.markdown(md_text, extensions=["tables", "fenced_code", "sane_lists"])
 
 
+_FONT_CSS = """<style>
+  @font-face {{ font-family: "KR"; src: url("{font}"); }}
+  body, p, h1, h2, h3, h4, h5, h6, li, td, th, div, span, b, i, em, strong, blockquote, a, small {{ font-family: "KR"; }}
+</style>"""
+
+
+def html_to_pdf(html: str, out_path: str | Path) -> Path:
+    """서식을 입힌 HTML → PDF. 한글 폰트를 <head> 끝에 끼워 넣는다(서식이 폰트를 안 정해도 한글이 나오게)."""
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    css = _FONT_CSS.format(font=find_font().as_posix())
+    if "</head>" in html:
+        html = html.replace("</head>", css + "\n</head>", 1)
+    else:
+        html = css + html
+    with out.open("wb") as f:
+        status = pisa.CreatePDF(html, dest=f, encoding="utf-8")
+    if status.err:
+        raise RuntimeError(f"PDF 생성 오류 {status.err}건")
+    return out
+
+
 def markdown_to_pdf(md_text: str, title: str, out_path: str | Path) -> Path:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)

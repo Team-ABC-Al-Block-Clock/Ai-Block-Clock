@@ -29,7 +29,7 @@ CANVAS = {"ag_brand_01": "a1", "ag_brand_02": "a2", "ag_brand_03": "a3", "ag_bra
 
 # 판매자가 노드에 붙여 두는 참고 파일 (계약 §7.1). 경로는 이 폴더 기준
 REF_FILES = {
-    "ag_brand_01": {"n1": ["ref/시장조사_체크리스트.md"], "n4": ["ref/보고서_작성가이드.pdf"]},
+    "ag_brand_01": {"n1": ["ref/시장조사_체크리스트.md"], "n4": ["ref/보고서_작성가이드.pdf", "ref/보고서_디자인_참고.png"]},
     "ag_brand_03": {"k1": ["ref/광고카피_금지표현.txt"]},
 }
 

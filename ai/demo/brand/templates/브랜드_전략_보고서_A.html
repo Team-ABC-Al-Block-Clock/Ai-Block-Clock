@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ 브랜드명 }} 브랜드 전략</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #F7F6F2;
+            font-family: "KR", sans-serif;
+            font-size: 11pt;
+            color: #2A3C3A;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .page {
+            width: 210mm;
+            height: 297mm;
+            padding: 25mm;
+            box-sizing: border-box;
+            background-color: #F7F6F2;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .page-break {
+            page-break-after: always;
+        }
+
+        header.dark-header {
+            background-color: #2A3C3A;
+            color: #FFFFFF;
+            padding: 40px;
+            margin: -25mm -25mm 0 -25mm;
+            padding-left: 25mm;
+            padding-right: 25mm;
+            padding-bottom: 30px;
+        }
+
+        header.dark-header .category {
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            margin-bottom: 2em;
+        }
+
+        header.dark-header h1 {
+            font-size: 3.8em;
+            font-weight: 900;
+            margin: 0;
+        }
+
+        header.dark-header .headline {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 0.5em 0;
+        }
+
+        header.dark-header .sub-headline {
+            font-size: 1.1em;
+            margin: 1.5em 0;
+            color: #cccccc;
+        }
+
+        header.dark-header .meta {
+            font-size: 0.9em;
+            color: #cccccc;
+            margin-top: 2.5em;
+        }
+
+        header.light-header {
+            padding: 15mm 0;
+            border-bottom: 1px solid #DDDDDD;
+            margin-bottom: 40px;
+        }
+
+        header.light-header .category {
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            margin-bottom: 1em;
+            font-weight: bold;
+        }
+
+        header.light-header h1 {
+            font-size: 2.5em;
+            font-weight: 900;
+            margin: 0;
+        }
+
+        header.light-header .description {
+            font-size: 1.1em;
+            margin-top: 1em;
+        }
+
+        .section {
+            margin-top: 50px;
+        }
+
+        .section-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin: 0 0 25px 0;
+        }
+
+        .card-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .card {
+            flex: 1;
+            background-color: #FFFFFF;
+            padding: 25px;
+            border-top: 3px solid #4DA29A;
+        }
+
+        .card .purpose-label {
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #555555;
+            margin-bottom: 10px;
+        }
+
+        .card .card-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 0 0 15px 0;
+        }
+
+        .card .card-description {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #333333;
+        }
+
+        .kv-table {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .kv-row {
+            display: flex;
+            align-items: baseline;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #EAEAEA;
+        }
+
+        .kv-row .key {
+            flex: 0 0 100px;
+            font-weight: bold;
+            font-size: 1em;
+        }
+
+        .kv-row .value {
+            flex: 1;
+            font-size: 1.1em;
+        }
+
+        .kv-row .value-pair {
+            flex: 1;
+        }
+
+        .kv-row .value-pair .title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .kv-row .value-pair .description {
+            font-size: 1em;
+            color: #555555;
+        }
+
+        .memo-box {
+            background-color: #E9ECE8;
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .memo-box .memo-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .memo-box .memo-content {
+            line-height: 1.7;
+        }
+
+        .summary-box {
+            background-color: #E9ECE8;
+            padding: 30px;
+        }
+
+        .summary-box .summary-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .summary-box .summary-content {
+            line-height: 1.7;
+        }
+
+        footer {
+            margin-top: auto;
+            padding-top: 20px;
+            font-size: 0.8em;
+            color: #888888;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer .page-number {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #2A3C3A;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="page page-break">
+        <header class="dark-header">
+            <div class="category">BRAND STRATEGY / DESIGN A</div>
+            <h1>{{ 브랜드명 }}</h1>
+            <p class="headline">{{ 헤드라인 }}</p>
+            {% if 부제 %}
+            <p class="sub-headline">{{ 부제 }}</p>
+            {% endif %}
+            <p class="meta">작성 기관 · {{ 작성기관 }} | 발행일 · {{ 발행일 }}</p>
+        </header>
+
+        <main>
+            <section class="section">
+                <h2 class="section-title">01 브랜드 목적</h2>
+                <div class="card-container">
+                    {% for 목적 in 브랜드목적_목록 %}
+                    <div class="card">
+                        <div class="purpose-label">PURPOSE 0{{ loop.index }}</div>
+                        <h3 class="card-title">{{ 목적.title }}</h3>
+                        <p class="card-description">{{ 목적.description }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">02 메시지 체계</h2>
+                <div class="kv-table">
+                    <div class="kv-row">
+                        <div class="key">핵심</div>
+                        <div class="value">{{ 메시지_핵심 }}</div>
+                    </div>
+                    <div class="kv-row">
+                        <div class="key">보조</div>
+                        <div class="value">{{ 메시지_보조 }}</div>
+                    </div>
+                    <div class="kv-row">
+                        <div class="key">일상</div>
+                        <div class="value">{{ 메시지_일상 }}</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">03 브랜드 포지셔닝</h2>
+                <div class="kv-table">
+                    <div class="kv-row">
+                        <div class="key">고객</div>
+                        <div class="value">{{ 포지셔닝_고객 }}</div>
+                    </div>
+                    <div class="kv-row">
+                        <div class="key">제품</div>
+                        <div class="value">{{ 포지셔닝_제품 }}</div>
+                    </div>
+                    <div class="kv-row">
+                        <div class="key">경험</div>
+                        <div class="value">{{ 포지셔닝_경험 }}</div>
+                    </div>
+                </div>
+            </section>
+
+            {% if 전략메모 %}
+            <div class="memo-box">
+                <div class="memo-title">전략 메모</div>
+                <div class="memo-content">{{ 전략메모 }}</div>
+            </div>
+            {% endif %}
+        </main>
+
+        <footer>
+            <span>합성 브랜드 · 사람이 작성한 디자인 예시 · LLM 실측 결과 아님</span>
+            <span class="page-number">01</span>
+        </footer>
+    </div>
+
+    <div class="page">
+        <header class="light-header">
+            <div class="category">STRATEGY DETAILS</div>
+            <h1>{{ 브랜드명 }} - 실행을 위한 전략 근거</h1>
+            <p class="description">브랜드 목적과 메시지를 실제 선택 이유로 연결합니다.</p>
+        </header>
+
+        <main>
+            <section class="section">
+                <h2 class="section-title">04 핵심 전략</h2>
+                <div class="card-container">
+                    {% for 전략 in 핵심전략_목록 %}
+                    <div class="card">
+                        <div class="purpose-label">0{{ loop.index }}</div>
+                        <h3 class="card-title">{{ 전략.title }}</h3>
+                        <p class="card-description">{{ 전략.description }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">05 선택의 이유</h2>
+                <div class="kv-table">
+                    <div class="kv-row">
+                        <div class="key">기능</div>
+                        <div class="value-pair">
+                            <div class="title">{{ 선택이유_기능_제목 }}</div>
+                            <div class="description">{{ 선택이유_기능_설명 }}</div>
+                        </div>
+                    </div>
+                    <div class="kv-row">
+                        <div class="key">경험</div>
+                        <div class="value-pair">
+                            <div class="title">{{ 선택이유_경험_제목 }}</div>
+                            <div class="description">{{ 선택이유_경험_설명 }}</div>
+                        </div>
+                    </div>
+                    <div class="kv-row">
+                        <div class="key">소재</div>
+                        <div class="value-pair">
+                            <div class="title">{{ 선택이유_소재_제목 }}</div>
+                            <div class="description">{{ 선택이유_소재_설명 }}</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">06 전략 총평</h2>
+                <div class="summary-box">
+                    <div class="summary-title">{{ 총평_제목 }}</div>
+                    <div class="summary-content">{{ 총평_내용 }}</div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <span>합성 브랜드 · 사람이 작성한 디자인 예시 · LLM 실측 결과 아님</span>
+            <span class="page-number">02</span>
+        </footer>
+    </div>
+
+</body>
+</html>
+<!-- placeholders: 브랜드명, 헤드라인, 부제, 작성기관, 발행일, 브랜드목적_목록, 메시지_핵심, 메시지_보조, 메시지_일상, 포지셔닝_고객, 포지셔닝_제품, 포지셔닝_경험, 전략메모, 핵심전략_목록, 선택이유_기능_제목, 선택이유_기능_설명, 선택이유_경험_제목, 선택이유_경험_설명, 선택이유_소재_제목, 선택이유_소재_설명, 총평_제목, 총평_내용 -->

@@ -5,7 +5,8 @@
 | 목적 | 1단계(판매자 한 사람의 워크플로우)가 **나뉘고 · 합쳐지고 · 갈라지고 · 다시 만나는** 것을 한 실행으로 보여 준다 |
 | 정의 파일 | `ai/spike/linear-mvp/workflows/brand_agent.json` |
 | 입력 | **시연** `ai/demo/brand/brief_high.json`(칫솔 → high) · `brief_low.json`(클라이밍 테이프 → low). 테스트용 `ai/spike/linear-mvp/data/brand_brief.json`(간편식 → low) |
-| 참고 파일 | `ai/demo/brand/ref/` — 시장 조사 체크리스트(md) · 보고서 작성 가이드(PDF) · 광고 카피 금지 표현(txt) |
+| 참고 파일 | `ai/demo/brand/ref/` — 시장 조사 체크리스트(md) · 보고서 작성 가이드(PDF) · 보고서 디자인 참고(png) · 광고 카피 금지 표현(txt) |
+| 사용자 사진 | `ai/demo/brand/photos/소소칫솔_시제품.jpg` — 실행 때 올린다. **모든 노드**가 본다(계약 §7.1). 사진은 직접 촬영해 넣는다(`photos/README.md`) |
 | 실패 시연 | `ai/demo/brand/failure/README.md` — 사용자 · 판매자 · 플랫폼 책임 3케이스 |
 | 계약 | `integration-guide.md` **v2.1** §5(워크플로우 정의 · 출력 예시) · §6(봉투) |
 | 버전 | v2.1 · 09-26 저녁 (계약 v2.1 — 견본 삭제, 출력 JSON 예시. v2.0 같은 날: 입력 형식 없음 · ABC 없음 · 기본 모델 Pro) |
@@ -48,9 +49,10 @@ uv run python -m src.runner --workflow brand_agent --input ../../demo/brand/brie
 uv run python -m src.runner --workflow brand_agent --input ../../demo/brand/brief_high.json --mock \
     --mock-set "biz.market_research@1.competition_level=low"
 
-# 실호출 (GMS 크레딧 · 약 90초 · $0.03) — 참고 파일 포함
-uv run python -m src.runner --workflow brand_agent --input ../../demo/brand/brief_low.json \
-    --ref "n1=../../demo/brand/ref/시장조사_체크리스트.md" --ref "n4=../../demo/brand/ref/보고서_작성가이드.pdf"
+# 실호출 (GMS 크레딧 · 약 90초 · $0.03) — 사용자 사진 + 판매자 참고 파일
+uv run python -m src.runner --workflow brand_agent --input ../../demo/brand/brief_high.json \
+    --file ../../demo/brand/photos/소소칫솔_시제품.jpg \
+    --ref "n1=../../demo/brand/ref/시장조사_체크리스트.md" --ref "n4=../../demo/brand/ref/보고서_디자인_참고.png"
 
 # 정의만 검증 (실행하지 않는다)
 uv run python -c "import json;from src import graph,runner;print(graph.validate(runner.load_workflow('brand_agent')))"
