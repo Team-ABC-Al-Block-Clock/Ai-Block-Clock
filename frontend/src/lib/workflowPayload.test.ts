@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { CANVAS_EDGES, CANVAS_NODES, type CanvasEdge, type CanvasNodeData } from './canvasWorkflow'
+import { CANVAS_EDGES, CANVAS_NODES } from '@/test/canvasFixture'
+
+import type { CanvasEdge, CanvasNodeData } from './canvasWorkflow'
 import type { WorkflowDetail } from '@/api/workflows'
 
 import { toCanvasWorkflow, toWorkflowGraph } from './workflowPayload'
