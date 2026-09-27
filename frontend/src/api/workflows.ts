@@ -5,9 +5,8 @@ import type { CursorPage, CursorParams } from '@/api/page'
 export interface WorkflowSummary {
   workflowId: string
   name: string
-  /** 한 줄 설명 */
-  summary: string
-  executionCount: number
+  /** 저장할 때 적은 설명. 안 적었으면 null */
+  description: string | null
   /** 아직 실행하지 않았으면 null */
   lastExecutedAt: string | null
 }
