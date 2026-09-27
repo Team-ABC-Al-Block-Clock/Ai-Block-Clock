@@ -57,6 +57,7 @@ function Block({ block }: { block: MarkdownBlock }) {
       return (
         <List
           className="m-0 flex flex-col"
+          start={block.ordered ? block.start : undefined}
           style={{
             paddingLeft: '20px',
             gap: '4px',
@@ -65,7 +66,19 @@ function Block({ block }: { block: MarkdownBlock }) {
         >
           {block.items.map((item, i) => (
             <li key={i}>
-              <Inline text={item} />
+              <Inline text={item.text} />
+              {item.children.length > 0 && (
+                <ul
+                  className="m-0 flex flex-col"
+                  style={{ paddingLeft: '18px', gap: '2px', listStyle: 'circle', marginTop: '2px' }}
+                >
+                  {item.children.map((child, c) => (
+                    <li key={c}>
+                      <Inline text={child} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </List>

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 
-import type { ExecutionFailure, StepStatus } from '@/api/executions'
+import type { ExecutionFailure, ExecutionStep, StepStatus } from '@/api/executions'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
 import { downloadResult, fetchResult, type ResultFormat } from '@/api/executions'
 import { ApiError, EXECUTION_ERROR } from '@/api/errors'
@@ -10,24 +10,36 @@ import { useRunProgress } from '@/hooks/useRunProgress'
 import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
 import CanvasNode from '@/components/CanvasNode'
 import ControlNode from '@/components/ControlNode'
-import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
+import CanvasPane, {
+  PANEL_CLIP,
+  PANE_CONTENT_WIDTH,
+  PANE_HEIGHT,
+  PANE_WIDTH,
+} from '@/components/CanvasPane'
 import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
   canSellWorkflow,
+  NODE_SIZE,
+  sellProblem,
   chainPositions,
   edgeGeometry,
+  nodesBounds,
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
 import { describeCondition } from '@/lib/branchCondition'
+import { fitVerticalViewport, viewportTransform } from '@/lib/viewport'
 import { queryKeys } from '@/lib/queryKeys'
 import { resultOf, resultProblem } from '@/lib/runResult'
 import {
   branchTaken,
   cardStatuses,
+  edgeWasTaken,
   inCanvasOrder,
-  nameBranchSteps,
   reachedNodes,
+  runFocus,
+  stepGroups,
+  type RunCard,
 } from '@/lib/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
@@ -46,10 +58,6 @@ const EMPTY_EDGES: CanvasEdge[] = []
  * 마지막 카드의 오른쪽 끝이 968 이고 패널 앞 경계가 980 이다.
  */
 const CAMERA_MIN_NODES = 6
-/** 앞에 남겨 두는 자리 수. 세 번째 카드에 닿을 때부터 밀린다. */
-const CAMERA_LEAD = 2
-/** 한 칸 보폭. 카드를 늘어놓는 간격과 같다. */
-const CAMERA_STEP = 197
 
 /** 실행 엔진이 매기는 오류 코드. 없는 코드가 와도 화면이 비지 않게 기본 문구를 둔다. */
 const FAILURE_TEXT: Record<string, string> = {
@@ -128,6 +136,7 @@ export default function RunRunning() {
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
+  const verticalView = useMemo(() => fitVerticalViewport(nodesBounds(defs), PANE_HEIGHT), [defs])
   /**
    * 서버가 세는 단계. 제어·입출력은 일을 하지 않아 빠진다.
    *
@@ -137,31 +146,22 @@ export default function RunRunning() {
   const runnable = useMemo(() => defs.filter((node) => !node.controlType && !node.ioType), [defs])
   /** 갈래가 있으면 단계를 받기 전에는 어느 쪽이 돌지 몰라 짐작해 켜지 않는다. */
   const branching = useMemo(() => defs.some((node) => node.controlType), [defs])
-  /** 불러온 캔버스는 서버가 훑은 차례라, 분기도 서버가 엔진에 싣는 차례와 같다. */
-  const branchNames = useMemo(
+  /** 단계를 가진 카드. 불러온 캔버스는 서버가 훑은 차례라 서버가 엔진에 싣는 차례와 같다. */
+  const cards = useMemo<RunCard[]>(
     () =>
       defs
-        .filter((node) => node.controlType)
-        .map(
-          (node) =>
-            `${node.name} · ${describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)}`,
-        ),
+        .filter((node) => !node.ioType)
+        .map((node) => ({
+          id: node.id,
+          kind: node.controlType ? 'BRANCH' : node.sourceType === 'AGENT' ? 'AGENT' : 'NODE',
+          name: node.name,
+        })),
     [defs],
   )
-  const steps = useMemo(
-    () => nameBranchSteps(progress?.steps ?? [], branchNames),
-    [progress?.steps, branchNames],
-  )
+  const groups = useMemo(() => stepGroups(cards, progress?.steps ?? []), [cards, progress?.steps])
   const stepAt = useMemo(() => new Map(runnable.map((node, i) => [node.id, i])), [runnable])
-  const statuses = useMemo(
-    () =>
-      cardStatuses(
-        runnable.map((node) => node.id),
-        branchNames.length,
-        steps,
-      ),
-    [runnable, branchNames, steps],
-  )
+  const statuses = useMemo(() => (groups ? cardStatuses(groups) : null), [groups])
+  const hasSteps = !!progress?.steps.length
 
   const canSell = canSellWorkflow(defs)
 
@@ -196,7 +196,7 @@ export default function RunRunning() {
     : -1
   const active = statuses
     ? runningAt
-    : branching
+    : branching || hasSteps
       ? -1
       : Math.min(runnable.length - 1, progress?.done ?? 0)
   /**
@@ -232,7 +232,7 @@ export default function RunRunning() {
     const i = stepAt.get(d.id)
     const status = i === undefined ? undefined : statuses?.get(d.id)
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
-    const known = i !== undefined && (!!statuses || !branching)
+    const known = i !== undefined && (statuses ? statuses.has(d.id) : !branching && !hasSteps)
     const stepDone = status ? status === 'succeeded' : known && !lost && (i < active || finished)
     const stepRunning = status ? status === 'running' : known && !lost && i === active && !finished
     const stepFailed = status === 'failed'
@@ -277,51 +277,68 @@ export default function RunRunning() {
     }
   })
   // 단계를 받았으면 실제로 지나간 길만 칠한다. 못 받았으면 한 줄 차례로 짐작한다.
-  const reached = statuses
-    ? reachedNodes(defs, statuses, steps.slice(runnable.length), finished)
-    : null
+  const reached = statuses ? reachedNodes(defs, statuses, finished) : null
   const lit = geometry.map((edge, i) => {
     const link = edgeList.find((it) => it.id === edge.id)
-    return reached ? !!link && reached.has(link.from) && reached.has(link.to) : i < activeAt
+    return reached && statuses
+      ? !!link && edgeWasTaken(link, edgeList, reached, statuses)
+      : i < activeAt
   })
   const edges = geometry.map((edge, i) => ({
     ...edge,
     stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
   }))
   const liveEdges = geometry.filter((_, i) => lit[i])
-  /** 분기 카드 밑 한 줄. 판정이 나면 포트 이름과 같은 true·false 를 뒤에 붙인다. */
-  const branchLabel = (node: CanvasNodeData) => {
-    const condition = describeCondition(
-      node.condition,
-      (id) => defs.find((it) => it.id === id)?.name,
-    )
-    const taken = reached && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
-    return taken === null ? condition : `${condition} →\u00a0${taken}`
+  const branchCondition = (node: CanvasNodeData) =>
+    describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)
+  /** 판정은 포트 이름과 같은 true·false 로 적는다. 아직 모르면 null. */
+  const branchVerdict = (node: CanvasNodeData) => {
+    const taken =
+      reached?.has(node.id) && statuses ? branchTaken(node.id, edgeList, reached, statuses) : null
+    return taken === null ? null : `→ ${taken}`
   }
-  /** 로그와 실패 안내에 쓰는 이름. 분기는 판정이 나면 결과까지 붙인다. */
-  const labeledSteps = nameBranchSteps(
-    progress?.steps ?? [],
-    defs.filter((node) => node.controlType).map((node) => `${node.name} · ${branchLabel(node)}`),
-  )
+  const branchCards = defs.filter((node) => node.controlType)
+  const branchLabel = (node: CanvasNodeData) =>
+    [`${node.name} · ${branchCondition(node)}`, branchVerdict(node)].filter(Boolean).join(' ')
+  const ownerOf = (step: ExecutionStep) =>
+    groups && defs.find((node) => groups.get(node.id)?.includes(step))
+  /**
+   * 로그와 실패 안내에 쓰는 이름. 서버가 분기에 이름을 싣지 않아 엔진은 `b1`·`a1.b1` 같은 id 를 돌려준다.
+   *
+   * 캔버스 분기는 조건과 판정까지 붙이고, 에이전트 속 분기는 어느 에이전트의 것인지만 적는다.
+   */
+  const stepLabel = (step: ExecutionStep) => {
+    const owner = ownerOf(step)
+    if (owner?.controlType) return branchLabel(owner)
+    if (owner && /(^|\.)b\d+$/.test(step.name)) return `${owner.name} · 분기`
+    const top = /^b(\d+)$/.exec(step.name)
+    const branch = top && !groups ? branchCards[Number(top[1]) - 1] : undefined
+    return branch ? branchLabel(branch) : step.name
+  }
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
    *
-   * 앞의 두 자리는 그대로 두고 세 번째부터 밀어, 지금 도는 카드가 늘 화면 가운데쯤에 온다.
+   * 카드의 실제 위치를 기준으로 가운데에 둔다. 완료·실패 때도 마지막 위치를 유지한다.
    */
-  const camera =
-    defs.length >= CAMERA_MIN_NODES ? -Math.max(0, active - CAMERA_LEAD) * CAMERA_STEP : 0
+  const focusId = statuses ? runFocus(defs, statuses) : g?.id
+  const focus = defs.find((node) => node.id === focusId)
+  const camera = {
+    ...verticalView,
+    tx:
+      defs.length >= CAMERA_MIN_NODES && focus
+        ? Math.min(
+            0,
+            (PANE_CONTENT_WIDTH - NODE_SIZE * verticalView.k) / 2 - focus.x * verticalView.k,
+          )
+        : 0,
+  }
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
+  // 일부 카드만 짝지었으면 원래 단계를 모두 남긴다. 모호한 에이전트의 로그까지 빠지면 안 된다.
   const logLines = (
-    statuses
-      ? inCanvasOrder(
-          defs,
-          runnable.map((node) => node.id),
-          labeledSteps,
-        )
-      : labeledSteps
+    groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? [])
   )
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
-    .map((step) => step.name)
+    .map(stepLabel)
   const logs = logLines.map((text, i) => {
     const last = i === logLines.length - 1 && !finished
     return {
@@ -419,6 +436,8 @@ export default function RunRunning() {
     pctR +
     '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
+  const currentStep = progress?.steps.findLast((it) => it.name === progress.currentStepName)
+  const failedStep = progress?.steps.findLast((it) => it.name === progress.failure?.stepName)
   const failureNotice = run.missing
     ? '워크플로우를 다시 실행해 주세요.'
     : lost
@@ -426,10 +445,7 @@ export default function RunRunning() {
       : progress?.failure
         ? describeFailure({
             ...progress.failure,
-            stepName:
-              labeledSteps[
-                progress.steps.findLastIndex((it) => it.name === progress.failure?.stepName)
-              ]?.name ?? progress.failure.stepName,
+            stepName: failedStep ? stepLabel(failedStep) : progress.failure.stepName,
           })
         : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 
@@ -442,7 +458,7 @@ export default function RunRunning() {
         : finished
           ? '실행 완료'
           : progress
-            ? (progress.currentStepName ??
+            ? ((currentStep ? stepLabel(currentStep) : progress.currentStepName) ??
               (progress.total > 0 && progress.done >= progress.total
                 ? '결과를 정리하는 중'
                 : '실행을 준비하는 중'))
@@ -453,8 +469,9 @@ export default function RunRunning() {
     ? ''
     : progress
       ? `${progress.done} / ${progress.total} 단계`
-      : defs.length
-        ? `${finished ? defs.length : active + 1} / ${defs.length} 단계`
+      : runnable.length
+        ? // 서버처럼 작업 단계만 세고, 진행을 받기 전에는 끝난 단계가 없다.
+          `0 / ${runnable.length} 단계`
         : ''
 
   useEffect(() => () => clearTimeout(copyTimer.current), [])
@@ -484,7 +501,8 @@ export default function RunRunning() {
             style={{
               width: `${PANE_WIDTH}px`,
               height: `${PANE_HEIGHT}px`,
-              transform: `translateX(${camera}px)`,
+              transform: viewportTransform(camera),
+              transformOrigin: '0 0',
               transition: 'transform .6s cubic-bezier(.2,.8,.25,1)',
             }}
           >
@@ -518,7 +536,8 @@ export default function RunRunning() {
                   <ControlNode
                     key={n.id}
                     kind={kind}
-                    sublabel={n.controlType ? branchLabel(n) : undefined}
+                    sublabel={n.controlType ? branchCondition(n) : undefined}
+                    note={(n.controlType && branchVerdict(n)) || undefined}
                     x={n.x}
                     y={n.y}
                     floaty={n.floaty}
@@ -705,13 +724,16 @@ export default function RunRunning() {
               {logs.map((l, i) => (
                 <div
                   key={i}
-                  className="flex items-center"
+                  className="flex items-start"
                   style={{ gap: '8px', animation: 'lineIn .34s ease both' }}
                 >
-                  <StatusDot size={6} color={l.dot} />
+                  {/* 분기 줄은 조건과 판정까지 적어 길다. 자르면 판정이 사라져 줄을 바꾼다. */}
+                  <div className="flex flex-none" style={{ height: '27px', alignItems: 'center' }}>
+                    <StatusDot size={6} color={l.dot} />
+                  </div>
                   <div
-                    className="overflow-hidden text-[18px] tracking-[-.005em] whitespace-nowrap"
-                    style={{ color: l.color, textOverflow: 'ellipsis' }}
+                    className="min-w-0 text-[18px] tracking-[-.005em]"
+                    style={{ color: l.color, overflowWrap: 'anywhere' }}
                   >
                     {l.text}
                   </div>
@@ -868,13 +890,7 @@ export default function RunRunning() {
                     href: registerHref,
                   }
                 : {})}
-              title={
-                canSell
-                  ? canSellNow
-                    ? undefined
-                    : '워크플로우를 읽는 중입니다'
-                  : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
-              }
+              title={sellProblem(defs) ?? (canSellNow ? undefined : '워크플로우를 읽는 중입니다')}
               aria-disabled={!canSellNow}
               style={{
                 left: '237px',

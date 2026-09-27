@@ -65,6 +65,18 @@ export interface ContentBox {
  */
 export const FIT_MARGIN = 12
 
+/** 대기·실행 화면은 세로로 끌 수 없다. 높이가 넘치면 카드와 선을 함께 줄여 전부 보이게 한다. */
+export function fitVerticalViewport(
+  content: ContentBox | null,
+  height: number,
+  top = 140,
+  bottom = 24,
+): Viewport {
+  if (!content || (content.minY >= top && content.maxY <= height - bottom)) return INITIAL_VIEWPORT
+  const k = Math.min(1, (height - top - bottom) / Math.max(1, content.maxY - content.minY))
+  return { tx: 0, ty: top - content.minY * k, k }
+}
+
 /**
  * 담긴 것이 다 보이도록 맞춘 창.
  *

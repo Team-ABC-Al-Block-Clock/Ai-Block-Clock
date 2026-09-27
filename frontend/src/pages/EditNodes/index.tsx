@@ -30,6 +30,7 @@ import {
   graphProblem,
   isConditionSource,
   runProblem,
+  sellProblem,
   upstreamOf,
 } from '@/lib/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
@@ -37,7 +38,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { describeCondition } from '@/lib/branchCondition'
 import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
 import type { NodeValues } from '@/lib/canvasReducer'
-import { EXAMPLE_INVALID, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
+import { outputDraftProblem, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
 import { toWorkflowGraph } from '@/lib/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
@@ -341,6 +342,12 @@ export default function EditNodes() {
   const targets = targetsOf(nodes)
   const unsentFiles = refFiles.unsentIn(Object.keys(targets))
   const unsentNotice = unsentFiles ? `참고 자료 ${unsentFiles}개가 붙지 않았습니다` : null
+  // 실행이 막힌 까닭도 버튼 아래에 적는다. 비활성 버튼의 툴팁은 보이지 않는 브라우저가 있다.
+  // 원본을 못 고치면 캔버스에는 고친 값이 남고 서버는 예전 값을 든다. 워크플로우 저장은 원본을 건드리지 않는다.
+  const editError = editOriginal.isError
+    ? '노드를 서버에 고치지 못했습니다. 다시 저장해 주세요'
+    : null
+  const statusNotice = saveError ?? editError ?? saveBlocked ?? unsentNotice ?? runBlocked
   const g = nodes.find((node) => node.id === hovId) ?? n // 빛은 호버 중인 노드를 따라간다
   const selRing: CSSProperties = g
     ? {
@@ -416,7 +423,8 @@ export default function EditNodes() {
       mine: null,
       ...(kind === 'BRANCH' ? { controlType: 'BRANCH' as const } : { ioType: kind }),
     })
-    closeAddPanel()
+    // 패널만 닫는다. 적던 노드 초안과 붙인 자료는 × 로 닫을 때처럼 남긴다.
+    handleTogglePanel()
   }
 
   /** 시작·종료는 저마다 하나뿐이다. 둘을 놓으면 서버가 `WORKFLOW_013` 으로 물린다. */
@@ -909,7 +917,7 @@ export default function EditNodes() {
                   draftFilled
                     ? '노드를 만들어 팔레트에 넣습니다'
                     : !draftOutput
-                      ? EXAMPLE_INVALID
+                      ? (outputDraftProblem(draft.output) ?? undefined)
                       : '이름과 프롬프트를 적어 주세요'
                 }
                 style={{
@@ -962,7 +970,7 @@ export default function EditNodes() {
           {save.isPending ? '저장 중…' : saved && !dirty ? '저장됨' : '저장'}
         </button>
 
-        {(saveError ?? saveBlocked ?? unsentNotice) && (
+        {statusNotice && (
           <div
             className="absolute text-center text-[13px] tracking-[-.005em]"
             style={{
@@ -970,13 +978,18 @@ export default function EditNodes() {
               left: 'calc(760px + var(--edge, 0px))',
               top: 'calc(974px + var(--edge-y, 0px))',
               width: '240px',
-              color: (saveError ?? unsentNotice) ? 'rgba(255,196,214,.9)' : 'rgba(255,236,246,.6)',
-              // 저장이 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
+              color:
+                statusNotice === saveError ||
+                statusNotice === editError ||
+                statusNotice === unsentNotice
+                  ? 'rgba(255,196,214,.9)'
+                  : 'rgba(255,236,246,.6)',
+              // 막힌 까닭은 회색, 실패는 분홍. 둘 다 있으면 막힌 까닭을 먼저 보여준다.
             }}
           >
-            {saveError ?? saveBlocked ?? unsentNotice}
+            {statusNotice}
             {/* 저장 버튼은 이미 「저장됨」이라 다시 눌리지 않는다. 보낼 길을 여기 둔다. */}
-            {!saveError && !saveBlocked && unsentNotice && (
+            {statusNotice === unsentNotice && (
               <button
                 type="button"
                 onClick={() => void refFiles.flush(targets)}
@@ -1114,7 +1127,7 @@ export default function EditNodes() {
           title={
             canSell
               ? '실행이 끝나면 완료 화면에서 마켓에 등록할 수 있어요'
-              : '다른 사람의 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+              : (sellProblem(nodes) ?? undefined)
           }
           style={{
             height: '28px',

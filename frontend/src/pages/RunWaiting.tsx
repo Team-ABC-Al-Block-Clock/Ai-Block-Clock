@@ -17,9 +17,12 @@ import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
 import {
   chainPositions,
   edgeGeometry,
+  nodesBounds,
   type CanvasEdge,
   type CanvasNodeData,
 } from '@/lib/canvasWorkflow'
+import { describeCondition } from '@/lib/branchCondition'
+import { fitVerticalViewport, viewportTransform } from '@/lib/viewport'
 import { amountLabel, priceLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { useNavigate } from 'react-router-dom'
@@ -111,6 +114,7 @@ export default function RunWaiting() {
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(nodes, edgeList), [nodes, edgeList])
   const chainAt = useMemo(() => chainPositions(nodes, edgeList), [nodes, edgeList])
+  const view = useMemo(() => fitVerticalViewport(nodesBounds(nodes), PANE_HEIGHT), [nodes])
 
   /**
    * 맨 앞 에이전트. 판매자가 적어 둔 인사말과 입력 예시를 이 화면이 빌려 쓴다.
@@ -276,50 +280,60 @@ export default function RunWaiting() {
             pointerEvents: 'none',
           }}
         >
-          <CanvasEdgeLayer clip={false}>
-            <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
-              {geometry.map((edge) => (
-                <path
-                  key={edge.id}
-                  d={edge.d}
-                  fill="none"
-                  stroke="rgba(255,255,255,.26)"
-                  strokeWidth="3.4"
-                />
-              ))}
-            </g>
-          </CanvasEdgeLayer>
+          <div style={{ transform: viewportTransform(view), transformOrigin: '0 0' }}>
+            <CanvasEdgeLayer clip={false}>
+              <g style={{ animation: 'fadeIn .5s .5s ease backwards' }}>
+                {geometry.map((edge) => (
+                  <path
+                    key={edge.id}
+                    d={edge.d}
+                    fill="none"
+                    stroke="rgba(255,255,255,.26)"
+                    strokeWidth="3.4"
+                  />
+                ))}
+              </g>
+            </CanvasEdgeLayer>
 
-          {nodes.map((node) => {
-            // 제어·입출력은 돌지 않는다. 「대기」를 붙이면 차례를 기다리는 것처럼 보인다.
-            const kind = node.controlType ?? node.ioType
-            if (kind)
+            {nodes.map((node) => {
+              // 제어·입출력은 돌지 않는다. 「대기」를 붙이면 차례를 기다리는 것처럼 보인다.
+              const kind = node.controlType ?? node.ioType
+              if (kind)
+                return (
+                  <ControlNode
+                    key={node.id}
+                    kind={kind}
+                    sublabel={
+                      node.controlType
+                        ? describeCondition(
+                            node.condition,
+                            (id) => nodes.find((it) => it.id === id)?.name,
+                          )
+                        : undefined
+                    }
+                    x={node.x}
+                    y={node.y}
+                    floaty={node.floaty}
+                    enter={node.enter}
+                  />
+                )
               return (
-                <ControlNode
+                <CanvasNode
                   key={node.id}
-                  kind={kind}
+                  index={chainAt?.get(node.id)}
+                  name={node.name}
+                  sublabel="대기"
                   x={node.x}
                   y={node.y}
+                  mine={node.mine}
                   floaty={node.floaty}
                   enter={node.enter}
+                  background="rgba(255,255,255,.075)"
+                  numberColor="rgba(255,255,255,.9)"
                 />
               )
-            return (
-              <CanvasNode
-                key={node.id}
-                index={chainAt?.get(node.id)}
-                name={node.name}
-                sublabel="대기"
-                x={node.x}
-                y={node.y}
-                mine={node.mine}
-                floaty={node.floaty}
-                enter={node.enter}
-                background="rgba(255,255,255,.075)"
-                numberColor="rgba(255,255,255,.9)"
-              />
-            )
-          })}
+            })}
+          </div>
         </div>
       </CanvasPane>
 

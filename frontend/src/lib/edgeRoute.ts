@@ -81,9 +81,11 @@ function search(
   const goal = { x: snap(to.x - reach), y: snap(to.y) }
   // 곧은 구간은 제 카드 속을 지나므로 그것만 예외.
   const half = NODE_SIZE / 2
-  const mine = (box: Box, center: Point) =>
-    Math.abs((box.x0 + box.x1) / 2 - center.x) < 0.5 &&
-    Math.abs((box.y0 + box.y1) / 2 - center.y) < 0.5
+  // 분기 포트는 카드 중심에서 위·아래로 옮겨져 있다. 카드 소유 여부는
+  // 포트가 놓인 변과 카드 높이 범위로 판정한다.
+  const mine = (box: Box, port: Point) =>
+    Math.abs((box.x0 + box.x1) / 2 - port.x) < 0.5 &&
+    port.y > box.y0 + EPS && port.y < box.y1 - EPS
   const others = (center: Point) => boxes.filter((box) => !mine(box, center))
   if (!open(others({ x: from.x - half, y: from.y }), from, start)) return null
   if (!open(others({ x: to.x + half, y: to.y }), goal, to)) return null

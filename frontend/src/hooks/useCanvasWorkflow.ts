@@ -10,6 +10,7 @@ import {
 } from '@/lib/canvasReducer'
 import {
   NODE_SIZE,
+  type CanvasBounds,
   type CanvasCondition,
   type CanvasEdge,
   type CanvasNodeData,
@@ -428,7 +429,11 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
 
   /** 팔레트에서 끌어온 항목을 커서가 카드 한가운데를 잡고 있는 것처럼 놓는다. */
   /** 놓은 카드의 id 를 돌려준다 — 붙일 참고 자료를 그 카드 앞으로 옮겨 둬야 한다. */
-  const placeFromPalette = (seed: Omit<PlacedSeed, 'id'>, point: { x: number; y: number }) => {
+  const placeFromPalette = (
+    seed: Omit<PlacedSeed, 'id'>,
+    point: { x: number; y: number },
+    bounds?: CanvasBounds,
+  ) => {
     placedCount.current += 1
     const id = `placed-${placedCount.current}`
     dispatch({
@@ -436,6 +441,7 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
       seed: { ...seed, id },
       x: point.x - NODE_SIZE / 2,
       y: point.y - NODE_SIZE / 2,
+      bounds,
     })
     return id
   }
@@ -475,10 +481,21 @@ export function useCanvasWorkflow(seeds?: PlacedSeed[]) {
         Math.max(at, (-offset + half * view.k) / view.k),
         (span - offset - half * view.k) / view.k,
       )
-    return placeFromPalette(seed, {
-      x: inView(beside, view.tx, PANE_CONTENT_WIDTH),
-      y: inView((bounds.minY + bounds.maxY) / 2, view.ty, PANE_HEIGHT),
-    })
+    // 겹침을 풀며 밀려날 때도 보이는 판 안에 머물게 한다. 범위는 카드 왼쪽 위 기준이다.
+    const visible: CanvasBounds = {
+      minX: -view.tx / view.k,
+      maxX: (PANE_CONTENT_WIDTH - view.tx) / view.k - NODE_SIZE,
+      minY: -view.ty / view.k,
+      maxY: (PANE_HEIGHT - view.ty) / view.k - NODE_SIZE,
+    }
+    return placeFromPalette(
+      seed,
+      {
+        x: inView(beside, view.tx, PANE_CONTENT_WIDTH),
+        y: inView((bounds.minY + bounds.maxY) / 2, view.ty, PANE_HEIGHT),
+      },
+      visible,
+    )
   }
 
   useEffect(() => {

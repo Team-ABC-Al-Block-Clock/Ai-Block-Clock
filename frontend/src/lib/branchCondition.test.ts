@@ -47,6 +47,21 @@ describe('parseConditionRight', () => {
     expect(parseConditionRight('high', 'EQ')).toBe('high')
   })
 
+  it('둘째 이후 값의 따옴표 안 쉼표를 보존한다', () => {
+    expect(parseConditionRight('high, "a,b", "c,d"', 'IN')).toEqual(['high', 'a,b', 'c,d'])
+    expect(parseConditionRight('high, "a,b"', 'IN', 'string')).toEqual(['high', 'a,b'])
+  })
+
+  it('따옴표·역슬래시·빈 문자열도 재적용할 때 보존한다', () => {
+    const values = ['high', 'a"b,c', 'a\\b', '', ' true ', '줄\n바꿈']
+    expect(parseConditionRight(formatConditionRight(values), 'IN')).toEqual(values)
+    expect(parseConditionRight(formatConditionRight(values), 'IN', 'string')).toEqual(values)
+  })
+
+  it.each(['high, "a,b', 'high,,low', 'high,'])('미완성 목록을 저장하지 않는다 — %s', (text) => {
+    expect(parseConditionRight(text, 'IN')).toBeNull()
+  })
+
   it('채운 것이 없으면 null 이다', () => {
     expect(parseConditionRight('  ', 'EQ')).toBeNull()
     expect(parseConditionRight(' , , ', 'IN')).toBeNull()
@@ -155,5 +170,29 @@ describe('conditionProblem', () => {
   it('맞으면 없다. 에이전트는 몰라서 보지 않는다', () => {
     expect(conditionProblem(source(json), condition('level'))).toBeNull()
     expect(conditionProblem(source(null, 'AGENT'), condition('whatever'))).toBeNull()
+  })
+
+  it('출력 예시가 숫자로 바뀌면 남아 있는 문자열 비교를 막는다', () => {
+    const changed = source({ kind: 'JSON', example: { level: 3 } })
+    expect(conditionProblem(changed, condition('level'))).toMatch(/비교 값을 다시 입력/)
+    expect(conditionProblem(changed, { ...condition('level'), right: 3 })).toBeNull()
+  })
+
+  it('IN 의 모든 값이 출력 예시의 종류와 맞아야 한다', () => {
+    const changed = source({ kind: 'JSON', example: { level: 3 } })
+    expect(
+      conditionProblem(changed, { ...condition('level'), operator: 'IN', right: [3, '4'] }),
+    ).toMatch(/비교 값을 다시 입력/)
+    expect(
+      conditionProblem(changed, { ...condition('level'), operator: 'IN', right: [3, 4] }),
+    ).toBeNull()
+  })
+
+  it('불리언 예시에 문자열 true 를 비교하지 않는다', () => {
+    const changed = source({ kind: 'JSON', example: { level: true } })
+    expect(conditionProblem(changed, { ...condition('level'), right: 'true' })).toMatch(
+      /비교 값을 다시 입력/,
+    )
+    expect(conditionProblem(changed, { ...condition('level'), right: true })).toBeNull()
   })
 })

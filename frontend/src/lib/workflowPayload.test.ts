@@ -122,6 +122,27 @@ describe('toWorkflowGraph — 분기·입출력', () => {
     expect(withWhen.map((edge) => edge.when).sort()).toEqual([false, true])
   })
 
+  it('분기 한쪽이 바로 종료로 가는 선도 실행 그래프에 포함한다', () => {
+    const nodes = [io('s', 'START'), node('a'), branch('br', 'a'), io('e', 'END'), node('f')]
+    const edges = [
+      link('s', 'a'),
+      link('a', 'br'),
+      branchLink('br', 'e', true),
+      branchLink('br', 'f', false),
+      link('f', 'e'),
+    ]
+    const graph = toWorkflowGraph(nodes, edges)!
+    const keyOf = (id: string) =>
+      Object.entries(graph.nodeIdByKey).find(([, value]) => value === id)![0]
+
+    expect(graph.edges).toContainEqual({
+      edgeKey: expect.any(String),
+      sourceNodeKey: keyOf('br'),
+      targetNodeKey: keyOf('e'),
+      when: true,
+    })
+  })
+
   // 서버는 참 갈래를 먼저 끝까지 간다. 순서가 다르면 다시 불러올 때 자리가 흔들린다.
   it('참 갈래를 먼저 훑는다', () => {
     const { nodes, edges } = scene()
@@ -352,6 +373,44 @@ describe('toCanvasWorkflow — 분기·입출력', () => {
     expect(yes.y).toBeLessThan(br.y)
     expect(no.y).toBeGreaterThan(br.y)
     expect(br.y - yes.y).toBe(no.y - br.y)
+  })
+
+  // 리뷰에서 나온 모양. 합류가 반 칸 줄에 서면 옆 갈래 카드와 겹쳤다.
+  it('중첩 분기 뒤 합류가 옆 카드와 겹치지 않고 판 위로 넘치지 않는다', () => {
+    const branchAt = (key: string, left: string) =>
+      placed(key, {
+        sourceType: 'CONTROL',
+        sourceId: null,
+        controlType: 'BRANCH',
+        condition: { left: `${left}.level`, operator: 'EQ', right: 'high' },
+      })
+    const nested: WorkflowDetail = {
+      ...detail,
+      nodes: [
+        placed('s', { sourceType: 'IO', sourceId: null, ioType: 'START' }),
+        placed('w1', { sourceId: 'node_001' }),
+        branchAt('b1', 'w1'),
+        branchAt('b2', 'w1'),
+        placed('j', { sourceId: 'node_002' }),
+        placed('x', { sourceId: 'node_003' }),
+        placed('e', { sourceType: 'IO', sourceId: null, ioType: 'END' }),
+      ],
+      edges: [
+        { edgeKey: 'e1', sourceNodeKey: 's', targetNodeKey: 'w1' },
+        { edgeKey: 'e2', sourceNodeKey: 'w1', targetNodeKey: 'b1' },
+        { edgeKey: 'e3', sourceNodeKey: 'b1', targetNodeKey: 'b2', when: true },
+        { edgeKey: 'e4', sourceNodeKey: 'b1', targetNodeKey: 'j', when: false },
+        { edgeKey: 'e5', sourceNodeKey: 'b2', targetNodeKey: 'j', when: true },
+        { edgeKey: 'e6', sourceNodeKey: 'b2', targetNodeKey: 'x', when: false },
+        { edgeKey: 'e7', sourceNodeKey: 'j', targetNodeKey: 'e' },
+        { edgeKey: 'e8', sourceNodeKey: 'x', targetNodeKey: 'e' },
+      ],
+    }
+    const nodes = toCanvasWorkflow(nested, () => undefined).nodes
+    for (const [i, a] of nodes.entries())
+      for (const b of nodes.slice(i + 1))
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(168)
+    expect(Math.min(...nodes.map((it) => it.y))).toBeGreaterThanOrEqual(0)
   })
 
   it('갈라진 자리는 같은 가로줄에 겹치지 않는다', () => {

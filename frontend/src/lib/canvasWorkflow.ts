@@ -12,6 +12,7 @@ import type {
 } from '@/api/workflows'
 
 import { conditionProblem } from './branchCondition'
+import { outputExampleProblem } from './nodeOutput'
 import { roundedPath, routeEdge } from './edgeRoute'
 import type { ContentBox } from './viewport'
 
@@ -224,8 +225,8 @@ export interface CanvasEdge {
 }
 
 /** 선의 이름은 양 끝에서. */
-function edgeId(from: string, to: string): string {
-  return `${from}__${to}`
+function edgeId(from: string, to: string, when?: boolean): string {
+  return `${from}__${to}${when === undefined ? '' : when ? '__true' : '__false'}`
 }
 
 const seedEdge = (from: string, to: string): CanvasEdge => ({ id: edgeId(from, to), from, to })
@@ -278,7 +279,10 @@ export function canConnect(
   if (target.ioType === 'START' || source.ioType === 'END') return false
   // 시작과 종료를 맞붙이면 하는 일이 없는 워크플로우가 된다.
   if (source.ioType === 'START' && target.ioType === 'END') return false
-  // 선 id 가 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막힌다.
+  // 서버는 종료로 들어가는 선을 엔진에 싣지 않는다(`RuntimeWorkflow.of`). 분기에서 바로 종료로
+  // 가면 엔진이 갈래 하나뿐인 분기를 받아 실행을 물린다.
+  if (source.controlType && target.ioType === 'END') return false
+  // 선 id 는 양 끝으로 정해진다. 참·거짓을 한 노드로 보내는 분기도 여기서 막는다.
   if (edges.some((edge) => edge.from === from && edge.to === to)) return false
 
   const out = edges.filter((edge) => edge.from === from)
@@ -301,7 +305,10 @@ export function connect(
   when?: boolean,
 ): CanvasEdge[] {
   if (!canConnect(nodes, edges, from, to, when)) return edges
-  return [...edges, { id: edgeId(from, to), from, to, ...(when === undefined ? {} : { when }) }]
+  return [
+    ...edges,
+    { id: edgeId(from, to, when), from, to, ...(when === undefined ? {} : { when }) },
+  ]
 }
 
 /** 선 하나 삭제. 없는 id 면 목록 그대로. */
@@ -450,10 +457,15 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
   if (!order) return problem
 
   const has = (type: IoType) => order.nodes.some((node) => node.ioType === type)
-  // 종료는 하나뿐이다. 갈래를 종료로 모으려면 두 갈래에서 같은 종료로 선을 긋는다(합류).
+  // 종료는 하나뿐이다. 갈래를 종료로 모으려면 두 갈래가 노드를 거쳐 같은 종료로 가게 잇는다(합류).
   if (!has('START') && !has('END')) return '시작·종료 노드는 필수입니다'
   if (!has('START')) return '시작 노드를 놓아 주세요'
   if (!has('END')) return '종료 노드를 놓아 주세요'
+  // 그을 때 막지만 불러온 구성에는 남아 있을 수 있다(`canConnect`).
+  const ends = new Set(order.nodes.filter((node) => node.ioType === 'END').map((node) => node.id))
+  const branches = new Set(order.nodes.filter((node) => node.controlType).map((node) => node.id))
+  if (order.edges.some((edge) => branches.has(edge.from) && ends.has(edge.to)))
+    return '분기 갈래는 노드를 하나 이상 거쳐 종료로 이어 주세요'
   for (const node of order.nodes) {
     const condition = node.condition
     const problem =
@@ -467,15 +479,15 @@ export function runProblem(nodes: CanvasNodeData[], edges: CanvasEdge[]): string
   return null
 }
 
-/**
- * 다른 사람의 에이전트가 하나라도 섞이면 팔 수 없다. 빈 캔버스도 등록할 것이 없다.
- *
- * 제어·입출력은 `mine` 이 null 이다 — 가리킬 원본이 없어 판정 대상이 아니라 막지 않는다.
- */
-export function canSellWorkflow(nodes: CanvasNodeData[]): boolean {
-  // 제어·입출력만 놓인 구성은 팔 것이 없다. 하나는 내 것이어야 한다.
-  return nodes.some((node) => node.mine === true) && nodes.every((node) => node.mine !== false)
+/** 소유권은 작업 노드에서 확인한다. 제어·입출력의 `mine` 은 null 이다. */
+export function sellProblem(nodes: Pick<CanvasNodeData, 'mine'>[]): string | null {
+  if (nodes.some((node) => node.mine === false))
+    return '다른 사람의 노드나 에이전트가 섞여 있어 마켓에 등록할 수 없습니다'
+  if (!nodes.some((node) => node.mine === true)) return '판매할 내 노드를 하나 이상 넣어 주세요'
+  return null
 }
+
+export const canSellWorkflow = (nodes: CanvasNodeData[]): boolean => sellProblem(nodes) === null
 
 /**
  * 카드에 박는 순번. 한 줄이 아니면 `null` — 그때는 번호를 감춘다.
@@ -588,6 +600,9 @@ function checkGraph(nodes: CanvasNodeData[], edges: CanvasEdge[]): GraphCheck {
 
   for (const node of nodes) {
     const next = out.get(node.id) ?? []
+    const exampleProblem =
+      node.output?.kind === 'JSON' ? outputExampleProblem(node.output.example) : null
+    if (exampleProblem) return fail(`${node.name}: ${exampleProblem}`)
     if (node.controlType) {
       if (!node.condition) return fail('분기 노드에 조건을 넣어 주세요')
       // 조건이 읽던 자리가 지워지거나 뒤로 밀렸을 수 있다. 서버도 같은 것을 본다
