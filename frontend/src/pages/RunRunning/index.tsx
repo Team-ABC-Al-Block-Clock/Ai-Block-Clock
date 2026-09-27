@@ -74,6 +74,7 @@ const FAILURE_TEXT: Record<string, string> = {
   RUNTIME_INTERNAL: '실행 엔진에서 오류가 났습니다.',
   ABC_RUNTIME_STALLED: '실행 엔진이 응답을 멈춰 기다리기를 그만두었습니다.',
   ABC_RUNTIME_UNREPORTED: '실행이 실패했지만 까닭은 남아 있지 않습니다.',
+  ABC_RUNTIME_UNREACHABLE: '실행 엔진에 닿지 못했습니다.',
 }
 
 /**
