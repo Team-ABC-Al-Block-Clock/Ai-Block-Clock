@@ -1,6 +1,6 @@
-import { isWithdrawalInProgress, type WithdrawalStatus } from '@/api/withdrawals'
+import { isWithdrawalInProgress, WITHDRAWAL_LIMITS, type WithdrawalStatus } from '@/api/withdrawals'
 import { ApiError, WITHDRAWAL_ERROR } from '@/api/errors'
-import { dateTimeLabel } from '@/lib/format'
+import { amountLabel, dateTimeLabel } from '@/lib/format'
 
 const STATUS_TEXT: Record<WithdrawalStatus, { title: string; note: string }> = {
   REQUESTED: {
@@ -31,9 +31,9 @@ const STATUS_TEXT: Record<WithdrawalStatus, { title: string; note: string }> = {
 export const withdrawalStatusText = (status: WithdrawalStatus) =>
   STATUS_TEXT[status] ?? { title: status, note: '' }
 
-const availableAtOf = (data: unknown) =>
-  typeof data === 'object' && data !== null && 'availableAt' in data
-    ? String((data as { availableAt: unknown }).availableAt)
+const dataField = (data: unknown, key: string) =>
+  typeof data === 'object' && data !== null && key in data
+    ? String((data as Record<string, unknown>)[key])
     : null
 
 const FAILED_TEXT = {
@@ -49,18 +49,20 @@ export function withdrawalErrorText(
   if (!(error instanceof ApiError)) return FAILED_TEXT[action]
   if (error.isNetworkError) return '서버에 닿지 못했습니다. 연결을 확인하고 다시 시도해 주세요.'
   switch (error.code) {
-    case WITHDRAWAL_ERROR.AMOUNT_OUT_OF_RANGE:
-      return '한 번에 1 ~ 1,000 ABC 까지 출금할 수 있습니다.'
+    case WITHDRAWAL_ERROR.AMOUNT_OUT_OF_RANGE: {
+      const min = dataField(error.data, 'minimumAmount') ?? WITHDRAWAL_LIMITS.MIN_AMOUNT
+      const max = dataField(error.data, 'maximumAmount') ?? WITHDRAWAL_LIMITS.MAX_AMOUNT
+      return `한 번에 ${amountLabel(min)} ~ ${amountLabel(max)} ABC 까지 출금할 수 있습니다.`
+    }
     case WITHDRAWAL_ERROR.PAYOUT_INSUFFICIENT:
     case WITHDRAWAL_ERROR.CONVERSION_INSUFFICIENT:
       return '정산금이 부족합니다.'
     case WITHDRAWAL_ERROR.ALREADY_IN_PROGRESS:
       return '처리 중인 출금이 있어 새로 신청할 수 없습니다.'
     case WITHDRAWAL_ERROR.TOO_FREQUENT: {
-      const at = availableAtOf(error.data)
-      return at
-        ? `출금은 24시간에 한 번입니다. ${dateTimeLabel(at)} 부터 다시 신청할 수 있습니다.`
-        : '출금은 24시간에 한 번입니다.'
+      const at = dataField(error.data, 'availableAt')
+      const once = `출금은 ${WITHDRAWAL_LIMITS.INTERVAL_HOURS}시간에 한 번입니다.`
+      return at ? `${once} ${dateTimeLabel(at)} 부터 다시 신청할 수 있습니다.` : once
     }
     case WITHDRAWAL_ERROR.ALREADY_REQUESTED:
       return '같은 신청을 처리하고 있습니다. 잠시 뒤 다시 확인해 주세요.'

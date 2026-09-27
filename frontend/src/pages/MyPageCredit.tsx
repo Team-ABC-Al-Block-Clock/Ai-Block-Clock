@@ -14,7 +14,7 @@ import { amountLabel, priceLabel, shortAddress } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { withdrawalStatusText } from '@/lib/withdrawalMessage'
 
-const { MIN_AMOUNT, MAX_AMOUNT } = WITHDRAWAL_LIMITS
+const { MIN_AMOUNT, MAX_AMOUNT, INTERVAL_HOURS } = WITHDRAWAL_LIMITS
 
 type Mode = 'deposit' | 'withdraw' | 'convert'
 const MODES: { key: Mode; label: string }[] = [
@@ -177,7 +177,7 @@ export default function MyPageCredit() {
         : reservedNote + '충전한 ABC 는 서비스 안에서만 쓰며 출금되지 않습니다'
   const pickerTitle = withdraw ? '출금 금액 선택' : convert ? '전환 금액 선택' : '예치 금액 선택'
   const pickerNote = withdraw
-    ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · 24시간에 한 번 신청할 수 있습니다`
+    ? `한 번에 ${MIN_AMOUNT} ~ ${MAX_AMOUNT.toLocaleString()} ABC · ${INTERVAL_HOURS}시간에 한 번 신청할 수 있습니다`
     : convert
       ? '금액 · 횟수 제한 없음 · 전환한 ABC 는 정산금으로 되돌릴 수 없습니다'
       : `지갑의 abcToken ${walletBalance.amount === null ? '—' : `${amountLabel(walletBalance.amount)}개`} · ABC 는 양도할 수 없습니다`
