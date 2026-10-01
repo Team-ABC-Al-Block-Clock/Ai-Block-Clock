@@ -1,7 +1,7 @@
 import { useRef, type CSSProperties } from 'react'
 
 import { REF_FILE_LIMITS } from '@/api/nodes'
-import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
+import type { RefFileSlot } from '@/hooks/canvas/useNodeRefFiles'
 import { fileSizeLabel } from '@/lib/format'
 
 /**

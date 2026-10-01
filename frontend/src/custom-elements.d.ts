@@ -1,4 +1,4 @@
-/** components/*.ts 가 등록하는 커스텀 엘리먼트를 JSX에서 쓰기 위한 선언.
+/** components/elements/*.ts 가 등록하는 커스텀 엘리먼트를 JSX에서 쓰기 위한 선언.
  *  React는 하이픈 있는 태그의 속성을 그대로 DOM 속성으로 넘긴다. */
 import type { DetailedHTMLProps, HTMLAttributes } from 'react'
 

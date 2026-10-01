@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 
-import { parseInline, type MarkdownBlock } from '@/lib/markdown'
+import { parseInline, type MarkdownBlock } from '@/lib/run/markdown'
 
 const TEXT = 'rgba(255,255,255,.8)'
 const LINE = 'rgba(255,255,255,.14)'

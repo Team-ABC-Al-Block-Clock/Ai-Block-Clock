@@ -78,11 +78,13 @@ frontend/
 ├─ src/
 │  ├─ assets/           이미지·폰트 등 번들에 포함되는 리소스
 │  ├─ api/              axios 인스턴스 및 도메인별 API 함수
-│  ├─ components/       재사용 컴포넌트
+│  ├─ components/       재사용 컴포넌트 (canvas/ 작업면 · mypage/ 마이페이지 · elements/ 웹 컴포넌트)
 │  ├─ pages/            라우트 단위 페이지
-│  ├─ hooks/            커스텀 훅
+│  ├─ routes/           라우트 패턴 · 경로 생성기 · 접근 권한
+│  ├─ hooks/            커스텀 훅 (canvas/ · run/ · wallet/)
+│  ├─ lib/              공용 헬퍼 (canvas/ · run/ · wallet/ · stats/)
 │  ├─ stores/           zustand 전역 상태
-│  ├─ styles/           전역 스타일
+│  ├─ mocks/            MSW mock 서버
 │  ├─ App.tsx           루트 컴포넌트 (라우팅 정의)
 │  ├─ main.tsx          진입점
 │  └─ index.css         전역 기본 스타일

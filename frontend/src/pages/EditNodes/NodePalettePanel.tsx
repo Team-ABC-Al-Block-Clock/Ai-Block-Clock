@@ -6,7 +6,7 @@ import {
   PANEL_HEIGHT,
   PANEL_INSET,
 } from '@/components/SidePanel'
-import type { useNodePalette } from '@/hooks/useNodePalette'
+import type { useNodePalette } from '@/hooks/canvas/useNodePalette'
 
 import { TABS_HEIGHT } from './PanelTabs'
 

@@ -26,7 +26,7 @@ import {
   timeLabel,
 } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
-import { chainNameOf } from '@/lib/wagmi'
+import { chainNameOf } from '@/lib/wallet/wagmi'
 import { paths } from '@/routes/paths'
 
 /** 안내 카드. 그리드 안쪽(272~1168, 896px)에서 가운데 — 272 + (896 - 620) / 2 = 410.
@@ -35,7 +35,7 @@ import { paths } from '@/routes/paths'
 const NOTICE_BOX = { left: '410px', top: '360px', width: '620px' } as const
 
 /** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다.
- *  <empty-state> 가 JSON 으로 받는다(`components/types.ts` 의 EmptyAction). */
+ *  <empty-state> 가 JSON 으로 받는다(`components/elements/types.ts` 의 EmptyAction). */
 const NOT_FOUND_ACTIONS = JSON.stringify([
   { label: '에이전트 둘러보기', href: paths.search, primary: true },
   { label: '홈으로', href: paths.home },

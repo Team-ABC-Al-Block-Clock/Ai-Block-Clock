@@ -18,10 +18,10 @@ import { ApiError } from '@/api/errors'
 import { deleteWorkflow, getMyWorkflows, type WorkflowSort } from '@/api/workflows'
 import { josa, priceLabel, runLabel, timeLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
-import { sparkPath } from '@/lib/spark'
+import { sparkPath } from '@/lib/stats/spark'
 import { paths } from '@/routes/paths'
-import Sidebar from '../components/Sidebar'
-import MyPageFrame from '@/components/MyPageFrame'
+import Sidebar from '../components/mypage/Sidebar'
+import MyPageFrame from '@/components/mypage/MyPageFrame'
 import SearchIcon from '@/components/SearchIcon'
 
 /** 마켓 목록(9)과 다르다. */

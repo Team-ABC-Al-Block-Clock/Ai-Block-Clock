@@ -11,25 +11,18 @@ import {
   type IoType,
   type WorkflowGraph,
 } from '@/api/workflows'
-import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
-import CanvasNode, { type CanvasNodeProps } from '@/components/CanvasNode'
-import ControlNode from '@/components/ControlNode'
-import CanvasPane from '@/components/CanvasPane'
-import CanvasWorld from '@/components/CanvasWorld'
-import ModelSelect from '@/components/ModelSelect'
-import {
-  OutputExampleBox,
-  OutputFieldsBox,
-  OutputKindToggle,
-  OutputModeLink,
-} from '@/components/OutputField'
+import CanvasEdgeLayer from '@/components/canvas/CanvasEdgeLayer'
+import CanvasNode, { type CanvasNodeProps } from '@/components/canvas/CanvasNode'
+import ControlNode from '@/components/canvas/ControlNode'
+import CanvasPane from '@/components/canvas/CanvasPane'
+import CanvasWorld from '@/components/canvas/CanvasWorld'
 import SidePanel from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'
 import WorkflowLoadNotice from '@/components/WorkflowLoadNotice'
-import { useCanvasWorkflow } from '@/hooks/useCanvasWorkflow'
-import { useNodeRefFiles } from '@/hooks/useNodeRefFiles'
-import { DND_TYPE, useNodePalette } from '@/hooks/useNodePalette'
-import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import { useCanvasWorkflow } from '@/hooks/canvas/useCanvasWorkflow'
+import { useNodeRefFiles } from '@/hooks/canvas/useNodeRefFiles'
+import { DND_TYPE, useNodePalette } from '@/hooks/canvas/useNodePalette'
+import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
 import {
   chainPositions,
   graphProblem,
@@ -37,19 +30,26 @@ import {
   runProblem,
   sellProblem,
   upstreamOf,
-} from '@/lib/canvasWorkflow'
+} from '@/lib/canvas/canvasWorkflow'
 import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
-import { describeCondition } from '@/lib/branchCondition'
+import { describeCondition } from '@/lib/canvas/branchCondition'
 import { controlKindHint, controlKindName, placedKindLabel, priceLabel } from '@/lib/format'
-import type { NodeValues } from '@/lib/canvasReducer'
-import { outputDraftProblem, readOutputDraft, scalarFields, toOutputDraft } from '@/lib/nodeOutput'
-import { toWorkflowGraph } from '@/lib/workflowPayload'
+import type { NodeValues } from '@/lib/canvas/canvasReducer'
+import {
+  outputDraftProblem,
+  readOutputDraft,
+  scalarFields,
+  toOutputDraft,
+} from '@/lib/canvas/nodeOutput'
+import { toWorkflowGraph } from '@/lib/canvas/workflowPayload'
 import { seedsFrom } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
+import ModelSelect from './ModelSelect'
 import NodeInfoPanel from './NodeInfoPanel'
 import NodePalettePanel from './NodePalettePanel'
+import { OutputExampleBox, OutputFieldsBox, OutputKindToggle, OutputModeLink } from './OutputField'
 import PanelTabs, { TABS_HEIGHT, type PanelTab } from './PanelTabs'
 import RefFileField from '@/components/RefFileField'
 

@@ -1,5 +1,9 @@
-import { chainLabel, chainNameOf } from '@/lib/wagmi'
-import { BANNER_HEIGHT, type ChainBannerState, type SwitchPhase } from '@/hooks/useChainBanner'
+import { chainLabel, chainNameOf } from '@/lib/wallet/wagmi'
+import {
+  BANNER_HEIGHT,
+  type ChainBannerState,
+  type SwitchPhase,
+} from '@/hooks/wallet/useChainBanner'
 import StatusDot from '@/components/StatusDot'
 
 const MESSAGE: Record<Exclude<SwitchPhase, 'idle'>, string> = {
