@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { getMarketplaceAgents } from '@/api/agents'
+import { useInfiniteSentinel } from '@/hooks/useInfiniteSentinel'
 import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
@@ -104,27 +105,14 @@ export default function Search() {
     (a) => !seen.has(a.agentId) && Boolean(seen.add(a.agentId)),
   )
 
-  // 무한 스크롤. 그리드가 #gridScroll 안에서 스크롤되므로 그것을 root 로 삼는다 —
-  // 뷰포트를 root 로 두면 컨테이너를 끝까지 내려도 sentinel 이 교차하지 않는다.
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const node = sentinelRef.current
-    // 실패한 커서로는 다시 시도하지 않는다 — sentinel 이 교차할 때마다 같은 요청이 반복된다.
-    if (!node || !hasNextPage || isFetchNextPageError) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // cancelRefetch 기본값이 true 라 진행 중이면 취소하고 같은 커서로 다시 보낸다.
-        if (entry.isIntersecting && !isFetchingNextPage) void fetchNextPage()
-      },
-      { root: document.getElementById('gridScroll'), rootMargin: '200px' },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-    // isFetchingNextPage 를 deps 에 두는 것은 낭비가 아니다. 이 값이 바뀔 때 observer 가
-    // 다시 만들어지고, observe() 가 이미 교차 중인 sentinel 에 콜백을 다시 발사해 다음
-    // 장을 잇는다. 카드 9장이 그리드를 거의 채워(스크롤 여유 41px) sentinel 이 계속
-    // 교차 상태로 남기 때문에, 교차 '변화' 만 기다리면 이어지지 않는다.
-  }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, fetchNextPage])
+  // 카드 9장이 그리드를 거의 채워(스크롤 여유 41px) sentinel 이 계속 교차 상태로 남는다.
+  const sentinelRef = useInfiniteSentinel({
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+    getRoot: () => document.getElementById('gridScroll'),
+  })
 
   const cards = agents.map((a, i) => ({
     agentId: a.agentId,

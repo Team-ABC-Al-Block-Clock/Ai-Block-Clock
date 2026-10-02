@@ -3,13 +3,21 @@ import { Fragment, useState } from 'react'
 import Sidebar from '../components/mypage/Sidebar'
 import PeriodMenu from '@/components/mypage/PeriodMenu'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
+import MyPageHeader from '@/components/mypage/MyPageHeader'
+import TrendChart from '@/components/mypage/TrendChart'
 import type { CreditTransaction, CreditTransactionType } from '@/api/credits'
 import { getCreditBalance, getCreditHistory, getCreditTransactions } from '@/api/credits'
 import StatusDot from '@/components/StatusDot'
 import { amountLabel, priceLabel, runLabel, shortAddress, timeLabel } from '@/lib/format'
 import { PERIODS, rangeOf } from '@/lib/stats/period'
 import { queryKeys } from '@/lib/queryKeys'
-import { dailySeries, trendPath, trendTicks } from '@/lib/stats/salesTrend'
+import {
+  dailySeries,
+  TREND_HEIGHT,
+  TREND_WIDTH,
+  trendPath,
+  trendTicks,
+} from '@/lib/stats/salesTrend'
 import { usagePeriods, usageTotals } from '@/lib/stats/usageTrend'
 import { historyStatus, type HistoryTone } from '@/lib/wallet/withdrawalMessage'
 
@@ -25,8 +33,6 @@ const TYPE_LABELS: Record<CreditTransactionType, string> = {
 
 /** 들어오는 것은 초록, 나가는 것은 분홍. */
 const WALLET_POLL_MS = 15_000
-const CHART_W = 534
-const CHART_H = 146
 /** 기간 전체를 50건씩 읽는다. 너무 길면 여기서 끊어 요청이 끝없이 늘지 않게 한다. */
 const TREND_PAGE_LIMIT = 20
 const TONE_COLORS: Record<HistoryTone, string> = {
@@ -94,13 +100,13 @@ export default function MyPageUsage() {
   const series = trend.data ? dailySeries(usagePeriods(trendRows), range) : []
   const spendLine = trendPath(
     series.map((p) => p.amount),
-    CHART_W,
-    CHART_H,
+    TREND_WIDTH,
+    TREND_HEIGHT,
   )
   const runLine = trendPath(
     series.map((p) => p.executionCount),
-    CHART_W,
-    CHART_H,
+    TREND_WIDTH,
+    TREND_HEIGHT,
     40,
   )
   const ticks = trendTicks(series)
@@ -139,29 +145,11 @@ export default function MyPageUsage() {
     <MyPageFrame>
       <Sidebar active="usage" />
 
-      <div
-        className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-        style={{
-          left: '442px',
-          top: '158px',
-          textShadow: '0 2px 20px rgba(35,8,45,.6)',
-          animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        사용 내역
-      </div>
-      <div
-        className="absolute text-[13px] tracking-[-.01em]"
-        style={{
-          left: '442px',
-          top: '206px',
-          width: '620px',
-          color: 'rgba(255,236,246,.7)',
-          animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        ABC 사용량과 잔액, 충전·출금 내역을 확인합니다.
-      </div>
+      <MyPageHeader
+        title="사용 내역"
+        description="ABC 사용량과 잔액, 충전·출금 내역을 확인합니다."
+        descriptionWidth={620}
+      />
 
       <PeriodMenu at={periodAt} onPick={setPeriodAt} />
 
@@ -209,85 +197,7 @@ export default function MyPageUsage() {
           </div>
         </div>
 
-        <div className="relative" style={{ marginTop: '16px', width: '534px', height: '158px' }}>
-          <div
-            className="absolute top-0 left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ width: '534px', height: '1px' }}
-          ></div>
-          <div
-            className="absolute left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ top: '40px', width: '534px', height: '1px' }}
-          ></div>
-          <div
-            className="absolute left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ top: '80px', width: '534px', height: '1px' }}
-          ></div>
-          <div
-            className="absolute left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ top: '120px', width: '534px', height: '1px' }}
-          ></div>
-          <svg
-            className="absolute top-0 left-0"
-            width="534"
-            height="134"
-            viewBox="0 0 534 146"
-            preserveAspectRatio="none"
-            fill="none"
-            style={{ overflow: 'visible' }}
-          >
-            <defs>
-              <linearGradient id="spendLine" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stopColor="#dba18b" />
-                <stop offset="100%" stopColor="#e3b7c8" />
-              </linearGradient>
-              <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ffb0cd" stopOpacity=".34" />
-                <stop offset="100%" stopColor="#ffb0cd" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {spendLine && (
-              <path
-                d={`${spendLine} L${CHART_W} ${CHART_H} L0 ${CHART_H} Z`}
-                fill="url(#spendFill)"
-              />
-            )}
-            {spendLine && (
-              <path
-                d={spendLine}
-                fill="none"
-                stroke="url(#spendLine)"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                pathLength={1400}
-                strokeDasharray="1400"
-                style={{ animation: 'drawUp 1.5s .35s cubic-bezier(.3,.7,.2,1) both' }}
-              />
-            )}
-            {runLine && (
-              <path
-                d={runLine}
-                fill="none"
-                stroke="#dba18b"
-                strokeOpacity=".62"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                pathLength={1400}
-                strokeDasharray="1400"
-                style={{ animation: 'drawUp 1.5s .5s cubic-bezier(.3,.7,.2,1) both' }}
-              />
-            )}
-          </svg>
-          <div
-            className="absolute left-0 flex justify-between text-[12px]"
-            style={{ top: '142px', width: '534px', color: 'rgba(255,236,246,.5)' }}
-          >
-            {ticks.map((t, i) => (
-              <span key={i}>{t.replace('-', '/')}</span>
-            ))}
-          </div>
-        </div>
+        <TrendChart id="spend" line={spendLine} subLine={runLine} ticks={ticks} marginTop={16} />
       </div>
 
       <div

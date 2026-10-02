@@ -16,12 +16,14 @@ import {
 } from '@/api/agents'
 import { ApiError } from '@/api/errors'
 import { deleteWorkflow, getMyWorkflows, type WorkflowSort } from '@/api/workflows'
+import { useInfiniteSentinel } from '@/hooks/useInfiniteSentinel'
 import { josa, priceLabel, runLabel, timeLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { sparkPath } from '@/lib/stats/spark'
 import { paths } from '@/routes/paths'
 import Sidebar from '../components/mypage/Sidebar'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
+import MyPageHeader from '@/components/mypage/MyPageHeader'
 import SearchIcon from '@/components/SearchIcon'
 
 /** 마켓 목록(9)과 다르다. */
@@ -266,34 +268,22 @@ export default function MyAgents() {
   const flowRows = tab === 'flows' ? (flows.data?.pages.flatMap((page) => page.content) ?? []) : []
   const count = tab === 'flows' ? flowRows.length : rows.length
 
-  // 목록이 #myRows 안에서 스크롤되므로 그것을 root 로 삼는다 — 뷰포트를 root 로 두면
-  // 컨테이너를 끝까지 내려도 sentinel 이 교차하지 않는다.
-  const sentinelRef = useRef<HTMLDivElement>(null)
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError } = active
 
-  /** 활성 탭의 콜백은 렌더마다 새 함수다. deps 에 넣으면 observer 가 매 렌더 다시
-   *  만들어지고 다음 장이 줄줄이 딸려 온다 — 최신 함수만 참조로 들고 간다. */
+  /** 활성 탭의 콜백은 렌더마다 새 함수다. 이벤트 핸들러가 최신 함수를 참조로 들고 간다. */
   const latest = useRef({ fetchNextPage: active.fetchNextPage, refetch: active.refetch })
   useEffect(() => {
     latest.current = { fetchNextPage: active.fetchNextPage, refetch: active.refetch }
   })
 
-  useEffect(() => {
-    const node = sentinelRef.current
-    // 실패한 커서로는 다시 시도하지 않는다 — sentinel 이 교차할 때마다 같은 요청이 반복된다.
-    if (!node || !hasNextPage || isFetchNextPageError) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // cancelRefetch 기본값이 true 라 진행 중이면 취소하고 같은 커서로 다시 보낸다.
-        if (entry.isIntersecting && !isFetchingNextPage) void latest.current.fetchNextPage()
-      },
-      { root: document.getElementById('myRows'), rootMargin: '200px' },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-    // isFetchingNextPage 가 deps 에 있어야 한다. 이 값이 바뀔 때 observer 가 다시
-    // 만들어져 이미 교차 중인 sentinel 에서 다음 장을 잇는다.
-  }, [tab, hasNextPage, isFetchNextPageError, isFetchingNextPage])
+  const sentinelRef = useInfiniteSentinel({
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage: active.fetchNextPage,
+    getRoot: () => document.getElementById('myRows'),
+    resetKey: tab,
+  })
 
   /** observer 는 실패한 커서를 다시 밟지 않으려고 스스로를 끈다. */
   const handleRetryNextPage = () => {
@@ -342,30 +332,12 @@ export default function MyAgents() {
       <MyPageFrame>
         <Sidebar active="agents" />
 
-        <div
-          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-          style={{
-            left: `${LEFT}px`,
-            top: '158px',
-            textShadow: '0 2px 20px rgba(35,8,45,.6)',
-            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          나의 에이전트
-        </div>
-        <div
-          className="absolute text-[13px] tracking-[-.01em]"
-          style={{
-            left: `${LEFT}px`,
-            top: '206px',
-            width: '560px',
-            lineHeight: '1.5',
-            color: 'rgba(255,236,246,.7)',
-            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          내가 만든 에이전트와 저장한 에이전트를 사용하고 수정할 수 있는 공간입니다.
-        </div>
+        <MyPageHeader
+          title="나의 에이전트"
+          description="내가 만든 에이전트와 저장한 에이전트를 사용하고 수정할 수 있는 공간입니다."
+          descriptionWidth={560}
+          descriptionStyle={{ lineHeight: '1.5' }}
+        />
 
         {/* 탭 — 하나가 API 하나다 */}
         <div

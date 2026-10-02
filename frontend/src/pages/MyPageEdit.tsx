@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/mypage/Sidebar'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
+import MyPageHeader from '@/components/mypage/MyPageHeader'
 import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'
 import { ApiError } from '@/api/errors'
 import { describeImageProblem } from '@/lib/imageFile'
@@ -160,29 +161,12 @@ export default function MyPageEdit() {
       <MyPageFrame>
         <Sidebar editing />
 
-        <div
-          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-          style={{
-            left: '442px',
-            top: '158px',
-            textShadow: '0 2px 20px rgba(35,8,45,.6)',
-            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          내 정보 수정
-        </div>
-        <div
-          className="absolute text-[14.5px] tracking-[-.01em]"
-          style={{
-            left: '442px',
-            top: '206px',
-            width: '600px',
-            color: 'rgba(255,236,246,.7)',
-            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          프로필과 연결된 지갑을 확인·수정할 수 있습니다. 결제 수단은 저장하지 않습니다.
-        </div>
+        <MyPageHeader
+          title="내 정보 수정"
+          description="프로필과 연결된 지갑을 확인·수정할 수 있습니다. 결제 수단은 저장하지 않습니다."
+          descriptionWidth={600}
+          descriptionStyle={{ fontSize: '14.5px' }}
+        />
 
         <div
           className="bg-surface-card absolute box-border"
