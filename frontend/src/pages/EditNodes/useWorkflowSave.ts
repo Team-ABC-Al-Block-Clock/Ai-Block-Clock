@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 
 import { ApiError } from '@/api/errors'
 import { updateNode } from '@/api/nodes'
-import { replaceWorkflow, saveWorkflow, type WorkflowGraph } from '@/api/workflows'
+import { replaceWorkflow, saveWorkflow } from '@/api/workflows'
 import type { useCanvasWorkflow } from '@/hooks/canvas/useCanvasWorkflow'
 import type { useNodeRefFiles } from '@/hooks/canvas/useNodeRefFiles'
 import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
@@ -15,14 +15,13 @@ import { queryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
 
+import { settledShape, shapeOf } from './saveShape'
+
 const SAVE_FAILED = '저장에 실패했습니다. 잠시 후 다시 시도해 주세요'
 
 /** 원본이 생긴 카드만 — 자료를 보낼 주소가 있는 것들이다. */
 export const targetsOf = (nodes: { id: string; sourceId: string }[]) =>
   Object.fromEntries(nodes.filter((node) => node.sourceId).map((node) => [node.id, node.sourceId]))
-
-/** 저장할 내용을 글자 하나로 만든다. 저장한 것과 이것을 견줘 「저장됨」을 되돌린다. */
-const shapeOf = (graph: WorkflowGraph | null, name: string) => JSON.stringify({ graph, name })
 
 const dataOf = (error: ApiError) =>
   typeof error.data === 'object' && error.data !== null
@@ -125,7 +124,7 @@ export function useWorkflowSave({
     // 바뀐 최신 값을 집는다 — 보내지도 않은 것을 「저장됨」으로 표시하게 된다.
     mutationFn: async () => {
       if (!graph) throw new Error('서버가 받는 모양의 워크플로우가 아니다')
-      const shape = shapeOf(graph, trimmedName)
+      const sent = { nodes, edges, name: trimmedName }
       const { nodeIdByKey } = graph
       const result = saved
         ? await replaceWorkflow(saved.workflowId, {
@@ -134,15 +133,14 @@ export function useWorkflowSave({
             revision: saved.revision,
           })
         : await saveWorkflow({ ...graph, name: trimmedName })
-      return { result, shape, nodeIdByKey }
+      return { result, sent, nodeIdByKey }
     },
     // 회차가 어긋나면 들고 있던 값이 낡은 것이다. 다시 받아 두지 않으면 몇 번을 눌러도 같은 409 다.
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'WORKFLOW_016') void loaded.refetch()
     },
-    onSuccess: ({ result, shape, nodeIdByKey }) => {
+    onSuccess: ({ result, sent, nodeIdByKey }) => {
       setSaved({ workflowId: result.workflowId, revision: result.revision })
-      setSavedShape(shape)
       // 저장하며 만들어진 노드의 원본 id 를 캔버스에 되쓴다. 비워 두면 다음 저장에서 또 만들어진다.
       const attached: Record<string, string> = {}
       for (const placed of result.nodes ?? []) {
@@ -150,6 +148,7 @@ export function useWorkflowSave({
         if (nodeId && placed.sourceId) attached[nodeId] = placed.sourceId
       }
       attachSources(attached)
+      setSavedShape(settledShape(sent.nodes, sent.edges, sent.name, attached))
       // 원본이 생겼으니 들고 있던 자료를 올린다. 앞서 못 올려 남은 것도 여기서 다시 보낸다.
       void refFiles.flush({ ...targetsOf(nodes), ...attached })
       // 캐시를 비워 둔다. 실행 화면이 같은 키로 읽어서, 그대로 두면 저장 전 구성을 그린다.

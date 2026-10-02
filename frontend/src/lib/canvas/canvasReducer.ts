@@ -133,6 +133,16 @@ export type CanvasAction =
   /** 포트 위에서 손을 뗌. 이을 수 없는 짝이면 `connect` 가 목록을 그대로 돌려준다. */
   | { type: 'endLink'; targetId: string; port: NodePort }
 
+/** 저장하며 서버가 만든 원본 id 를 카드에 되쓴다. 받은 것이 없는 카드는 그대로 둔다. */
+export function withSources(
+  nodes: CanvasNodeData[],
+  sourceIdByNodeId: Record<string, string>,
+): CanvasNodeData[] {
+  return nodes.map((node) =>
+    sourceIdByNodeId[node.id] ? { ...node, sourceId: sourceIdByNodeId[node.id] } : node,
+  )
+}
+
 export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
   switch (action.type) {
     case 'pressNode':
@@ -219,12 +229,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       const given = action.sourceIdByNodeId
       if (!state.nodes.some((node) => given[node.id] && given[node.id] !== node.sourceId))
         return state
-      return {
-        ...state,
-        nodes: state.nodes.map((node) =>
-          given[node.id] ? { ...node, sourceId: given[node.id] } : node,
-        ),
-      }
+      return { ...state, nodes: withSources(state.nodes, given) }
     }
 
     case 'repriceBySource': {
