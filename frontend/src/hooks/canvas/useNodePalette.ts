@@ -2,6 +2,7 @@ import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
 import { getNodePalette } from '@/api/workflows'
+import { useInfiniteSentinel } from '@/hooks/useInfiniteSentinel'
 import { nodeTypeLabel, priceLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -72,26 +73,19 @@ export function useNodePalette() {
   const isEmpty = isSettled && !isError && !hasNextPage && items.length === 0
 
   const paletteRef = useRef<HTMLDivElement>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useInfiniteSentinel({
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+    getRoot: () => paletteRef.current,
+    rootMargin: '160px',
+  })
 
   // 아래쪽에 머문 채 목록만 바뀌면 새 결과의 앞부분을 지나쳐 검색에 실패한 것처럼 보인다.
   useEffect(() => {
     paletteRef.current?.scrollTo({ top: 0 })
   }, [keyword])
-
-  useEffect(() => {
-    const node = sentinelRef.current
-    // 실패한 커서로 다시 시도하지 않는다 — 교차할 때마다 같은 요청이 반복된다.
-    if (!node || !hasNextPage || isFetchNextPageError) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isFetchingNextPage) void fetchNextPage()
-      },
-      { root: paletteRef.current, rootMargin: '160px' },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   const cards = items.map((item) => ({
     ...item,
