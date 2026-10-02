@@ -6,7 +6,7 @@ import { paths } from '@/routes/paths'
 /** 캔버스를 덮는다 — 자리표시자든 빈 화면이든 남겨 두면 불러와진 것으로 보인다. */
 const NOTICE_BOX = { left: '180px', top: '380px', width: '620px' } as const
 
-/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다(`components/types.ts` 의 EmptyAction). */
+/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다(`components/elements/types.ts` 의 EmptyAction). */
 const GONE_ACTIONS = JSON.stringify([
   { label: '새 워크플로우 만들기', href: paths.edit.nodes.withoutId, primary: true },
   { label: '내 워크플로우로', href: paths.my.agents },

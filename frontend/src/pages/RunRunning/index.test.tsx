@@ -2,9 +2,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { ExecutionStep, ExecutionStatus } from '@/api/executions'
-import type { CanvasNodeData } from '@/lib/canvasWorkflow'
-import type { CanvasNodeProps } from '@/components/CanvasNode'
-import type { ControlNodeProps } from '@/components/ControlNode'
+import type { CanvasNodeData } from '@/lib/canvas/canvasWorkflow'
+import type { CanvasNodeProps } from '@/components/canvas/CanvasNode'
+import type { ControlNodeProps } from '@/components/canvas/ControlNode'
 
 const data = vi.hoisted(() => ({
   nodes: [] as CanvasNodeData[],
@@ -12,7 +12,7 @@ const data = vi.hoisted(() => ({
   status: 'SUCCEEDED' as ExecutionStatus,
 }))
 
-vi.mock('@/hooks/useSavedWorkflow', () => ({
+vi.mock('@/hooks/canvas/useSavedWorkflow', () => ({
   useSavedWorkflow: () => ({
     canvas: {
       nodes: data.nodes,
@@ -28,7 +28,7 @@ vi.mock('@/hooks/useSavedWorkflow', () => ({
     },
   }),
 }))
-vi.mock('@/hooks/useRunProgress', () => ({
+vi.mock('@/hooks/run/useRunProgress', () => ({
   useRunProgress: () => ({
     progress: {
       status: data.status,
@@ -45,10 +45,10 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ executionId: 'test-run' }),
 }))
 vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: { text: '', blocks: [] } }) }))
-vi.mock('@/components/ControlNode', () => ({
+vi.mock('@/components/canvas/ControlNode', () => ({
   default: (props: ControlNodeProps) => <span data-kind={props.kind} data-verdict={props.note} />,
 }))
-vi.mock('@/components/CanvasNode', () => ({
+vi.mock('@/components/canvas/CanvasNode', () => ({
   default: (props: CanvasNodeProps) => <span data-name={props.name} data-status={props.sublabel} />,
 }))
 

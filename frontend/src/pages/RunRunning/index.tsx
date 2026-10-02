@@ -6,17 +6,13 @@ import type { ExecutionFailure, ExecutionStep, StepStatus } from '@/api/executio
 import { useEasedPercent } from '@/hooks/useEasedPercent'
 import { downloadResult, fetchResult, type ResultFormat } from '@/api/executions'
 import { ApiError, EXECUTION_ERROR } from '@/api/errors'
-import { useRunProgress } from '@/hooks/useRunProgress'
-import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
-import CanvasNode from '@/components/CanvasNode'
-import ControlNode from '@/components/ControlNode'
-import CanvasPane, {
-  PANEL_CLIP,
-  PANE_CONTENT_WIDTH,
-  PANE_HEIGHT,
-  PANE_WIDTH,
-} from '@/components/CanvasPane'
-import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import { useRunProgress } from '@/hooks/run/useRunProgress'
+import CanvasEdgeLayer from '@/components/canvas/CanvasEdgeLayer'
+import CanvasNode from '@/components/canvas/CanvasNode'
+import ControlNode from '@/components/canvas/ControlNode'
+import CanvasPane from '@/components/canvas/CanvasPane'
+import { PANEL_CLIP, PANE_CONTENT_WIDTH, PANE_HEIGHT, PANE_WIDTH } from '@/lib/canvas/pane'
+import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
 import {
   canSellWorkflow,
   NODE_SIZE,
@@ -26,11 +22,11 @@ import {
   nodesBounds,
   type CanvasEdge,
   type CanvasNodeData,
-} from '@/lib/canvasWorkflow'
-import { describeCondition } from '@/lib/branchCondition'
-import { fitVerticalViewport, viewportTransform } from '@/lib/viewport'
+} from '@/lib/canvas/canvasWorkflow'
+import { describeCondition } from '@/lib/canvas/branchCondition'
+import { fitVerticalViewport, viewportTransform } from '@/lib/canvas/viewport'
 import { queryKeys } from '@/lib/queryKeys'
-import { resultOf, resultProblem } from '@/lib/runResult'
+import { resultOf, resultProblem } from '@/lib/run/runResult'
 import {
   branchTaken,
   cardStatuses,
@@ -40,7 +36,7 @@ import {
   runFocus,
   stepGroups,
   type RunCard,
-} from '@/lib/runSteps'
+} from '@/lib/run/runSteps'
 import { paths } from '@/routes/paths'
 import SidePanel, { PANEL_CONTENT_WIDTH, PANEL_INSET, PANEL_WIDTH } from '@/components/SidePanel'
 import StatusDot from '@/components/StatusDot'

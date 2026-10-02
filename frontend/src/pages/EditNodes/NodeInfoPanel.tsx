@@ -2,27 +2,27 @@ import { useState } from 'react'
 
 import { NODE_NAME_MAX, type AiModel, type NodeOutput } from '@/api/nodes'
 import type { ConditionOperator } from '@/api/workflows'
-import { formatConditionRight, operatorsFor, parseConditionRight } from '@/lib/branchCondition'
-import type { CanvasCondition } from '@/lib/canvasWorkflow'
+import {
+  formatConditionRight,
+  operatorsFor,
+  parseConditionRight,
+} from '@/lib/canvas/branchCondition'
+import type { CanvasCondition } from '@/lib/canvas/canvasWorkflow'
 import { priceLabel } from '@/lib/format'
-import type { NodeValues } from '@/lib/canvasReducer'
+import type { NodeValues } from '@/lib/canvas/canvasReducer'
 import {
   outputDraftProblem,
   readOutputDraft,
   sameOutput,
   toOutputDraft,
   type OutputField,
-} from '@/lib/nodeOutput'
-import ModelSelect from '@/components/ModelSelect'
-import {
-  OutputExampleBox,
-  OutputFieldsBox,
-  OutputKindToggle,
-  OutputModeLink,
-} from '@/components/OutputField'
+} from '@/lib/canvas/nodeOutput'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
-import type { RefFileSlot } from '@/hooks/useNodeRefFiles'
+import type { RefFileSlot } from '@/hooks/canvas/useNodeRefFiles'
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
+
+import ModelSelect from './ModelSelect'
+import { OutputExampleBox, OutputFieldsBox, OutputKindToggle, OutputModeLink } from './OutputField'
 
 /**
  * 「노드 정보」 탭 — 고른 노드를 살펴보고 고치는 자리. 좌표는 탭 아래 스크롤 영역 기준이다.

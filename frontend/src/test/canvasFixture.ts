@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNodeData } from '@/lib/canvasWorkflow'
+import type { CanvasEdge, CanvasNodeData } from '@/lib/canvas/canvasWorkflow'
 
 /** 그래프 함수를 검사할 때 쓰는 다섯 칸짜리 표본. */
 export const CANVAS_NODES: CanvasNodeData[] = [

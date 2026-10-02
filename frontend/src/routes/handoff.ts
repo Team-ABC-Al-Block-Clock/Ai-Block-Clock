@@ -1,5 +1,5 @@
 import { RECOMMEND_LIMITS, type RecommendedAgent } from '@/api/agents'
-import type { PlacedSeed } from '@/lib/canvasReducer'
+import type { PlacedSeed } from '@/lib/canvas/canvasReducer'
 
 /**
  * 화면 사이로 건너가는 값 — 주소의 검색어와 `navigate` state.

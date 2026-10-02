@@ -22,7 +22,7 @@
 
 - 인터페이스에 `I` 를 붙이지 않는다. `IUserData`(✗) → `UserData`(○)
 - Props 가 한 줄이면 인라인, 두 개를 넘으면 이름을 붙인다
-- 웹 컴포넌트만 kebab-case 다. 커스텀 엘리먼트는 태그명에 하이픈이 필요해서 파일명을 태그명과 맞춘다(`components/ocean-bg.ts` → `<ocean-bg>`). React 컴포넌트(`Sidebar.tsx`)와는 파일명으로 구분된다
+- 웹 컴포넌트만 kebab-case 다. 커스텀 엘리먼트는 태그명에 하이픈이 필요해서 파일명을 태그명과 맞춘다(`components/elements/ocean-bg.ts` → `<ocean-bg>`). React 컴포넌트(`Sidebar.tsx`)와는 파일명으로 구분된다
 
 ---
 
@@ -39,18 +39,27 @@
 frontend/src/
 ├─ pages/          화면 단위 (라우트 하나 = 파일 하나, 하위 컴포넌트가 생기면 폴더 하나)
 ├─ components/     여러 화면이 쓰는 것
+│  ├─ canvas/      편집·대기·실행 화면이 함께 쓰는 작업면 · 카드 · 연결선
+│  ├─ mypage/      마이페이지 화면들이 함께 쓰는 틀 · 사이드바 · 기간 메뉴
+│  └─ elements/    웹 컴포넌트(커스텀 엘리먼트)와 그 기반 · 타입
 ├─ routes/         라우트 패턴 · 경로 생성기
 ├─ lib/            공용 헬퍼·설정 (env, queryClient, queryKeys, shell, format)
+│  ├─ canvas/      워크플로우 그래프 · 캔버스 상태 · 작업면 치수 · 저장 형식 변환
+│  ├─ run/         실행 진행 스트림 · 단계 짝짓기 · 결과 문서
+│  ├─ wallet/      체인 · abcToken · 충전 · 출금 문구
+│  └─ stats/       판매 · 사용 추이 · 기간
 ├─ api/            서버 통신 · 응답 타입
 ├─ mocks/          MSW mock 서버 (핸들러 · 픽스처)
 ├─ stores/         전역 상태
-├─ hooks/          커스텀 훅
+├─ hooks/          커스텀 훅 (canvas/ · run/ · wallet/ 은 lib/ 의 같은 이름 폴더와 짝)
 ├─ index.css       전역 CSS · Tailwind 토큰
 └─ assets/         이미지·폰트
 ```
 
 - 한 파일에 컴포넌트 하나. `export default` 로 내보낸다
 - 두 화면이 같은 것을 쓰기 시작하면 `components/` 로 올린다. 세 번째가 나오기 전에는 올리지 않는다
+- `components/`·`lib/`·`hooks/` 의 하위 폴더는 같은 도메인끼리 묶은 것이다. 한 도메인에 속하지 않는 것은 각 폴더 바로 아래에 둔다
+- 상수와 순수 계산은 컴포넌트 파일에 두지 않는다. 훅이나 다른 `lib/` 모듈이 그 값을 쓰려고 컴포넌트를 import 하게 된다(`lib/canvas/pane.ts`)
 - 한 화면에서만 쓰는 하위 컴포넌트는 그 화면의 폴더에 둔다. `pages/EditNodes.tsx` → `pages/EditNodes/index.tsx` — `App.tsx` 가 확장자 없이 부르므로 라우팅은 그대로다. 폴더 안에 있다는 것이 곧 그 화면 전용이라는 뜻이고, 다른 화면이 쓰기 시작하면 `components/` 로 올린다
 
 ---
@@ -267,7 +276,7 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 - `endedBy` 는 인증된 적이 있을 때만 남긴다. 첫 방문의 401 에 사유가 붙으면 한 번도 로그인하지 않은 사람이 「세션이 만료되었습니다」를 본다
 - 먼저 적힌 사유가 이긴다. 한 화면이 목록 여러 개를 동시에 부르면 401 도 함께 오는데, 두 번째부터는 이미 미인증이라 사유를 새로 적을 수 없다 — 덮어쓰게 두면 안내가 통째로 사라진다. 사용자가 누른 로그아웃(`signOut`)만 사유를 확정한다
 - 인증됐던 세션을 끊을 때 쿼리 캐시도 비운다(`queryClient.clear()`). 스토어만 비우면 `staleTime`(60초) 동안 마이페이지·잔액이 이전 계정 값을 보여 준다 — 같은 브라우저에서 지갑을 갈아타는 일이 흔하다. 비로그인 방문도 부팅 복구 401 로 같은 길을 지나가므로 그때는 비우지 않는다. 공개 화면(상세·검색)의 쿼리까지 날아간다
-- 보호 화면은 프로필을 스토어에서 읽는다. `restore`·`signIn` 이 이미 받아 두고 보호 화면은 `authenticated` 일 때만 그려지므로, `GET /users/me` 를 쿼리로 다시 부르지 않는다(`components/Sidebar.tsx`)
+- 보호 화면은 프로필을 스토어에서 읽는다. `restore`·`signIn` 이 이미 받아 두고 보호 화면은 `authenticated` 일 때만 그려지므로, `GET /users/me` 를 쿼리로 다시 부르지 않는다(`components/mypage/Sidebar.tsx`)
 - 껍데기는 화면 구성을 세션에 따라 바꾸지 않는다. 로그인 여부와 무관하게 같은 화면을 보여 주고 보호 라우트에서 막는다. 예외는 프로필 메뉴 안의 아바타 이니셜과 로그아웃 행 둘뿐이다 — 로그아웃한 사람에게 다른 사람의 이니셜과 로그아웃을 보여줄 수는 없다. 메뉴는 shadow DOM 안이라 스토어를 못 읽으므로 `App.tsx` 가 속성으로 넘긴다
 - api 계층은 라우터를 알지 않는다. 회복 불가능한 401 은 `setOnAuthFailure` 로 스토어에 알리고 스토어는 상태만 비운다. 화면 이동은 `ProtectedRoute` 의 몫이다(4절)
 
@@ -275,7 +284,7 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 ### 지갑 연결과 서버 세션은 별개다
 
-`lib/wagmi.ts` 가 체인과 커넥터를 들고 있다. MetaMask 하나만 붙이므로 RainbowKit·WalletConnect 를 쓰지 않는다.
+`lib/wallet/wagmi.ts` 가 체인과 커넥터를 들고 있다. MetaMask 하나만 붙이므로 RainbowKit·WalletConnect 를 쓰지 않는다.
 
 - 네트워크 이름을 손으로 적지 않는다. 앱이 요구하는 체인은 `chainLabel`(배너·안내), 사용자 지갑이 붙은 체인은 프로필의 `wallet.chainId` 다. 화면 네 곳에 `Polygon Mainnet` 이 박혀 있었는데 실제 체인은 Amoy 였다
 - 체인은 `defineChain` 으로 만든다. SSAFY 체인(31221)은 `wagmi/chains` 프리셋에 없다. 탐색기가 없어 `blockExplorers` 를 두지 않는다 — 지갑에 체인을 추가할 때도 그대로 빠진다. 체인을 옮길 때 고치는 곳은 이 파일 하나다
@@ -287,7 +296,7 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 ### 워크플로우 저장 · 불러오기
 
-캔버스가 들고 있는 모양과 서버가 받는 모양이 다르다. 변환은 `lib/workflowPayload.ts` 한 곳에서만 한다 — 화면이 직접 `nodeKey` 를 만들면 규칙이 갈린다.
+캔버스가 들고 있는 모양과 서버가 받는 모양이 다르다. 변환은 `lib/canvas/workflowPayload.ts` 한 곳에서만 한다 — 화면이 직접 `nodeKey` 를 만들면 규칙이 갈린다.
 
 - 노드는 서버 원본을 함께 들고 있어야 한다. 팔레트 항목의 `itemId`·`itemType` 을 `CanvasNodeData` 의 `sourceId`·`sourceType` 으로 싣는다. 이게 없으면 화면에는 멀쩡히 그려지는데 저장할 방법이 없다
 - 키는 저장할 때 새로 매긴다(`n1…nN` · `e1…eM`). 캔버스 id 를 그대로 쓰면 서버의 64자 제한에 걸린다 — 노드 id 가 UUID 가 되는 순간 선 키가 73자다. 차례는 `treeOrder` 가 정하고 분기는 참 갈래부터다
@@ -299,11 +308,11 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 - `revision` 은 화면이 들고 있다가 그대로 돌려준다. 어긋나면 `WORKFLOW_016` 이고, 덮어쓰지 않고 다시 열게 안내한다
 - 빈 캔버스로 시작한다. 자리표시자를 깔아 두면 사용자가 놓지 않은 것이 저장된다. `CANVAS_NODES` 는 검사용 표본이지 초기값이 아니다
 
-편집·대기·진행 세 화면이 `hooks/useSavedWorkflow.ts` 로 같은 워크플로우를 읽는다. 대기·진행은 `?workflowId=` 로 받고, 없으면 빈 캔버스를 그린다.
+편집·대기·진행 세 화면이 `hooks/canvas/useSavedWorkflow.ts` 로 같은 워크플로우를 읽는다. 대기·진행은 `?workflowId=` 로 받고, 없으면 빈 캔버스를 그린다.
 
 ### 노드 출력 형식
 
-기본 노드는 출력을 글(`TEXT`) 또는 JSON 예시(`output.example`)로 선언한다. 분기 조건은 JSON 예시의 칸만 읽는다. 변환 · 검사는 `lib/nodeOutput.ts` 한 곳에서 한다.
+기본 노드는 출력을 글(`TEXT`) 또는 JSON 예시(`output.example`)로 선언한다. 분기 조건은 JSON 예시의 칸만 읽는다. 변환 · 검사는 `lib/canvas/nodeOutput.ts` 한 곳에서 한다.
 
 - JSON 은 폼(이름 · 타입 · 예시 값)으로 적고 프론트가 예시 객체로 바꿔 보낸다. 서버 · 엔진이 받는 값은 직접 적은 JSON 과 같다
 - 폼은 한 단계짜리 글자 · 숫자 · 참거짓만 다룬다. 목록 · 하위 객체 · null 이 든 예시는 「JSON 으로 직접 적기」로 연다. 전환하다 값을 잃는 입력(숫자가 아닌 값 · 겹친 이름 · 이름 없는 값)이 있으면 넘어가지 않는다
@@ -336,7 +345,7 @@ if (e instanceof ApiError && e.isNetworkError) …   // 응답 자체를 못 받
 
 화면 용어는 「충전」이다. 백엔드의 「예치」는 실행을 접수할 때 잔액에서 떼어 묶어 두는 금액이라 뜻이 달라 화면에 쓰지 않는다.
 
-지갑이 abcToken 을 보관 지갑으로 보내고, 서버가 그 거래를 체인에서 확인해 같은 수만큼 적립한다. 접수는 `POST /credits/charges`, 확인은 `GET /credits/charges/{chargeId}` 이고 두 응답이 같은 모양이라 화면도 한 코드로 그린다. 흐름은 `hooks/useAbcCharge.ts`, 주소·자릿수는 `lib/abcToken.ts`, 실패 문구는 `lib/chargeMessage.ts` 한 곳에 모은다.
+지갑이 abcToken 을 보관 지갑으로 보내고, 서버가 그 거래를 체인에서 확인해 같은 수만큼 적립한다. 접수는 `POST /credits/charges`, 확인은 `GET /credits/charges/{chargeId}` 이고 두 응답이 같은 모양이라 화면도 한 코드로 그린다. 흐름은 `hooks/wallet/useAbcCharge.ts`, 주소·자릿수는 `lib/wallet/abcToken.ts`, 실패 문구는 `lib/wallet/chargeMessage.ts` 한 곳에 모은다.
 
 - 해시를 받자마자 접수한다. 영수증을 기다리는 사이 새로고침하거나 창을 닫으면 해시가 어디에도 남지 않아 토큰만 나간 상태가 된다. 접수보다 `localStorage` 에 먼저 적는 것도 같은 이유다
 - 접수 실패와 전송 실패를 갈라 둔다(`unsubmitted`). 해시가 손에 있으면 다시 하는 것은 접수뿐이다. 「다시 시도」 하나로 묶으면 토큰을 두 번 보낸다
@@ -502,7 +511,7 @@ React 19 는 해당 프로퍼티가 엘리먼트에 있으면 속성이 아니�
 
 `nonce` 도 같다 — `HTMLElement.nonce`(CSP)와 겹쳐 프로퍼티로 들어가고, 브라우저가 보안상 content 속성을 비워서 `getAttribute` 가 `null` 이다. 표준 프로퍼티와 이름이 겹치는지 의심되면 접미사를 붙인다(`nonce-value`·`blur-px`). 겹치면 조용히 기본값이 그려진다.
 
-내가 만든 getter 도 프로퍼티다. 관찰 속성과 같은 이름의 getter 를 두면 React 가 거기에 대입하려 하고, setter 가 없으면 그 자리에서 터진다 — `Cannot set property phase of #<WalletDialog> which has only a getter`. 속성은 `str('phase')` 로 읽고 이름이 겹치는 프로퍼티는 두지 않는다(`components/wallet-dialog.ts`).
+내가 만든 getter 도 프로퍼티다. 관찰 속성과 같은 이름의 getter 를 두면 React 가 거기에 대입하려 하고, setter 가 없으면 그 자리에서 터진다 — `Cannot set property phase of #<WalletDialog> which has only a getter`. 속성은 `str('phase')` 로 읽고 이름이 겹치는 프로퍼티는 두지 않는다(`components/elements/wallet-dialog.ts`).
 
 ### shadow DOM 을 넘는 이벤트는 `composedPath()` 로 잡는다
 

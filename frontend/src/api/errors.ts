@@ -102,7 +102,7 @@ export const EXECUTION_ERROR = {
  * ABC 충전 실패 코드.
  *
  * 토큰은 이미 지갑에서 나간 뒤라 어느 코드든 「다시 보내세요」로 끝낼 수 없다.
- * 화면 문구는 `lib/chargeMessage.ts` 가 만든다.
+ * 화면 문구는 `lib/wallet/chargeMessage.ts` 가 만든다.
  */
 export const CHARGE_ERROR = {
   /** 없는 충전 요청 — 404 */
@@ -117,7 +117,7 @@ export const CHARGE_ERROR = {
   SENDER_IS_CUSTODY: 'PAYMENT_009',
 } as const
 
-/** 출금 · 정산금 옮기기 실패 코드. 화면 문구는 `lib/withdrawalMessage.ts` 가 만든다. */
+/** 출금 · 정산금 옮기기 실패 코드. 화면 문구는 `lib/wallet/withdrawalMessage.ts` 가 만든다. */
 export const WITHDRAWAL_ERROR = {
   /** 1 ~ 1,000 ABC 밖 — 400, data 에 minimumAmount · maximumAmount */
   AMOUNT_OUT_OF_RANGE: 'PAYMENT_010',

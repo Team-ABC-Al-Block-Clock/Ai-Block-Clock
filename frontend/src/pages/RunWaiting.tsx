@@ -9,20 +9,21 @@ import {
   estimateCost,
   startExecution,
 } from '@/api/executions'
-import CanvasEdgeLayer from '@/components/CanvasEdgeLayer'
-import CanvasNode from '@/components/CanvasNode'
-import ControlNode from '@/components/ControlNode'
-import CanvasPane, { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/components/CanvasPane'
-import { useSavedWorkflow } from '@/hooks/useSavedWorkflow'
+import CanvasEdgeLayer from '@/components/canvas/CanvasEdgeLayer'
+import CanvasNode from '@/components/canvas/CanvasNode'
+import ControlNode from '@/components/canvas/ControlNode'
+import CanvasPane from '@/components/canvas/CanvasPane'
+import { PANEL_CLIP, PANE_HEIGHT, PANE_WIDTH } from '@/lib/canvas/pane'
+import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
 import {
   chainPositions,
   edgeGeometry,
   nodesBounds,
   type CanvasEdge,
   type CanvasNodeData,
-} from '@/lib/canvasWorkflow'
-import { describeCondition } from '@/lib/branchCondition'
-import { fitVerticalViewport, viewportTransform } from '@/lib/viewport'
+} from '@/lib/canvas/canvasWorkflow'
+import { describeCondition } from '@/lib/canvas/branchCondition'
+import { fitVerticalViewport, viewportTransform } from '@/lib/canvas/viewport'
 import { amountLabel, priceLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { useNavigate } from 'react-router-dom'

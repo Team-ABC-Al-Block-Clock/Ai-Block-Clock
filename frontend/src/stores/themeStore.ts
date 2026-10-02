@@ -1,4 +1,4 @@
-import type { Theme, EffectiveTheme, ThemeOption } from '../components/types'
+import type { Theme, EffectiveTheme, ThemeOption } from '../components/elements/types'
 
 const KEY = 'oceanTheme'
 const DEFAULT: Theme = 'sunset'

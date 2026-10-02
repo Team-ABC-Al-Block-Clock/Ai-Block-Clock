@@ -8,7 +8,7 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { queryClient } from '@/lib/queryClient'
-import { wagmiConfig } from '@/lib/wagmi'
+import { wagmiConfig } from '@/lib/wallet/wagmi'
 import { startMocks } from '@/mocks/start'
 
 function render() {

@@ -28,7 +28,7 @@ export interface DeletedWorkflow {
 export const getMyWorkflows = (params: WorkflowQuery = {}) =>
   api.get<CursorPage<WorkflowSummary>>('/workflows', { params })
 
-/** 무엇을 어디에 놓았는가. 좌표는 서버가 저장하지 않아 보내지 않는다(`lib/workflowPayload.ts`). */
+/** 무엇을 어디에 놓았는가. 좌표는 서버가 저장하지 않아 보내지 않는다(`lib/canvas/workflowPayload.ts`). */
 /**
  * 노드 배치.
  *
