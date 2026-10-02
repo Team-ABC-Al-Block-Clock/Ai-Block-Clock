@@ -23,6 +23,7 @@ import { sparkPath } from '@/lib/stats/spark'
 import { paths } from '@/routes/paths'
 import Sidebar from '../components/mypage/Sidebar'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
+import MyPageHeader from '@/components/mypage/MyPageHeader'
 import SearchIcon from '@/components/SearchIcon'
 
 /** 마켓 목록(9)과 다르다. */
@@ -331,30 +332,12 @@ export default function MyAgents() {
       <MyPageFrame>
         <Sidebar active="agents" />
 
-        <div
-          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-          style={{
-            left: `${LEFT}px`,
-            top: '158px',
-            textShadow: '0 2px 20px rgba(35,8,45,.6)',
-            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          나의 에이전트
-        </div>
-        <div
-          className="absolute text-[13px] tracking-[-.01em]"
-          style={{
-            left: `${LEFT}px`,
-            top: '206px',
-            width: '560px',
-            lineHeight: '1.5',
-            color: 'rgba(255,236,246,.7)',
-            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          내가 만든 에이전트와 저장한 에이전트를 사용하고 수정할 수 있는 공간입니다.
-        </div>
+        <MyPageHeader
+          title="나의 에이전트"
+          description="내가 만든 에이전트와 저장한 에이전트를 사용하고 수정할 수 있는 공간입니다."
+          descriptionWidth={560}
+          descriptionStyle={{ lineHeight: '1.5' }}
+        />
 
         {/* 탭 — 하나가 API 하나다 */}
         <div

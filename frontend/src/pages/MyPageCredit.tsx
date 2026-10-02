@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import Sidebar from '../components/mypage/Sidebar'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
+import MyPageHeader from '@/components/mypage/MyPageHeader'
 import { getCreditBalance } from '@/api/credits'
 import { IN_PROGRESS_WITHDRAWAL, WITHDRAWAL_LIMITS } from '@/api/withdrawals'
 import { useAbcCharge, type AbcCharge } from '@/hooks/wallet/useAbcCharge'
@@ -256,29 +257,11 @@ export default function MyPageCredit() {
       <MyPageFrame>
         <Sidebar active="credit" />
 
-        <div
-          className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-          style={{
-            left: '442px',
-            top: '158px',
-            textShadow: '0 2px 20px rgba(35,8,45,.6)',
-            animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          충전/출금
-        </div>
-        <div
-          className="absolute text-[13px] tracking-[-.01em]"
-          style={{
-            left: '442px',
-            top: '206px',
-            width: '820px',
-            color: 'rgba(255,236,246,.7)',
-            animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-          }}
-        >
-          지갑의 abcToken 으로 ABC 를 충전하거나, 판매로 받은 정산금을 지갑으로 출금합니다.
-        </div>
+        <MyPageHeader
+          title="충전/출금"
+          description="지갑의 abcToken 으로 ABC 를 충전하거나, 판매로 받은 정산금을 지갑으로 출금합니다."
+          descriptionWidth={820}
+        />
 
         <div
           className="absolute flex"

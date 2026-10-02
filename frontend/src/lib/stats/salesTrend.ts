@@ -2,6 +2,10 @@ import type { SettlementStatistics } from '@/api/settlements'
 
 const DAY_MS = 86_400_000
 
+/** 마이페이지 추이 차트의 설계 크기. `trendPath` 로 선을 그릴 때 이 상자에 맞춘다. */
+export const TREND_WIDTH = 534
+export const TREND_HEIGHT = 146
+
 /** 서버는 받은 것이 없는 날을 뺀다. 기간이 있으면 빈 날을 0 으로 채워 선이 날짜를 건너뛰지 않게 한다. */
 export function dailySeries(
   periods: SettlementStatistics['periods'],

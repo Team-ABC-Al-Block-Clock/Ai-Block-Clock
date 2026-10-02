@@ -3,18 +3,24 @@ import { Fragment, useState } from 'react'
 import Sidebar from '../components/mypage/Sidebar'
 import PeriodMenu from '@/components/mypage/PeriodMenu'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
+import MyPageHeader from '@/components/mypage/MyPageHeader'
+import TrendChart from '@/components/mypage/TrendChart'
 import { getMyAgents } from '@/api/agents'
 import { getCreditBalance } from '@/api/credits'
 import { getSettlementStatistics, getSettlements } from '@/api/settlements'
 import { priceLabel, runLabel, timeLabel } from '@/lib/format'
 import { growthPercent, monthRanges, PERIODS, rangeOf } from '@/lib/stats/period'
 import { queryKeys } from '@/lib/queryKeys'
-import { dailySeries, trendPath, trendTicks } from '@/lib/stats/salesTrend'
+import {
+  dailySeries,
+  TREND_HEIGHT,
+  TREND_WIDTH,
+  trendPath,
+  trendTicks,
+} from '@/lib/stats/salesTrend'
 import { paths } from '@/routes/paths'
 
 const PAGE_SIZE = 20
-const CHART_W = 534
-const CHART_H = 146
 const SHARE_COLORS = ['#e9aec4', '#dba18b', '#a094c2']
 
 const shareOf = (amount: string, total: number) =>
@@ -108,8 +114,8 @@ export default function MyPageSales() {
   const series = stats ? dailySeries(stats.periods, range) : []
   const line = trendPath(
     series.map((p) => p.amount),
-    CHART_W,
-    CHART_H,
+    TREND_WIDTH,
+    TREND_HEIGHT,
   )
   const ticks = trendTicks(series)
 
@@ -199,29 +205,11 @@ export default function MyPageSales() {
     <MyPageFrame>
       <Sidebar active="sales" />
 
-      <div
-        className="absolute text-[30px] font-semibold tracking-[-.02em] text-white"
-        style={{
-          left: '442px',
-          top: '158px',
-          textShadow: '0 2px 20px rgba(35,8,45,.6)',
-          animation: 'rise .7s .06s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        판매 내역
-      </div>
-      <div
-        className="absolute text-[13px] tracking-[-.01em]"
-        style={{
-          left: '442px',
-          top: '206px',
-          width: '700px',
-          color: 'rgba(255,236,246,.7)',
-          animation: 'rise .7s .1s cubic-bezier(.2,.8,.25,1) both',
-        }}
-      >
-        내 에이전트를 판매한 정산금과 출금할 수 있는 금액을 확인합니다.
-      </div>
+      <MyPageHeader
+        title="판매 내역"
+        description="내 에이전트를 판매한 정산금과 출금할 수 있는 금액을 확인합니다."
+        descriptionWidth={700}
+      />
 
       <PeriodMenu at={periodAt} onPick={setPeriodAt} />
 
@@ -289,59 +277,7 @@ export default function MyPageSales() {
         }}
       >
         <div className="text-[17px] font-semibold tracking-[-.01em] text-white">정산금 추이</div>
-        <div className="relative" style={{ marginTop: '18px', width: '534px', height: '158px' }}>
-          <div
-            className="absolute top-0 left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ width: '534px', height: '1px' }}
-          ></div>
-          <div
-            className="absolute left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ top: '40px', width: '534px', height: '1px' }}
-          ></div>
-          <div
-            className="absolute left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ top: '80px', width: '534px', height: '1px' }}
-          ></div>
-          <div
-            className="absolute left-0 bg-[rgba(255,255,255,.09)]"
-            style={{ top: '120px', width: '534px', height: '1px' }}
-          ></div>
-          <svg
-            className="absolute top-0 left-0"
-            width="534"
-            height="134"
-            viewBox="0 0 534 146"
-            preserveAspectRatio="none"
-            fill="none"
-            style={{ overflow: 'visible' }}
-          >
-            <defs>
-              <linearGradient id="salesLine" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stopColor="#dba18b" />
-                <stop offset="100%" stopColor="#e3b7c8" />
-              </linearGradient>
-              <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ffb0cd" stopOpacity=".34" />
-                <stop offset="100%" stopColor="#ffb0cd" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {line && (
-              <path d={`${line} L${CHART_W} ${CHART_H} L0 ${CHART_H} Z`} fill="url(#salesFill)" />
-            )}
-            {line && (
-              <path
-                d={line}
-                fill="none"
-                stroke="url(#salesLine)"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                pathLength={1400}
-                strokeDasharray="1400"
-                style={{ animation: 'drawUp 1.5s .35s cubic-bezier(.3,.7,.2,1) both' }}
-              />
-            )}
-          </svg>
+        <TrendChart id="sales" line={line} ticks={ticks} marginTop={18}>
           {stats && total === 0 && (
             <div
               className="absolute left-0 flex items-center justify-center text-[13.5px]"
@@ -358,15 +294,7 @@ export default function MyPageSales() {
               정산 통계를 불러오지 못했습니다.
             </div>
           )}
-          <div
-            className="absolute left-0 flex justify-between text-[12px]"
-            style={{ top: '142px', width: '534px', color: 'rgba(255,236,246,.5)' }}
-          >
-            {ticks.map((t, i) => (
-              <span key={i}>{t.replace('-', '/')}</span>
-            ))}
-          </div>
-        </div>
+        </TrendChart>
       </div>
 
       <div
