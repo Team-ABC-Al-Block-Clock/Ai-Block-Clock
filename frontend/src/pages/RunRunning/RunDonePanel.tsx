@@ -130,7 +130,7 @@ export default function RunDonePanel({ workflowId, result, sell }: RunDonePanelP
           className="absolute text-center text-[13px]"
           style={{
             left: `${PANEL_INSET}px`,
-            top: '568px',
+            top: '640px',
             width: `${PANEL_CONTENT_WIDTH}px`,
             color: 'rgba(255,214,232,.72)',
           }}
@@ -228,7 +228,7 @@ export default function RunDonePanel({ workflowId, result, sell }: RunDonePanelP
 
       <div
         className="absolute text-[17.5px] font-semibold tracking-[-.005em]"
-        style={{ left: `${PANEL_INSET}px`, top: '660px', color: 'rgba(255,255,255,.94)' }}
+        style={{ left: `${PANEL_INSET}px`, top: '672px', color: 'rgba(255,255,255,.94)' }}
       >
         출력 결과
       </div>
@@ -270,9 +270,9 @@ export default function RunDonePanel({ workflowId, result, sell }: RunDonePanelP
         id="resultBox"
         style={{
           left: `${PANEL_INSET}px`,
-          top: '692px',
+          top: '704px',
           width: `${PANEL_CONTENT_WIDTH}px`,
-          height: 'calc(318px + 2 * var(--edge-y, 0px))',
+          height: 'calc(306px + 2 * var(--edge-y, 0px))',
           padding: '16px',
           borderRadius: '12px',
           background: 'var(--color-surface-quiet)',
