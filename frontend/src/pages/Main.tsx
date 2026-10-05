@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RECOMMEND_LIMITS } from '@/api/agents'
+import { useTypewriter } from '@/hooks/useTypewriter'
 import { searchPath } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
@@ -21,6 +22,7 @@ const SUGGESTIONS = [
 
 export default function Main() {
   const navigate = useNavigate()
+  const { textRef: titleRef, caretRef } = useTypewriter(FULL_TITLE, 350)
   const [dragging, setDragging] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   /** 빈 채로 엔터를 눌렀나. 한 글자라도 적으면 내린다. */
@@ -85,32 +87,6 @@ export default function Main() {
     window.addEventListener('dragover', _onOver)
     window.addEventListener('dragleave', _onLeave)
     window.addEventListener('drop', _onDrop)
-    // 타이핑 효과. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let typing: ReturnType<typeof setInterval> | undefined
-    const startTyping = (tries: number) => {
-      if (!document.getElementById('mainTypeText')) {
-        if (tries < 60) timers.push(setTimeout(() => startTyping(tries + 1), 100))
-        return
-      }
-      const t0 = performance.now()
-      typing = setInterval(() => {
-        const node = document.getElementById('mainTypeText')
-        if (!node) return
-        const i = Math.min(FULL_TITLE.length, Math.floor((performance.now() - t0) / 55))
-        node.textContent = FULL_TITLE.slice(0, i)
-        if (i < FULL_TITLE.length) return
-        clearInterval(typing)
-        timers.push(
-          setTimeout(() => {
-            const c = document.getElementById('mainCaret')
-            if (c) c.style.display = 'none'
-          }, 900),
-        )
-      }, 55)
-    }
-    timers.push(setTimeout(() => startTyping(0), 350))
-
     const input = document.getElementById('agentInput')
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Enter') startSearch()
@@ -118,8 +94,6 @@ export default function Main() {
     input?.addEventListener('keydown', onKeydown)
 
     return () => {
-      clearInterval(typing)
-      timers.forEach(clearTimeout)
       input?.removeEventListener('keydown', onKeydown)
       window.removeEventListener('dragenter', _onEnter)
       window.removeEventListener('dragover', _onOver)
@@ -156,10 +130,10 @@ export default function Main() {
           transition: 'color .2s',
         }}
       >
-        <span id="mainTypeText"></span>
+        <span ref={titleRef}></span>
         <span
           className="inline-block"
-          id="mainCaret"
+          ref={caretRef}
           style={{
             width: '3px',
             height: '34px',

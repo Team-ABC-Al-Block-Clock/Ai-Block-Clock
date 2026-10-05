@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 
 import { getMarketplaceAgents } from '@/api/agents'
 import { useInfiniteSentinel } from '@/hooks/useInfiniteSentinel'
+import { useTypewriter } from '@/hooks/useTypewriter'
 import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 import { paths } from '@/routes/paths'
@@ -37,6 +38,7 @@ const EMPTY_BOX = { left: '410px', top: '486px', width: '620px' } as const
 const CARD_HEIGHT = 240
 
 export default function Search() {
+  const { textRef: titleRef, caretRef } = useTypewriter(FULL_TITLE, 780)
   /**
    * 검색어의 원본은 주소다. 상태에만 두면 새로고침하면 사라지고 링크로 공유할 수 없다 —
    * 뒤로가기도 검색을 되돌리지 않고 화면을 벗어난다.
@@ -157,39 +159,6 @@ export default function Search() {
     return () => node.removeEventListener('clear', onClear)
   }, [showEmpty, setQ])
 
-  useEffect(() => {
-    // 타자 치듯 타이틀 입력. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let typing: ReturnType<typeof setInterval> | undefined
-    const startTyping = (tries: number) => {
-      if (!document.getElementById('srchTypeText')) {
-        if (tries < 60) timers.push(setTimeout(() => startTyping(tries + 1), 100))
-        return
-      }
-      const t0 = performance.now()
-      typing = setInterval(() => {
-        const node = document.getElementById('srchTypeText')
-        if (!node) return
-        const i = Math.min(FULL_TITLE.length, Math.floor((performance.now() - t0) / 55))
-        node.textContent = FULL_TITLE.slice(0, i)
-        if (i < FULL_TITLE.length) return
-        clearInterval(typing)
-        timers.push(
-          setTimeout(() => {
-            const c = document.getElementById('srchCaret')
-            if (c) c.style.display = 'none'
-          }, 900),
-        )
-      }, 55)
-    }
-    timers.push(setTimeout(() => startTyping(0), 780))
-
-    return () => {
-      clearInterval(typing)
-      timers.forEach(clearTimeout)
-    }
-  }, [])
-
   return (
     <>
       <div
@@ -215,10 +184,10 @@ export default function Search() {
           textShadow: '0 1px 10px rgba(35,8,45,.45)',
         }}
       >
-        <span id="srchTypeText"></span>
+        <span ref={titleRef}></span>
         <span
           className="inline-block"
-          id="srchCaret"
+          ref={caretRef}
           style={{
             width: '3px',
             height: '34px',
