@@ -113,10 +113,47 @@ export default function AddNodePanel({
         </div>
       </div>
 
+      {/* 시작·종료는 워크플로우마다 꼭 필요해 폼 아래에 두지 않고 스크롤 밖에 고정한다 */}
+      <div className="flex-none">
+        <div className="text-[17px]" style={{ ...LABEL_STYLE, marginBottom: '10px' }}>
+          제어 흐름 노드
+        </div>
+        <div className="flex flex-wrap" style={{ gap: '8px', marginBottom: '16px' }}>
+          <ControlChip
+            label="시작"
+            disabled={placed.start}
+            title={placed.start ? '시작 노드는 하나만 놓을 수 있습니다' : undefined}
+            onClick={() => onPlaceControl('START')}
+          />
+          <ControlChip
+            label="종료"
+            disabled={placed.end}
+            title={placed.end ? '종료 노드는 하나만 놓을 수 있습니다' : undefined}
+            onClick={() => onPlaceControl('END')}
+          />
+          <ControlChip label="조건 분기" onClick={() => onPlaceControl('BRANCH')} />
+          {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 병합은 노드 없이 두 갈래를 같은 노드로 잇는다. */}
+          <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
+          <ControlChip
+            label="병합"
+            disabled
+            title="두 갈래에서 같은 노드로 선을 이으면 합쳐집니다"
+            onClick={() => {}}
+          />
+        </div>
+      </div>
+      <div
+        className="flex-none"
+        style={{ height: '1px', background: 'rgba(255,255,255,.12)', marginBottom: '16px' }}
+      />
+
       <div
         className="scroll-thin flex-1 overflow-x-hidden"
         style={{ minHeight: '0', paddingRight: '4px' }}
       >
+        <div className="text-[17px] font-semibold text-white" style={{ marginBottom: '14px' }}>
+          새 노드 만들기
+        </div>
         <div className="text-[17px]" style={LABEL_STYLE}>
           노드 이름
         </div>
@@ -219,33 +256,6 @@ export default function AddNodePanel({
             )}
           </>
         )}
-
-        <div className="text-[17px]" style={{ ...LABEL_STYLE, marginBottom: '10px' }}>
-          제어 흐름 노드
-        </div>
-        <div className="flex flex-wrap" style={{ gap: '8px', marginBottom: '2px' }}>
-          <ControlChip
-            label="시작"
-            disabled={placed.start}
-            title={placed.start ? '시작 노드는 하나만 놓을 수 있습니다' : undefined}
-            onClick={() => onPlaceControl('START')}
-          />
-          <ControlChip
-            label="종료"
-            disabled={placed.end}
-            title={placed.end ? '종료 노드는 하나만 놓을 수 있습니다' : undefined}
-            onClick={() => onPlaceControl('END')}
-          />
-          <ControlChip label="조건 분기" onClick={() => onPlaceControl('BRANCH')} />
-          {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 병합은 노드 없이 두 갈래를 같은 노드로 잇는다. */}
-          <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
-          <ControlChip
-            label="병합"
-            disabled
-            title="두 갈래에서 같은 노드로 선을 이으면 합쳐집니다"
-            onClick={() => {}}
-          />
-        </div>
       </div>
 
       <div
