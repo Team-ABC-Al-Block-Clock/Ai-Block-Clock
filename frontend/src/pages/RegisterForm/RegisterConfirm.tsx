@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 
+import WindowLayer from '@/components/WindowLayer'
+
 interface RegisterConfirmProps {
   /** 물어볼 에이전트 이름. 없으면 닫혀 있다. */
   asking: { name: string } | null
@@ -30,16 +32,18 @@ export default function RegisterConfirm({ asking, onConfirm, onCancel }: Registe
   })
 
   return (
-    <confirm-dialog
-      ref={ref}
-      open={asking ? '' : undefined}
-      heading="마켓에 등록하시겠습니까?"
-      body-text={
-        '등록하면 곧바로 공개되고, 다시 내릴 수 없습니다.\n소유권은 블록체인에 기록될 예정입니다.'
-      }
-      note-text={asking?.name || undefined}
-      confirm-label="등록하기"
-      cancel-label="취소"
-    />
+    <WindowLayer>
+      <confirm-dialog
+        ref={ref}
+        open={asking ? '' : undefined}
+        heading="마켓에 등록하시겠습니까?"
+        body-text={
+          '등록하면 곧바로 공개되고, 다시 내릴 수 없습니다.\n소유권은 블록체인에 기록될 예정입니다.'
+        }
+        note-text={asking?.name || undefined}
+        confirm-label="등록하기"
+        cancel-label="취소"
+      />
+    </WindowLayer>
   )
 }
