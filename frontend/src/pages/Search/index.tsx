@@ -1,163 +1,37 @@
-import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
 
-import { getMarketplaceAgents } from '@/api/agents'
-import { useInfiniteSentinel } from '@/hooks/useInfiniteSentinel'
-import { useTypewriter } from '@/hooks/useTypewriter'
-import { priceLabel, ratingLabel, runLabel } from '@/lib/format'
-import { queryKeys } from '@/lib/queryKeys'
-import { paths } from '@/routes/paths'
-import { OceanTheme } from '@/stores/themeStore'
 import SearchIcon from '@/components/SearchIcon'
+import { useTypewriter } from '@/hooks/useTypewriter'
 
-const FULL_TITLE = '어떤 일을 맡겨볼까요?'
-/** 명세 기본값 */
-const PAGE_SIZE = 9
-/** 입력이 멈춘 뒤에만 검색한다. 없으면 타자 한 번에 요청 한 번이다. */
-const DEBOUNCE_MS = 300
+import AgentCard from './AgentCard'
+import { FULL_TITLE } from './config'
+import NextPageRetry from './NextPageRetry'
+import SearchNotice from './SearchNotice'
+import { useBrightTheme } from './useBrightTheme'
+import { useMarketplaceSearch } from './useMarketplaceSearch'
+import { useSearchKeyword } from './useSearchKeyword'
 
-/** 빈 상태는 실패가 아니라 다음 행동을 고르는 자리다 — 행동을 최소 하나 준다. */
-const EMPTY_ACTIONS = JSON.stringify([
-  { label: '직접 만들어보기', href: paths.home, primary: true },
-  { label: '검색어 지우기', event: 'clear' },
-])
-
-const EMPTY_BODY =
-  '찾는 일을 다르게 적어보거나, 프롬프트로 에이전트를 직접 만들어 보세요.\n ' +
-  '여러 에이전트를 이어 붙이는 일도 프롬프트 한 줄로 됩니다.'
-
-/** 실패 안내는 그리드 안쪽 폭(272~1168)에 맞춘다. */
-const NOTICE_BOX = { left: '272px', top: '470px', width: '896px' } as const
-
-/** 272 + (896 - 620) / 2 = 410. translateX 로 중앙 정렬하지 않는다 — transform 이
- *  걸리면 backdrop 루트가 되어 카드가 바깥 배경을 못 가져온다. */
-const EMPTY_BOX = { left: '410px', top: '486px', width: '620px' } as const
-
-/** 설명이 서버 상한(80자)이면 이 폭에서 다섯 줄이다. 다 들어가는 높이로 둔다. */
-const CARD_HEIGHT = 240
-
+/**
+ * 마켓 검색. 검색어·주소 동기화는 `useSearchKeyword`, 결과 목록은 `useMarketplaceSearch` 가 든다.
+ */
 export default function Search() {
   const { textRef: titleRef, caretRef } = useTypewriter(FULL_TITLE, 780)
-  /**
-   * 검색어의 원본은 주소다. 상태에만 두면 새로고침하면 사라지고 링크로 공유할 수 없다 —
-   * 뒤로가기도 검색을 되돌리지 않고 화면을 벗어난다.
-   */
-  const [searchParams, setSearchParams] = useSearchParams()
-  /** 첫 진입의 ?keyword= 만 읽는다. 그 뒤로 입력값의 주인은 이 state 다.
-   *  주소를 되읽어 value 로 쓰면 한글이 낱자로 떨어진다 — React 는 IME 조합 중에
-   *  onChange 를 쏘지 않는데, 디바운스·쿼리 전환으로 리렌더는 계속 일어나서
-   *  조합 중인 input 에 옛 값이 덮인다. 그 순간 브라우저 IME 조합이 끊긴다. */
-  const [q, setQ] = useState(() => searchParams.get('keyword') ?? '')
-  const [keyword, setKeyword] = useState(q)
+  const { q, keyword, handleChangeQuery, clearQuery } = useSearchKeyword()
+  const {
+    agents,
+    sentinelRef,
+    isError,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+    countLabel,
+    notice,
+  } = useMarketplaceSearch(keyword)
   // 카드 index 로 잡으면 무한 스크롤로 목록이 늘어날 때 엉뚱한 카드가 열린다.
   const [infoAt, setInfoAt] = useState<string | null>(null)
-
-  // OceanTheme 는 프레임워크 밖의 상태 — subscribe 로 받아 리렌더를 유발한다
-  const [bright, setBright] = useState(OceanTheme.isBright)
-  useEffect(() => OceanTheme.subscribe(() => setBright(OceanTheme.isBright())), [])
-
-  const cardBg = bright ? 'rgba(24,13,40,.42)' : 'rgba(255,255,255,.10)'
-  const descColor = bright ? 'rgba(255,240,248,.82)' : 'rgba(255,236,246,.7)'
+  const bright = useBrightTheme()
   const headShadow = bright ? '0 2px 14px rgba(24,8,34,.85)' : '0 1px 10px rgba(35,8,45,.6)'
-
-  /** 요청도 주소도 타자가 멎은 뒤에 갱신한다. 없으면 타자 한 번에 요청 한 번이다.
-   *  히스토리는 쌓지 않는다(replace) — 안 그러면 '계'·'계약'·'계약서' 를 전부 거쳐야
-   *  뒤로 나갈 수 있다. mockDelay 같은 다른 쿼리는 그대로 남긴다. */
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const next = q.trim()
-      setKeyword(next)
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev)
-          if (next) params.set('keyword', next)
-          else params.delete('keyword')
-          return params
-        },
-        { replace: true },
-      )
-    }, DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [q, setSearchParams])
-
-  // 검색은 서버가 한다. 목록은 커서로 이어 받는다 — 명세가 전체 개수를 주지 않는다.
-  const {
-    data,
-    isPending,
-    isPlaceholderData,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    fetchNextPage,
-  } = useInfiniteQuery({
-    queryKey: queryKeys.marketplace.agents.list({ keyword, size: PAGE_SIZE }),
-    queryFn: ({ pageParam }) =>
-      getMarketplaceAgents({ keyword: keyword || undefined, cursor: pageParam, size: PAGE_SIZE }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-    // 검색어가 바뀌는 동안 그리드가 비었다가 차오르지 않게 이전 결과를 남긴다.
-    placeholderData: keepPreviousData,
-  })
-
-  // 커서가 오프셋이라 장 사이에 등록이 끼면 앞 장 끝 항목이 다시 온다. 먼저 받은 것을 남긴다.
-  const seen = new Set<string>()
-  const agents = (data?.pages.flatMap((page) => page.content) ?? []).filter(
-    (a) => !seen.has(a.agentId) && Boolean(seen.add(a.agentId)),
-  )
-
-  // 카드 9장이 그리드를 거의 채워(스크롤 여유 41px) sentinel 이 계속 교차 상태로 남는다.
-  const sentinelRef = useInfiniteSentinel({
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    fetchNextPage,
-    getRoot: () => document.getElementById('gridScroll'),
-  })
-
-  const cards = agents.map((a, i) => ({
-    agentId: a.agentId,
-    name: a.name,
-    desc: a.summary,
-    rating: ratingLabel(a.averageRating, a.reviewCount),
-    iconUrl: a.iconUrl,
-    initial: a.name.trim().charAt(0).toUpperCase(),
-    uses: runLabel(a.executionCount),
-    price: priceLabel(a.price),
-    author: a.owner.nickname ?? '—',
-    infoOpen: infoAt === a.agentId,
-    infoBg: infoAt === a.agentId ? 'rgba(255,255,255,.34)' : 'rgba(255,255,255,.18)',
-    info: (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setInfoAt((v) => (v === a.agentId ? null : a.agentId))
-    },
-    // 새로 불러온 페이지 안에서만 시차를 준다 — 누적 index 를 쓰면 전부 같은 지연이 된다.
-    anim: `rise .6s ${(0.16 + (i % PAGE_SIZE) * 0.04).toFixed(2)}s cubic-bezier(.2,.8,.25,1) both`,
-  }))
-
-  // 이전 검색어의 결과를 보여주는 동안(placeholder)은 아직 "이번 검색 결과" 가 아니다.
-  // hasNextPage 는 새 쿼리 키의 데이터로 계산되므로 그 사이 '+' 가 사라진다.
-  const isSettled = !isPending && !isPlaceholderData
-  // 전체 개수는 명세에 없다(전수를 만들지 않는 것이 설계 의도). 불러온 만큼만 센다.
-  const countLabel = isSettled ? `${agents.length}개${hasNextPage ? '+' : ''}` : '…'
-  // 불러오는 중에는 "결과 없음" 을 띄우지 않는다 — 매 검색마다 한 번씩 깜빡인다.
-  // 카드가 한 장이라도 있으면 띄우지 않는다 — absolute 라 카드 위에 겹쳐 그려진다.
-  const notice = isSettled && agents.length === 0
-  const showEmpty = notice && !isError
-  const handleChangeQuery = (e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)
-
-  // <empty-state> 의 '검색어 지우기'. React 는 커스텀 이벤트를 on* 으로 받지 않아
-  // 직접 붙인다. emit 이 호스트에서 bubbles 로 올리므로 호스트에서 받으면 된다.
-  const emptyRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const node = emptyRef.current
-    if (!node) return
-    const onClear = () => setQ('')
-    node.addEventListener('clear', onClear)
-    return () => node.removeEventListener('clear', onClear)
-  }, [showEmpty, setQ])
+  const toggleInfo = (agentId: string) => setInfoAt((v) => (v === agentId ? null : agentId))
 
   return (
     <>
@@ -274,189 +148,27 @@ export default function Search() {
             alignContent: 'flex-start',
           }}
         >
-          {cards.map((c) => (
-            <a
-              key={c.agentId}
-              href={paths.agentDetail(c.agentId)}
-              style={{
-                width: '280px',
-                height: `${CARD_HEIGHT}px`,
-                borderRadius: '14px',
-                background: `${cardBg}`,
-                boxShadow: '0 10px 34px rgba(10,4,20,.14)',
-                transition: 'transform .2s,box-shadow .2s,background .2s',
-                animation: `${c.anim}`,
-              }}
-              className="relative overflow-hidden hover:-translate-y-[4px] hover:shadow-[0_16px_46px_rgba(10,4,20,.26)] hover:brightness-[1.14]"
-            >
-              <div
-                className="absolute overflow-hidden bg-[rgba(255,255,255,.10)]"
-                style={{
-                  left: '24px',
-                  top: '24px',
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '12px',
-                }}
-              >
-                {c.iconUrl ? (
-                  <img className="h-full w-full object-cover" src={c.iconUrl} alt="" />
-                ) : (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center text-[18px] font-semibold"
-                    style={{ color: 'rgba(255,226,238,.72)' }}
-                  >
-                    {c.initial}
-                  </div>
-                )}
-              </div>
-              <div
-                className="absolute flex items-center"
-                style={{ right: '22px', top: '26px', height: '24px', gap: '8px' }}
-              >
-                <div
-                  className="flex items-center"
-                  style={{
-                    height: '24px',
-                    padding: '0 11px',
-                    borderRadius: '12px',
-                    background: 'rgba(255,255,255,.13)',
-                    gap: '5px',
-                  }}
-                >
-                  <div className="text-[10px]" style={{ color: '#e3c8a3' }}>
-                    ★
-                  </div>
-                  <div className="text-[11.5px] font-semibold tracking-[-.01em] text-white">
-                    {c.rating}
-                  </div>
-                </div>
-                <div
-                  onClick={c.info}
-                  title="에이전트 정보"
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '12px',
-                    background: `${c.infoBg}`,
-                    letterSpacing: '0',
-                  }}
-                  className="flex flex-none cursor-pointer items-center justify-center text-[12px] font-bold text-white transition-colors duration-[160ms] hover:bg-[rgba(255,255,255,.34)]"
-                >
-                  i
-                </div>
-              </div>
-              {c.infoOpen && (
-                <>
-                  <div
-                    className="absolute top-0 left-0 box-border flex cursor-pointer flex-col"
-                    onClick={c.info}
-                    style={{
-                      width: '280px',
-                      height: `${CARD_HEIGHT}px`,
-                      padding: '22px 24px',
-                      borderRadius: '14px',
-                      background: 'rgba(20,11,36,.93)',
-                      backdropFilter: 'blur(22px) saturate(120%)',
-                      WebkitBackdropFilter: 'blur(22px) saturate(120%)',
-                      gap: '9px',
-                      animation: 'fadeIn .18s ease both',
-                      zIndex: '3',
-                    }}
-                  >
-                    <div className="text-[13.5px] font-semibold tracking-[-.01em] text-white">
-                      {c.name}
-                    </div>
-                    <div className="flex justify-between text-[12px]">
-                      <span style={{ color: 'rgba(255,236,246,.6)' }}>사용 횟수</span>
-                      <span className="font-semibold text-white">{c.uses}</span>
-                    </div>
-                    <div className="flex justify-between text-[12px]">
-                      <span style={{ color: 'rgba(255,236,246,.6)' }}>실행 단가</span>
-                      <span className="font-semibold text-white">{c.price}</span>
-                    </div>
-                    <div className="flex justify-between text-[12px]">
-                      <span style={{ color: 'rgba(255,236,246,.6)' }}>만든 사람</span>
-                      <span className="font-semibold text-white">{c.author}</span>
-                    </div>
-                    <div
-                      className="text-center text-[11px] tracking-[-.01em]"
-                      style={{ marginTop: 'auto', color: 'rgba(255,236,246,.5)' }}
-                    >
-                      다시 누르면 카드로 돌아갑니다
-                    </div>
-                  </div>
-                </>
-              )}
-              <div
-                className="absolute truncate text-[18px] font-semibold tracking-[-.01em] text-white"
-                style={{ left: '24px', top: '94px', width: '232px' }}
-              >
-                {c.name}
-              </div>
-              <div
-                className="absolute text-[13px] tracking-[-.01em]"
-                style={{
-                  left: '24px',
-                  top: '124px',
-                  width: '232px',
-                  lineHeight: '1.4',
-                  color: `${descColor}`,
-                }}
-              >
-                {c.desc}
-              </div>
-            </a>
+          {agents.map((a, i) => (
+            <AgentCard
+              key={a.agentId}
+              agent={a}
+              index={i}
+              bright={bright}
+              infoOpen={infoAt === a.agentId}
+              onToggleInfo={toggleInfo}
+            />
           ))}
           {/* 이 칸이 보이면 다음 페이지를 불러온다. 마지막 페이지면 걸지 않는다. */}
           <div ref={sentinelRef} style={{ width: '100%', height: '1px' }} />
           {isFetchNextPageError && (
-            <div
-              className="flex justify-center text-[14px]"
-              style={{ width: '100%', gap: '12px', color: 'rgba(255,236,246,.62)' }}
-            >
-              <span>다음 목록을 불러오지 못했습니다.</span>
-              <button
-                className="cursor-pointer text-white underline"
-                disabled={isFetchingNextPage}
-                onClick={() => void fetchNextPage()}
-                style={{ background: 'none', border: 0, padding: 0 }}
-                type="button"
-              >
-                다시 시도
-              </button>
-            </div>
+            <NextPageRetry isFetching={isFetchingNextPage} onRetry={() => void fetchNextPage()} />
           )}
         </div>
       </div>
 
       {/* 그리드(1.6s)와 같이 올라와야 한다. 지연이 없으면 "추천 에이전트"·개수가
           아직 안 뜬 화면에 안내만 혼자 떠 있는다. */}
-      {notice &&
-        (isError ? (
-          <div
-            className="absolute text-center text-[15px]"
-            style={{
-              ...NOTICE_BOX,
-              color: 'rgba(255,236,246,.62)',
-              animation: 'fadeIn .3s 1.6s ease both',
-            }}
-          >
-            목록을 불러오지 못했습니다
-          </div>
-        ) : (
-          <empty-state
-            ref={emptyRef}
-            style={{ position: 'absolute', ...EMPTY_BOX, animation: 'fadeIn .3s 1.6s ease both' }}
-            heading={
-              keyword
-                ? `'${keyword}' 에 맞는 에이전트가 없습니다`
-                : '아직 등록된 에이전트가 없습니다'
-            }
-            body={EMPTY_BODY}
-            actions={EMPTY_ACTIONS}
-          />
-        ))}
+      {notice && <SearchNotice isError={isError} keyword={keyword} onClear={clearQuery} />}
     </>
   )
 }
