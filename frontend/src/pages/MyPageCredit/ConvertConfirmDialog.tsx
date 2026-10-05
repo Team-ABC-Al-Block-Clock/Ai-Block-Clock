@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 
+import WindowLayer from '@/components/WindowLayer'
 import { priceLabel } from '@/lib/format'
 
 interface ConvertConfirmDialogProps {
@@ -33,14 +34,16 @@ export default function ConvertConfirmDialog({
   })
 
   return (
-    <confirm-dialog
-      ref={ref}
-      open={asking ? '' : undefined}
-      heading="정산금을 ABC 로 전환할까요?"
-      body-text={'전환한 ABC 는 실행에만 쓸 수 있고\n정산금으로 되돌릴 수 없습니다.'}
-      note-text={asking ? `${priceLabel(asking)} 전환` : undefined}
-      confirm-label="전환하기"
-      cancel-label="취소"
-    />
+    <WindowLayer>
+      <confirm-dialog
+        ref={ref}
+        open={asking ? '' : undefined}
+        heading="정산금을 ABC 로 전환할까요?"
+        body-text={'전환한 ABC 는 실행에만 쓸 수 있고\n정산금으로 되돌릴 수 없습니다.'}
+        note-text={asking ? `${priceLabel(asking)} 전환` : undefined}
+        confirm-label="전환하기"
+        cancel-label="취소"
+      />
+    </WindowLayer>
   )
 }
