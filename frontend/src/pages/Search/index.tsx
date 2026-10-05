@@ -1,11 +1,11 @@
 import { useState } from 'react'
 
+import NextPageRetry from '@/components/NextPageRetry'
 import SearchIcon from '@/components/SearchIcon'
 import { useTypewriter } from '@/hooks/useTypewriter'
 
 import AgentCard from './AgentCard'
 import { FULL_TITLE } from './config'
-import NextPageRetry from './NextPageRetry'
 import SearchNotice from './SearchNotice'
 import { useBrightTheme } from './useBrightTheme'
 import { useMarketplaceSearch } from './useMarketplaceSearch'
