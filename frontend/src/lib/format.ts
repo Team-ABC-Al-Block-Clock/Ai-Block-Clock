@@ -171,7 +171,7 @@ export const controlKindName = (kind: ControlKind) => KIND_NAMES[kind]
 const KIND_HINTS: Record<ControlKind, string> = {
   BRANCH: '조건이 참이면 true, 거짓이면 false 로 갈라집니다.',
   START: '워크플로우를 시작합니다. 실행할 때 올린 입력이 다음 노드로 넘어갑니다.',
-  END: '워크플로우가 끝납니다. 마지막 노드의 결과를 결과 화면으로 내보냅니다.',
+  END: '워크플로우가 종료됩니다. 마지막 노드의 결과를 결과 화면으로 내보냅니다.',
 }
 
 export const controlKindHint = (kind: ControlKind) => KIND_HINTS[kind]

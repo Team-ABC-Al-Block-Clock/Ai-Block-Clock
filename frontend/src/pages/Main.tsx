@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RECOMMEND_LIMITS } from '@/api/agents'
+import { useFileDragOver } from '@/hooks/useFileDragOver'
+import { useTypewriter } from '@/hooks/useTypewriter'
 import { searchPath } from '@/routes/handoff'
 import { paths } from '@/routes/paths'
 
@@ -21,7 +23,9 @@ const SUGGESTIONS = [
 
 export default function Main() {
   const navigate = useNavigate()
-  const [dragging, setDragging] = useState(false)
+  const { textRef: titleRef, caretRef } = useTypewriter(FULL_TITLE, 350)
+  const dragging = useFileDragOver()
+  const inputRef = useRef<HTMLInputElement>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   /** 빈 채로 엔터를 눌렀나. 한 글자라도 적으면 내린다. */
   const [needsQuery, setNeedsQuery] = useState(false)
@@ -29,8 +33,8 @@ export default function Main() {
   /** 찾기를 시작하는 유일한 경로. 엔터·버튼·칩이 같이 쓴다. */
   const startSearch = useCallback(
     (preset?: string) => {
-      const input = document.getElementById('agentInput')
-      const typed = input instanceof HTMLInputElement ? input.value.trim() : ''
+      const input = inputRef.current
+      const typed = input?.value.trim() ?? ''
       // 칩은 적힌 것이 없어도 제 문장으로 찾는다.
       const query = (preset ?? typed).trim()
       // 빈 문장으로는 찾을 것이 없다(서버도 COMMON_001 로 거절한다). 조용히 넘기면
@@ -57,76 +61,6 @@ export default function Main() {
   const barBg = '.34'
   const barOutline = drag ? '2px dashed rgba(255,255,255,.4)' : '2px dashed rgba(255,255,255,0)'
   const titleColor = '#fff'
-
-  useEffect(() => {
-    // 파일 드래그 → 드롭존 표시
-    let _depth = 0
-    const _onEnter = (e: DragEvent) => {
-      if (!e.dataTransfer || Array.from(e.dataTransfer.types || []).indexOf('Files') < 0) return
-      e.preventDefault()
-      _depth++
-      setDragging(true) // 같은 값이면 React 가 리렌더를 건너뛴다
-    }
-    const _onOver = (e: DragEvent) => {
-      // dragover 를 막지 않으면 브라우저가 drop 을 발생시키지 않는다.
-      // state 대신 _depth 를 보는 이유: state 는 이 클로저에 마운트 시점 값으로 갇힌다
-      if (_depth) e.preventDefault()
-    }
-    const _onLeave = () => {
-      _depth = Math.max(0, _depth - 1)
-      if (!_depth) setDragging(false)
-    }
-    const _onDrop = (e: DragEvent) => {
-      e.preventDefault()
-      _depth = 0
-      setDragging(false)
-    }
-    window.addEventListener('dragenter', _onEnter)
-    window.addEventListener('dragover', _onOver)
-    window.addEventListener('dragleave', _onLeave)
-    window.addEventListener('drop', _onDrop)
-    // 타이핑 효과. 예약한 타이머를 모아 두고 정리 시 한 번에 끊는다
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let typing: ReturnType<typeof setInterval> | undefined
-    const startTyping = (tries: number) => {
-      if (!document.getElementById('mainTypeText')) {
-        if (tries < 60) timers.push(setTimeout(() => startTyping(tries + 1), 100))
-        return
-      }
-      const t0 = performance.now()
-      typing = setInterval(() => {
-        const node = document.getElementById('mainTypeText')
-        if (!node) return
-        const i = Math.min(FULL_TITLE.length, Math.floor((performance.now() - t0) / 55))
-        node.textContent = FULL_TITLE.slice(0, i)
-        if (i < FULL_TITLE.length) return
-        clearInterval(typing)
-        timers.push(
-          setTimeout(() => {
-            const c = document.getElementById('mainCaret')
-            if (c) c.style.display = 'none'
-          }, 900),
-        )
-      }, 55)
-    }
-    timers.push(setTimeout(() => startTyping(0), 350))
-
-    const input = document.getElementById('agentInput')
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') startSearch()
-    }
-    input?.addEventListener('keydown', onKeydown)
-
-    return () => {
-      clearInterval(typing)
-      timers.forEach(clearTimeout)
-      input?.removeEventListener('keydown', onKeydown)
-      window.removeEventListener('dragenter', _onEnter)
-      window.removeEventListener('dragover', _onOver)
-      window.removeEventListener('dragleave', _onLeave)
-      window.removeEventListener('drop', _onDrop)
-    }
-  }, [navigate, startSearch])
 
   return (
     <>
@@ -156,10 +90,10 @@ export default function Main() {
           transition: 'color .2s',
         }}
       >
-        <span id="mainTypeText"></span>
+        <span ref={titleRef}></span>
         <span
           className="inline-block"
-          id="mainCaret"
+          ref={caretRef}
           style={{
             width: '3px',
             height: '34px',
@@ -221,10 +155,14 @@ export default function Main() {
         </div>
         <input
           className="absolute border-0 bg-transparent font-[inherit] text-[16px] tracking-[-.01em] text-white outline-0"
+          ref={inputRef}
           id="agentInput"
           type="text"
           maxLength={RECOMMEND_LIMITS.query.max}
           onChange={() => setNeedsQuery(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') startSearch()
+          }}
           placeholder="만들고 싶은 에이전트를 설명해 주세요"
           style={{
             left: '64px',
