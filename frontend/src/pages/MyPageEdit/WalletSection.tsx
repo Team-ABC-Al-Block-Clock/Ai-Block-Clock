@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import StatusDot from '@/components/StatusDot'
 import { useWalletStatus } from '@/hooks/wallet/useWalletStatus'
@@ -7,12 +7,16 @@ import { useWalletStatus } from '@/hooks/wallet/useWalletStatus'
 export default function WalletSection() {
   const wallet = useWalletStatus()
   const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
   const handleCopyAddress = () => {
     void navigator.clipboard
       ?.writeText(wallet.walletAddress)
       .then(() => {
         setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
+        // 연달아 누르면 앞 타이머가 새 '복사됨' 을 일찍 지우므로 끊고 다시 잰다
+        clearTimeout(copiedTimer.current)
+        copiedTimer.current = setTimeout(() => setCopied(false), 1500)
       })
       .catch(() => undefined)
   }
