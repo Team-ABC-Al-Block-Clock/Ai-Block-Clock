@@ -20,12 +20,18 @@ export default function LongTextDialog({
   placeholder,
 }: LongTextDialogProps) {
   const areaRef = useRef<HTMLTextAreaElement>(null)
+  const doneRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    const opener = document.activeElement
     const area = areaRef.current
-    if (!area) return
-    area.focus()
-    area.setSelectionRange(area.value.length, area.value.length)
+    if (area) {
+      area.focus()
+      area.setSelectionRange(area.value.length, area.value.length)
+    }
+    return () => {
+      if (opener instanceof HTMLElement) opener.focus()
+    }
   }, [])
 
   // 패널 안에서 열려도 캔버스 전체를 덮어야 해서 화면 틀에 붙인다. 틀이 배율을 함께 맞춘다.
@@ -43,7 +49,12 @@ export default function LongTextDialog({
         zIndex: 70,
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose()
+        if (e.key === 'Escape') return onClose()
+        if (e.key !== 'Tab') return
+        // 포커스를 받는 것은 입력 칸과 완료뿐이라 둘 사이에서만 돌린다. 뒤의 화면으로 새지 않게 한다.
+        e.preventDefault()
+        const next = document.activeElement === areaRef.current ? doneRef.current : areaRef.current
+        next?.focus()
       }}
     >
       <div
@@ -95,6 +106,7 @@ export default function LongTextDialog({
         </div>
         <div className="flex flex-none justify-end" style={{ marginTop: '18px' }}>
           <button
+            ref={doneRef}
             type="button"
             onClick={onClose}
             className="flex cursor-pointer items-center border-0 font-[inherit] text-[15px] font-bold hover:brightness-[1.05]"
