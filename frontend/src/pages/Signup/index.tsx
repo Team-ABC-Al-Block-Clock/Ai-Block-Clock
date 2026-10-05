@@ -9,7 +9,7 @@ import { shortAddress } from '@/lib/format'
 import { describeImageProblem } from '@/lib/imageFile'
 import { paths } from '@/routes/paths'
 import { useAuthStore } from '@/stores/authStore'
-import logo from '../assets/logo.png'
+import logo from '@/assets/logo.png'
 
 /** 가입 화면 — 서명이 끝났고 프로필이 비어 있을 때만 들른다(시안 4).
  *  서명이 인증을 대신하므로 받을 것은 프로필과 두 가지 확인뿐이다.

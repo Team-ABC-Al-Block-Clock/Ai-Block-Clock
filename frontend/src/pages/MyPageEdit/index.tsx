@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/mypage/Sidebar'
+import Sidebar from '@/components/mypage/Sidebar'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
 import MyPageHeader from '@/components/mypage/MyPageHeader'
 import { PROFILE_LIMITS, updateMyProfile } from '@/api/auth'

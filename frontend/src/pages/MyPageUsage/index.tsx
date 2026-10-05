@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
-import Sidebar from '../components/mypage/Sidebar'
+import Sidebar from '@/components/mypage/Sidebar'
 import PeriodMenu from '@/components/mypage/PeriodMenu'
 import MyPageFrame from '@/components/mypage/MyPageFrame'
 import MyPageHeader from '@/components/mypage/MyPageHeader'
