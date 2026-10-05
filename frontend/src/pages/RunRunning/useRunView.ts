@@ -1,6 +1,6 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo } from 'react'
 
-import type { ExecutionFailure, ExecutionStep, StepStatus } from '@/api/executions'
+import type { ExecutionStep } from '@/api/executions'
 import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
 import { useRunProgress } from '@/hooks/run/useRunProgress'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
@@ -28,6 +28,10 @@ import {
 } from '@/lib/run/runSteps'
 import { paths } from '@/routes/paths'
 
+import { failureNotice } from './runFailure'
+import { runHeadline } from './runHeadline'
+import { cardLook, edgeStroke, gaugeBackground, glowStyle, logRow } from './runLook'
+
 // 경로 탐색은 무겁고 자리표시자는 바뀌지 않는다. 진행률이 오를 때마다 다시 찾지 않는다.
 /** 워크플로우를 받지 못했을 때. 빈 캔버스를 그린다 — 남의 구성을 대신 보여 주지 않는다. */
 const EMPTY_NODES: CanvasNodeData[] = []
@@ -38,59 +42,6 @@ const EMPTY_EDGES: CanvasEdge[] = []
  * 마지막 카드의 오른쪽 끝이 968 이고 패널 앞 경계가 980 이다.
  */
 const CAMERA_MIN_NODES = 6
-
-/** 실행 엔진이 매기는 오류 코드. 없는 코드가 와도 화면이 비지 않게 기본 문구를 둔다. */
-const FAILURE_TEXT: Record<string, string> = {
-  SCHEMA_VALIDATION_FAILED: '단계가 약속한 형식으로 결과를 내지 못했습니다.',
-  BRANCH_CONDITION_INVALID: '분기 조건이 없는 값을 가리킵니다.',
-  AGENT_BOUNDARY_VIOLATION: '에이전트가 공개한 형식과 다른 결과를 냈습니다.',
-  REF_FILE_REJECTED: '단계에 붙은 참고 자료를 읽을 수 없습니다.',
-  PROMPT_TEMPLATE_INVALID: '프롬프트가 이 자리에서 받을 수 없는 값을 찾습니다.',
-  MODEL_TIMEOUT: '모델이 제때 답하지 않았습니다.',
-  MODEL_API_ERROR: '모델 호출이 실패했습니다.',
-  FILE_PARSE_FAILED: '올린 파일을 읽지 못했습니다.',
-  RATE_LIMITED: '요청이 몰려 잠시 처리하지 못했습니다.',
-  LLM_INIT_FAILED: '실행 환경 설정에 문제가 있습니다.',
-  RUNTIME_INTERNAL: '실행 엔진에서 오류가 났습니다.',
-  ABC_RUNTIME_STALLED: '실행 엔진이 응답을 멈춰 기다리기를 그만두었습니다.',
-  ABC_RUNTIME_UNREPORTED: '실행이 실패했지만 까닭은 남아 있지 않습니다.',
-  ABC_RUNTIME_UNREACHABLE: '실행 엔진에 닿지 못했습니다.',
-}
-
-/**
- * `fault` 는 원래 정산용이다 — 누구에게 환원할지 가르는 값이라 그대로 보여 주면 탓만 하고
- * 할 일을 알려 주지 않는다. 특히 `consumer` 는 사용자 잘못이라는 말이 된다. 행동으로 바꾼다.
- * 서버가 까닭을 못 찾으면 비어 오고, 그때는 아무 말도 덧붙이지 않는다.
- */
-const FAULT_ADVICE: Record<string, string> = {
-  supplier: '재실행 후에도 실패한다면 노드를 교체해주세요.',
-  consumer: '올린 파일과 입력한 내용을 확인해 주세요.',
-  platform: '잠시 후 다시 실행해 주세요.',
-}
-
-/** 한 줄에 한 마디씩 — 어디서 멈췄나, 무슨 일이 났나, 무엇을 하면 되나. */
-function describeFailure(failure: ExecutionFailure): string {
-  const lines = [
-    failure.stepName && `${failure.stepName} 단계에서 중단되었습니다.`,
-    FAILURE_TEXT[failure.errorCode] ?? '실행이 실패했습니다.',
-    failure.fault && FAULT_ADVICE[failure.fault],
-  ]
-
-  return lines.filter(Boolean).join('\n')
-}
-
-/**
- * 실행 엔진이 보낸 소문자가 그대로 온다 — 서버가 대조하지 않아 모르는 값이 올 수 있다.
- * 못 찾으면 대기로 둔다. 빈 칸이면 카드 아래 한 줄이 통째로 사라진다.
- */
-const STEP_LABEL: Record<string, string> = {
-  pending: '대기',
-  running: '진행 중',
-  succeeded: '완료',
-  failed: '실패',
-  skipped: '건너뜀',
-}
-const labelOf = (status: StepStatus) => STEP_LABEL[status] ?? '대기'
 
 /**
  * 실행 화면이 그리는 모든 값. 서버가 주는 진행과 불러온 워크플로우를 짝지어
@@ -183,70 +134,13 @@ export function useRunView({
    */
   const finished = progress?.status === 'SUCCEEDED'
   const g: CanvasNodeData | undefined = runnable[active]
-  const glowStyle: CSSProperties =
-    g && !finished
-      ? {
-          position: 'absolute',
-          left: `${g.x - 10}px`,
-          top: `${g.y - 10}px`,
-          width: '188px',
-          height: '188px',
-          borderRadius: '50%',
-          pointerEvents: 'none',
-          background:
-            'radial-gradient(circle, rgba(255,160,200,.20) 0 48%, rgba(255,160,200,0) 66%)',
-          animation: 'runGlow 2.4s ease-in-out infinite',
-          transition: 'left .6s cubic-bezier(.2,.8,.25,1),top .6s cubic-bezier(.2,.8,.25,1)',
-        }
-      : { display: 'none' }
   const nodes = defs.map((d) => {
     // 제어·입출력은 단계가 아니다. 도는 표시도 완료 표시도 붙지 않는다.
     const i = stepAt.get(d.id)
     const status = i === undefined ? undefined : statuses?.get(d.id)
     // 진행을 못 받았으면 아무 카드도 도는 중이 아니다 — active 가 0 이라 첫 카드가 켜진다.
     const known = i !== undefined && (statuses ? statuses.has(d.id) : !branching && !hasSteps)
-    const stepDone = status ? status === 'succeeded' : known && !lost && (i < active || finished)
-    const stepRunning = status ? status === 'running' : known && !lost && i === active && !finished
-    const stepFailed = status === 'failed'
-    const stepSkipped = status === 'skipped'
-    return {
-      ...d,
-      background: stepRunning
-        ? 'rgba(255,255,255,.17)'
-        : stepDone || stepFailed
-          ? 'rgba(255,255,255,.115)'
-          : stepSkipped
-            ? 'rgba(255,255,255,.03)'
-            : 'rgba(255,255,255,.06)',
-      numberColor: stepRunning
-        ? '#fff'
-        : stepDone
-          ? 'rgba(255,255,255,.9)'
-          : 'rgba(255,255,255,.5)',
-      nameColor: stepRunning
-        ? '#fff'
-        : stepDone
-          ? 'rgba(255,255,255,.9)'
-          : stepSkipped
-            ? 'rgba(255,255,255,.3)'
-            : 'rgba(255,255,255,.55)',
-      sublabelColor: stepFailed
-        ? 'rgba(255,170,194,.9)'
-        : stepRunning
-          ? 'rgba(230,196,212,.85)'
-          : stepDone
-            ? 'rgba(154,208,180,.85)'
-            : 'rgba(255,236,246,.4)',
-      stateLabel: status
-        ? labelOf(status)
-        : !known
-          ? ''
-          : stepRunning
-            ? '진행 중'
-            : stepDone
-              ? '완료'
-              : '대기',
-    }
+    return { ...d, ...cardLook({ status, index: i, known, active, lost, finished }) }
   })
   // 단계를 받았으면 실제로 지나간 길만 칠한다. 못 받았으면 한 줄 차례로 짐작한다.
   const reached = statuses ? reachedNodes(defs, statuses, finished) : null
@@ -256,10 +150,7 @@ export function useRunView({
       ? !!link && edgeWasTaken(link, edgeList, reached, statuses)
       : i < activeAt
   })
-  const edges = geometry.map((edge, i) => ({
-    ...edge,
-    stroke: lit[i] ? 'rgba(255,190,214,.75)' : 'rgba(255,255,255,.38)',
-  }))
+  const edges = geometry.map((edge, i) => ({ ...edge, stroke: edgeStroke(lit[i]) }))
   const liveEdges = geometry.filter((_, i) => lit[i])
   const branchCondition = (node: CanvasNodeData) =>
     describeCondition(node.condition, (id) => defs.find((it) => it.id === id)?.name)
@@ -311,77 +202,44 @@ export function useRunView({
   )
     .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
     .map(stepLabel)
-  const logs = logLines.map((text, i) => {
-    const last = i === logLines.length - 1 && !finished
-    return {
-      text,
-      dot: last ? 'rgba(255,194,216,.9)' : 'rgba(154,208,180,.7)',
-      color: last ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.6)',
-      caret: (last
-        ? {
-            width: '7px',
-            height: '14px',
-            flex: 'none',
-            borderRadius: '2px',
-            background: 'rgba(255,194,216,.9)',
-            animation: 'caret 1s steps(1,end) infinite',
-          }
-        : { display: 'none' }) satisfies CSSProperties,
-    }
-  })
+  const logs = logLines.map((text, i) => logRow(text, i === logLines.length - 1 && !finished))
 
-  const gaugeBg =
-    'conic-gradient(from 0deg, var(--color-accent) 0 ' +
-    pctR +
-    '%, rgba(255,255,255,.10) ' +
-    pctR +
-    '% 100%)'
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
   const currentStep = progress?.steps.findLast((it) => it.name === progress.currentStepName)
   const failedStep = progress?.steps.findLast((it) => it.name === progress.failure?.stepName)
-  const failureNotice = run.missing
-    ? '워크플로우를 다시 실행해 주세요.'
-    : lost
-      ? '실행은 계속되고 있습니다. 새로고침해 주세요.'
-      : progress?.failure
-        ? describeFailure({
-            ...progress.failure,
-            stepName: failedStep ? stepLabel(failedStep) : progress.failure.stepName,
-          })
-        : '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
-
-  const stepTitle = run.missing
-    ? '실행을 찾을 수 없습니다'
-    : lost
-      ? '진행 상황을 알 수 없습니다'
-      : failed
-        ? '실행이 중단되었습니다'
-        : finished
-          ? '실행 완료'
-          : progress
-            ? ((currentStep ? stepLabel(currentStep) : progress.currentStepName) ??
-              (progress.total > 0 && progress.done >= progress.total
-                ? '결과를 정리하는 중'
-                : '실행을 준비하는 중'))
-            : g
-              ? `${g.name} 중`
-              : '워크플로우를 불러오는 중'
-  const stepMeta = lost
-    ? ''
-    : progress
-      ? `${progress.done} / ${progress.total} 단계`
-      : runnable.length
-        ? // 서버처럼 작업 단계만 세고, 진행을 받기 전에는 끝난 단계가 없다.
-          `0 / ${runnable.length} 단계`
-        : ''
+  const notice = failureNotice({
+    missing: run.missing,
+    lost,
+    failure: progress?.failure,
+    failedLabel: failedStep ? stepLabel(failedStep) : undefined,
+  })
+  const { stepTitle, stepMeta } = runHeadline({
+    missing: run.missing,
+    lost,
+    failed,
+    finished,
+    progress,
+    currentLabel: currentStep ? stepLabel(currentStep) : undefined,
+    activeName: g?.name,
+    runnableCount: runnable.length,
+  })
 
   return {
     loaded,
     defs,
-    canvas: { nodes, edges, liveEdges, glowStyle, camera, chainAt, branchCondition, branchVerdict },
+    canvas: {
+      nodes,
+      edges,
+      liveEdges,
+      glowStyle: glowStyle(g, finished),
+      camera,
+      chainAt,
+      branchCondition,
+      branchVerdict,
+    },
     gauge: {
       pctLabel: `${pctR}%`,
-      gaugeBg,
+      gaugeBg: gaugeBackground(pctR),
       stepTitle,
       stepMeta,
       // 앞서 받은 값은 있는데 지금 소식이 끊겼다.
@@ -391,7 +249,7 @@ export function useRunView({
       shown: failed || lost,
       missing: run.missing,
       lost,
-      notice: failureNotice,
+      notice,
     },
     logs,
     running: !failed && !lost && !finished,
