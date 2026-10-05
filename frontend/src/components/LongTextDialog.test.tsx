@@ -52,10 +52,11 @@ describe('LongTextDialog', () => {
 
   it('껍데기(헤더 · Studio, zIndex 40)보다 위에 창 전체로 뜬다', () => {
     render(true)
-    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
-    expect(dialog.parentElement).toBe(document.body)
-    expect(dialog.className).toContain('fixed')
-    expect(Number(dialog.style.zIndex)).toBeGreaterThan(40)
+    const layer = document
+      .querySelector<HTMLElement>('[role="dialog"]')!
+      .closest<HTMLElement>('.fixed')!
+    expect(layer.parentElement).toBe(document.body)
+    expect(Number(layer.style.zIndex)).toBeGreaterThan(40)
   })
 
   it('Tab 은 입력 칸과 완료 사이에서만 돈다', () => {

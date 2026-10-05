@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactElement,
-  type RefObject,
-} from 'react'
+import { useEffect, useRef, type CSSProperties, type ReactElement } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import logo from './assets/logo.png'
 import ChainBanner from './components/ChainBanner'
@@ -15,6 +7,7 @@ import OnboardingGate from './components/OnboardingGate'
 import ProtectedRoute from './components/ProtectedRoute'
 import { BANNER_HEIGHT, useChainBanner } from './hooks/wallet/useChainBanner'
 import { useSessionRestore } from './hooks/useSessionRestore'
+import { useWindowBox } from './hooks/useWindowBox'
 import { shellFor } from './lib/shell'
 import { REQUIRES_AUTH } from './routes/access'
 import { paths, routePatterns, type ScreenKey } from './routes/paths'
@@ -119,29 +112,6 @@ function useWalletSessionGuard() {
   }, [address, status])
 }
 
-/** 껍데기를 놓을 창 크기 — 설계 단위로 환산해 돌려준다(3절).
- *
- *  배율은 `screen-frame` 의 `framefit` 에서 받는다. 같은 계산을 두 벌 두면
- *  리사이즈 중 한쪽만 갱신돼 껍데기가 화면과 어긋난다. */
-function useShellBox(frame: RefObject<HTMLElement | null>) {
-  const [box, setBox] = useState({ scale: 1, width: 1440, height: 1024 })
-
-  // 레이아웃 단계에서 재야 첫 프레임에 배율 1 로 한 번 커졌다 줄지 않는다.
-  useLayoutEffect(() => {
-    const el = frame.current as (HTMLElement & { scale: number }) | null
-    if (!el) return
-    const sync = () => {
-      const scale = el.scale || 1
-      setBox({ scale, width: window.innerWidth / scale, height: window.innerHeight / scale })
-    }
-    sync()
-    el.addEventListener('framefit', sync)
-    return () => el.removeEventListener('framefit', sync)
-  }, [frame])
-
-  return box
-}
-
 /** 우상단 붙임 여백 — 시안의 1440 기준 좌표에서 뽑은 값(아바타 18px, 알약 78px). */
 const MENU_RIGHT = 18 + 48
 const STUDIO_RIGHT = 78 + 171
@@ -184,7 +154,7 @@ export default function App() {
   const shell = shellFor(pathname)
 
   const frameRef = useRef<HTMLElement>(null)
-  const shellBox = useShellBox(frameRef)
+  const shellBox = useWindowBox(frameRef)
 
   return (
     <>
@@ -263,7 +233,7 @@ export default function App() {
       </screen-frame>
 
       {/* 껍데기는 창 모서리에 붙인다 — 라우트가 바뀌어도 그대로 있고, 캔버스가 아니라
-          창 크기를 따른다(useShellBox). 배율은 화면 내용과 같다.
+          창 크기를 따른다(useWindowBox). 배율은 화면 내용과 같다.
           레이어 자체는 클릭을 통과시키고 껍데기 조각만 받는다. */}
       <div
         className="pointer-events-none fixed top-0 left-0"

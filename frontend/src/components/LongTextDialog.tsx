@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, type CSSProperties } from 'react'
+
+import WindowLayer from './WindowLayer'
 
 interface LongTextDialogProps {
   title: string
@@ -34,36 +35,32 @@ export default function LongTextDialog({
     }
   }, [])
 
-  const scale = useFrameScale()
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      className="fixed inset-0 flex items-center justify-center"
-      // 화면 틀 안에 두면 껍데기(헤더 · Studio · 메뉴, zIndex 40)가 위에 남아 눌린다. 창 위에 직접 띄운다.
-      style={{ zIndex: 50 }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') return onClose()
-        if (e.key !== 'Tab') return
-        // 포커스를 받는 것은 입력 칸과 완료뿐이라 둘 사이에서만 돌린다. 뒤의 화면으로 새지 않게 한다.
-        e.preventDefault()
-        const next = document.activeElement === areaRef.current ? doneRef.current : areaRef.current
-        next?.focus()
-      }}
-    >
+  return (
+    <WindowLayer>
       <div
-        onClick={onClose}
-        className="absolute inset-0"
-        style={{
-          background: 'rgba(12,5,22,.55)',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="absolute inset-0 flex items-center justify-center"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') return onClose()
+          if (e.key !== 'Tab') return
+          // 포커스를 받는 것은 입력 칸과 완료뿐이라 둘 사이에서만 돌린다. 뒤의 화면으로 새지 않게 한다.
+          e.preventDefault()
+          const next =
+            document.activeElement === areaRef.current ? doneRef.current : areaRef.current
+          next?.focus()
         }}
-      ></div>
-      {/* 창 위에 띄우면 틀의 배율을 받지 못해 같은 배율로 직접 줄인다 */}
-      <div className="relative flex-none" style={{ transform: `scale(${scale})` }}>
+      >
+        <div
+          onClick={onClose}
+          className="absolute inset-0"
+          style={{
+            background: 'rgba(12,5,22,.55)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+          }}
+        ></div>
         <div
           className="relative box-border flex flex-col"
           style={{
@@ -121,27 +118,8 @@ export default function LongTextDialog({
           </div>
         </div>
       </div>
-    </div>,
-    document.body,
+    </WindowLayer>
   )
-}
-
-/** `screen-frame` 이 화면을 줄인 배율. 창 크기가 바뀌면 `framefit` 으로 다시 받는다. */
-function useFrameScale() {
-  const [scale, setScale] = useState(readFrameScale)
-  useEffect(() => {
-    const frame = document.querySelector('screen-frame')
-    if (!frame) return
-    const sync = () => setScale(readFrameScale())
-    frame.addEventListener('framefit', sync)
-    return () => frame.removeEventListener('framefit', sync)
-  }, [])
-  return scale
-}
-
-function readFrameScale() {
-  const frame = document.querySelector('screen-frame') as (Element & { scale?: number }) | null
-  return frame?.scale || 1
 }
 
 /** 입력 칸 모서리에 붙여 `LongTextDialog` 를 여는 버튼. */
