@@ -59,7 +59,11 @@ export function useRunView({
   const run = useRunProgress(executionId)
   const progress = run.progress
   const loaded = useSavedWorkflow(workflowId)
+  const canvasReady = !!loaded.canvas
   const defs = loaded.canvas?.nodes ?? EMPTY_NODES
+  const hasAgent = defs.some((node) => node.sourceType === 'AGENT')
+  // 워크플로우가 오기 전에는 단계 소유자를 모르고, 에이전트가 있으면 서버 숫자가 속 단계를 센다.
+  const hideInternalProgress = !canvasReady || hasAgent
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
@@ -107,14 +111,20 @@ export function useRunView({
    * 폴링 한 번이 넘어져도 쿼리는 지난 값을 들고 있어, 도는 실행이 잠깐 실패로 보인다.
    */
   const lost = run.broken && !progress
-  const settled = progress?.percent ?? 0
+  const settled = hideInternalProgress
+    ? progress?.status === 'SUCCEEDED'
+      ? 100
+      : 0
+    : (progress?.percent ?? 0)
   /** 끝났거나 멎었거나 소식이 끊겼다. 기어가기를 멈추고 받은 값에 붙는다. */
   const settle = failed || run.broken || progress?.status === 'SUCCEEDED'
   /** 도는 단계가 끝나면 닿을 값. 그 앞까지 기어가 게이지가 서 있지 않게 한다. */
-  const ceiling = progress
-    ? Math.min(100, Math.round(((progress.done + 1) / Math.max(1, progress.total)) * 100))
-    : settled
-  // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
+  const ceiling = hideInternalProgress
+    ? settled
+    : progress
+      ? Math.min(100, Math.round(((progress.done + 1) / Math.max(1, progress.total)) * 100))
+      : settled
+  // 에이전트가 있으면 내부 단계 비율을 쓰지 않고 완료 여부만 게이지에 반영한다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
   const runningAt = statuses
     ? runnable.findIndex((node) => statuses.get(node.id) === 'running')
@@ -189,7 +199,7 @@ export function useRunView({
   }
   /** 단계가 목록에 없을 때도 같은 규칙으로 이름을 가린다. */
   const nameLabel = (name: string | null | undefined, status: StepStatus) => {
-    if (!name) return null
+    if (!canvasReady || !name) return null
     const step = progress?.steps.findLast((it) => it.name === name) ?? { name, status }
     return stepLabel(step).text
   }
@@ -212,11 +222,13 @@ export function useRunView({
   }
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
   // 일부 카드만 짝지었으면 원래 단계로 적되, 에이전트 속 단계는 이름을 감추고 한 줄로 접는다.
-  const logLines = foldAgentLines(
-    (groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
-      .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
-      .map(stepLabel),
-  )
+  const logLines = canvasReady
+    ? foldAgentLines(
+        (groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
+          .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
+          .map(stepLabel),
+      )
+    : []
   const logs = logLines.map((text, i) => logRow(text, i === logLines.length - 1 && !finished))
 
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
@@ -235,6 +247,7 @@ export function useRunView({
     currentLabel: nameLabel(progress?.currentStepName, 'running') ?? undefined,
     activeName: g?.name,
     runnableCount: runnable.length,
+    showStepCount: !hideInternalProgress,
   })
 
   return {
@@ -251,7 +264,7 @@ export function useRunView({
       branchVerdict,
     },
     gauge: {
-      pctLabel: `${pctR}%`,
+      pctLabel: hideInternalProgress && !finished ? (failed || lost ? '—' : '…') : `${pctR}%`,
       gaugeBg: gaugeBackground(pctR),
       stepTitle,
       stepMeta,

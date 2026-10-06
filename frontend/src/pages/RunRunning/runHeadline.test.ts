@@ -52,6 +52,16 @@ describe('runHeadline', () => {
     ).toBe('결과를 정리하는 중')
   })
 
+  it('서버 단계명을 화면 이름으로 쓰지 않고, 요청하면 단계 수를 숨긴다', () => {
+    expect(
+      runHeadline({ ...base, progress: progress({ currentStepName: '비공개 단계' }) }),
+    ).toEqual({
+      stepTitle: '실행을 준비하는 중',
+      stepMeta: '1 / 3 단계',
+    })
+    expect(runHeadline({ ...base, progress: progress(), showStepCount: false }).stepMeta).toBe('')
+  })
+
   it('찾지 못함 · 끊김 · 실패 · 완료가 진행보다 앞선다', () => {
     const p = progress()
     expect(runHeadline({ ...base, progress: p, missing: true }).stepTitle).toBe(
