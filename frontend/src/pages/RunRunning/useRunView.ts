@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import type { ExecutionStep } from '@/api/executions'
+import type { ExecutionStep, StepStatus } from '@/api/executions'
 import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
 import { useRunProgress } from '@/hooks/run/useRunProgress'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
@@ -20,10 +20,12 @@ import {
   branchTaken,
   cardStatuses,
   edgeWasTaken,
+  foldAgentLines,
   inCanvasOrder,
   reachedNodes,
   runFocus,
   stepGroups,
+  type LogLine,
   type RunCard,
 } from '@/lib/run/runSteps'
 import { paths } from '@/routes/paths'
@@ -165,18 +167,31 @@ export function useRunView({
     [`${node.name} · ${branchCondition(node)}`, branchVerdict(node)].filter(Boolean).join(' ')
   const ownerOf = (step: ExecutionStep) =>
     groups && defs.find((node) => groups.get(node.id)?.includes(step))
+  const agentCards = defs.filter((node) => node.sourceType === 'AGENT')
   /**
    * 로그와 실패 안내에 쓰는 이름. 서버가 분기에 이름을 싣지 않아 엔진은 `b1`·`a1.b1` 같은 id 를 돌려준다.
    *
-   * 캔버스 분기는 조건과 판정까지 붙이고, 에이전트 속 분기는 어느 에이전트의 것인지만 적는다.
+   * 에이전트는 속을 열지 않는다 — 서버가 속 단계를 펼쳐 보내도 에이전트 이름만 적는다. 어느 카드의
+   * 것인지 모르는 이름은 캔버스에 없는 것이라 에이전트 속으로 보고 감춘다.
    */
-  const stepLabel = (step: ExecutionStep) => {
+  const stepLabel = (step: ExecutionStep): LogLine => {
     const owner = ownerOf(step)
-    if (owner?.controlType) return branchLabel(owner)
-    if (owner && /(^|\.)b\d+$/.test(step.name)) return `${owner.name} · 분기`
+    if (owner?.controlType) return { text: branchLabel(owner), agent: null }
+    if (owner?.sourceType === 'AGENT') return { text: owner.name, agent: owner.id }
+    if (owner) return { text: step.name, agent: null }
     const top = /^b(\d+)$/.exec(step.name)
     const branch = top && !groups ? branchCards[Number(top[1]) - 1] : undefined
-    return branch ? branchLabel(branch) : step.name
+    if (branch) return { text: branchLabel(branch), agent: null }
+    if (!agentCards.length || cards.some((card) => card.kind === 'NODE' && card.name === step.name))
+      return { text: step.name, agent: null }
+    const only = agentCards.length === 1 ? agentCards[0] : undefined
+    return { text: only?.name ?? '에이전트', agent: only?.id ?? 'agent' }
+  }
+  /** 단계가 목록에 없을 때도 같은 규칙으로 이름을 가린다. */
+  const nameLabel = (name: string | null | undefined, status: StepStatus) => {
+    if (!name) return null
+    const step = progress?.steps.findLast((it) => it.name === name) ?? { name, status }
+    return stepLabel(step).text
   }
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
@@ -197,21 +212,19 @@ export function useRunView({
   }
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
   // 일부 카드만 짝지었으면 원래 단계를 모두 남긴다. 모호한 에이전트의 로그까지 빠지면 안 된다.
-  const logLines = (
-    groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? [])
+  const logLines = foldAgentLines(
+    (groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
+      .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
+      .map(stepLabel),
   )
-    .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
-    .map(stepLabel)
   const logs = logLines.map((text, i) => logRow(text, i === logLines.length - 1 && !finished))
 
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
-  const currentStep = progress?.steps.findLast((it) => it.name === progress.currentStepName)
-  const failedStep = progress?.steps.findLast((it) => it.name === progress.failure?.stepName)
   const notice = failureNotice({
     missing: run.missing,
     lost,
     failure: progress?.failure,
-    failedLabel: failedStep ? stepLabel(failedStep) : undefined,
+    failedLabel: nameLabel(progress?.failure?.stepName, 'failed') ?? undefined,
   })
   const { stepTitle, stepMeta } = runHeadline({
     missing: run.missing,
@@ -219,7 +232,7 @@ export function useRunView({
     failed,
     finished,
     progress,
-    currentLabel: currentStep ? stepLabel(currentStep) : undefined,
+    currentLabel: nameLabel(progress?.currentStepName, 'running') ?? undefined,
     activeName: g?.name,
     runnableCount: runnable.length,
   })

@@ -118,12 +118,27 @@ describe('RunRunning', () => {
     },
   )
 
-  it('부분 매핑에서도 에이전트 내부 진행 로그를 빠뜨리지 않는다', () => {
+  it('부분 매핑에서는 에이전트 속 단계 이름을 감추고 에이전트로 적는다', () => {
     prepare()
     data.status = 'RUNNING'
     const document = render()
     for (const name of ['inner-a1', 'inner-a2', 'inner-b1'])
-      expect(document.body.textContent).toContain(name)
+      expect(document.body.textContent).not.toContain(name)
+    expect(document.body.textContent).toContain('에이전트')
+  })
+
+  it('에이전트 속 단계는 에이전트 이름 한 줄로 접는다', () => {
+    prepare()
+    data.nodes = data.nodes.filter((node) => node.id !== 'b' && node.id !== 'br' && node.id !== 'f')
+    data.steps = [
+      { name: 'inner-a1', status: 'succeeded' },
+      { name: 'inner-a2', status: 'running' },
+    ]
+    data.status = 'RUNNING'
+    const document = render()
+    expect(document.body.textContent).not.toContain('inner-a')
+    const lines = [...document.querySelectorAll('div')].filter((it) => it.textContent === 'a')
+    expect(lines.length).toBeGreaterThan(0)
   })
 
   it('화면 아래 노드도 축소된 카메라 안에 그린다', () => {

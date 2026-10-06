@@ -132,6 +132,18 @@ export function reachedNodes(
   return reached
 }
 
+/** 로그 한 줄. `agent` 는 이 줄이 어느 에이전트 속 단계인지 — 아니면 null. */
+export interface LogLine {
+  text: string
+  agent: string | null
+}
+
+/** 같은 에이전트의 속 단계가 이어지면 한 줄로 접는다. 몇 단계로 도는지도 남의 구성이라 드러내지 않는다. */
+export const foldAgentLines = (lines: LogLine[]) =>
+  lines
+    .filter((line, i) => line.agent === null || line.agent !== lines[i + 1]?.agent)
+    .map((line) => line.text)
+
 /** 단계를 캔버스 차례로. 예전 서버는 분기를 끝에 붙여 보내 로그에서 분기가 맨 뒤에 찍혔다. */
 export const inCanvasOrder = (cards: RunCard[], groups: Map<string, ExecutionStep[]>) =>
   cards.flatMap((card) => groups.get(card.id) ?? [])
