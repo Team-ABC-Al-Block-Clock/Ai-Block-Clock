@@ -1,12 +1,13 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/api/errors'
 import { saveWorkflow } from '@/api/workflows'
 import { agentRunGraph } from '@/lib/canvas/workflowPayload'
+import { queryKeys } from '@/lib/queryKeys'
 import type { LoginRedirectState } from '@/routes/access'
 import { paths } from '@/routes/paths'
-import { useAuthStore } from '@/stores/authStore'
+import { isSessionPending, useAuthStore } from '@/stores/authStore'
 
 /**
  * 상세 화면의 실행하기. 시작 → 에이전트 → 종료로 이은 워크플로우를 저장하고 실행 대기 화면으로 간다.
@@ -16,18 +17,24 @@ import { useAuthStore } from '@/stores/authStore'
 export function useAgentRun(agentId: string) {
   const navigate = useNavigate()
   const location = useLocation()
-  const authenticated = useAuthStore((s) => s.status === 'authenticated')
+  const queryClient = useQueryClient()
+  const status = useAuthStore((s) => s.status)
 
   const save = useMutation({
     mutationFn: (name: string) => saveWorkflow({ name, ...agentRunGraph(agentId) }),
-    onSuccess: (saved) => navigate(`${paths.run.waiting}?workflowId=${saved.workflowId}`),
+    onSuccess: (saved) => {
+      // 나의 워크플로우 목록에 새로 생긴다.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workflows.lists() })
+      navigate(`${paths.run.waiting}?workflowId=${saved.workflowId}`)
+    },
   })
 
   /** 워크플로우 이름은 에이전트 이름으로 둔다. 나의 워크플로우 목록에서 무엇을 돌렸는지 알아보게. */
   const run = (name: string) => {
-    if (save.isPending) return
+    // 세션을 확인하는 중이면 로그인한 사람도 로그인 화면으로 보내게 된다.
+    if (save.isPending || isSessionPending(status)) return
     // 저장하려면 세션이 있어야 한다. 로그인을 마치면 이 상세로 돌아온다.
-    if (!authenticated)
+    if (status !== 'authenticated')
       return navigate(paths.login, {
         state: { from: location.pathname + location.search } satisfies LoginRedirectState,
       })

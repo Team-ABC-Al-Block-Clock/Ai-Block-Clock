@@ -1,4 +1,5 @@
 import type { AgentDetail } from '@/api/agents'
+
 import { INK } from './ink'
 
 interface AgentHeaderProps {
