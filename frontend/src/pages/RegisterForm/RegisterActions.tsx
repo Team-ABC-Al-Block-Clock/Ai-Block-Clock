@@ -1,4 +1,6 @@
 interface RegisterActionsProps {
+  /** 구분선의 위치. 버튼과 오류 줄은 여기서 아래로 잰다. */
+  top: number
   backTo: string
   isPending: boolean
   canSubmit: boolean
@@ -9,6 +11,7 @@ interface RegisterActionsProps {
 
 /** 폼 맨 아래 — 취소 · 등록 완료와 그 위의 오류 한 줄. */
 export default function RegisterActions({
+  top,
   backTo,
   isPending,
   canSubmit,
@@ -19,14 +22,14 @@ export default function RegisterActions({
     <>
       <div
         className="absolute bg-[rgba(255,255,255,.12)]"
-        style={{ left: '272px', top: '1588px', width: '896px', height: '1px' }}
+        style={{ left: '272px', top: `${top}px`, width: '896px', height: '1px' }}
       ></div>
 
       <a
         href={backTo}
         style={{
           left: '832px',
-          top: '1628px',
+          top: `${top + 40}px`,
           width: '160px',
           height: '52px',
           borderRadius: '26px',
@@ -42,7 +45,7 @@ export default function RegisterActions({
         disabled={!canSubmit}
         style={{
           left: '1008px',
-          top: '1628px',
+          top: `${top + 40}px`,
           width: '160px',
           height: '52px',
           borderRadius: '26px',
@@ -62,7 +65,7 @@ export default function RegisterActions({
           className="absolute text-right text-[14px] tracking-[-.005em]"
           style={{
             left: '672px',
-            top: '1600px',
+            top: `${top + 12}px`,
             width: '496px',
             color: 'rgba(255,196,214,.9)',
             animation: 'fadeIn .2s ease both',

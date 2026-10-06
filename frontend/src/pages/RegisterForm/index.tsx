@@ -11,6 +11,14 @@ import TextField from './TextField'
 import { useAgentRegister } from './useAgentRegister'
 import { useImagePicks } from './useImagePicks'
 
+/** 긴 글을 받는 두 칸의 높이. 이 아래는 칸 높이에 따라 함께 내려간다. */
+const DESCRIPTION_HEIGHT = 220
+const USAGE_HEIGHT = 180
+const SHOTS_Y = 798 + 38 + DESCRIPTION_HEIGHT + 24
+const USAGE_Y = SHOTS_Y + 406
+const ACTIONS_Y = USAGE_Y + 38 + USAGE_HEIGHT + 36
+const PAGE_HEIGHT = ACTIONS_Y + 150
+
 /**
  * 에이전트 판매 등록 화면.
  *
@@ -35,14 +43,14 @@ export default function RegisterForm() {
           height: 'calc(1024px + 2 * var(--edge-y, 0px))',
         }}
       >
-        <div className="relative" style={{ width: '1440px', height: '1738px' }}>
+        <div className="relative" style={{ width: '1440px', height: `${PAGE_HEIGHT}px` }}>
           <div
             className="absolute"
             style={{
               left: '236px',
               top: '56px',
               width: '968px',
-              height: '1642px',
+              height: `${PAGE_HEIGHT - 96}px`,
               borderRadius: '24px',
               background: 'rgba(18,9,32,.44)',
               backdropFilter: 'blur(24px) saturate(118%)',
@@ -121,17 +129,17 @@ export default function RegisterForm() {
             id={FIELD.description}
             maxLength={AGENT_LIMITS.description.max}
             placeholder="에이전트의 기능을 자세히 설명해주세요"
-            multiline
+            boxHeight={DESCRIPTION_HEIGHT}
           />
 
           <div
             className="absolute text-[18px] font-semibold tracking-[-.01em]"
-            style={{ left: '272px', top: '984px', color: 'rgba(255,255,255,.86)' }}
+            style={{ left: '272px', top: `${SHOTS_Y}px`, color: 'rgba(255,255,255,.86)' }}
           >
             스크린샷
           </div>
           <ShotRow
-            top={1018}
+            top={SHOTS_Y + 34}
             title="입력 · 에이전트 실행 전 화면"
             shots={images.inShots}
             captionPlaceholder="입력 예시 사진 설명"
@@ -141,7 +149,7 @@ export default function RegisterForm() {
             problem={problemAt('in')}
           />
           <ShotRow
-            top={1199}
+            top={SHOTS_Y + 215}
             title="출력 · 에이전트 실행 후 화면"
             shots={images.outShots}
             captionPlaceholder="출력 예시 사진 설명"
@@ -153,14 +161,15 @@ export default function RegisterForm() {
 
           <TextField
             label="입력 예시"
-            top={1390}
+            top={USAGE_Y}
             id={FIELD.usageExample}
             maxLength={AGENT_LIMITS.usageExample.max}
             placeholder="입력 프롬프트 예시를 입력해주세요"
-            multiline
+            boxHeight={USAGE_HEIGHT}
           />
 
           <RegisterActions
+            top={ACTIONS_Y}
             backTo={form.backTo}
             isPending={form.isPending}
             canSubmit={form.canSubmit}

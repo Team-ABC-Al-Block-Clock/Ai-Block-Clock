@@ -1,3 +1,7 @@
+import { useState } from 'react'
+
+import LongTextDialog, { ExpandButton } from '@/components/LongTextDialog'
+
 const INPUT_CLASS =
   'absolute border-0 bg-transparent font-[inherit] text-[15.5px] tracking-[-.005em] text-white outline-0'
 
@@ -9,26 +13,38 @@ interface TextFieldProps {
   id: string
   maxLength: number
   placeholder: string
-  /** 여러 줄 입력 — 상자가 124px 로 커진다. */
-  multiline?: boolean
+  /** 주면 이 높이의 여러 줄 입력이 되고 크게 쓰기 버튼이 붙는다. */
+  boxHeight?: number
 }
 
-/** 제목 한 줄과 그 아래 입력 상자. 값은 제출할 때 id 로 한 번 읽어 제어하지 않는다. */
+/** 제목 한 줄과 그 아래 입력 상자. 제출할 때는 여전히 id 로 값을 읽는다. */
 export default function TextField({
   label,
   top,
   id,
   maxLength,
   placeholder,
-  multiline = false,
+  boxHeight,
 }: TextFieldProps) {
+  const [value, setValue] = useState('')
+  const [expanded, setExpanded] = useState(false)
+  const multiline = boxHeight !== undefined
+
   return (
     <>
       <div
-        className="absolute text-[18px] font-semibold tracking-[-.01em]"
-        style={{ left: '272px', top: `${top}px`, color: 'rgba(255,255,255,.86)' }}
+        className="absolute flex items-baseline justify-between"
+        style={{ left: '272px', top: `${top}px`, width: '896px' }}
       >
-        {label}
+        <div
+          className="text-[18px] font-semibold tracking-[-.01em]"
+          style={{ color: 'rgba(255,255,255,.86)' }}
+        >
+          {label}
+        </div>
+        <div className="text-[14px]" style={{ color: 'rgba(255,236,246,.55)' }}>
+          {value.length} / {maxLength}
+        </div>
       </div>
       <div
         className="bg-surface-card absolute"
@@ -36,36 +52,57 @@ export default function TextField({
           left: '272px',
           top: `${top + 38}px`,
           width: '896px',
-          height: multiline ? '124px' : '52px',
+          height: `${boxHeight ?? 52}px`,
           borderRadius: '12px',
         }}
       >
         {multiline ? (
-          <textarea
-            className={INPUT_CLASS}
-            id={id}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            style={{
-              left: '18px',
-              top: '16px',
-              width: '860px',
-              height: '92px',
-              resize: 'none',
-              lineHeight: '1.6',
-            }}
-          ></textarea>
+          <>
+            <textarea
+              className={`scroll-thin ${INPUT_CLASS}`}
+              id={id}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              style={{
+                left: '18px',
+                top: '16px',
+                width: '824px',
+                height: `${boxHeight - 32}px`,
+                resize: 'none',
+                lineHeight: '1.6',
+              }}
+            ></textarea>
+            <ExpandButton
+              onClick={() => setExpanded(true)}
+              style={{ top: '10px', right: '10px' }}
+            />
+          </>
         ) : (
           <input
             className={INPUT_CLASS}
             type="text"
             id={id}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
             maxLength={maxLength}
             placeholder={placeholder}
             style={{ left: '18px', top: '15px', width: '860px', height: '22px' }}
           />
         )}
       </div>
+
+      {expanded && (
+        <LongTextDialog
+          title={label}
+          value={value}
+          onChange={setValue}
+          onClose={() => setExpanded(false)}
+          maxLength={maxLength}
+          placeholder={placeholder}
+        />
+      )}
     </>
   )
 }

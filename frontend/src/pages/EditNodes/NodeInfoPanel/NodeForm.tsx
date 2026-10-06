@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { NODE_NAME_MAX, type AiModel, type NodeOutput } from '@/api/nodes'
+import LongTextDialog, { ExpandButton } from '@/components/LongTextDialog'
 import RefFileField, { REF_FIELD_HEIGHT } from '@/components/RefFileField'
 import { PANEL_CONTENT_WIDTH, PANEL_INSET } from '@/components/SidePanel'
 import type { RefFileSlot } from '@/hooks/canvas/useNodeRefFiles'
@@ -23,8 +24,8 @@ import PencilIcon from './PencilIcon'
 const FILES_Y = 120
 const MODEL_Y = FILES_Y + REF_FIELD_HEIGHT + 30
 const PROMPT_Y = MODEL_Y + 72
-/** 안쪽 여백을 빼면 다섯 줄이 선다. 두 줄로는 프롬프트를 적다가 바로 스크롤이 생긴다. */
-const PROMPT_HEIGHT = 150
+/** 안쪽 여백을 빼면 여덟 줄쯤 선다. 더 길면 끌어서 늘리거나 크게 쓰기로 연다. */
+const PROMPT_HEIGHT = 220
 const EXAMPLE_HEIGHT = 130
 /** 모델과 출력 형식은 한 줄에 반씩. */
 const HALF_WIDTH = (PANEL_CONTENT_WIDTH - 8) / 2
@@ -44,6 +45,7 @@ export default function NodeForm({
 }) {
   const [name, setName] = useState(initial.name)
   const [prompt, setPrompt] = useState(initial.prompt)
+  const [promptExpanded, setPromptExpanded] = useState(false)
   const [model, setModel] = useState<AiModel>(initial.model)
   const [outputDraft, setOutputDraft] = useState(() => toOutputDraft(initial.output))
 
@@ -121,16 +123,20 @@ export default function NodeForm({
           프롬프트
         </div>
         <div
-          className="bg-surface-card"
-          style={{ height: `${PROMPT_HEIGHT}px`, borderRadius: '11px', padding: '9px 12px' }}
+          className="bg-surface-card relative"
+          style={{ borderRadius: '11px', padding: '9px 40px 4px 12px' }}
         >
+          <ExpandButton
+            onClick={() => setPromptExpanded(true)}
+            style={{ top: '7px', right: '8px' }}
+          />
           <textarea
-            className="scroll-thin w-full resize-none border-0 bg-transparent font-[inherit] text-[16.5px] leading-[1.55] text-white outline-0"
+            className="scroll-thin w-full resize-y border-0 bg-transparent font-[inherit] text-[16.5px] leading-[1.55] text-white outline-0"
             value={prompt}
             onChange={(ev) => setPrompt(ev.target.value)}
             placeholder="이 노드가 할 일을 프롬프트로 적으세요"
             aria-label="프롬프트"
-            style={{ height: `${PROMPT_HEIGHT - 18}px` }}
+            style={{ height: `${PROMPT_HEIGHT - 13}px`, minHeight: '90px' }}
           />
         </div>
 
@@ -197,6 +203,16 @@ export default function NodeForm({
           </button>
         </div>
       </div>
+
+      {promptExpanded && (
+        <LongTextDialog
+          title="프롬프트"
+          value={prompt}
+          onChange={setPrompt}
+          onClose={() => setPromptExpanded(false)}
+          placeholder="이 노드가 할 일을 프롬프트로 적으세요"
+        />
+      )}
     </>
   )
 }

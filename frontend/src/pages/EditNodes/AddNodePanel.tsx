@@ -1,7 +1,8 @@
-import type { Dispatch, SetStateAction } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 
 import { NODE_NAME_MAX, type NodeOutput } from '@/api/nodes'
 import type { ControlKind } from '@/api/workflows'
+import LongTextDialog, { ExpandButton } from '@/components/LongTextDialog'
 import RefFileField from '@/components/RefFileField'
 import type { RefFileSlot } from '@/hooks/canvas/useNodeRefFiles'
 import { outputDraftProblem, readOutputDraft } from '@/lib/canvas/nodeOutput'
@@ -75,6 +76,7 @@ export default function AddNodePanel({
   onCreate,
   onPlaceControl,
 }: AddNodePanelProps) {
+  const [promptExpanded, setPromptExpanded] = useState(false)
   const draftOutput = readOutputDraft(draft.output)
   const draftFilled = !!draft.name.trim() && !!draft.prompt.trim() && !!draftOutput
 
@@ -113,10 +115,47 @@ export default function AddNodePanel({
         </div>
       </div>
 
+      {/* 시작·종료는 워크플로우마다 꼭 필요해 폼 아래에 두지 않고 스크롤 밖에 고정한다 */}
+      <div className="flex-none">
+        <div className="text-[17px]" style={{ ...LABEL_STYLE, marginBottom: '10px' }}>
+          제어 흐름 노드
+        </div>
+        <div className="flex flex-wrap" style={{ gap: '8px', marginBottom: '16px' }}>
+          <ControlChip
+            label="시작"
+            disabled={placed.start}
+            title={placed.start ? '시작 노드는 하나만 놓을 수 있습니다' : undefined}
+            onClick={() => onPlaceControl('START')}
+          />
+          <ControlChip
+            label="종료"
+            disabled={placed.end}
+            title={placed.end ? '종료 노드는 하나만 놓을 수 있습니다' : undefined}
+            onClick={() => onPlaceControl('END')}
+          />
+          <ControlChip label="조건 분기" onClick={() => onPlaceControl('BRANCH')} />
+          {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 병합은 노드 없이 두 갈래를 같은 노드로 잇는다. */}
+          <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
+          <ControlChip
+            label="병합"
+            disabled
+            title="두 갈래에서 같은 노드로 선을 이으면 합쳐집니다"
+            onClick={() => {}}
+          />
+        </div>
+      </div>
+      <div
+        className="flex-none"
+        style={{ height: '1px', background: 'rgba(255,255,255,.12)', marginBottom: '16px' }}
+      />
+
       <div
         className="scroll-thin flex-1 overflow-x-hidden"
         style={{ minHeight: '0', paddingRight: '4px' }}
       >
+        <div className="text-[17px] font-semibold text-white" style={{ marginBottom: '14px' }}>
+          새 노드 만들기
+        </div>
         <div className="text-[17px]" style={LABEL_STYLE}>
           노드 이름
         </div>
@@ -161,21 +200,30 @@ export default function AddNodePanel({
           프롬프트
         </div>
         <div
-          className="bg-surface-card"
+          className="bg-surface-card relative"
           style={{
-            height: '112px',
             borderRadius: '9px',
-            padding: '11px 12px',
+            padding: '11px 40px 6px 12px',
             marginBottom: '14px',
           }}
         >
+          <ExpandButton
+            onClick={() => setPromptExpanded(true)}
+            style={{ top: '8px', right: '8px' }}
+          />
           <textarea
             className="border-0 bg-transparent font-[inherit] text-[17px] text-white outline-0"
             value={draft.prompt}
             onChange={(ev) => onDraftChange((it) => ({ ...it, prompt: ev.target.value }))}
             placeholder="이 노드가 할 일을 프롬프트로 적으세요&#10;예: 이 문서를 분석하여 핵심 내용을 요약해 주세요."
             aria-label="프롬프트"
-            style={{ width: '100%', height: '90px', resize: 'none', lineHeight: '1.5' }}
+            style={{
+              width: '100%',
+              height: '180px',
+              minHeight: '90px',
+              resize: 'vertical',
+              lineHeight: '1.5',
+            }}
           ></textarea>
         </div>
 
@@ -219,33 +267,6 @@ export default function AddNodePanel({
             )}
           </>
         )}
-
-        <div className="text-[17px]" style={{ ...LABEL_STYLE, marginBottom: '10px' }}>
-          제어 흐름 노드
-        </div>
-        <div className="flex flex-wrap" style={{ gap: '8px', marginBottom: '2px' }}>
-          <ControlChip
-            label="시작"
-            disabled={placed.start}
-            title={placed.start ? '시작 노드는 하나만 놓을 수 있습니다' : undefined}
-            onClick={() => onPlaceControl('START')}
-          />
-          <ControlChip
-            label="종료"
-            disabled={placed.end}
-            title={placed.end ? '종료 노드는 하나만 놓을 수 있습니다' : undefined}
-            onClick={() => onPlaceControl('END')}
-          />
-          <ControlChip label="조건 분기" onClick={() => onPlaceControl('BRANCH')} />
-          {/* 서버가 받는 제어 노드는 분기뿐이다(`ControlType`). 병합은 노드 없이 두 갈래를 같은 노드로 잇는다. */}
-          <ControlChip label="반복" disabled title={UNSUPPORTED} onClick={() => {}} />
-          <ControlChip
-            label="병합"
-            disabled
-            title="두 갈래에서 같은 노드로 선을 이으면 합쳐집니다"
-            onClick={() => {}}
-          />
-        </div>
       </div>
 
       <div
@@ -293,6 +314,16 @@ export default function AddNodePanel({
           추가
         </button>
       </div>
+
+      {promptExpanded && (
+        <LongTextDialog
+          title="프롬프트"
+          value={draft.prompt}
+          onChange={(prompt) => onDraftChange((it) => ({ ...it, prompt }))}
+          onClose={() => setPromptExpanded(false)}
+          placeholder="이 노드가 할 일을 프롬프트로 적으세요"
+        />
+      )}
     </div>
   )
 }
