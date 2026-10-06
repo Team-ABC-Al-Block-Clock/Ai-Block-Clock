@@ -5,7 +5,7 @@ import { CANVAS_EDGES, CANVAS_NODES } from '@/test/canvasFixture'
 import type { CanvasEdge, CanvasNodeData } from './canvasWorkflow'
 import type { WorkflowDetail } from '@/api/workflows'
 
-import { toCanvasWorkflow, toWorkflowGraph } from './workflowPayload'
+import { agentRunGraph, toCanvasWorkflow, toWorkflowGraph } from './workflowPayload'
 
 const node = (id: string, over: Partial<CanvasNodeData> = {}): CanvasNodeData => ({
   id,
@@ -581,5 +581,26 @@ describe('toCanvasWorkflow', () => {
 
     expect(canvas.nodes).toHaveLength(1)
     expect(canvas.edges).toEqual([])
+  })
+})
+
+describe('agentRunGraph', () => {
+  it('시작 → 에이전트 → 종료를 한 줄로 잇는다', () => {
+    const graph = agentRunGraph('agent-1')
+    expect(graph.nodes.map((node) => node.ioType ?? node.sourceId)).toEqual([
+      'START',
+      'agent-1',
+      'END',
+    ])
+    expect(graph.edges.map((edge) => `${edge.sourceNodeKey}>${edge.targetNodeKey}`)).toEqual([
+      'n1>n2',
+      'n2>n3',
+    ])
+  })
+
+  it('끝 노드에 서버가 요구하는 결과 구조와 형식을 싣는다', () => {
+    const end = agentRunGraph('agent-1').nodes[2]
+    expect(end.resultShape).toBeTruthy()
+    expect(end.resultFormat).toBeTruthy()
   })
 })

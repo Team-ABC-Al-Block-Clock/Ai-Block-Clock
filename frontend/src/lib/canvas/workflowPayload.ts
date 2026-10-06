@@ -115,6 +115,27 @@ export function toWorkflowGraph(
   return { nodes: placements, edges: links, nodeIdByKey }
 }
 
+/** 에이전트 하나만 돌리는 그래프. 상세 화면에서 바로 실행할 때 시작 → 에이전트 → 종료로 잇는다. */
+export function agentRunGraph(agentId: string): WorkflowGraph {
+  return {
+    nodes: [
+      { nodeKey: 'n1', sourceType: 'IO', ioType: 'START' },
+      { nodeKey: 'n2', sourceType: 'AGENT', sourceId: agentId },
+      {
+        nodeKey: 'n3',
+        sourceType: 'IO',
+        ioType: 'END',
+        resultShape: DEFAULT_RESULT.shape,
+        resultFormat: DEFAULT_RESULT.format,
+      },
+    ],
+    edges: [
+      { edgeKey: 'e1', sourceNodeKey: 'n1', targetNodeKey: 'n2' },
+      { edgeKey: 'e2', sourceNodeKey: 'n2', targetNodeKey: 'n3' },
+    ],
+  }
+}
+
 /**
  * 불러올 때 카드를 늘어놓는 자리. 깊이마다 오른쪽으로, 같은 깊이의 형제는 아래로.
  *
