@@ -1,5 +1,4 @@
 import type { AgentDetail } from '@/api/agents'
-import { paths } from '@/routes/paths'
 
 import { INK } from './ink'
 
@@ -12,6 +11,11 @@ interface AgentHeaderProps {
   /** 즐겨찾기 실패. 토스트가 없어 버튼 아래에 한 줄로 둔다. */
   favoriteMessage: string | null
   onToggleFavorite: () => void
+  /** 실행용 워크플로우를 저장하는 중 */
+  runPending: boolean
+  /** 실행 준비 실패. 즐겨찾기 실패와 같은 자리에 둔다. */
+  runMessage: string | null
+  onRun: () => void
 }
 
 /** 아이콘 · 이름 · 한 줄 설명 · 만든 사람과 즐겨찾기 · 실행하기. */
@@ -22,6 +26,9 @@ export default function AgentHeader({
   favoritePending,
   favoriteMessage,
   onToggleFavorite,
+  runPending,
+  runMessage,
+  onRun,
 }: AgentHeaderProps) {
   const favBg = agent.favorited ? 'rgba(255,179,205,.26)' : 'rgba(255,255,255,.11)'
   const favStarColor = agent.favorited ? '#e3c8a3' : 'rgba(255,255,255,.5)'
@@ -146,8 +153,10 @@ export default function AgentHeader({
             </div>
             <div className="text-[17px] font-bold tracking-[-.01em] text-white">즐겨찾기</div>
           </div>
-          <a
-            href={paths.run.waiting}
+          <button
+            type="button"
+            onClick={onRun}
+            disabled={runPending}
             style={{
               width: '164px',
               height: '54px',
@@ -155,19 +164,19 @@ export default function AgentHeader({
               background: 'var(--color-accent)',
               boxShadow: '0 10px 26px rgba(140,100,130,.24)',
               color: 'var(--color-accent-ink)',
-              transition: 'transform .18s',
+              transition: 'transform .18s,opacity .18s',
             }}
-            className="flex items-center justify-center text-[18px] font-bold tracking-[-.01em] hover:-translate-y-[2px]"
+            className="flex cursor-pointer items-center justify-center border-0 font-[inherit] text-[18px] font-bold tracking-[-.01em] hover:-translate-y-[2px] disabled:cursor-default disabled:opacity-60"
           >
-            실행하기
-          </a>
+            {runPending ? '준비 중…' : '실행하기'}
+          </button>
         </div>
-        {favoriteMessage && (
+        {(favoriteMessage ?? runMessage) && (
           <div
             className="text-[14px] font-medium tracking-[-.01em]"
             style={{ color: INK.bad, animation: 'fadeIn .2s ease both' }}
           >
-            {favoriteMessage}
+            {favoriteMessage ?? runMessage}
           </div>
         )}
       </div>

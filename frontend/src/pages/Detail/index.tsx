@@ -17,6 +17,7 @@ import ReviewList from './ReviewList'
 import SectionTitle from './SectionTitle'
 import StatChips from './StatChips'
 import { useAgentReviews } from './useAgentReviews'
+import { useAgentRun } from './useAgentRun'
 import { useFavoriteToggle } from './useFavoriteToggle'
 
 /**
@@ -53,6 +54,7 @@ export default function Detail() {
 
   const reviews = useAgentReviews(agentId)
   const favorite = useFavoriteToggle(agentId ?? '')
+  const agentRun = useAgentRun(agentId ?? '')
 
   // ID 가 없거나 404 면 '없는 에이전트' 다. 로딩 판정보다 먼저 와야 한다 —
   // enabled: false 면 isPending 이 계속 true 라서 뒤에 두면 영원히 '불러오는 중' 이 된다.
@@ -95,6 +97,9 @@ export default function Detail() {
           favoritePending={favorite.isPending}
           favoriteMessage={favorite.message}
           onToggleFavorite={() => favorite.toggle(agent.favorited)}
+          runPending={agentRun.pending}
+          runMessage={agentRun.message}
+          onRun={() => agentRun.run(agent.name)}
         />
 
         <div

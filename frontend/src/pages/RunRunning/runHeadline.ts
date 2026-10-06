@@ -10,6 +10,7 @@ export function runHeadline({
   currentLabel,
   activeName,
   runnableCount,
+  showStepCount = true,
 }: {
   missing: boolean
   lost: boolean
@@ -21,6 +22,8 @@ export function runHeadline({
   /** 진행을 받기 전에 차례로 짐작한 카드 이름. */
   activeName: string | undefined
   runnableCount: number
+  /** 에이전트 내부 단계 수를 공개하지 않을 때는 숫자 안내를 숨긴다. */
+  showStepCount?: boolean
 }) {
   const stepTitle = missing
     ? '실행을 찾을 수 없습니다'
@@ -32,20 +35,20 @@ export function runHeadline({
           ? '실행 완료'
           : progress
             ? (currentLabel ??
-              progress.currentStepName ??
               (progress.total > 0 && progress.done >= progress.total
                 ? '결과를 정리하는 중'
                 : '실행을 준비하는 중'))
             : activeName
               ? `${activeName} 중`
               : '워크플로우를 불러오는 중'
-  const stepMeta = lost
-    ? ''
-    : progress
-      ? `${progress.done} / ${progress.total} 단계`
-      : runnableCount
-        ? // 서버처럼 작업 단계만 세고, 진행을 받기 전에는 끝난 단계가 없다.
-          `0 / ${runnableCount} 단계`
-        : ''
+  const stepMeta =
+    lost || !showStepCount
+      ? ''
+      : progress
+        ? `${progress.done} / ${progress.total} 단계`
+        : runnableCount
+          ? // 서버처럼 작업 단계만 세고, 진행을 받기 전에는 끝난 단계가 없다.
+            `0 / ${runnableCount} 단계`
+          : ''
   return { stepTitle, stepMeta }
 }

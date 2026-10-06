@@ -6,6 +6,7 @@ import {
   branchTaken,
   cardStatuses,
   edgeWasTaken,
+  foldAgentLines,
   inCanvasOrder,
   reachedNodes,
   runFocus,
@@ -320,5 +321,27 @@ describe('runFocus', () => {
         ]),
       ),
     ).toBe('d')
+  })
+})
+
+describe('foldAgentLines', () => {
+  it('같은 에이전트의 속 단계가 이어지면 마지막 한 줄만 남긴다', () => {
+    expect(
+      foldAgentLines([
+        { text: '정리', agent: null },
+        { text: '분류 에이전트', agent: 'a' },
+        { text: '분류 에이전트', agent: 'a' },
+        { text: '요약 에이전트', agent: 'b' },
+      ]),
+    ).toEqual(['정리', '분류 에이전트', '요약 에이전트'])
+  })
+
+  it('에이전트가 아닌 줄은 이름이 같아도 접지 않는다', () => {
+    expect(
+      foldAgentLines([
+        { text: '정리', agent: null },
+        { text: '정리', agent: null },
+      ]),
+    ).toEqual(['정리', '정리'])
   })
 })

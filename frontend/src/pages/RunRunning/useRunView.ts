@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import type { ExecutionStep } from '@/api/executions'
+import type { ExecutionStep, StepStatus } from '@/api/executions'
 import { useSavedWorkflow } from '@/hooks/canvas/useSavedWorkflow'
 import { useRunProgress } from '@/hooks/run/useRunProgress'
 import { useEasedPercent } from '@/hooks/useEasedPercent'
@@ -20,10 +20,12 @@ import {
   branchTaken,
   cardStatuses,
   edgeWasTaken,
+  foldAgentLines,
   inCanvasOrder,
   reachedNodes,
   runFocus,
   stepGroups,
+  type LogLine,
   type RunCard,
 } from '@/lib/run/runSteps'
 import { paths } from '@/routes/paths'
@@ -57,7 +59,11 @@ export function useRunView({
   const run = useRunProgress(executionId)
   const progress = run.progress
   const loaded = useSavedWorkflow(workflowId)
+  const canvasReady = !!loaded.canvas
   const defs = loaded.canvas?.nodes ?? EMPTY_NODES
+  const hasAgent = defs.some((node) => node.sourceType === 'AGENT')
+  // 워크플로우가 오기 전에는 단계 소유자를 모르고, 에이전트가 있으면 서버 숫자가 속 단계를 센다.
+  const hideInternalProgress = !canvasReady || hasAgent
   const edgeList = loaded.canvas?.edges ?? EMPTY_EDGES
   const geometry = useMemo(() => edgeGeometry(defs, edgeList), [defs, edgeList])
   const chainAt = useMemo(() => chainPositions(defs, edgeList), [defs, edgeList])
@@ -105,14 +111,20 @@ export function useRunView({
    * 폴링 한 번이 넘어져도 쿼리는 지난 값을 들고 있어, 도는 실행이 잠깐 실패로 보인다.
    */
   const lost = run.broken && !progress
-  const settled = progress?.percent ?? 0
+  const settled = hideInternalProgress
+    ? progress?.status === 'SUCCEEDED'
+      ? 100
+      : 0
+    : (progress?.percent ?? 0)
   /** 끝났거나 멎었거나 소식이 끊겼다. 기어가기를 멈추고 받은 값에 붙는다. */
   const settle = failed || run.broken || progress?.status === 'SUCCEEDED'
   /** 도는 단계가 끝나면 닿을 값. 그 앞까지 기어가 게이지가 서 있지 않게 한다. */
-  const ceiling = progress
-    ? Math.min(100, Math.round(((progress.done + 1) / Math.max(1, progress.total)) * 100))
-    : settled
-  // 게이지만 메운다. 카드와 단계 수는 `progress.done` 을 그대로 쓴다.
+  const ceiling = hideInternalProgress
+    ? settled
+    : progress
+      ? Math.min(100, Math.round(((progress.done + 1) / Math.max(1, progress.total)) * 100))
+      : settled
+  // 에이전트가 있으면 내부 단계 비율을 쓰지 않고 완료 여부만 게이지에 반영한다.
   const pctR = Math.round(useEasedPercent(settled, ceiling, settle))
   const runningAt = statuses
     ? runnable.findIndex((node) => statuses.get(node.id) === 'running')
@@ -165,18 +177,31 @@ export function useRunView({
     [`${node.name} · ${branchCondition(node)}`, branchVerdict(node)].filter(Boolean).join(' ')
   const ownerOf = (step: ExecutionStep) =>
     groups && defs.find((node) => groups.get(node.id)?.includes(step))
+  const agentCards = defs.filter((node) => node.sourceType === 'AGENT')
   /**
    * 로그와 실패 안내에 쓰는 이름. 서버가 분기에 이름을 싣지 않아 엔진은 `b1`·`a1.b1` 같은 id 를 돌려준다.
    *
-   * 캔버스 분기는 조건과 판정까지 붙이고, 에이전트 속 분기는 어느 에이전트의 것인지만 적는다.
+   * 에이전트는 속을 열지 않는다 — 서버가 속 단계를 펼쳐 보내도 에이전트 이름만 적는다. 어느 카드의
+   * 것인지 모르는 이름은 캔버스에 없는 것이라 에이전트 속으로 보고 감춘다.
    */
-  const stepLabel = (step: ExecutionStep) => {
+  const stepLabel = (step: ExecutionStep): LogLine => {
     const owner = ownerOf(step)
-    if (owner?.controlType) return branchLabel(owner)
-    if (owner && /(^|\.)b\d+$/.test(step.name)) return `${owner.name} · 분기`
+    if (owner?.controlType) return { text: branchLabel(owner), agent: null }
+    if (owner?.sourceType === 'AGENT') return { text: owner.name, agent: owner.id }
+    if (owner) return { text: step.name, agent: null }
     const top = /^b(\d+)$/.exec(step.name)
     const branch = top && !groups ? branchCards[Number(top[1]) - 1] : undefined
-    return branch ? branchLabel(branch) : step.name
+    if (branch) return { text: branchLabel(branch), agent: null }
+    if (!agentCards.length || cards.some((card) => card.kind === 'NODE' && card.name === step.name))
+      return { text: step.name, agent: null }
+    const only = agentCards.length === 1 ? agentCards[0] : undefined
+    return { text: only?.name ?? '에이전트', agent: only?.id ?? 'agent' }
+  }
+  /** 단계가 목록에 없을 때도 같은 규칙으로 이름을 가린다. */
+  const nameLabel = (name: string | null | undefined, status: StepStatus) => {
+    if (!canvasReady || !name) return null
+    const step = progress?.steps.findLast((it) => it.name === name) ?? { name, status }
+    return stepLabel(step).text
   }
   /**
    * 도는 단계를 따라가는 카메라. 짧은 워크플로우는 한눈에 들어오니 움직이지 않는다.
@@ -196,22 +221,22 @@ export function useRunView({
         : 0,
   }
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
-  // 일부 카드만 짝지었으면 원래 단계를 모두 남긴다. 모호한 에이전트의 로그까지 빠지면 안 된다.
-  const logLines = (
-    groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? [])
-  )
-    .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
-    .map(stepLabel)
+  // 일부 카드만 짝지었으면 원래 단계로 적되, 에이전트 속 단계는 이름을 감추고 한 줄로 접는다.
+  const logLines = canvasReady
+    ? foldAgentLines(
+        (groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
+          .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
+          .map(stepLabel),
+      )
+    : []
   const logs = logLines.map((text, i) => logRow(text, i === logLines.length - 1 && !finished))
 
   // 워크플로우가 도착하기 전에는 defs 가 비어 active 가 -1 이다. 첨자로 집으면 렌더가 통째로 터진다.
-  const currentStep = progress?.steps.findLast((it) => it.name === progress.currentStepName)
-  const failedStep = progress?.steps.findLast((it) => it.name === progress.failure?.stepName)
   const notice = failureNotice({
     missing: run.missing,
     lost,
     failure: progress?.failure,
-    failedLabel: failedStep ? stepLabel(failedStep) : undefined,
+    failedLabel: nameLabel(progress?.failure?.stepName, 'failed') ?? undefined,
   })
   const { stepTitle, stepMeta } = runHeadline({
     missing: run.missing,
@@ -219,9 +244,10 @@ export function useRunView({
     failed,
     finished,
     progress,
-    currentLabel: currentStep ? stepLabel(currentStep) : undefined,
+    currentLabel: nameLabel(progress?.currentStepName, 'running') ?? undefined,
     activeName: g?.name,
     runnableCount: runnable.length,
+    showStepCount: !hideInternalProgress,
   })
 
   return {
@@ -238,7 +264,7 @@ export function useRunView({
       branchVerdict,
     },
     gauge: {
-      pctLabel: `${pctR}%`,
+      pctLabel: hideInternalProgress && !finished ? (failed || lost ? '—' : '…') : `${pctR}%`,
       gaugeBg: gaugeBackground(pctR),
       stepTitle,
       stepMeta,

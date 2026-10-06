@@ -55,6 +55,7 @@ export function failureNotice({
 }) {
   if (missing) return '워크플로우를 다시 실행해 주세요.'
   if (lost) return '실행은 계속되고 있습니다. 새로고침해 주세요.'
-  if (failure) return describeFailure({ ...failure, stepName: failedLabel ?? failure.stepName })
+  // 서버의 원래 단계명은 에이전트 내부 이름일 수 있다. 공개 이름을 확인하지 못했으면 생략한다.
+  if (failure) return describeFailure({ ...failure, stepName: failedLabel ?? null })
   return '실행 엔진이 사유를 알려 주지 않았습니다.\n재실행 후에도 실패한다면 워크플로우를 확인해주세요.'
 }

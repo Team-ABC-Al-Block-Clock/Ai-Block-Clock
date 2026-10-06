@@ -36,6 +36,12 @@ describe('failureNotice', () => {
     ).toBe('점수 분기 · 평균 ≥ 60 단계에서 중단되었습니다.\n분기 조건이 없는 값을 가리킵니다.')
   })
 
+  it('공개 이름을 아직 모르면 서버의 단계명을 대신 표시하지 않는다', () => {
+    expect(failureNotice({ missing: false, lost: false, failure, failedLabel: undefined })).toBe(
+      '분기 조건이 없는 값을 가리킵니다.',
+    )
+  })
+
   it('까닭이 없으면 워크플로우를 확인하라고 한다', () => {
     expect(
       failureNotice({ missing: false, lost: false, failure: null, failedLabel: undefined }),
