@@ -211,7 +211,7 @@ export function useRunView({
         : 0,
   }
   // `done` 은 분기 노드와 건너뛴 갈래를 세지 않아 순번으로 자르면 어긋난다. 상태로 거른다.
-  // 일부 카드만 짝지었으면 원래 단계를 모두 남긴다. 모호한 에이전트의 로그까지 빠지면 안 된다.
+  // 일부 카드만 짝지었으면 원래 단계로 적되, 에이전트 속 단계는 이름을 감추고 한 줄로 접는다.
   const logLines = foldAgentLines(
     (groups?.size === cards.length ? inCanvasOrder(cards, groups) : (progress?.steps ?? []))
       .filter((step) => step.status !== 'pending' && step.status !== 'skipped')
