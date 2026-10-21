@@ -32,7 +32,7 @@
 | 계약 · 명세 | `docs/` | 다른 파트에 배포하는 것만. 설계 이유 · 일정은 팀 문서 폴더(레포 밖) |
 | 프롬프트 초안 | `prompts/`, `spike/linear-mvp/prompts/` | 파일로 관리. 코드에 박지 않는다 |
 
-백엔드 ↔ Runtime은 **202 + 폴링**, 에이전트 전개는 Runtime이 한다. 상세는 `docs/integration-guide.md`.
+백엔드 ↔ Runtime 실행은 **RabbitMQ 메시지**(SubmitRun → RunEvent, 10-16 · `../docs/adr/0001-execution-messaging-rabbitmq.md`)이고, HTTP 는 조회 · 검증 · 서식 변환만 남았다. 메시지 처리는 `src/messaging.py`, 브로커 연결은 `src/broker.py`. 에이전트 전개는 Runtime이 한다. 상세는 `docs/integration-guide.md` §4.
 
 ## 3. 설계 원칙 — 어기면 리뷰에서 되돌린다
 
@@ -41,10 +41,10 @@
 3. **출력 모양의 원본은 판매자의 JSON 예시.** Runtime이 예시에서 구조화 출력 스키마를 만든다(`src/shape.py`). 플랫폼이 형식 목록을 따로 두지 않는다 — 수작업 이중 관리 금지.
 4. **입력 형식은 없고, 출력은 판매자가 예시로 선언한다** (계약 v2.1 · 09-26). 노드는 앞 노드(들)의 결과 전체를 자동으로 받고, 출력은 `{kind:"text"}` 또는 `{kind:"json", example:{...}}`이다. 예시의 키 · 타입이 규격이고 `null` 값은 선택 항목이다. 견본 목록 · 연결 호환 판정을 다시 넣지 않는다. 분기는 상위 노드 출력 예시의 스칼라 필드만 참조한다(저장 시 코드 검사, 문자열은 대소문자 · 공백 무시). 봉투는 Runtime이 씌우고, LLM은 payload만 만든다.
 5. **LLM은 GMS 경유 Gemini만** (`LLM_API_KEY` · `LLM_BASE_URL` · `LLM_MODEL`). 기본 모델은 **`gemini-2.5-pro`**(09-26, Flash에서 전환 — 크레딧 여유 · 분기 판정 안정). 워크플로우 `model` 필드로 Flash를 고를 수 있다. Claude 등 다른 경로는 쓰지 않는다. 개발 반복은 `--mock`. 모델을 바꾸면 `pricing.MODEL_PRICES` · `compose.yaml` · `.env.example` · 계약 §13을 함께 고친다.
-6. **두 서비스는 stateless.** 이력 · 정산의 원본은 백엔드 DB. Runtime 상태는 메모리라 재시작하면 사라진다.
+6. **두 서비스는 stateless.** 이력 · 정산의 원본은 백엔드 DB. Runtime 상태는 메모리라 재시작하면 사라진다(ack 전이던 실행은 큐가 한 번 더 배달한다).
 7. **결정 로직에는 테스트가 따라온다.** 검증 · 판정 · 분기 · 견적 코드를 바꾸는 MR은 그 경우의 테스트를 함께 낸다.
 8. **스모크 직선(엑셀 → 분석 → 텍스트 → PDF)은 항상 돌아야 한다.** 기능을 붙이면 `--mock`으로 확인하고 MR "테스트 결과"에 적는다.
-9. **Runtime은 돈을 모른다.** 토큰 · 모델 · 공시 단가 USD까지만 낸다. ABC · 노드 단가 · 청구액 · 환불액 · 환산율은 백엔드의 것이고 Runtime 코드 · 계약에 넣지 않는다. 판매자 테스트는 같은 `POST /v1/runs`에 `mode=test`다.
+9. **Runtime은 돈을 모른다.** 토큰 · 모델 · 공시 단가 USD까지만 낸다. ABC · 노드 단가 · 청구액 · 환불액 · 환산율은 백엔드의 것이고 Runtime 코드 · 계약에 넣지 않는다. 판매자 테스트는 같은 SubmitRun 에 `mode=test`다.
 
 ## 4. 비밀
 
