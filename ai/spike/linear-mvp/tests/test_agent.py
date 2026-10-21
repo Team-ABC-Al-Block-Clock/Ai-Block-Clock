@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 
 import pytest
@@ -13,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from src import expand, graph, runner, shape
 from src.api import app
+from tests.messaging_support import submit, submit_message
 
 BRIEF = {
     "brand_name": "초록소반",
@@ -144,10 +144,12 @@ def test_안_간_내부_노드도_환원_대상이다():
 
 def test_결과물은_봉투_JSON_으로_받는다():
     client = TestClient(app)
-    res = client.post("/v1/runs", data={"workflow": json.dumps(_wf(), ensure_ascii=False),
-                                        "input": json.dumps(BRIEF, ensure_ascii=False),
-                                        "mock": "true"})
-    run_id = res.json()["run_id"]
+    message = submit_message(_wf(), input=BRIEF)
+    run_id = message["execution_id"]
+
+    outcome, _ = submit(message)
+
+    assert outcome == "ack"
     artifact = client.get(f"/v1/runs/{run_id}/artifact")
     assert artifact.status_code == 200
     body = artifact.json()
@@ -162,7 +164,10 @@ def test_없는_실행의_결과물은_404_다():
 
 def test_실패한_실행의_결과물은_409_다():
     client = TestClient(app)
-    res = client.post("/v1/runs", data={"workflow": json.dumps(_wf(), ensure_ascii=False),
-                                        "mock": "true"})          # input 없음 → 수요자 책임 실패
-    run_id = res.json()["run_id"]
+    message = submit_message(_wf())                                  # input 없음 → 수요자 책임 실패
+    run_id = message["execution_id"]
+
+    outcome, publisher = submit(message)
+
+    assert outcome == "ack" and publisher.types()[-1] == "failed"
     assert client.get(f"/v1/runs/{run_id}/artifact").status_code == 409

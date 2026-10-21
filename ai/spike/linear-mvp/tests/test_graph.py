@@ -5,13 +5,12 @@
 """
 from __future__ import annotations
 
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 
 from src import graph, runner, shape
 from src.api import app
+from tests.messaging_support import submit, submit_message
 
 BRIEF = {
     "brand_name": "초록소반",
@@ -369,17 +368,16 @@ def test_검증_응답에_도는_노드_목록이_실린다():
     assert not any(w["code"] == "UNPRICED_NODES" for w in body["warnings"])
 
 
-# --- POST /v1/runs 가 입력 payload 를 받는다 (계약 §7.1) ----------------------
+# --- SubmitRun 이 입력 payload 를 싣는다 (contract 3장) ------------------------
 
-def test_실행_요청에_input_payload_를_실어_보낸다():
+def test_SubmitRun_의_input_과_comment_로_실행한다():
     client = TestClient(app)
-    wf = runner.load_workflow("brand_agent")
-    res = client.post("/v1/runs", data={"workflow": json.dumps(wf, ensure_ascii=False),
-                                        "input": json.dumps(BRIEF, ensure_ascii=False),
-                                        "comment": "API 경유", "mock": "true"})
-    assert res.status_code == 202
-    run_id = res.json()["run_id"]
-    got = client.get(f"/v1/runs/{run_id}").json()
+    message = submit_message(runner.load_workflow("brand_agent"), input=BRIEF, comment="메시지 경유")
+
+    outcome, publisher = submit(message)
+
+    assert outcome == "ack" and publisher.types()[-1] == "succeeded"
+    got = client.get(f"/v1/runs/{message['execution_id']}").json()
     assert got["status"] == "succeeded"
     status = {n["id"]: n["status"] for n in got["nodes"]}
     assert status["n3a"] == "succeeded" and status["n3b"] == "skipped"
@@ -387,23 +385,30 @@ def test_실행_요청에_input_payload_를_실어_보낸다():
 
 def test_input_이_없으면_수요자_책임으로_실패한다():
     client = TestClient(app)
-    wf = runner.load_workflow("brand_agent")
-    res = client.post("/v1/runs", data={"workflow": json.dumps(wf, ensure_ascii=False), "mock": "true"})
-    assert res.status_code == 202
-    got = client.get(f"/v1/runs/{res.json()['run_id']}").json()
+    message = submit_message(runner.load_workflow("brand_agent"), input=None)
+
+    outcome, publisher = submit(message)
+
+    assert outcome == "ack"
+    assert publisher.types()[0] == "accepted" and publisher.types()[-1] == "failed"   # 거절이 아니라 실행 실패다
+    got = client.get(f"/v1/runs/{message['execution_id']}").json()
     assert got["status"] == "failed" and got["error"]["fault"] == "consumer"
 
 
-def test_망가진_input_JSON_은_400_이다():
-    client = TestClient(app)
-    res = client.post("/v1/runs", data={"workflow": json.dumps(runner.load_workflow("brand_agent")),
-                                        "input": "{not json", "mock": "true"})
-    assert res.status_code == 400 and res.json()["detail"]["code"] == "INVALID_INPUT_JSON"
+def test_input_이_객체가_아니면_rejected_INVALID_INPUT_JSON_이다():
+    message = submit_message(runner.load_workflow("brand_agent"), input="{not json")
+
+    outcome, publisher = submit(message)
+
+    assert outcome == "ack" and publisher.types() == ["rejected"]
+    assert publisher.last()["snapshot"]["error"]["code"] == "INVALID_INPUT_JSON"
 
 
-def test_정의가_틀리면_요청_시점에_400_이다():
-    client = TestClient(app)
+def test_정의가_틀리면_실행_전에_rejected_INVALID_WORKFLOW_다():
     wf = runner.load_workflow("brand_agent")
     wf["edges"].append({"from": "n4", "to": "n1"})       # 순환
-    res = client.post("/v1/runs", data={"workflow": json.dumps(wf), "mock": "true"})
-    assert res.status_code == 400 and res.json()["detail"]["code"] == "INVALID_WORKFLOW"
+
+    outcome, publisher = submit(submit_message(wf, input=BRIEF))
+
+    assert outcome == "ack" and publisher.types() == ["rejected"]
+    assert publisher.last()["snapshot"]["error"]["code"] == "INVALID_WORKFLOW"

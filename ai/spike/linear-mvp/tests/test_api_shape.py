@@ -5,12 +5,11 @@
 """
 from __future__ import annotations
 
-import json
-
 from fastapi.testclient import TestClient
 
 from src import runner, shape
 from src.api import app
+from tests.messaging_support import submit, submit_message
 
 BRIEF = {"brand_name": "초록소반", "category": "간편식", "target": "1인 가구 30대",
          "price_tier": "중가", "differentiator": "국내산 재료"}
@@ -24,11 +23,11 @@ TOP_KEYS = {"run_id", "status", "mode", "workflow", "mock", "progress", "nodes",
 
 
 def _run(workflow: str = "brand_agent") -> dict:
-    client = TestClient(app)
-    res = client.post("/v1/runs", data={"workflow": json.dumps(runner.load_workflow(workflow), ensure_ascii=False),
-                                        "input": json.dumps(BRIEF, ensure_ascii=False), "mock": "true"})
-    assert res.status_code == 202
-    return client.get(f"/v1/runs/{res.json()['run_id']}").json()
+    """SubmitRun 메시지로 실행을 만들고 HTTP 로 조회한다 — 조회 응답 모양은 메시지 경로에서도 같다."""
+    message = submit_message(runner.load_workflow(workflow), input=BRIEF)
+    outcome, _ = submit(message)
+    assert outcome == "ack"
+    return TestClient(app).get(f"/v1/runs/{message['execution_id']}").json()
 
 
 def test_최상위_키가_계약과_같다():

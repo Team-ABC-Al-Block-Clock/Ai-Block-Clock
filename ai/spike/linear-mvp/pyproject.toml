@@ -3,6 +3,7 @@ name = "linear-mvp"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "aio-pika>=10.1.1",
     "fastapi>=0.141.1",
     "google-genai>=2.22.0",
     "jinja2>=3.1.6",
@@ -25,3 +26,6 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "broker: 실제 RabbitMQ 가 필요한 테스트. RABBITMQ_TEST_URL(amqp://user:pass@host:port/vhost)이 없으면 건너뛴다",
+]

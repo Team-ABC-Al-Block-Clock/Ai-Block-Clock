@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from src import render, runner, template_import
 from src.api import app
 from src.llm import LLM, LLMResult
+from tests.messaging_support import submit, submit_message
 from tests.test_output import BRIEF
 
 PAYLOAD = {"headline": "매일 쓰는 물건은 성능이 먼저", "positioning": ["대나무 손잡이", "미세모 2배"],
@@ -125,9 +126,12 @@ def test_API_는_html_url_과_warnings_를_준다():
     client = TestClient(app)
     wf = runner.load_workflow("brand_agent")
     wf["output"]["template"] = {"name": "깨진", "html": "<!DOCTYPE html><html><body>{{ 없음 "}
-    res = client.post("/v1/runs", data={"workflow": json.dumps(wf, ensure_ascii=False),
-                                        "input": json.dumps(BRIEF, ensure_ascii=False), "mock": "true"})
-    run_id = res.json()["run_id"]
+    message = submit_message(wf, input=BRIEF)
+    run_id = message["execution_id"]
+
+    outcome, _ = submit(message)
+
+    assert outcome == "ack"
     body = client.get(f"/v1/runs/{run_id}").json()
     assert body["status"] == "succeeded" and body["result"]["html_url"] == f"/v1/runs/{run_id}/html"
     assert body["result"]["template"]["applied"] == "default" and body["warnings"][0]["code"] == "TEMPLATE_RENDER_FAILED"
