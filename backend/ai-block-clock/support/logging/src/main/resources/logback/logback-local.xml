@@ -2,10 +2,11 @@
 <!-- local: 콘솔에만 출력하고 애플리케이션 패키지는 DEBUG 로 본다. -->
 <included>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <include resource="logback/async-console-appender.xml"/>
 
     <logger name="com.aiblockclock" level="DEBUG"/>
 
     <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_CONSOLE"/>
     </root>
 </included>
