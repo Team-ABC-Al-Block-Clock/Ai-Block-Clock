@@ -11,3 +11,32 @@ ai:
     base-url: ${AI_RUNTIME_BASE_URL:http://ai-block-clock-ai-runtime:8000}
     connect-timeout: ${AI_RUNTIME_CONNECT_TIMEOUT:2s}
     read-timeout: ${AI_RUNTIME_READ_TIMEOUT:10s}
+    # 런타임이 결과물을 써 두는 공유 볼륨이다(ai/docs/integration-guide.md §4.5). 런타임과 같은 볼륨을 붙인다
+    results-root: ${RESULTS_ROOT:/var/lib/ai-block-clock/results}
+  # 발행한 뒤 브로커의 confirm 을 이만큼 기다린다. 넘기면 발행 실패로 보고 디스패처가 다음 차례에 다시 보낸다
+  messaging:
+    confirm-timeout: ${AI_MESSAGING_CONFIRM_TIMEOUT:5s}
+
+# 실행 접수 · 진행 · 완료는 RabbitMQ 로 주고받는다(ADR-0001). 환경 변수 이름은 런타임과 같다(ai/docs/integration-guide.md §4.10).
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    # 발행마다 브로커의 confirm(ack · nack)을 받는다. confirm 을 받은 뒤에만 넘긴 것으로 적는다
+    publisher-confirm-type: correlated
+    # 브로커가 연결은 받고 답하지 않을 때(일시 정지 · 자원 경보 · 네트워크 단절)도 발행이 confirm 기한 남짓에 끝나도록,
+    # 채널 열기 · confirm 켜기 같은 채널 RPC 와 연결 맺기도 같은 기한에서 끊는다. 라이브러리 기본값(채널 RPC 10분 ·
+    # 연결 60초)이면 confirm 을 못 받은 채널이 캐시로 돌아오지 않아 새 채널을 여는 발행이 그만큼 묶인다
+    channel-rpc-timeout: ${ai.messaging.confirm-timeout}
+    connection-timeout: ${ai.messaging.confirm-timeout}
+    # 실행 이벤트 처리에 실패하면 처음 한 번에 세 번 더 시도하고, 그래도 안 되면 다시 넣지 않고 거절한다 → DLQ.
+    # 읽을 수 없는 메시지(AmqpRejectAndDontRequeueException)는 다시 시도하지 않는다(AiClientConfiguration)
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3

@@ -5,5 +5,8 @@ package com.aiblockclock.client.ai;
 public enum AiClientError {
     INVALID_CONFIGURATION,
     MALFORMED_RESPONSE,
-    REQUEST_FAILED
+    REQUEST_FAILED,
+    // 엔진이 그 실행을 모른다(404 RUN_NOT_FOUND). 아직 받지 않았거나(큐에서 기다리는 중 · 다시 배달되기 전)
+    // 재시작 · 재배포로 메모리에서 사라졌다. 어느 쪽인지는 부르는 쪽이 넘긴 시각으로 가른다.
+    RUN_NOT_FOUND
 }

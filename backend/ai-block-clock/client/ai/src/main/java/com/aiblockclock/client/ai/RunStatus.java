@@ -19,8 +19,15 @@ public record RunStatus(
         Result result,
         Failure failure,
         Boolean mock,
-        Totals totals
+        Totals totals,
+        Error error
 ) {
+    public RunStatus(String runId, String status, Progress progress, List<Node> nodes,
+                     List<Contribution> contribution, List<NotExecuted> notExecuted, Result result,
+                     Failure failure, Boolean mock, Totals totals) {
+        this(runId, status, progress, nodes, contribution, notExecuted, result, failure, mock, totals, null);
+    }
+
     public RunState state() {
         return RunState.from(status);
     }
@@ -57,10 +64,25 @@ public record RunStatus(
             @JsonProperty("agent_id") String agentId,
             @JsonProperty("owner_id") String ownerId,
             @JsonProperty("cost_usd") BigDecimal costUsd,
-            @JsonProperty("skip_reason") String skipReason
+            @JsonProperty("skip_reason") String skipReason,
+            String model,
+            @JsonProperty("input_tokens") Integer inputTokens,
+            @JsonProperty("output_tokens") Integer outputTokens,
+            Integer retries,
+            @JsonProperty("repair_count") Integer repairCount,
+            @JsonProperty("started_at") String startedAt,
+            @JsonProperty("finished_at") String finishedAt,
+            @JsonProperty("duration_ms") Long durationMs,
+            @JsonProperty("branch_taken") Boolean branchTaken
     ) {
         private static final String SUCCEEDED = "succeeded";
         private static final String SKIPPED = "skipped";
+
+        public Node(String id, String name, String type, String status, String agentId, String ownerId,
+                    BigDecimal costUsd, String skipReason) {
+            this(id, name, type, status, agentId, ownerId, costUsd, skipReason,
+                    null, null, null, null, null, null, null, null, null);
+        }
 
         public boolean isSucceeded() {
             return SUCCEEDED.equals(status);
@@ -99,6 +121,16 @@ public record RunStatus(
             String type,
             @JsonProperty("artifact_url") String artifactUrl,
             @JsonProperty("pdf_url") String pdfUrl
+    ) {
+    }
+
+    // 실패한 실행의 자세한 사유다. detail 은 엔진이 본 원인(예: 어긴 출력 모양)이고 화면용이 아니다.
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Error(
+            String code,
+            String message,
+            String detail,
+            @JsonProperty("node_id") String nodeId
     ) {
     }
 

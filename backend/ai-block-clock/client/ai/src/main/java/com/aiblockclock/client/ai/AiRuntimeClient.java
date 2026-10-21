@@ -2,73 +2,46 @@ package com.aiblockclock.client.ai;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
+// 실행 엔진의 HTTP 다. 실행을 맡기는 일은 브로커(RunQueuePublisher)가 하고, 여기에는 대조(안전망)와 근거 백필에 쓰는
+// 조회만 남았다 (ai/docs/integration-guide.md §4.9). run_id 는 곧 실행 번호다.
 @RequiredArgsConstructor
 public class AiRuntimeClient {
-    private static final String RUNS_PATH = "/v1/runs";
     private static final String RUN_PATH = "/v1/runs/{runId}";
     private static final String ARTIFACT_PATH = "/v1/runs/{runId}/artifact";
-    private static final String PDF_PATH = "/v1/runs/{runId}/pdf";
     private static final String HEALTH_PATH = "/v1/health";
+    private static final String RECORD_PATH = "/v1/runs/{runId}?include_node_output=true";
+    private static final String RUN_NOT_FOUND = "RUN_NOT_FOUND";
+    private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     private final RestClient runtimeRestClient;
 
-    public RunAccepted start(RunRequest request) {
-        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
-        form.add("workflow", request.workflow());
-        form.add("mode", request.mode().wireName());
-        form.add("mock", String.valueOf(request.mock()));
-        addIfPresent(form, "input", request.input());
-        addIfPresent(form, "comment", request.comment());
-        addIfPresent(form, request.file());
-        addRefFiles(form, request.refFiles());
-
-        try {
-            return ensureUsable(require(runtimeRestClient.post()
-                    .uri(RUNS_PATH)
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(form)
-                    .retrieve()
-                    .body(RunAccepted.class), "run acceptance"));
-        } catch (RestClientException exception) {
-            throw new AiClientException(AiClientError.REQUEST_FAILED, "run request failed", exception);
-        }
-    }
-
-    // 실행 번호는 엔진이 준 값이라 경로에 그대로 잇지 않는다. 템플릿이 인코딩해 다른 경로로 새지 않게 한다.
+    // 실행 번호는 경로에 그대로 잇지 않는다. 템플릿이 인코딩해 다른 경로로 새지 않게 한다.
     public RunStatus read(String runId) {
         return require(get(RUN_PATH, runId, RunStatus.class, "run status"), "run status");
     }
 
-    public String readArtifact(String runId) {
-        return require(get(ARTIFACT_PATH, runId, String.class, "artifact"), "artifact");
+    // 정산 근거로 남길 원본이다. 노드 출력 전문까지 받는다. 받은 바이트를 그대로 두고, 읽은 것은 함께 돌려준다.
+    public RunRecord readRecord(String runId) {
+        String json = require(get(RECORD_PATH, runId, String.class, "run record"), "run record");
+
+        try {
+            return new RunRecord(require(MAPPER.readValue(json, RunStatus.class), "run record"), json);
+        } catch (JacksonException exception) {
+            throw new AiClientException(AiClientError.MALFORMED_RESPONSE,
+                    "run record for run " + runId + " is not a run status", exception);
+        }
     }
 
-    public Optional<byte[]> readPdf(String runId) {
-        try {
-            return Optional.ofNullable(runtimeRestClient.get().uri(PDF_PATH, runId).retrieve().body(byte[].class));
-        } catch (RestClientException exception) {
-            if (exception instanceof HttpClientErrorException http
-                    && http.getStatusCode() == HttpStatus.CONFLICT) {
-                return Optional.empty();
-            }
-
-            throw new AiClientException(AiClientError.REQUEST_FAILED,
-                    "pdf request for run " + runId + " failed", exception);
-        }
+    public String readArtifact(String runId) {
+        return require(get(ARTIFACT_PATH, runId, String.class, "artifact"), "artifact");
     }
 
     public RuntimeHealth health() {
@@ -83,42 +56,20 @@ public class AiRuntimeClient {
         try {
             return runtimeRestClient.get().uri(path, runId).retrieve().body(responseType);
         } catch (RestClientException exception) {
-            throw new AiClientException(AiClientError.REQUEST_FAILED,
+            throw new AiClientException(lookupErrorOf(exception),
                     what + " request for run " + runId + " failed", exception);
         }
     }
 
-    // 실행 번호가 없으면 다음 조회가 엉뚱한 경로를 부르고, 간격이 0 이면 폴링이 엔진을 쉬지 않고 두드린다.
-    private static RunAccepted ensureUsable(RunAccepted accepted) {
-        if (accepted.runId() == null || accepted.runId().isBlank()
-                || accepted.pollIntervalMs() == null || accepted.pollIntervalMs() <= 0) {
-            throw new AiClientException(AiClientError.MALFORMED_RESPONSE,
-                    "run acceptance has no run id or poll interval");
+    // 404 라도 본문이 RUN_NOT_FOUND 일 때만 "엔진이 모른다" 로 본다. 주소를 잘못 잡아 다른 서버가 준 404 는 닿지 못한 것이다.
+    private static AiClientError lookupErrorOf(RestClientException exception) {
+        if (exception instanceof RestClientResponseException response
+                && response.getStatusCode() == HttpStatus.NOT_FOUND
+                && response.getResponseBodyAsString().contains(RUN_NOT_FOUND)) {
+            return AiClientError.RUN_NOT_FOUND;
         }
 
-        return accepted;
-    }
-
-    private static void addIfPresent(MultiValueMap<String, Object> form, String name, String value) {
-        if (value != null && !value.isBlank()) {
-            form.add(name, value);
-        }
-    }
-
-    private static void addIfPresent(MultiValueMap<String, Object> form, Path file) {
-        if (file == null) {
-            return;
-        }
-
-        form.add("file", new FileSystemResource(file));
-    }
-
-    private static void addRefFiles(MultiValueMap<String, Object> form, Map<String, List<Path>> refFiles) {
-        refFiles.forEach((nodeId, files) -> {
-            for (int index = 0; index < files.size(); index++) {
-                form.add("ref_file_" + nodeId + "_" + index, new FileSystemResource(files.get(index)));
-            }
-        });
+        return AiClientError.REQUEST_FAILED;
     }
 
     private static <T> T require(T response, String what) {
