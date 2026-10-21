@@ -12,6 +12,8 @@ import java.util.UUID;
 
 public interface ExecutionSettlementRepository extends JpaRepository<ExecutionSettlementEntity, Long> {
 
+    List<ExecutionSettlementEntity> findAllByExecutionIdOrderByIdAsc(UUID executionId);
+
     // 받은 사람을 조건에서 빼지 않는다. 다른 공급자의 내역을 고를 방법을 쿼리에 두지 않으려는 것이다.
     // 커서 페이지는 전체 개수를 쓰지 않으므로 Page 대신 List 로 받아 count 쿼리를 내지 않는다.
     @Query("""

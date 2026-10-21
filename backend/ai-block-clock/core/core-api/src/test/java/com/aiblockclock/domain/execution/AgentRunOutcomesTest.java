@@ -91,7 +91,7 @@ class AgentRunOutcomesTest {
 
     @Test
     void 엔진이_끝을_알리지_않아_끊은_실행은_세지_않는다() {
-        AgentRunOutcomes outcomes = AgentRunOutcomes.of(null, ExecutionFailure.judge(null), BUYER);
+        AgentRunOutcomes outcomes = AgentRunOutcomes.of(null, ExecutionFailure.judge((RunStatus) null), BUYER);
 
         assertThat(outcomes.succeeded()).isEmpty();
         assertThat(outcomes.failed()).isEmpty();

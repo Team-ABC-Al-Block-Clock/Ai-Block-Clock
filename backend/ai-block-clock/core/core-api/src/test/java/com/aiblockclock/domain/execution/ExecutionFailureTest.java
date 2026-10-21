@@ -6,6 +6,8 @@ import com.aiblockclock.domain.user.UserId;
 import com.aiblockclock.enums.execution.ExecutionFault;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.UUID;
@@ -79,8 +81,58 @@ class ExecutionFailureTest {
 
     @Test
     void 엔진이_기한_안에_끝을_알리지_않아_끊은_실행은_플랫폼_탓이다() {
-        assertThat(ExecutionFailure.judge(null)).isEqualTo(new ExecutionFailure(
+        assertThat(ExecutionFailure.judge((RunStatus) null)).isEqualTo(new ExecutionFailure(
                 null, ExecutionProgress.STALLED, ExecutionFault.PLATFORM, false, null, null));
+    }
+
+    // 엔진이 끊기 직전에 공급자 탓 실패를 알렸더라도, 우리가 끊은 실행은 플랫폼 탓이다. 멈춰 있던 단계는 남긴다.
+    @Test
+    void 기한을_넘겨_끊은_실행은_멈춰_있던_단계와_함께_플랫폼_탓으로_남긴다() {
+        RunStatus lastSeen = new RunStatus("run-1", "running", new RunStatus.Progress(1, 2, 50, "n2", "요약"),
+                List.of(), List.of(), List.of(), null,
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true), false, null);
+
+        assertThat(ExecutionFailure.judge(EngineReport.stalled(lastSeen, null))).isEqualTo(new ExecutionFailure(
+                "n2", ExecutionProgress.STALLED, ExecutionFault.PLATFORM, false, null, null));
+    }
+
+    @Test
+    void 엔진이_실행을_잊으면_플랫폼_탓이다() {
+        assertThat(ExecutionFailure.judge(EngineReport.lost(null))).isEqualTo(new ExecutionFailure(
+                null, ExecutionProgress.LOST, ExecutionFault.PLATFORM, false, null, null));
+    }
+
+    @Test
+    void 엔진이_끝을_알린_실행은_엔진의_판정을_따른다() {
+        RunStatus run = failedAt("n1", "MODEL_API_ERROR", "consumer", false);
+
+        assertThat(ExecutionFailure.judge(EngineReport.reported(run, "{}"))).isEqualTo(ExecutionFailure.judge(run));
+    }
+
+    // 브로커가 dead letter 로 보낸 실행이다(큐 대기 한도 · 재배달 한도 · 그 밖). 런타임이 끝을 알리지 못했으니 플랫폼 탓이다.
+    @ParameterizedTest
+    @ValueSource(strings = {"ABC_QUEUE_EXPIRED", "ABC_RUNTIME_RETRY_EXHAUSTED", "ABC_RUNTIME_DEAD_LETTERED"})
+    void dead_letter_로_닫은_실행은_그_사유의_코드로_플랫폼_탓이다(String failureCode) {
+        ExecutionFailure failure = ExecutionFailure.judge(EngineReport.deadLettered(null, failureCode));
+
+        assertThat(failure).isEqualTo(new ExecutionFailure(
+                null, failureCode, ExecutionFault.PLATFORM, false, null, null));
+    }
+
+    // 다시 배달되기 전에 공급자 탓 실패를 알렸더라도, 끝을 알리지 못하고 죽은 실행은 플랫폼 탓이다.
+    @Test
+    void dead_letter_전에_공급자_탓_실패를_봤어도_플랫폼_탓이다() {
+        RunStatus lastSeen = new RunStatus("run-1", "running", new RunStatus.Progress(1, 2, 50, "n2", "요약"),
+                List.of(), List.of(), List.of(), null,
+                new RunStatus.Failure("n2", "MODEL_API_ERROR", "supplier", true), false, null);
+
+        ExecutionFailure failure = ExecutionFailure.judge(
+                EngineReport.deadLettered(lastSeen, "ABC_RUNTIME_RETRY_EXHAUSTED"));
+
+        assertThat(failure.errorCode()).isEqualTo("ABC_RUNTIME_RETRY_EXHAUSTED");
+        assertThat(failure.fault()).isEqualTo(ExecutionFault.PLATFORM);
+        assertThat(failure.supplier()).isNull();
+        assertThat(failure.affectsSuccessRate()).isFalse();
     }
 
     @Test
