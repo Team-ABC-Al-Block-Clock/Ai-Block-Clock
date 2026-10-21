@@ -144,7 +144,7 @@ backend:deploy:
         exit 1
       fi
     - |
-      for v in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+      for v in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD RABBITMQ_USERNAME RABBITMQ_PASSWORD; do
         eval "val=\$$v"
         if [ -z "$val" ]; then
           echo "$v 가 비어 있습니다. GitLab > Settings > CI/CD > Variables 를 확인하세요."

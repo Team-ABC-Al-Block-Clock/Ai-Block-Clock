@@ -109,8 +109,9 @@ ai:deploy:
     # 자격 증명은 GitLab CI/CD Variables 에서 온다.
     # compose.yaml 이 ${ABC_SERVICE_TOKEN:-} 처럼 기본값을 갖고 있어서 변수가 비면
     # 인증 없이 조용히 뜬다. 그 전에 잡는다.
+    # RABBITMQ_* 도 같다. 비면 로컬 기본값 guest 로 떠서 운영 브로커에 붙지 못한다.
     - |
-      for v in LLM_API_KEY ABC_SERVICE_TOKEN; do
+      for v in LLM_API_KEY ABC_SERVICE_TOKEN RABBITMQ_USERNAME RABBITMQ_PASSWORD; do
         eval "val=\$$v"
         if [ -z "$val" ]; then
           echo "$v 가 비어 있습니다. GitLab > Settings > CI/CD > Variables 를 확인하세요."
@@ -133,6 +134,19 @@ ai:deploy:
       fi
       echo "백엔드 네트워크: $BACKEND_NETWORK"
       export BACKEND_NETWORK
+    # 백엔드 compose 가 만든 file-store · results 볼륨을 external 로 마운트한다(ADR-0001).
+    # 결과 볼륨은 RabbitMQ 와 함께 들어간 백엔드가 master 에 배포되어야 생긴다. 없으면 compose 가
+    # "external volume not found" 로 멈추므로 먼저 확인하고 이유를 남긴다.
+    - |
+      for vol in "${FILE_STORE_VOLUME:-ai-block-clock_file-store}" "${RESULTS_VOLUME:-ai-block-clock_results}"; do
+        if ! docker volume inspect "$vol" >/dev/null 2>&1; then
+          echo "Docker 볼륨 $vol 이 없습니다. 백엔드(RabbitMQ · 결과 볼륨 포함)가 먼저 배포되어야 합니다."
+          echo "현재 볼륨 목록:"
+          docker volume ls
+          echo "이름이 다르면 CI/CD Variables 에 FILE_STORE_VOLUME · RESULTS_VOLUME 을 지정하세요."
+          exit 1
+        fi
+      done
     - cd "$AI_DIR"
     # 외부는 Nginx 를 거치지 않는다. 백엔드만 부르므로 루프백에만 바인딩한다.
     - export AI_RUNTIME_BIND=127.0.0.1
