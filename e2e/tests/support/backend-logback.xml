@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 런타임 E2E(E2E_RUNTIME=1)에서 백엔드 로그를 파일로 받는다. 경로는 LOGGING_FILE_NAME(→ LOG_FILE)이 정한다.
+     백엔드 local 프로파일(support/logging/logback/logback-local.xml)과 같은 수준으로 남긴다. -->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
+
+    <logger name="com.aiblockclock" level="DEBUG"/>
+
+    <root level="INFO">
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
