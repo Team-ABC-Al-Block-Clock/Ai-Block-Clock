@@ -75,6 +75,14 @@ const FAILURE_TEXT: Record<string, string> = {
   ABC_RUNTIME_STALLED: '실행 엔진이 응답을 멈춰 기다리기를 그만두었습니다.',
   ABC_RUNTIME_UNREPORTED: '실행이 실패했지만 까닭은 남아 있지 않습니다.',
   ABC_RUNTIME_UNREACHABLE: '실행 엔진에 닿지 못했습니다.',
+  ABC_RUNTIME_LOST:
+    '실행 엔진이 다시 시작되며 실행을 잃었습니다. 차감한 금액은 모두 돌려드렸습니다.',
+  ABC_QUEUE_EXPIRED:
+    '실행 대기열에서 10분 넘게 차례가 오지 않아 실행하지 못했습니다. 차감한 금액은 모두 돌려드렸습니다.',
+  ABC_RUNTIME_RETRY_EXHAUSTED:
+    '실행 엔진이 도중에 멈춰 다시 시도했지만 끝내지 못했습니다. 차감한 금액은 모두 돌려드렸습니다.',
+  ABC_RUNTIME_DEAD_LETTERED: '실행 요청을 처리하지 못했습니다. 차감한 금액은 모두 돌려드렸습니다.',
+  CANCELLED: '실행이 취소되었습니다.',
 }
 
 /**
