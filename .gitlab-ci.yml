@@ -9,6 +9,7 @@ variables:
 include:
   - local: .gitlab/ci/frontend.gitlab-ci.yml
   - local: .gitlab/ci/backend.gitlab-ci.yml
+  - local: .gitlab/ci/ai.gitlab-ci.yml
 
 workflow:
   rules:

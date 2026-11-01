@@ -1,0 +1,8 @@
+# spike 전용 — 루트 .gitignore가 .env.* 를 막으므로 예시 파일만 예외로 푼다
+!.env.example
+.env
+.venv/
+__pycache__/
+*.pyc
+out/
+data/*.xlsx

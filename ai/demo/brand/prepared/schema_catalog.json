@@ -1,0 +1,49 @@
+{
+  "description": "A 카탈로그에서 생성. 현재 서비스는 스키마 설명을 임베딩에 사용하지 않음.",
+  "schemas": {
+    "biz.ad_copy@1": {
+      "summary": "광고 카피 — 2단계 판매자 C 의 에이전트 출력.",
+      "fields": "tone(톤), headlines(헤드라인), body_copies(본문 카피), hashtags(해시태그)"
+    },
+    "biz.brand_brief@1": {
+      "summary": "브랜드 기획 요청서 — 사용자가 실행 화면에서 채우는 첫 입력(H2A 폼).",
+      "fields": "brand_name(브랜드명), category(제품 카테고리), target(핵심 고객), price_tier(가격대), differentiator(차별점), comment(추가 요청)"
+    },
+    "biz.brand_strategy@1": {
+      "summary": "브랜드 전략 보고서 — 1단계 종단 출력이자 템플릿이 값을 받아 가는 형식.\n\n배열은 전부 3개 고정이다. 템플릿 서식의 칸 수와 맞춘다.\n`issued_on` · `author_org` 는 Runtime 이 채운다(LLM 이 날짜 · 기관명을 지어내지 않게).",
+      "fields": "brand_name(브랜드명), issued_on(발행일), author_org(작성 기관), headline(대제목), purpose(브랜드 목적), positioning(브랜드 포지셔닝), reasons(선택의 이유), core_strategy(핵심 전략), messages(메시지 체계), summary_md(총평)"
+    },
+    "biz.campaign_plan@1": {
+      "summary": "SNS 캠페인 계획 — 2단계 판매자 B 의 에이전트 출력.",
+      "fields": "objective(캠페인 목표), channels(채널), posts(게시물 계획), kpis(성과 지표)"
+    },
+    "biz.execution_plan@1": {
+      "summary": "통합 실행안 — 캠페인 계획과 광고 카피를 병합해 받는 2단계 종단 출력.",
+      "fields": "summary_md(총평), phases(실행 단계), checklist(체크리스트)"
+    },
+    "biz.market_research@1": {
+      "summary": "시장 조사 결과 — `competition_level` 이 분기의 기준값이다.",
+      "fields": "market_overview_md(시장 개요), competitors(주요 경쟁사), trends(최근 트렌드), competition_level(경쟁 강도), level_reason(판정 근거)"
+    },
+    "biz.product_analysis@1": {
+      "summary": "제품 분석 결과.",
+      "fields": "strengths(강점), weaknesses(약점), opportunities(차별화 여지)"
+    },
+    "biz.strategy_draft@1": {
+      "summary": "전략 초안 — 차별화 · 대중 공략 두 노드가 같은 형식으로 낸다(합류 조건).",
+      "fields": "approach(접근 방식), positioning(포지셔닝), rationale_md(근거), core_strategies(핵심 전략)"
+    },
+    "common.document@1": {
+      "summary": "문서 — 제목과 절로 이루어진 글.",
+      "fields": "title(제목), sections(섹션), summary_md(요약)"
+    },
+    "common.table@1": {
+      "summary": "표 — 엑셀 업로드(H2A)가 도착하는 자리이기도 하다.",
+      "fields": "title(표 제목), columns(열), rows(행)"
+    },
+    "common.text@1": {
+      "summary": "단순 텍스트 — 형식을 따지지 않는 자유 서술.",
+      "fields": "title(제목), body_md(본문)"
+    }
+  }
+}

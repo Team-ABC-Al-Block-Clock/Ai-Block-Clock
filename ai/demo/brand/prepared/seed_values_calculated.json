@@ -1,0 +1,53 @@
+{
+  "status": "synthetic_demo_only_not_applied",
+  "agents": [
+    {
+      "local_key": "ag_brand_01",
+      "successful_runs": 120,
+      "supplier_failures": 5,
+      "review_count": 25,
+      "average_rating": 4.6,
+      "expected_tier": 2,
+      "success_rate": 0.96,
+      "score": 71.015,
+      "tier": 2,
+      "premium_rate": 0.3
+    },
+    {
+      "local_key": "ag_brand_02",
+      "successful_runs": 0,
+      "supplier_failures": 0,
+      "review_count": 0,
+      "average_rating": null,
+      "expected_tier": 4,
+      "success_rate": 1.0,
+      "score": 37.5,
+      "tier": 4,
+      "premium_rate": 0
+    },
+    {
+      "local_key": "ag_brand_03",
+      "successful_runs": 0,
+      "supplier_failures": 0,
+      "review_count": 0,
+      "average_rating": null,
+      "expected_tier": 4,
+      "success_rate": 1.0,
+      "score": 37.5,
+      "tier": 4,
+      "premium_rate": 0
+    },
+    {
+      "local_key": "ag_brand_04",
+      "successful_runs": 0,
+      "supplier_failures": 0,
+      "review_count": 0,
+      "average_rating": null,
+      "expected_tier": 4,
+      "success_rate": 1.0,
+      "score": 37.5,
+      "tier": 4,
+      "premium_rate": 0
+    }
+  ]
+}

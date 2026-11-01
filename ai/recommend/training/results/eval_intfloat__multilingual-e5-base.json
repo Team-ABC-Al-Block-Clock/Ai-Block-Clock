@@ -1,0 +1,937 @@
+{
+  "model": "intfloat/multilingual-e5-base",
+  "include_schema_text": true,
+  "n_agents": 20,
+  "n_queries": 22,
+  "top_k": 5,
+  "mrr_k": 10,
+  "dim": 768,
+  "max_seq_length": 512,
+  "agent_token_max": 161,
+  "agent_token_truncated": 0,
+  "load_sec": 6.7,
+  "recall_at_5": 1.0,
+  "top1_acc": 0.955,
+  "mrr_at_10": 0.977,
+  "avg_margin": 0.024,
+  "avg_latency_ms": 26.8,
+  "recall_word_overlap": 1.0,
+  "recall_no_word_overlap": 1.0,
+  "top1_no_word_overlap": 0.933,
+  "misses": [
+    {
+      "id": "q18",
+      "query": "학부모랑 얘기한 내용 문서로 남겨야 해",
+      "rank": 2,
+      "got": "가정통신문 작성기"
+    }
+  ],
+  "per_query": [
+    {
+      "id": "q01",
+      "query": "회의록 요약해줘",
+      "answers": [
+        "ag_seed_06"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.038553833961486816,
+      "latency_ms": 22.995948791503906,
+      "top": [
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.8775
+        },
+        {
+          "agent_id": "ag_seed_12",
+          "name": "회의 안건 정리기",
+          "score": 0.839
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.8338
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.8248
+        },
+        {
+          "agent_id": "ag_seed_08",
+          "name": "보고서 초안 작성기",
+          "score": 0.824
+        }
+      ]
+    },
+    {
+      "id": "q02",
+      "query": "성적 데이터 분석하고 싶어",
+      "answers": [
+        "ag_seed_01",
+        "ag_seed_03"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.018125474452972412,
+      "latency_ms": 24.183988571166992,
+      "top": [
+        {
+          "agent_id": "ag_seed_01",
+          "name": "성적 데이터 분석기",
+          "score": 0.8599
+        },
+        {
+          "agent_id": "ag_seed_03",
+          "name": "학업 성취도 통계 산출기",
+          "score": 0.8418
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8374
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.8087
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.804
+        }
+      ]
+    },
+    {
+      "id": "q03",
+      "query": "커밋 메시지 좀 써줘",
+      "answers": [
+        "ag_seed_19"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.04737389087677002,
+      "latency_ms": 26.514530181884766,
+      "top": [
+        {
+          "agent_id": "ag_seed_19",
+          "name": "커밋 메시지 작성기",
+          "score": 0.8698
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8225
+        },
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.8157
+        },
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.8108
+        },
+        {
+          "agent_id": "ag_seed_18",
+          "name": "코드 리뷰 코멘트 생성기",
+          "score": 0.8094
+        }
+      ]
+    },
+    {
+      "id": "q04",
+      "query": "주간 일정 브리핑 만들어줘",
+      "answers": [
+        "ag_seed_10"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.06977570056915283,
+      "latency_ms": 26.99446678161621,
+      "top": [
+        {
+          "agent_id": "ag_seed_10",
+          "name": "주간 일정 브리핑",
+          "score": 0.9034
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8336
+        },
+        {
+          "agent_id": "ag_seed_13",
+          "name": "마감 임박 업무 알림 정리",
+          "score": 0.833
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.83
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.8247
+        }
+      ]
+    },
+    {
+      "id": "q05",
+      "query": "코드 리뷰 코멘트 달아줘",
+      "answers": [
+        "ag_seed_18"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.03463953733444214,
+      "latency_ms": 24.003028869628906,
+      "top": [
+        {
+          "agent_id": "ag_seed_18",
+          "name": "코드 리뷰 코멘트 생성기",
+          "score": 0.8746
+        },
+        {
+          "agent_id": "ag_seed_19",
+          "name": "커밋 메시지 작성기",
+          "score": 0.84
+        },
+        {
+          "agent_id": "ag_seed_20",
+          "name": "변경 사항 요약기",
+          "score": 0.824
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8035
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.7987
+        }
+      ]
+    },
+    {
+      "id": "q06",
+      "query": "사과문 초안 작성해줘",
+      "answers": [
+        "ag_seed_16"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.0492282509803772,
+      "latency_ms": 22.437572479248047,
+      "top": [
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.8897
+        },
+        {
+          "agent_id": "ag_seed_08",
+          "name": "보고서 초안 작성기",
+          "score": 0.8404
+        },
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.834
+        },
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.8306
+        },
+        {
+          "agent_id": "ag_seed_12",
+          "name": "회의 안건 정리기",
+          "score": 0.826
+        }
+      ]
+    },
+    {
+      "id": "q07",
+      "query": "출결 리포트 뽑아줘",
+      "answers": [
+        "ag_seed_04"
+      ],
+      "word_overlap": true,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.06426471471786499,
+      "latency_ms": 22.00007438659668,
+      "top": [
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.881
+        },
+        {
+          "agent_id": "ag_seed_03",
+          "name": "학업 성취도 통계 산출기",
+          "score": 0.8167
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8162
+        },
+        {
+          "agent_id": "ag_seed_01",
+          "name": "성적 데이터 분석기",
+          "score": 0.8126
+        },
+        {
+          "agent_id": "ag_seed_09",
+          "name": "장문 자료 핵심 추출기",
+          "score": 0.8102
+        }
+      ]
+    },
+    {
+      "id": "q08",
+      "query": "학원 애들 점수가 얼마나 올랐는지 보고 싶은데",
+      "answers": [
+        "ag_seed_01",
+        "ag_seed_03"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.007814586162567139,
+      "latency_ms": 23.006439208984375,
+      "top": [
+        {
+          "agent_id": "ag_seed_01",
+          "name": "성적 데이터 분석기",
+          "score": 0.8373
+        },
+        {
+          "agent_id": "ag_seed_03",
+          "name": "학업 성취도 통계 산출기",
+          "score": 0.8294
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8271
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.8088
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.7956
+        }
+      ]
+    },
+    {
+      "id": "q09",
+      "query": "부모님께 보낼 안내문 좀 써줘",
+      "answers": [
+        "ag_seed_02"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.010282814502716064,
+      "latency_ms": 31.612157821655273,
+      "top": [
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8398
+        },
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.8295
+        },
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.8083
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.8025
+        },
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.802
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "query": "우리 팀이 짠 코드 좀 봐줄 사람 없나",
+      "answers": [
+        "ag_seed_18"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.0049111247062683105,
+      "latency_ms": 24.511337280273438,
+      "top": [
+        {
+          "agent_id": "ag_seed_18",
+          "name": "코드 리뷰 코멘트 생성기",
+          "score": 0.8182
+        },
+        {
+          "agent_id": "ag_seed_19",
+          "name": "커밋 메시지 작성기",
+          "score": 0.8132
+        },
+        {
+          "agent_id": "ag_seed_20",
+          "name": "변경 사항 요약기",
+          "score": 0.8002
+        },
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.7972
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.7951
+        }
+      ]
+    },
+    {
+      "id": "q11",
+      "query": "애들이 몇 번이나 안 나왔는지 정리해야 해",
+      "answers": [
+        "ag_seed_04"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 5.137920379638672e-05,
+      "latency_ms": 28.998374938964844,
+      "top": [
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.8186
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8185
+        },
+        {
+          "agent_id": "ag_seed_01",
+          "name": "성적 데이터 분석기",
+          "score": 0.8139
+        },
+        {
+          "agent_id": "ag_seed_03",
+          "name": "학업 성취도 통계 산출기",
+          "score": 0.8012
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.8012
+        }
+      ]
+    },
+    {
+      "id": "q12",
+      "query": "긴 글에서 중요한 부분만 뽑아줘",
+      "answers": [
+        "ag_seed_09"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.023340284824371338,
+      "latency_ms": 26.001691818237305,
+      "top": [
+        {
+          "agent_id": "ag_seed_09",
+          "name": "장문 자료 핵심 추출기",
+          "score": 0.8533
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8299
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.829
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.8269
+        },
+        {
+          "agent_id": "ag_seed_18",
+          "name": "코드 리뷰 코멘트 생성기",
+          "score": 0.8229
+        }
+      ]
+    },
+    {
+      "id": "q13",
+      "query": "고객사에 늦어져서 죄송하다고 연락드려야 하는데",
+      "answers": [
+        "ag_seed_16"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.04823935031890869,
+      "latency_ms": 27.008056640625,
+      "top": [
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.8311
+        },
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.7829
+        },
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.7806
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.7782
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.7744
+        }
+      ]
+    },
+    {
+      "id": "q14",
+      "query": "앞으로 며칠간 뭘 해야 하는지 한눈에 보고 싶어",
+      "answers": [
+        "ag_seed_10",
+        "ag_seed_13"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.0037894248962402344,
+      "latency_ms": 27.585983276367188,
+      "top": [
+        {
+          "agent_id": "ag_seed_10",
+          "name": "주간 일정 브리핑",
+          "score": 0.8116
+        },
+        {
+          "agent_id": "ag_seed_13",
+          "name": "마감 임박 업무 알림 정리",
+          "score": 0.8078
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.8076
+        },
+        {
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.8047
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8024
+        }
+      ]
+    },
+    {
+      "id": "q15",
+      "query": "대화 내용에서 해야 할 것만 뽑아낼 수 있나",
+      "answers": [
+        "ag_seed_11"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.013122320175170898,
+      "latency_ms": 27.00042724609375,
+      "top": [
+        {
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.8319
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.8188
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.818
+        },
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.8153
+        },
+        {
+          "agent_id": "ag_seed_12",
+          "name": "회의 안건 정리기",
+          "score": 0.8149
+        }
+      ]
+    },
+    {
+      "id": "q16",
+      "query": "거래처에 정중하게 연락해야 하는데 문장이 안 떠올라",
+      "answers": [
+        "ag_seed_14"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.01405346393585205,
+      "latency_ms": 27.00328826904297,
+      "top": [
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.8174
+        },
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.8033
+        },
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.794
+        },
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.792
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.7859
+        }
+      ]
+    },
+    {
+      "id": "q17",
+      "query": "이번에 뭐가 바뀌었는지 팀에 알려야 해",
+      "answers": [
+        "ag_seed_20"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.023346245288848877,
+      "latency_ms": 29.505252838134766,
+      "top": [
+        {
+          "agent_id": "ag_seed_20",
+          "name": "변경 사항 요약기",
+          "score": 0.8313
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.808
+        },
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.7992
+        },
+        {
+          "agent_id": "ag_seed_01",
+          "name": "성적 데이터 분석기",
+          "score": 0.7976
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.7975
+        }
+      ]
+    },
+    {
+      "id": "q18",
+      "query": "학부모랑 얘기한 내용 문서로 남겨야 해",
+      "answers": [
+        "ag_seed_05"
+      ],
+      "word_overlap": false,
+      "best_rank": 2,
+      "hit_at_k": true,
+      "top1": false,
+      "rr": 0.5,
+      "margin": 0.006039559841156006,
+      "latency_ms": 29.00528907775879,
+      "top": [
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.858
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.8519
+        },
+        {
+          "agent_id": "ag_seed_04",
+          "name": "출결 리포트 작성기",
+          "score": 0.8351
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.8204
+        },
+        {
+          "agent_id": "ag_seed_09",
+          "name": "장문 자료 핵심 추출기",
+          "score": 0.8186
+        }
+      ]
+    },
+    {
+      "id": "q19",
+      "query": "다음 모임에서 뭘 다룰지 목록으로 만들어줘",
+      "answers": [
+        "ag_seed_12"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.011767387390136719,
+      "latency_ms": 30.998945236206055,
+      "top": [
+        {
+          "agent_id": "ag_seed_12",
+          "name": "회의 안건 정리기",
+          "score": 0.8501
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.8383
+        },
+        {
+          "agent_id": "ag_seed_05",
+          "name": "학습 상담 기록 정리기",
+          "score": 0.832
+        },
+        {
+          "agent_id": "ag_seed_13",
+          "name": "마감 임박 업무 알림 정리",
+          "score": 0.8283
+        },
+        {
+          "agent_id": "ag_seed_10",
+          "name": "주간 일정 브리핑",
+          "score": 0.8268
+        }
+      ]
+    },
+    {
+      "id": "q20",
+      "query": "조사한 내용 가지고 문서 뼈대부터 잡아줘",
+      "answers": [
+        "ag_seed_08",
+        "ag_seed_07"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.02853459119796753,
+      "latency_ms": 28.006553649902344,
+      "top": [
+        {
+          "agent_id": "ag_seed_08",
+          "name": "보고서 초안 작성기",
+          "score": 0.8473
+        },
+        {
+          "agent_id": "ag_seed_09",
+          "name": "장문 자료 핵심 추출기",
+          "score": 0.8188
+        },
+        {
+          "agent_id": "ag_seed_07",
+          "name": "문서 섹션 구조화기",
+          "score": 0.8179
+        },
+        {
+          "agent_id": "ag_seed_06",
+          "name": "회의록 요약기",
+          "score": 0.817
+        },
+        {
+          "agent_id": "ag_seed_11",
+          "name": "할 일 추출기",
+          "score": 0.8113
+        }
+      ]
+    },
+    {
+      "id": "q21",
+      "query": "같은 내용을 여러 사람에게 한꺼번에 전달해야 하는데",
+      "answers": [
+        "ag_seed_15"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.008535504341125488,
+      "latency_ms": 24.509191513061523,
+      "top": [
+        {
+          "agent_id": "ag_seed_15",
+          "name": "안내 메일 작성기",
+          "score": 0.8271
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8185
+        },
+        {
+          "agent_id": "ag_seed_16",
+          "name": "사과문 초안 작성기",
+          "score": 0.7995
+        },
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.7986
+        },
+        {
+          "agent_id": "ag_seed_12",
+          "name": "회의 안건 정리기",
+          "score": 0.7968
+        }
+      ]
+    },
+    {
+      "id": "q22",
+      "query": "새로 쓸 필요는 없고 있는 글만 다듬어 줬으면",
+      "answers": [
+        "ag_seed_17"
+      ],
+      "word_overlap": false,
+      "best_rank": 1,
+      "hit_at_k": true,
+      "top1": true,
+      "rr": 1.0,
+      "margin": 0.004348158836364746,
+      "latency_ms": 35.92705726623535,
+      "top": [
+        {
+          "agent_id": "ag_seed_17",
+          "name": "회신 메일 톤 교정기",
+          "score": 0.8239
+        },
+        {
+          "agent_id": "ag_seed_20",
+          "name": "변경 사항 요약기",
+          "score": 0.8196
+        },
+        {
+          "agent_id": "ag_seed_09",
+          "name": "장문 자료 핵심 추출기",
+          "score": 0.8181
+        },
+        {
+          "agent_id": "ag_seed_02",
+          "name": "가정통신문 작성기",
+          "score": 0.8155
+        },
+        {
+          "agent_id": "ag_seed_14",
+          "name": "비즈니스 이메일 드래프터",
+          "score": 0.8118
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,456 @@
+{
+  "id": "brand_campaign",
+  "name": "브랜딩 + 캠페인 (2단계 · 판매자 3명의 에이전트 조합)",
+  "model": null,
+  "nodes": [
+    {
+      "id": "a1",
+      "type": "agent",
+      "name": "브랜딩 전략 에이전트",
+      "owner_name": "김전략 브랜딩",
+      "agent": {
+        "agent_id": "ag_brand_strategy",
+        "owner_id": "u_seller_a",
+        "nodes": [
+          {
+            "id": "n1",
+            "name": "시장 조사",
+            "prompt": "../../prompts/brand/01_market_research.md",
+            "input": {
+              "example": {
+                "brand_name": "샘플 브랜드명",
+                "category": "샘플 제품 카테고리",
+                "target": "샘플 핵심 고객",
+                "price_tier": "보급형",
+                "differentiator": "샘플 차별점",
+                "comment": null
+              }
+            },
+            "output": {
+              "kind": "json",
+              "example": {
+                "market_overview_md": "샘플 시장 개요",
+                "competitors": [
+                  {
+                    "name": "샘플 경쟁사명",
+                    "positioning": "샘플 포지션",
+                    "note": "샘플 특징"
+                  },
+                  {
+                    "name": "샘플 경쟁사명",
+                    "positioning": "샘플 포지션",
+                    "note": "샘플 특징"
+                  }
+                ],
+                "trends": [
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  }
+                ],
+                "competition_level": "high",
+                "level_reason": "샘플 판정 근거"
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "name": "제품 분석",
+            "prompt": "../../prompts/brand/02_product_analysis.md",
+            "input": {
+              "example": {
+                "brand_name": "샘플 브랜드명",
+                "category": "샘플 제품 카테고리",
+                "target": "샘플 핵심 고객",
+                "price_tier": "보급형",
+                "differentiator": "샘플 차별점",
+                "comment": null
+              }
+            },
+            "output": {
+              "kind": "json",
+              "example": {
+                "strengths": [
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  }
+                ],
+                "weaknesses": [
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  }
+                ],
+                "opportunities": [
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "br1",
+            "name": "경쟁 강도 분기",
+            "type": "branch",
+            "condition": {
+              "left": "n1.competition_level",
+              "op": "==",
+              "right": "high"
+            }
+          },
+          {
+            "id": "n3a",
+            "name": "차별화 전략",
+            "prompt": "../../prompts/brand/03a_strategy_differentiate.md",
+            "output": {
+              "kind": "json",
+              "example": {
+                "approach": "차별화",
+                "positioning": "샘플 포지셔닝",
+                "rationale_md": "샘플 근거",
+                "core_strategies": [
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "n3b",
+            "name": "대중 공략 전략",
+            "prompt": "../../prompts/brand/03b_strategy_mass.md",
+            "output": {
+              "kind": "json",
+              "example": {
+                "approach": "차별화",
+                "positioning": "샘플 포지셔닝",
+                "rationale_md": "샘플 근거",
+                "core_strategies": [
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "label": "샘플 항목",
+                    "detail": "샘플 설명"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "n4",
+            "name": "브랜드 전략 보고서",
+            "prompt": "../../prompts/brand/04_brand_report.md",
+            "output": {
+              "kind": "json",
+              "example": {
+                "brand_name": "샘플 브랜드명",
+                "headline": "샘플 대제목",
+                "purpose": [
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  }
+                ],
+                "positioning": [
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  }
+                ],
+                "reasons": [
+                  {
+                    "axis": "샘플 축",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "axis": "샘플 축",
+                    "detail": "샘플 설명"
+                  },
+                  {
+                    "axis": "샘플 축",
+                    "detail": "샘플 설명"
+                  }
+                ],
+                "core_strategy": [
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  }
+                ],
+                "messages": {
+                  "core": "샘플 핵심 메시지",
+                  "sub": "샘플 보조 메시지",
+                  "daily": "샘플 일상 메시지"
+                },
+                "summary_md": null
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "n1",
+            "to": "br1",
+            "port": "market"
+          },
+          {
+            "from": "n2",
+            "to": "br1",
+            "port": "product"
+          },
+          {
+            "from": "br1",
+            "to": "n3a",
+            "when": true
+          },
+          {
+            "from": "br1",
+            "to": "n3b",
+            "when": false
+          },
+          {
+            "from": "n3a",
+            "to": "n4"
+          },
+          {
+            "from": "n3b",
+            "to": "n4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "a2",
+      "type": "agent",
+      "name": "SNS 캠페인 기획 에이전트",
+      "owner_name": "이소셜 마케팅",
+      "agent": {
+        "agent_id": "ag_sns_campaign",
+        "owner_id": "u_seller_b",
+        "nodes": [
+          {
+            "id": "c1",
+            "name": "캠페인 기획",
+            "prompt": "../../prompts/brand/05_sns_campaign.md",
+            "output": {
+              "kind": "json",
+              "example": {
+                "objective": "샘플 캠페인 목표",
+                "channels": [
+                  {
+                    "name": "샘플 채널",
+                    "reason": "샘플 선정 이유"
+                  }
+                ],
+                "posts": [
+                  {
+                    "phase": "샘플 시기",
+                    "theme": "샘플 주제",
+                    "format": "샘플 형식"
+                  },
+                  {
+                    "phase": "샘플 시기",
+                    "theme": "샘플 주제",
+                    "format": "샘플 형식"
+                  },
+                  {
+                    "phase": "샘플 시기",
+                    "theme": "샘플 주제",
+                    "format": "샘플 형식"
+                  }
+                ],
+                "kpis": [
+                  {
+                    "name": "샘플 지표",
+                    "target": "샘플 목표"
+                  },
+                  {
+                    "name": "샘플 지표",
+                    "target": "샘플 목표"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "edges": []
+      }
+    },
+    {
+      "id": "a3",
+      "type": "agent",
+      "name": "광고 카피 에이전트",
+      "owner_name": "박카피 스튜디오",
+      "agent": {
+        "agent_id": "ag_ad_copy",
+        "owner_id": "u_seller_c",
+        "nodes": [
+          {
+            "id": "k1",
+            "name": "광고 카피 작성",
+            "prompt": "../../prompts/brand/06_ad_copy.md",
+            "output": {
+              "kind": "json",
+              "example": {
+                "tone": "샘플 톤",
+                "headlines": [
+                  {
+                    "text": "샘플 문구"
+                  },
+                  {
+                    "text": "샘플 문구"
+                  },
+                  {
+                    "text": "샘플 문구"
+                  }
+                ],
+                "body_copies": [
+                  {
+                    "text": "샘플 문구"
+                  },
+                  {
+                    "text": "샘플 문구"
+                  }
+                ],
+                "hashtags": [
+                  {
+                    "tag": "샘플 해시태그"
+                  },
+                  {
+                    "tag": "샘플 해시태그"
+                  },
+                  {
+                    "tag": "샘플 해시태그"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "edges": []
+      }
+    },
+    {
+      "id": "a4",
+      "type": "agent",
+      "name": "통합 실행안 에이전트",
+      "owner_name": "이소셜 마케팅",
+      "agent": {
+        "agent_id": "ag_execution_plan",
+        "owner_id": "u_seller_b",
+        "nodes": [
+          {
+            "id": "e1",
+            "name": "통합 실행안",
+            "prompt": "../../prompts/brand/07_execution_plan.md",
+            "output": {
+              "kind": "json",
+              "example": {
+                "summary_md": "샘플 총평",
+                "phases": [
+                  {
+                    "period": "샘플 기간",
+                    "actions": [
+                      "샘플 할 일 1",
+                      "샘플 할 일 2"
+                    ]
+                  },
+                  {
+                    "period": "샘플 기간",
+                    "actions": [
+                      "샘플 할 일 1",
+                      "샘플 할 일 2"
+                    ]
+                  }
+                ],
+                "checklist": [
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  },
+                  {
+                    "label": "샘플 항목"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "edges": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "a1",
+      "to": "a2"
+    },
+    {
+      "from": "a1",
+      "to": "a3"
+    },
+    {
+      "from": "a2",
+      "to": "a4",
+      "port": "campaign"
+    },
+    {
+      "from": "a3",
+      "to": "a4",
+      "port": "copy"
+    }
+  ],
+  "output": {
+    "type": "pdf",
+    "template_id": null,
+    "title": "브랜딩 통합 실행안"
+  }
+}

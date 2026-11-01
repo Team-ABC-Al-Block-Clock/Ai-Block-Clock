@@ -1,0 +1,509 @@
+@import 'tailwindcss';
+
+/* sample/export/assets/tokens.css 의 값을 Tailwind 테마로 옮긴 것.
+ * 값은 그대로 — 이제 bg-surface-card, text-muted 처럼 클래스로 씁니다. */
+@theme static {
+  /* 배경 — 바다 위에 얹히는 어두운 유리 패널 */
+  --color-abyss: #1d1430;
+  --color-surface-deep: rgb(13 7 26 / 0.72);
+  --color-surface-card: rgb(255 255 255 / 0.08);
+  --color-surface-menu: rgb(24 11 38 / 0.72);
+  --color-surface-inset: rgb(255 255 255 / 0.07);
+  --color-surface-quiet: rgb(255 255 255 / 0.055);
+
+  /* 글자 */
+  --color-body: rgb(255 255 255 / 0.88);
+  --color-muted: rgb(255 236 246 / 0.66);
+  --color-faint: rgb(255 236 246 / 0.48);
+
+  /* 강조 — 핑크와 보라의 중간 */
+  --color-accent: #b98da9;
+  --color-accent-ink: #2f1527;
+  /* 한 단계 밝은 분홍 — 빛나는 것(지갑 스피너·켜진 토글)에만 */
+  --color-accent-bright: #e9b7d2;
+
+  /* 그림자 — 경계가 생기지 않게 넓고 옅게 */
+  --shadow-card: 0 10px 34px rgb(10 4 20 / 0.14);
+  --shadow-hover: 0 16px 46px rgb(10 4 20 / 0.26);
+  --shadow-menu: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 24px 56px rgb(10 4 20 / 0.5);
+
+  /* 반경 */
+  --radius-card: 14px;
+  --radius-panel: 20px;
+  --radius-menu: 16px;
+
+  /* 타이포 */
+  --font-sans: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  --font-brand: 'Outfit', system-ui, sans-serif;
+
+  /* 등장 연출 */
+  --animate-rise: rise 0.7s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* backdrop-filter 는 blur+saturate 조합이라 토큰 하나로 안 떨어집니다 */
+@utility glass-panel {
+  backdrop-filter: blur(22px) saturate(118%);
+}
+@utility glass-card {
+  backdrop-filter: blur(18px) saturate(115%);
+}
+@utility glass-menu {
+  backdrop-filter: blur(28px) saturate(130%);
+}
+
+@utility scroll-thin {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.28) transparent;
+}
+
+/* 캔버스 전체를 스크롤하는 화면은 막대를 숨긴다 — 캔버스 오른쪽 끝은 창 끝이
+ * 아니라서 막대가 화면 한가운데 뜬 세로선처럼 보인다(3절). 패널 안에서 스크롤하는
+ * 목록은 그대로 scroll-thin 을 쓴다 — 그건 막대가 놓일 테두리가 있다. */
+@utility scroll-quiet {
+  overflow-y: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 기본값은 @layer base 안에 — 레이어 밖에 두면 Tailwind 유틸리티(@layer utilities)를
+ * 이겨버려서 <a> 의 text-* 클래스가 통째로 무력화됩니다. */
+@layer base {
+  html,
+  body {
+    margin: 0;
+    background: var(--color-abyss);
+    overflow: hidden;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    color: #fff;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+  }
+}
+
+/* ── 화면 애니메이션 · 스크롤바 — sample 원본 <style> 에서 회수 ── */
+
+[data-screen][data-hold] * {
+  animation-play-state: paused !important;
+}
+#detailScroll::-webkit-scrollbar {
+  width: 8px;
+}
+#detailScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+#detailScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+}
+#detailScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.36);
+}
+#searchSide::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+#agentInput::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+#myRows::-webkit-scrollbar {
+  width: 8px;
+}
+#myRows::-webkit-scrollbar-track {
+  background: transparent;
+}
+#myRows::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+}
+#myRows::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.36);
+}
+.rowCard:hover .spark path {
+  animation: drawLine 0.7s ease both;
+}
+#creditInput::placeholder {
+  color: rgba(255, 236, 246, 0.5);
+}
+#formScroll::-webkit-scrollbar {
+  width: 8px;
+}
+#formScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+#formScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+}
+#formScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.36);
+}
+#resultBox::-webkit-scrollbar {
+  width: 6px;
+}
+#resultBox::-webkit-scrollbar-track {
+  background: transparent;
+}
+#resultBox::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 3px;
+}
+#resultBox::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.36);
+}
+/* 자리표시자 기본값 — 특이도가 같은 규칙을 여러 벌 두면 마지막 것만 이긴다.
+ * 더 옅게·짙게 가야 하는 입력은 아래 ID 규칙으로 따로 잡는다. */
+textarea::placeholder,
+input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+#searchQ::placeholder {
+  color: rgba(255, 255, 255, 0.66);
+}
+#gridScroll::-webkit-scrollbar {
+  width: 8px;
+}
+#gridScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+#gridScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+}
+#gridScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.36);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes unfold {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes uiIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes paneIn {
+  from {
+    opacity: 0;
+    transform: translateZ(240px) scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sideIn {
+  from {
+    opacity: 0;
+    transform: translateX(90px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+@keyframes dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+@keyframes panelPop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes paneInDeep {
+  from {
+    opacity: 0;
+    transform: translateZ(260px) scale(1.14);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translateZ(0) scale(1);
+  }
+}
+@keyframes sideInDeep {
+  from {
+    opacity: 0;
+    transform: translateX(90px) translateZ(180px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes uiInPop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes streak {
+  0% {
+    opacity: 0;
+    transform: translateX(-60%) skewX(-18deg);
+  }
+  22% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(160%) skewX(-18deg);
+  }
+}
+@keyframes ripple {
+  0% {
+    transform: scale(0.28);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes mainCaret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes dropInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes drawUp {
+  from {
+    stroke-dashoffset: 1400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes growBar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes gaugeIn {
+  from {
+    stroke-dasharray: 0 452.39;
+  }
+  to {
+    stroke-dasharray: 336.58 452.39;
+  }
+}
+@keyframes toastIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+@keyframes runGlow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+@keyframes caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes lineIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes srchUp {
+  from {
+    transform: translateY(150px);
+    opacity: 0.4;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes srchCards {
+  from {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes caretBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 화면 전환 — 배경은 그대로 두고 내용만 아래에서 올라온다.
+ *
+ * transform·opacity 로 움직이면 그 요소가 backdrop 루트가 되어,
+ * 안쪽 유리 패널들이 바깥의 <ocean-bg> 를 샘플링하지 못해 모션이 도는 동안 검게 보인다.
+ * top 은 backdrop 루트를 만들지 않는다.
+ *
+ * top 애니메이션은 매 프레임 레이아웃을 다시 잡는다. 요소 하나 · 0.42초라
+ * 문제되지 않지만, 전환이 무거워지면 배경을 래퍼 안으로 넣는 구조를 다시 보세요.
+ */
+@keyframes screenIn {
+  from {
+    top: 22px;
+  }
+  to {
+    top: 0;
+  }
+}
+.animate-screen-in {
+  animation: screenIn 0.42s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}

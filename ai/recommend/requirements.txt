@@ -1,0 +1,32 @@
+# 추천 서비스(runtime-recommend) 런타임 의존성
+#
+# 왜 버전을 == 로 고정하는가.
+#   >= 로 열어 두면 이미지를 빌드하는 날짜마다 다른 버전이 깔린다. "내 노트북에선
+#   되는데 EC2 에선 안 되는" 상황의 가장 흔한 원인이고, 시연 전날에 터지면 원인을
+#   찾을 시간이 없다. 버전은 09-18 기준 로컬 venv 에 실제로 깔려 있는 것이다.
+#
+# ★ torch 는 여기 있지만 Dockerfile 에서 **CPU 전용 휠을 먼저** 설치한다.
+#   그냥 깔면 CUDA 런타임까지 따라와 이미지가 2.5GB 이상 커지는데, EC2 에는
+#   GPU 가 없어 전부 죽은 용량이다. CPU 휠의 버전은 2.14.0+cpu 이고
+#   PEP 440 상 torch==2.14.0 을 만족하므로 여기서 다시 깔리지 않는다.
+#
+# 학습·평가 전용 의존성(accelerate · datasets 등)은 넣지 않는다.
+#   학습은 SSAFY GPU 서버에서 돌고 컨테이너는 추론만 한다. 이미지에 넣으면
+#   쓰지도 않는 수백 MB 가 따라온다.
+
+# ── 웹 ──
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+
+# ── 임베딩 ──
+sentence-transformers==6.0.1
+transformers==5.16.1
+torch==2.14.0
+numpy==2.5.3
+
+# ── 평가·시연 도구 전용 (컨테이너에는 불필요) ────────────────────
+#   ai/demo/check_demo_scenario.py      httpx==0.28.1
+#   ai/demo/generate_demo_data.py       openpyxl==3.1.5 · pandas
+#   ai/demo/check_compliance.py         openai
+#   필요할 때 로컬 venv 에만 설치한다.
