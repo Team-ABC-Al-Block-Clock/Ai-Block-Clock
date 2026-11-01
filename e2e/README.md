@@ -62,6 +62,8 @@ cd e2e && E2E_RUNTIME=1 npx playwright test tests/runtime --project=runtime
 ```
 
 - 8080 · 5173 · 8000 · 18545 포트가 비어 있어야 한다. workers 는 1 이다.
+- 11-02 부터 `abc.runs.dead` 의 인자가 바뀌었다(parking lot). 테스트 브로커에 예전 큐가 남아 있으면 406 으로 뜨지 않으니 한 번 지운다:
+  `docker exec abc-rabbitmq-test rabbitmqctl delete_queue --if-empty abc.runs.dead`
 - 런타임은 테스트가 띄우고 내린다(`support/runtime.ts`) — 내려간 동안의 접수, 도중에 죽였다 다시 띄우기를 시나리오가 만든다.
   모델은 부르지 않는다. 접수 요청에 `mock=true` 를 싣고, 런타임은 LLM 키 없이 띄운다. mock 호출마다 `E2E_MOCK_DELAY_SECONDS`(기본 4)초를 쉬어 진행 단계가 화면에 보이게 한다.
 - 충전은 실제 체인 대신 가짜 JSON-RPC(`support/fakeChain.ts`, 18545)가 답한다. 백엔드는 `SSAFY_CHAIN_RPC_URL` 로 거기를 본다.

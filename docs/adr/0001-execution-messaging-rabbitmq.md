@@ -1,7 +1,7 @@
 # ADR-0001: AI 실행 접수 · 결과 전달을 RabbitMQ 로 옮긴다
 
 **Status:** Accepted
-**Date:** 2026-10-16 (결정) · 2026-10-21 (구현 코드 · E2E 와 대조해 갱신 — [변경 이력](#변경-이력))
+**Date:** 2026-10-16 (결정) · 2026-10-21 (구현 코드 · E2E 와 대조해 갱신) · 2026-11-02 (후속 #21: parking lot · 큐 대기 안전망) — [변경 이력](#변경-이력)
 **Deciders:** 백엔드 · AI 파트
 **Supersedes:** `ai/docs/integration-guide.md` §4 「왜 큐를 쓰지 않는가」(2026-09-19)
 
@@ -66,6 +66,9 @@
                               │ 만료 · 한도 초과 · 읽을 수 없음
                               ▼
                         abc.runs.dlx (fanout) ─▶ abc.runs.dead ──▶ 백엔드: 플랫폼 탓으로 닫고 전액 환불
+                                                   │ 처리 4번 실패(처음 + 재시도 3)
+                                                   ▼
+                        abc.runs.dead.dlx (fanout) ─▶ abc.runs.parking (마지막 칸. 소비자 없음, 사람이 확인)
 
  취소 ─────publish──▶ abc.control (fanout) ──▶ 런타임마다 전용 큐(exclusive · auto-delete) ──▶ cancel 표시
 
@@ -111,7 +114,8 @@
    | 닿지 않는다 (그 뒤) | `ABC_RUNTIME_STALLED` 로 닫고 환불 |
    | 아직 돈다 | 취소를 보내고 `ABC_RUNTIME_STALLED` 로 닫는다 |
 
-   `accepted` 이전(`QUEUED`) 대기는 감시하지 않고 TTL 이 맡는다. 복구 스케줄러(기동 시 + 60초)는 도는 실행을 감시에 다시 붙이기만 한다.
+   `accepted` 이전(`QUEUED`) 대기는 감시하지 않고 TTL 이 맡는다. TTL 경로(dead letter 처리)를 잃으면 규칙 8 의 안전망이 닫는다.
+   복구 스케줄러(기동 시 + 60초)는 도는 실행을 감시에 다시 붙이고, 규칙 8 을 함께 돈다.
 7. **dead letter 는 사유별로 닫는다.** 모두 플랫폼 탓이고 사용자는 전액 환불받는다. 이미 성공한 단계의 공급자 몫은 플랫폼이 낸다.
 
    | dead letter 사유 | 실패 코드 |
@@ -119,6 +123,13 @@
    | `expired` (큐 대기 10분 초과) | `ABC_QUEUE_EXPIRED` |
    | `delivery_limit` (런타임이 두 번 죽음) | `ABC_RUNTIME_RETRY_EXHAUSTED` |
    | 그 밖 (읽을 수 없는 메시지 등) | `ABC_RUNTIME_DEAD_LETTERED` |
+
+   처리에 실패하면 처음 + 재시도 3번 뒤 `abc.runs.dead.dlx` 로 넘어가 `abc.runs.parking` 에 원래 본문 그대로 남는다(소비자 없음, 사람이 확인).
+8. **큐 대기 안전망.** dead letter 처리를 잃어도 선차감이 묶이지 않게, 복구 스케줄러가 `QUEUED` · `run_id` 있음 ·
+   `dispatched_at + 큐 대기 한도(10분) + 유예(execution.recovery.queue-grace, 기본 5분) ≤ 지금` 인 실행을 `ABC_QUEUE_EXPIRED`(플랫폼 탓)로 닫고 전액 환불한다.
+   - 행을 잠근 뒤 **여전히 `QUEUED` 일 때만** 닫는다(`finishQueued`). 그 사이 `accepted` 로 시작한 실행은 감시가 맡는다
+   - DLQ 경로와 겹쳐도 닫기는 멱등이라 환불은 한 번이다
+   - 근거의 `closed_by` 는 `QUEUE_OVERDUE` 로 dead letter 가 닫은 것과 구분한다. 사용자에게 보이는 코드는 같다
 
 ---
 
@@ -217,6 +228,7 @@ A 의 최대 약점인 이중 쓰기는 **B 의 장점(DB 를 outbox 로)을 A �
 - **사용자가 가장 오래 기다리는 경우는 약 20분이다** — 브로커로 못 넘긴 채 10분(발행 포기) 또는 큐에서 10분(TTL). 두 한도는 따로 걸리므로 넘긴 직후 큐에 막히면 합쳐서 20분 가까이 된다.
 - 노드 테스트는 요청 안에서 confirm 을 기다리므로, 브로커가 죽어 있으면 5초 안에 502 `EXECUTION_002` 를 받는다.
 - 디버깅이 비동기로 흩어진다 — 큐 · DLQ · 메시지 추적(관리 UI)을 봐야 한다.
+- `abc.runs.parking` · `abc.events.backend.dlq` 는 소비자가 없다. 쌓이면 사람이 봐야 하는데 알림은 아직 없다.
 - 정의 오류가 접수 시점이 아니라 실행 화면에서 보인다.
 - `(attempt, seq)` 필터와 감시 목록은 백엔드 메모리에만 있다. 재기동하면 복구 스케줄러가 감시를 다시 붙이지만 필터는 비어서 시작한다.
 - 이벤트 처리 재시도(1초 × 3)는 리스너 스레드에서 돌아, 그동안 단일 활성 컨슈머인 이벤트 큐 전체가 멈춘다.
@@ -253,7 +265,7 @@ A 의 최대 약점인 이중 쓰기는 **B 의 장점(DB 를 outbox 로)을 A �
 **1. 인프라**
 1. [x] `backend/ai-block-clock/compose.yaml` 에 `rabbitmq:4.3.6-management`(데이터 볼륨 · 헬스체크 · 계정 환경 변수) 추가
 2. [x] 런타임 compose 에 외부 볼륨 `file-store`(읽기 전용) · `results` 마운트, RabbitMQ 접속 정보 주입
-3. [x] 토폴로지 선언 — 양쪽이 같은 인자로 멱등 선언(`abc.runs` · `abc.runs.submit` · `abc.runs.dlx` · `abc.runs.dead` · `abc.control` · `abc.events` · `abc.events.backend` · `abc.events.dlx` · `abc.events.backend.dlq`)
+3. [x] 토폴로지 선언 — 양쪽이 같은 인자로 멱등 선언(`abc.runs` · `abc.runs.submit` · `abc.runs.dlx` · `abc.runs.dead` · `abc.runs.dead.dlx` · `abc.runs.parking` · `abc.control` · `abc.events` · `abc.events.backend` · `abc.events.dlx` · `abc.events.backend.dlq`)
 
 **2. 런타임 (Python)**
 4. [x] `aio-pika` 추가, FastAPI lifespan 에서 연결 · 컨슈머 시작(prefetch = 동시 실행 상한)
@@ -294,7 +306,9 @@ A 의 최대 약점인 이중 쓰기는 **B 의 장점(DB 를 outbox 로)을 A �
 20. [x] `ai/docs/integration-guide.md` §4 · §7 · §9 · §12 를 새 계약으로 갱신, 런타임 `MAX_ACTIVE_RUNS` 503 경로 제거
 
 **5. 구현과 대조하며 나온 후속 (2026-10-21)**
-21. [ ] **선차감이 묶일 수 있는 구멍.** `abc.runs.dead` 처리가 재시도까지 모두 실패하면 메시지가 사라진다(dead 큐에 DLX 가 없다). 그 실행은 `QUEUED` 로 남고 감시 · 복구 대상이 아니다 → dead 큐에도 DLX 를 달거나, 오래된 `QUEUED` 를 복구 대상에 넣는다
+21. [x] **선차감이 묶일 수 있는 구멍.** `abc.runs.dead` 처리가 재시도까지 모두 실패하면 메시지가 사라졌다(dead 큐에 DLX 가 없었다). 그 실행은 `QUEUED` 로 남고 감시 · 복구 대상이 아니었다.
+    → 2026-11-02 두 겹으로 막았다: dead 큐에 DLX(`abc.runs.dead.dlx` → `abc.runs.parking`, 규칙 7), 복구 스케줄러의 큐 대기 안전망(규칙 8).
+    기존 브로커는 `abc.runs.dead` 가 비었는지 확인하고 한 번 지운 뒤 배포한다(구현 메모)
 22. [ ] **compose 기동 조건이 원칙과 어긋난다.** 백엔드가 `rabbitmq: service_healthy` 를 기다려, 브로커가 없으면 백엔드가 뜨지 않는다. "브로커가 죽어도 접수는 outbox 에 쌓인다"(구현 메모)와 맞추려면 `service_started` 로 낮출지 정한다
 23. [ ] `nack(requeue=true)` 가 delivery-limit 에 세어지는지 실측한다 — 구현 메모와 `e2e/tests/support/broker.ts` 주석이 반대로 적혀 있다
 24. [ ] 진짜 브로커 pytest(`-m broker`) 5개의 통과 기록을 남긴다. 지금은 RED 단계 기록뿐이다
@@ -312,6 +326,10 @@ A 의 최대 약점인 이중 쓰기는 **B 의 장점(DB 를 outbox 로)을 A �
 - **백엔드 `/actuator/health` 에는 RabbitMQ 를 넣지 않는다.** 브로커가 죽어도 접수는 outbox 에 쌓이므로 백엔드는 UP 이다. 브로커는 자기 컨테이너 헬스체크로 본다. 런타임 `/v1/health` 는 `broker`(`connected` · `disconnected`)를 더했다.
 - 새 실패 코드(`ABC_QUEUE_EXPIRED` · `ABC_RUNTIME_RETRY_EXHAUSTED` · `ABC_RUNTIME_DEAD_LETTERED` · `ABC_RUNTIME_UNREACHABLE` · `ABC_RUNTIME_STALLED`)는 사용자 응답의 `ErrorCode` 가 아니라 실행 실패 사유 문자열이다.
 - 운영 compose 는 5672 를 밖으로 열지 않고 관리 UI 는 루프백에만 묶는다(`backend/ai-block-clock/compose.prod.yaml`). CI 배포 잡이 볼륨과 RabbitMQ 자격 증명이 있는지 먼저 검사한다.
+
+- **큐 인자를 바꾸면 기존 브로커를 손봐야 한다.** 이미 있는 큐의 인자는 다시 선언으로 바꿀 수 없다(406 `PRECONDITION_FAILED`). parking lot 을 넣으며
+  `abc.runs.dead` 의 인자가 바뀌어(11-02), 기존 브로커는 백엔드 · 런타임을 멈추고 큐가 비었는지 확인한 뒤 한 번 지우고 배포한다(포팅 매뉴얼).
+  브로커 정책 대신 코드 인자를 택한 것은 토폴로지를 코드 한 곳(양쪽의 같은 선언)에 두기 위해서다.
 
 **백엔드**
 - 디스패처는 커밋 직후 비동기 발행(스레드 2, 대기열 1000)과 5초 주기 재발행을 함께 쓴다. 한 번에 보내는 개수 한도는 없다.
@@ -337,3 +355,4 @@ A 의 최대 약점인 이중 쓰기는 **B 의 장점(DB 를 outbox 로)을 A �
 | 2026-10-16 | 결정 (Accepted) |
 | 2026-10-16 | 구현 후 할 일 체크 · 구현 메모 추가 |
 | 2026-10-21 | 구현 코드 · E2E 와 대조해 갱신. 결정은 그대로이고 사실관계만 고쳤다 — ① 10-15 보강 중 셋이 바뀐 것을 표에 적음 ② 토폴로지에 빠진 `abc.events.dlx` 추가, 이벤트 처리 "3회" → "4번(처음 + 재시도 3)" ③ outbox 를 별도 테이블 · 발행 포기 10분으로 구체화, 런타임 중복 거르기가 메모리 기준임을 명시 ④ 감시 기한이 마지막 이벤트 기준이고 엔진 답에 따라 갈리는 것을 표로 ⑤ dead letter 사유별 실패 코드 ⑥ 결과 볼륨에서 백엔드가 읽는 파일(`artifact.json` · `report.pdf`) 정정 ⑦ #19 를 시나리오별 현황으로 ⑧ 대조에서 찾은 후속 21 ~ 27 ⑨ nack 메모를 "실측 안 됨" 으로 |
+| 2026-11-02 | 후속 #21 반영 — parking lot(`abc.runs.dead.dlx` → `abc.runs.parking`, 규칙 7), 큐 대기 안전망(규칙 8), 기존 브로커 이관 메모. 결정은 그대로다 |

@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | **v2.3** (2026-10-16 — **실행 접수 · 진행 · 완료 · 취소를 RabbitMQ 메시지로**(§4), `POST /v1/runs` · `ENGINE_BUSY` 폐지. v2.2 09-27: 서식(HTML 산출물 · 사용자 서식 · 디자인 → 서식 변환), 사용자 파일 확장. v2.1 09-26: 견본 삭제 · 출력 JSON 예시. v2.0 09-25: 입력 형식 폐지 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
+| 상태 | **v2.4** (2026-11-02 — dead letter 처리에 실패한 메시지를 남기는 `abc.runs.dead.dlx` · `abc.runs.parking` 추가(§4.1 · §4.8). v2.3 10-16: **실행 접수 · 진행 · 완료 · 취소를 RabbitMQ 메시지로**(§4), `POST /v1/runs` · `ENGINE_BUSY` 폐지. v2.2 09-27: 서식(HTML 산출물 · 사용자 서식 · 디자인 → 서식 변환), 사용자 파일 확장. v2.1 09-26: 견본 삭제 · 출력 JSON 예시. v2.0 09-25: 입력 형식 폐지 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
 | 이전 | 확정본 09-19 · 09-22 갱신(검증 응답의 견적, 노드 필드 8종, 결과 URL, 정의 검증 코드, 원가 산출) |
 | 작성 | AI 파트 트랙 A (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
@@ -220,7 +220,9 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | exchange | `abc.runs` | direct, durable | |
 | queue | `abc.runs.submit` | durable, `x-queue-type=quorum`, `x-message-ttl=600000`(10분), `x-delivery-limit=1`, `x-dead-letter-exchange=abc.runs.dlx` | `abc.runs` ← routing key `submit` |
 | exchange | `abc.runs.dlx` | fanout, durable | |
-| queue | `abc.runs.dead` | durable, `x-queue-type=quorum` | `abc.runs.dlx` |
+| queue | `abc.runs.dead` | durable, `x-queue-type=quorum`, `x-dead-letter-exchange=abc.runs.dead.dlx` | `abc.runs.dlx` |
+| exchange | `abc.runs.dead.dlx` | fanout, durable | |
+| queue | `abc.runs.parking` | durable, `x-queue-type=quorum` (DLX 없음 — 마지막 칸, 소비자 없음) | `abc.runs.dead.dlx` |
 | exchange | `abc.control` | fanout, durable | |
 | queue | (Runtime 마다) `amq_<hex>` | exclusive, auto-delete | `abc.control` |
 | exchange | `abc.events` | topic, durable | |
@@ -341,7 +343,7 @@ Runtime 마다 자기 control 큐로 받는다. 돌고 있으면 다음 노드�
 | Runtime | SubmitRun — 받기 전에 취소된 실행 | 돌리지 않고 이벤트 없이 ack |
 | Runtime | SubmitRun — JSON 이 아니거나 `execution_id` 가 없거나 형식이 틀림 | 이벤트 없이 `reject(requeue=false)` → dead letter |
 | 백엔드 | RunEvent | DB 커밋 뒤. 처리에 실패하면 **처음 1번 + 재시도 3번 = 4번** 처리한 뒤 거절 → `abc.events.backend.dlq`. 읽을 수 없는 메시지(JSON 이 아님 · `execution_id` · `type` · `attempt` · `seq` 없음)는 재시도 없이 곧바로 DLQ |
-| 백엔드 | `abc.runs.dead` | 실행을 닫은 뒤. 본문이 SubmitRun 으로 읽히지 않으면 경고만 남기고 ack |
+| 백엔드 | `abc.runs.dead` | 실행을 닫은 뒤. 처리에 실패하면 4번(처음 + 재시도 3) 처리한 뒤 거절 → `abc.runs.parking`. 본문이 SubmitRun 으로 읽히지 않으면 경고만 남기고 ack |
 
 **무엇을 배달로 세나.** RabbitMQ 4.x 는 `nack(requeue=true)` 를 `x-delivery-limit` 에 세지 않는다. ack 없이 채널이 닫힐 때(= Runtime 프로세스가 죽을 때)만 센다. 그래서
 
@@ -361,6 +363,10 @@ Runtime 마다 자기 control 큐로 받는다. 돌고 있으면 다음 노드�
 | 그 밖 · 없음 (Runtime 이 읽지 못해 거절한 메시지 등) | `ABC_RUNTIME_DEAD_LETTERED` | platform |
 
 어느 것이든 플랫폼 탓이라 사용자는 예치를 전액 돌려받는다(§8.5 `platform`). 이미 끝난 실행이면 아무것도 하지 않는다. 판매자 테스트(`mode=test`)도 같은 코드로 닫는다.
+
+백엔드가 이 처리에 끝내 실패한 메시지는 `abc.runs.parking` 에 원래 본문 그대로 남는다(사람이 확인). 그래도 돈은 묶이지 않는다 —
+백엔드 복구 스케줄러가 넘긴 지 10분 + 유예(기본 5분)가 지나도록 시작(`accepted`)하지 않은 실행을 같은 `ABC_QUEUE_EXPIRED` 로 닫고 환불한다.
+Runtime 쪽에서 바뀌는 것은 §4.1 의 선언뿐이다.
 
 ### 4.9 HTTP 에 남는 것 — 감시 · 대조 · 근거
 

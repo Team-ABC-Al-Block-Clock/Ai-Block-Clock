@@ -4,7 +4,7 @@
 
 | # | 결정 | 상태 | 날짜 |
 | --- | --- | --- | --- |
-| [0001](0001-execution-messaging-rabbitmq.md) | AI 실행 접수 · 결과 전달을 RabbitMQ 로 옮긴다 (vs DB 큐 + 콜백 + 대조) | Accepted | 2026-10-16 (구현 대조 10-21) |
+| [0001](0001-execution-messaging-rabbitmq.md) | AI 실행 접수 · 결과 전달을 RabbitMQ 로 옮긴다 (vs DB 큐 + 콜백 + 대조) | Accepted | 2026-10-16 (구현 대조 10-21 · 후속 #21 11-02) |
 
 ## 쓰는 법
 
