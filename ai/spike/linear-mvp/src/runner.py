@@ -6,7 +6,7 @@ CLI 사용:
 
 노드는 판매자가 선언한 출력(`output {kind, sample}`)을 내고, 다음 노드는 앞 결과 전체를 받는다.
 입력 형식 검증은 없다 — 진입 노드의 사용자 입력 폼(`input.sample`)만 검증한다.
-API(src/api.py)는 execute() 를 직접 호출하고 on_event 로 진행 상황을 받는다.
+메시지 처리(src/messaging.py)가 execute() 를 부르고 on_event 로 진행 이벤트(RunEvent progress)를 낸다.
 """
 from __future__ import annotations
 
@@ -387,6 +387,10 @@ def execute(
         node = graph.node(node_id)
         entry = entry_by_id[node_id]
         index = node_ids.index(node_id)
+
+        # 백엔드가 취소했다(CancelRun 메시지 · POST /v1/runs/{id}/cancel). 다음 노드부터 LLM 을 부르지 않는다
+        if result.get("cancel_requested"):
+            return fail(node_id, "CANCELLED", "백엔드가 실행을 취소했습니다", fault="platform", index=index)
 
         # 상위가 모두 죽은 노드는 돌지 않는다 — 분기 미선택이거나 상위 실패다
         if graph.incoming.get(node_id) and not graph_mod.live_edges(graph, node_id, payloads, branch_taken):

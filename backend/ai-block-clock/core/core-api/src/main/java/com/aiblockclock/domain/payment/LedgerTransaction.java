@@ -155,7 +155,7 @@ public record LedgerTransaction(
     }
 
     // 끝난 실행에서 쓰지 않은 만큼을 예치에서 돌려준다. 쓴 만큼은 같은 자리에서 정산(forExecutionSettlement)으로 옮긴다.
-    // 키가 실행 ID 라 폴링이 같은 끝을 여러 번 봐도 한 번만 기록된다.
+    // 키가 실행 ID 라 같은 끝이 여러 번 와도 한 번만 기록된다.
     public static LedgerTransaction forExecutionRefund(
             UUID executionId,
             UserId payer,

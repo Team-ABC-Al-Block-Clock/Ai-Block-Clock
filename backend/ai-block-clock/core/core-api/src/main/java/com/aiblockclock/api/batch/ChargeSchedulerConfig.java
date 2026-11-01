@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
-// 실행 진행 조회(executionScheduler)와 스레드를 나눈다. 체인이 느려져도 실행 조회가 밀리지 않는다.
+// 정기 작업(batch-)과 스레드를 나눈다. 체인이 느려져도 실행 발행 · 감시 점검이 밀리지 않는다.
 // 한 번에 한 차례만 돌면 되므로 스레드는 하나다.
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "payment.charge", name = "polling-enabled", havingValue = "true")

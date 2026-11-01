@@ -1,6 +1,5 @@
 package com.aiblockclock.api.v1;
 
-import com.aiblockclock.api.batch.ExecutionProgressScheduler;
 import com.aiblockclock.api.support.auth.CurrentUser;
 import com.aiblockclock.api.v1.request.ExecutionStartRequest;
 import com.aiblockclock.api.v1.response.ExecutionProgressResponse;
@@ -48,7 +47,6 @@ public class ExecutionController implements ExecutionApi {
     private final WorkflowService workflowService;
     private final ExecutionService executionService;
     private final ExecutionStreamBroadcaster executionStreamBroadcaster;
-    private final ExecutionProgressScheduler executionProgressScheduler;
 
     @Override
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,14 +57,10 @@ public class ExecutionController implements ExecutionApi {
     ) {
         Workflow workflow = workflowService.get(WorkflowId.of(request.workflowId()), requester);
 
+        // 접수만 하고 돌아간다. 브로커로 넘기는 일은 커밋된 뒤 디스패처가 한다.
         ExecutionStart started = executionService.start(requester, workflow,
                 ExecutionRequestId.of(request.requestId()),
                 request.input(), request.comment(), request.mockOrDefault(), request.uploadedFile());
-
-        // 같은 요청 번호로 돌려받은 앞 실행은 이미 따라가고 있거나 끝났다. 다시 따라가면 조회가 두 줄기가 된다.
-        if (started.created()) {
-            executionProgressScheduler.follow(started.execution());
-        }
 
         return ApiResult.success(ExecutionStartResponse.from(started.execution()));
     }

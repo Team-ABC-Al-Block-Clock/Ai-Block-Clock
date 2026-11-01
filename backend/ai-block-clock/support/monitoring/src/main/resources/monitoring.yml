@@ -11,3 +11,7 @@ management:
   health:
     db:
       enabled: true
+    # 브로커는 넣지 않는다. 브로커가 죽어도 접수는 outbox 에 쌓이므로 백엔드는 UP 이다(ADR-0001).
+    # 브로커는 자기 컨테이너 헬스체크로 본다
+    rabbit:
+      enabled: false

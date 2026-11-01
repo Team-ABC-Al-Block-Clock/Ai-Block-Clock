@@ -69,6 +69,28 @@ CODES: dict[str, ErrorSpec] = {
     "RUNTIME_INTERNAL": ErrorSpec(
         "platform", False, "실행 중 내부 오류가 발생했습니다.",
         "운영자에게 전달됐습니다. 차감분은 환원됩니다."),
+    "CANCELLED": ErrorSpec(
+        "platform", False, "실행이 취소되었습니다.",
+        "차감분은 환원됩니다."),
+    # 실행 전에 거절한 SubmitRun (rejected 이벤트, ai/docs/integration-guide.md §4.4). 어느 노드도 돌지 않아 정산할 것이 없다
+    "INVALID_WORKFLOW": ErrorSpec(
+        "consumer", False, "워크플로우 정의에 오류가 있어 실행하지 않았습니다.",
+        "워크플로우를 열어 검증 오류를 고친 뒤 다시 실행해 주세요. 사용료는 차감되지 않습니다."),
+    "INVALID_MODE": ErrorSpec(
+        "platform", False, "실행 요청 형식이 올바르지 않아 실행하지 않았습니다.",
+        "운영자에게 전달됐습니다. 차감분은 전액 환원됩니다."),
+    "INVALID_INPUT_JSON": ErrorSpec(
+        "platform", False, "입력값을 읽지 못해 실행하지 않았습니다.",
+        "운영자에게 전달됐습니다. 차감분은 전액 환원됩니다."),
+    "UNSUPPORTED_FILE_TYPE": ErrorSpec(
+        "consumer", False, "올린 파일 중 지원하지 않는 형식이 있어 실행하지 않았습니다.",
+        "표(.xlsx · .xls · .csv) · 글(.txt · .md) · PDF · 사진(.png · .jpg · .webp)만 올릴 수 있습니다. 사용료는 차감되지 않습니다."),
+    "FILE_TOO_LARGE": ErrorSpec(
+        "consumer", False, "올린 파일이 너무 커서 실행하지 않았습니다.",
+        "올린 파일 합계는 10MB 까지입니다. 사용료는 차감되지 않습니다."),
+    "FILE_PATH_REJECTED": ErrorSpec(
+        "platform", False, "실행에 필요한 파일을 찾지 못해 실행하지 않았습니다.",
+        "운영자에게 전달됐습니다. 차감분은 전액 환원됩니다."),
 }
 
 _UNKNOWN = ErrorSpec("platform", False, "알 수 없는 오류가 발생했습니다.", "운영자에게 전달됐습니다.")

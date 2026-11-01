@@ -6,14 +6,13 @@
 """
 from __future__ import annotations
 
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 
 from src import nodes, runner
 from src.api import app
 from src.llm import LLMResult
+from tests.messaging_support import submit, submit_message
 from tests.test_nodes import MARKET_EXAMPLE, FakeLLM
 from tests.test_output import BRIEF
 
@@ -94,15 +93,17 @@ def test_참고_파일이_없는_노드는_그대로_돈다():
     assert run["status"] == "succeeded" and "## 참고 자료" not in _request_md(run, "memo")
 
 
-def test_API_는_ref_file_필드를_노드별로_묶는다():
+def test_메시지의_ref_files_는_노드별로_러너에_간다(volumes):
     client = TestClient(app)
-    res = client.post(
-        "/v1/runs",
-        data={"workflow": json.dumps(_memo_wf(), ensure_ascii=False), "mock": "true"},
-        files={"ref_file_memo_0": ("가이드.md", "## 브랜드 가이드\n색은 초록".encode("utf-8"), "text/markdown")},
-    )
-    assert res.status_code == 202
-    run_id = res.json()["run_id"]
+    guide = volumes.store / "nodes" / "memo" / "ref-1" / "가이드.md"      # 백엔드 file-store 에 둔 참고 자료
+    guide.parent.mkdir(parents=True)
+    guide.write_text("## 브랜드 가이드\n색은 초록", encoding="utf-8")
+    message = submit_message(_memo_wf(), ref_files={"memo": ["nodes/memo/ref-1/가이드.md"]})
+    run_id = message["execution_id"]
+
+    outcome, _ = submit(message)
+
+    assert outcome == "ack"
     assert client.get(f"/v1/runs/{run_id}").json()["status"] == "succeeded"
     req = (runner.OUT_ROOT / run_id / "nodes" / "memo.request.md").read_text(encoding="utf-8")
     assert "### 가이드.md" in req and "색은 초록" in req

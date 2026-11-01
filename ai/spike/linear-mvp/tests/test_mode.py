@@ -4,12 +4,11 @@
 """
 from __future__ import annotations
 
-import json
-
 from fastapi.testclient import TestClient
 
 from src import runner
 from src.api import app
+from tests.messaging_support import submit, submit_message
 
 BRIEF = {"brand_name": "초록소반", "category": "간편식", "target": "1인 가구 30대",
          "price_tier": "중가", "differentiator": "국내산 재료"}
@@ -28,21 +27,29 @@ def test_test_모드는_결과는_같고_정산_입력만_비운다():
     assert test["result"]["pdf"]
 
 
-def test_API_는_mode_를_받고_되돌려준다():
+def test_메시지의_mode_를_이벤트와_조회에_그대로_되돌려준다():
     client = TestClient(app)
-    res = client.post("/v1/runs", data={"workflow": json.dumps(runner.load_workflow("brand_agent"), ensure_ascii=False),
-                                        "input": json.dumps(BRIEF, ensure_ascii=False),
-                                        "mode": "test", "mock": "true"})
-    assert res.status_code == 202 and res.json()["mode"] == "test"
-    body = client.get(f"/v1/runs/{res.json()['run_id']}").json()
+    message = submit_message(runner.load_workflow("brand_agent"), input=BRIEF, mode="test")
+
+    outcome, publisher = submit(message)
+
+    assert outcome == "ack"
+    assert {event["mode"] for event in publisher.events} == {"test"}
+    body = client.get(f"/v1/runs/{message['execution_id']}").json()
     assert body["status"] == "succeeded" and body["mode"] == "test"
     assert body["contribution"] == [] and body["totals"]["input_tokens"] > 0
 
 
-def test_기본은_run_이고_잘못된_mode_는_400_이다():
+def test_mode_run_은_run_으로_돌고_잘못된_mode_는_rejected_INVALID_MODE_다():
     client = TestClient(app)
-    wf = json.dumps(runner.load_workflow("brand_agent"), ensure_ascii=False)
-    ok = client.post("/v1/runs", data={"workflow": wf, "input": json.dumps(BRIEF), "mock": "true"})
-    assert ok.status_code == 202 and ok.json()["mode"] == "run"
-    bad = client.post("/v1/runs", data={"workflow": wf, "input": json.dumps(BRIEF), "mode": "dry", "mock": "true"})
-    assert bad.status_code == 400 and bad.json()["detail"]["code"] == "INVALID_MODE"
+    wf = runner.load_workflow("brand_agent")
+    ok = submit_message(wf, input=BRIEF, mode="run")
+    bad = submit_message(wf, input=BRIEF, mode="dry")
+
+    ok_outcome, ok_publisher = submit(ok)
+    bad_outcome, bad_publisher = submit(bad)
+
+    assert ok_outcome == "ack" and {event["mode"] for event in ok_publisher.events} == {"run"}
+    assert client.get(f"/v1/runs/{ok['execution_id']}").json()["mode"] == "run"
+    assert bad_outcome == "ack" and bad_publisher.types() == ["rejected"]
+    assert bad_publisher.last()["snapshot"]["error"]["code"] == "INVALID_MODE"

@@ -1,9 +1,13 @@
 // AI 파트에 붙는 어댑터다. 추천 엔진과 실행 엔진이 여기 있다.
 // 주고받는 것이 객체라 JSON 변환기가 필요하다. 블록체인 어댑터와 다른 점은 그것뿐이다.
+// 실행 접수 · 진행 · 완료 · 취소는 RabbitMQ 로 주고받는다(ADR-0001). 발행자와 메시지 모양도 여기 있다.
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-json'
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.springframework:spring-web'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-rabbitmq'
 }

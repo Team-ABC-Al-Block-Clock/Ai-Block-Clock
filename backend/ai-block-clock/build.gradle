@@ -1,6 +1,8 @@
 plugins {
     id 'org.springframework.boot' version '4.1.1' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
+    // 1.15.0 은 Gradle 9 에서 깨진다(없어진 reporting.baseDir 을 참조). 1.19.0 부터 동작한다.
+    id 'info.solidsoft.pitest' version '1.19.0' apply false
 }
 
 allprojects {
@@ -16,6 +18,7 @@ allprojects {
 configure(subprojects.findAll { it.subprojects.isEmpty() }) {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'info.solidsoft.pitest'
 
     java {
         toolchain {
@@ -64,6 +67,10 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) {
             excludeTags 'container'
         }
 
+        // 설정이 다른 @SpringBootTest 마다 컨텍스트(H2 DB · Hibernate 메타모델 포함)를 하나씩 캐시해 둔다.
+        // 기본 힙(512MB)으로는 마지막 클래스들에서 OutOfMemoryError 가 났다.
+        maxHeapSize = '1g'
+
         shouldRunAfter tasks.named('test')
     }
 
@@ -76,5 +83,20 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) {
             includeTags 'container'
         }
         shouldRunAfter tasks.named('integrationTest')
+    }
+
+    // 돌연변이 테스트. 단위 테스트만으로 돌연변이를 잡는지 본다 — 컨텍스트를 띄우는 테스트는 돌연변이마다 다시 돌기엔 느리다.
+    // 범위는 -PpitTargetClasses=패턴,패턴 으로 좁힌다. 지정하지 않으면 모듈 전체다.
+    // 결과는 build/reports/pitest/mutations.xml 에 남는다.
+    pitest {
+        pitestVersion = '1.30.1'
+        junit5PluginVersion = '1.2.3'
+        targetClasses = (findProperty('pitTargetClasses') ?: "${project.group}.*").split(',') as List
+        // 테스트는 늘 모듈 전체에서 고른다. 비워 두면 플러그인이 targetClasses 를 그대로 써, 범위를 좁히면 *Test 가 하나도 뽑히지 않고 0% 가 된다.
+        targetTests = ["${project.group}.*"]
+        excludedGroups = ['integration', 'container']
+        threads = Runtime.runtime.availableProcessors()
+        outputFormats = ['XML', 'HTML']
+        timestampedReports = false
     }
 }

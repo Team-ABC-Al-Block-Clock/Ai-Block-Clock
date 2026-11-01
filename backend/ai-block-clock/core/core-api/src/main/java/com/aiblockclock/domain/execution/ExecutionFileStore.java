@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Path;
-
 @Component
 @RequiredArgsConstructor
 public class ExecutionFileStore {
@@ -25,10 +23,6 @@ public class ExecutionFileStore {
         fileStore.write(file.key(), upload.content());
 
         return file;
-    }
-
-    public Path locate(ExecutionFile file) {
-        return fileStore.locate(file.key());
     }
 
     public void erase(ExecutionFile file) {

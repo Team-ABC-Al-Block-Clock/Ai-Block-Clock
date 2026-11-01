@@ -9,8 +9,8 @@ Docker Desktop의 Linux 엔진을 실행하고 `docker version`에서 Client와 
 .\gradlew.bat containerTest --console=plain --rerun-tasks
 ```
 
-첫 실행에는 MySQL 8.4 이미지 다운로드가 필요하다. Docker를 사용할 수 없으면 실패하며,
-MySQL 검증을 건너뛴 결과를 통과로 취급하지 않는다.
+첫 실행에는 MySQL 8.4 · RabbitMQ 4 이미지 다운로드가 필요하다. Docker를 사용할 수 없으면 실패하며,
+컨테이너 검증을 건너뛴 결과를 통과로 취급하지 않는다. `containerTest` 는 MySQL 테스트와 RabbitMQ 테스트를 함께 돌린다.
 
 ## 테스트 분리와 DB 보호
 
@@ -18,8 +18,10 @@ MySQL 검증을 건너뛴 결과를 통과로 취급하지 않는다.
 - `integrationTest`: integration 태그 선택, container 태그 제외.
 - `containerTest`: container 태그만 선택. build에는 포함하지 않는다.
 - `PaymentMySqlTest` · `NodeMySqlTest`는 테스트 공통 애노테이션이며 container 태그와 Spring 설정을 제공한다.
-- 컨테이너 설정은 `testsupport.MySqlTestConfiguration` 하나뿐이다. 도메인마다 두면 컨텍스트가 갈려
+- MySQL 컨테이너 설정은 `testsupport.MySqlTestConfiguration` 하나뿐이다. 도메인마다 두면 컨텍스트가 갈려
   MySQL 이 그 수만큼 뜬다.
+- RabbitMQ 컨테이너 설정은 `core-api` 의 `testsupport.RabbitTestConfiguration` 과 `:client:ai` 의
+  `RabbitTestConfiguration` 이다. 메모리 경보로 발행을 막는 테스트(`RunQueueConfirmTimeoutContainerTest`)만 제 브로커를 띄운다.
 - Testcontainers가 새 MySQL을 생성한다. 서비스 DB 주소나 기존 Compose 볼륨은 사용하지 않는다.
 - Spring 테스트는 ServiceConnection으로 H2 설정보다 테스트 MySQL 접속 정보를 우선 적용한다.
 - 컨테이너는 Spring 컨텍스트 종료 시 정리된다. 마이그레이션 전용 컨테이너는 테스트 종료 시 정리된다.
@@ -45,6 +47,14 @@ MySQL 검증을 건너뛴 결과를 통과로 취급하지 않는다.
 - 삭제와 배치가 동시에 들어와도 지워진 노드를 가리키는 배치가 남지 않는다.
 - 한 라운드만 돌리면 커넥션 풀 초기화 · JIT 때문에 두 스레드가 겹치지 않아 락을 지워도 통과한다.
   그래서 30 라운드를 반복한다.
+
+### 실행 메시지 (RabbitMQ)
+
+- 계약의 exchange · queue 를 계약의 타입 · 인자 그대로 선언하고, 런타임이 같은 인자로 다시 선언해도 받아들인다.
+  숫자 인자를 문자열로 보낸 선언은 같은 큐로 받아들이지 않는다.
+- SubmitRun · CancelRun 은 confirm 을 받은 뒤에만 돌아온다. nack · confirm 기한 초과는 `REQUEST_FAILED` 다.
+- 큐에서 만료된 SubmitRun 은 사유 `expired`, 두 번 배달하고도 끝내지 못한 것은 `delivery_limit` 을 달고 `abc.runs.dead` 로 간다.
+- 처리에 실패한 이벤트는 세 번 더 시도한 뒤, 읽을 수 없는 이벤트는 곧바로 DLQ 로 간다.
 
 ## GitLab
 

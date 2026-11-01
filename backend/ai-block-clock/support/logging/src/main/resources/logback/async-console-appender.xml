@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CONSOLE 을 감싸 요청 스레드가 stdout 쓰기를 기다리지 않게 한다. 각 프로파일이 CONSOLE 을 정의한 뒤 include 한다.
+  discardingThreshold=0 · neverBlock=false: 큐가 차도 INFO 이하를 버리지 않고, 그때만 잠깐 기다린다 —
+  운영 로그는 장애를 되짚는 재료라 빠르게 쓰는 것보다 빠뜨리지 않는 쪽을 택한다.
+  정산 다툼의 근거는 콘솔 로그가 아니라 DB(execution_step · execution_run_record)에 남는다(ExecutionEvidenceRecorder).
+-->
+<included>
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+</included>

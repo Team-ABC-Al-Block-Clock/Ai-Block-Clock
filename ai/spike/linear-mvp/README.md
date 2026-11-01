@@ -107,14 +107,10 @@ docker compose up -d --build
 
 Swagger는 `http://localhost:8000/docs`에서 열린다. 엔드포인트와 요청 · 응답 형식은 [연동 계약 문서](../../docs/integration-guide.md)를 따른다.
 
-```bash
-# 견본 워크플로우를 그대로 써서 한 번 실행
-WF=$(curl -s http://localhost:8000/v1/workflows/report)
-curl -X POST http://localhost:8000/v1/runs \
-  -F "workflow=$WF" -F "comment=난이도가 높았음" -F "mock=true" \
-  -F "file=@data/demo_scores.xlsx"
+실행 접수는 HTTP가 아니다. 백엔드가 SubmitRun 메시지를 RabbitMQ에 넣고, Runtime이 진행 · 완료를 RunEvent로 낸다(계약 §4). HTTP에는 조회 · 검증 · 서식 변환이 남았다.
 
-# 진행 상황 조회
+```bash
+# 진행 상황 조회 (run_id = 백엔드 실행 번호)
 curl http://localhost:8000/v1/runs/<run_id>
 
 # 결과 PDF
@@ -128,7 +124,7 @@ src/excel_to_text.py   엑셀·CSV → 요약 한 줄 + 마크다운 표 (100행
 src/llm.py             Gemini 어댑터. 타임아웃 60초, 429/503 시 10초 대기 후 2회 재시도, mock 모드
 src/runner.py          워크플로우 순차 실행. 진행 상태를 state dict 에 실시간 기록
 src/pdf.py             마크다운 → HTML → PDF. 한글 폰트 임베딩
-src/api.py             FastAPI. 202 + 조회 방식
+src/api.py             FastAPI. 조회 · 검증 · 서식 변환 (실행 접수는 src/broker.py · src/messaging.py)
 templates/report.html  PDF 템플릿
 workflows/report.json  노드 2개 정의 (견본)
 prompts/*.md           노드별 프롬프트

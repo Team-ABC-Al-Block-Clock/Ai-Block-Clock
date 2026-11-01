@@ -40,6 +40,20 @@
 
 `build` 에 `integrationTest` 를 묶지 않는다. 묶으면 MR 마다 통합 테스트가 돌아 분리한 의미가 없어진다.
 
+### 1.1 돌연변이 테스트는 따로 돈다
+
+`pitest` 태스크는 단위 테스트가 돌연변이(일부러 망가뜨린 코드)를 잡는지 본다. 파이프라인에는 없고 수동으로 돌린다.
+
+```bash
+./gradlew :core:core-api:pitest -PpitTargetClasses='com.aiblockclock.domain.AbcAmount*'
+# 결과: <모듈>/build/reports/pitest/index.html, mutations.xml
+```
+
+- `integration` · `container` 태그를 뺀 단위 테스트만 쓴다. 컨텍스트를 띄우는 테스트는 돌연변이마다 다시 돌기엔 느리다.
+- 범위는 `-PpitTargetClasses=패턴,패턴` 으로 좁히고, 비우면 모듈 전체다.
+
+브라우저 · API E2E 테스트는 백엔드 빌드가 아니라 저장소 루트의 `e2e/` 에 있다.
+
 ---
 
 ## 2. 분류 기준

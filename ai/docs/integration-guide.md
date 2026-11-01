@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | **v2.2** (2026-09-27 — **서식(템플릿): 산출물에 HTML 추가, 사용자 서식 `output.template`, 디자인 → 서식 변환 API**, 사용자 파일 확장. v2.1 09-26: 견본 삭제 · 출력 JSON 예시. v2.0 09-25: 입력 형식 폐지 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
+| 상태 | **v2.4** (2026-11-02 — dead letter 처리에 실패한 메시지를 남기는 `abc.runs.dead.dlx` · `abc.runs.parking` 추가(§4.1 · §4.8). v2.3 10-16: **실행 접수 · 진행 · 완료 · 취소를 RabbitMQ 메시지로**(§4), `POST /v1/runs` · `ENGINE_BUSY` 폐지. v2.2 09-27: 서식(HTML 산출물 · 사용자 서식 · 디자인 → 서식 변환), 사용자 파일 확장. v2.1 09-26: 견본 삭제 · 출력 JSON 예시. v2.0 09-25: 입력 형식 폐지 · ABC 제거 · `mode=test`). 이 파일이 항상 최신 계약이다 |
 | 이전 | 확정본 09-19 · 09-22 갱신(검증 응답의 견적, 노드 필드 8종, 결과 URL, 정의 검증 코드, 원가 산출) |
 | 작성 | AI 파트 트랙 A (김정윤) |
 | 대상 | **백엔드(Spring), 프론트엔드(React)** |
@@ -11,7 +11,21 @@
 > **이 문서 하나만 보면 된다.** 필드 정의 · 엔드포인트 · 정산 · 오류 · 함정이 전부 여기 있다.
 > 서비스 전체 흐름은 [`../../docs/service-flow.md`](../../docs/service-flow.md).
 
-### v2.2에서 바뀐 것 (09-27) — 먼저 읽을 것
+### v2.3에서 바뀐 것 (10-16) — 먼저 읽을 것
+
+결정과 근거는 [`docs/adr/0001-execution-messaging-rabbitmq.md`](../../docs/adr/0001-execution-messaging-rabbitmq.md). 메시지 계약은 §4.
+
+| 바뀐 것 | v2.2 | v2.3 (지금) | 왜 |
+| --- | --- | --- | --- |
+| **실행 접수** | `POST /v1/runs`(multipart) → 202 `run_id` | 백엔드가 **SubmitRun** 메시지를 `abc.runs` 에 발행한다. `run_id` = `execution_id`(백엔드 실행 번호). `POST /v1/runs` 는 없다 | 접수가 런타임 가용성에 묶이지 않게 |
+| **진행 · 결과** | 2초마다 `GET /v1/runs/{id}` | 런타임이 **RunEvent**(`accepted` · `progress` · `succeeded` · `failed` · `rejected`)를 `abc.events` 로 낸다. HTTP 조회는 대조 · 근거 백필에만 | 폴링 지연 · 조회 반복을 없앤다 |
+| **파일** | 폼 파트 `file` · `ref_file_<node_id>_<n>` | 공유 볼륨 경로(`files` · `ref_files`, file-store 읽기 전용). 결과물은 `results` 볼륨 | 메시지에는 경로만 싣는다(claim check) |
+| **동시 실행 상한** | `MAX_ACTIVE_RUNS` 를 넘으면 503 `ENGINE_BUSY` | prefetch. 넘치는 실행은 큐에서 기다리고, 10분을 넘기면 dead letter → 환불 | 사용자가 "잠시 후" 를 받지 않는다 |
+| **정의 · 입력 오류** | 접수 응답 400 | 실행 전 **`rejected`** 이벤트(§9.1). 백엔드는 전액 환불 | 접수 시점에는 런타임이 없다 |
+| 멱등 키 | `client_run_id` | 없다. `execution_id` 가 멱등 키다 | |
+| `GET /v1/health` | `active_runs` · `max_active_runs` | 둘 다 없어지고 `broker` 가 생겼다 | |
+
+### v2.2에서 바뀐 것 (09-27)
 
 | 바뀐 것 | v2.1 | v2.2 (지금) | 왜 |
 | --- | --- | --- | --- |
@@ -67,22 +81,23 @@
 | 누가 부르나 | **백엔드만.** 프론트는 AI Runtime을 직접 부르지 않는다 |
 | 인증 | 헤더 `X-ABC-Service-Token`. 없으면 401 |
 | 외부 접근 | **안 된다.** 인터넷에 열려 있지 않고 nginx 경로도 없다 |
-| 호출 횟수 | **실행 1건에 호출 1번.** 노드마다 왕복하지 않는다 |
-| 응답 방식 | 즉시 `202 + run_id`, 그 뒤 2초마다 조회 |
-| 큐를 쓰나 | **쓰지 않는다.** HTTP + 폴링이 확정이다 (§4) |
+| 호출 횟수 | **실행 1건에 메시지 1개(SubmitRun).** 노드마다 왕복하지 않는다 |
+| 응답 방식 | 메시지. 백엔드가 SubmitRun 을 큐에 넣고, Runtime 이 진행 · 완료를 RunEvent 로 알린다 (§4) |
+| 큐를 쓰나 | **쓴다(10-16).** RabbitMQ — 실행 접수 · 진행 · 완료 · 취소만. 검증 · 서식 변환 · 조회는 HTTP (§4) |
 | 걸리는 시간 | 노드 1개당 약 15 ~ 35초 (`gemini-2.5-pro`, 09-26 기본). Flash면 10 ~ 20초 |
-| 상태를 저장하나 | **아니다.** 재시작하면 `run_id` 조회가 404. 이력 원본은 백엔드 DB |
+| 상태를 저장하나 | **아니다.** 재시작하면 `run_id` 조회가 404. 이력 원본은 백엔드 DB. ack 전이던 실행은 큐가 한 번 더 배달한다 |
 | 돈을 아나 | **모른다.** 토큰과 USD 원가까지만. ABC · 단가 · 프리미엄 · 정산은 백엔드 |
 
 ### 구현 일정 — 무엇을 언제 붙일 수 있나
 
 | 기능 | 상태 |
 | --- | --- |
-| `POST /v1/runs` · 폴링 · PDF · `artifact` · `edges` · 분기 · 병합 · 에이전트 전개 · `validate` | **동작 중** (v1.x 형식) |
+| PDF · `artifact` · `edges` · 분기 · 병합 · 에이전트 전개 · `validate` | **동작 중** (v1.x 형식) |
 | v2.0 — 입력 폐지 · 별칭 · `cost_usd` · `agents[]` · `mode=test` · 분기 참조 검사 | **동작 중** (09-26 master) |
 | **v2.1 — 견본 삭제 · `output {kind, example}` · `input {example}`** | **09-26 저녁 develop-AI** |
 | 노드별 참고 파일 `ref_files` | **동작 중** (09-26) — txt · md · csv는 본문 절, PDF는 inline 첨부 |
 | 서식 — 기본 2종 · 사용자 서식 `output.template` · `GET /v1/runs/{id}/html` · `POST /v1/templates/convert` | **동작 중** (09-27) |
+| **v2.3 — RabbitMQ 접수 · 이벤트 · 취소 · 공유 볼륨** (`POST /v1/runs` · 2초 폴링 · `ENGINE_BUSY` 폐지) | **구현 완료** (10-16, 운영 배포 전 · 실제 브로커 E2E 전) |
 
 ---
 
@@ -92,7 +107,8 @@
 | --- | --- |
 | 주소 (백엔드 컨테이너 기준) | `http://ai-block-clock-ai-runtime:8000` |
 | 주소 (EC2 호스트에서 디버깅) | `http://127.0.0.1:8000` |
-| 인증 헤더 | `X-ABC-Service-Token: <ABC_SERVICE_TOKEN>` |
+| 실행 메시지 | RabbitMQ `ai-block-clock-rabbitmq:5672` (백엔드 compose 가 띄운다). 접속 변수는 §4.10 |
+| 인증 헤더 | `X-ABC-Service-Token: <ABC_SERVICE_TOKEN>` (HTTP 만) |
 | 토큰 값 | GitLab → Settings → CI/CD → Variables 의 `ABC_SERVICE_TOKEN` |
 | 헬스체크 | `GET /v1/health` (인증 불필요) |
 | Swagger | `http://127.0.0.1:8000/docs` (EC2 안에서만) |
@@ -110,8 +126,10 @@ environment:
 
 ```bash
 curl -s http://ai-block-clock-ai-runtime:8000/v1/health
-# {"status":"ok","auth_required":true,"runs_in_memory":0}
+# {"status":"ok","broker":"connected","auth_required":true,"runs_in_memory":0}
 ```
+
+`broker` 가 `disconnected` 면 Runtime 이 실행 메시지를 받지 못한다. Runtime 은 브로커가 없어도 뜨고, 5초마다 다시 붙는다.
 
 ---
 
@@ -123,7 +141,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | --- | --- | --- | --- |
 | ① 인덱싱 | 에이전트가 마켓에 공개될 때 | 추천 (8100) | `POST /v1/index/agents` |
 | ② 추천 | 사용자가 랜딩에 자연어를 입력할 때 | 추천 (8100) | `POST /v1/recommend` |
-| **③ 실행** | 사용자가 실행 버튼을 누를 때 · **판매자가 테스트 실행을 누를 때** | **실행 엔진 (8000)** | **`POST /v1/runs`** (`mode=run` · `mode=test`) |
+| **③ 실행** | 사용자가 실행 버튼을 누를 때 · **판매자가 테스트 실행을 누를 때** | **실행 엔진 (8000)** | **SubmitRun 메시지** (`mode=run` · `mode=test`, §4) |
 
 **이 문서는 ③만 다룬다.** ①②는 [`recommend-api.md`](recommend-api.md)에 있고, 서로 다른 컨테이너라 독립적이다. 추천을 붙이지 않아도 실행 파이프라인은 완전히 동작한다.
 
@@ -131,56 +149,267 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 | 항목 | 실제 담당 | 이유 |
 | --- | --- | --- |
-| 프롬프트 저장 · 조회 | 백엔드 DB | Runtime은 실행 시점에 요청으로 받는다 |
+| 프롬프트 저장 · 조회 | 백엔드 DB | Runtime은 실행 시점에 메시지로 받는다 |
 | 노드 소유권 검증 (버전 확정 가능 여부) | 백엔드 | 계정과 소유권 정보는 백엔드에 있다 |
 | **실행 단가 · 견적 금액 · ABC 환산 · 등급** | **백엔드** | Runtime은 토큰 · USD · "어느 노드가 도는가"까지만 준다 |
 | ABC 차감 · 적립 · 환원 | 백엔드 | 장부는 전부 백엔드 몫이다 |
 | 실행 이력 저장 | 백엔드 DB | Runtime은 메모리에만 두고 재시작하면 잊는다 |
-| 결과물 보관 · 다운로드 URL 발급 | 백엔드 스토리지 | Runtime의 `out/`은 임시 폴더다 |
+| 결과물 보관 · 다운로드 URL 발급 | 백엔드 스토리지 | Runtime은 공유 `results` 볼륨에 써 두기만 한다(§4.5). 보관 기한이 지나면 지운다 |
 | 마켓 키워드 검색 · 필터 | 백엔드 DB | 추천(②)과 별개 기능이다 |
 | 테스트 실행 횟수 · 크레딧 한도 | 백엔드 접수 단계 | Runtime은 제한하지 않는다 |
 
 ---
 
-## 4. 전체 흐름
+## 4. 전체 흐름 — 실행은 메시지로 (v2.3)
 
 ```
- 사용자        프론트           백엔드                      AI Runtime          Gemini
-  │  입력 폼 · 파일 │                │                          │                  │
-  │  [실행] ──────▶│                │                          │                  │
-  │               │ ① 실행 요청 ───▶│                          │                  │
-  │               │                │ ② 워크플로우 DB 조회       │                  │
-  │               │                │ ③ 선차감 (mode=run 만)    │                  │
-  │               │                │ ④ POST /v1/runs ────────▶│                  │
-  │               │                │◀── 202 {run_id} 즉시 ────┤                  │
-  │               │◀── run_id ─────┤                          │ 백그라운드 시작   │
-  │◀ 진행 화면 ────┤                │                          │ ⑤ 사용자 입력 폼 검증 │
-  │               │                │ ⑥ GET /v1/runs/{id}      │ ⑥ 노드 실행 ────▶│
-  │               │  진행 표시      ├─── 2초마다 폴링 ────────▶│    출력 검증 ◀───┤
-  │◀ 1/2 완료 ─────┤◀── SSE/폴링 ───┤◀ {progress, nodes} ──────┤ ⑦ 앞 결과 전체 → 다음 노드 ▶│
-  │               │                │ ⑧ 노드 성공 시 적립       │                  │
-  │               │                │ ⑨ GET .../artifact ─────▶│ ⑨ 봉투 조립       │
-  │               │                │ ⑩ GET .../pdf ──────────▶│ ⑩ 문서 렌더 → PDF │
-  │◀ 다운로드 ─────┤◀── 결과 URL ───┤ 스토리지 저장             │                  │
+ 사용자 · 프론트        백엔드                          RabbitMQ                          AI Runtime
+  ① [실행] ─────────▶ ② 선차감 · QUEUED · outbox (한 트랜잭션)
+  ◀───── 202 ────────┤
+                     ③ 디스패처 ── SubmitRun ──▶ abc.runs.submit ── prefetch ──▶ ④ 검사 → accepted
+                        confirm 뒤 run_id 기록                                    ⑤ 노드 실행 ◀──▶ Gemini
+  ◀── SSE ── ⑥ 진행 중계 ◀──────── abc.events.backend ◀── accepted · progress ───┤
+                                                                                 ⑦ results/<id>/ 에 결과물
+             ⑧ 닫기 · 정산 · 환불 ◀── abc.events.backend ◀── succeeded · failed · rejected
+  ◀── 결과 URL ── ⑨ results/<id>/ 의 결과물을 옮겨 보관
 ```
 
-### 왜 202 + 폴링인가 — 그리고 왜 큐를 쓰지 않는가
+| 단계 | 하는 일 |
+| --- | --- |
+| ① ~ ② 접수 | 백엔드는 선차감 · `QUEUED` · outbox(보낼 SubmitRun)를 **한 트랜잭션**으로 쓰고 202 를 준다. 엔진도 브로커도 부르지 않는다 — 브로커가 죽어 있어도 접수는 된다 |
+| ③ 넘기기 | 디스패처가 커밋 직후 한 번, 그 뒤 5초마다 넘기지 않은 실행을 발행한다. publisher confirm 을 받으면 `run_id`(= 실행 번호)를 적는다. 10분이 지나도록 넘기지 못하면 버리고(`ABC_RUNTIME_UNREACHABLE`, platform) 전액 돌려준다 |
+| ④ ~ ⑤ 실행 | Runtime 은 큐에서 꺼내 검사하고(걸리면 `rejected` 하나로 끝난다) `accepted` 를 낸 뒤 돌린다. 동시에 도는 실행 수는 prefetch(`MAX_ACTIVE_RUNS`, 기본 4)다 |
+| ⑥ 진행 | 실행 시작 · 노드 시작 · 성공 · 실패마다 `progress` 가 온다. 백엔드는 snapshot 으로 진행 상황을 만들어 SSE 로 중계한다 |
+| ⑦ ~ ⑨ 끝 | Runtime 은 결과물을 결과 볼륨에 다 쓴 뒤 `succeeded` 를 낸다. 백엔드는 기존 멱등 닫기로 정산 · 환불하고, 볼륨의 결과물을 자기 스토리지로 옮긴다 |
 
-노드 하나가 평균 10 ~ 25초다. 노드 3개면 60초를 넘겨 nginx와 로드밸런서 기본 타임아웃에 걸린다. 동기로 기다리면 연결이 끊기는 순간 이미 지불한 LLM 비용과 실행이 통째로 날아간다. **그래서 접수 즉시 `run_id`를 주고 진행 상황은 조회로 가져간다.**
+**상태는 이벤트 `type` 으로 정한다** — `accepted` · `progress` → RUNNING, `succeeded` → SUCCEEDED, `failed` · `rejected` → FAILED. snapshot 은 진행률 · 실패 사유 · 정산 근거로 읽는다.
 
-메시지 큐로 바꾸지 않는 이유는 셋이다.
+**감시가 안전망이다.** `accepted` 뒤 마지막 이벤트에서 기한(단계 수 × 60초 + 60초)이 지나도록 이벤트가 없으면 백엔드가 `GET /v1/runs/{id}` 로 한 번 묻는다(§4.9). `accepted` 전의 대기는 묻지 않는다 — TTL 과 dead letter 가 맡는다.
 
-1. **정산이 중복된다.** 큐는 재배달이 기본이라 컨슈머가 죽으면 같은 작업이 다시 오고, 같은 실행이 두 번 돌아 LLM 비용과 정산이 두 번 잡힌다(REL-005). 막으려면 실행 단위 멱등 키가 필요한데 Runtime 상태는 메모리라 둘 곳이 없다.
-2. **접수 시점의 동기 검증이 사라진다.** 지금은 `POST /v1/runs`가 `INVALID_WORKFLOW` · `FILE_TOO_LARGE` · 401을 즉시 돌려준다. 큐에 넣으면 전부 비동기 오류가 되어 백엔드의 접수 응답과 선차감 시점을 다시 설계해야 한다.
-3. **얻는 것이 폴링 루프 제거 하나뿐이다.** 노드가 10 ~ 25초라 2초 폴링이 더하는 지연은 10% 안팎이다.
+### 왜 메시지 큐인가 — 10-16 결정
 
-**결과물도 Runtime이 스토리지에 직접 쓰지 않는다.** 백엔드가 `/artifact` · `/pdf`로 받아 자기 스토리지에 저장한다.
+> 09-19 에 "HTTP 202 + 폴링, 큐는 쓰지 않는다" 로 정했고, 10-15 에 `client_run_id` · 동시 실행 상한 · 복구 스케줄러로 보강했다. 10-16 에 RabbitMQ 로 옮겼고 구현이 끝났다(운영 배포 전). 그때의 판단과 버린 대안(DB 큐 + 콜백 + 대조)은 [`docs/adr/0001-execution-messaging-rabbitmq.md`](../../docs/adr/0001-execution-messaging-rabbitmq.md) 에 남겼다.
+
+동기로 기다리지 않는 것은 그대로다. 노드가 15 ~ 35초라 몇 개만 이어도 nginx · 로드밸런서 타임아웃을 넘긴다. 바뀐 것은 **접수와 결과 전달의 길**이다.
+
+| 202 + 폴링에 남아 있던 것 | 큐로 바뀐 것 |
+| --- | --- |
+| 실행 요청이 성공하려면 그 순간 Runtime 이 살아 있고 자리가 있어야 했다(502 · 503 `ENGINE_BUSY`) | 접수는 DB 에만 쓴다. Runtime 이 죽거나 꽉 차도 실행은 큐에서 기다린다 |
+| 진행이 최대 2초 늦고, 실행 수만큼 조회가 반복됐다 | 진행이 이벤트로 바로 온다. 조회는 이벤트가 끊긴 실행만 |
+| Runtime 이 실행 도중 죽으면 환불(`ABC_RUNTIME_LOST`)로 끝났다 | ack 전이면 다시 배달되어 **한 번 더 돈다.** 두 번째도 끝내지 못하면 dead letter → 환불 |
+| 백엔드가 내려간 동안의 결과는 대조가 최대 60초 늦게 메웠다 | 이벤트가 큐에 남는다. 백엔드가 올라오면 그대로 받는다 |
+
+**09-19 에 큐를 쓰지 않은 이유 셋은 이렇게 풀었다.**
+
+1. **재배달로 두 번 돈다** — `execution_id` 가 멱등 키다. 이 프로세스에서 이미 끝났거나 도는 실행은 다시 돌리지 않는다. 다시 도는 것은 ack 전에 Runtime 이 죽었을 때 한 번뿐이고(LLM 비용이 한 번 더 든다), 정산 · 환불은 백엔드 닫기가 멱등이라 두 번 잡히지 않는다.
+2. **접수 시점의 동기 검증이 사라진다** — 받아들였다. 정의 · 입력 · 파일 오류는 실행 전 `rejected` 이벤트로 실행 화면의 실패가 된다(§9.1). 정의 오류는 저장 시점 `validate`(§7.5)가 대부분 거른다. 선차감은 접수 때 그대로 하고, `rejected` 면 전액 돌려준다.
+3. **얻는 것이 폴링 제거뿐이다** — 재배달 · 동시 실행 제한(prefetch) · 대기 한도(TTL) · 실패 격리(dead letter)를 브로커 기능으로 얻는다. 손으로 짜면 그 코드가 곧 작은 브로커가 된다.
+
+**남는 구멍.** Runtime 의 실행 상태는 여전히 메모리라, 완료 이벤트를 보내기 직전에 죽는 경우는 어떤 전송으로도 막지 못한다. 그래서 감시(§4.9)가 남는다.
+
+**결과물도 Runtime이 백엔드 스토리지에 직접 쓰지 않는다.** 공유 `results` 볼륨에 써 두면 백엔드가 읽어 자기 스토리지로 옮긴다(§4.5).
+
+**메시지 계약은 아래 4.1 ~ 4.10 이다.** 백엔드(Spring AMQP)와 Runtime(aio-pika)이 이것 하나를 같이 본다. 코드 주석의 "contract N장" 은 §4.N 이다.
+
+### 4.1 토폴로지
+
+양쪽이 **둘 다 전부** 선언한다(멱등). 먼저 뜬 쪽이 만들고, 늦게 뜬 쪽은 같은 인자로 확인만 한다. 이름 · 인자가 한 글자라도 다르면 브로커가 `PRECONDITION_FAILED` 로 채널을 닫는다.
+
+| 종류 | 이름 | 타입 / 인자 | 묶임 |
+| --- | --- | --- | --- |
+| exchange | `abc.runs` | direct, durable | |
+| queue | `abc.runs.submit` | durable, `x-queue-type=quorum`, `x-message-ttl=600000`(10분), `x-delivery-limit=1`, `x-dead-letter-exchange=abc.runs.dlx` | `abc.runs` ← routing key `submit` |
+| exchange | `abc.runs.dlx` | fanout, durable | |
+| queue | `abc.runs.dead` | durable, `x-queue-type=quorum`, `x-dead-letter-exchange=abc.runs.dead.dlx` | `abc.runs.dlx` |
+| exchange | `abc.runs.dead.dlx` | fanout, durable | |
+| queue | `abc.runs.parking` | durable, `x-queue-type=quorum` (DLX 없음 — 마지막 칸, 소비자 없음) | `abc.runs.dead.dlx` |
+| exchange | `abc.control` | fanout, durable | |
+| queue | (Runtime 마다) `amq_<hex>` | exclusive, auto-delete | `abc.control` |
+| exchange | `abc.events` | topic, durable | |
+| queue | `abc.events.backend` | durable, `x-queue-type=quorum`, `x-single-active-consumer=true`, `x-dead-letter-exchange=abc.events.dlx` | `abc.events` ← `run.#` |
+| exchange | `abc.events.dlx` | fanout, durable | |
+| queue | `abc.events.backend.dlq` | durable, `x-queue-type=quorum` | `abc.events.dlx` |
+
+- 숫자 인자는 정수(int/long)로 보낸다. 문자열 `"600000"` 은 다른 인자로 취급된다.
+- `x-delivery-limit=1` 은 **처음 배달 + 재배달 1번 = 최대 두 번 실행**이다. 두 번째 배달마저 끝내지 못하면 `abc.runs.dlx` 로 간다. 무엇을 배달로 세는지는 §4.7.
+- TTL 은 처음 큐에 들어간 시각부터 잰다. 재배달로 돌아온 메시지도 10분을 넘겼으면 곧바로 만료된다.
+- **control 큐는 Runtime 만 선언하고, 이름도 Runtime(aio-pika)이 짓는다**(`amq_<hex>`). 브로커가 짓게 두면 연결이 끊겼다 다시 붙을 때 같은 이름으로 되살릴 수 없어서다. exclusive · auto-delete 라 Runtime 이 내려가면 함께 사라진다.
+- `abc.events.backend` 는 단일 활성 컨슈머라 이벤트가 보낸 순서대로 온다.
+
+### 4.2 공통 메시지 속성
+
+- 본문은 UTF-8 JSON. `content_type=application/json`, `delivery_mode=2`(persistent)
+- `type` 속성: `SubmitRun` · `RunEvent` · `CancelRun`
+- `message_id`: SubmitRun 은 `execution_id`, RunEvent 는 `<execution_id>:<attempt>:<seq>`, CancelRun 은 `cancel:<execution_id>`
+- 시각은 ISO-8601 UTC 문자열(`2026-10-16T05:00:00Z`). 칸 이름은 snake_case
+- 받는 쪽은 모르는 칸을 무시한다
+
+### 4.3 SubmitRun — 백엔드 → `abc.runs` / `submit`
+
+```jsonc
+{
+  "execution_id": "6f1c2a9e-0b7d-4c1e-9a53-2f8e1d4c7b10",  // 멱등 키 = Runtime 의 run_id. ^[A-Za-z0-9-]{1,64}$
+  "mode": "run",                                         // "run" | "test"
+  "workflow": { /* §5 워크플로우 객체. 문자열이 아니라 객체 */ },
+  "input": { "brand_name": "초록소반", "category": "간편식" },  // 진입 노드 입력. 없으면 null
+  "comment": "…",                                        // 없으면 null
+  "mock": false,
+  "files": ["executions/6f1c2a9e-…/input.pdf"],           // 사용자 파일. 없으면 []
+  "ref_files": { "n1": ["nodes/<nodeId>/<refId>.pdf"] },  // 노드별 참고 자료. 없으면 {}
+  "submitted_at": "2026-10-16T05:00:00Z"
+}
+```
+
+| 칸 | 타입 | 설명 |
+| --- | --- | --- |
+| `execution_id` | string | 실행(`mode=run`)은 백엔드 실행 번호, 판매자 테스트(`mode=test`)는 테스트 실행 번호. 둘 다 UUID 라 겹치지 않는다. **멱등 키이자 Runtime 의 `run_id`** |
+| `mode` | string | **`run` 또는 `test`**(대소문자 구분). `test`는 판매자 사전 테스트 — 실행 경로 · 토큰 · USD · 결과물 전부 같고 **`contribution`만 비어 온다.** 횟수 · 크레딧 제한은 백엔드가 건다 |
+| `workflow` | object | §5의 워크플로우 정의 |
+| `input` | object · null | 진입 노드의 사용자 입력(폼에서 받은 값). 진입 노드에 `input.example`이 있으면 그 모양인지 검사한다(빠진 필수 키 · 다른 타입 → 수요자 책임) |
+| `comment` | string · null | 사용자가 입력한 자연어 코멘트 |
+| `mock` | boolean | `true`면 LLM을 호출하지 않는다. `mode`와 독립(형식 확인용 조합 가능) |
+| `files` | string[] | 사용자가 실행할 때 올린 파일. **표**(`xlsx · xls · csv`) → 마크다운 표, **글**(`txt · md`) → 본문, **PDF · 사진**(`png · jpg · jpeg · webp`) → Gemini inline 첨부. 합계 10MB. **모든 LLM 노드**에 `## 올린 파일` 절(+첨부)로 간다 — 입력란 값과 함께 간다 |
+| `ref_files` | { 노드 id: string[] } | **판매자가 노드에 붙여 둔 참고 자료.** 형식 규칙은 `files`와 같다(표 · 글 · PDF · 사진), 노드당 합계 10MB, **그 노드에만** 간다. 전개된 에이전트 안 노드는 `a1.n1`처럼 접두 id로 |
+| `submitted_at` | string | 백엔드가 SubmitRun 을 만든 시각 |
+
+백엔드는 칸을 늘 싣는다 — 값이 없으면 `input` · `comment` 는 `null`, `files` 는 `[]`, `ref_files` 는 `{}`.
+
+**파일은 경로로만 오간다(claim check).** `files` · `ref_files` 는 **file-store 볼륨 루트 기준 상대 경로**다. 백엔드가 이 볼륨에 쓰고, Runtime 은 같은 볼륨을 읽기 전용으로 마운트한다. 두 쪽의 마운트 위치는 달라도 된다(각자 `FILE_STORE_ROOT`). Runtime 은 파일을 복사하지 않고, 실행이 끝나도 지우지 않는다. 절대 경로 · `..` 가 든 경로(풀어서 안쪽이어도) · 마운트 밖으로 풀리는 경로 · **없거나 일반 파일이 아닌 경로**는 실행 전에 `rejected`(`FILE_PATH_REJECTED`, platform)다.
+
+**참고 자료(`ref_files`)와 사용자 파일(`files`)은 다르다.** 참고 자료는 공급자가 노드를 만들 때 붙여 둔 채점 기준표 · 양식이고, 백엔드가 원본을 보관했다가 실행 때마다 함께 보낸다. 형식은 확장자로 판정한다 — `pdf · png · jpg · jpeg · webp · txt · md · csv · xlsx · xls`, **노드당 합계 10MB**. 어기면 그 노드가 `REF_FILE_REJECTED` · 공급자 책임으로 실패한다. 사용자 파일이 규칙을 어기면 실행 전에 `rejected`(`UNSUPPORTED_FILE_TYPE` · `FILE_TOO_LARGE`)이고, 실행 중 읽지 못하면 `FILE_PARSE_FAILED` · 수요자 책임이다.
+
+Runtime은 `txt · md`를 본문 그대로, `xlsx · xls · csv`는 **마크다운 표**로 `## 참고 자료`(사용자 파일은 `## 올린 파일`) 절 아래 `### 파일명`으로 넣고, **PDF · 사진은 Gemini에 inline 첨부**로 함께 보낸다(본문에는 "PDF 첨부 NKB" · "사진 첨부 NKB"만 적는다). 파일 크기는 입력 상한(§5.4)에 포함된다 — 텍스트는 글자 수 그대로, PDF는 바이트 × 0.25자, 사진은 장당 1,000자로 추정. 프롬프트에서 참고 자료를 가리키려면 "참고 자료의 체크리스트를 기준으로"처럼 절 이름으로 부르면 된다.
+
+### 4.4 RunEvent — Runtime → `abc.events` / `run.<type>`
+
+```jsonc
+{
+  "execution_id": "6f1c2a9e-…",
+  "mode": "run",                 // SubmitRun 의 mode 그대로. 백엔드가 실행 · 판매자 테스트로 가른다
+  "attempt": 1,                  // 몇 번째 배달인가. x-delivery-count 헤더(없으면 0) + 1
+  "seq": 3,                      // 같은 (execution_id, attempt) 안에서 1 부터 1씩 는다
+  "type": "progress",            // accepted | progress | succeeded | failed | rejected
+  "occurred_at": "2026-10-16T05:00:03Z",
+  "snapshot": { /* GET /v1/runs/{id} 응답과 같은 모양(§7.2). succeeded · failed 는 ?include_node_output=true 모양 */ },
+  "artifact": null,              // succeeded 에만. GET /v1/runs/{id}/artifact 의 봉투(§6.2)와 같은 객체
+  "result_files": null           // succeeded 에만. 결과 볼륨 루트 기준 상대 경로(§4.5)
+}
+```
+
+| type | 언제 | 백엔드가 보는 상태 |
+| --- | --- | --- |
+| `accepted` | Runtime 이 SubmitRun 을 검사하고 실행을 시작하기로 했을 때. 그 배달의 첫 이벤트(seq=1) | RUNNING |
+| `progress` | 실행 시작, 노드 시작 · 성공 · 실패마다 | RUNNING |
+| `succeeded` | 실행이 성공으로 끝났고 결과물 파일을 다 쓴 뒤 | SUCCEEDED |
+| `failed` | 실행이 실패로 끝났을 때(취소 포함) | FAILED |
+| `rejected` | 실행 전에 거절했을 때 — 정의 · 입력 · 경로 · 형식 오류(§9.1). `accepted` 없이 이것 하나만 온다 | FAILED |
+
+- 백엔드는 상태를 **`type` 으로 정한다.** snapshot 은 진행률 · 단계 · 실패 사유 · 정산 근거로 읽는다. 완료 이벤트의 snapshot 원문이 그대로 정산 근거로 남는다.
+- `rejected` 의 snapshot 은 `status:"failed"`, `nodes:[]`, `error:{code, …}`(정의 오류면 `error.errors[]` 에 §7.5 코드), `failure:{node_id:null, error_code:<code>, fault:<§9.1 의 fault>, affects_success_rate:false}` 를 갖는다.
+- **`seq` 는 같은 배달 안에서 이어 센다.** 발행에 실패한 것도 센다(confirm 만 못 받고 나갔을 수 있다). 같은 배달(attempt)에서 마지막 이벤트를 다시 낼 때도 그 배달의 seq 에 이어 붙인다 — 1 로 되돌리면 아래 필터가 버린다. 새 배달(attempt 가 오름)이면 1 부터다.
+- 백엔드는 `(attempt, seq)` 가 이미 적용한 것보다 크지 않은 이벤트를 버린다(사전식 비교 — attempt 가 크면 seq 가 작아도 새것). 이미 끝난 실행 · 모르는 `execution_id` 의 이벤트는 아무것도 바꾸지 않고 ack 한다.
+
+### 4.5 결과 볼륨
+
+Runtime 은 `succeeded` 를 보내기 **전에** 결과 볼륨 루트(`RESULTS_ROOT`) 아래에 쓴다.
+
+```
+<RESULTS_ROOT>/<execution_id>/artifact.json   봉투(= artifact 칸과 같은 내용). 성공이면 항상
+<RESULTS_ROOT>/<execution_id>/report.pdf      PDF 를 만들었을 때만
+<RESULTS_ROOT>/<execution_id>/report.html     HTML 을 만들었을 때만
+```
+
+`result_files` 는 `{"json": "<id>/artifact.json", "pdf": "<id>/report.pdf", "html": "<id>/report.html"}` 에서 **있는 파일만** 싣는다.
+백엔드는 이벤트의 경로를 믿지 않고 자기 실행 번호로 위 고정 위치를 읽는다(경로 조작 여지가 없다). 감시가 HTTP 응답으로 닫을 때도 같은 위치를 읽는다.
+결과 볼륨에 쓰지 못하면 Runtime 은 `failed`(`RUNTIME_INTERNAL`, platform)로 끝낸다. 보관 기한(`RUN_RETENTION_HOURS`, 기본 24시간)이 지나면 Runtime 이 `<execution_id>/` 를 지운다.
+
+### 4.6 CancelRun — 백엔드 → `abc.control` (fanout)
+
+```json
+{ "execution_id": "6f1c2a9e-…", "requested_at": "2026-10-16T05:10:00Z" }
+```
+
+Runtime 마다 자기 control 큐로 받는다. 돌고 있으면 다음 노드부터 돌지 않고 `failed`(`CANCELLED`, platform)로 끝낸다. 지금 부르는 LLM 호출은 끝까지 간다.
+아직 받지 않은 실행이면 번호를 기억해 두었다가 그 SubmitRun 이 오면 **돌리지 않고 이벤트 없이 ack** 한다. 기억은 실행 보관 기한만큼이다.
+백엔드는 감시가 실행을 끊을 때(STALLED)와 넘기지 못한 실행을 버릴 때 보낸다.
+
+### 4.7 ack 규칙
+
+| 누가 | 무엇을 | 언제 ack |
+| --- | --- | --- |
+| Runtime | SubmitRun | 마지막 이벤트(`succeeded` · `failed` · `rejected`)가 브로커에 **confirm 된 뒤**. 발행이 실패하면 **1초 쉬고** `nack(requeue=true)` — 다시 오면 기록해 둔 마지막 이벤트만 다시 낸다 |
+| Runtime | SubmitRun — 같은 실행이 이 프로세스에서 이미 끝남 | 다시 돌리지 않고(모델을 부르지 않음) 마지막 이벤트를 이번 배달의 attempt 로 다시 발행(confirm)한 뒤 ack |
+| Runtime | SubmitRun — 같은 실행이 이 프로세스에서 아직 도는 중 | 두 번째로 돌리지 않는다. 도는 실행이 끝날 때 새 배달도 함께 ack |
+| Runtime | SubmitRun — 받기 전에 취소된 실행 | 돌리지 않고 이벤트 없이 ack |
+| Runtime | SubmitRun — JSON 이 아니거나 `execution_id` 가 없거나 형식이 틀림 | 이벤트 없이 `reject(requeue=false)` → dead letter |
+| 백엔드 | RunEvent | DB 커밋 뒤. 처리에 실패하면 **처음 1번 + 재시도 3번 = 4번** 처리한 뒤 거절 → `abc.events.backend.dlq`. 읽을 수 없는 메시지(JSON 이 아님 · `execution_id` · `type` · `attempt` · `seq` 없음)는 재시도 없이 곧바로 DLQ |
+| 백엔드 | `abc.runs.dead` | 실행을 닫은 뒤. 처리에 실패하면 4번(처음 + 재시도 3) 처리한 뒤 거절 → `abc.runs.parking`. 본문이 SubmitRun 으로 읽히지 않으면 경고만 남기고 ack |
+
+**무엇을 배달로 세나.** RabbitMQ 4.x 는 `nack(requeue=true)` 를 `x-delivery-limit` 에 세지 않는다. ack 없이 채널이 닫힐 때(= Runtime 프로세스가 죽을 때)만 센다. 그래서
+
+- Runtime 이 실행 도중 죽으면 다시 배달되어(attempt 2, seq 1 부터) **처음부터 한 번 더 돈다.** 두 번째도 끝내지 못하면 dead letter(`delivery_limit`)다.
+- 마지막 이벤트 발행만 계속 실패하면 한도가 아니라 **TTL(10분)** 에 걸려 dead letter(`expired`)로 가고 환불된다. nack 로 돌아온 배달은 attempt 가 그대로라 seq 를 이어 센다(§4.4).
+
+`abc.events.backend.dlq` 는 사람이 확인한다. 그 실행은 감시(§4.9)가 닫는다.
+
+### 4.8 dead letter → 실패 코드 (백엔드)
+
+`abc.runs.dead` 메시지는 본문이 SubmitRun 그대로이고, 브로커가 `x-first-death-reason` 헤더를 붙인다.
+
+| `x-first-death-reason` | 실패 코드 | 책임 |
+| --- | --- | --- |
+| `expired` — 큐에서 10분을 넘겨 기다렸다 | `ABC_QUEUE_EXPIRED` | platform |
+| `delivery_limit` — 두 번 배달하고도 끝내지 못했다 | `ABC_RUNTIME_RETRY_EXHAUSTED` | platform |
+| 그 밖 · 없음 (Runtime 이 읽지 못해 거절한 메시지 등) | `ABC_RUNTIME_DEAD_LETTERED` | platform |
+
+어느 것이든 플랫폼 탓이라 사용자는 예치를 전액 돌려받는다(§8.5 `platform`). 이미 끝난 실행이면 아무것도 하지 않는다. 판매자 테스트(`mode=test`)도 같은 코드로 닫는다.
+
+백엔드가 이 처리에 끝내 실패한 메시지는 `abc.runs.parking` 에 원래 본문 그대로 남는다(사람이 확인). 그래도 돈은 묶이지 않는다 —
+백엔드 복구 스케줄러가 넘긴 지 10분 + 유예(기본 5분)가 지나도록 시작(`accepted`)하지 않은 실행을 같은 `ABC_QUEUE_EXPIRED` 로 닫고 환불한다.
+Runtime 쪽에서 바뀌는 것은 §4.1 의 선언뿐이다.
+
+### 4.9 HTTP 에 남는 것 — 감시 · 대조 · 근거
+
+`POST /v1/runs` 와 503 `ENGINE_BUSY` 는 없어졌다. 아래는 남는다.
+
+| HTTP | 누가 쓰나 |
+| --- | --- |
+| `GET /v1/runs/{execution_id}` (`?include_node_output=true`) — `run_id` 가 곧 `execution_id` | 백엔드 감시의 대조 · 정산 근거 백필 |
+| `GET /v1/runs/{id}/artifact` · `/html` · `/pdf` | 판매자 테스트의 기한 넘긴 대조 · 운영 |
+| `POST /v1/runs/{id}/cancel` | 운영 도구. 백엔드는 CancelRun(§4.6)을 쓴다 |
+| `GET /v1/health` · `GET /v1/workflows*` · `POST /v1/workflows/validate` · `POST /v1/templates/convert` | 그대로 |
+
+**감시(백엔드).** RUNNING 실행마다 마지막 이벤트 시각을 들고, 10초마다 기한(단계 수 × `per-step` 60초 + `grace` 60초)이 지난 실행만 `GET /v1/runs/{id}` 로 한 번 묻는다.
+
+| 엔진 답 | 백엔드 처리 |
+| --- | --- |
+| 끝났다(`succeeded` · `failed`) | 그 응답으로 닫고, 결과 볼륨에서 결과물을 옮긴다 |
+| 아직 돌거나 기다린다 | CancelRun 을 걸고 `ABC_RUNTIME_STALLED`(platform)로 닫는다 |
+| 404 `RUN_NOT_FOUND` · 닿지 않음 | **곧바로 닫지 않는다.** 넘긴 시각에서 큐 대기 한도(10분) + grace 가 지나기 전이면 기한을 다시 건다 — 재배달 · TTL · dead letter 가 닫을 몫이다. 지났으면 `RUN_NOT_FOUND` 는 `ABC_RUNTIME_LOST`, 닿지 않음은 `ABC_RUNTIME_STALLED`(취소도 건다)로 닫는다 |
+
+`QUEUED`(아직 `accepted` 전) 실행은 묻지 않는다. 판매자 테스트는 판매자가 조회할 때 접수에서 기한(한 단계)이 지났으면 한 번 묻는다.
+
+### 4.10 접속 설정 (환경 변수, 양쪽 같은 이름)
+
+| 변수 | 기본값 | 쓰는 쪽 | 운영 (compose) |
+| --- | --- | --- | --- |
+| `RABBITMQ_HOST` | `localhost` | 둘 다 | `ai-block-clock-rabbitmq` |
+| `RABBITMQ_PORT` | `5672` | 둘 다 | `5672` |
+| `RABBITMQ_USERNAME` · `RABBITMQ_PASSWORD` | `guest` · `guest` | 둘 다 · 브로커 계정 | GitLab CI/CD Variables. **양쪽이 같은 값** |
+| `RABBITMQ_VHOST` | `/` | 둘 다 | `/` |
+| `FILE_STORE_ROOT` | 백엔드 `/var/lib/ai-block-clock/files`, Runtime `<프로젝트>/file-store` | 둘 다 | `/var/lib/ai-block-clock/files` (Runtime 은 읽기 전용) |
+| `RESULTS_ROOT` | 백엔드 `/var/lib/ai-block-clock/results`, Runtime `<프로젝트>/results` | 둘 다 | `/var/lib/ai-block-clock/results` |
+| `MAX_ACTIVE_RUNS` | `4` | Runtime | prefetch = 동시에 도는 실행 수 |
+| `BROKER_ENABLED` | `true` | Runtime | `false` 면 브로커에 붙지 않는다(HTTP 조회만 쓰는 로컬 개발 · 테스트) |
+| `AI_MESSAGING_CONFIRM_TIMEOUT` | `5s` | 백엔드 | 발행 뒤 confirm 을 기다리는 한도. 넘기면 발행 실패로 보고 다음 차례에 다시 보낸다 |
+
+두 볼륨은 백엔드 compose 가 이름을 고정해 만든다(`ai-block-clock_file-store` · `ai-block-clock_results`). Runtime compose 는 둘을 `external` 로 마운트하므로 **백엔드를 먼저 배포한다.**
 
 ---
 
 ## 5. 워크플로우 JSON — v2.1 형식
 
-백엔드가 실행 요청에 담아 보내는 JSON이다. **프론트 캔버스가 만들어 백엔드 DB에 저장할 형식이기도 하다.**
+백엔드가 SubmitRun 의 `workflow` 칸(§4.3)에 담아 보내는 JSON이다. **프론트 캔버스가 만들어 백엔드 DB에 저장할 형식이기도 하다.**
 
 ### 5.1 전체 예시 — 판매자 한 명의 에이전트 (분할 · 병합 · 분기 · 합류)
 
@@ -256,7 +485,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 | `prompt` | 필수 | 판매자가 쓴 프롬프트 원문 |
 | **`output`** | **필수** | 이 노드가 내는 형식. `{ "kind": "text" }` 또는 `{ "kind": "json", "example": { … } }` (§5.5) |
 | **`input`** | 선택 · **진입 노드만** | `{ "example": { … } }`. 사용자 입력 예시 — 키가 입력란, 값을 `null`로 두면 선택 항목. 없으면 자유 입력(코멘트 + 파일) |
-| `ref_files` | 선택 | 판매자가 노드에 붙여 둔 참고 자료의 **파일명 목록**(표시용). 실물은 §7.1의 폼 필드로 보낸다. 전개된 에이전트 안 노드는 `a1.n1`처럼 **접두 id**로 |
+| `ref_files` | 선택 | 판매자가 노드에 붙여 둔 참고 자료의 **파일명 목록**(표시용). 실물은 SubmitRun 의 `ref_files` 경로로 보낸다(§4.3). 전개된 에이전트 안 노드는 `a1.n1`처럼 **접두 id**로 |
 | `owner_id` | 권고 | 이 노드의 원작자. 정산 귀속 키 (§8.2) |
 | `agent_id` | 선택 | 에이전트 단위로 묶어 돌려받고 싶을 때 (에이전트 전개 시 Runtime이 채운다) |
 
@@ -323,7 +552,7 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 **입력 상한.** 앞 결과 직렬화 + 참고 파일 텍스트 추정치가 `MAX_INPUT_CHARS`(기본 400,000자 ≈ 100k 토큰)를 넘으면 그 노드는 `INPUT_TOO_LARGE`로 실패한다 — **platform 책임** · 전액 환원. 요약이나 잘라내기는 하지 않는다. 실측 노드당 약 6k 토큰이라 8노드 체인에서도 여유가 크다.
 
-**첫 노드**는 `edges`의 `to`에 없는 노드다. 사용자 입력(§7.1)을 받는다.
+**첫 노드**는 `edges`의 `to`에 없는 노드다. 사용자 입력(§4.3 `input` · `files`)을 받는다.
 
 #### 분기 조건
 
@@ -396,9 +625,9 @@ curl -s http://ai-block-clock-ai-runtime:8000/v1/health
 
 **이 규칙을 백엔드가 복제하지 않아도 된다.** `POST /v1/workflows/validate`(§7.5)를 저장 버튼에서 부르면 된다.
 
-### 5.7 요청 시점에 검사하는 것
+### 5.7 실행 전에 검사하는 것
 
-어기면 `400 INVALID_WORKFLOW`가 나고 `errors` 배열에 어느 노드의 무엇이 문제인지 담긴다.
+어기면 실행하지 않고 `rejected`(`INVALID_WORKFLOW`) 하나로 끝난다. snapshot 의 `error.errors` 배열에 어느 노드의 무엇이 문제인지 담긴다(§4.4). 저장 시점 `validate`(§7.5)와 같은 검사다.
 
 - `nodes`는 1개 이상의 배열, `id`는 비어 있지 않고 중복되지 않음
 - `type: "llm"`인 노드는 `prompt`가 비어 있지 않음
@@ -426,7 +655,7 @@ v2.0까지 있던 견본 11종(`common.*` · `biz.*`)은 09-26에 없앴다. 판
 ```jsonc
 {
   "a2a_version": "2.0",
-  "run_id": "20260925-100451-688",
+  "run_id": "6f1c2a9e-0b7d-4c1e-9a53-2f8e1d4c7b10",
   "node_id": "n1",
   "produced_at": "2026-09-25T01:04:51Z",
   "schema_id": "json",                           // "json" 또는 "text". 모양은 노드의 output.example
@@ -446,56 +675,18 @@ v2.0까지 있던 견본 11종(`common.*` · `biz.*`)은 09-26에 없앴다. 판
 
 ## 7. 엔드포인트
 
-### 7.1 `POST /v1/runs` — 실행 요청
+### 7.1 실행 요청 — 메시지로 옮겼다 (v2.3)
 
-**형식은 `multipart/form-data`다.** JSON 본문이 아니다. 파일을 함께 보내기 때문이다.
-
-| 필드 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| `workflow` | string | **필수** | §5의 워크플로우 정의를 **JSON 문자열로** |
-| `input` | string | 선택 | 진입 노드의 사용자 입력을 JSON 문자열로 (폼에서 받은 값). 진입 노드에 `input.example`이 있으면 그 모양인지 검사한다(빠진 필수 키 · 다른 타입 → 수요자 책임) |
-| `comment` | string | 선택 | 사용자가 입력한 자연어 코멘트 |
-| `file` | file · **여러 개** | 선택 | 사용자가 실행할 때 올리는 파일. 같은 이름 `file`로 반복해 보낸다. **표**(`xlsx · xls · csv`) → 마크다운 표, **글**(`txt · md`) → 본문, **PDF · 사진**(`png · jpg · jpeg · webp`) → Gemini inline 첨부. 합계 10MB. **모든 LLM 노드**에 `## 올린 파일` 절(+첨부)로 간다 — 입력란 값을 보냈어도 같이 간다 |
-| `ref_file_<node_id>_<n>` | file | 선택 | **판매자가 노드에 붙여 둔 참고 자료.** 노드 정의의 `ref_files` 순서와 맞춘다. 형식 규칙은 `file`과 같다(표 · 글 · PDF · 사진), 노드당 합계 10MB, **그 노드에만** 간다 |
-| **`mode`** | string | 선택 | **`run`(기본) 또는 `test`.** `test`는 판매자 사전 테스트 — 실행 경로 · 토큰 · USD · 결과물 전부 같고 **`contribution`만 비어 온다.** 횟수 · 크레딧 제한은 백엔드가 건다 |
-| `mock` | boolean | 선택 | `true`면 LLM을 호출하지 않는다. 기본 `false`. `mode`와 독립(형식 확인용 조합 가능) |
-
-**참고 자료(`ref_files`)와 사용자 파일(`file`)은 다르다.** 참고 자료는 공급자가 노드를 만들 때 붙여 둔 채점 기준표 · 양식이고, 백엔드가 원본을 보관했다가 실행 때마다 함께 보낸다. 형식은 확장자로 판정한다 — `pdf · png · jpg · jpeg · webp · txt · md · csv · xlsx · xls`, **노드당 합계 10MB**. 어기면 그 노드가 `REF_FILE_REJECTED` · 공급자 책임으로 실패한다. 사용자 파일이 규칙을 어기면 접수에서 400(`UNSUPPORTED_FILE_TYPE` · `FILE_TOO_LARGE`)이고, 접수를 지나 읽지 못하면 `FILE_PARSE_FAILED` · 수요자 책임이다.
-
-Runtime은 `txt · md`를 본문 그대로, `xlsx · xls · csv`는 **마크다운 표**로 `## 참고 자료`(사용자 파일은 `## 올린 파일`) 절 아래 `### 파일명`으로 넣고, **PDF · 사진은 Gemini에 inline 첨부**로 함께 보낸다(본문에는 "PDF 첨부 NKB" · "사진 첨부 NKB"만 적는다). 파일 크기는 입력 상한(§5.4)에 포함된다 — 텍스트는 글자 수 그대로, PDF는 바이트 × 0.25자, 사진은 장당 1,000자로 추정. 프롬프트에서 참고 자료를 가리키려면 "참고 자료의 체크리스트를 기준으로"처럼 절 이름으로 부르면 된다.
-
-**응답 `202 Accepted`**
-
-```jsonc
-{
-  "run_id": "20260925-100451-688",
-  "status": "queued",
-  "mode": "run",
-  "node_count": 7,
-  "poll_url": "/v1/runs/20260925-100451-688",
-  "poll_interval_ms": 2000
-}
-```
-
-```bash
-TOKEN="<ABC_SERVICE_TOKEN>"
-BASE="http://ai-block-clock-ai-runtime:8000"
-
-curl -X POST $BASE/v1/runs \
-  -H "X-ABC-Service-Token: $TOKEN" \
-  -F "workflow=$(cat workflow.json)" \
-  -F "input=$(cat brief.json)" \
-  -F "mode=test" -F "mock=true"
-```
+`POST /v1/runs` 는 없다. 실행은 백엔드가 **SubmitRun 메시지**로 맡긴다 — 칸 · 파일 규칙 · 예시는 §4.3. 폼 파트(`file` · `ref_file_<node_id>_<n>`)는 file-store 경로(`files` · `ref_files`)로, 멱등 키 `client_run_id` 는 `execution_id` 로 바뀌었다. 202 응답의 `poll_url` · `poll_interval_ms` 도 없다 — 진행은 RunEvent(§4.4)로 온다.
 
 ### 7.2 `GET /v1/runs/{run_id}` — 진행 상황 · 결과 조회
 
-**2초 간격으로 호출한다.** `status`가 `succeeded` 또는 `failed`가 되면 멈춘다.
-쿼리 `include_node_output=true`를 붙이면 노드별 결과 전문(`nodes[].output_payload`)이 함께 온다. 기본은 제외다(응답이 커진다).
+**RunEvent 의 `snapshot` 이 이 응답과 같은 모양이다.** 진행은 이벤트로 오므로 백엔드는 이 API 를 주기적으로 부르지 않는다 — 이벤트가 끊긴 실행의 대조(§4.9) · 정산 근거 백필 · 운영 확인에만 쓴다. `run_id` 는 SubmitRun 의 `execution_id` 다.
+쿼리 `include_node_output=true`를 붙이면 노드별 결과 전문(`nodes[].output_payload`)이 함께 온다. 기본은 제외다(응답이 커진다). 완료 이벤트(`succeeded` · `failed`)의 snapshot 은 이것을 붙인 모양이다.
 
 ```jsonc
 {
-  "run_id": "20260925-100451-688",
+  "run_id": "6f1c2a9e-0b7d-4c1e-9a53-2f8e1d4c7b10",
   "status": "running",                      // queued | running | succeeded | failed
   "mode": "run",                            // run | test
   "workflow": { "id": "brand_agent", "name": "브랜딩 전략 에이전트", "node_count": 7 },
@@ -585,9 +776,9 @@ curl -X POST $BASE/v1/runs \
   "result": {
     "type": "pdf",
     "output": { "kind": "text" },                                          // 종단 노드의 형식
-    "artifact_url": "/v1/runs/20260925-100451-688/artifact",   // 결과 JSON (봉투) — 항상 있다
-    "html_url": "/v1/runs/20260925-100451-688/html",           // 서식을 입힌 HTML (v2.2) — 항상 있다
-    "pdf_url": "/v1/runs/20260925-100451-688/pdf",             // 그 HTML 의 PDF. 실패면 null (실행 실패 아님)
+    "artifact_url": "/v1/runs/6f1c2a9e-…/artifact",   // 결과 JSON (봉투) — 항상 있다
+    "html_url": "/v1/runs/6f1c2a9e-…/html",           // 서식을 입힌 HTML (v2.2) — 항상 있다
+    "pdf_url": "/v1/runs/6f1c2a9e-…/pdf",             // 그 HTML 의 PDF. 실패면 null (실행 실패 아님)
     "template": { "applied": "user", "name": "그린 보고서", "fallback_reason": null,   // user | default
                   "mapping": { "헤드라인": "headline" } }
   }
@@ -598,12 +789,12 @@ curl -X POST $BASE/v1/runs \
 
 종단 노드의 **봉투**(§6.2)를 그대로 돌려준다. `status`가 `succeeded`일 때만. 아직이면 409 `ARTIFACT_NOT_READY`.
 
-**백엔드는 이것도 스토리지에 저장한다.** 글 출력이면 `payload.text`가 본문이다.
+같은 내용이 `succeeded` 이벤트의 `artifact` 칸과 결과 볼륨의 `<execution_id>/artifact.json`(§4.5)으로도 온다. **백엔드는 볼륨에서 읽어 자기 스토리지에 저장한다.** 글 출력이면 `payload.text`가 본문이다.
 
 ### 7.4 `GET /v1/runs/{run_id}/html` · `/pdf` — 서식을 입힌 결과
 
 `/html`은 `text/html`(서식이 입혀진 완결 HTML 문서 — 그대로 화면에 띄우거나 저장), `/pdf`는 `application/pdf`(같은 HTML을 A4로). 아직이면 409 `HTML_NOT_READY` · `PDF_NOT_READY`. PDF는 사용자 서식의 CSS를 다 재현하지 못할 수 있다(단순 HTML→PDF 엔진). 화면 표시는 HTML을, 인쇄 · 다운로드는 PDF를 쓴다.
-Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사라진다. **백엔드 스토리지에 셋(JSON · HTML · PDF)을 저장하고 프론트에는 백엔드가 발급한 URL을 준다.**
+Runtime은 `succeeded` 전에 같은 파일을 결과 볼륨(`report.html` · `report.pdf`, §4.5)에 써 둔다. 보관 기한이 지나면 지운다. **백엔드는 볼륨에서 읽어 자기 스토리지에 저장하고(지금은 JSON · PDF) 프론트에는 백엔드가 발급한 URL을 준다.**
 
 ### 7.5 `POST /v1/workflows/validate` — 저장 시점 검증 + 도는 노드 목록
 
@@ -635,7 +826,7 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 
 **`worst_case_nodes`는 최장 경로가 아니다.** 분할 · 병합이 있으면 여러 노드가 함께 돌기 때문에, 분기 조합마다 "그 경우 실제로 도는 노드"를 구해 **개수가 가장 많은 조합**을 잡는다. 백엔드는 이 목록의 단가 합으로 선차감액을 정한다.
 
-**`errors[].code` — 하나라도 있으면 `valid: false`, 실행 요청은 400 `INVALID_WORKFLOW`**
+**`errors[].code` — 하나라도 있으면 `valid: false`, 실행은 `rejected` · `INVALID_WORKFLOW`(§9.1)**
 
 | code | 뜻 |
 | --- | --- |
@@ -687,7 +878,8 @@ Runtime의 `out/`은 임시 저장소이고 컨테이너를 다시 올리면 사
 
 | 엔드포인트 | 용도 |
 | --- | --- |
-| `GET /v1/health` | 상태 확인. `{ status, auth_required, runs_in_memory }` |
+| `GET /v1/health` | 상태 확인. `{ status, broker, auth_required, runs_in_memory }`. `broker` 는 `connected` · `disconnected` |
+| `POST /v1/runs/{run_id}/cancel` | **운영 도구.** 다음 노드부터 돌지 않고 `failed` · `CANCELLED`(platform)로 끝난다. 지금 부르는 LLM 호출은 끝까지 간다. 끝난 실행이면 `cancel_requested: false`. 백엔드는 이 API 대신 CancelRun 메시지(§4.6)를 쓴다 |
 | `GET /v1/workflows` · `/{id}` | 예시 워크플로우(v2.1 형식). 복사해 테스트용으로 쓴다 |
 
 ---
@@ -727,7 +919,7 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 노드 실패 | 책임에 따라 보류 · 환원 | `failure.fault` + `refund_scope` |
 | 실행 종료 | 미실행 구간 환원 · 정산 확정 · 실측 원가 보정 | `not_executed[]` · `agents[]` · `totals` |
 
-**멱등성은 백엔드가 지킨다.** 폴링은 같은 상태를 여러 번 본다. 이미 적립한 `(run_id, node_id)`를 기록해 두 번 적립하지 않게 한다. **`mode=test`면 `contribution`이 항상 비어 있으므로 적립할 것이 없다.**
+**멱등성은 백엔드가 지킨다.** 같은 상태가 여러 번 온다 — `progress` 마다 스냅샷 전체가 오고, 재배달 · 재발행으로 마지막 이벤트가 다시 올 수 있다. 이미 적립한 `(run_id, node_id)`를 기록해 두 번 적립하지 않게 한다. **`mode=test`면 `contribution`이 항상 비어 있으므로 적립할 것이 없다.**
 
 ### 8.4 `not_executed` — 실행되지 않은 노드
 
@@ -771,29 +963,38 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 
 ## 9. 오류 처리
 
-모든 4xx · 5xx는 아래 형태다.
+HTTP 4xx · 5xx는 아래 형태다. 실행 전 거절은 HTTP 가 아니라 `rejected` 이벤트의 `snapshot.error`(`code` · `message` · `hint` · `fault`, 정의 오류면 `errors[]`)로 온다(§9.1).
 
 ```jsonc
-{ "detail": { "code": "INVALID_WORKFLOW", "message": "워크플로우 정의 오류",
-              "errors": [ { "code": "MISSING_OUTPUT", "node_id": "n1", "message": "output 이 없습니다" } ] } }
+{ "detail": { "code": "INVALID_REQUEST", "message": "workflow 객체가 필요합니다" } }
 ```
 
-`errors[]`의 코드는 §7.5 표와 같다 — 저장 시점 `validate`와 실행 요청이 **같은 검사기**를 쓴다.
+`errors[]`의 코드는 §7.5 표와 같다 — 저장 시점 `validate`와 실행 전 검사가 **같은 검사기**를 쓴다.
 
-### 9.1 요청 단계
+### 9.1 실행 전 — `rejected` 이벤트 · HTTP 오류
+
+**SubmitRun 이 실행 전에 걸리면 `accepted` 없이 `rejected` 하나로 끝난다(§4.4).** 어느 노드도 돌지 않았으므로 백엔드는 선차감을 **전액 돌려준다.** `affects_success_rate` 는 모두 `false` 다.
+
+| code | 의미 | `fault` | 백엔드 처리 |
+| --- | --- | --- | --- |
+| `INVALID_WORKFLOW` | 노드 · 엣지 정의 오류, `workflow` 가 객체가 아님. `error.errors[]`에 §7.5 코드 | `consumer` | 전액 환불 · 사용자에게 안내 |
+| `INVALID_MODE` | `mode`가 `run` · `test`가 아님(대소문자 구분) | `platform` | 전액 환불 · 설정 확인 |
+| `INVALID_INPUT_JSON` | `input`이 객체도 `null`도 아님 | `platform` | 전액 환불 · 직렬화 확인 |
+| `UNSUPPORTED_FILE_TYPE` | 사용자 파일 확장자가 허용 목록 밖(표 · 글 · PDF · 사진만) | `consumer` | 전액 환불 · 사용자에게 안내 |
+| `FILE_TOO_LARGE` | 사용자 파일 합계 10MB 초과 | `consumer` | 전액 환불 · 사용자에게 안내 |
+| **`FILE_PATH_REJECTED`** | `files` · `ref_files` 경로가 절대 경로 · `..` 포함 · file-store 밖이거나, 없거나 일반 파일이 아님 | `platform` | 전액 환불 · 볼륨 마운트 확인 |
+
+본문이 JSON 이 아니거나 `execution_id` 가 없거나 형식이 틀린 SubmitRun 은 이벤트 없이 dead letter 로 간다 → `ABC_RUNTIME_DEAD_LETTERED`(§4.8).
+
+**HTTP 오류** — 조회 · 검증 · 서식 변환에만 남았다.
 
 | HTTP | code | 의미 | 백엔드 처리 |
 | --- | --- | --- | --- |
-| 400 | `INVALID_WORKFLOW_JSON` | `workflow` 필드가 JSON이 아님 | 재시도 무의미 |
-| 400 | `INVALID_WORKFLOW` | 노드 · 엣지 정의 오류. `errors[]`에 §7.5 코드 | 사용자에게 안내 |
-| 400 | `INVALID_INPUT_JSON` | `input` 필드가 JSON 객체가 아님 | 폼 직렬화 확인 |
-| 400 | **`INVALID_MODE`** | `mode`가 `run` · `test`가 아님 | 설정 확인 |
-| 400 | `UNSUPPORTED_FILE_TYPE` | `file` 허용 확장자 아님(표 · 글 · PDF · 사진만) | 사용자에게 안내 |
-| 400 | `FILE_TOO_LARGE` | `file` 합계 10MB 초과 | 사용자에게 안내 |
 | 401 | `UNAUTHORIZED` | 서비스 토큰 불일치 | 설정 확인 |
-| 404 | `RUN_NOT_FOUND` | `run_id` 없음. 재배포 시에도 발생 | DB 이력으로 답한다 |
-| 409 | `PDF_NOT_READY` · `ARTIFACT_NOT_READY` | 아직 실행 중이거나 실패 | `status` 확인 후 재시도 |
+| 404 | `RUN_NOT_FOUND` | `run_id` 없음. 아직 받지 않았거나(큐에서 대기 · 재배달 전), 재배포 · 재시작 · 보관 기한(`RUN_RETENTION_HOURS`, 기본 24시간) 경과 | **곧바로 닫지 않는다.** 넘긴 시각에서 큐 대기 한도(10분) + grace 안이면 기다리고, 지나면 플랫폼 탓 실패(`ABC_RUNTIME_LOST`)로 닫고 환불한다(§4.9) |
+| 409 | `PDF_NOT_READY` · `HTML_NOT_READY` · `ARTIFACT_NOT_READY` | 아직 실행 중이거나 실패 | `status` 확인 후 재시도 |
 | 400 | `INVALID_REQUEST` | `POST /v1/workflows/validate` 본문이 워크플로우 객체가 아님 | 요청 직렬화 확인 |
+| 400 | `UNSUPPORTED_FILE_TYPE` · `FILE_TOO_LARGE` | `POST /v1/templates/convert` 디자인 파일의 형식 · 크기 위반 | 사용자에게 안내 |
 | 404 | `SCHEMA_NOT_FOUND` | `GET /v1/schemas/{id}` — v2.1에서 견본이 없어져 항상 404 | 부르지 않는다(§7.6) |
 | 404 | `WORKFLOW_NOT_FOUND` | `GET /v1/workflows/{id}`에 없는 예시 워크플로우 | 개발용 보조 API |
 
@@ -815,7 +1016,8 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | `PDF_RENDER_FAILED` | (v2.2부터 **`warnings[]`**로만) PDF 실패. `pdf_url: null`, HTML · JSON은 있다 | — | — | — |
 | `TEMPLATE_MAPPED` · `TEMPLATE_BLANKS` | (`warnings[]`) 서식 빈칸을 AI가 짝지어 채웠다 · 결과에 없는 빈칸을 비워 두었다 — 정보 | — | — | — |
 | `LLM_INIT_FAILED` | API 키 없음 등 설정 오류 | `platform` | 미반영 | 무의미 |
-| `RUNTIME_INTERNAL` | Runtime 내부 오류 | `platform` | 미반영 | AI 파트에 알릴 것 |
+| `CANCELLED` | CancelRun(§4.6) · HTTP 취소로 다음 노드부터 멈춤 | `platform` | 미반영 | — |
+| `RUNTIME_INTERNAL` | Runtime 내부 오류. 결과 볼륨에 쓰지 못한 경우 포함(§4.5) | `platform` | 미반영 | AI 파트에 알릴 것 |
 
 **v2.0에서 사라진 실행 오류** — `AGENT_BOUNDARY_VIOLATION`(종단 노드 자체 검증과 같아짐), "입력 payload가 `input_schema_id`와 안 맞음"(입력 형식 폐지).
 
@@ -832,14 +1034,15 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 1 | 노드 저장 | — | `type` · **`output {kind, example}`** · **진입 노드 `input {example}`** · `ref_files` · `owner_id`를 그대로 저장. 예시는 판매자가 적은 JSON 그대로. `common.*` 고정 조립을 **판매자가 적은 값 전달**로 바꾼다 |
 | 2 | 워크플로우 저장 | **`POST /v1/workflows/validate`** | `valid`가 `false`면 `errors[]`를 사용자에게. **`estimate.worst_case_nodes`의 단가 합**을 최대 청구액으로 저장 |
 | 3 | 에이전트 저장 | — | `agent.nodes` + `agent.edges`를 **그대로** 임베드. 공개 입출력은 진입 · 종단 노드에서 읽어 마켓 카드에 |
-| 4 | 실행 요청 | **`POST /v1/runs`** multipart — `workflow` · `input` · `comment` · `file` · `ref_file_*` · **`mode`** | 202 `run_id`. 선차감액은 2번의 값. `mode=test`면 선차감 없음 |
-| 5 | 폴링 | **`GET /v1/runs/{id}`** 2초 간격 | `progress`를 프론트에 중계. `contribution[]`에 나타난 노드는 `(run_id, node_id)` 멱등 키로 **즉시 적립**(금액은 자기 단가) |
-| 6 | 종료 | `status`가 `succeeded` · `failed` | `not_executed[]` 환원, `failure.refund_scope`로 실패 구간 환원(§8.5). **`agents[]` · `totals`의 토큰 · USD로 Base Cost 보정.** 사용액을 실측으로 계산한다면 `nodes[].cost_usd` × 환산율 × 등급 배율(v1.x의 `cost_abc` 자리. `cost_abc`는 이제 오지 않아 그대로 두면 사용액 0이 된다) |
-| 7 | 결과 저장 | **`GET /v1/runs/{id}/artifact`** · `/pdf` | 봉투 JSON과 PDF를 스토리지에 저장해 URL 발급 |
+| 4 | 실행 요청 | **SubmitRun 발행** (`abc.runs` / `submit`, §4.3) — 접수 트랜잭션에 outbox 로 적고 디스패처가 보낸다 | confirm 을 받으면 `run_id` = `execution_id` 를 적는다. 선차감액은 2번의 값. `mode=test`면 선차감 없음 |
+| 5 | 진행 | **`abc.events.backend` 소비** (RunEvent, §4.4) — DB 커밋 뒤 ack | `(attempt, seq)` 가 앞선 것만 적용. snapshot 의 `progress`를 프론트에 중계. `contribution[]`에 나타난 노드는 `(run_id, node_id)` 멱등 키로 **즉시 적립**(금액은 자기 단가) |
+| 6 | 종료 | `succeeded` · `failed` · `rejected` 이벤트 | `not_executed[]` 환원, `failure.refund_scope`로 실패 구간 환원(§8.5). **`agents[]` · `totals`의 토큰 · USD로 Base Cost 보정.** 사용액을 실측으로 계산한다면 `nodes[].cost_usd` × 환산율 × 등급 배율(v1.x의 `cost_abc` 자리. `cost_abc`는 이제 오지 않아 그대로 두면 사용액 0이 된다) |
+| 7 | 결과 저장 | **결과 볼륨** `<execution_id>/artifact.json` · `report.pdf` (§4.5) | 봉투 JSON과 PDF를 스토리지에 저장해 URL 발급. 이벤트의 경로는 믿지 않는다 |
 | 8 | (없어짐) | `GET /v1/schemas` | v2.1에서 필요 없다 — 부르던 코드는 지워도 된다 |
-| 9 | 테스트 실행 | `POST /v1/runs` + `mode=test` | 횟수 · 크레딧 한도는 접수에서. 결과의 토큰 · USD를 NOD-007 실측으로 |
+| 9 | 테스트 실행 | SubmitRun + `mode=test` | 횟수 · 크레딧 한도는 접수에서. 발행이 confirm 되지 않으면 접수를 지운다. 결과의 토큰 · USD를 NOD-007 실측으로 |
+| 10 | dead letter | **`abc.runs.dead` 소비** (§4.8) | `x-first-death-reason` 으로 실패 코드를 정해 플랫폼 탓으로 닫고 전액 환불 |
 
-**폴링 중단 조건을 반드시 둔다.** `succeeded` · `failed`면 멈추고, 추가로 `노드 수 × 60초 + 60초`를 넘도록 상태가 안 바뀌면 실패로 처리한다.
+**감시를 반드시 둔다(§4.9).** `accepted` 뒤 마지막 이벤트에서 `노드 수 × 60초 + 60초`를 넘도록 이벤트가 없으면 `GET /v1/runs/{id}` 로 한 번 묻는다. `RUN_NOT_FOUND` 를 곧바로 실패로 닫지 않는다 — 큐 대기 한도(10분) + grace 안이면 다시 배달될 수 있다.
 
 **정산에서 보는 필드는 셋뿐이다** — `contribution[]`(적립) · `not_executed[]`(미실행 환원) · `failure.refund_scope`(실패 환원). 금액은 전부 백엔드 단가표에서 나온다.
 
@@ -852,13 +1055,13 @@ cost_usd = (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1
 | 3 | 분기 조건 | 상위 노드의 `output.example` | 기준 노드 목록에서 **글 출력 노드는 제외**, 필드 드롭다운은 예시의 문자 · 숫자 · 참거짓 필드(점 경로)만, 타입별 연산자 (§5.4 표) |
 | 4 | 저장 | (백엔드 경유) `validate` 응답 | `errors[]`는 해당 `node_id`에 빨간 표시. `warnings[]`는 노란 안내. 최대 청구액은 **백엔드가 계산한 값**을 표시 |
 | 5 | 실행 폼 | 진입 노드 `input.example` | 예시의 키가 입력란 이름, 값 타입이 입력 종류(문자 · 숫자 · 참거짓), 값이 `null`인 키는 선택 표시. 없으면 코멘트 + 파일만 |
-| 6 | 진행 | 폴링 응답 `progress` · `nodes[]` | `percent` · `current_node_name`. `type: branch`는 "판정 → 예/아니오"(`branch_taken`), `status: skipped`는 "건너뜀 — 분기로 선택되지 않음". 판매자별 사용량은 `agents[]` |
+| 6 | 진행 | (백엔드 SSE) RunEvent snapshot 의 `progress` · `nodes[]` | `percent` · `current_node_name`. `type: branch`는 "판정 → 예/아니오"(`branch_taken`), `status: skipped`는 "건너뜀 — 분기로 선택되지 않음". 판매자별 사용량은 `agents[]` |
 | 7 | 결과 | `result.html_url` · `artifact_url` · `pdf_url` · `template` · `warnings[]` | **HTML을 화면에 띄운다**(iframe 또는 새 창). PDF 다운로드. `template.applied`가 `default`면 "기본 서식으로 만들었습니다" 안내, `warnings[]` 문구 표시 |
 | 7-1 | 서식 등록 | `POST /v1/templates/convert` (백엔드 경유) | 디자인 업로드 → 돌아온 `html`을 미리보기(iframe) → `placeholders` 안내 → 저장. 실행 화면의 "서식 고르기"(플랫폼 기본 2종 · 판매자 제공 · 내 서식) |
 | 8 | 실패 | `error.message` · `error.hint` | 그대로 표시하면 된다. `error.detail`은 표시하지 않는다 |
 | 9 | 마켓 카드 | 에이전트의 진입 노드 `input` · 종단 노드 `output` | "입력: 브랜드 기획 요청서 / 출력: 브랜드 전략 보고서" 또는 "입력: 자유 / 출력: 글" |
 
-**프론트는 AI Runtime을 직접 부르지 않는다.** 백엔드가 중계한다. 프론트 코드의 `/api/v1/executions/{id}/events`(SSE)는 백엔드가 폴링 결과를 중계하는 것이라 그대로 쓰면 된다.
+**프론트는 AI Runtime을 직접 부르지 않는다.** 백엔드가 중계한다. 프론트 코드의 `/api/v1/executions/{id}/events`(SSE)는 백엔드가 RunEvent 를 받아 중계하는 것이라 그대로 쓰면 된다. 정의 · 입력 오류도 접수 응답이 아니라 실행 화면의 실패(`rejected`)로 보인다.
 
 ### 확인용 요청 — 서버에 붙이기 전에 손으로 한 번
 
@@ -872,10 +1075,18 @@ curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows/bran
   | curl -s -H "X-ABC-Service-Token: $TOKEN" -H "Content-Type: application/json" -d @- \
          http://127.0.0.1:8000/v1/workflows/validate | jq '.valid, .estimate'
 
-# 3) 테스트 실행 (mock) → 폴링 → 결과
-RUN=$(curl -s -H "X-ABC-Service-Token: $TOKEN" -F "workflow=$(curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows/brand_agent)" \
-  -F 'input={"brand_name":"초록소반","category":"간편식","target":"1인 가구 30대","price_tier":"중가","differentiator":"국내산 재료"}' \
-  -F "mode=test" -F "mock=true" http://127.0.0.1:8000/v1/runs | jq -r .run_id)
+# 3) 테스트 실행 (mock) — 관리 API 로 SubmitRun 을 직접 넣고 결과를 HTTP 로 본다
+#    백엔드는 모르는 execution_id 의 이벤트를 경고 로그만 남기고 버린다
+RUN=$(cat /proc/sys/kernel/random/uuid)
+WF=$(curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/workflows/brand_agent)
+jq -n --arg id "$RUN" --argjson wf "$WF" '{
+    properties: {content_type: "application/json", delivery_mode: 2, type: "SubmitRun", message_id: $id},
+    routing_key: "submit", payload_encoding: "string",
+    payload: ({execution_id: $id, mode: "test", workflow: $wf, mock: true, comment: null, files: [], ref_files: {},
+               input: {brand_name: "초록소반", category: "간편식", target: "1인 가구 30대", price_tier: "중가", differentiator: "국내산 재료"},
+               submitted_at: (now | todate)} | tojson)}' \
+  | curl -s -u "$RABBITMQ_USERNAME:$RABBITMQ_PASSWORD" -H "Content-Type: application/json" -d @- \
+         http://127.0.0.1:15672/api/exchanges/%2F/abc.runs/publish        # {"routed":true}
 curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN | jq '.status, .mode, .agents, .totals, .contribution'
 curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN/artifact | jq '.schema_id, .meta'
 ```
@@ -904,10 +1115,11 @@ curl -s -H "X-ABC-Service-Token: $TOKEN" http://127.0.0.1:8000/v1/runs/$RUN/arti
 
 | 함정 | 내용 | 대응 |
 | --- | --- | --- |
-| **실행 상태가 메모리에만 있다** | 재배포하면 진행 중이던 `run_id` 조회가 404 | 이력 원본은 백엔드 DB. 배포는 실행이 없는 시점에 |
+| **실행 상태가 메모리에만 있다** | 재배포하면 진행 중이던 `run_id` 조회가 404. ack 전이던 실행은 큐가 다시 배달해 **처음부터 한 번 더 돈다** | 이력 원본은 백엔드 DB. 배포는 실행이 없는 시점에 — 다시 돌면 LLM 비용이 한 번 더 든다 |
 | **단일 프로세스다** | 워커를 늘리면 조회가 다른 워커로 가서 실패 | 워커 1개로 고정 운영 |
-| **동시 실행 제한이 없다** | Runtime은 들어오는 대로 받는다 | 사용자별 · 테스트 횟수 제한은 백엔드가 접수 단계에서 |
-| **폴링은 같은 상태를 여러 번 본다** | 그대로 적립하면 중복 정산 | `(run_id, node_id)` 멱등 키 필수 |
+| **동시 실행 수는 prefetch 다** | `MAX_ACTIVE_RUNS`(기본 4)를 넘는 실행은 큐에서 기다린다 | 10분을 넘기면 dead letter → `ABC_QUEUE_EXPIRED` 로 전액 환불. 사용자별 · 테스트 횟수 제한은 여전히 백엔드가 |
+| **같은 상태 · 같은 이벤트가 여러 번 온다** | `progress` 마다 스냅샷 전체, 재배달 · 재발행. 그대로 적립하면 중복 정산 | `(attempt, seq)` 로 앞선 것만 적용하고 `(run_id, node_id)` 멱등 키로 적립 |
+| **두 compose 가 볼륨을 나눠 쓴다** | Runtime 은 백엔드가 만든 `file-store`(읽기 전용) · `results` 를 `external` 로 마운트한다 | 백엔드를 먼저 배포한다. 마운트가 어긋나면 `rejected` `FILE_PATH_REJECTED` |
 | **`branch` 노드는 `progress.total`에 안 들어간다** | 실행 대상이 아니다 | 진행률은 응답의 `total`을 그대로 쓴다 |
 | **분기로 안 간 노드도 환원 대상이다** | `not_executed[].reason` 확인 | PAY-010 |
 | **어떤 노드든 이어진다** | 문맥이 안 맞는 조합도 실행된다. 실패가 아니다 | 품질은 평점 · 리뷰. 사용자 안내는 프론트 몫 |
@@ -944,7 +1156,7 @@ GMS 경유 · JSON 구조화 출력. 아래 09-22 · 09-25 · 2단계 표는 **`
 | n3a 차별화 전략 | 14.4s · 15.2s | 1,620 / 514 · 1,494 / 482 | 0.00177 · 0.00165 |
 | n4 보고서 | 9.3s · 12.5s | 1,607 / 584 · 1,575 / 635 | 0.00194 · 0.00206 |
 
-폴링 중단 기준(§10)의 "노드 수 × 60초"는 이 수치의 약 3배 여유다. 5분(PER-003)은 최장 경로 8노드에서도 넉넉하다.
+감시 기한(§4.9 · §10, 옛 폴링 중단 기준)의 "노드 수 × 60초"는 이 수치의 약 3배 여유다. 5분(PER-003)은 최장 경로 8노드에서도 넉넉하다.
 
 **v2.0 재측정 — 09-25 · 앞 결과 전체 전달 · 1회(소소칫솔 · high 경로)**
 
@@ -988,7 +1200,7 @@ GMS 경유 · JSON 구조화 출력. 아래 09-22 · 09-25 · 2단계 표는 **`
 | **v2.2 서식 (09-27)** | — | 디자인 PDF(2쪽) → 서식 변환 **105초 · 5,142/6,212 토큰 · 약 $0.07**(교정 1회 포함, 빈칸 24개) / 실행 끝 짝짓기 **20 ~ 25초 · 약 $0.01**, 24개 중 21개를 경로로 배치(3개는 결과에 없는 디자인 고정 칸 → 빈칸). 짝짓기 시간은 실행 시간에 더해진다 |
 | **v2.2 E2E — API 경로 그대로 (09-27)** | — | 사용자 캔바 디자인(1쪽 PDF) → `/templates/convert` **69초**(교정 1회, 빈칸 10) → `POST /v1/runs` 1단계 + 칫솔 사진 + 참고 파일 3 + 그 서식: **105초 · $0.031**, 빈칸 **10/10** 배치, 제품 분석 · 광고 카피가 사진의 색(초록 손잡이 · 분홍 칫솔모)을 근거로 씀 → 2단계 판매자 3: **161초 · $0.057** |
 
-Pro는 노드당 최대 32초라 폴링 중단 기준을 **노드 수 × 60초**로 올렸다(§10). 2단계 9노드는 약 3분으로 예상되며 5분(PER-003) 안이다. 같은 칫솔 브리프에서 Flash가 low, Pro가 high를 낸 것은 `competitors` 개수(4 vs 5)의 차이 — 시연 전 Pro로 `--runs 10` 준수율을 다시 잰다(트랙 B).
+Pro는 노드당 최대 32초라 폴링 중단 기준(지금은 감시 기한, §4.9)을 **노드 수 × 60초**로 올렸다(§10). 2단계 9노드는 약 3분으로 예상되며 5분(PER-003) 안이다. 같은 칫솔 브리프에서 Flash가 low, Pro가 high를 낸 것은 `competitors` 개수(4 vs 5)의 차이 — 시연 전 Pro로 `--runs 10` 준수율을 다시 잰다(트랙 B).
 
 ---
 
@@ -998,8 +1210,11 @@ Pro는 노드당 최대 32초라 폴링 중단 기준을 **노드 수 × 60초**
 | --- | --- |
 | 401 | 백엔드 컨테이너의 `ABC_SERVICE_TOKEN`이 GitLab Variables 값과 같은지 |
 | 연결 안 됨 | 같은 도커 네트워크(`ai-block-clock_ai-block-clock-network`)에 있는지 |
-| 404 `RUN_NOT_FOUND` | Runtime이 재배포됐는지. 이전 `run_id`는 사라진다 |
-| 400 `INVALID_WORKFLOW` | 응답 `errors` 배열에 어느 노드의 무엇이 문제인지 있다 |
+| 실행이 `QUEUED` 에서 움직이지 않음 | Runtime `/v1/health` 의 `broker` 가 `connected` 인지, 관리 UI 에서 `abc.runs.submit` 에 컨슈머가 붙어 있는지. 양쪽 `RABBITMQ_USERNAME` · `RABBITMQ_PASSWORD` 가 같은지 |
+| 404 `RUN_NOT_FOUND` | Runtime이 재배포됐는지(이전 `run_id`는 사라진다), 아직 큐에서 기다리는 중인지 |
+| `rejected` `INVALID_WORKFLOW` | snapshot `error.errors` 배열에 어느 노드의 무엇이 문제인지 있다 |
+| `rejected` `FILE_PATH_REJECTED` | Runtime 의 file-store 마운트가 백엔드와 같은 볼륨(`ai-block-clock_file-store`)인지 |
+| `abc.events.backend.dlq` 에 메시지가 쌓임 | 백엔드가 네 번 처리하고도 실패한 이벤트다. 백엔드 로그를 본다. 그 실행은 감시가 닫는다 |
 | `DEPRECATED_FIELD` 경고가 계속 뜸 | 노드 저장 형식을 v2.1(`output {kind, example}`)로 바꿨는지 |
 | 저장은 되는데 실행에서 튕김 | `POST /v1/workflows/validate`를 저장 시점에 부르고 있는지 |
 | `contribution`이 비어 옴 | `mode=test`로 보냈는지 |

@@ -62,7 +62,7 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) { ... }
 | `:support:monitoring` | leaf | 액추에이터·메트릭 설정 | jar |
 | `:client` | wrapper | 외부 시스템 연동 모듈을 묶는다 | 없음 |
 | `:client:blockchain` | leaf | SSAFY 토큰증권 API · 체인 RPC 연동 (조회 + 출금 전송 서명 · 보내기) | jar |
-| `:client:ai` | leaf | AI 파트 서비스 연동 (추천 엔진 · 실행 엔진) | jar |
+| `:client:ai` | leaf | AI 파트 서비스 연동 (추천 엔진 · 실행 엔진 — 실행 메시지는 RabbitMQ) | jar |
 
 그룹·버전은 전 모듈 공통으로 `com.aiblockclock:0.0.1-SNAPSHOT` 이다.
 
@@ -84,6 +84,7 @@ graph TD
     jpa["spring-boot-starter-data-jpa"]
     session["spring-boot-starter-session-jdbc"]
     web["spring-web"]
+    amqp["spring-boot-starter-amqp"]
 
     api -->|implementation| storage
     api -->|implementation| enums
@@ -96,6 +97,8 @@ graph TD
     storage ==>|api| jpa
     blockchain -->|implementation| web
     ai -->|implementation| web
+    ai -->|implementation| amqp
+    api -->|implementation| amqp
 ```
 
 의존은 **항상 한 방향**이다. `core-api` 는 모든 모듈을 알고, `core-enum` 은 아무도 모른다.
@@ -109,7 +112,8 @@ graph TD
 | `:core:core-api` | `spring-boot-starter-session-jdbc` | `implementation` | HttpSession을 기존 MySQL에 저장하고 여러 요청에서 인증 상태를 복원한다 |
 | `:core:core-api` | `:core:core-enum` | `implementation` | 공통 enum 을 참조한다 |
 | `:core:core-api` | `:client:blockchain` | `implementation` | 온체인 상태를 조회한다 |
-| `:core:core-api` | `:client:ai` | `implementation` | 추천 색인을 유지하고 추천을 중계한다 |
+| `:core:core-api` | `:client:ai` | `implementation` | 추천 색인을 유지하고 추천을 중계한다. 실행을 브로커로 맡기고 이벤트로 따라간다 |
+| `:core:core-api` | `spring-boot-starter-amqp` | `implementation` | 실행 이벤트 · dead letter 리스너(`@RabbitListener`)가 api 계층(`api/messaging`)에 있다. 발행자는 `:client:ai` 에 있다 |
 | `:core:core-api` | `:support:logging` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:core:core-api` | `:support:monitoring` | `runtimeOnly` | 설정 리소스만 클래스패스에 올린다 |
 | `:storage` | `:core:core-enum` | `implementation` | 엔티티에서 공통 enum 을 쓴다 |
@@ -119,6 +123,7 @@ graph TD
 | `:support:monitoring` | 없음 (프로젝트 기준) | - | 액추에이터 라이브러리만 갖는다 |
 | `:client:blockchain` | `spring-web` | `implementation` | `RestClient` 를 직접 선언한다. `core-api` 의 웹 스타터에 얹히지 않는다. 응답이 스칼라라 JSON 변환기는 두지 않는다 |
 | `:client:ai` | `spring-web`, `spring-boot-starter-json` | `implementation` | `RestClient` 를 직접 선언한다. 요청·응답이 객체라 JSON 변환기(Jackson)를 둔다 |
+| `:client:ai` | `spring-boot-starter-amqp` | `implementation` | 실행 접수 · 진행 · 완료 · 취소를 RabbitMQ 로 주고받는다(ADR-0001). 발행자(`RunQueuePublisher`) · 토폴로지 · 메시지 모양이 여기 있다 |
 
 `support:*` 를 `runtimeOnly` 로 붙이는 이유는, 이 모듈들이 **설정만 제공**하고 애플리케이션 코드가 이들의 클래스를 직접 참조할 일이 없기 때문이다. `implementation` 으로 붙이면 컴파일 의존이 생겨 나중에 지우기 어려워진다.
 
@@ -152,7 +157,7 @@ core/core-api/src/main/
 - 진입점 클래스는 베이스 패키지 `com.aiblockclock` 에 둔다. 컴포넌트 스캔이 다른 모듈의 `com.aiblockclock.*` 패키지까지 닿아야 하기 때문이다
 - `core-api` 자체 코드는 `com.aiblockclock.api` 아래에 둔다
 - 의존성: `spring-boot-starter-webmvc`, `spring-boot-starter-validation`,
-  `spring-boot-starter-security`, `spring-boot-starter-session-jdbc`
+  `spring-boot-starter-security`, `spring-boot-starter-session-jdbc`, `spring-boot-starter-amqp`
 - `application.yaml` 에는 **애플리케이션 조립**(이름, 기본 프로파일, `config.import`)과 `core-api` 자신의 설정(`server.*`)만 둔다. 다른 모듈의 설정을 여기에 적지 않는다
 - `bootJar` 활성화, 일반 `jar` 비활성화
 
@@ -233,6 +238,8 @@ support/monitoring/src/main/resources/
 
 - 의존성: `spring-boot-starter-actuator`, `micrometer-registry-prometheus`
 - 노출 엔드포인트는 프로파일별로 다르다. `local` 은 전체(`*`), `prod` 는 `health`, `info`, `prometheus` 만 연다
+- `health` 에 RabbitMQ 를 넣지 않는다(`management.health.rabbit.enabled: false`). 브로커가 죽어도 실행 접수는
+  outbox 에 쌓이므로 백엔드는 UP 이다. 브로커는 자기 컨테이너 헬스체크로 본다 (ADR-0001)
 - 이 파일들은 자동으로 읽히지 않는다. `core-api` 의 `application.yaml` 이 명시적으로 가져온다
 
 ```yaml
@@ -286,23 +293,35 @@ client/blockchain/src/main/resources/
 ### 3.7 `:client:ai`
 
 AI 파트 서비스 어댑터다. 패키지는 `com.aiblockclock.client.ai` 이고, **접속 설정을 이 모듈이 소유한다.**
-추천 엔진(`RecommendClient`, `ai.recommend.*`)과 실행 엔진(`AiRuntimeClient`, `ai.runtime.*`)은 다른 컨테이너이고
-계약도 다르다. 서비스 토큰(`ai.service-token`)만 둘이 나눠 쓴다.
+추천 엔진(`RecommendClient`, `ai.recommend.*`)과 실행 엔진은 다른 컨테이너이고 계약도 다르다.
+서비스 토큰(`ai.service-token`)만 둘이 나눠 쓴다. 실행 엔진과는 두 길로 붙는다 — 실행 접수 · 진행 · 완료 · 취소는
+RabbitMQ 메시지(`RunQueuePublisher` · `RunMessages` · `RunTopology`, `spring.rabbitmq.*` · `ai.messaging.*`),
+조회는 HTTP(`AiRuntimeClient`, `ai.runtime.*`)다. 메시지 계약은 `ai/docs/integration-guide.md` §4 가 원본이다.
 
 ```
 client/ai/src/main/resources/
-└── ai.yml                    추천·실행 엔진 주소·제한 시간, 공유 서비스 토큰
+└── ai.yml                    추천·실행 엔진 주소·제한 시간, 공유 서비스 토큰,
+                              RabbitMQ 접속 · publisher confirm · 리스너 재시도, 결과 볼륨 루트
 ```
 
 - **추천 쪽은 색인 넣기(`upsert` · `rebuild`)와 추천만 한다.** 색인은 우리 DB 에서 파생된 사본이라
   원본을 바꾸는 동작이 없다. 쓰는 기능이 생기기 전까지 `remove` · `health` 는 두지 않는다
-- **실행 쪽은 접수 · 상태 조회 · 결과물 조회다.** 접수는 폼(multipart)이고 접수 번호만 즉시 돌아온다.
+- **실행은 메시지로 맡긴다.** `RunQueuePublisher` 가 SubmitRun · CancelRun 을 보내고 publisher confirm(ack)을
+  받은 뒤에만 정상으로 돌아온다. nack · confirm 기한(`ai.messaging.confirm-timeout`) 초과 · 연결 실패는
+  `REQUEST_FAILED` 다. 토폴로지(`RunTopology`)는 런타임과 같은 인자로 선언한다(런타임 전용 control 큐 제외).
+  RunEvent 는 `RunMessages.readEvent` 로 읽고 snapshot 원문도 함께 남긴다. 리스너는 `core-api` 의 `api/messaging` 에 있다
+- **리스너 재시도는 이 모듈이 정한다.** 처리에 실패한 이벤트는 처음 1번 + 재시도 3번 뒤 DLQ 로 보낸다.
+  읽을 수 없는 메시지(`AmqpRejectAndDontRequeueException`)는 재시도하지 않는다
+- **HTTP 는 조회만 남았다.** `AiRuntimeClient` 는 상태(감시의 대조) · 근거 원본 · 결과물 · health 만 부른다.
   상태는 `RunState` 로 읽고, 모르는 값은 끝난 실패로 본다
-- **예외는 두 클라이언트가 같이 쓰는 `AiClientException` 하나다.** 사유는 `AiClientError` 로 가른다
-  (`INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED`).
+- **결과물은 공유 볼륨에서 읽는다.** `RunResultVolume` 이 `ai.runtime.results-root` 아래
+  `<실행 번호>/artifact.json` · `report.pdf` 를 읽는다. 이벤트에 실린 경로는 믿지 않는다
+- **예외는 두 클라이언트와 발행자가 같이 쓰는 `AiClientException` 하나다.** 사유는 `AiClientError` 로 가른다
+  (`INVALID_CONFIGURATION` · `MALFORMED_RESPONSE` · `REQUEST_FAILED` · `RUN_NOT_FOUND`).
   `core-api` 는 호출 경계에서 이를 `CoreException` 으로 바꾼다 (RULE.md 7.1)
-- 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`.
+- 의존성: `spring-web`, `spring-boot-starter`, `spring-boot-starter-json`, `spring-boot-starter-amqp`.
   `:client:blockchain` 과 달리 요청·응답이 객체라 JSON 변환기를 선언한다
+- 브로커가 없어도 기동은 막지 않는다. 붙는 순간 토폴로지를 선언한다
 - `RestClient` 를 빈으로 내놓지 않는다. 어댑터마다 제 것을 들고 있어야 타입 주입이 섞이지 않는다
 - 서비스 토큰이 비어 있으면 헤더 없이 붙고 기동 때 경고를 남긴다. 추천은 없어도 서비스가 도는
   기능이라 기동을 막지 않는다
@@ -380,7 +399,13 @@ spring:
 | `AI_RUNTIME_BASE_URL` | 전체 | `http://ai-block-clock-ai-runtime:8000` |
 | `AI_RUNTIME_CONNECT_TIMEOUT`, `AI_RUNTIME_READ_TIMEOUT` | 전체 | 2s / 10s |
 | `AI_SERVICE_TOKEN` | 전체 | 없음 (비어 있으면 헤더 없이 붙고 기동 때 경고) |
-| `FILE_STORE_ROOT` | 전체 | `/var/lib/ai-block-clock/files` (도커 이름 볼륨을 여기에 붙인다) |
+| `RABBITMQ_HOST`, `RABBITMQ_PORT` | 전체 | `localhost` / 5672 (compose 는 `ai-block-clock-rabbitmq`) |
+| `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, `RABBITMQ_VHOST` | 전체 | `guest` / `guest` / `/` (런타임과 같은 값) |
+| `AI_MESSAGING_CONFIRM_TIMEOUT` | 전체 | 5s (발행 뒤 confirm 을 기다리는 한도) |
+| `FILE_STORE_ROOT` | 전체 | `/var/lib/ai-block-clock/files` (도커 이름 볼륨을 여기에 붙인다. 런타임이 읽기 전용으로 나눠 쓴다) |
+| `RESULTS_ROOT` | 전체 | `/var/lib/ai-block-clock/results` (런타임이 결과물을 쓰는 공유 볼륨) |
+| `EXECUTION_DISPATCH_INTERVAL`, `EXECUTION_DISPATCH_ABANDON_AFTER` | 전체 | 5s / 10m (`core-api` `execution.dispatch.*`) |
+| `EXECUTION_WATCH_INTERVAL`, `EXECUTION_POLL_PER_STEP`, `EXECUTION_POLL_GRACE` | 전체 | 10s / 60s / 60s (감시 주기 · 기한. 기한 키는 폴링 시절 이름 그대로) |
 
 ---
 

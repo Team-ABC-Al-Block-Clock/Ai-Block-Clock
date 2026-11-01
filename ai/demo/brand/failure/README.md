@@ -47,15 +47,15 @@ uv run python -m src.runner --workflow brand_campaign --input ../../demo/brand/b
 
 ## 서비스로 돌리기 (백엔드 경유)
 
-실행 요청(`POST /v1/runs`)의 폼 필드만 다르다. 에이전트 안 노드는 **접두 id**로 가리킨다.
+실행 메시지(SubmitRun, 계약 §4.3)의 `input` · `ref_files`만 다르다. 에이전트 안 노드는 **접두 id**로 가리킨다.
 
 | # | 다른 점 |
 | --- | --- |
 | 1 | `input` = `brief_bad.json` 내용(`brand_name` 없음) |
-| 2 | `ref_file_a3.k1_0` = `브랜드가이드.docx` — 판매자 C가 노드에 붙여 둔 파일이라는 설정. 백엔드는 저장된 참고 파일을 그대로 보낸다 |
-| 3 | `ref_file_a4.e1_0` = `참고자료_대용량.txt` |
+| 2 | `ref_files["a3.k1"]` = `브랜드가이드.docx`의 file-store 경로 — 판매자 C가 노드에 붙여 둔 파일이라는 설정. 백엔드는 저장된 참고 파일의 경로를 그대로 보낸다 |
+| 3 | `ref_files["a4.e1"]` = `참고자료_대용량.txt`의 file-store 경로 |
 
-응답의 `failure { node_id, error_code, fault, refund_scope { refund_node_ids, settled_node_ids } }`로
+`failed` 이벤트 snapshot 의 `failure { node_id, error_code, fault, refund_scope { refund_node_ids, settled_node_ids } }`로
 백엔드가 환불 · 정산을 처리하고, 프론트는 `error.message` · `error.hint`를 그대로 보여 준다.
 
 ## 검증 기록 (09-26, mock)

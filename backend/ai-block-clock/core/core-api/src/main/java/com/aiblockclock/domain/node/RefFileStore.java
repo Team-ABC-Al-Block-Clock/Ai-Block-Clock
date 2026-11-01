@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
-import java.nio.file.Path;
-
 @Component
 @RequiredArgsConstructor
 public class RefFileStore {
@@ -25,9 +23,5 @@ public class RefFileStore {
         fileStore.write(file.key(), upload.content());
 
         return file;
-    }
-
-    public Path locate(RefFile file) {
-        return fileStore.locate(file.key());
     }
 }

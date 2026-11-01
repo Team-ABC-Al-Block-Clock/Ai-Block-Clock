@@ -408,7 +408,7 @@ class ExecutionReservationManagerIntegrationTest {
         charge("10");
         Execution reserved = executionReservationManager.reserve(requested(newRequestId()), workflow, plan);
 
-        executionReservationManager.finish(reserved.getId(), ExecutionStatus.FAILED, null);
+        executionReservationManager.finish(reserved.getId(), ExecutionStatus.FAILED, (RunStatus) null);
 
         assertThat(balanceOf(LedgerAccountType.ABC_BALANCE)).isEqualByComparingTo("10");
         assertThat(balanceOf(LedgerAccountType.EXECUTION_ESCROW)).isEqualByComparingTo("0");

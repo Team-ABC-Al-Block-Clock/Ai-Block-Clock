@@ -20,6 +20,40 @@ services:
       retries: 10
       start_period: 30s
 
+  # 실행 메시지 브로커(docs/adr/0001-execution-messaging-rabbitmq.md).
+  # 백엔드 → 런타임 실행 요청, 런타임 → 백엔드 진행 이벤트가 여기를 지난다.
+  # 런타임(ai/spike/linear-mvp/compose.yaml)도 이 컨테이너 이름으로 붙는다.
+  # 태그는 패치까지 고정한다. 올릴 때는 4.x 릴리스 노트를 보고 올린다.
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    container_name: ai-block-clock-rabbitmq
+    # RabbitMQ 는 데이터를 노드 이름(rabbit@<hostname>) 아래에 둔다. hostname 을 고정하지 않으면
+    # 컨테이너를 다시 만들 때마다 노드 이름이 바뀌어 볼륨에 있던 큐 · 메시지 · 계정이 안 보인다.
+    hostname: ai-block-clock-rabbitmq
+    environment:
+      # 계정은 데이터 볼륨이 비어 있을 때(처음 뜰 때)만 만들어진다. 그 뒤에 값만 바꾸면 반영되지
+      # 않는다. 비밀번호를 바꿀 때는 rabbitmqctl change_password 로 바꾸고 이 값도 같이 바꾼다.
+      # 로컬 기본값 guest 는 계약(10장)의 앱 기본값과 같다. 이 이미지는 guest 의 원격 접속을 허용한다.
+      # 운영은 compose.prod.yaml 이 기본값 없이 덮어쓴다.
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      # 5672 AMQP, 15672 관리 UI. 운영은 compose.prod.yaml 이 덮어쓴다.
+      - "${RABBITMQ_PUBLISHED_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PUBLISHED_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - ai-block-clock-network
+    healthcheck:
+      # ping 은 노드 프로세스만 본다. 리스너가 연결을 받는지까지 본 뒤에 백엔드를 띄운다.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
   backend:
     # local target: 컨테이너 안에서 소스를 컴파일한다. 사전 준비 없이
     # `docker compose up -d --build` 한 번으로 뜬다.
@@ -53,12 +87,24 @@ services:
       # 출금 지급. 보관 지갑 개인키와 함께 운영 서버의 backend.env 에만 적는다. 키가 없으면 켜지 않는다
       PAYMENT_WITHDRAWAL_PAYOUT_ENABLED: ${PAYMENT_WITHDRAWAL_PAYOUT_ENABLED:-false}
       SSAFY_CHAIN_SIGNER_PRIVATE_KEY: ${SSAFY_CHAIN_SIGNER_PRIVATE_KEY:-}
+      # 실행 메시지 브로커 접속(ADR-0001, 메시지 계약 10장). 같은 compose 의 rabbitmq 를 컨테이너 이름으로 부른다
+      RABBITMQ_HOST: ai-block-clock-rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      # 런타임이 실행 결과물(artifact.json · report.pdf · report.html)을 쓰는 볼륨(계약 5장).
+      # 아래 volumes 의 results 마운트 위치와 같아야 한다
+      RESULTS_ROOT: /var/lib/ai-block-clock/results
     volumes:
       - file-store:/var/lib/ai-block-clock/files
+      - results:/var/lib/ai-block-clock/results
     ports:
       - "8080:8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - ai-block-clock-network
@@ -71,7 +117,14 @@ services:
 
 volumes:
   mysql-data:
+  rabbitmq-data:
+  # file-store · results 는 런타임 compose(ai/spike/linear-mvp/compose.yaml)가 external 로
+  # 마운트하므로 이름을 고정한다. file-store 의 이름은 name 을 주기 전에 compose 가 붙이던
+  # 이름(<프로젝트명>_file-store)과 같다. 바꾸면 운영의 기존 볼륨이 고아가 되고 빈 볼륨이 새로 생긴다.
   file-store:
+    name: ai-block-clock_file-store
+  results:
+    name: ai-block-clock_results
 
 networks:
   ai-block-clock-network:

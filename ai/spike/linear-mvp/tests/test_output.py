@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from src import graph, nodes, runner, shape
 from src.api import app
 from src.llm import LLM
+from tests.messaging_support import submit, submit_message
 from tests.test_nodes import FakeLLM
 
 BRIEF = {"brand_name": "초록소반", "category": "간편식", "target": "1인 가구 30대",
@@ -91,12 +92,16 @@ def test_옛_견본_id_는_한_버전_동안_예시로_바꿔_읽힌다():
 
 def test_API_응답의_노드에는_선언한_형식이_실린다():
     client = TestClient(app)
-    res = client.post("/v1/runs", data={"workflow": json.dumps(_text_then_json(), ensure_ascii=False),
-                                        "input": json.dumps(BRIEF, ensure_ascii=False), "mock": "true"})
-    body = client.get(f"/v1/runs/{res.json()['run_id']}?include_node_output=true").json()
+    message = submit_message(_text_then_json(), input=BRIEF)
+    run_id = message["execution_id"]
+
+    outcome, _ = submit(message)
+
+    assert outcome == "ack"
+    body = client.get(f"/v1/runs/{run_id}?include_node_output=true").json()
     assert body["status"] == "succeeded"
     assert body["nodes"][0]["output"] == {"kind": "text", "example": None}
     assert json.loads(body["nodes"][0]["output_payload"])["text"].startswith("## [MOCK")
     assert body["result"]["output"] == {"kind": "json", "example": PLAN}
-    artifact = client.get(f"/v1/runs/{res.json()['run_id']}/artifact").json()
+    artifact = client.get(f"/v1/runs/{run_id}/artifact").json()
     assert artifact["schema_id"] == "json" and artifact["payload"] == PLAN and artifact["a2a_version"] == "2.0"

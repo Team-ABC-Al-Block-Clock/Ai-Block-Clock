@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 out/
 data/*.xlsx
+# FILE_STORE_ROOT · RESULTS_ROOT 를 주지 않았을 때의 로컬 기본 볼륨(src/messaging.py)
+file-store/
+results/
