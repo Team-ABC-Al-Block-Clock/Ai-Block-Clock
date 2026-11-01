@@ -23,6 +23,7 @@ public record ExecutionFailure(
 
     // 우리가 끊은 실행(기한 초과 · 엔진이 잊음 · dead letter)은 엔진이 마지막으로 무엇을 알렸든 플랫폼 탓이다.
     // 끊기 전에 멈춰 있던 단계를 실패 단계로 남겨, 어디서 멎었는지를 근거로 보일 수 있게 한다.
+    // 큐 대기 안전망이 닫은 실행은 런타임이 받은 적이 없어 멎은 단계가 없고, 사용자에게는 큐에서 만료된 것과 같은 코드로 보인다.
     public static ExecutionFailure judge(EngineReport report) {
         return switch (report.closedBy()) {
             case ENGINE -> judge(report.run());
@@ -30,6 +31,7 @@ public record ExecutionFailure(
             case LOST -> cut(report, ExecutionProgress.LOST);
             case UNDISPATCHED -> undispatched();
             case DEAD_LETTERED -> cut(report, report.failureCode());
+            case QUEUE_OVERDUE -> platform(ExecutionProgress.QUEUE_EXPIRED);
         };
     }
 

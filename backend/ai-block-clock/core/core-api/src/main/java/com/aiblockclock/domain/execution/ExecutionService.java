@@ -100,6 +100,11 @@ public class ExecutionService {
         executionTracker.closeDeadLettered(id, reason);
     }
 
+    // 넘긴 채 큐에서 기다리는 실행이다(복구 스케줄러). 큐 대기 한도 + 유예가 지났으면 플랫폼 탓으로 닫는다.
+    public void closeOverdueInQueue(ExecutionId id) {
+        executionTracker.closeOverdueInQueue(id);
+    }
+
     public ExecutionProgress follow(ExecutionId id, UserId requester) {
         return progressOf(mine(id, requester));
     }

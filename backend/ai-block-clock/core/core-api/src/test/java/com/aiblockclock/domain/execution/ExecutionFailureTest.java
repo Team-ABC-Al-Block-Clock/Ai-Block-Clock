@@ -135,6 +135,14 @@ class ExecutionFailureTest {
         assertThat(failure.affectsSuccessRate()).isFalse();
     }
 
+    // B6 · B10 — 큐 대기 한도가 지나도록 dead letter 가 오지 않아 안전망이 닫은 실행이다. 런타임이 받은 적이 없다.
+    // 닫은 까닭(closed_by)은 dead letter 와 다르지만 사용자에게 보이는 실패 코드는 dead letter(expired)와 같다.
+    @Test
+    void 큐_대기_안전망이_닫은_실행은_ABC_QUEUE_EXPIRED_로_플랫폼_탓이다() {
+        assertThat(ExecutionFailure.judge(EngineReport.queueOverdue())).isEqualTo(new ExecutionFailure(
+                null, ExecutionProgress.QUEUE_EXPIRED, ExecutionFault.PLATFORM, false, null, null));
+    }
+
     @Test
     void 엔진에_넘기지_못한_실행은_플랫폼_탓이다() {
         assertThat(ExecutionFailure.undispatched()).isEqualTo(new ExecutionFailure(

@@ -116,6 +116,18 @@ class ExecutionEvidenceRecorderTest {
         then(writer).should().record(ID, EngineReport.deadLettered(null, "ABC_QUEUE_EXPIRED"));
     }
 
+    // B10 — 안전망이 닫은 실행은 런타임이 받은 적이 없다. 물을 원본이 없어 받은 그대로(닫은 까닭 포함) 적는다.
+    @Test
+    void 큐_대기_안전망이_닫은_실행은_엔진에_원본을_묻지_않고_받은_그대로_적는다() {
+        given(executionRepository.findById(ID.value())).willReturn(Optional.of(dispatched()));
+        EngineReport report = EngineReport.queueOverdue();
+
+        sut.record(ID, report);
+
+        then(aiRuntimeClient).should(never()).readRecord(anyString());
+        then(writer).should().record(ID, report);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"ABC_QUEUE_EXPIRED", "ABC_RUNTIME_RETRY_EXHAUSTED", "ABC_RUNTIME_DEAD_LETTERED"})
     void 백필은_dead_letter_실패_코드로_닫힌_실행을_dead_letter_로_적고_엔진에_묻지_않는다(String failureCode) {

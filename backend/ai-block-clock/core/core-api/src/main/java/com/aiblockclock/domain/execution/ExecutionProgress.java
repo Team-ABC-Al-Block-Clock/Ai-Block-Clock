@@ -95,6 +95,11 @@ public record ExecutionProgress(
         return cut(id, last, stepCount, code);
     }
 
+    // 넘긴 채 큐에서 기다리다 dead letter 없이 사라져 큐 대기 안전망이 닫았다. 런타임이 받은 적이 없어 돈 단계가 없다.
+    public static ExecutionProgress queueOverdue(ExecutionId id, int stepCount) {
+        return cut(id, null, stepCount, QUEUE_EXPIRED);
+    }
+
     private static ExecutionProgress cut(ExecutionId id, ExecutionProgress last, int stepCount, String code) {
         Failure failure = new Failure(last == null ? null : last.currentStepName(), code, "platform");
 

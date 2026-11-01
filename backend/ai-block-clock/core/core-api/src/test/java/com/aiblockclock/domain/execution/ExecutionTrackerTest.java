@@ -35,6 +35,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +49,7 @@ import static org.mockito.Mockito.times;
 
 // 실행을 2초 폴링 대신 이벤트로 따라가고, 이벤트가 끊긴 실행만 엔진에 묻는다(ADR-0001).
 // 단계 둘인 실행이라 감시 기한은 2 × 60초(per-step) + 60초(grace) = 180초다. 큐 대기 한도는 10분이다.
+// 큐 대기 안전망의 유예는 5분이라, 넘긴 채 QUEUED 인 실행은 넘긴 지 15분이 되면 닫는다.
 class ExecutionTrackerTest {
     private static final Instant NOW = Instant.parse("2026-10-16T05:00:00Z");
     private static final ExecutionId ID = ExecutionId.of(UUID.fromString("6f1c2a9e-0000-4000-8000-000000000001"));
@@ -55,6 +57,8 @@ class ExecutionTrackerTest {
     private static final String OWNER = "7001";
     private static final Duration DEADLINE = Duration.ofSeconds(180);
     private static final Duration QUEUE_LIMIT_AND_GRACE = Duration.ofMinutes(10).plusSeconds(60);
+    private static final Duration QUEUE_GRACE = Duration.ofMinutes(5);
+    private static final Duration QUEUE_LIMIT_AND_QUEUE_GRACE = Duration.ofMinutes(15);
 
     private final MovableClock clock = new MovableClock(NOW);
     private final AiRuntimeClient aiRuntimeClient = mock(AiRuntimeClient.class);
@@ -66,9 +70,7 @@ class ExecutionTrackerTest {
     private final ExecutionProgressStore store = new ExecutionProgressStore();
     private final RecordingListener listener = new RecordingListener();
 
-    private final ExecutionTracker sut = new ExecutionTracker(aiRuntimeClient, runQueuePublisher, executionReader,
-            executionWriter, reservationManager, resultCollector, store,
-            new ExecutionWatchProperties(Duration.ofSeconds(60), Duration.ofSeconds(60)), List.of(listener), clock);
+    private final ExecutionTracker sut = trackerWithQueueGrace(QUEUE_GRACE);
 
     @Nested
     class 실행_이벤트를_적용한다 {
@@ -808,6 +810,243 @@ class ExecutionTrackerTest {
             then(reservationManager).shouldHaveNoInteractions();
             assertThat(listener.seen).isEmpty();
         }
+    }
+
+    // 넘긴 채 런타임이 받지 않은 실행을 dead letter 가 닫지 못하고 남긴 경우다(ADR-0001 후속 #21).
+    // 복구 스케줄러가 넘긴 채 QUEUED 인 실행마다 부른다. 넘긴 시각(execution_outbox.dispatched_at)에서
+    // 큐 대기 한도(10분) + 유예(5분)가 지났으면 dead letter 를 잃은 것으로 보고 닫는다.
+    // 닫기는 행을 잠근 뒤에도 QUEUED 일 때만 닫는 finishQueued 로 한다(B9b). 닫혔는지는 그 답(true · false)으로 안다.
+    @Nested
+    class 큐_대기_안전망 {
+
+        // B6 — 런타임이 받은 적이 없어 마지막으로 본 상태가 없다. 그래서 정산할 단계가 없고 예치는 모두 돌아간다.
+        @Test
+        void 넘긴_지_큐_대기_한도와_유예가_지난_QUEUED_실행은_ABC_QUEUE_EXPIRED_플랫폼_탓_실패로_닫는다() {
+            queuedDispatchedAt(NOW.minus(QUEUE_LIMIT_AND_QUEUE_GRACE).minusSeconds(1));
+
+            sut.closeOverdueInQueue(ID);
+
+            EngineReport report = closedReport();
+            assertThat(report.run()).isNull();
+            assertThat(ExecutionFailure.judge(report)).satisfies(failure -> {
+                assertThat(failure.errorCode()).isEqualTo("ABC_QUEUE_EXPIRED");
+                assertThat(failure.fault()).isEqualTo(ExecutionFault.PLATFORM);
+                assertThat(failure.supplier()).isNull();
+                assertThat(failure.affectsSuccessRate()).isFalse();
+            });
+        }
+
+        // B7 — 감시가 큐 대기 한도를 재는 것(지금이 그 시각보다 앞서지 않으면 지났다)과 같은 해석이다.
+        @Test
+        void 넘긴_지_꼭_15분이면_닫는다() {
+            queuedDispatchedAt(NOW.minus(QUEUE_LIMIT_AND_QUEUE_GRACE));
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).should()
+                    .finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class));
+        }
+
+        @Test
+        void 넘긴_지_15분에서_1ms_모자라면_닫지_않는다() {
+            queuedDispatchedAt(NOW.minus(QUEUE_LIMIT_AND_QUEUE_GRACE).plusMillis(1));
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).shouldHaveNoInteractions();
+            assertThat(listener.seen).isEmpty();
+        }
+
+        // B8 — 런타임이 받았다(accepted). 이벤트가 끊기면 감시가 닫는다.
+        @Test
+        void RUNNING_실행은_오래됐어도_닫지_않는다() {
+            given(executionReader.read(ID)).willReturn(execution(ExecutionStatus.RUNNING));
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.of(NOW.minus(Duration.ofHours(1))));
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).shouldHaveNoInteractions();
+            assertThat(listener.seen).isEmpty();
+        }
+
+        // B8 — 넘긴 기록이 없는 실행은 디스패처가 다시 발행하거나 한도가 지나면 버린다.
+        @Test
+        void 실행_번호가_없는_실행은_닫지_않는다() {
+            given(executionReader.read(ID)).willReturn(undispatched());
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.of(NOW.minus(Duration.ofHours(1))));
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).shouldHaveNoInteractions();
+            assertThat(listener.seen).isEmpty();
+        }
+
+        // B8 — 넘긴 시각을 모르면 큐에서 얼마나 기다렸는지 모른다. 감시(LOST)와 달리 지난 것으로 보지 않는다.
+        @Test
+        void 넘긴_시각이_없는_실행은_닫지_않는다() {
+            given(executionReader.read(ID)).willReturn(execution(ExecutionStatus.QUEUED));
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.empty());
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).shouldHaveNoInteractions();
+            assertThat(listener.seen).isEmpty();
+        }
+
+        // B8
+        @Test
+        void 이미_끝난_실행은_닫지_않는다() {
+            given(executionReader.read(ID)).willReturn(execution(ExecutionStatus.SUCCEEDED));
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.of(NOW.minus(Duration.ofHours(1))));
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).shouldHaveNoInteractions();
+            assertThat(listener.seen).isEmpty();
+        }
+
+        // B9 — 복구 스케줄러가 읽은 뒤 그 사이 dead letter 가 와서 닫았다. 다시 닫지도 알리지도 않는다.
+        @Test
+        void dead_letter_경로가_먼저_닫은_실행을_안전망이_다시_보면_아무것도_하지_않는다() {
+            given(executionReader.read(ID)).willReturn(execution(ExecutionStatus.QUEUED), execution(ExecutionStatus.FAILED));
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.of(NOW.minus(Duration.ofHours(1))));
+            sut.closeDeadLettered(ID, DeadLetterReason.EXPIRED);
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).should(times(1))
+                    .finish(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class));
+            then(reservationManager).should(never()).finishQueued(any(), any(), any());
+            assertThat(listener.seen).hasSize(1);
+        }
+
+        // B9 — 반대로 안전망이 먼저 닫은 뒤에 dead letter 가 늦게 와도 다시 닫지 않는다.
+        @Test
+        void 안전망이_먼저_닫은_실행에_dead_letter_가_늦게_와도_다시_닫지_않는다() {
+            given(executionReader.read(ID)).willReturn(execution(ExecutionStatus.QUEUED), execution(ExecutionStatus.FAILED));
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.of(NOW.minus(Duration.ofHours(1))));
+            given(reservationManager.finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class)))
+                    .willReturn(true);
+            sut.closeOverdueInQueue(ID);
+
+            sut.closeDeadLettered(ID, DeadLetterReason.EXPIRED);
+
+            then(reservationManager).should(times(1))
+                    .finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class));
+            then(reservationManager).should(never()).finish(any(), any(), any(EngineReport.class));
+            assertThat(listener.seen).hasSize(1);
+        }
+
+        // B9b — 다시 읽은 뒤(QUEUED) 닫기 전에 accepted 가 와서 RUNNING 이 됐다. 잠근 뒤 보니 QUEUED 가 아니라 닫히지 않았다.
+        // 실패를 알리지도, 감시와 진행 저장소에서 빼지도 않고, 조건 없이 닫는 finish 로 넘어가지도 않는다. 감시가 맡는다.
+        @Test
+        void 잠근_뒤_QUEUED_가_아니라_닫히지_않았으면_알리지도_감시에서_빼지도_않는다() {
+            queuedDispatchedAt(NOW.minus(Duration.ofHours(1)));
+            sut.apply(RunEventFixtures.accepted(RUN_ID, 1, 1));
+            given(reservationManager.finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class)))
+                    .willReturn(false);
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).should()
+                    .finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class));
+            then(reservationManager).should(never()).finish(any(), any(), any(EngineReport.class));
+            assertThat(listener.statuses()).containsExactly(ExecutionStatus.RUNNING);
+            assertThat(sut.isWatching(ID)).isTrue();
+            assertThat(store.find(ID)).isPresent();
+        }
+
+        // B10 — 근거(execution_run_record.closed_by)에 브로커가 dead letter 로 닫은 실행과 다른 값으로 남는다.
+        @Test
+        void 안전망이_닫은_실행은_dead_letter_와_구분되는_까닭으로_닫는다() {
+            queuedDispatchedAt(NOW.minus(QUEUE_LIMIT_AND_QUEUE_GRACE));
+
+            sut.closeOverdueInQueue(ID);
+
+            assertThat(closedReport().closedBy())
+                    .isEqualTo(EngineReport.ClosedBy.QUEUE_OVERDUE)
+                    .isNotEqualTo(EngineReport.ClosedBy.DEAD_LETTERED);
+        }
+
+        // B10 · B11 — 대기 화면이 끝나도록 구독자에게 알린다. 실패 코드는 dead letter(expired)로 닫을 때와 같다.
+        @Test
+        void 안전망이_닫으면_구독자에게_ABC_QUEUE_EXPIRED_플랫폼_탓_실패를_알린다() {
+            queuedDispatchedAt(NOW.minus(QUEUE_LIMIT_AND_QUEUE_GRACE));
+
+            sut.closeOverdueInQueue(ID);
+
+            assertThat(listener.last()).satisfies(progress -> {
+                assertThat(progress.id()).isEqualTo(ID);
+                assertThat(progress.status()).isEqualTo(ExecutionStatus.FAILED);
+                assertThat(progress.total()).isEqualTo(2);
+                assertThat(progress.failure()).isEqualTo(
+                        new ExecutionProgress.Failure(null, "ABC_QUEUE_EXPIRED", "platform"));
+            });
+        }
+
+        // B12 — 닫기가 커밋되지 않았는데 구독자에게 실패를 알리면 화면과 DB 가 어긋난다. 다음 차례에 다시 본다.
+        @Test
+        void 닫다_실패하면_구독자에게_알리지_않고_다음_차례에_다시_닫는다() {
+            queuedDispatchedAt(NOW.minus(QUEUE_LIMIT_AND_QUEUE_GRACE));
+            given(reservationManager.finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class)))
+                    .willThrow(new DataAccessResourceFailureException("db down"))
+                    .willReturn(true);
+
+            catchThrowable(() -> sut.closeOverdueInQueue(ID));
+
+            assertThat(listener.seen).isEmpty();
+
+            sut.closeOverdueInQueue(ID);
+
+            then(reservationManager).should(times(2))
+                    .finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class));
+            assertThat(listener.last().status()).isEqualTo(ExecutionStatus.FAILED);
+        }
+
+        // B13 — 유예는 설정값이다. 큐 대기 한도는 토폴로지 TTL(10분) 그대로라 유예 2분이면 12분이 경계다.
+        @Test
+        void 유예를_2분으로_두면_넘긴_지_12분에_닫는다() {
+            ExecutionTracker shortGrace = trackerWithQueueGrace(Duration.ofMinutes(2));
+            queuedDispatchedAt(NOW.minus(Duration.ofMinutes(12)));
+
+            shortGrace.closeOverdueInQueue(ID);
+
+            then(reservationManager).should()
+                    .finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class));
+        }
+
+        @Test
+        void 유예를_2분으로_두면_넘긴_지_12분에서_1ms_모자랄_때_닫지_않는다() {
+            ExecutionTracker shortGrace = trackerWithQueueGrace(Duration.ofMinutes(2));
+            queuedDispatchedAt(NOW.minus(Duration.ofMinutes(12)).plusMillis(1));
+
+            shortGrace.closeOverdueInQueue(ID);
+
+            then(reservationManager).shouldHaveNoInteractions();
+        }
+
+        // 넘긴 채 QUEUED 인 실행이고, 잠근 뒤에도 QUEUED 라 닫힌다(finishQueued 가 true).
+        private void queuedDispatchedAt(Instant dispatchedAt) {
+            given(executionReader.read(ID)).willReturn(execution(ExecutionStatus.QUEUED));
+            given(executionReader.readDispatchedAt(ID)).willReturn(Optional.of(dispatchedAt));
+            given(reservationManager.finishQueued(eq(ID), eq(ExecutionStatus.FAILED), any(EngineReport.class)))
+                    .willReturn(true);
+        }
+
+        private EngineReport closedReport() {
+            ArgumentCaptor<EngineReport> report = ArgumentCaptor.forClass(EngineReport.class);
+
+            then(reservationManager).should().finishQueued(eq(ID), eq(ExecutionStatus.FAILED), report.capture());
+
+            return report.getValue();
+        }
+    }
+
+    private ExecutionTracker trackerWithQueueGrace(Duration queueGrace) {
+        return new ExecutionTracker(aiRuntimeClient, runQueuePublisher, executionReader, executionWriter,
+                reservationManager, resultCollector, store,
+                new ExecutionWatchProperties(Duration.ofSeconds(60), Duration.ofSeconds(60)),
+                new ExecutionRecoveryProperties(queueGrace), List.of(listener), clock);
     }
 
     private void accept() {

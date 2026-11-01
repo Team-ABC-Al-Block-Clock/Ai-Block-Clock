@@ -25,19 +25,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 // 실행을 이벤트로 따라가고(abc.events.backend), 이벤트가 끊긴 실행만 엔진에 HTTP 로 한 번 묻는다(감시).
-//   apply              RunEvent 를 실행에 적용한다. 상태는 이벤트 type 으로 정하고, (attempt, seq) 가 거꾸로 온 것은 버린다
-//   begin · isWatching 감시에 붙인다(복구). RUNNING 실행만 붙는다 — 큐에서 기다리는 실행은 TTL 과 dead letter 가 맡는다
-//   check              마지막 이벤트에서 기한(단계 수 × per-step + grace)이 지난 실행만 엔진에 묻는다
-//   closeDeadLettered  abc.runs.dead 로 온 실행을 플랫폼 탓으로 닫는다
-// 닫기 · 환불 · 정산은 ExecutionReservationManager.finish 한 곳에서 한다. 이미 닫힌 실행은 거기서 걸러져 두 번 닫히지 않는다.
+//   apply                RunEvent 를 실행에 적용한다. 상태는 이벤트 type 으로 정하고, (attempt, seq) 가 거꾸로 온 것은 버린다
+//   begin · isWatching   감시에 붙인다(복구). RUNNING 실행만 붙는다 — 큐에서 기다리는 실행은 TTL 과 dead letter 가 맡는다
+//   check                마지막 이벤트에서 기한(단계 수 × per-step + grace)이 지난 실행만 엔진에 묻는다
+//   closeDeadLettered    abc.runs.dead 로 온 실행을 플랫폼 탓으로 닫는다
+//   closeOverdueInQueue  dead letter 를 잃어 큐 대기 한도 + 유예가 지나도록 QUEUED 인 실행을 플랫폼 탓으로 닫는다(복구)
+// 닫기 · 환불 · 정산은 ExecutionReservationManager 한 곳에서 한다. 이미 닫힌 실행은 거기서 걸러져 두 번 닫히지 않는다.
 // 이벤트를 적용하다 실패하면(DB 오류 등) 던진다. 리스너가 다시 시도하고, 적용하지 못한 순번은 남기지 않아 다시 온 것을 버리지 않는다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@EnableConfigurationProperties(ExecutionWatchProperties.class)
+@EnableConfigurationProperties({ExecutionWatchProperties.class, ExecutionRecoveryProperties.class})
 public class ExecutionTracker {
     // abc.runs.submit 의 x-message-ttl 이다 (ai/docs/integration-guide.md §4.1).
-    // 넘긴 뒤 이만큼 + grace 가 지나도록 엔진이 모르면 다시 올 일이 없다.
+    // 넘긴 뒤 이만큼 + grace 가 지나도록 엔진이 모르면 다시 올 일이 없다. 큐 대기 안전망은 여기에 자기 유예(queue-grace)를 더한다.
     private static final Duration QUEUE_WAIT_LIMIT = Duration.ofMinutes(10);
 
     private final AiRuntimeClient aiRuntimeClient;
@@ -48,6 +49,7 @@ public class ExecutionTracker {
     private final ExecutionResultCollector executionResultCollector;
     private final ExecutionProgressStore progressStore;
     private final ExecutionWatchProperties properties;
+    private final ExecutionRecoveryProperties recoveryProperties;
     private final List<ExecutionProgressListener> listeners;
     private final Clock clock;
 
@@ -135,6 +137,25 @@ public class ExecutionTracker {
                 EngineReport.deadLettered(lastSeen, reason.failureCode()));
         stopAndNotify(ExecutionProgress.deadLettered(id, lastProgressOf(id), found.get().getPromptCount(),
                 reason.failureCode()));
+    }
+
+    // 넘긴 채 큐에서 기다리던 실행이 큐 대기 한도 + 유예가 지나도록 dead letter 로도 오지 않았다(DB 안전망).
+    // ABC_QUEUE_EXPIRED 로 플랫폼 탓으로 닫고 예치를 전액 돌려준다. 대상이 아니거나 이미 닫힌 실행이면 아무것도 하지 않는다.
+    // 읽은 뒤 닫기 전에 accepted 가 와서 RUNNING 이 됐으면 잠근 뒤 보고 닫히지 않는다. 알리지 않고 감시에 그대로 둔다.
+    // 닫다 실패하면 던진다. 알리지 않아 화면과 DB 가 어긋나지 않고, 실행은 QUEUED 로 남아 다음 차례에 다시 본다.
+    public void closeOverdueInQueue(ExecutionId id) {
+        Optional<Execution> found = find(id);
+
+        if (found.isEmpty() || !isOverdueInQueue(found.get())) {
+            return;
+        }
+
+        if (!executionReservationManager.finishQueued(id, ExecutionStatus.FAILED, EngineReport.queueOverdue())) {
+            return;
+        }
+
+        log.warn("넘긴 채 큐 대기 한도와 유예가 지나도록 dead letter 가 오지 않아 플랫폼 탓으로 닫았다: execution={}", id.value());
+        stopAndNotify(ExecutionProgress.queueOverdue(id, found.get().getPromptCount()));
     }
 
     // 우리 실행 번호는 UUID 다. UUID 가 아니면 모르는 실행이라 비어 있다. 다시 와도 알게 되지 않는다.
@@ -251,6 +272,21 @@ public class ExecutionTracker {
         return executionReader.readDispatchedAt(id)
                 .map(dispatchedAt -> !now.isBefore(dispatchedAt.plus(QUEUE_WAIT_LIMIT).plus(properties.grace())))
                 .orElse(true);
+    }
+
+    // 넘긴 채 큐에서 기다리고, 넘긴 지 큐 대기 한도 + 유예가 지났다. 감시와 달리 넘긴 시각을 모르면 얼마나 기다렸는지 몰라
+    // 지나지 않은 것으로 본다. 넘긴 기록이 없는 실행은 디스패처가, RUNNING 은 감시가 맡는다.
+    private boolean isOverdueInQueue(Execution execution) {
+        if (execution.getStatus() != ExecutionStatus.QUEUED || !execution.isDispatched()) {
+            return false;
+        }
+
+        Instant now = clock.instant();
+        Duration queueWait = QUEUE_WAIT_LIMIT.plus(recoveryProperties.queueGrace());
+
+        return executionReader.readDispatchedAt(execution.getId())
+                .map(dispatchedAt -> !now.isBefore(dispatchedAt.plus(queueWait)))
+                .orElse(false);
     }
 
     // 끊은 뒤에도 엔진이 돌면 아무도 받지 않는 LLM 비용이 든다. 멈추게 하되, 취소를 걸지 못해도 닫는다.

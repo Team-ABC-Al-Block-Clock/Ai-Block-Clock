@@ -124,6 +124,17 @@ public class ExecutionWriter {
         return finish(id, status, failure);
     }
 
+    // 큐에서 기다리는 실행만 닫는다(큐 대기 안전망). 행을 잠근 뒤에 상태를 보므로, 안전망이 다시 읽은 뒤 accepted 가 와서
+    // RUNNING 이 된 실행을 큐에서 사라진 것으로 잘못 보고 닫는 일이 없다. QUEUED 가 아니면(RUNNING · 끝남) 비워 돌려준다.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Execution> finishQueued(ExecutionId id, ExecutionStatus status, ExecutionFailure failure) {
+        if (lock(id).getStatus() != ExecutionStatus.QUEUED) {
+            return Optional.empty();
+        }
+
+        return finish(id, status, failure);
+    }
+
     // 접수와 같은 트랜잭션에 브로커로 보낼 SubmitRun 을 적는다. 커밋되면 디스패처가 곧바로 넘긴다(ExecutionAccepted) —
     // 되돌려진 접수는 알리지 않는다. 커밋 직후 시도가 놓친 것은 디스패처의 주기 점검이 이 줄을 보고 다시 넘긴다.
     @Transactional(propagation = Propagation.MANDATORY)

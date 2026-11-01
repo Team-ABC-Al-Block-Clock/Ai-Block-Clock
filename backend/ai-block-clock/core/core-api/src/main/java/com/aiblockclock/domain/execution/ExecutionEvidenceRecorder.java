@@ -99,12 +99,14 @@ public class ExecutionEvidenceRecorder implements DisposableBean {
     }
 
     // 엔진이 끝을 알렸거나 우리가 기한으로 끊은 실행은 엔진이 아직 원본을 들고 있다. 받아서 근거로 쓴다.
-    // 이미 원문을 든 실행(완료 이벤트) · 엔진이 잊은 실행(LOST) · 넘기지 못한 실행 · dead letter 로 닫은 실행은 물을 것이 없다.
+    // 이미 원문을 든 실행(완료 이벤트) · 엔진이 잊은 실행(LOST) · 넘기지 못한 실행 · dead letter 로 닫은 실행 ·
+    // 큐 대기 안전망이 닫은 실행(런타임이 받은 적이 없다)은 물을 것이 없다.
     private EngineReport withEngineRecord(ExecutionId id, EngineReport report) {
         if (report.raw() != null
                 || report.closedBy() == EngineReport.ClosedBy.LOST
                 || report.closedBy() == EngineReport.ClosedBy.UNDISPATCHED
-                || report.closedBy() == EngineReport.ClosedBy.DEAD_LETTERED) {
+                || report.closedBy() == EngineReport.ClosedBy.DEAD_LETTERED
+                || report.closedBy() == EngineReport.ClosedBy.QUEUE_OVERDUE) {
             return report;
         }
 

@@ -59,6 +59,8 @@ execution:
   recovery:
     enabled: ${EXECUTION_RECOVERY_ENABLED:true}
     interval: ${EXECUTION_RECOVERY_INTERVAL:60s}
+    # 넘긴 채 QUEUED 인 실행을 같은 주기에 본다. 넘긴 지 큐 대기 한도(10분) + queue-grace 가 지나도록 dead letter 가 없으면 닫고 돌려준다.
+    queue-grace: ${EXECUTION_RECOVERY_QUEUE_GRACE:5m}
   # 정산 근거는 실행이 닫힌 뒤 따로 적는다. 빠진 것은 backfill-interval 마다 채운다.
   evidence:
     backfill-enabled: ${EXECUTION_EVIDENCE_BACKFILL_ENABLED:true}

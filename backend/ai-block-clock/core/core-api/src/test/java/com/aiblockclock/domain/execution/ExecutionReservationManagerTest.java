@@ -42,10 +42,12 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 // 넘긴 기록(B7 · B11)과 넘기지 못한 실행 버리기(B10), 접수 때 떼기(B1 · B3)와 닫을 때 돌려주기 · 정산(B14 ~ B17 · B30)이다.
 // 행을 잠그고 보는 판단은 ExecutionWriter 가 하고, 여기서는 그 답에 따라 무엇을 더 적는지 본다.
@@ -233,6 +235,57 @@ class ExecutionReservationManagerTest {
         then(events).should().publishEvent(new ExecutionClosed(id, report));
     }
 
+    // 안전망 B6 — 런타임이 받은 적이 없어 성공한 단계가 없다. 사용자는 전부 돌려받고 아무에게도 정산하지 않는다.
+    // 잠근 뒤에도 QUEUED 일 때만 닫는 닫기(finishQueued)로 닫는다(B9b).
+    @Test
+    void 큐_대기_안전망이_닫으면_ABC_QUEUE_EXPIRED_로_판정하고_전부_돌려주고_정산하지_않는다() {
+        EngineReport report = EngineReport.queueOverdue();
+        given(executionWriter.finishQueued(id, ExecutionStatus.FAILED, queueExpired()))
+                .willReturn(Optional.of(closed(ExecutionStatus.FAILED, RESERVED, false)));
+        given(executionReader.readStepPrices(id)).willReturn(prices("n1", "n2"));
+
+        assertThat(sut.finishQueued(id, ExecutionStatus.FAILED, report)).isTrue();
+
+        then(executionWriter).should().finishQueued(id, ExecutionStatus.FAILED, queueExpired());
+        then(ledgerTransactionWriter).should().append(LedgerTransaction.forExecutionRefund(id.value(), REQUESTER,
+                RESERVED));
+        then(ledgerTransactionWriter).shouldHaveNoMoreInteractions();
+        then(executionWriter).should(never()).appendSettlements(any(), any());
+        then(events).should().publishEvent(new ExecutionClosed(id, report));
+    }
+
+    // 안전망 B9b — 안전망이 다시 읽은 뒤 accepted 가 와서 RUNNING 이 됐다. 잠근 뒤 보고 닫히지 않았으니 판정 · 환불 · 등급 재료 ·
+    // 닫힌 알림이 모두 없고, 아무 조건 없이 닫는 finish 로 넘어가지도 않는다. 그 실행은 감시가 맡는다.
+    @Test
+    void 큐_대기_안전망으로_닫을_때_잠근_실행이_QUEUED_가_아니면_아무것도_하지_않고_닫지_않았다고_답한다() {
+        given(executionWriter.finishQueued(id, ExecutionStatus.FAILED, queueExpired())).willReturn(Optional.empty());
+
+        assertThat(sut.finishQueued(id, ExecutionStatus.FAILED, EngineReport.queueOverdue())).isFalse();
+
+        then(executionWriter).should(never()).finish(any(), any(), any());
+        then(executionWriter).should(never()).appendSettlements(any(), any());
+        then(ledgerTransactionWriter).shouldHaveNoInteractions();
+        then(agentGradeMetricWriter).shouldHaveNoInteractions();
+        then(events).shouldHaveNoInteractions();
+    }
+
+    // 안전망 B9 — dead letter 와 안전망이 같은 실행을 닫으러 와도 먼저 닫은 쪽만 돌려준다. 늦은 쪽은 닫힌 행을 보고 그친다.
+    @Test
+    void dead_letter_와_큐_대기_안전망이_같은_실행을_닫아도_한_번만_돌려준다() {
+        given(executionWriter.finish(eq(id), eq(ExecutionStatus.FAILED), any()))
+                .willReturn(Optional.of(closed(ExecutionStatus.FAILED, RESERVED, false)));
+        given(executionWriter.finishQueued(eq(id), eq(ExecutionStatus.FAILED), any())).willReturn(Optional.empty());
+        given(executionReader.readStepPrices(id)).willReturn(prices("n1", "n2"));
+
+        sut.finish(id, ExecutionStatus.FAILED, EngineReport.deadLettered(null, ExecutionProgress.QUEUE_EXPIRED));
+
+        assertThat(sut.finishQueued(id, ExecutionStatus.FAILED, EngineReport.queueOverdue())).isFalse();
+
+        then(ledgerTransactionWriter).should(times(1)).append(LedgerTransaction.forExecutionRefund(id.value(),
+                REQUESTER, RESERVED));
+        then(events).should(times(1)).publishEvent(any(ExecutionClosed.class));
+    }
+
     // B1 — 견적만큼 예치로 떼어 둔 실행을 적고, 끝난 뒤 받을 단계마다의 단가를 남긴다.
     @Test
     void 접수하면_견적만큼_떼어_둔_실행을_적고_단계마다_단가를_남기고_예치로_옮긴다() {
@@ -269,6 +322,10 @@ class ExecutionReservationManagerTest {
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.ABC_BALANCE_INSUFFICIENT));
 
         then(ledgerTransactionWriter).shouldHaveNoInteractions();
+    }
+
+    private static ExecutionFailure queueExpired() {
+        return new ExecutionFailure(null, ExecutionProgress.QUEUE_EXPIRED, ExecutionFault.PLATFORM, false, null, null);
     }
 
     private void givenClosed(EngineReport report, Execution closed) {

@@ -83,7 +83,8 @@ public class ExecutionReservationManager {
         return true;
     }
 
-    // 실행을 닫는 자리는 여기 하나다. 완료 이벤트도, 감시가 엔진에 물어 닫을 때도, dead letter 로 닫을 때도 여기로 온다.
+    // 실행을 닫는 자리는 여기다. 완료 이벤트도, 감시가 엔진에 물어 닫을 때도, dead letter 로 닫을 때도 여기로 온다.
+    // 큐 대기 안전망만 잠근 뒤 QUEUED 인지 보는 finishQueued 로 오고, 닫은 뒤의 일은 같은 본문(settle)을 쓴다.
     // 닫기 · 책임 판정 · 등급 재료 · 환불 · 정산이 한 트랜잭션이라, 닫혔는데 돌려주지 않았거나 공급자에게 주지 않아
     // 예치에 남은 실행, 누구 탓인지 모르는 실행, 등급에 세지 않은 실행이 생기지 않는다.
     // 이미 닫힌 실행이면 아무것도 하지 않아, 같은 끝이 두 번 와도 한 번만 세고 한 번만 돌려주고 한 번만 적립한다.
@@ -99,14 +100,30 @@ public class ExecutionReservationManager {
     // 따로 적는다(ExecutionEvidenceRecorder). 근거를 적다 느려지거나 실패해도 실행 닫기는 막히지 않는다.
     @Transactional
     public void finish(ExecutionId id, ExecutionStatus status, EngineReport report) {
-        ExecutionFailure failure = status == ExecutionStatus.FAILED ? ExecutionFailure.judge(report) : null;
-        Optional<Execution> closed = executionWriter.finish(id, status, failure);
+        ExecutionFailure failure = failureOf(status, report);
 
-        if (closed.isEmpty()) {
-            return;
-        }
+        executionWriter.finish(id, status, failure)
+                .ifPresent(closed -> settle(id, closed, report, failure));
+    }
 
-        Execution execution = closed.get();
+    // 큐 대기 안전망의 닫기다. finish 와 같이 닫기 · 판정 · 환불 · 정산 · 알림을 한 트랜잭션에 하되, 행을 잠근 뒤에도
+    // QUEUED 일 때만 닫는다(ExecutionWriter.finishQueued). 그 사이 RUNNING 이 됐거나 끝났으면 아무것도 하지 않고 false 다.
+    @Transactional
+    public boolean finishQueued(ExecutionId id, ExecutionStatus status, EngineReport report) {
+        ExecutionFailure failure = failureOf(status, report);
+        Optional<Execution> closed = executionWriter.finishQueued(id, status, failure);
+
+        closed.ifPresent(execution -> settle(id, execution, report, failure));
+
+        return closed.isPresent();
+    }
+
+    private static ExecutionFailure failureOf(ExecutionStatus status, EngineReport report) {
+        return status == ExecutionStatus.FAILED ? ExecutionFailure.judge(report) : null;
+    }
+
+    // 방금 닫은 실행의 등급 재료 · 환불 · 정산을 적고 닫혔다고 알린다. 닫는 트랜잭션 안에서만 부른다.
+    private void settle(ExecutionId id, Execution execution, EngineReport report, ExecutionFailure failure) {
         RunStatus run = report.run();
 
         // mock 실행은 모델을 부르지 않아 성공도 실패도 판매자의 것이 아니다. 등급 재료로 세지 않는다.

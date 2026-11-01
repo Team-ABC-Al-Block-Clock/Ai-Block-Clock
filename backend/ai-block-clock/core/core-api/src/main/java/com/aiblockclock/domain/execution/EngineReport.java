@@ -18,7 +18,9 @@ public record EngineReport(ClosedBy closedBy, RunStatus run, String raw, String 
         // 엔진에 넘기지 못했다
         UNDISPATCHED,
         // 브로커가 실행 맡기기를 dead letter 로 보냈다(큐 대기 한도 초과 · 재배달 한도 초과 등). 엔진에 원본을 묻지 않는다
-        DEAD_LETTERED
+        DEAD_LETTERED,
+        // 넘긴 채 큐 대기 한도 + 유예가 지나도록 dead letter 가 오지 않아 DB 안전망이 닫았다. 엔진에 원본을 묻지 않는다
+        QUEUE_OVERDUE
     }
 
     public static EngineReport reported(RunStatus run, String raw) {
@@ -40,6 +42,11 @@ public record EngineReport(ClosedBy closedBy, RunStatus run, String raw, String 
     // lastSeen 은 dead letter 전에 마지막으로 받은 snapshot 이다. 없으면 비어 있다. failureCode 는 사유로 정한 실패 코드다.
     public static EngineReport deadLettered(RunStatus lastSeen, String failureCode) {
         return new EngineReport(ClosedBy.DEAD_LETTERED, lastSeen, null, failureCode);
+    }
+
+    // 넘긴 뒤 큐에서 기다리다 dead letter 없이 사라진 실행이다. 런타임이 받은 적이 없어 마지막으로 본 상태가 없다.
+    public static EngineReport queueOverdue() {
+        return new EngineReport(ClosedBy.QUEUE_OVERDUE, null, null, null);
     }
 
     // 끊기 전에 엔진이 멈춰 있던 단계다. 근거에 "어디서 멎었나" 로 남긴다.

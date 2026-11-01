@@ -516,6 +516,14 @@ class ExecutionServiceTest {
 
             then(executionTracker).should().closeDeadLettered(id, DeadLetterReason.EXPIRED);
         }
+
+        // B6 · B14 — 복구 스케줄러가 넘긴 채 QUEUED 인 실행을 넘긴다. 한도가 지났는지 보고 닫는 일은 추적기가 한다.
+        @Test
+        void 큐에서_기다리는_실행은_추적기에_넘겨_큐_대기_한도가_지났으면_닫게_한다() {
+            sut.closeOverdueInQueue(id);
+
+            then(executionTracker).should().closeOverdueInQueue(id);
+        }
     }
 
     private Execution execution(UserId requester, String runId, ExecutionStatus status) {

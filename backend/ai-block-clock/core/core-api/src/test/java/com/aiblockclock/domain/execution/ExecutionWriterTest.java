@@ -186,6 +186,62 @@ class ExecutionWriterTest {
                         assertThat(exception.getErrorType()).isEqualTo(ErrorType.EXECUTION_NOT_FOUND));
     }
 
+    // 안전망 B9b — 안전망이 QUEUED 로 다시 읽은 뒤 닫기 전에 accepted 가 와서 RUNNING 이 됐다. 잠근 뒤 보고 닫지 않는다.
+    // 판정도 적지 않는다. 그 실행은 감시가 맡는다.
+    @Test
+    void 잠근_뒤_RUNNING_이_된_실행은_큐_대기_안전망으로_닫지_않는다() {
+        ExecutionEntity entity = entity(id.value().toString(), ExecutionStatus.RUNNING);
+        given(executionRepository.findForUpdate(id.value())).willReturn(Optional.of(entity));
+
+        Optional<Execution> closed = sut.finishQueued(id, ExecutionStatus.FAILED, queueExpired());
+
+        assertThat(closed).isEmpty();
+        assertThat(entity.getStatus()).isEqualTo(ExecutionStatus.RUNNING);
+        then(executionFailureRepository).shouldHaveNoInteractions();
+    }
+
+    // 안전망 B6 · B9b
+    @Test
+    void 잠근_뒤에도_QUEUED_인_실행은_큐_대기_안전망이_FAILED_로_닫고_큐_만료로_적는다() {
+        ExecutionEntity entity = entity(id.value().toString(), ExecutionStatus.QUEUED);
+        given(executionRepository.findForUpdate(id.value())).willReturn(Optional.of(entity));
+
+        Optional<Execution> closed = sut.finishQueued(id, ExecutionStatus.FAILED, queueExpired());
+
+        assertThat(closed).hasValueSatisfying(execution -> {
+            assertThat(execution.getId()).isEqualTo(id);
+            assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.FAILED);
+        });
+        assertThat(entity.getStatus()).isEqualTo(ExecutionStatus.FAILED);
+        assertThat(savedFailure()).satisfies(failure -> {
+            assertThat(failure.getExecutionId()).isEqualTo(id.value());
+            assertThat(failure.getFailureCode()).isEqualTo("ABC_QUEUE_EXPIRED");
+            assertThat(failure.getFault()).isEqualTo(ExecutionFault.PLATFORM);
+        });
+    }
+
+    // 안전망 B9 — dead letter 가 먼저 닫았다. 다시 닫지도 판정을 덮어쓰지도 않는다.
+    @Test
+    void 이미_끝난_실행은_큐_대기_안전망으로_다시_닫지_않는다() {
+        ExecutionEntity entity = entity(id.value().toString(), ExecutionStatus.FAILED);
+        given(executionRepository.findForUpdate(id.value())).willReturn(Optional.of(entity));
+
+        Optional<Execution> closed = sut.finishQueued(id, ExecutionStatus.FAILED, queueExpired());
+
+        assertThat(closed).isEmpty();
+        assertThat(entity.getStatus()).isEqualTo(ExecutionStatus.FAILED);
+        then(executionFailureRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 없는_실행을_큐_대기_안전망으로_닫으려_하면_EXECUTION_NOT_FOUND_다() {
+        given(executionRepository.findForUpdate(id.value())).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.finishQueued(id, ExecutionStatus.FAILED, queueExpired()))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.EXECUTION_NOT_FOUND));
+    }
+
     // accepted · progress 가 실행을 RUNNING 으로 옮긴다(B12 · B13).
     @Test
     void 대기_중인_실행을_RUNNING_으로_옮긴다() {
@@ -389,6 +445,10 @@ class ExecutionWriterTest {
         return Execution.requested(id, ExecutionRequestId.of(UUID.randomUUID()), WorkflowId.of(UUID.randomUUID()),
                         REQUESTER, 2, null, false)
                 .reserve(AbcAmount.of(new BigDecimal("6")));
+    }
+
+    private static ExecutionFailure queueExpired() {
+        return new ExecutionFailure(null, "ABC_QUEUE_EXPIRED", ExecutionFault.PLATFORM, false, null, null);
     }
 
     private ExecutionEntity entity(String runIdValue, ExecutionStatus status) {

@@ -38,6 +38,12 @@ class ExecutionMessagingSettingsTest {
         assertThat(durationOf("execution.polling.grace")).isEqualTo(Duration.ofSeconds(60));
     }
 
+    // B13 — 넘긴 뒤 큐 대기 한도(10분)에 더해 dead letter 를 기다려 주는 유예다. 넘긴 지 15분이면 안전망이 닫는다.
+    @Test
+    void 큐_대기_안전망의_유예는_기본_5분이다() {
+        assertThat(durationOf("execution.recovery.queue-grace")).isEqualTo(Duration.ofMinutes(5));
+    }
+
     @Test
     void 실행마다_2초_폴링하던_간격과_스레드_수_설정은_없다() {
         assertThat(environment.containsProperty("execution.polling.interval")).isFalse();
