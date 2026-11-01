@@ -92,6 +92,8 @@ configure(subprojects.findAll { it.subprojects.isEmpty() }) {
         pitestVersion = '1.30.1'
         junit5PluginVersion = '1.2.3'
         targetClasses = (findProperty('pitTargetClasses') ?: "${project.group}.*").split(',') as List
+        // 테스트는 늘 모듈 전체에서 고른다. 비워 두면 플러그인이 targetClasses 를 그대로 써, 범위를 좁히면 *Test 가 하나도 뽑히지 않고 0% 가 된다.
+        targetTests = ["${project.group}.*"]
         excludedGroups = ['integration', 'container']
         threads = Runtime.runtime.availableProcessors()
         outputFormats = ['XML', 'HTML']
