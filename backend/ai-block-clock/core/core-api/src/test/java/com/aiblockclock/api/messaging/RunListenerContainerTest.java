@@ -40,6 +40,8 @@ import static org.mockito.Mockito.timeout;
 class RunListenerContainerTest {
     private static final List<String> QUEUES = List.of(
             "abc.runs.submit", "abc.runs.dead", "abc.events.backend", "abc.events.backend.dlq");
+    // 소비자를 두지 않는 마지막 칸이다. 그것을 보는 테스트가 선언을 확인하고 비운다.
+    private static final String PARKING_QUEUE = "abc.runs.parking";
 
     @MockitoBean
     private ExecutionService executionService;
@@ -129,6 +131,30 @@ class RunListenerContainerTest {
 
         then(nodeTestRunService).should(timeout(20_000))
                 .closeDeadLettered(NodeTestRunId.of(UUID.fromString(testRunId)), DeadLetterReason.EXPIRED);
+    }
+
+    // B5 — 죽은 실행을 닫다 처음 한 번에 세 번 더 시도해도(ai.yml) 실패하면 리스너가 거절한다. 그 실행 맡기기를 버리지 않고
+    // 사람이 꺼내 볼 수 있게 parking lot 에 본문 그대로 남긴다. 백엔드는 parking lot 을 소비하지 않아 그대로 남아 있다.
+    @Test
+    void 죽은_실행을_재시도까지_닫지_못하면_버리지_않고_parking_큐에_본문_그대로_남긴다() {
+        assertThat(amqpAdmin.getQueueInfo(PARKING_QUEUE)).as("백엔드가 %s 큐를 선언하지 않았다", PARKING_QUEUE).isNotNull();
+        amqpAdmin.purgeQueue(PARKING_QUEUE);
+        willThrow(new DataAccessResourceFailureException("db down"))
+                .given(executionService).closeDeadLettered(any(), any());
+        byte[] body = submitBody(UUID.randomUUID().toString(), "run");
+        MessageProperties properties = new MessageProperties();
+        properties.setExpiration("100");
+
+        rabbitTemplate.send("abc.runs", "submit", new Message(body, properties));
+
+        Message parked = rabbitTemplate.receive(PARKING_QUEUE, 30_000);
+        assertThat(parked).as("재시도까지 실패한 실행 맡기기가 parking lot 에 없다").isNotNull();
+        assertThat(parked.getBody()).isEqualTo(body);
+        assertThat(parked.getMessageProperties().getXDeathHeader()).anySatisfy(death -> {
+            assertThat(death.get("queue")).hasToString("abc.runs.dead");
+            assertThat(death.get("reason")).hasToString("rejected");
+        });
+        then(executionService).should(after(2_000).times(4)).closeDeadLettered(any(), any());
     }
 
     private static Message event(String executionId, String mode) {

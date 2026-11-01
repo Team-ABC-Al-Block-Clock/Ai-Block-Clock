@@ -710,6 +710,7 @@ def test_exchange_는_contract_1장의_이름과_타입으로_durable_하게_선
     assert {name: (spec["type"], spec["durable"]) for name, spec in declared.exchanges.items()} == {
         "abc.runs": ("direct", True),
         "abc.runs.dlx": ("fanout", True),
+        "abc.runs.dead.dlx": ("fanout", True),
         "abc.control": ("fanout", True),
         "abc.events": ("topic", True),
         "abc.events.dlx": ("fanout", True),
@@ -724,7 +725,8 @@ def test_queue_는_contract_1장의_인자로_선언하고_런타임_전용_cont
     assert {name: spec["arguments"] for name, spec in declared.queues.items()} == {
         "abc.runs.submit": {"x-queue-type": "quorum", "x-message-ttl": 600000, "x-delivery-limit": 1,
                             "x-dead-letter-exchange": "abc.runs.dlx"},
-        "abc.runs.dead": {"x-queue-type": "quorum"},
+        "abc.runs.dead": {"x-queue-type": "quorum", "x-dead-letter-exchange": "abc.runs.dead.dlx"},
+        "abc.runs.parking": {"x-queue-type": "quorum"},
         "abc.events.backend": {"x-queue-type": "quorum", "x-single-active-consumer": True,
                                "x-dead-letter-exchange": "abc.events.dlx"},
         "abc.events.backend.dlq": {"x-queue-type": "quorum"},
@@ -750,6 +752,7 @@ def test_묶임은_contract_1장_그대로다():
     routes = {(queue, exchange): routing_key for queue, exchange, routing_key in declared.bindings}
 
     assert set(routes) == {("abc.runs.submit", "abc.runs"), ("abc.runs.dead", "abc.runs.dlx"),
+                           ("abc.runs.parking", "abc.runs.dead.dlx"),
                            ("abc.events.backend", "abc.events"), ("abc.events.backend.dlq", "abc.events.dlx")}
     assert routes[("abc.runs.submit", "abc.runs")] == "submit"
     assert routes[("abc.events.backend", "abc.events")] == "run.#"

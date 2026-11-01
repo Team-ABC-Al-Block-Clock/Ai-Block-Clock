@@ -18,8 +18,9 @@ import static org.assertj.core.api.Assertions.tuple;
 class RunTopologyTest {
     private final Declarables topology = RunTopology.declarables();
 
+    // B2 · B4 — abc.runs.dead 에서 재시도까지 실패한 것을 받는 abc.runs.dead.dlx 가 하나 늘고, 나머지 다섯은 그대로다.
     @Test
-    void 계약의_exchange_다섯_개를_타입대로_오래_가게_선언한다() {
+    void 계약의_exchange_여섯_개를_타입대로_오래_가게_선언한다() {
         Map<String, Exchange> exchanges = exchanges();
 
         assertThat(exchanges.values())
@@ -27,15 +28,17 @@ class RunTopologyTest {
                 .containsExactlyInAnyOrder(
                         tuple("abc.runs", "direct", true, false),
                         tuple("abc.runs.dlx", "fanout", true, false),
+                        tuple("abc.runs.dead.dlx", "fanout", true, false),
                         tuple("abc.control", "fanout", true, false),
                         tuple("abc.events", "topic", true, false),
                         tuple("abc.events.dlx", "fanout", true, false));
     }
 
+    // B3 · B4 — parking lot 이 하나 늘고, 나머지 넷은 그대로다.
     @Test
     void 런타임마다_생기는_control_큐는_백엔드가_선언하지_않는다() {
         assertThat(queues().keySet()).containsExactlyInAnyOrder(
-                "abc.runs.submit", "abc.runs.dead", "abc.events.backend", "abc.events.backend.dlq");
+                "abc.runs.submit", "abc.runs.dead", "abc.runs.parking", "abc.events.backend", "abc.events.backend.dlq");
     }
 
     @Test
@@ -60,10 +63,21 @@ class RunTopologyTest {
         assertThat(arguments.get("x-dead-letter-exchange")).isEqualTo("abc.runs.dlx");
     }
 
+    // B1 — DeadRunListener 가 재시도까지 모두 실패하면 버리지 않고 abc.runs.dead.dlx 로 보낸다. 기다리는 한도나 배달 한도는 두지 않는다.
     @Test
-    void dead_큐는_quorum_이다() {
-        assertThat(queues().get("abc.runs.dead").getArguments())
-                .containsExactlyEntriesOf(Map.of("x-queue-type", "quorum"));
+    void dead_큐는_quorum_이고_재시도까지_실패한_것은_abc_runs_dead_dlx_로_보낸다() {
+        Map<String, Object> arguments = queues().get("abc.runs.dead").getArguments();
+
+        assertThat(arguments).containsOnlyKeys("x-queue-type", "x-dead-letter-exchange");
+        assertThat(arguments.get("x-queue-type")).isEqualTo("quorum");
+        assertThat(arguments.get("x-dead-letter-exchange")).isEqualTo("abc.runs.dead.dlx");
+    }
+
+    // B3 — 마지막 칸이다. 여기서 더 보낼 곳이 없고, 사람이 꺼내 보기 전까지 남아 있다.
+    @Test
+    void parking_큐는_quorum_이고_더_보낼_곳이_없다() {
+        assertThat(queues()).hasEntrySatisfying("abc.runs.parking", parking ->
+                assertThat(parking.getArguments()).containsExactlyEntriesOf(Map.of("x-queue-type", "quorum")));
     }
 
     @Test
@@ -91,6 +105,7 @@ class RunTopologyTest {
                 .containsExactlyInAnyOrder(
                         tuple("abc.runs.submit", "abc.runs"),
                         tuple("abc.runs.dead", "abc.runs.dlx"),
+                        tuple("abc.runs.parking", "abc.runs.dead.dlx"),
                         tuple("abc.events.backend", "abc.events"),
                         tuple("abc.events.backend.dlq", "abc.events.dlx"));
     }

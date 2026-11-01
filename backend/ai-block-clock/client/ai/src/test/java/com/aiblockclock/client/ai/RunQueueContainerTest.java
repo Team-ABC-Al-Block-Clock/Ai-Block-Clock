@@ -50,13 +50,18 @@ class RunQueueContainerTest {
     private static final Map<String, Map<String, Object>> CONTRACT_QUEUES = Map.of(
             "abc.runs.submit", Map.of("x-queue-type", "quorum", "x-message-ttl", 600_000, "x-delivery-limit", 1,
                     "x-dead-letter-exchange", "abc.runs.dlx"),
-            "abc.runs.dead", Map.of("x-queue-type", "quorum"),
+            "abc.runs.dead", Map.of("x-queue-type", "quorum", "x-dead-letter-exchange", "abc.runs.dead.dlx"),
+            "abc.runs.parking", Map.of("x-queue-type", "quorum"),
             "abc.events.backend", Map.of("x-queue-type", "quorum", "x-single-active-consumer", true,
                     "x-dead-letter-exchange", "abc.events.dlx"),
             "abc.events.backend.dlq", Map.of("x-queue-type", "quorum"));
     private static final Map<String, String> CONTRACT_EXCHANGES = Map.of(
-            "abc.runs", "direct", "abc.runs.dlx", "fanout", "abc.control", "fanout",
+            "abc.runs", "direct", "abc.runs.dlx", "fanout", "abc.runs.dead.dlx", "fanout", "abc.control", "fanout",
             "abc.events", "topic", "abc.events.dlx", "fanout");
+    // 테스트마다 선언되어 있는지 보고 비우는 큐다. parking 은 그것을 보는 테스트가 직접 확인하고 비운다.
+    private static final List<String> EMPTIED_BEFORE_EACH = List.of(
+            "abc.runs.submit", "abc.runs.dead", "abc.events.backend", "abc.events.backend.dlq");
+    private static final String PARKING_QUEUE = "abc.runs.parking";
 
     @Autowired
     private RunQueuePublisher runQueuePublisher;
@@ -72,7 +77,7 @@ class RunQueueContainerTest {
 
     @BeforeEach
     void 계약의_큐가_선언되어_있고_비어_있다() {
-        for (String queue : CONTRACT_QUEUES.keySet()) {
+        for (String queue : EMPTIED_BEFORE_EACH) {
             assertThat(amqpAdmin.getQueueInfo(queue)).as("백엔드가 %s 큐를 선언하지 않았다", queue).isNotNull();
             amqpAdmin.purgeQueue(queue);
         }
@@ -237,6 +242,34 @@ class RunQueueContainerTest {
         Message dead = rabbitTemplate.receive("abc.events.backend.dlq", 10_000);
         assertThat(dead).isNotNull();
         assertThat(new String(dead.getBody(), StandardCharsets.UTF_8)).isEqualTo("{\"seq\":9}");
+    }
+
+    // B5 — 백엔드 리스너가 재시도까지 모두 실패하면 다시 넣지 않고 거절한다. 그것이 버려지지 않고 parking lot 에 남는다.
+    // 백엔드 리스너는 :core:core-api 에 있어, 여기서는 수동 ack 로 받아 거절하는 것으로 같은 길을 태운다.
+    @Test
+    void abc_runs_dead_에서_거절한_것은_본문_그대로_사유_rejected_를_달고_abc_runs_parking_에_남는다() throws Exception {
+        assertThat(amqpAdmin.getQueueInfo(PARKING_QUEUE)).as("백엔드가 %s 큐를 선언하지 않았다", PARKING_QUEUE).isNotNull();
+        amqpAdmin.purgeQueue(PARKING_QUEUE);
+        byte[] body = submitBody(UUID.randomUUID().toString());
+
+        rabbitTemplate.send("", "abc.runs.dead", new Message(body, new MessageProperties()));
+
+        try (Connection connection = rawConnection()) {
+            Channel channel = connection.createChannel();
+            GetResponse delivery = waitForOrNull(() -> channel.basicGet("abc.runs.dead", false));
+
+            assertThat(delivery).as("abc.runs.dead 에서 실행 맡기기를 받지 못했다").isNotNull();
+            channel.basicReject(delivery.getEnvelope().getDeliveryTag(), false);
+            channel.close();
+        }
+
+        Message parked = rabbitTemplate.receive(PARKING_QUEUE, 10_000);
+        assertThat(parked).as("거절한 실행 맡기기가 parking lot 에 없다").isNotNull();
+        assertThat(parked.getBody()).isEqualTo(body);
+        assertThat(parked.getMessageProperties().getXDeathHeader()).anySatisfy(death -> {
+            assertThat(death.get("queue")).hasToString("abc.runs.dead");
+            assertThat(death.get("reason")).hasToString("rejected");
+        });
     }
 
     private Connection rawConnection() throws IOException, TimeoutException {

@@ -37,11 +37,13 @@ RESULTS_ROOT: Path = Path(os.getenv("RESULTS_ROOT") or ROOT / "results")
 # ai/docs/integration-guide.md §4.1 토폴로지
 RUNS_EXCHANGE = "abc.runs"
 RUNS_DLX = "abc.runs.dlx"
+DEAD_DLX = "abc.runs.dead.dlx"
 CONTROL_EXCHANGE = "abc.control"
 EVENTS_EXCHANGE = "abc.events"
 EVENTS_DLX = "abc.events.dlx"
 SUBMIT_QUEUE = "abc.runs.submit"
 DEAD_QUEUE = "abc.runs.dead"
+PARKING_QUEUE = "abc.runs.parking"
 EVENTS_QUEUE = "abc.events.backend"
 EVENTS_DLQ = "abc.events.backend.dlq"
 
@@ -187,6 +189,7 @@ async def declare_topology(channel) -> None:
     """
     runs = await channel.declare_exchange(RUNS_EXCHANGE, ExchangeType.DIRECT, durable=True)
     runs_dlx = await channel.declare_exchange(RUNS_DLX, ExchangeType.FANOUT, durable=True)
+    dead_dlx = await channel.declare_exchange(DEAD_DLX, ExchangeType.FANOUT, durable=True)
     await channel.declare_exchange(CONTROL_EXCHANGE, ExchangeType.FANOUT, durable=True)
     events = await channel.declare_exchange(EVENTS_EXCHANGE, ExchangeType.TOPIC, durable=True)
     events_dlx = await channel.declare_exchange(EVENTS_DLX, ExchangeType.FANOUT, durable=True)
@@ -194,7 +197,10 @@ async def declare_topology(channel) -> None:
     submit = await channel.declare_queue(SUBMIT_QUEUE, durable=True, arguments={
         "x-queue-type": "quorum", "x-message-ttl": 600_000, "x-delivery-limit": 1,
         "x-dead-letter-exchange": RUNS_DLX})
-    dead = await channel.declare_queue(DEAD_QUEUE, durable=True, arguments={"x-queue-type": "quorum"})
+    dead = await channel.declare_queue(DEAD_QUEUE, durable=True, arguments={
+        "x-queue-type": "quorum", "x-dead-letter-exchange": DEAD_DLX})
+    # 백엔드 리스너가 재시도까지 다 실패한 dead letter 가 남는 마지막 칸. DLX 도 소비자도 없다
+    parking = await channel.declare_queue(PARKING_QUEUE, durable=True, arguments={"x-queue-type": "quorum"})
     backend = await channel.declare_queue(EVENTS_QUEUE, durable=True, arguments={
         "x-queue-type": "quorum", "x-single-active-consumer": True,
         "x-dead-letter-exchange": EVENTS_DLX})
@@ -202,6 +208,7 @@ async def declare_topology(channel) -> None:
 
     await submit.bind(runs, routing_key="submit")
     await dead.bind(runs_dlx, routing_key="")
+    await parking.bind(dead_dlx, routing_key="")
     await backend.bind(events, routing_key="run.#")
     await dlq.bind(events_dlx, routing_key="")
 
